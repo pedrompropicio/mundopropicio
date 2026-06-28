@@ -438,35 +438,91 @@ function VerdictAndSimulate({
         </div>
       )}
 
-      {result && <SimulationResult result={result} />}
+      {preview && <PreviewResult result={preview} />}
+      {published && <PublishedResult result={published} />}
 
-      <DialogFooter className="border-t pt-3 -mx-1 px-1">
-        <Button variant="ghost" onClick={onBack} disabled={running}>
+      <DialogFooter className="border-t pt-3 -mx-1 px-1 gap-2 flex-wrap">
+        <Button variant="ghost" onClick={onBack} disabled={busy}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Escolher outro
         </Button>
-        {result?.ok ? (
+        {published?.ok ? (
           <Button onClick={() => onConfirmed(creative)}>
             <Check className="h-4 w-4 mr-1" /> Fechar
           </Button>
         ) : (
-          <Button
-            onClick={runSimulation}
-            disabled={!canRun}
-            title={
-              !atende
-                ? "Este criativo não atende aos requisitos de Reels."
-                : !hasAdset
-                  ? "Recomendação sem adset associado."
-                  : !link || !message
-                    ? "Preenche link e mensagem."
-                    : "Simular criação do anúncio (sem publicar)"
-            }
-          >
-            {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
-            Usar este criativo (simular)
-          </Button>
+          <>
+            <Button
+              variant={preview?.ok ? "outline" : "default"}
+              onClick={runSimulation}
+              disabled={!canRun}
+              title={
+                !atende
+                  ? "Este criativo não atende aos requisitos de Reels."
+                  : !hasAdset
+                    ? "Recomendação sem adset associado."
+                    : !link || !message
+                      ? "Preenche link e mensagem."
+                      : "Pré-visualizar (sem publicar)"
+              }
+            >
+              {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+              {preview ? "Pré-visualizar novamente" : "Pré-visualizar"}
+            </Button>
+            {/* O botão de publicar SÓ aparece após uma pré-visualização ok.
+                E SÓ abre o AlertDialog — nunca publica directamente. */}
+            {preview?.ok && (
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={busy}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {publishing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                Publicar anúncio (fica pausado)
+              </Button>
+            )}
+          </>
         )}
       </DialogFooter>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => !publishing && setConfirmOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publicar anúncio no Meta?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p className="text-amber-300 font-medium">
+                  Vais criar um anúncio REAL no Meta. Ele fica PAUSADO (não gasta, não aparece) até o ativares.
+                </p>
+                <div className="rounded border p-2 space-y-1 text-xs bg-muted/30">
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground min-w-[110px]">Adset destino</span>
+                    <span className="font-mono break-all">{externalAdsetId}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground min-w-[110px]">Criativo</span>
+                    <span className="break-all">{creative.name}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground min-w-[110px]">Link</span>
+                    <span className="font-mono break-all">{link}</span>
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={publishing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void runPublish(); }}
+              disabled={publishing}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {publishing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+              Publicar (pausado)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
