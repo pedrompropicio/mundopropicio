@@ -82,6 +82,16 @@ function feasibilityNote(f: string | undefined | null): string | null {
 export default function CampaignFromScratch() {
   const navigate = useNavigate();
   const { companyId } = useCompany();
+  const [searchParams] = useSearchParams();
+
+  // ── Prefill via query string (cenário C: recomeçar do zero a partir de uma campanha) ──
+  const qpEventId = searchParams.get("event_id") || "";
+  const qpReferenceCampaignId = searchParams.get("reference_campaign_id") || "";
+  const qpTargetRoas = searchParams.get("target_roas") || "";
+  const qpConnectionId = searchParams.get("connection_id") || "";
+  const qpSource = searchParams.get("source") || "";
+  const cameFromCampaignView = qpSource === "campaign_view";
+
 
   // ── Form state ───────────────────────────────────────────────
   const [sourceMode, setSourceMode] = useState<SourceMode>("from_scratch_ref");
