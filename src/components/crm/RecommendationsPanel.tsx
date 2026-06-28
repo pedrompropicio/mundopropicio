@@ -387,10 +387,10 @@ export function RecommendationsPanel({
         open={!!reelsPicker}
         onOpenChange={(o) => !o && setReelsPicker(null)}
         companyId={companyId}
+        externalAdsetId={reelsPicker?.external_adset_id ?? null}
         onSelected={() => {
-          // NÃO publica no Meta nesta peça — só regista decisão local.
-          // TODO: ligar ao fluxo crm-meta-upload-creative-v2 + criação de ad.
-          if (reelsPicker) decide.mutate({ id: reelsPicker.id, decision: "aplicada" });
+          // Nesta peça a simulação é dry-run; NÃO marcamos a recomendação como
+          // tratada automaticamente — o utilizador decide depois.
         }}
       />
     </Card>
