@@ -179,11 +179,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // continua a ser populado abaixo como fallback). strategy.event_id pode ser
     // null em planos manuais sem evento — aí cai-se silenciosamente no fallback.
     let eventPixelId: string | null = null;
+    let eventAdDestinationUrl: string | null = null;
+    let eventTicketingUrl: string | null = null;
+    let eventName: string | null = null;
     if (strategy.event_id) {
       const { data: eventRow } = await (supabase as any)
         .schema("public").from("events")
-        .select("meta_pixel_id").eq("id", strategy.event_id).maybeSingle();
+        .select("name, meta_pixel_id, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
       eventPixelId = (eventRow as any)?.meta_pixel_id ?? null;
+      eventAdDestinationUrl = (eventRow as any)?.ad_destination_url ?? null;
+      eventTicketingUrl = (eventRow as any)?.ticketing_url ?? null;
+      eventName = (eventRow as any)?.name ?? null;
     }
 
     // ── LOCK — recusar se já há deployment desta strategy a correr há <10min ──
@@ -807,7 +813,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
                       .update({ meta_image_hash: imageHash }).eq("id", creative.id);
                   }
 
-                  const linkUrl = creative.link_url || "https://mundopropicio.com";
+                  // Precedência: portal (Link 1) > Ticketline direto > link herdado do criativo > abortar
+                  const portalUrl = eventAdDestinationUrl?.trim() || null;
+                  const ticketingUrl = eventTicketingUrl?.trim() || null;
+                  const creativeLink = (creative.link_url && creative.link_url !== "https://mundopropicio.com")
+                    ? creative.link_url
+                    : null;
+                  const linkUrl = portalUrl || ticketingUrl || creativeLink;
+                  const linkSource = portalUrl ? "portal" : ticketingUrl ? "ticketing_url" : creativeLink ? "creative_inherited" : null;
+
+                  if (!linkUrl) {
+                    addLog("error", `    ✗ Sem link de destino para creative ${creative.id}`, {
+                      error: "no_destination_url",
+                      event_id: strategy.event_id,
+                      event_name: eventName,
+                      hint: "Preencher events.ad_destination_url (link da página do portal) ou events.ticketing_url antes do deploy. Admin → Eventos → Link de destino do anúncio.",
+                    });
+                    continue;
+                  }
+                  addLog("info", `    link_source=${linkSource} → ${linkUrl}`);
+
                   const linkData: any = {
                     link: linkUrl,
                     message: creative.body || creative.name,
