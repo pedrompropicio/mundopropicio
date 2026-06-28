@@ -200,7 +200,9 @@ export default function CampaignFromScratch() {
       country_codes: countries.length ? countries : ["PT"],
       model: MODEL,
       dry_run: false,
+      campaign_moment: campaignMoment,
     };
+
     if (connectionId) body.connection_id = connectionId;
     if (totalBudget.trim()) body.total_budget_eur = Number(totalBudget);
     if (sourceMode === "from_scratch_ref") body.reference_campaign_id = referenceCampaignId;
