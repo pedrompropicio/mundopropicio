@@ -588,6 +588,7 @@ Schema de saída (JSON puro):
       "adsets": [
         {
           "name": "<PT-BR>",
+          "budget_weight": <number 0..1 — peso RELATIVO dentro desta campanha; ver instrução crítica BUDGET_WEIGHT>,
           "audience_description": "<PT-BR>",
           "targeting_json": {
             "custom_audiences": [{"id": "<id verbatim>", "name": "<name>"}],
