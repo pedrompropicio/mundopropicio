@@ -748,6 +748,8 @@ Schema de saída (JSON puro):
       reference_spend_eur: anchored.reference_spend_eur,
       reference_revenue_eur: anchored.reference_revenue_eur,
       llm_decides_numbers: false,
+      campaign_moment: campaignMoment,
+
     };
 
     return { ok: true, plan, usageTokens };
