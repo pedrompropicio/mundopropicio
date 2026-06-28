@@ -57,16 +57,15 @@ interface GenerationResult {
 
 const MODEL = "google/gemini-2.5-flash";
 
-function feasibilityNote(an: any): string | null {
-  const f = an?.feasibility;
+function feasibilityNote(f: string | undefined | null): string | null {
   if (f === "impossible") {
     return "A meta de ROAS está acima do que a referência sustenta historicamente. Considera reduzir a meta ou rever a referência.";
   }
+  if (f === "stretch") {
+    return "A meta está um pouco acima do ROAS da referência — é ambiciosa mas não impossível. Espera precisar de otimização.";
+  }
   if (f === "starting_structure") {
     return "Sem histórico para projetar: este plano é uma estrutura de arranque. Os números são metas, não projeções.";
-  }
-  if (f === "low") {
-    return "Meta atingível mas no limite — espera variabilidade.";
   }
   return null;
 }
@@ -250,7 +249,8 @@ export default function CampaignFromScratch() {
   const conns = connectionsQ.data ?? [];
   const showConnectionPicker = conns.length > 1;
   const an = result?.anchored_numbers;
-  const note = an ? feasibilityNote(an) : null;
+  const feasibility: string | undefined = result?.generated_plan?.summary?.feasibility;
+  const note = feasibilityNote(feasibility);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -483,12 +483,12 @@ export default function CampaignFromScratch() {
                     ROAS ancorado: {Number(an.expected_overall_roas).toFixed(2)}x
                   </Badge>
                 )}
-                {an.feasibility && (
-                  <Badge variant="outline">Viabilidade: {an.feasibility}</Badge>
+                {feasibility && (
+                  <Badge variant="outline">Viabilidade: {feasibility}</Badge>
                 )}
-                {an.reference_roas_used != null && (
+                {an.reference_roas != null && (
                   <Badge variant="outline">
-                    ROAS referência: {Number(an.reference_roas_used).toFixed(2)}x
+                    ROAS referência: {Number(an.reference_roas).toFixed(2)}x
                   </Badge>
                 )}
               </div>
