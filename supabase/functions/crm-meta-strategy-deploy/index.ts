@@ -636,6 +636,53 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 addLog("warn", `    ⚠ Targeting.exclusions removidas do adset ${planAdset.adset_name} (estrutura array inválida — Meta espera objeto)`, { original_exclusions: (targeting as any).exclusions });
                 delete (targeting as any).exclusions;
               }
+              // ── Issue #21 #4 alavanca B — Exclusão de COMPRADORES em adsets de CONVERSÃO ─
+              // Critério (afinação Pedro): goal ∈ CONVERSION_GOALS, sem heurística de
+              // retargeting. Excluir compradores num adset de conversão nunca faz mal:
+              // não queres reconverter quem já tem bilhete. UNIÃO (não substitui) com
+              // as exclusions emitidas pelo LLM; valida que ids LLM existem no catálogo.
+              {
+                const goal = String(planAdset.optimization_goal ?? "").toUpperCase();
+                if (CONVERSION_GOALS.has(goal)) {
+                  const t: any = targeting;
+                  t.exclusions = (t.exclusions && typeof t.exclusions === "object" && !Array.isArray(t.exclusions)) ? t.exclusions : {};
+                  const existingExcl: any[] = Array.isArray(t.exclusions.custom_audiences) ? t.exclusions.custom_audiences : [];
+                  // Validação de ids emitidos pelo LLM contra o catálogo (drop inválidos)
+                  const validated: any[] = [];
+                  for (const item of existingExcl) {
+                    const id = String(item?.id ?? "");
+                    if (!id) continue;
+                    if (catalogIdSet.size > 0 && !catalogIdSet.has(id)) {
+                      addLog("warn", `    ⚠ exclusion id "${id}" emitido pelo LLM não existe no catálogo — descartado (adset ${planAdset.adset_name})`);
+                      continue;
+                    }
+                    validated.push({ id });
+                  }
+                  // União com purchase audience (sem duplicar)
+                  if (resolvedPurchaseAudienceId) {
+                    if (!validated.some((x) => String(x.id) === String(resolvedPurchaseAudienceId))) {
+                      validated.push({ id: resolvedPurchaseAudienceId });
+                      addLog("info", `    ✓ purchase_audience_excluded: adset="${planAdset.adset_name}" goal=${goal} id=${resolvedPurchaseAudienceId}`);
+                    } else {
+                      addLog("info", `    ⊙ purchase_audience already in LLM exclusions: adset="${planAdset.adset_name}" id=${resolvedPurchaseAudienceId}`);
+                    }
+                    // Garantir que não está também no include (Meta rejeita)
+                    if (Array.isArray(t.custom_audiences)) {
+                      const before = t.custom_audiences.length;
+                      t.custom_audiences = t.custom_audiences.filter((x: any) => String(x?.id) !== String(resolvedPurchaseAudienceId));
+                      if (t.custom_audiences.length !== before) {
+                        addLog("warn", `    ⚠ purchase_audience removida do INCLUDE do adset ${planAdset.adset_name} (não pode estar em include+exclude)`);
+                      }
+                    }
+                  }
+                  if (validated.length > 0) {
+                    t.exclusions.custom_audiences = validated;
+                  } else {
+                    delete t.exclusions.custom_audiences;
+                    if (Object.keys(t.exclusions).length === 0) delete t.exclusions;
+                  }
+                }
+              }
               // Fix 3 (guard) — custom_locations sem lat/lng → HTTP 500 da Meta.
               // Planos NOVOS já vêm resolvidos da geração (resolve-geo.ts). Aqui
               // protegemos planos ANTIGOS / editados à mão que nunca passaram por
