@@ -6,6 +6,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { computePerAdsetCents } from "../_shared/budget-split.ts";
+import { resolvePurchaseAudience, type CatalogAudience } from "../_shared/purchase-audience-match.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -182,14 +183,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let eventAdDestinationUrl: string | null = null;
     let eventTicketingUrl: string | null = null;
     let eventName: string | null = null;
+    let eventSlug: string | null = null;
     if (strategy.event_id) {
       const { data: eventRow } = await (supabase as any)
         .schema("public").from("events")
-        .select("name, meta_pixel_id, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
+        .select("name, slug, meta_pixel_id, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
       eventPixelId = (eventRow as any)?.meta_pixel_id ?? null;
       eventAdDestinationUrl = (eventRow as any)?.ad_destination_url ?? null;
       eventTicketingUrl = (eventRow as any)?.ticketing_url ?? null;
       eventName = (eventRow as any)?.name ?? null;
+      eventSlug = (eventRow as any)?.slug ?? null;
     }
 
     // ── LOCK — recusar se já há deployment desta strategy a correr há <10min ──
