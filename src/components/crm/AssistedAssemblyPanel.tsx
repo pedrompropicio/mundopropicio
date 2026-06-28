@@ -116,6 +116,13 @@ export function AssistedAssemblyPanel({
   const [companyCreatives, setCompanyCreatives] = useState<CreativeMini[]>([]);
   // Indicador de gravação por par adset+slot.
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  // Hires/Upload — estado por creative_id
+  const [hiresLoading, setHiresLoading] = useState<Set<string>>(new Set());
+  const [uploadLoading, setUploadLoading] = useState<Set<string>>(new Set());
+  const [bustedAt, setBustedAt] = useState<Map<string, number>>(new Map());
+  // Input file partilhado para Upload (alvo + se é substituição ou catálogo)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<{ adsetKey: string | null; replaceCid: string | null } | null>(null);
 
   const adsetKey = (a: AdsetOut) => `${a.trigger_id ?? "generic"}::${a.trigger_nome}`;
   const edited = removedAdsetKeys.size > 0 || removedCreativeIds.size > 0;
@@ -126,6 +133,7 @@ export function AssistedAssemblyPanel({
       setAssemblyId(null); setAdsets([]); setExcluidos([]); setNarrativas([]);
       setRemovedAdsetKeys(new Set()); setRemovedCreativeIds(new Set());
       setError(null); setCompanyCreatives([]);
+      setHiresLoading(new Set()); setUploadLoading(new Set()); setBustedAt(new Map());
     }
   }, [open]);
 
@@ -136,7 +144,7 @@ export function AssistedAssemblyPanel({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, file_url, type, file_mime_type")
+        .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) {
