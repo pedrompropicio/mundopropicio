@@ -251,6 +251,7 @@ export function RecommendationsPanel({
   // o tipo "aplicar standard enhancements". Mantemos a UX do padrão da casa
   // (resumo de impacto + confirmar/cancelar) sem qualquer chamada ao Meta.
   const [aplusConfirm, setAplusConfirm] = useState<RecommendationRow | null>(null);
+  const [reelsPicker, setReelsPicker] = useState<RecommendationRow | null>(null);
 
   const groups = useMemo(() => {
     const byAdset = new Map<string, RecommendationRow[]>();
