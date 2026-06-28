@@ -2264,6 +2264,8 @@ export default function CrmCampaignView() {
                         <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, adsetCur)} />
                         <ConfigRow label="Orçamento total" value={eur(a.lifetime_budget_cents, adsetCur)} />
                       </div>
+                      {/* Mini-stats do adset — janela do PeriodSelector global */}
+                      <EntityStatsGrid metrics={adsetMetricsMap.get(a.external_adset_id)} currency={adsetCur} variant="adset" />
                       <Separator />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <PillRow icon={MapPin} label="Países" items={t.countries} small />
