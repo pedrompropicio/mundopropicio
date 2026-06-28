@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,21 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Lightbulb,
   RefreshCw,
   ExternalLink,
@@ -16,6 +31,9 @@ import {
   RotateCcw,
   Info,
   AlertTriangle,
+  ChevronDown,
+  Upload,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +43,12 @@ import { cn } from "@/lib/utils";
 // tratadas/ignoradas. Marcar "tratada" SÓ muda o `status` na BD.
 // NÃO executa NADA no Meta (não muda orçamento, não ativa Reels, etc.).
 // A execução real ficará para uma peça futura, com confirmação explícita.
+//
+// PEÇA ACTUAL — botões de acção contextuais:
+//   • "manual"  (REELS_PC_RECOMMENDATION) → abre Ads Manager (rec.url)
+//   • "ads_manager" (PERFORMANT_CREATIVE / fallback) → abre Ads Manager
+//   • "api_com_confirmacao" (APLUSC) → abre confirmação local + toast + status
+//     ⚠ NÃO escreve nada no Meta nesta peça. Ver TODO no handler.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface RecommendationRow {
@@ -51,10 +75,6 @@ interface Classification {
 }
 
 // Classificação determinística (puro, sem LLM). Ver P0 no topo do ficheiro.
-// Regras:
-//  - "informativa" → sugestões de formato/criativo que a Meta empurra
-//  - "relevante"   → impacta conversão/orçamento/audiência/lance
-//  - "neutra"      → tudo o resto
 export function classifyRecommendation(r: Pick<RecommendationRow, "recommendation_type" | "body">): Classification {
   const t = (r.recommendation_type ?? "").toLowerCase();
   const b = (r.body ?? "").toLowerCase();
@@ -86,15 +106,61 @@ export function classifyRecommendation(r: Pick<RecommendationRow, "recommendatio
   };
 }
 
-// Labels amigáveis em PT para os tipos mais comuns
-const TYPE_LABEL: Record<string, string> = {
-  REELS_PC_RECOMMENDATION: "Otimização para Reels",
-  PERFORMANT_CREATIVE_REELS_OPT_IN: "Criativo otimizado para Reels",
-  APLUSC_STANDARD_ENHANCEMENTS_BUNDLE: "Melhorias automáticas de criativo (A+C)",
+// ── Aplicabilidade por tipo (FACTO vs documentação Graph v21) ───────────────
+type Aplicabilidade = "manual" | "ads_manager" | "api_com_confirmacao";
+
+interface TypeExplanation {
+  titulo_amigavel: string;
+  o_que_e: string;
+  quando_faz_sentido: string;
+  o_que_muda: string;
+  aplicabilidade: Aplicabilidade;
+}
+
+// Textos fornecidos pelo Pedro — NÃO alterar redacção.
+const TYPE_EXPLANATIONS: Record<string, TypeExplanation> = {
+  REELS_PC_RECOMMENDATION: {
+    titulo_amigavel: "Otimização para Reels",
+    o_que_e:
+      "A Meta sugere adicionar um vídeo vertical em ecrã inteiro (9:16) com áudio, para o anúncio correr melhor nos Reels do Instagram e Facebook.",
+    quando_faz_sentido:
+      "Faz sentido se tens (ou consegues produzir) um vídeo vertical do artista/evento. Os Reels têm forte alcance e custo por mil impressões baixo, mas exigem um criativo desenhado para vertical — não basta reaproveitar um banner quadrado.",
+    o_que_muda:
+      "Exige um criativo NOVO em formato 9:16. Não é um interruptor — tens de produzir e carregar o vídeo. Por isso o botão abaixo leva-te ao Ads Manager, no anúncio indicado, para fazeres o upload.",
+    aplicabilidade: "manual",
+  },
+  PERFORMANT_CREATIVE_REELS_OPT_IN: {
+    titulo_amigavel: "Ativar veiculação em Reels",
+    o_que_e:
+      "A Meta sugere permitir que o teu anúncio atual seja também mostrado nos posicionamentos de Reels, sem criar criativo novo.",
+    quando_faz_sentido:
+      "Faz sentido para ganhar alcance extra barato, desde que o teu criativo atual não fique estranho recortado em vertical. Avalia como o anúncio aparece nesse formato antes de ativar.",
+    o_que_muda:
+      "Acrescenta os posicionamentos de Reels ao adset. É reversível. Pode ser feito no Ads Manager; a aplicação automática por aqui ainda está em validação.",
+    aplicabilidade: "ads_manager",
+  },
+  APLUSC_STANDARD_ENHANCEMENTS_BUNDLE: {
+    titulo_amigavel: "Melhorias automáticas de criativo (Advantage+ / A+C)",
+    o_que_e:
+      "A Meta sugere ativar um conjunto de melhorias automáticas no criativo: retoques visuais, ajustes de texto, sobreposições e variações de imagem geradas pela Meta.",
+    quando_faz_sentido:
+      "Pode melhorar resultados em alguns casos, mas a Meta passa a alterar o teu criativo automaticamente — nem sempre como gostarias (ex.: muda enquadramento, adiciona texto). Ativa só se estiveres confortável em ceder esse controlo, e vê o resultado de perto nos primeiros dias.",
+    o_que_muda:
+      "Ativa o conjunto 'standard enhancements' nos anúncios indicados. É reversível. Esta é a única destas sugestões aplicável pela plataforma — mas com confirmação tua antes de qualquer alteração.",
+    aplicabilidade: "api_com_confirmacao",
+  },
 };
+
+function getExplanation(type: string | null): TypeExplanation | null {
+  if (!type) return null;
+  return TYPE_EXPLANATIONS[type] ?? null;
+}
+
 function prettyType(t: string | null): string {
   if (!t) return "—";
-  return TYPE_LABEL[t] ?? t.split("_").join(" ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  const e = TYPE_EXPLANATIONS[t];
+  if (e) return e.titulo_amigavel;
+  return t.split("_").join(" ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const CATEGORY_STYLE: Record<Category, string> = {
@@ -110,7 +176,6 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 interface AdsetNameMap {
-  // external_adset_id → nome legível (vem do snapshot da campanha)
   [extId: string]: string;
 }
 
@@ -125,8 +190,6 @@ export function RecommendationsPanel({
 }) {
   const qc = useQueryClient();
 
-  // Lê recomendações desta campanha + as de escopo conta (sem campanha/adset)
-  // pertencentes à mesma company. RLS já filtra por tenant.
   const { data: rows, isLoading } = useQuery({
     queryKey: ["crm-meta-recommendations", externalCampaignId, companyId],
     enabled: !!externalCampaignId && !!companyId,
@@ -144,7 +207,6 @@ export function RecommendationsPanel({
     },
   });
 
-  // Re-sincronizar — invoca a edge fn que repopula a tabela preservando status.
   const resync = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("crm-meta-recommendations", {
@@ -160,7 +222,6 @@ export function RecommendationsPanel({
     onError: (e: any) => toast.error("Falha ao atualizar", { description: e?.message ?? String(e) }),
   });
 
-  // Decisão — SÓ muda o status na BD. NÃO age no Meta.
   const decide = useMutation({
     mutationFn: async ({ id, decision }: { id: string; decision: "aplicada" | "ignorada" | "nova" }) => {
       const { data: auth } = await supabase.auth.getUser();
@@ -184,8 +245,12 @@ export function RecommendationsPanel({
     onError: (e: any) => toast.error("Falha ao gravar decisão", { description: e?.message ?? String(e) }),
   });
 
-  // Agrupamento: por adset (com nome do snapshot) + grupo "Conta" para as
-  // recomendações sem external_adset_id ou sem campanha (escopo de conta).
+  // Diálogo local de confirmação A+C (NÃO usa useConfirmMetaAction porque esse
+  // dispara dry_run real à edge fn `crm-meta-entity-action`, que não conhece
+  // o tipo "aplicar standard enhancements". Mantemos a UX do padrão da casa
+  // (resumo de impacto + confirmar/cancelar) sem qualquer chamada ao Meta.
+  const [aplusConfirm, setAplusConfirm] = useState<RecommendationRow | null>(null);
+
   const groups = useMemo(() => {
     const byAdset = new Map<string, RecommendationRow[]>();
     const accountLevel: RecommendationRow[] = [];
@@ -202,6 +267,16 @@ export function RecommendationsPanel({
   }, [rows]);
 
   const total = rows?.length ?? 0;
+
+  const handleApplyAplus = (rec: RecommendationRow) => {
+    // TODO: ligar à edge function de escrita A+C (degrees_of_freedom_spec)
+    // após validação controlada. Por agora apenas regista a intenção.
+    toast.info("Aplicação A+C ainda em validação — em breve", {
+      description: "A decisão foi registada como «tratada» na plataforma. Nada foi alterado no Meta.",
+    });
+    decide.mutate({ id: rec.id, decision: "aplicada" });
+    setAplusConfirm(null);
+  };
 
   return (
     <Card className="p-5 space-y-4">
@@ -251,6 +326,7 @@ export function RecommendationsPanel({
               subtitle="Adset"
               recs={recs}
               onDecide={(id, decision) => decide.mutate({ id, decision })}
+              onApplyAplus={(rec) => setAplusConfirm(rec)}
               decidingId={decide.isPending ? decide.variables?.id : undefined}
             />
           ))}
@@ -260,11 +336,47 @@ export function RecommendationsPanel({
               subtitle="Conta"
               recs={groups.accountLevel}
               onDecide={(id, decision) => decide.mutate({ id, decision })}
+              onApplyAplus={(rec) => setAplusConfirm(rec)}
               decidingId={decide.isPending ? decide.variables?.id : undefined}
             />
           )}
         </div>
       )}
+
+      {/* Confirmação A+C — local, sem qualquer chamada ao Meta */}
+      <AlertDialog open={!!aplusConfirm} onOpenChange={(o) => !o && setAplusConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-300" /> Aplicar melhorias A+C
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Vais ativar o conjunto <strong>standard enhancements</strong> no(s) anúncio(s)
+                  associado(s) a esta recomendação.
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-xs">
+                  <li>A Meta passará a <strong>alterar o criativo automaticamente</strong> (enquadramento, texto, sobreposições, variações de imagem).</li>
+                  <li>É <strong>reversível</strong> — podes desativar quando quiseres.</li>
+                  <li>Recomenda-se acompanhar de perto nos primeiros dias.</li>
+                </ul>
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-200">
+                  <strong>Nesta versão:</strong> a aplicação real no Meta ainda está em validação.
+                  Ao confirmar, a recomendação fica marcada como <em>tratada</em> na plataforma,
+                  mas <strong>nada é alterado no Meta</strong>.
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => aplusConfirm && handleApplyAplus(aplusConfirm)}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
@@ -274,12 +386,14 @@ function RecommendationGroup({
   subtitle,
   recs,
   onDecide,
+  onApplyAplus,
   decidingId,
 }: {
   title: string;
   subtitle: string;
   recs: RecommendationRow[];
   onDecide: (id: string, decision: "aplicada" | "ignorada" | "nova") => void;
+  onApplyAplus: (rec: RecommendationRow) => void;
   decidingId?: string;
 }) {
   return (
@@ -297,6 +411,7 @@ function RecommendationGroup({
             key={r.id}
             rec={r}
             onDecide={(decision) => onDecide(r.id, decision)}
+            onApplyAplus={() => onApplyAplus(r)}
             busy={decidingId === r.id}
           />
         ))}
@@ -308,14 +423,20 @@ function RecommendationGroup({
 function RecommendationItem({
   rec,
   onDecide,
+  onApplyAplus,
   busy,
 }: {
   rec: RecommendationRow;
   onDecide: (decision: "aplicada" | "ignorada" | "nova") => void;
+  onApplyAplus: () => void;
   busy: boolean;
 }) {
   const cls = classifyRecommendation(rec);
+  const exp = getExplanation(rec.recommendation_type);
+  const aplicabilidade: Aplicabilidade = exp?.aplicabilidade ?? "ads_manager";
   const decided = rec.status === "aplicada" || rec.status === "ignorada";
+  const [open, setOpen] = useState(false);
+
   return (
     <div
       className={cn(
@@ -338,15 +459,36 @@ function RecommendationItem({
           </div>
           <p className="text-xs text-muted-foreground">{cls.note}</p>
         </div>
-        {rec.url && (
-          <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-            <a href={rec.url} target="_blank" rel="noreferrer noopener">
-              <ExternalLink className="h-3 w-3 mr-1" /> Ver no Ads Manager
-            </a>
-          </Button>
-        )}
       </div>
-      {rec.body && <p className="text-xs leading-relaxed">{rec.body}</p>}
+
+      {/* Bloco expansível "Saber mais" — texto rico por tipo */}
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground">
+            <ChevronDown className={cn("h-3 w-3 mr-1 transition-transform", open && "rotate-180")} />
+            {open ? "Esconder detalhes" : "Saber mais"}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 pt-1">
+          {exp ? (
+            <div className="space-y-2 text-xs leading-relaxed rounded-md bg-muted/30 p-3 border">
+              <ExplanationBlock label="O que é" text={exp.o_que_e} />
+              <ExplanationBlock label="Quando faz sentido" text={exp.quando_faz_sentido} />
+              <ExplanationBlock label="O que muda" text={exp.o_que_muda} />
+            </div>
+          ) : (
+            <div className="space-y-2 text-xs leading-relaxed rounded-md bg-muted/30 p-3 border">
+              {rec.body && (
+                <p className="whitespace-pre-wrap text-foreground/90">{rec.body}</p>
+              )}
+              <p className="text-muted-foreground italic">
+                Tipo de recomendação não mapeado nesta plataforma. Para aplicar, abre no Ads Manager.
+              </p>
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+
       {rec.lift_estimate && (
         <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
           <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0 text-amber-400" />
@@ -356,23 +498,95 @@ function RecommendationItem({
           </span>
         </div>
       )}
+
       <Separator />
-      <div className="flex items-center justify-end gap-2">
-        {decided ? (
-          <Button size="sm" variant="ghost" onClick={() => onDecide("nova")} disabled={busy} className="h-7 text-xs">
-            <RotateCcw className="h-3 w-3 mr-1" /> Repor para nova
-          </Button>
-        ) : (
-          <>
-            <Button size="sm" variant="outline" onClick={() => onDecide("ignorada")} disabled={busy} className="h-7 text-xs">
-              <X className="h-3 w-3 mr-1" /> Ignorar
+
+      {/* Acção contextual + decisões locais */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <ContextualAction
+          aplicabilidade={aplicabilidade}
+          url={rec.url}
+          disabled={decided || busy}
+          onApplyAplus={onApplyAplus}
+        />
+        <div className="flex items-center gap-2">
+          {decided ? (
+            <Button size="sm" variant="ghost" onClick={() => onDecide("nova")} disabled={busy} className="h-7 text-xs">
+              <RotateCcw className="h-3 w-3 mr-1" /> Repor para nova
             </Button>
-            <Button size="sm" onClick={() => onDecide("aplicada")} disabled={busy} className="h-7 text-xs">
-              <Check className="h-3 w-3 mr-1" /> Marcar como tratada
-            </Button>
-          </>
-        )}
+          ) : (
+            <>
+              <Button size="sm" variant="outline" onClick={() => onDecide("ignorada")} disabled={busy} className="h-7 text-xs">
+                <X className="h-3 w-3 mr-1" /> Ignorar
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onDecide("aplicada")} disabled={busy} className="h-7 text-xs">
+                <Check className="h-3 w-3 mr-1" /> Marcar como tratada
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function ExplanationBlock({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
+      <p className="text-foreground/90">{text}</p>
+    </div>
+  );
+}
+
+function ContextualAction({
+  aplicabilidade,
+  url,
+  disabled,
+  onApplyAplus,
+}: {
+  aplicabilidade: Aplicabilidade;
+  url: string | null;
+  disabled: boolean;
+  onApplyAplus: () => void;
+}) {
+  if (aplicabilidade === "manual") {
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {url ? (
+          <Button asChild size="sm" disabled={disabled} className="h-7 text-xs">
+            <a href={url} target="_blank" rel="noreferrer noopener">
+              <Upload className="h-3 w-3 mr-1" /> Subir criativo no Ads Manager
+            </a>
+          </Button>
+        ) : (
+          <Button size="sm" disabled className="h-7 text-xs">
+            <Upload className="h-3 w-3 mr-1" /> Sem link directo
+          </Button>
+        )}
+        <span className="text-[11px] text-muted-foreground">
+          Abre o anúncio no Ads Manager para carregares o vídeo vertical.
+        </span>
+      </div>
+    );
+  }
+  if (aplicabilidade === "api_com_confirmacao") {
+    return (
+      <Button size="sm" onClick={onApplyAplus} disabled={disabled} className="h-7 text-xs">
+        <Sparkles className="h-3 w-3 mr-1" /> Aplicar melhorias A+C
+      </Button>
+    );
+  }
+  // ads_manager + fallback
+  return url ? (
+    <Button asChild size="sm" variant="secondary" disabled={disabled} className="h-7 text-xs">
+      <a href={url} target="_blank" rel="noreferrer noopener">
+        <ExternalLink className="h-3 w-3 mr-1" /> Abrir no Ads Manager
+      </a>
+    </Button>
+  ) : (
+    <Button size="sm" variant="secondary" disabled className="h-7 text-xs">
+      <ExternalLink className="h-3 w-3 mr-1" /> Sem link directo
+    </Button>
   );
 }
