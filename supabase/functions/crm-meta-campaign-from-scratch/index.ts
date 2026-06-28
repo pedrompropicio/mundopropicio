@@ -242,7 +242,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (body.event_id) {
     const { data: e, error: eErr } = await supabase
       .from("events")
-      .select("id, name, date, location, tickets_total, goal_revenue_eur")
+      .select("id, name, date, location, tickets_total")
       .eq("id", body.event_id)
       .maybeSingle();
     if (eErr || !e) return json({ error: "event_not_found", detail: eErr?.message }, 404);
@@ -257,8 +257,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       daysUntil,
       location: (e as any).location ?? null,
       tickets_total: (e as any).tickets_total ?? null,
-      goal_revenue_eur: Number((e as any).goal_revenue_eur ?? 0) || 0,
+      goal_revenue_eur: Number(body.goal_revenue_eur ?? 0) || 0,
     };
+
   } else {
     const em = body.event_manual!;
     if (!em.name || !em.date) {
