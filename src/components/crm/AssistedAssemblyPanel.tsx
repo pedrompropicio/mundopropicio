@@ -682,6 +682,11 @@ export function AssistedAssemblyPanel({
                         const saving =
                           savingKey === `${adsetKey(a)}::replace::${cid}` ||
                           savingKey === `${adsetKey(a)}::remove::${cid}`;
+                        const hiresState = canBringHires(mini);
+                        const hiresBusy = hiresLoading.has(cid);
+                        const uploadBusy = uploadLoading.has(cid);
+                        const bust = bustedAt.get(cid);
+                        const thumbUrl = bustUrl(mini?.file_url ?? null, bust);
                         return (
                           <div
                             key={slotKey}
@@ -690,7 +695,7 @@ export function AssistedAssemblyPanel({
                             {mini?.file_url ? (
                               isVideoCreative(mini) ? (
                                 <video
-                                  src={`${mini.file_url}#t=0.1`}
+                                  src={`${thumbUrl}#t=0.1`}
                                   muted
                                   playsInline
                                   preload="metadata"
@@ -698,7 +703,7 @@ export function AssistedAssemblyPanel({
                                 />
                               ) : (
                                 <img
-                                  src={mini.file_url}
+                                  src={thumbUrl}
                                   alt=""
                                   className="h-8 w-8 rounded object-cover bg-muted shrink-0"
                                 />
@@ -707,6 +712,48 @@ export function AssistedAssemblyPanel({
                               <div className="h-8 w-8 rounded bg-muted shrink-0" />
                             )}
                             <span className="flex-1 truncate" title={name}>{name}</span>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px] gap-1"
+                                    disabled={!hiresState.ok || hiresBusy}
+                                    onClick={() => bringHires(cid)}
+                                  >
+                                    {hiresBusy
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <ArrowUpToLine className="h-3 w-3" />}
+                                    Em alta
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {hiresState.ok ? "Trazer versão em alta do Meta" : (hiresState.reason ?? "Indisponível")}
+                              </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px] gap-1"
+                                    disabled={uploadBusy}
+                                    onClick={() => openUploadFor({ adsetKey: adsetKey(a), replaceCid: cid })}
+                                  >
+                                    {uploadBusy
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <Upload className="h-3 w-3" />}
+                                    Upload
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Carregar ficheiro e substituir este criativo</TooltipContent>
+                            </Tooltip>
 
                             <Popover>
                               <PopoverTrigger asChild>
@@ -721,7 +768,7 @@ export function AssistedAssemblyPanel({
                                   Substituir
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80 p-0" align="end">
+                              <PopoverContent className="w-96 p-0" align="end">
                                 <div className="p-2 border-b text-xs font-medium">
                                   Substituir "{name}"
                                 </div>
@@ -731,39 +778,80 @@ export function AssistedAssemblyPanel({
                                   )}
                                   {companyCreatives.map((c) => {
                                     const inUse = a.creative_ids.includes(c.id);
+                                    const cHires = canBringHires(c);
+                                    const cHiresBusy = hiresLoading.has(c.id);
+                                    const cBust = bustedAt.get(c.id);
+                                    const cThumb = bustUrl(c.file_url ?? null, cBust);
                                     return (
-                                      <button
+                                      <div
                                         key={c.id}
-                                        type="button"
-                                        disabled={inUse || c.id === cid}
-                                        onClick={() => replaceCreative(a, cid, c.id)}
                                         className={cn(
-                                          "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
-                                          (inUse || c.id === cid) && "opacity-40 cursor-not-allowed"
+                                          "flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
+                                          (inUse || c.id === cid) && "opacity-40"
                                         )}
                                       >
-                                        {c.file_url ? (
-                                          isVideoCreative(c) ? (
-                                            <video
-                                              src={`${c.file_url}#t=0.1`}
-                                              muted
-                                              playsInline
-                                              preload="metadata"
-                                              className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
-                                            />
+                                        <button
+                                          type="button"
+                                          disabled={inUse || c.id === cid}
+                                          onClick={() => replaceCreative(a, cid, c.id)}
+                                          className={cn(
+                                            "flex-1 flex items-center gap-2 text-left",
+                                            (inUse || c.id === cid) && "cursor-not-allowed"
+                                          )}
+                                        >
+                                          {c.file_url ? (
+                                            isVideoCreative(c) ? (
+                                              <video
+                                                src={`${cThumb}#t=0.1`}
+                                                muted
+                                                playsInline
+                                                preload="metadata"
+                                                className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                              />
+                                            ) : (
+                                              <img src={cThumb} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                            )
                                           ) : (
-                                            <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
-                                          )
-                                        ) : (
-                                          <div className="h-7 w-7 rounded bg-muted shrink-0" />
-                                        )}
-                                        <span className="flex-1 truncate text-xs" title={c.name ?? c.id}>
-                                          {c.name ?? c.id.slice(0, 8)}
-                                        </span>
-                                        {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
-                                      </button>
+                                            <div className="h-7 w-7 rounded bg-muted shrink-0" />
+                                          )}
+                                          <span className="flex-1 truncate text-xs" title={c.name ?? c.id}>
+                                            {c.name ?? c.id.slice(0, 8)}
+                                          </span>
+                                          {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
+                                        </button>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-6 w-6 p-0"
+                                                disabled={!cHires.ok || cHiresBusy}
+                                                onClick={(e) => { e.stopPropagation(); bringHires(c.id); }}
+                                              >
+                                                {cHiresBusy
+                                                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                  : <ArrowUpToLine className="h-3 w-3" />}
+                                              </Button>
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            {cHires.ok ? "Trazer versão em alta do Meta" : (cHires.reason ?? "Indisponível")}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </div>
                                     );
                                   })}
+                                </div>
+                                <div className="border-t p-2 flex justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px] gap-1"
+                                    onClick={() => openUploadFor({ adsetKey: null, replaceCid: null })}
+                                  >
+                                    <Upload className="h-3 w-3" /> Carregar novo
+                                  </Button>
                                 </div>
                               </PopoverContent>
                             </Popover>
