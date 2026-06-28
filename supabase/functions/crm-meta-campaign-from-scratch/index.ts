@@ -163,6 +163,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "missing_or_invalid_target_roas" }, 400);
   }
 
+  // Eixo "momento de campanha" — escolha manual (default: funil_completo).
+  // TODO(auto-suggest): no futuro, sugerir automaticamente a partir do ritmo
+  // de vendas do evento (tickets_sold / days_until / sell-through). Por agora
+  // é só input manual.
+  if (body.campaign_moment !== undefined && !ALLOWED_MOMENTS.has(String(body.campaign_moment))) {
+    return json({ error: "invalid_campaign_moment", allowed: Array.from(ALLOWED_MOMENTS) }, 400);
+  }
+  const campaignMoment: "lancamento" | "escassez" | "funil_completo" | "reta_final" =
+    (body.campaign_moment && ALLOWED_MOMENTS.has(body.campaign_moment))
+      ? body.campaign_moment
+      : "funil_completo";
+
+
   const requestedModel = (typeof body.model === "string" && body.model.trim()) ? body.model.trim() : null;
   const modelId = requestedModel && MODEL_ALLOWLIST.has(requestedModel) ? requestedModel : DEFAULT_MODEL;
   const dryRun = body.dry_run === true;
