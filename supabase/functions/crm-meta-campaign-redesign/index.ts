@@ -1992,8 +1992,12 @@ REGRAS RÍGIDAS:
   const customAudiencesBlock = customAudienceList.length > 0
     ? `\n== CUSTOM AUDIENCES disponíveis nesta ad account ==\n` +
       customAudienceList.map((c) => `- id="${c.id}" name="${c.name}"`).join("\n") +
-      `\n(usa estes ids VERBATIM em targeting_json.custom_audiences[].id e exclusions.custom_audiences[].id)\n`
-    : `\n== CUSTOM AUDIENCES ==\n(nenhuma audience disponível ou fetch falhou — NÃO uses custom_audiences nem exclusions com ids inventados)\n`;
+      `\n(usa estes ids VERBATIM em targeting_json.custom_audiences[].id e exclusions.custom_audiences[].id)\n` +
+      `\n== REGRAS CRÍTICAS DE CONTROLO DE DESPERDÍCIO (issue #21 #4) ==\n` +
+      `1. EXCLUSÃO DE COMPRADORES: Em TODOS os adsets com optimization_goal de CONVERSÃO (OFFSITE_CONVERSIONS, CONVERSIONS, VALUE), inclui a audiência de "Compradores/Purchase" deste evento em exclusions.custom_audiences[].id — verbatim do catálogo acima. Mesmo em adsets de prospeção fria/lookalike: nunca pagar para reconverter quem já comprou.\n` +
+      `2. FREQUENCY CAP: Emite "frequency_cap": {"max_frequency": N, "interval_days": D} APENAS em adsets com optimization_goal="REACH". Default: 3 imp / 7 dias. Em QUALQUER outro goal NÃO emitas frequency_cap (a Meta rejeita).\n`
+    : `\n== CUSTOM AUDIENCES ==\n(nenhuma audience disponível ou fetch falhou — NÃO uses custom_audiences nem exclusions com ids inventados)\n` +
+      `\n== FREQUENCY CAP (issue #21 #4) ==\nEmite "frequency_cap": {"max_frequency": N, "interval_days": D} APENAS em adsets com optimization_goal="REACH". Default: 3 imp / 7 dias.\n`;
 
   // ───────────────────────────────────────────────────────────────────────
   // CampaignBrief v2 (DR-2026-06-27b) — evidência histórica, não molde.
