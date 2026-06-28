@@ -366,7 +366,31 @@ export default function CampaignFromScratch() {
           )}
         </div>
 
+        {/* Momento da campanha */}
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Momento da campanha</Label>
+          <Select value={campaignMoment} onValueChange={(v) => setCampaignMoment(v as CampaignMoment)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+              {MOMENT_OPTIONS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{m.label}</span>
+                    <span className="text-[11px] text-muted-foreground">{m.desc}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            Decide a forma do plano (que fases entram, com que tom). Não muda o ROAS projetado nem o anchoring.
+          </p>
+        </div>
+
         {/* Conexão Meta */}
+
         {showConnectionPicker && (
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Conexão Meta</Label>
