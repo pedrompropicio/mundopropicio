@@ -545,14 +545,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
 ${modeBlock}
 
 ${eventBlock}
+${MOMENT_BLOCKS[campaignMoment]}
 ${customAudiencesBlock}
 ${referenceBlock}
 
 INSTRUÇÕES CRÍTICAS:
+0. RESPEITA o MOMENTO DA CAMPANHA acima — ele define quantas fases inclui (pode ser 2 em vez de 3-4), quais phase_ids escolhes e o tom dos criativos. NÃO incluas fases que o momento exclui. O budget_share das fases tem de respeitar os limites do momento (ex.: escassez → lookalike frio ≤ 0.20; reta_final → zero adsets de aquisição fria; retargeting ≥ os mínimos indicados).
 1. NÃO inventes números de ROAS. expected_overall_roas será SOBRESCRITO depois da tua resposta (vem do anchoring determinístico). Foca-te em ESTRUTURA e LINGUAGEM.
 2. O JSON deve seguir o schema canónico abaixo, em PT-BR, sem fences.
-3. Sê conciso. Top 3-5 fases. Top 5 audiences/criativos por fase.
+3. Sê conciso. Top 2-5 fases (o momento pode pedir só 2). Top 5 audiences/criativos por fase.
 4. Se source_mode='from_scratch_blank', marca claramente o plano como "estrutura de arranque" no summary.notes.
+
 
 Schema de saída (JSON puro):
 {
