@@ -82,6 +82,7 @@ type Body = {
   source_mode?: "from_scratch_ref" | "from_scratch_blank";
   event_id?: string | null;
   event_manual?: EventManual | null;
+  goal_revenue_eur?: number | null;
   reference_campaign_id?: string | null;
   target_roas?: number;
   total_budget_eur?: number | null;
@@ -94,6 +95,7 @@ type Body = {
   duel_id?: string | null;
   source_model?: string | null;
 };
+
 
 type EventCtx = {
   id: string | null;
