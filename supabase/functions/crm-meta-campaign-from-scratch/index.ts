@@ -555,6 +555,13 @@ INSTRUÇÕES CRÍTICAS:
 2. O JSON deve seguir o schema canónico abaixo, em PT-BR, sem fences.
 3. Sê conciso. Top 2-5 fases (o momento pode pedir só 2). Top 5 audiences/criativos por fase.
 4. Se source_mode='from_scratch_blank', marca claramente o plano como "estrutura de arranque" no summary.notes.
+5. BUDGET_WEIGHT POR ADSET — apenas SUGESTÃO de proporção:
+   - Para cada adset, emite "budget_weight" entre 0 e 1.
+   - A soma dos budget_weight dos adsets DENTRO da mesma campanha deve aproximar-se de 1.0 (o sistema normaliza pequenos desvios — 0.9 ou 1.3 são reescalados).
+   - NÃO emitas valores absolutos de euros por adset — o euro é decidido pelo CÓDIGO a partir de daily_budget_eur da campanha × budget_weight (normalizado).
+   - Se não estiveres seguro da proporção, OMITE budget_weight em TODOS os adsets dessa campanha — o sistema reparte igualmente (mais seguro do que inventar pesos).
+   - Heurística: dar mais peso a retargeting que a prospecção; dentro de prospecção, mais peso a lookalike de compradores que a interesses frios; respeitar os limites do momento (ex.: reta_final → retargeting ≥ 0.5).
+
 
 
 Schema de saída (JSON puro):
