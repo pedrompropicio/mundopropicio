@@ -296,6 +296,13 @@ export default function CampaignFromScratch() {
         </p>
       </div>
 
+      {cameFromCampaignView && (
+        <div className="text-xs px-3 py-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 text-cyan-200 flex items-center gap-2">
+          <Info className="h-3.5 w-3.5" />
+          A recomeçar a partir da campanha diagnosticada. Ajusta o que precisares.
+        </div>
+      )}
+
       {/* ── FORMULÁRIO ── */}
       <Card className="p-5 space-y-6 border-cyan-500/20">
         {/* Modo */}
