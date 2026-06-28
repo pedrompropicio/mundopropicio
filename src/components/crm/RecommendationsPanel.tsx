@@ -554,28 +554,26 @@ function ContextualAction({
   url,
   disabled,
   onApplyAplus,
+  onPickReels,
 }: {
   aplicabilidade: Aplicabilidade;
   url: string | null;
   disabled: boolean;
   onApplyAplus: () => void;
+  onPickReels: () => void;
 }) {
   if (aplicabilidade === "manual") {
+    // Reels exige criativo NOVO (vídeo 9:16). Em vez de mandar o utilizador
+    // para o Ads Manager (rec.url), abrimos o seletor da biblioteca da
+    // plataforma — escolher um vídeo existente OU subir um novo via fluxo
+    // já existente em /audience/creatives/new.
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        {url ? (
-          <Button asChild size="sm" disabled={disabled} className="h-7 text-xs">
-            <a href={url} target="_blank" rel="noreferrer noopener">
-              <Upload className="h-3 w-3 mr-1" /> Subir criativo no Ads Manager
-            </a>
-          </Button>
-        ) : (
-          <Button size="sm" disabled className="h-7 text-xs">
-            <Upload className="h-3 w-3 mr-1" /> Sem link directo
-          </Button>
-        )}
+        <Button size="sm" disabled={disabled} onClick={onPickReels} className="h-7 text-xs">
+          <Upload className="h-3 w-3 mr-1" /> Escolher/subir criativo
+        </Button>
         <span className="text-[11px] text-muted-foreground">
-          Abre o anúncio no Ads Manager para carregares o vídeo vertical.
+          Escolhe um vídeo da biblioteca ou sobe um novo (9:16, até 90s).
         </span>
       </div>
     );
