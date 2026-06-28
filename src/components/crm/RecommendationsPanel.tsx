@@ -36,6 +36,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ReelsCreativePickerDialog } from "./ReelsCreativePickerDialog";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P0 — DECISÃO ASSISTIDA
