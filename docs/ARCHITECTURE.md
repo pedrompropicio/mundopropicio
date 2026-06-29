@@ -84,6 +84,13 @@ Modelo de 2 faixas (DR-2026-06-26, ver DECISIONS.md):
 - **Faixa B** — criar campanha nova (gera → review → publish em pausa). Espinha canónica = `meta_publish_plan` + `MetaPublishPanel` (prepare → dry-run → "Confirmar e criar no Meta" → activate). Pista paralela "Strategies" (`strategy-deploy`/`deployment-toggle` + `meta_campaign_strategy_deployments`) é aposentada.
 - **Brief determinístico único** alimenta todos os LLMs (Flash sozinho por defeito; Gemini Pro + GPT-5 quando o toggle de duelo está ON via `crm-audience-duel`). Árbitro é determinístico + escolha humana; parecer textual LLM é opcional e nunca seleciona.
 
+## Publicação Meta (plan → adsets → ads)
+Caminho canónico: `crm-meta-publish-execute` lê um `crm.meta_publish_plan`, resolve `creative_ids` (uuid interno) para `CreativeInfo` a partir de `crm.meta_creatives`, monta payloads por grupo (image hash / video_id / reused creative_id) e cria campaign → adsets → ads no Meta, todos `PAUSED`. **Não sobe vídeos na hora** — vídeos exigem `meta_video_id` já preenchido (`crm-meta-upload-creative-v2`, `crm-meta-sync-creatives`, ou peek+update via `crm-meta-peek-video-ids`). `crm-meta-create-reels-ad` reutiliza fielmente este mesmo mecanismo para Reels isolados.
+
+Detalhe ponta-a-ponta (estrutura do plano, 3 ramos de `buildSingleAssetCreative`, índice de funções, como desbloquear `meta_video_id` em falta): ver [docs/features/crm-meta-publish-flow.md](features/crm-meta-publish-flow.md).
+
+
+
 ## Audiências do MP CRM — dois mecanismos distintos (NÃO confundir)
 
 > Secção acrescentada em 28/jun/2026 para resolver confusão recorrente entre sessões sobre "a lista de leads do MP CRM", "a audiência de 5000 clientes" e "Customer Match".
