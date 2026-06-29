@@ -84,6 +84,7 @@ export function ReelsCreativePickerDialog({
   onOpenChange,
   companyId,
   externalAdsetId,
+  externalCampaignId,
   onSelected,
 }: {
   open: boolean;
@@ -91,6 +92,8 @@ export function ReelsCreativePickerDialog({
   companyId: string | null;
   /** Adset alvo da recomendação que abriu o picker. Sem isto não há simulação. */
   externalAdsetId: string | null;
+  /** Campanha alvo — usada para marcar criativos JÁ em uso na campanha. */
+  externalCampaignId?: string | null;
   /** Chamado quando o utilizador confirma um criativo VÁLIDO (após simulação ok). */
   onSelected: (creative: CreativeRow) => void;
 }) {
@@ -106,7 +109,7 @@ export function ReelsCreativePickerDialog({
         .schema("crm")
         .from("meta_creatives")
         .select(
-          "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, storage_path, headline, created_at",
+          "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, meta_creative_id, storage_path, headline, created_at",
         )
         .eq("type", "video")
         .order("created_at", { ascending: false });
@@ -115,7 +118,36 @@ export function ReelsCreativePickerDialog({
     },
   });
 
+  // Cruzamento READ-ONLY com crm.meta_ad_snapshot para identificar criativos
+  // EM USO na campanha atual (por meta_creative_id).
+  const { data: inUseSet } = useQuery({
+    queryKey: ["crm-creatives-in-use", companyId, externalCampaignId],
+    enabled: open && !!companyId && !!externalCampaignId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_ad_snapshot")
+        .select("meta_creative_id")
+        .eq("company_id", companyId)
+        .eq("external_campaign_id", externalCampaignId);
+      if (error) throw error;
+      const ids = new Set<string>();
+      for (const r of (data ?? []) as Array<{ meta_creative_id: string | null }>) {
+        if (r.meta_creative_id) ids.add(r.meta_creative_id);
+      }
+      return ids;
+    },
+  });
+
   const allCreatives = useMemo(() => data ?? [], [data]);
+
+  const inUseCreatives = useMemo(
+    () =>
+      allCreatives.filter(
+        (c) => !!(inUseSet && c.meta_creative_id && inUseSet.has(c.meta_creative_id)),
+      ),
+    [allCreatives, inUseSet],
+  );
 
   const readyCreatives = useMemo(
     () => allCreatives.filter((c) => isReadyForReels(c)),
@@ -131,6 +163,7 @@ export function ReelsCreativePickerDialog({
       return rb - ra;
     });
   }, [allCreatives, readyCreatives, showReadyOnly]);
+
 
   const selected = useMemo(
     () => allCreatives.find((c) => c.id === selectedId) ?? null,
