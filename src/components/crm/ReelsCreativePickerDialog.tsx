@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck, Send, PartyPopper } from "lucide-react";
 import { evaluateCreativeForReels, type ReelsCheckResult } from "@/lib/crm/creativeReelsCheck";
@@ -55,7 +56,15 @@ type CreativeRow = {
   height: number | null;
   duration_seconds: number | null;
   headline: string | null;
+  storage_path: string | null;
+  meta_video_id: string | null;
 };
+
+// "Pronto" = tem dimensões conhecidas E já está carregado no Meta.
+// Isto é independente da avaliação 9:16 (que acontece depois de escolhido).
+function isReadyForReels(c: CreativeRow): boolean {
+  return c.width != null && c.height != null && c.meta_video_id != null;
+}
 
 type SimResult = {
   ok: boolean;
@@ -86,6 +95,7 @@ export function ReelsCreativePickerDialog({
 }) {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showReadyOnly, setShowReadyOnly] = useState(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ["crm-creatives-reels-picker", companyId],
@@ -94,7 +104,9 @@ export function ReelsCreativePickerDialog({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, type, file_url, file_mime_type, width, height, duration_seconds, headline, created_at")
+        .select(
+          "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, storage_path, headline, created_at",
+        )
         .eq("type", "video")
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -102,9 +114,26 @@ export function ReelsCreativePickerDialog({
     },
   });
 
+  const allCreatives = useMemo(() => data ?? [], [data]);
+
+  const readyCreatives = useMemo(
+    () => allCreatives.filter((c) => isReadyForReels(c)),
+    [allCreatives],
+  );
+
+  const displayedCreatives = useMemo(() => {
+    const source = showReadyOnly ? readyCreatives : allCreatives;
+    // Mesmo em "Ver todos", os prontos ficam no topo.
+    return [...source].sort((a, b) => {
+      const ra = isReadyForReels(a) ? 1 : 0;
+      const rb = isReadyForReels(b) ? 1 : 0;
+      return rb - ra;
+    });
+  }, [allCreatives, readyCreatives, showReadyOnly]);
+
   const selected = useMemo(
-    () => (data ?? []).find((c) => c.id === selectedId) ?? null,
-    [data, selectedId],
+    () => allCreatives.find((c) => c.id === selectedId) ?? null,
+    [allCreatives, selectedId],
   );
 
   const verdict: ReelsCheckResult | null = useMemo(
@@ -168,9 +197,34 @@ export function ReelsCreativePickerDialog({
                 <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
               </Button>
             </div>
+          ) : showReadyOnly && readyCreatives.length === 0 ? (
+            <div className="text-center py-10 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Nenhum vídeo pronto (com dimensões e carregado no Meta). Carrega um novo criativo ou vê todos.
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReadyOnly(false)}
+                >
+                  Ver todos
+                </Button>
+                <Button
+                  onClick={() => navigate("/audience/creatives/new")}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
+                </Button>
+              </div>
+            </div>
           ) : (
             <CreativeGrid
-              creatives={data}
+              creatives={displayedCreatives}
+              readyCount={readyCreatives.length}
+              totalCount={allCreatives.length}
+              showReadyOnly={showReadyOnly}
+              onShowReadyOnlyChange={setShowReadyOnly}
               onPick={(id) => setSelectedId(id)}
               onUploadNew={() => navigate("/audience/creatives/new")}
             />
@@ -183,23 +237,47 @@ export function ReelsCreativePickerDialog({
 
 function CreativeGrid({
   creatives,
+  readyCount,
+  totalCount,
+  showReadyOnly,
+  onShowReadyOnlyChange,
   onPick,
   onUploadNew,
 }: {
   creatives: CreativeRow[];
+  readyCount: number;
+  totalCount: number;
+  showReadyOnly: boolean;
+  onShowReadyOnlyChange: (v: boolean) => void;
   onPick: (id: string) => void;
   onUploadNew: () => void;
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" variant="outline" onClick={onUploadNew}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> Subir novo criativo
-        </Button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{readyCount}</span> prontos
+          <span className="text-muted-foreground/60">·</span>
+          <span>{totalCount}</span> no total
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{showReadyOnly ? "Prontos para publicar" : "Ver todos"}</span>
+          <Switch
+            checked={showReadyOnly}
+            onCheckedChange={onShowReadyOnlyChange}
+            aria-label="Mostrar só vídeos prontos"
+          />
+          <Button size="sm" variant="outline" onClick={onUploadNew}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Subir novo criativo
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {creatives.map((c) => {
           const kind = classifyCreative(c.file_url, c.type, c.file_mime_type);
+          const ready = isReadyForReels(c);
+          const missingDimensions = c.width == null || c.height == null;
+          const missingMetaVideo = c.meta_video_id == null;
           const ratio = c.width && c.height ? c.height / c.width : null;
           const isVertical = ratio !== null && ratio >= 1.7 && ratio <= 1.85;
           return (
@@ -221,12 +299,27 @@ function CreativeGrid({
                   </Badge>
                 )}
               </div>
-              <div className="p-2 space-y-0.5">
+              <div className="p-2 space-y-1">
                 <p className="text-xs font-medium truncate">{c.name}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {c.width && c.height ? `${c.width}×${c.height}` : "dim. ?"}
-                  {c.duration_seconds ? ` · ${Math.round(c.duration_seconds)}s` : ""}
-                </p>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[10px] text-muted-foreground">
+                    {c.width && c.height ? `${c.width}×${c.height}` : "sem dimensões"}
+                    {c.duration_seconds ? ` · ${Math.round(c.duration_seconds)}s` : ""}
+                  </p>
+                  {ready ? (
+                    <Badge className="text-[9px] border-0 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/15">
+                      Pronto
+                    </Badge>
+                  ) : missingDimensions ? (
+                    <Badge variant="secondary" className="text-[9px]">
+                      Sem dimensões
+                    </Badge>
+                  ) : missingMetaVideo ? (
+                    <Badge className="text-[9px] border-0 bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">
+                      Não está no Meta
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
             </button>
           );
@@ -355,7 +448,7 @@ function VerdictAndSimulate({
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{creative.name}</p>
           <p className="text-xs text-muted-foreground">
-            {creative.width && creative.height ? `${creative.width}×${creative.height}` : "dim. ?"}
+            {creative.width && creative.height ? `${creative.width}×${creative.height}` : "sem dimensões"}
             {creative.duration_seconds ? ` · ${Math.round(creative.duration_seconds)}s` : ""}
             {creative.file_mime_type ? ` · ${creative.file_mime_type}` : ""}
           </p>
