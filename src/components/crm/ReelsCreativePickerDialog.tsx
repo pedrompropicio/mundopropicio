@@ -56,7 +56,15 @@ type CreativeRow = {
   height: number | null;
   duration_seconds: number | null;
   headline: string | null;
+  storage_path: string | null;
+  meta_video_id: string | null;
 };
+
+// "Pronto" = tem dimensões conhecidas E já está carregado no Meta.
+// Isto é independente da avaliação 9:16 (que acontece depois de escolhido).
+function isReadyForReels(c: CreativeRow): boolean {
+  return c.width != null && c.height != null && c.meta_video_id != null;
+}
 
 type SimResult = {
   ok: boolean;
@@ -87,6 +95,7 @@ export function ReelsCreativePickerDialog({
 }) {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showReadyOnly, setShowReadyOnly] = useState(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ["crm-creatives-reels-picker", companyId],
@@ -95,7 +104,9 @@ export function ReelsCreativePickerDialog({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, type, file_url, file_mime_type, width, height, duration_seconds, headline, created_at")
+        .select(
+          "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, storage_path, headline, created_at",
+        )
         .eq("type", "video")
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -103,9 +114,26 @@ export function ReelsCreativePickerDialog({
     },
   });
 
+  const allCreatives = useMemo(() => data ?? [], [data]);
+
+  const readyCreatives = useMemo(
+    () => allCreatives.filter((c) => isReadyForReels(c)),
+    [allCreatives],
+  );
+
+  const displayedCreatives = useMemo(() => {
+    const source = showReadyOnly ? readyCreatives : allCreatives;
+    // Mesmo em "Ver todos", os prontos ficam no topo.
+    return [...source].sort((a, b) => {
+      const ra = isReadyForReels(a) ? 1 : 0;
+      const rb = isReadyForReels(b) ? 1 : 0;
+      return rb - ra;
+    });
+  }, [allCreatives, readyCreatives, showReadyOnly]);
+
   const selected = useMemo(
-    () => (data ?? []).find((c) => c.id === selectedId) ?? null,
-    [data, selectedId],
+    () => allCreatives.find((c) => c.id === selectedId) ?? null,
+    [allCreatives, selectedId],
   );
 
   const verdict: ReelsCheckResult | null = useMemo(
