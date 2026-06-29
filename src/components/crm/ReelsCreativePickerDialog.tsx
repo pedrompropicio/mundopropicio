@@ -58,6 +58,7 @@ type CreativeRow = {
   headline: string | null;
   storage_path: string | null;
   meta_video_id: string | null;
+  meta_creative_id: string | null;
 };
 
 // "Pronto" = tem dimensões conhecidas E já está carregado no Meta.
