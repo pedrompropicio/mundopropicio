@@ -280,7 +280,78 @@ export function ReelsCreativePickerDialog({
   );
 }
 
+
+function InUseSection({
+  creatives,
+  onPick,
+}: {
+  creatives: CreativeRow[];
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Badge className="text-[10px] border-0 bg-sky-500/20 text-sky-300 hover:bg-sky-500/20">
+          Em uso nesta campanha
+        </Badge>
+        <span className="text-[11px] text-muted-foreground">
+          {creatives.length} {creatives.length === 1 ? "criativo" : "criativos"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {creatives.map((c) => {
+          const kind = classifyCreative(c.file_url, c.type, c.file_mime_type);
+          const missingDimensions = c.width == null || c.height == null;
+          const missingMetaVideo = c.meta_video_id == null;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onPick(c.id)}
+              className="text-left rounded-md border border-sky-500/30 overflow-hidden hover:border-sky-400/70 hover:shadow-md transition group"
+            >
+              <div className="relative aspect-video bg-muted">
+                {kind === "video" ? (
+                  <video src={c.file_url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                ) : (
+                  <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                )}
+                <Badge className="absolute top-1 left-1 text-[9px] bg-sky-500/90 text-white border-0">
+                  Em uso
+                </Badge>
+              </div>
+              <div className="p-2 space-y-1">
+                <p className="text-xs font-medium truncate">{c.name}</p>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[10px] text-muted-foreground">
+                    {c.width && c.height ? `${c.width}×${c.height}` : "sem dimensões"}
+                    {c.duration_seconds ? ` · ${Math.round(c.duration_seconds)}s` : ""}
+                  </p>
+                  {missingDimensions ? (
+                    <Badge className="text-[9px] border-0 bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">
+                      Dimensões por confirmar
+                    </Badge>
+                  ) : missingMetaVideo ? (
+                    <Badge className="text-[9px] border-0 bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">
+                      Precisa preparação
+                    </Badge>
+                  ) : (
+                    <Badge className="text-[9px] border-0 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/15">
+                      Pronto
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CreativeGrid({
+
   creatives,
   readyCount,
   totalCount,
