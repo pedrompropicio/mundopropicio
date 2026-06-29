@@ -388,6 +388,8 @@ export function RecommendationsPanel({
         onOpenChange={(o) => !o && setReelsPicker(null)}
         companyId={companyId}
         externalAdsetId={reelsPicker?.external_adset_id ?? null}
+        externalCampaignId={reelsPicker?.external_campaign_id ?? null}
+
         onSelected={() => {
           // Picker só chama onSelected após PUBLICAÇÃO REAL bem-sucedida
           // (passa por AlertDialog de confirmação). Marca como tratada.
