@@ -448,7 +448,7 @@ function VerdictAndSimulate({
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{creative.name}</p>
           <p className="text-xs text-muted-foreground">
-            {creative.width && creative.height ? `${creative.width}×${creative.height}` : "dim. ?"}
+            {creative.width && creative.height ? `${creative.width}×${creative.height}` : "sem dimensões"}
             {creative.duration_seconds ? ` · ${Math.round(creative.duration_seconds)}s` : ""}
             {creative.file_mime_type ? ` · ${creative.file_mime_type}` : ""}
           </p>
