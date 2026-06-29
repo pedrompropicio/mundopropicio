@@ -481,8 +481,19 @@ function VerdictAndSimulate({
   const atende = verdict.atende;
   const hasAdset = !!externalAdsetId;
   const busy = running || publishing;
+  // Criativo em uso na campanha mas SEM meta_video_id: não há caminho de
+  // publicação directo (a edge actual exige meta_video_id). Sinalizamos e
+  // bloqueamos; a ligação por reuse de creative_id é peça seguinte.
+  const needsPreparation = creative.meta_video_id == null;
   const canRun =
-    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !busy;
+    atende &&
+    hasAdset &&
+    !!companyId &&
+    !needsPreparation &&
+    link.trim().length > 0 &&
+    message.trim().length > 0 &&
+    !busy;
+
 
   // Body partilhado entre pré-visualização e publicação real — única
   // diferença é dry_run. Status é sempre forçado a PAUSED pelo servidor.
