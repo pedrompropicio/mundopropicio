@@ -237,23 +237,47 @@ export function ReelsCreativePickerDialog({
 
 function CreativeGrid({
   creatives,
+  readyCount,
+  totalCount,
+  showReadyOnly,
+  onShowReadyOnlyChange,
   onPick,
   onUploadNew,
 }: {
   creatives: CreativeRow[];
+  readyCount: number;
+  totalCount: number;
+  showReadyOnly: boolean;
+  onShowReadyOnlyChange: (v: boolean) => void;
   onPick: (id: string) => void;
   onUploadNew: () => void;
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" variant="outline" onClick={onUploadNew}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> Subir novo criativo
-        </Button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{readyCount}</span> prontos
+          <span className="text-muted-foreground/60">·</span>
+          <span>{totalCount}</span> no total
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{showReadyOnly ? "Prontos para publicar" : "Ver todos"}</span>
+          <Switch
+            checked={showReadyOnly}
+            onCheckedChange={onShowReadyOnlyChange}
+            aria-label="Mostrar só vídeos prontos"
+          />
+          <Button size="sm" variant="outline" onClick={onUploadNew}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Subir novo criativo
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {creatives.map((c) => {
           const kind = classifyCreative(c.file_url, c.type, c.file_mime_type);
+          const ready = isReadyForReels(c);
+          const missingDimensions = c.width == null || c.height == null;
+          const missingMetaVideo = c.meta_video_id == null;
           const ratio = c.width && c.height ? c.height / c.width : null;
           const isVertical = ratio !== null && ratio >= 1.7 && ratio <= 1.85;
           return (
@@ -275,12 +299,27 @@ function CreativeGrid({
                   </Badge>
                 )}
               </div>
-              <div className="p-2 space-y-0.5">
+              <div className="p-2 space-y-1">
                 <p className="text-xs font-medium truncate">{c.name}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {c.width && c.height ? `${c.width}×${c.height}` : "dim. ?"}
-                  {c.duration_seconds ? ` · ${Math.round(c.duration_seconds)}s` : ""}
-                </p>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[10px] text-muted-foreground">
+                    {c.width && c.height ? `${c.width}×${c.height}` : "sem dimensões"}
+                    {c.duration_seconds ? ` · ${Math.round(c.duration_seconds)}s` : ""}
+                  </p>
+                  {ready ? (
+                    <Badge className="text-[9px] border-0 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/15">
+                      Pronto
+                    </Badge>
+                  ) : missingDimensions ? (
+                    <Badge variant="secondary" className="text-[9px]">
+                      Sem dimensões
+                    </Badge>
+                  ) : missingMetaVideo ? (
+                    <Badge className="text-[9px] border-0 bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">
+                      Não está no Meta
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
             </button>
           );
