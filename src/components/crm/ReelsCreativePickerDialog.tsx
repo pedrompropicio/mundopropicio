@@ -197,9 +197,34 @@ export function ReelsCreativePickerDialog({
                 <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
               </Button>
             </div>
+          ) : showReadyOnly && readyCreatives.length === 0 ? (
+            <div className="text-center py-10 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Nenhum vídeo pronto (com dimensões e carregado no Meta). Carrega um novo criativo ou vê todos.
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReadyOnly(false)}
+                >
+                  Ver todos
+                </Button>
+                <Button
+                  onClick={() => navigate("/audience/creatives/new")}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
+                </Button>
+              </div>
+            </div>
           ) : (
             <CreativeGrid
-              creatives={data}
+              creatives={displayedCreatives}
+              readyCount={readyCreatives.length}
+              totalCount={allCreatives.length}
+              showReadyOnly={showReadyOnly}
+              onShowReadyOnlyChange={setShowReadyOnly}
               onPick={(id) => setSelectedId(id)}
               onUploadNew={() => navigate("/audience/creatives/new")}
             />
