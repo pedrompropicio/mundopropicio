@@ -692,14 +692,17 @@ function VerdictAndSimulate({
               onClick={runSimulation}
               disabled={!canRun}
               title={
-                !atende
-                  ? "Este criativo não atende aos requisitos de Reels."
-                  : !hasAdset
-                    ? "Recomendação sem adset associado."
-                    : !link || !message
-                      ? "Preenche link e mensagem."
-                      : "Pré-visualizar (sem publicar)"
+                needsPreparation
+                  ? "Criativo em uso sem meta_video_id — precisa de preparação (peça seguinte)."
+                  : !atende
+                    ? "Este criativo não atende aos requisitos de Reels."
+                    : !hasAdset
+                      ? "Recomendação sem adset associado."
+                      : !link || !message
+                        ? "Preenche link e mensagem."
+                        : "Pré-visualizar (sem publicar)"
               }
+
             >
               {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
               {preview ? "Pré-visualizar novamente" : "Pré-visualizar"}
