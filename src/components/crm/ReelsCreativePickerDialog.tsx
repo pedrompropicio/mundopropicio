@@ -58,6 +58,7 @@ type CreativeRow = {
   headline: string | null;
   storage_path: string | null;
   meta_video_id: string | null;
+  meta_creative_id: string | null;
 };
 
 // "Pronto" = tem dimensões conhecidas E já está carregado no Meta.
@@ -83,6 +84,7 @@ export function ReelsCreativePickerDialog({
   onOpenChange,
   companyId,
   externalAdsetId,
+  externalCampaignId,
   onSelected,
 }: {
   open: boolean;
@@ -90,6 +92,8 @@ export function ReelsCreativePickerDialog({
   companyId: string | null;
   /** Adset alvo da recomendação que abriu o picker. Sem isto não há simulação. */
   externalAdsetId: string | null;
+  /** Campanha alvo — usada para marcar criativos JÁ em uso na campanha. */
+  externalCampaignId?: string | null;
   /** Chamado quando o utilizador confirma um criativo VÁLIDO (após simulação ok). */
   onSelected: (creative: CreativeRow) => void;
 }) {
@@ -105,7 +109,7 @@ export function ReelsCreativePickerDialog({
         .schema("crm")
         .from("meta_creatives")
         .select(
-          "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, storage_path, headline, created_at",
+          "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, meta_creative_id, storage_path, headline, created_at",
         )
         .eq("type", "video")
         .order("created_at", { ascending: false });
@@ -114,7 +118,36 @@ export function ReelsCreativePickerDialog({
     },
   });
 
+  // Cruzamento READ-ONLY com crm.meta_ad_snapshot para identificar criativos
+  // EM USO na campanha atual (por meta_creative_id).
+  const { data: inUseSet } = useQuery({
+    queryKey: ["crm-creatives-in-use", companyId, externalCampaignId],
+    enabled: open && !!companyId && !!externalCampaignId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_ad_snapshot")
+        .select("meta_creative_id")
+        .eq("company_id", companyId)
+        .eq("external_campaign_id", externalCampaignId);
+      if (error) throw error;
+      const ids = new Set<string>();
+      for (const r of (data ?? []) as Array<{ meta_creative_id: string | null }>) {
+        if (r.meta_creative_id) ids.add(r.meta_creative_id);
+      }
+      return ids;
+    },
+  });
+
   const allCreatives = useMemo(() => data ?? [], [data]);
+
+  const inUseCreatives = useMemo(
+    () =>
+      allCreatives.filter(
+        (c) => !!(inUseSet && c.meta_creative_id && inUseSet.has(c.meta_creative_id)),
+      ),
+    [allCreatives, inUseSet],
+  );
 
   const readyCreatives = useMemo(
     () => allCreatives.filter((c) => isReadyForReels(c)),
@@ -130,6 +163,7 @@ export function ReelsCreativePickerDialog({
       return rb - ra;
     });
   }, [allCreatives, readyCreatives, showReadyOnly]);
+
 
   const selected = useMemo(
     () => allCreatives.find((c) => c.id === selectedId) ?? null,
@@ -197,45 +231,127 @@ export function ReelsCreativePickerDialog({
                 <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
               </Button>
             </div>
-          ) : showReadyOnly && readyCreatives.length === 0 ? (
-            <div className="text-center py-10 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Nenhum vídeo pronto (com dimensões e carregado no Meta). Carrega um novo criativo ou vê todos.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowReadyOnly(false)}
-                >
-                  Ver todos
-                </Button>
-                <Button
-                  onClick={() => navigate("/audience/creatives/new")}
-                  className="bg-cyan-500 hover:bg-cyan-600 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
-                </Button>
-              </div>
-            </div>
           ) : (
-            <CreativeGrid
-              creatives={displayedCreatives}
-              readyCount={readyCreatives.length}
-              totalCount={allCreatives.length}
-              showReadyOnly={showReadyOnly}
-              onShowReadyOnlyChange={setShowReadyOnly}
-              onPick={(id) => setSelectedId(id)}
-              onUploadNew={() => navigate("/audience/creatives/new")}
-            />
+            <div className="space-y-5">
+              {inUseCreatives.length > 0 && (
+                <InUseSection
+                  creatives={inUseCreatives}
+                  onPick={(id) => setSelectedId(id)}
+                />
+              )}
+              {showReadyOnly && readyCreatives.length === 0 ? (
+                <div className="text-center py-10 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum vídeo pronto (com dimensões e carregado no Meta). Carrega um novo criativo ou vê todos.
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowReadyOnly(false)}
+                    >
+                      Ver todos
+                    </Button>
+                    <Button
+                      onClick={() => navigate("/audience/creatives/new")}
+                      className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" /> Subir novo criativo
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <CreativeGrid
+                  creatives={displayedCreatives}
+                  readyCount={readyCreatives.length}
+                  totalCount={allCreatives.length}
+                  showReadyOnly={showReadyOnly}
+                  onShowReadyOnlyChange={setShowReadyOnly}
+                  onPick={(id) => setSelectedId(id)}
+                  onUploadNew={() => navigate("/audience/creatives/new")}
+                />
+              )}
+            </div>
           )}
+
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
+
+function InUseSection({
+  creatives,
+  onPick,
+}: {
+  creatives: CreativeRow[];
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Badge className="text-[10px] border-0 bg-sky-500/20 text-sky-300 hover:bg-sky-500/20">
+          Em uso nesta campanha
+        </Badge>
+        <span className="text-[11px] text-muted-foreground">
+          {creatives.length} {creatives.length === 1 ? "criativo" : "criativos"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {creatives.map((c) => {
+          const kind = classifyCreative(c.file_url, c.type, c.file_mime_type);
+          const missingDimensions = c.width == null || c.height == null;
+          const missingMetaVideo = c.meta_video_id == null;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onPick(c.id)}
+              className="text-left rounded-md border border-sky-500/30 overflow-hidden hover:border-sky-400/70 hover:shadow-md transition group"
+            >
+              <div className="relative aspect-video bg-muted">
+                {kind === "video" ? (
+                  <video src={c.file_url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                ) : (
+                  <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                )}
+                <Badge className="absolute top-1 left-1 text-[9px] bg-sky-500/90 text-white border-0">
+                  Em uso
+                </Badge>
+              </div>
+              <div className="p-2 space-y-1">
+                <p className="text-xs font-medium truncate">{c.name}</p>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[10px] text-muted-foreground">
+                    {c.width && c.height ? `${c.width}×${c.height}` : "sem dimensões"}
+                    {c.duration_seconds ? ` · ${Math.round(c.duration_seconds)}s` : ""}
+                  </p>
+                  {missingDimensions ? (
+                    <Badge className="text-[9px] border-0 bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">
+                      Dimensões por confirmar
+                    </Badge>
+                  ) : missingMetaVideo ? (
+                    <Badge className="text-[9px] border-0 bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">
+                      Precisa preparação
+                    </Badge>
+                  ) : (
+                    <Badge className="text-[9px] border-0 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/15">
+                      Pronto
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CreativeGrid({
+
   creatives,
   readyCount,
   totalCount,
@@ -365,8 +481,19 @@ function VerdictAndSimulate({
   const atende = verdict.atende;
   const hasAdset = !!externalAdsetId;
   const busy = running || publishing;
+  // Criativo em uso na campanha mas SEM meta_video_id: não há caminho de
+  // publicação directo (a edge actual exige meta_video_id). Sinalizamos e
+  // bloqueamos; a ligação por reuse de creative_id é peça seguinte.
+  const needsPreparation = creative.meta_video_id == null;
   const canRun =
-    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !busy;
+    atende &&
+    hasAdset &&
+    !!companyId &&
+    !needsPreparation &&
+    link.trim().length > 0 &&
+    message.trim().length > 0 &&
+    !busy;
+
 
   // Body partilhado entre pré-visualização e publicação real — única
   // diferença é dry_run. Status é sempre forçado a PAUSED pelo servidor.
@@ -481,6 +608,22 @@ function VerdictAndSimulate({
         ))}
       </ul>
 
+      {needsPreparation && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Criativo precisa de preparação para republicar como Reels isolado.</p>
+            <p className="opacity-90">
+              Este criativo está em uso na campanha mas não tem ligação directa ao vídeo no Meta (<code>meta_video_id</code> em falta).
+              A republicação como anúncio isolado precisa de reutilizar o adcreative existente — peça seguinte. Por agora,
+              o botão "Usar este criativo" está desativado.
+            </p>
+          </div>
+        </div>
+      )}
+
+
+
       {atende && (
         <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-3">
           <p className="text-xs text-cyan-200/90 flex items-start gap-1.5">
@@ -549,14 +692,17 @@ function VerdictAndSimulate({
               onClick={runSimulation}
               disabled={!canRun}
               title={
-                !atende
-                  ? "Este criativo não atende aos requisitos de Reels."
-                  : !hasAdset
-                    ? "Recomendação sem adset associado."
-                    : !link || !message
-                      ? "Preenche link e mensagem."
-                      : "Pré-visualizar (sem publicar)"
+                needsPreparation
+                  ? "Criativo em uso sem meta_video_id — precisa de preparação (peça seguinte)."
+                  : !atende
+                    ? "Este criativo não atende aos requisitos de Reels."
+                    : !hasAdset
+                      ? "Recomendação sem adset associado."
+                      : !link || !message
+                        ? "Preenche link e mensagem."
+                        : "Pré-visualizar (sem publicar)"
               }
+
             >
               {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
               {preview ? "Pré-visualizar novamente" : "Pré-visualizar"}
