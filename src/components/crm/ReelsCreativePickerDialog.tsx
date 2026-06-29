@@ -608,6 +608,22 @@ function VerdictAndSimulate({
         ))}
       </ul>
 
+      {needsPreparation && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Criativo precisa de preparação para republicar como Reels isolado.</p>
+            <p className="opacity-90">
+              Este criativo está em uso na campanha mas não tem ligação directa ao vídeo no Meta (<code>meta_video_id</code> em falta).
+              A republicação como anúncio isolado precisa de reutilizar o adcreative existente — peça seguinte. Por agora,
+              o botão "Usar este criativo" está desativado.
+            </p>
+          </div>
+        </div>
+      )}
+
+
+
       {atende && (
         <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-3">
           <p className="text-xs text-cyan-200/90 flex items-start gap-1.5">
