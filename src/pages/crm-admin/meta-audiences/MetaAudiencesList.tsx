@@ -113,7 +113,7 @@ export default function MetaAudiencesList() {
           <p className="text-sm text-muted-foreground mt-1">Audiências de leads sincronizadas para Meta Marketing API (retargeting + lookalikes).</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild className="gap-2"><Link to="/crm-admin/meta-audiences/upload"><Upload className="h-4 w-4" />Carregar lista</Link></Button>
+          <Button variant="outline" asChild className="gap-2"><Link to="/crm/meta-audiences/upload"><Upload className="h-4 w-4" />Carregar lista</Link></Button>
           <Button onClick={() => setCreateOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Nova audience</Button>
         </div>
       </div>

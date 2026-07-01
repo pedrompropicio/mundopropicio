@@ -157,7 +157,7 @@ export default function CustomerMatchUpload() {
   return (
     <div className="p-6 space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild><Link to="/crm-admin/meta-audiences"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link></Button>
+        <Button variant="ghost" size="sm" asChild><Link to="/crm/meta-audiences"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link></Button>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Upload className="h-6 w-6 text-emerald-600" />Carregar lista (Customer Match)</h1>
           <p className="text-sm text-muted-foreground mt-1">Sobe um CSV/XLSX com emails ou telefones. A audiência é preparada na plataforma.</p>
@@ -292,7 +292,7 @@ export default function CustomerMatchUpload() {
               <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30">Na audiência: {result.total_na_audiencia.toLocaleString()}</Badge>
             </div>
             <p>Ainda <b>não foi enviada para a Meta</b> — esse é o passo seguinte (Fase 3).</p>
-            <Button size="sm" variant="outline" onClick={() => navigate("/crm-admin/meta-audiences")}>Ver lista de audiências</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/crm/meta-audiences")}>Ver lista de audiências</Button>
           </AlertDescription>
         </Alert>
       )}
