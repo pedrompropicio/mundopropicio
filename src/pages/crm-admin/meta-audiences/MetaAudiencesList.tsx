@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Target, RefreshCw, Plus, Trash2, Link2, Eye, FileText, AlertTriangle, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Target, RefreshCw, Plus, Trash2, Link2, Eye, FileText, AlertTriangle, CheckCircle2, XCircle, Clock, Upload } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,7 +112,10 @@ export default function MetaAudiencesList() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6 text-emerald-600" />Meta Custom Audiences</h1>
           <p className="text-sm text-muted-foreground mt-1">Audiências de leads sincronizadas para Meta Marketing API (retargeting + lookalikes).</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Nova audience</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild className="gap-2"><Link to="/crm-admin/meta-audiences/upload"><Upload className="h-4 w-4" />Carregar lista</Link></Button>
+          <Button onClick={() => setCreateOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Nova audience</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
