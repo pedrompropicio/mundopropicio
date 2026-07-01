@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.crm-extract-video-dimensions]
 verify_jwt = true
+
+[functions.crm-meta-audience-upload]
+verify_jwt = true
