@@ -181,6 +181,7 @@ import PressList from "./pages/crm-admin/press/PressList";
 import PortalSettings from "./pages/crm-admin/portal-settings/PortalSettings";
 import MetaCapiMonitor from "./pages/crm-admin/meta-capi/MetaCapiMonitor";
 import MetaAudiencesList from "./pages/crm-admin/meta-audiences/MetaAudiencesList";
+import CustomerMatchUpload from "./pages/crm-admin/meta-audiences/CustomerMatchUpload";
 import GoogleAdsAdmin from "./pages/crm-admin/google-ads/GoogleAdsAdmin";
 import AudienceGoogleAds from "./pages/audience/AudienceGoogleAds";
 import { useLocation } from "react-router-dom";
@@ -621,6 +622,7 @@ function App() {
                     <Route path="portal-settings" element={<PortalSettings />} />
                     <Route path="meta-capi" element={<MetaCapiMonitor />} />
                     <Route path="meta-audiences" element={<MetaAudiencesList />} />
+                    <Route path="meta-audiences/upload" element={<CustomerMatchUpload />} />
                     <Route path="google-ads" element={<GoogleAdsAdmin />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
