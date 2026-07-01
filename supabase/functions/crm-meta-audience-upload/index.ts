@@ -87,19 +87,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
   if (!roles.some((r) => ALLOWED_ROLES.has(r))) return json({ error: "insufficient_role" }, 403);
 
-  // 2) Resolver company_id + connection_id (link primário Meta da empresa activa via RLS)
-  //    meta_custom_audiences.connection_id refere crm.ad_platform_account_links.id
-  //    (mesmo padrão de crm-meta-audience-create).
+  // 2) Resolver empresa ativa do utilizador (active_company_id ?? company_id)
+  //    — mesmo padrão do CreateAudienceDialog / MetaAudiencesList.
+  //    Sem este filtro, a query ao ad_platform_account_links apanha o link
+  //    primário de OUTRA empresa (contaminação cruzada tipo Coala).
+  const { data: profile, error: profErr } = await userClient
+    .from("profiles")
+    .select("company_id, active_company_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profErr) return json({ error: "profile_lookup_failed", detail: profErr.message }, 500);
+  const activeCompanyId = (profile?.active_company_id ?? profile?.company_id) as string | null;
+  if (!activeCompanyId) return json({ error: "no_active_company" }, 400);
+
+  // 3) Resolver connection_id do link primário Meta DA EMPRESA ATIVA
   const { data: link, error: linkErr } = await (userClient as any)
     .schema("crm")
     .from("ad_platform_account_links")
     .select("id, company_id, enabled, is_primary")
+    .eq("company_id", activeCompanyId)
     .eq("enabled", true)
     .order("is_primary", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (linkErr) return json({ error: "connection_lookup_failed", detail: linkErr.message }, 500);
-  if (!link) return json({ error: "no_meta_connection", detail: "empresa sem conexão Meta activa" }, 400);
+  if (!link) return json({ error: "no_meta_connection_for_company", detail: "empresa activa sem conexão Meta activa", company_id: activeCompanyId }, 400);
+
 
   const companyId = link.company_id as string;
   const connectionId = link.id as string;
