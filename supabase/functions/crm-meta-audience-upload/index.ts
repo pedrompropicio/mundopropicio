@@ -69,15 +69,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const members = normalize(rawMembers);
   if (members.length === 0) return json({ error: "no_valid_members" }, 400);
 
-  // 1) Auth: valida user + role
+  // 1) Auth: gateway já validou JWT (verify_jwt=true). Extraímos claims sem network extra.
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: "invalid_jwt", detail: userErr?.message }, 401);
-  const userId = userData.user.id;
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+  if (claimsErr || !claimsData?.claims?.sub) {
+    return json({ error: "invalid_jwt", detail: claimsErr?.message }, 401);
+  }
+  const userId = claimsData.claims.sub as string;
 
   const { data: roleRows, error: roleErr } = await userClient
     .from("user_roles")
