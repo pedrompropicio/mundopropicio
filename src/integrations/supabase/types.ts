@@ -5815,6 +5815,50 @@ export type Database = {
           },
         ]
       }
+      meta_audience_upload_members: {
+        Row: {
+          audience_local_id: string
+          company_id: string
+          created_at: string
+          email: string | null
+          email_hash_sha256: string | null
+          id: string
+          phone_e164: string | null
+          phone_hash_sha256: string | null
+          source_label: string | null
+        }
+        Insert: {
+          audience_local_id: string
+          company_id: string
+          created_at?: string
+          email?: string | null
+          email_hash_sha256?: string | null
+          id?: string
+          phone_e164?: string | null
+          phone_hash_sha256?: string | null
+          source_label?: string | null
+        }
+        Update: {
+          audience_local_id?: string
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          email_hash_sha256?: string | null
+          id?: string
+          phone_e164?: string | null
+          phone_hash_sha256?: string | null
+          source_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_audience_upload_members_audience_local_id_fkey"
+            columns: ["audience_local_id"]
+            isOneToOne: false
+            referencedRelation: "meta_custom_audiences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_campaign_recommendations: {
         Row: {
           ad_account_id: string
@@ -10317,6 +10361,13 @@ export type Database = {
         Returns: {
           email: string
           phone: string
+        }[]
+      }
+      crm_meta_audience_collect_upload_members: {
+        Args: { p_audience_local_id: string }
+        Returns: {
+          email_hash_sha256: string
+          phone_hash_sha256: string
         }[]
       }
       crm_meta_audiences_dashboard: { Args: never; Returns: Json }
