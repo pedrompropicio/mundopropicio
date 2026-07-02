@@ -557,26 +557,28 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               Base: {formatCurrency(amount)} + IVA {ivaRate}%
             </p>
           )}
-          {isExpense && computedStatus !== "paid" && (() => {
+          {isExpense && (() => {
             const np = computeNetPayable({
               grossWithIva: totalWithIva,
               declaredWithholding: getDeclaredWithholding(t),
               hasInstallments: !!hasInstallments,
             });
             if (!np.applied) return null;
+            const isPaid = computedStatus === "paid";
+            const label = isPaid ? "Líquido pago" : "A pagar";
             return (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <p className="mt-0.5 text-[10px] font-mono text-warning cursor-help">
-                    A pagar: <span className="font-semibold">{formatCurrency(np.net)}</span>
+                    {label}: <span className="font-semibold">{formatCurrency(np.net)}</span>
                     <span className="text-warning/70"> · Ret. IRS −{formatCurrency(np.withholding)}</span>
                   </p>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs text-xs">
                   <p>Retenção IRS declarada na fatura.</p>
                   <p className="mt-1 text-muted-foreground">
-                    O fornecedor recebe o líquido; a retenção é entregue ao Estado.
-                    Valor pode ser ajustado no momento da liquidação.
+                    O fornecedor {isPaid ? "recebeu" : "recebe"} o líquido; a retenção é entregue ao Estado.
+                    {isPaid ? " Valor bruto mantido para efeitos de BP/DRE." : " Valor pode ser ajustado no momento da liquidação."}
                   </p>
                 </TooltipContent>
               </Tooltip>
