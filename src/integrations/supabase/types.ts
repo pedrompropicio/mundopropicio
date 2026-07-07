@@ -10675,6 +10675,15 @@ export type Database = {
         }
         Returns: string
       }
+      publish_event_to_portal: {
+        Args: { p_event_id: string }
+        Returns: {
+          id: string
+          name: string
+          portal_visible: boolean
+          slug: string
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -10798,6 +10807,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      slugify: { Args: { txt: string }; Returns: string }
       storage_path_belongs_to_current_company: {
         Args: { _name: string }
         Returns: boolean
@@ -10827,6 +10837,18 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      unique_event_slug: {
+        Args: { base: string; exclude_id: string }
+        Returns: string
+      }
+      unpublish_event_from_portal: {
+        Args: { p_event_id: string }
+        Returns: {
+          id: string
+          name: string
+          portal_visible: boolean
+        }[]
       }
       update_vault_secret: {
         Args: { _id: string; _value: string }
