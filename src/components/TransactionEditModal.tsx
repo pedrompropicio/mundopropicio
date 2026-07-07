@@ -56,6 +56,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     payment_reference: transaction.payment_reference ?? "",
     declared_withholding_rate: transaction.declared_withholding_rate != null ? String(transaction.declared_withholding_rate) : "",
     declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
+    is_reimbursement: transaction.is_reimbursement ?? false,
+    reimbursement_to: transaction.reimbursement_to ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
