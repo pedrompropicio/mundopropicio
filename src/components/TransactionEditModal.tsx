@@ -1299,19 +1299,46 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 </span>
               </div>
               {form.is_reimbursement && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Colaborador</label>
-                  <input
-                    value={form.reimbursement_to}
-                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
-                    placeholder="Nome do colaborador a reembolsar"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  {isLinkedToReimbursementNote && (reimbursementNoteLink as any)?.reimbursement_notes && (
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Já vinculada à Nota {(reimbursementNoteLink as any).reimbursement_notes.code}.
-                    </p>
+                <div className="space-y-2">
+                  {!isLinkedToReimbursementNote && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota de Reembolso</label>
+                      <SearchableSelect
+                        options={reimbursementNotes.map((n: any) => ({
+                          value: n.id,
+                          label: `${n.code} — ${n.employee_name}`,
+                        }))}
+                        value={form.reimbursement_note_id}
+                        onValueChange={(v) => {
+                          const note = (reimbursementNotes as any[]).find((n) => n.id === v);
+                          setForm({
+                            ...form,
+                            reimbursement_note_id: v,
+                            reimbursement_to: note?.employee_name || form.reimbursement_to,
+                          });
+                        }}
+                        placeholder="Selecionar nota existente…"
+                        searchPlaceholder="Pesquisar por código ou funcionário…"
+                      />
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Opcional — vincula a transação à nota ao guardar. Também podes deixar em branco e vincular depois pela Nota.
+                      </p>
+                    </div>
                   )}
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Colaborador</label>
+                    <input
+                      value={form.reimbursement_to}
+                      onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
+                      placeholder="Nome do colaborador a reembolsar"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    {isLinkedToReimbursementNote && (reimbursementNoteLink as any)?.reimbursement_notes && (
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Já vinculada à Nota {(reimbursementNoteLink as any).reimbursement_notes.code}.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
