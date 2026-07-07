@@ -512,7 +512,7 @@ export default function EventMarketingEditor() {
         <TabsContent value="oferta">
           <Card className="space-y-4 p-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Preço mínimo">
+              <Field label="Preço mínimo" hint={inherited?.offer_price_min != null && form!.offer_price_min == null ? `Herdado: ${inherited.offer_price_min}` : undefined}>
                 <Input
                   type="number"
                   step="0.01"
@@ -520,9 +520,10 @@ export default function EventMarketingEditor() {
                   onChange={(e) =>
                     set("offer_price_min", e.target.value === "" ? null : Number(e.target.value))
                   }
+                  placeholder={inherited?.offer_price_min != null ? String(inherited.offer_price_min) : ""}
                 />
               </Field>
-              <Field label="Preço máximo">
+              <Field label="Preço máximo" hint={inherited?.offer_price_max != null && form!.offer_price_max == null ? `Herdado: ${inherited.offer_price_max}` : undefined}>
                 <Input
                   type="number"
                   step="0.01"
@@ -530,6 +531,7 @@ export default function EventMarketingEditor() {
                   onChange={(e) =>
                     set("offer_price_max", e.target.value === "" ? null : Number(e.target.value))
                   }
+                  placeholder={inherited?.offer_price_max != null ? String(inherited.offer_price_max) : ""}
                 />
               </Field>
               <Field label="Moeda">
