@@ -28,6 +28,7 @@ import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
 import { CopyTourContentDialog } from "./CopyTourContentDialog";
+import { TourCreativesAudit } from "./TourCreativesAudit";
 
 
 type FormState = Omit<
@@ -217,9 +218,15 @@ export default function EventMarketingEditor() {
           <CopyTourContentDialog
             eventId={eventId}
             eventName={ev?.name ?? ""}
+            eventDate={ev?.date ?? null}
             parentEventId={ev?.parent_event_id ?? null}
             eventType={ev?.event_type ?? null}
             disabled={isForeign}
+          />
+          <TourCreativesAudit
+            eventId={eventId}
+            parentEventId={ev?.parent_event_id ?? null}
+            eventType={ev?.event_type ?? null}
           />
           <Button
             type="button"
