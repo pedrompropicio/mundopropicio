@@ -3,7 +3,7 @@
 Componente: `src/pages/crm-admin/eventos/EventMarketingEditor.tsx`
 Rota: `/crm/eventos/:eventId`
 Tabela: `public.event_marketing` (1:1 com `events`, upsert por `event_id`)
-Fluxo de guardar: rascunho (`drafted`) ↔ publicado (`published`, com `published_at`). Botão "Guardar" persiste sem alterar estado; botão "Publicar / Despublicar" alterna `status` e guarda.
+Fluxo de guardar: rascunho (`draft`) ↔ publicado (`published`, com `published_at`). Botão "Guardar" persiste sem alterar estado; botão "Publicar / Despublicar" alterna `status` e guarda.
 
 ## Tabs
 
