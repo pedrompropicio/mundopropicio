@@ -103,6 +103,29 @@ export default function EventMarketingEditor() {
     enabled: !!eventId,
   });
 
+  const parentEventId: string | null = (eventQuery.data as any)?.parent_event_id ?? null;
+
+  const motherQuery = useQuery({
+    queryKey: ["crm-event-marketing-mother", parentEventId],
+    enabled: !!parentEventId,
+    queryFn: async () => {
+      const [{ data: mkData }, { data: evData }] = await Promise.all([
+        (supabase as any).from("event_marketing").select("*").eq("event_id", parentEventId).maybeSingle(),
+        (supabase as any).from("events").select("id, name, slug").eq("id", parentEventId).maybeSingle(),
+      ]);
+      return { marketing: mkData as EventMarketingRow | null, event: evData as { id: string; name: string; slug: string | null } | null };
+    },
+  });
+
+  const inherited = motherQuery.data?.marketing ?? null;
+  const motherEvent = motherQuery.data?.event ?? null;
+
+  const ph = (val: unknown, fallback = "") => {
+    if (val === null || val === undefined || val === "") return fallback;
+    const s = String(val);
+    return `Herdado: ${s.length > 80 ? s.slice(0, 77) + "…" : s}`;
+  };
+
   const [form, setForm] = useState<FormState | null>(null);
 
   useEffect(() => {
