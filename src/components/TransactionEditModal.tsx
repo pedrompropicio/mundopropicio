@@ -58,6 +58,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
     is_reimbursement: transaction.is_reimbursement ?? false,
     reimbursement_to: transaction.reimbursement_to ?? "",
+    reimbursement_note_id: "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -205,6 +206,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isLinkedToReimbursementNote = !!reimbursementNoteLink;
+
+  // Notas de reembolso ativas (draft/approved) para permitir vincular no ato da edição.
+  const { data: reimbursementNotes = [] } = useQuery({
+    queryKey: ["reimbursement-notes-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reimbursement_notes")
+        .select("id, code, employee_name, status")
+        .in("status", ["draft", "approved"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: form.is_reimbursement && !isLinkedToReimbursementNote,
+  });
   const [partnerPaidDate, setPartnerPaidDate] = useState<string>("");
   useEffect(() => {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
@@ -323,7 +339,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           changes.push({ field_name: fieldLabels[key], old_value: oldVal, new_value: newVal });
         }
       }
-      if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
+      const wantsNewReimbursementLink =
+        form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
+      if (changes.length === 0 && !wantsNewReimbursementLink) throw new Error("Nenhuma alteração detectada.");
 
       const paymentFields = {
         payment_method: form.payment_method,
@@ -391,31 +409,61 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ? Object.entries(childAdjustments).map(([id, amt]) => ({ id, amount: amt }))
         : undefined;
 
-      const { data, error } = await supabase.functions.invoke("update-transaction", {
-        body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
-      });
-      if (error) {
-        // FunctionsHttpError → tentar extrair mensagem do corpo
-        try {
-          const ctx: any = (error as any).context;
-          if (ctx?.json) {
-            const j = await ctx.json();
-            const msg = j?.error || j?.message;
-            if (msg) throw new Error(j?.details ? `${msg} — ${j.details}` : msg);
-          } else if (ctx?.text) {
-            const t = await ctx.text();
-            if (t) throw new Error(t);
+      let data: any = null;
+      if (changes.length > 0) {
+        const res = await supabase.functions.invoke("update-transaction", {
+          body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
+        });
+        const error = res.error;
+        data = res.data;
+        if (error) {
+          // FunctionsHttpError → tentar extrair mensagem do corpo
+          try {
+            const ctx: any = (error as any).context;
+            if (ctx?.json) {
+              const j = await ctx.json();
+              const msg = j?.error || j?.message;
+              if (msg) throw new Error(j?.details ? `${msg} — ${j.details}` : msg);
+            } else if (ctx?.text) {
+              const t = await ctx.text();
+              if (t) throw new Error(t);
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message) throw parseErr;
           }
-        } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message) throw parseErr;
+          throw error;
         }
-        throw error;
+        if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
       }
-      if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
 
       // Sync partner_paid_expenses.paid_date if it changed
       if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
         await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
+      }
+
+      // Vincular à Nota de Reembolso escolhida (se ainda não estava vinculada).
+      if (
+        form.is_reimbursement &&
+        form.reimbursement_note_id &&
+        !isLinkedToReimbursementNote
+      ) {
+        const { error: linkErr } = await supabase
+          .from("reimbursement_note_items")
+          .insert({
+            reimbursement_note_id: form.reimbursement_note_id,
+            transaction_id: transaction.id,
+          } as any);
+        if (linkErr) {
+          console.error("[reimbursement link] failed", linkErr);
+          toast({
+            title: "TX atualizada, mas falhou vincular à Nota de Reembolso",
+            description: linkErr.message,
+            variant: "destructive",
+          });
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["transaction-reimbursement-note-link", transaction.id] });
+          queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
+        }
       }
 
       // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
@@ -1283,19 +1331,46 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 </span>
               </div>
               {form.is_reimbursement && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Colaborador</label>
-                  <input
-                    value={form.reimbursement_to}
-                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
-                    placeholder="Nome do colaborador a reembolsar"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  {isLinkedToReimbursementNote && (reimbursementNoteLink as any)?.reimbursement_notes && (
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Já vinculada à Nota {(reimbursementNoteLink as any).reimbursement_notes.code}.
-                    </p>
+                <div className="space-y-2">
+                  {!isLinkedToReimbursementNote && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota de Reembolso</label>
+                      <SearchableSelect
+                        options={reimbursementNotes.map((n: any) => ({
+                          value: n.id,
+                          label: `${n.code} — ${n.employee_name}`,
+                        }))}
+                        value={form.reimbursement_note_id}
+                        onValueChange={(v) => {
+                          const note = (reimbursementNotes as any[]).find((n) => n.id === v);
+                          setForm({
+                            ...form,
+                            reimbursement_note_id: v,
+                            reimbursement_to: note?.employee_name || form.reimbursement_to,
+                          });
+                        }}
+                        placeholder="Selecionar nota existente…"
+                        searchPlaceholder="Pesquisar por código ou funcionário…"
+                      />
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Opcional — vincula a transação à nota ao guardar. Também podes deixar em branco e vincular depois pela Nota.
+                      </p>
+                    </div>
                   )}
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Colaborador</label>
+                    <input
+                      value={form.reimbursement_to}
+                      onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
+                      placeholder="Nome do colaborador a reembolsar"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    {isLinkedToReimbursementNote && (reimbursementNoteLink as any)?.reimbursement_notes && (
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Já vinculada à Nota {(reimbursementNoteLink as any).reimbursement_notes.code}.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
