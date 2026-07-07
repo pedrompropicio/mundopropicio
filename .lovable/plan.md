@@ -1,57 +1,210 @@
-# Relatório MP CRM — controlo Publicar/Despublicar no Portal
+Análise concluída sem alterar código.
 
-Análise só de leitura. Sem alterações.
+1. Escritas em `event_marketing` encontradas no `src/`
 
-## 1. Rotas e ficheiros principais do MP CRM
+Comando pedido:
+```bash
+rg -n "from\(\"event_marketing\"\)|from\('event_marketing'\)" src/
+```
 
-Layout + sidebar:
-- `src/components/layout/CrmLayout.tsx` (guard de auth/role)
-- `src/components/CrmSidebar.tsx` (14 entradas: Dashboard, Eventos, Contactos, Leads, Audiências, Blog, Páginas, Vídeos, Imprensa, Config. portal, Meta CAPI, Meta Audiences, Google Ads)
+Resultado:
+```text
+src/pages/crm-admin/eventos/EventosList.tsx:122:          .from("event_marketing")
+src/pages/crm-admin/eventos/EventMarketingEditor.tsx:94:        .from("event_marketing")
+src/pages/crm-admin/eventos/EventMarketingEditor.tsx:129:        .from("event_marketing")
+```
 
-Páginas (todas em `src/pages/crm-admin/`):
-- `CrmDashboard.tsx` — `/crm`
-- `eventos/EventosList.tsx` — `/crm/eventos` (tabs Próprios / Endossados)
-- `eventos/EventMarketingEditor.tsx` — `/crm/eventos/:eventId` (tabs Gestão, Hero, Média, Experiências, CTA, Imprensa, Oferta, SEO, FAQs, Lineup)
-- `eventos/NewEventoPage.tsx`, `EndossarEventoPage.tsx`, `EndorsementEditor.tsx`, `FaqsTab.tsx`, `LineupTab.tsx`, `MetaAudienceCard.tsx`
-- `contactos/`, `leads/LeadsList.tsx` + `LeadDetailsSheet.tsx`, `audiences/`, `blog/`, `paginas/`, `videos/VideosList.tsx`, `press/PressList.tsx`, `portal-settings/`, `meta-capi/`, `meta-audiences/`, `google-ads/`
-- Constantes: `constants.ts` (`MP_COMPANY_ID`), tipos: `types.ts`
+Classificação:
+- `src/pages/crm-admin/eventos/EventosList.tsx:122` — leitura apenas: `.select("event_id, status, updated_at")`; não escreve.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:94` — leitura apenas: `.select("*")`; não escreve.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:129` — única escrita encontrada no `src/`: `.upsert(payload, { onConflict: "event_id" })`.
 
-## 2. O CRM já mostra eventos?
+2. Única escrita real: `EventMarketingEditor.tsx:121-130`
 
-Sim, extensivamente:
-- **Lista** `EventosList.tsx` — lê `public.events` (não usa `events_public`) filtrado por `company_id = MP_COMPANY_ID`, com JOIN a `event_marketing` (status drafted/published). Colunas: nome, tipo (própria/parceria), slug, data, estado marketing. Filtros: pesquisa, estado, "apenas activos". Tab paralela "Endossados" lê `event_portal_endorsements`.
-- **Detalhe** `EventMarketingEditor.tsx` — tab "Gestão" já lê e escreve directamente em `events` os campos `portal_visible`, `portal_featured`, `slug` (via update), `ticketing_url`, `management_type`, etc. **Já existe hoje um Switch "portal_visible"** persistido por UPDATE plano à tabela `events` (linha 645/696). Não usa as RPCs novas nem faz cascata para cidades-filhas de tour.
-- **Leads/promotores por evento**: `leads/LeadsList.tsx` lista leads globais com `event_id`; `LeadDetailsSheet` mostra evento associado. Não há vista "leads deste evento" dentro do EventMarketingEditor.
+Trecho relevante:
+```ts
+const saveMutation = useMutation({
+  mutationFn: async (next: FormState) => {
+    const payload: any = {
+      ...next,
+      updated_by: user?.id ?? null,
+    };
+    if (!mkQuery.data) payload.created_by = user?.id ?? null;
+    const { error } = await (supabase as any)
+      .from("event_marketing")
+      .upsert(payload, { onConflict: "event_id" });
+    if (error) throw error;
+  },
+```
 
-## 3. Onde encaixar o botão Publicar/Despublicar
+Objeto enviado:
+```ts
+payload = {
+  ...next,
+  updated_by: user?.id ?? null,
+  created_by?: user?.id ?? null // só se !mkQuery.data
+}
+```
 
-**Recomendado (principal) — substituir o Switch actual da tab "Gestão"** em `EventMarketingEditor.tsx` (bloco `GestaoTab`, linhas ~715–800):
-- Trocar o par `portalVisible`/`portalFeatured` gravados via UPDATE plano por um **par de botões** (ou 1 botão com toggle) que chama `supabase.rpc('publish_event_to_portal', { p_event_id: eventId })` / `unpublish_event_from_portal`.
-- Vantagens: reusa a UI onde o utilizador já espera o controlo; ganha automaticamente slug + cascata multi-cidade; invalida `["crm-event", eventId]` e `["crm-eventos-list"]` (padrão já usado no `save` da mutation, linhas 709–710).
-- Ficheiros a tocar: só `src/pages/crm-admin/eventos/EventMarketingEditor.tsx`. `portal_featured` fica como update plano à parte (a RPC não trata destaque).
+Origem de `status` nesta escrita:
+- vem de `next.status` via spread `...next`.
+- `next` é o `form` atual ou o objeto criado em `togglePublish`.
 
-**Alternativa — acção em linha na tabela** `EventosList.tsx` (`PropriosTab`):
-- Adicionar uma coluna/botão "Publicar" ao lado de "Editar marketing" (linhas ~285–292), chamando as mesmas RPCs.
-- Vantagem: publicação em massa sem entrar no editor. Desvantagem: duplica a UI de estado (já existe badge "Publicado/Rascunho" que reflecte `event_marketing.status`, distinto de `events.portal_visible` — atenção a confusão semântica).
-- Ficheiro: `src/pages/crm-admin/eventos/EventosList.tsx`.
+Fontes possíveis de `next.status`:
 
-Nota: a UI actual mistura dois conceitos — `event_marketing.status` (rascunho/publicado do conteúdo) e `events.portal_visible` (aparece no portal). Vale a pena, ao mesmo tempo, deixar claro que o botão novo controla `portal_visible` (+ cascata + slug) e não o status de marketing.
+A. Evento sem linha prévia em `event_marketing`
+```ts
+const emptyForm = (eventId: string): FormState => ({
+  event_id: eventId,
+  company_id: MP_COMPANY_ID,
+  status: "draft",
+  ...
+});
+```
+Status enviado: `"draft"`.
 
-## 4. Padrão de chamada Supabase
+B. Evento com linha prévia em `event_marketing`
+```ts
+const { created_at, updated_at, created_by, updated_by, ...rest } = mkQuery.data;
+setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: ... });
+```
+Status enviado: `mkQuery.data.status`, vindo diretamente da BD.
 
-- Cliente único: `import { supabase } from "@/integrations/supabase/client"` (já usado em todo o CRM).
-- Leituras via `@tanstack/react-query` `useQuery`, escritas via `useMutation` com `onSuccess` a fazer `qc.invalidateQueries({ queryKey: [...] })` + toast (`sonner`). Exemplo canónico: `GestaoTab.save` em `EventMarketingEditor.tsx` linhas 685–713.
-- Para as RPCs novas: `await supabase.rpc('publish_event_to_portal', { p_event_id: eventId })` dentro de `useMutation`, invalidando `["crm-event", eventId]`, `["crm-event-marketing", eventId]` e `["crm-eventos-list"]`. Tipos gerados já contêm `publish_event_to_portal` em `src/integrations/supabase/types.ts` (linha 10678), portanto sem `as any`.
+C. Botão `Publicar`/`Despublicar` do cabeçalho do editor de marketing
+```ts
+const next: FormState =
+  form.status === "published"
+    ? { ...form, status: "draft" }
+    : { ...form, status: "published", published_at: form.published_at ?? new Date().toISOString() };
+setForm(next);
+saveMutation.mutate(next);
+```
+Status enviado: literal `"draft"` ou literal `"published"`.
 
-## 5. Riscos e armadilhas
+D. Botão global `Guardar`
+```tsx
+<Button
+  type="button"
+  onClick={() => form && saveMutation.mutate(form)}
+>
+  Guardar
+</Button>
+```
+Status enviado: `form.status`.
+- Para evento sem marketing prévio, deveria ser `"draft"`, porque o formulário nasce de `emptyForm(eventId)`.
+- Para evento com marketing prévio, é o valor vindo da BD.
 
-- **RLS / permissões**: as RPCs devem ser `SECURITY DEFINER` e validar admin/manager + `company_id`. Confirmar antes de expor o botão a roles inferiores. O `CrmLayout` já filtra a admin/platform_admin/marketing_manager/content_manager, mas dentro do CRM há content_manager que pode não dever publicar.
-- **Multi-tenant**: `EventosList` está hard-coded a `MP_COMPANY_ID` (Mundo Propício). A RPC deve rejeitar eventos de outra `company_id` — validar. Endossos (`event_portal_endorsements`) são cross-company e a RPC de publish provavelmente **não** os cobre.
-- **Cascata multi-cidade**: só actua quando `events.event_type='multi_day'`. Confirmar que o CRM não trata tours de outro tipo (ex.: `multi_city`) — se sim, o botão parece funcionar mas não propaga.
-- **Coerência de estado**: hoje `EventMarketingEditor` grava `portal_visible` em UPDATE plano sem cascata; se coexistir com o botão novo, um utilizador pode "despublicar via Switch" a cidade-mãe mas deixar filhas visíveis. Recomenda-se remover o Switch e passar tudo pela RPC.
-- **Slug**: a RPC gera slug se faltar — se o utilizador já editou slug à mão noutro sítio, verificar que a RPC não sobrescreve.
-- **Cache**: invalidar também qualquer query do portal público que o CRM tenha (não vi nenhuma; portal vive noutro app), mas invalidar `["crm-event", eventId]` chega para o editor refrescar `portal_visible`.
-- **`portal_featured`**: continua a exigir UPDATE separado — não misturar com o botão publicar.
+3. Busca por valores inválidos de status
 
-## Próximo passo sugerido
-Confirmar a opção (principal ou alternativa) e as permissões esperadas (só admin/manager? marketing_manager também?) antes de eu passar a build mode.
+Nos ficheiros diretamente relacionados:
+```text
+src/pages/crm-admin/types.ts:4:export type EventMarketingStatus = "draft" | "published";
+src/pages/crm-admin/eventos/EventMarketingEditor.tsx:40:  status: "draft",
+src/pages/crm-admin/eventos/EventMarketingEditor.tsx:144:      form.status === "published"
+src/pages/crm-admin/eventos/EventMarketingEditor.tsx:145:        ? { ...form, status: "draft" }
+src/pages/crm-admin/eventos/EventMarketingEditor.tsx:146:        : { ...form, status: "published", published_at: form.published_at ?? new Date().toISOString() };
+src/pages/crm-admin/eventos/EventosList.tsx:186:              <SelectItem value="published">Publicado</SelectItem>
+src/pages/crm-admin/eventos/EventosList.tsx:187:              <SelectItem value="draft">Rascunho</SelectItem>
+src/pages/crm-admin/eventos/EventosList.tsx:252:                  : st === "draft"
+src/pages/crm-admin/eventos/EventosList.tsx:256:                st === "published" ? "Publicado" : st === "draft" ? "Rascunho" : "Sem marketing";
+```
+
+Não encontrei no `src/` nenhuma escrita em `event_marketing` a enviar literalmente:
+- `"drafted"`
+- `""`
+- `"rascunho"`
+- maiúsculas tipo `"DRAFT"` / `"PUBLISHED"`
+
+Também não encontrei outra `.insert`, `.update` ou `.upsert` em `event_marketing` fora da escrita única acima.
+
+4. Botões da tab Gestão vs botão global
+
+`Guardar gestão` — `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:685-704` e `938-942`
+
+Objeto enviado:
+```ts
+await supabase
+  .from("events")
+  .update({
+    management_type: mgmt,
+    partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
+    location: location.trim() || null,
+    ticketing_url: ticketingUrl.trim() || null,
+    ad_destination_url: adDestinationUrl.trim() || null,
+    ticketing_provider: ticketingProvider.trim() || null,
+    portal_featured: portalFeatured,
+    vip_coupon_code: vipCode.trim() || null,
+    vip_coupon_discount_label: vipLabel.trim() || null,
+    vip_coupon_valid_until: vipValidUntil ? `${vipValidUntil}T23:59:59Z` : null,
+    venue_map_url: venueMapUrl.trim() || null,
+    venue_directions_url: venueDirectionsUrl.trim() || null,
+  })
+  .eq("id", eventId);
+```
+
+Conclusão: `Guardar gestão` não toca `event_marketing`; atualiza apenas `events`. Não envia `status` para `event_marketing`.
+
+Botão global `Guardar` — `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:520-532`
+
+Conclusão: este toca `event_marketing` via `saveMutation.mutate(form)`. O `status` enviado é `form.status`.
+
+5. Toggle “Visível no portal”
+
+Trecho:
+```ts
+const publishToggle = useMutation({
+  mutationFn: async (nextVisible: boolean) => {
+    const rpcName = nextVisible ? "publish_event_to_portal" : "unpublish_event_from_portal";
+    const { data, error } = await (supabase as any).rpc(rpcName, { p_event_id: eventId });
+```
+
+Conclusão: não escreve em `event_marketing`; chama RPCs de visibilidade do portal. Não envia `status` de marketing.
+
+6. Edge functions
+
+Comando:
+```bash
+rg -n "event_marketing" supabase/functions
+```
+
+Resultado: vazio.
+
+Conclusão: não há edge function em `supabase/functions/*` a escrever ou ler `event_marketing`.
+
+7. Conclusão técnica provável
+
+Pelo estado atual do código em `src/`, a única escrita em `event_marketing` envia `status` a partir do `form`. Para eventos sem marketing prévio, o código visível inicializa esse `form.status` como `"draft"`, que é válido.
+
+Logo, se o erro ainda acontece ao gravar “Deive Leonardo - Lisboa”, as hipóteses mais prováveis são:
+
+1. O preview/produção ainda está a correr bundle antigo com `status: "drafted"`.
+2. Há uma versão externa/commit ainda não sincronizada onde `emptyForm.status` continua inválido.
+3. A linha `event_marketing` já existe com valor inválido antigo e o formulário carrega esse `mkQuery.data.status`; mas isto é menos provável porque a constraint impediria persistir esse valor na tabela atual.
+4. O erro vem do botão global `Guardar`, não de `Guardar gestão`; `Guardar gestão` não toca `event_marketing`.
+
+Lista completa de pontos com status enviado:
+
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:37-68` — `emptyForm` para novo marketing: `status: "draft"`.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:109-113` — marketing existente: `status` vem de `mkQuery.data.status`.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:121-130` — upsert real: envia `payload.status = next.status`.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:141-149` — publicar/despublicar marketing: envia `"published"` ou `"draft"`.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:520-532` — botão global `Guardar`: envia `form.status` para `event_marketing`.
+- `src/pages/crm-admin/eventos/EventMarketingEditor.tsx:685-704` + `938-942` — botão `Guardar gestão`: não envia `event_marketing.status`; só atualiza `events`.
+- `src/pages/crm-admin/eventos/EventosList.tsx:121-124` — leitura apenas: não envia status.
+- `src/pages/crm-admin/CrmDashboard.tsx:145` — leitura/count apenas: filtra `status = "published"`; não escreve.
+- `supabase/functions/*` — nenhuma ocorrência de `event_marketing`.
+
+Questões/decisões em aberto:
+```text
+Contexto: análise do erro event_marketing_status_check ao gravar evento sem marketing prévio.
+
+Questão 1 — Próximo diagnóstico recomendado
+Opção A (recomendada): verificar no runtime/bundle do preview se ainda existe "drafted" carregado no JS servido.
+Opção B: testar fluxo com Playwright e capturar request/resposta ao clicar Guardar no Deive.
+Opção C: passar direto para correção defensiva no upsert, normalizando status para draft/published antes de gravar.
+
+Questão 2 — Se for para corrigir depois
+Opção A (recomendada): no saveMutation, sanitizar payload.status: se não for "draft" ou "published", forçar "draft".
+Opção B: omitir status no insert quando não há linha prévia e deixar default da BD aplicar.
+Opção C: apenas limpar bundle/cache/publicar novamente, se confirmado que o código fonte já está certo.
+```
