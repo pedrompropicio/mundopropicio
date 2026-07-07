@@ -103,6 +103,29 @@ export default function EventMarketingEditor() {
     enabled: !!eventId,
   });
 
+  const parentEventId: string | null = (eventQuery.data as any)?.parent_event_id ?? null;
+
+  const motherQuery = useQuery({
+    queryKey: ["crm-event-marketing-mother", parentEventId],
+    enabled: !!parentEventId,
+    queryFn: async () => {
+      const [{ data: mkData }, { data: evData }] = await Promise.all([
+        (supabase as any).from("event_marketing").select("*").eq("event_id", parentEventId).maybeSingle(),
+        (supabase as any).from("events").select("id, name, slug").eq("id", parentEventId).maybeSingle(),
+      ]);
+      return { marketing: mkData as EventMarketingRow | null, event: evData as { id: string; name: string; slug: string | null } | null };
+    },
+  });
+
+  const inherited = motherQuery.data?.marketing ?? null;
+  const motherEvent = motherQuery.data?.event ?? null;
+
+  const ph = (val: unknown, fallback = "") => {
+    if (val === null || val === undefined || val === "") return fallback;
+    const s = String(val);
+    return `Herdado: ${s.length > 80 ? s.slice(0, 77) + "…" : s}`;
+  };
+
   const [form, setForm] = useState<FormState | null>(null);
 
   useEffect(() => {
@@ -250,6 +273,22 @@ export default function EventMarketingEditor() {
         </Card>
       )}
 
+      {parentEventId && (
+        <Card className="border-blue-500/30 bg-blue-500/5 p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              Conteúdo herdado do tour «<strong>{motherEvent?.name ?? "…"}</strong>». Preenche aqui só o que for diferente desta cidade; o que deixares vazio usa o da mãe.
+            </span>
+            <Link
+              to={`/crm/eventos/${parentEventId}`}
+              className="ml-auto inline-flex items-center gap-1 text-blue-600 hover:underline"
+            >
+              Editar a mãe <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
+        </Card>
+      )}
+
       <Tabs defaultValue={isForeign ? "hero" : "gestao"}>
         <TabsList className="flex w-full flex-wrap h-auto">
           <TabsTrigger value="gestao">Gestão</TabsTrigger>
@@ -276,6 +315,7 @@ export default function EventMarketingEditor() {
                   value={form!.hook_pt ?? ""}
                   onChange={(e) => set("hook_pt", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.hook_pt)}
                 />
               </Field>
               <Field label="Hook (EN)">
@@ -283,6 +323,7 @@ export default function EventMarketingEditor() {
                   value={form!.hook_en ?? ""}
                   onChange={(e) => set("hook_en", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.hook_en)}
                 />
               </Field>
               <Field label="Descrição longa (PT)">
@@ -290,6 +331,7 @@ export default function EventMarketingEditor() {
                   value={form!.description_long_pt ?? ""}
                   onChange={(e) => set("description_long_pt", e.target.value || null)}
                   rows={8}
+                  placeholder={ph(inherited?.description_long_pt)}
                 />
               </Field>
               <Field label="Descrição longa (EN)">
@@ -297,6 +339,7 @@ export default function EventMarketingEditor() {
                   value={form!.description_long_en ?? ""}
                   onChange={(e) => set("description_long_en", e.target.value || null)}
                   rows={8}
+                  placeholder={ph(inherited?.description_long_en)}
                 />
               </Field>
             </div>
@@ -311,25 +354,32 @@ export default function EventMarketingEditor() {
                 value={form!.hero_image_url}
                 onChange={(v) => set("hero_image_url", v)}
                 aspectRatio="16/9"
+                hint={!form!.hero_image_url && inherited?.hero_image_url ? "Herdado da mãe" : undefined}
               />
               <ImageUploader
                 label="OG image (1.91:1)"
                 value={form!.og_image_url}
                 onChange={(v) => set("og_image_url", v)}
                 aspectRatio="1200/630"
+                hint={!form!.og_image_url && inherited?.og_image_url ? "Herdado da mãe" : undefined}
               />
               <ImageUploader
                 label="Poster vertical (2:3)"
                 value={form!.poster_vertical_url}
                 onChange={(v) => set("poster_vertical_url", v)}
                 aspectRatio="2/3"
+                hint={!form!.poster_vertical_url && inherited?.poster_vertical_url ? "Herdado da mãe" : undefined}
               />
             </div>
             <MultiImageUploader
               label="Galeria"
               value={form!.gallery_urls ?? []}
               onChange={(v) => set("gallery_urls", v)}
-              hint="Arrasta para reordenar não disponível — remove e volta a adicionar"
+              hint={
+                (form!.gallery_urls ?? []).length === 0 && (inherited?.gallery_urls ?? []).length > 0
+                  ? `Herdado da mãe: ${(inherited?.gallery_urls ?? []).length} imagem(ns)`
+                  : "Arrasta para reordenar não disponível — remove e volta a adicionar"
+              }
             />
             <div className="grid gap-4 sm:grid-cols-2 border-t border-border pt-4">
               <Field label="Vídeo / Trailer (URL)" hint="YouTube ou Vimeo · opcional">
@@ -337,7 +387,7 @@ export default function EventMarketingEditor() {
                   type="url"
                   value={form!.hero_video_url ?? ""}
                   onChange={(e) => set("hero_video_url", e.target.value || null)}
-                  placeholder="https://youtu.be/… ou https://vimeo.com/…"
+                  placeholder={ph(inherited?.hero_video_url, "https://youtu.be/… ou https://vimeo.com/…")}
                 />
               </Field>
               <Field label="Música (Spotify ou YouTube)" hint="Link de partilha do artista/álbum/playlist · opcional">
@@ -374,12 +424,14 @@ export default function EventMarketingEditor() {
                 <Input
                   value={form!.cta_primary_label_pt ?? ""}
                   onChange={(e) => set("cta_primary_label_pt", e.target.value || null)}
+                  placeholder={ph(inherited?.cta_primary_label_pt)}
                 />
               </Field>
               <Field label="CTA primário (EN)">
                 <Input
                   value={form!.cta_primary_label_en ?? ""}
                   onChange={(e) => set("cta_primary_label_en", e.target.value || null)}
+                  placeholder={ph(inherited?.cta_primary_label_en)}
                 />
               </Field>
               <Field label="Mensagem de urgência (PT)">
@@ -387,6 +439,7 @@ export default function EventMarketingEditor() {
                   value={form!.urgency_message_pt ?? ""}
                   onChange={(e) => set("urgency_message_pt", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.urgency_message_pt)}
                 />
               </Field>
               <Field label="Mensagem de urgência (EN)">
@@ -394,6 +447,7 @@ export default function EventMarketingEditor() {
                   value={form!.urgency_message_en ?? ""}
                   onChange={(e) => set("urgency_message_en", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.urgency_message_en)}
                 />
               </Field>
             </div>
@@ -408,6 +462,7 @@ export default function EventMarketingEditor() {
                   value={form!.press_quote_pt ?? ""}
                   onChange={(e) => set("press_quote_pt", e.target.value || null)}
                   rows={3}
+                  placeholder={ph(inherited?.press_quote_pt)}
                 />
               </Field>
               <Field label="Citação de imprensa (EN)">
@@ -415,12 +470,14 @@ export default function EventMarketingEditor() {
                   value={form!.press_quote_en ?? ""}
                   onChange={(e) => set("press_quote_en", e.target.value || null)}
                   rows={3}
+                  placeholder={ph(inherited?.press_quote_en)}
                 />
               </Field>
               <Field label="Fonte da citação">
                 <Input
                   value={form!.press_quote_source ?? ""}
                   onChange={(e) => set("press_quote_source", e.target.value || null)}
+                  placeholder={ph(inherited?.press_quote_source)}
                 />
               </Field>
             </div>
@@ -429,6 +486,7 @@ export default function EventMarketingEditor() {
                 <Input
                   value={form!.performer_name ?? ""}
                   onChange={(e) => set("performer_name", e.target.value || null)}
+                  placeholder={ph(inherited?.performer_name)}
                 />
               </Field>
               <Field label="Performer (URL)">
@@ -436,7 +494,7 @@ export default function EventMarketingEditor() {
                   type="url"
                   value={form!.performer_url ?? ""}
                   onChange={(e) => set("performer_url", e.target.value || null)}
-                  placeholder="https://…"
+                  placeholder={ph(inherited?.performer_url, "https://…")}
                 />
               </Field>
             </div>
@@ -454,7 +512,7 @@ export default function EventMarketingEditor() {
         <TabsContent value="oferta">
           <Card className="space-y-4 p-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Preço mínimo">
+              <Field label="Preço mínimo" hint={inherited?.offer_price_min != null && form!.offer_price_min == null ? `Herdado: ${inherited.offer_price_min}` : undefined}>
                 <Input
                   type="number"
                   step="0.01"
@@ -462,9 +520,10 @@ export default function EventMarketingEditor() {
                   onChange={(e) =>
                     set("offer_price_min", e.target.value === "" ? null : Number(e.target.value))
                   }
+                  placeholder={inherited?.offer_price_min != null ? String(inherited.offer_price_min) : ""}
                 />
               </Field>
-              <Field label="Preço máximo">
+              <Field label="Preço máximo" hint={inherited?.offer_price_max != null && form!.offer_price_max == null ? `Herdado: ${inherited.offer_price_max}` : undefined}>
                 <Input
                   type="number"
                   step="0.01"
@@ -472,6 +531,7 @@ export default function EventMarketingEditor() {
                   onChange={(e) =>
                     set("offer_price_max", e.target.value === "" ? null : Number(e.target.value))
                   }
+                  placeholder={inherited?.offer_price_max != null ? String(inherited.offer_price_max) : ""}
                 />
               </Field>
               <Field label="Moeda">
@@ -517,6 +577,7 @@ export default function EventMarketingEditor() {
                   maxLength={200}
                   value={form!.meta_description_pt ?? ""}
                   onChange={(e) => set("meta_description_pt", e.target.value || null)}
+                  placeholder={ph(inherited?.meta_description_pt)}
                 />
               </Field>
               <Field
@@ -528,6 +589,7 @@ export default function EventMarketingEditor() {
                   maxLength={200}
                   value={form!.meta_description_en ?? ""}
                   onChange={(e) => set("meta_description_en", e.target.value || null)}
+                  placeholder={ph(inherited?.meta_description_en)}
                 />
               </Field>
             </div>
