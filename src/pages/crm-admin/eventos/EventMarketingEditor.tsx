@@ -125,6 +125,9 @@ export default function EventMarketingEditor() {
         updated_by: user?.id ?? null,
       };
       if (!mkQuery.data) payload.created_by = user?.id ?? null;
+      if (payload.status !== "draft" && payload.status !== "published") {
+        payload.status = "draft";
+      }
       const { error } = await (supabase as any)
         .from("event_marketing")
         .upsert(payload, { onConflict: "event_id" });
