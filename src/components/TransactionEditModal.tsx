@@ -189,6 +189,22 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isPaidByPartner = !!partnerPaidLink;
+
+  // Detect if this transaction is already linked to a reimbursement note
+  // (used to block toggling "Reembolso" OFF while it's part of a note).
+  const { data: reimbursementNoteLink } = useQuery({
+    queryKey: ["transaction-reimbursement-note-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reimbursement_note_items")
+        .select("id, reimbursement_note_id, reimbursement_notes:reimbursement_note_id(code, status)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isLinkedToReimbursementNote = !!reimbursementNoteLink;
   const [partnerPaidDate, setPartnerPaidDate] = useState<string>("");
   useEffect(() => {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
