@@ -1254,6 +1254,54 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          {/* Reembolso toggle — despesas ainda não aprovadas nem pagas.
+              Permite ao editor corrigir uma transação que devia ter sido marcada como reembolso. */}
+          {isExpense && !isApproved && !isPaid && !hasChildren && !isPaidByPartner && !isPartnerExtra && (
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.is_reimbursement}
+                  disabled={isLinkedToReimbursementNote && form.is_reimbursement}
+                  onCheckedChange={(v) => {
+                    if (!v && isLinkedToReimbursementNote) {
+                      toast({
+                        title: "Transação vinculada a uma Nota de Reembolso",
+                        description: "Desvincule primeiro pela Nota antes de desmarcar como reembolso.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setForm({ ...form, is_reimbursement: v, reimbursement_to: v ? form.reimbursement_to : "" });
+                  }}
+                />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">💰 Reembolso a colaborador</span>
+                  <HelpTooltip text={helpTexts.reimbursementToggle} size={13} />
+                </div>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {form.is_reimbursement ? "Vincule a uma Nota após guardar" : "Marcar se foi despesa a reembolsar"}
+                </span>
+              </div>
+              {form.is_reimbursement && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Colaborador</label>
+                  <input
+                    value={form.reimbursement_to}
+                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
+                    placeholder="Nome do colaborador a reembolsar"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  {isLinkedToReimbursementNote && (reimbursementNoteLink as any)?.reimbursement_notes && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Já vinculada à Nota {(reimbursementNoteLink as any).reimbursement_notes.code}.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+
           {/* Transitory toggle — only admin/manager can change */}
           {(isAdmin || isManager) && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
