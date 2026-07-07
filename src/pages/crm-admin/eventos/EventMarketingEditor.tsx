@@ -354,25 +354,32 @@ export default function EventMarketingEditor() {
                 value={form!.hero_image_url}
                 onChange={(v) => set("hero_image_url", v)}
                 aspectRatio="16/9"
+                hint={!form!.hero_image_url && inherited?.hero_image_url ? "Herdado da mãe" : undefined}
               />
               <ImageUploader
                 label="OG image (1.91:1)"
                 value={form!.og_image_url}
                 onChange={(v) => set("og_image_url", v)}
                 aspectRatio="1200/630"
+                hint={!form!.og_image_url && inherited?.og_image_url ? "Herdado da mãe" : undefined}
               />
               <ImageUploader
                 label="Poster vertical (2:3)"
                 value={form!.poster_vertical_url}
                 onChange={(v) => set("poster_vertical_url", v)}
                 aspectRatio="2/3"
+                hint={!form!.poster_vertical_url && inherited?.poster_vertical_url ? "Herdado da mãe" : undefined}
               />
             </div>
             <MultiImageUploader
               label="Galeria"
               value={form!.gallery_urls ?? []}
               onChange={(v) => set("gallery_urls", v)}
-              hint="Arrasta para reordenar não disponível — remove e volta a adicionar"
+              hint={
+                (form!.gallery_urls ?? []).length === 0 && (inherited?.gallery_urls ?? []).length > 0
+                  ? `Herdado da mãe: ${(inherited?.gallery_urls ?? []).length} imagem(ns)`
+                  : "Arrasta para reordenar não disponível — remove e volta a adicionar"
+              }
             />
             <div className="grid gap-4 sm:grid-cols-2 border-t border-border pt-4">
               <Field label="Vídeo / Trailer (URL)" hint="YouTube ou Vimeo · opcional">
@@ -380,7 +387,7 @@ export default function EventMarketingEditor() {
                   type="url"
                   value={form!.hero_video_url ?? ""}
                   onChange={(e) => set("hero_video_url", e.target.value || null)}
-                  placeholder="https://youtu.be/… ou https://vimeo.com/…"
+                  placeholder={ph(inherited?.hero_video_url, "https://youtu.be/… ou https://vimeo.com/…")}
                 />
               </Field>
               <Field label="Música (Spotify ou YouTube)" hint="Link de partilha do artista/álbum/playlist · opcional">
