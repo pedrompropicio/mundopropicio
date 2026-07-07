@@ -1,7 +1,7 @@
 // Local types for CRM admin pages. Mirror the public schema for tables that may
 // not yet be in the generated supabase types or that we want narrower views of.
 
-export type EventMarketingStatus = "drafted" | "published";
+export type EventMarketingStatus = "draft" | "published";
 export type StaticPageStatus = "draft" | "published";
 
 export interface TicketExperience {
