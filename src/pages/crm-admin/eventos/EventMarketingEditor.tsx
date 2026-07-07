@@ -315,6 +315,7 @@ export default function EventMarketingEditor() {
                   value={form!.hook_pt ?? ""}
                   onChange={(e) => set("hook_pt", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.hook_pt)}
                 />
               </Field>
               <Field label="Hook (EN)">
@@ -322,6 +323,7 @@ export default function EventMarketingEditor() {
                   value={form!.hook_en ?? ""}
                   onChange={(e) => set("hook_en", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.hook_en)}
                 />
               </Field>
               <Field label="Descrição longa (PT)">
@@ -329,6 +331,7 @@ export default function EventMarketingEditor() {
                   value={form!.description_long_pt ?? ""}
                   onChange={(e) => set("description_long_pt", e.target.value || null)}
                   rows={8}
+                  placeholder={ph(inherited?.description_long_pt)}
                 />
               </Field>
               <Field label="Descrição longa (EN)">
@@ -336,6 +339,7 @@ export default function EventMarketingEditor() {
                   value={form!.description_long_en ?? ""}
                   onChange={(e) => set("description_long_en", e.target.value || null)}
                   rows={8}
+                  placeholder={ph(inherited?.description_long_en)}
                 />
               </Field>
             </div>
