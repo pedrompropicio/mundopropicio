@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +18,7 @@ import {
 interface Props {
   eventId: string;
   eventName: string;
+  eventDate: string | null;
   parentEventId: string | null;
   eventType: string | null;
   disabled?: boolean;
@@ -29,11 +30,19 @@ interface TourCity {
   date: string | null;
 }
 
-export function CopyTourContentDialog({ eventId, eventName, parentEventId, eventType, disabled }: Props) {
+function fmtDate(d: string | null) {
+  if (!d) return "—";
+  const [y, m, day] = d.split("-");
+  if (!y || !m || !day) return d;
+  return `${day}/${m}/${y}`;
+}
+
+export function CopyTourContentDialog({ eventId, eventName, eventDate, parentEventId, eventType, disabled }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedTargets, setSelectedTargets] = useState<Record<string, boolean>>({});
-  const [includeMarketing, setIncludeMarketing] = useState(true);
+  const [includeText, setIncludeText] = useState(true);
+  const [includeCreatives, setIncludeCreatives] = useState(true);
   const [includeFaqs, setIncludeFaqs] = useState(true);
   const [includeLineup, setIncludeLineup] = useState(true);
 
@@ -67,12 +76,19 @@ export function CopyTourContentDialog({ eventId, eventName, parentEventId, event
     [selectedTargets]
   );
 
+  const dateMismatches = useMemo(() => {
+    if (!includeCreatives) return [];
+    const cities = citiesQuery.data ?? [];
+    return cities.filter((c) => selectedTargets[c.id] && c.date !== eventDate);
+  }, [includeCreatives, citiesQuery.data, selectedTargets, eventDate]);
+
   const copyMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await (supabase as any).rpc("copy_event_tour_content", {
         p_source: eventId,
         p_targets: selectedIds,
-        p_include_marketing: includeMarketing,
+        p_include_text: includeText,
+        p_include_creatives: includeCreatives,
         p_include_faqs: includeFaqs,
         p_include_lineup: includeLineup,
       });
@@ -92,7 +108,8 @@ export function CopyTourContentDialog({ eventId, eventName, parentEventId, event
 
   if (!isTour) return null;
 
-  const canCopy = selectedIds.length > 0 && (includeMarketing || includeFaqs || includeLineup);
+  const anyType = includeText || includeCreatives || includeFaqs || includeLineup;
+  const canCopy = selectedIds.length > 0 && anyType;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -105,7 +122,7 @@ export function CopyTourContentDialog({ eventId, eventName, parentEventId, event
         <DialogHeader>
           <DialogTitle>Copiar marketing para cidades do tour</DialogTitle>
           <DialogDescription>
-            Isto <strong>SOBRESCREVE</strong> o marketing/FAQ/line-up das cidades selecionadas com o conteúdo de «{eventName}».
+            Isto <strong>SOBRESCREVE</strong> os campos selecionados nas cidades escolhidas com o conteúdo de «{eventName}». Campos não selecionados são preservados no destino.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,8 +131,12 @@ export function CopyTourContentDialog({ eventId, eventName, parentEventId, event
             <p className="mb-2 text-sm font-medium">Conteúdo a copiar</p>
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={includeMarketing} onCheckedChange={(v) => setIncludeMarketing(!!v)} />
-                Marketing (hero, media, experiências, SEO, oferta…)
+                <Checkbox checked={includeText} onCheckedChange={(v) => setIncludeText(!!v)} />
+                Textos de marketing (hook, descrição, SEO, oferta, CTAs…)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={includeCreatives} onCheckedChange={(v) => setIncludeCreatives(!!v)} />
+                Criativos (hero, poster vertical, OG, vídeo, galeria)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={includeFaqs} onCheckedChange={(v) => setIncludeFaqs(!!v)} />
@@ -127,6 +148,19 @@ export function CopyTourContentDialog({ eventId, eventName, parentEventId, event
               </label>
             </div>
           </div>
+
+          {dateMismatches.length > 0 && (
+            <div className="flex gap-2 rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
+              <div>
+                <p className="font-medium">Atenção: vais copiar criativos para cidades com data diferente da origem ({fmtDate(eventDate)}).</p>
+                <p className="text-muted-foreground">Se a arte tiver a data gravada, ficará errada:</p>
+                <p className="mt-1">
+                  {dateMismatches.map((c) => `${c.name} (${fmtDate(c.date)})`).join(", ")}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="mb-2 text-sm font-medium">Cidades-destino</p>
@@ -145,7 +179,7 @@ export function CopyTourContentDialog({ eventId, eventName, parentEventId, event
                       onCheckedChange={(v) => setSelectedTargets((s) => ({ ...s, [c.id]: !!v }))}
                     />
                     <span className="flex-1">{c.name}</span>
-                    <span className="text-xs text-muted-foreground">{c.date ?? "—"}</span>
+                    <span className="text-xs text-muted-foreground">{fmtDate(c.date)}</span>
                   </label>
                 ))}
               </div>
