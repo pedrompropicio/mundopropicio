@@ -56,6 +56,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     payment_reference: transaction.payment_reference ?? "",
     declared_withholding_rate: transaction.declared_withholding_rate != null ? String(transaction.declared_withholding_rate) : "",
     declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
+    is_reimbursement: transaction.is_reimbursement ?? false,
+    reimbursement_to: transaction.reimbursement_to ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -187,6 +189,22 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isPaidByPartner = !!partnerPaidLink;
+
+  // Detect if this transaction is already linked to a reimbursement note
+  // (used to block toggling "Reembolso" OFF while it's part of a note).
+  const { data: reimbursementNoteLink } = useQuery({
+    queryKey: ["transaction-reimbursement-note-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reimbursement_note_items")
+        .select("id, reimbursement_note_id, reimbursement_notes:reimbursement_note_id(code, status)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isLinkedToReimbursementNote = !!reimbursementNoteLink;
   const [partnerPaidDate, setPartnerPaidDate] = useState<string>("");
   useEffect(() => {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
@@ -292,6 +310,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         payment_reference: "Referência Pagamento",
         declared_withholding_rate: "Retenção IRS declarada (%)",
         declared_withholding_amount: "Retenção IRS declarada (€)",
+        is_reimbursement: "Reembolso",
+        reimbursement_to: "Colaborador (reembolso)",
       };
       const allowedFields = paidLocked
         ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
@@ -343,7 +363,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         fx_rate_source: currency === "EUR" ? null : fxRateSource,
         declared_withholding_rate: transaction.type === "expense" && parseFloat(form.declared_withholding_rate) > 0 ? Number(form.declared_withholding_rate) : null,
         declared_withholding_amount: transaction.type === "expense" && parseFloat(form.declared_withholding_amount) > 0 ? parseFloat(form.declared_withholding_amount) : null,
+        // Reembolso: só permitimos alterar em despesas ainda não aprovadas/pagas (ver UI).
+        // Se desligado, limpa também reimbursement_to.
+        ...(transaction.type === "expense" && !isApproved && !isPaid ? {
+          is_reimbursement: form.is_reimbursement,
+          reimbursement_to: form.is_reimbursement ? (form.reimbursement_to.trim() || null) : null,
+        } : {}),
       };
+
 
       if (!paidLocked && currency !== "EUR") {
         const orig = parseFloat(originalAmount) || 0;
@@ -1226,6 +1253,54 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <p className="mt-0.5 text-[10px] text-muted-foreground">Ajuste administrativo da data efetiva de pagamento</p>
             </div>
           )}
+
+          {/* Reembolso toggle — despesas ainda não aprovadas nem pagas.
+              Permite ao editor corrigir uma transação que devia ter sido marcada como reembolso. */}
+          {isExpense && !isApproved && !isPaid && !hasChildren && !isPaidByPartner && !isPartnerExtra && (
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.is_reimbursement}
+                  disabled={isLinkedToReimbursementNote && form.is_reimbursement}
+                  onCheckedChange={(v) => {
+                    if (!v && isLinkedToReimbursementNote) {
+                      toast({
+                        title: "Transação vinculada a uma Nota de Reembolso",
+                        description: "Desvincule primeiro pela Nota antes de desmarcar como reembolso.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setForm({ ...form, is_reimbursement: v, reimbursement_to: v ? form.reimbursement_to : "" });
+                  }}
+                />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">💰 Reembolso a colaborador</span>
+                  <HelpTooltip text={helpTexts.reimbursementToggle} size={13} />
+                </div>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {form.is_reimbursement ? "Vincule a uma Nota após guardar" : "Marcar se foi despesa a reembolsar"}
+                </span>
+              </div>
+              {form.is_reimbursement && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Colaborador</label>
+                  <input
+                    value={form.reimbursement_to}
+                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
+                    placeholder="Nome do colaborador a reembolsar"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  {isLinkedToReimbursementNote && (reimbursementNoteLink as any)?.reimbursement_notes && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Já vinculada à Nota {(reimbursementNoteLink as any).reimbursement_notes.code}.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
 
           {/* Transitory toggle — only admin/manager can change */}
           {(isAdmin || isManager) && (
