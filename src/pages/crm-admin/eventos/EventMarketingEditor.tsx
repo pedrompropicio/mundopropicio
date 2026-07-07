@@ -693,7 +693,7 @@ function GestaoTab({
           ticketing_url: ticketingUrl.trim() || null,
           ad_destination_url: adDestinationUrl.trim() || null,
           ticketing_provider: ticketingProvider.trim() || null,
-          portal_visible: portalVisible,
+          // portal_visible é gerido pelo toggle via RPC publish/unpublish_event_to_portal
           portal_featured: portalFeatured,
           vip_coupon_code: vipCode.trim() || null,
           vip_coupon_discount_label: vipLabel.trim() || null,
