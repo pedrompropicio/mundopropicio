@@ -214,6 +214,13 @@ export default function EventMarketingEditor() {
         </div>
         <div className="flex items-center gap-2">
           {headerStatus}
+          <CopyTourContentDialog
+            eventId={eventId}
+            eventName={ev?.name ?? ""}
+            parentEventId={ev?.parent_event_id ?? null}
+            eventType={ev?.event_type ?? null}
+            disabled={isForeign}
+          />
           <Button
             type="button"
             variant="outline"
