@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -78,7 +78,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -693,7 +693,7 @@ function GestaoTab({
           ticketing_url: ticketingUrl.trim() || null,
           ad_destination_url: adDestinationUrl.trim() || null,
           ticketing_provider: ticketingProvider.trim() || null,
-          portal_visible: portalVisible,
+          // portal_visible é gerido pelo toggle via RPC publish/unpublish_event_to_portal
           portal_featured: portalFeatured,
           vip_coupon_code: vipCode.trim() || null,
           vip_coupon_discount_label: vipLabel.trim() || null,
@@ -707,6 +707,49 @@ function GestaoTab({
     onSuccess: () => {
       toast.success("Gestão guardada.");
       qc.invalidateQueries({ queryKey: ["crm-event", eventId] });
+      qc.invalidateQueries({ queryKey: ["crm-eventos-list"] });
+    },
+    onError: (e: any) => toast.error(`Falha: ${e.message ?? e}`),
+  });
+
+  const publishToggle = useMutation({
+    mutationFn: async (nextVisible: boolean) => {
+      const rpcName = nextVisible ? "publish_event_to_portal" : "unpublish_event_from_portal";
+      const { data, error } = await (supabase as any).rpc(rpcName, { p_event_id: eventId });
+      if (error) throw error;
+      return { nextVisible, rows: (data ?? []) as Array<{ id: string; name: string; slug?: string | null; portal_visible: boolean }> };
+    },
+    onSuccess: ({ nextVisible, rows }) => {
+      const root = rows.find((r) => r.id === eventId) ?? rows[0];
+      const childCount = Math.max(0, rows.length - 1);
+      const isTour = ev?.event_type === "multi_day";
+      if (nextVisible) {
+        const slug = root?.slug ?? ev?.slug ?? null;
+        const url = slug ? `https://www.mundopropicio.com/pt/eventos/${slug}` : null;
+        toast.success(
+          isTour && childCount > 0
+            ? `Publicado no portal (+${childCount} cidade${childCount === 1 ? "" : "s"}).`
+            : "Publicado no portal.",
+          url
+            ? {
+                description: url,
+                action: {
+                  label: "Abrir",
+                  onClick: () => window.open(url, "_blank", "noopener,noreferrer"),
+                },
+              }
+            : undefined,
+        );
+      } else {
+        toast.success(
+          isTour && childCount > 0
+            ? `Despublicado do portal (+${childCount} cidade${childCount === 1 ? "" : "s"}).`
+            : "Despublicado do portal.",
+        );
+      }
+      setPortalVisible(nextVisible);
+      qc.invalidateQueries({ queryKey: ["crm-event", eventId] });
+      qc.invalidateQueries({ queryKey: ["crm-event-marketing", eventId] });
       qc.invalidateQueries({ queryKey: ["crm-eventos-list"] });
     },
     onError: (e: any) => toast.error(`Falha: ${e.message ?? e}`),
@@ -824,16 +867,38 @@ function GestaoTab({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-6 pt-2">
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={portalVisible} onCheckedChange={setPortalVisible} disabled={disabled} />
-          Visível no portal
-        </label>
-        <label className="flex items-center gap-2 text-sm">
+      <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <Switch
+              checked={portalVisible}
+              onCheckedChange={(v) => publishToggle.mutate(v)}
+              disabled={disabled || publishToggle.isPending}
+            />
+            Visível no portal
+          </label>
+          {publishToggle.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {portalVisible && ev?.slug && (
+            <a
+              href={`https://www.mundopropicio.com/pt/eventos/${ev.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
+            >
+              Ver no portal <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Ligar/desligar aplica-se imediatamente via RPC. Em turnês (multi_day) faz cascata para as cidades-filhas.
+          O slug é gerado automaticamente se estiver vazio; nunca é sobrescrito.
+        </p>
+        <label className="flex items-center gap-2 text-sm pt-1">
           <Switch checked={portalFeatured} onCheckedChange={setPortalFeatured} disabled={disabled} />
           Destacado na homepage
         </label>
       </div>
+
 
       <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
         <div>
