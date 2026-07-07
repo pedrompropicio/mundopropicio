@@ -434,6 +434,31 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
       }
 
+      // Vincular à Nota de Reembolso escolhida (se ainda não estava vinculada).
+      if (
+        form.is_reimbursement &&
+        form.reimbursement_note_id &&
+        !isLinkedToReimbursementNote
+      ) {
+        const { error: linkErr } = await supabase
+          .from("reimbursement_note_items")
+          .insert({
+            reimbursement_note_id: form.reimbursement_note_id,
+            transaction_id: transaction.id,
+          } as any);
+        if (linkErr) {
+          console.error("[reimbursement link] failed", linkErr);
+          toast({
+            title: "TX atualizada, mas falhou vincular à Nota de Reembolso",
+            description: linkErr.message,
+            variant: "destructive",
+          });
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["transaction-reimbursement-note-link", transaction.id] });
+          queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
+        }
+      }
+
       // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
       if (unlinkBpRequested && (linkedForecast as any)?.id) {
         const { error: unlinkErr } = await supabase
