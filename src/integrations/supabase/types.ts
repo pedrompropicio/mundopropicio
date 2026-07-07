@@ -10305,16 +10305,28 @@ export type Database = {
         }[]
       }
       consume_recovery_code: { Args: { _code_hash: string }; Returns: boolean }
-      copy_event_tour_content: {
-        Args: {
-          p_include_faqs?: boolean
-          p_include_lineup?: boolean
-          p_include_marketing?: boolean
-          p_source: string
-          p_targets: string[]
-        }
-        Returns: Json
-      }
+      copy_event_tour_content:
+        | {
+            Args: {
+              p_include_faqs: boolean
+              p_include_lineup: boolean
+              p_include_marketing: boolean
+              p_source: string
+              p_targets: string[]
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_include_creatives?: boolean
+              p_include_faqs?: boolean
+              p_include_lineup?: boolean
+              p_include_text?: boolean
+              p_source: string
+              p_targets: string[]
+            }
+            Returns: Json
+          }
       create_bp_snapshot: {
         Args: {
           _approve_immediately?: boolean
