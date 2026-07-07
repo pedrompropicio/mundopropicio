@@ -339,7 +339,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           changes.push({ field_name: fieldLabels[key], old_value: oldVal, new_value: newVal });
         }
       }
-      if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
+      const wantsNewReimbursementLink =
+        form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
+      if (changes.length === 0 && !wantsNewReimbursementLink) throw new Error("Nenhuma alteração detectada.");
 
       const paymentFields = {
         payment_method: form.payment_method,
