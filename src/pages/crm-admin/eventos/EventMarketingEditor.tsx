@@ -867,16 +867,38 @@ function GestaoTab({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-6 pt-2">
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={portalVisible} onCheckedChange={setPortalVisible} disabled={disabled} />
-          Visível no portal
-        </label>
-        <label className="flex items-center gap-2 text-sm">
+      <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <Switch
+              checked={portalVisible}
+              onCheckedChange={(v) => publishToggle.mutate(v)}
+              disabled={disabled || publishToggle.isPending}
+            />
+            Visível no portal
+          </label>
+          {publishToggle.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {portalVisible && ev?.slug && (
+            <a
+              href={`https://www.mundopropicio.com/pt/eventos/${ev.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
+            >
+              Ver no portal <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Ligar/desligar aplica-se imediatamente via RPC. Em turnês (multi_day) faz cascata para as cidades-filhas.
+          O slug é gerado automaticamente se estiver vazio; nunca é sobrescrito.
+        </p>
+        <label className="flex items-center gap-2 text-sm pt-1">
           <Switch checked={portalFeatured} onCheckedChange={setPortalFeatured} disabled={disabled} />
           Destacado na homepage
         </label>
       </div>
+
 
       <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
         <div>
