@@ -273,6 +273,22 @@ export default function EventMarketingEditor() {
         </Card>
       )}
 
+      {parentEventId && (
+        <Card className="border-blue-500/30 bg-blue-500/5 p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              Conteúdo herdado do tour «<strong>{motherEvent?.name ?? "…"}</strong>». Preenche aqui só o que for diferente desta cidade; o que deixares vazio usa o da mãe.
+            </span>
+            <Link
+              to={`/crm/eventos/${parentEventId}`}
+              className="ml-auto inline-flex items-center gap-1 text-blue-600 hover:underline"
+            >
+              Editar a mãe <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
+        </Card>
+      )}
+
       <Tabs defaultValue={isForeign ? "hero" : "gestao"}>
         <TabsList className="flex w-full flex-wrap h-auto">
           <TabsTrigger value="gestao">Gestão</TabsTrigger>
