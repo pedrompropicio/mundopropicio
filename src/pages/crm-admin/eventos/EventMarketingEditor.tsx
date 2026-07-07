@@ -27,6 +27,7 @@ import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+import { CopyTourContentDialog } from "./CopyTourContentDialog";
 
 
 type FormState = Omit<
