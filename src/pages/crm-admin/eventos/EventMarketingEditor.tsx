@@ -712,6 +712,49 @@ function GestaoTab({
     onError: (e: any) => toast.error(`Falha: ${e.message ?? e}`),
   });
 
+  const publishToggle = useMutation({
+    mutationFn: async (nextVisible: boolean) => {
+      const rpcName = nextVisible ? "publish_event_to_portal" : "unpublish_event_from_portal";
+      const { data, error } = await (supabase as any).rpc(rpcName, { p_event_id: eventId });
+      if (error) throw error;
+      return { nextVisible, rows: (data ?? []) as Array<{ id: string; name: string; slug?: string | null; portal_visible: boolean }> };
+    },
+    onSuccess: ({ nextVisible, rows }) => {
+      const root = rows.find((r) => r.id === eventId) ?? rows[0];
+      const childCount = Math.max(0, rows.length - 1);
+      const isTour = ev?.event_type === "multi_day";
+      if (nextVisible) {
+        const slug = root?.slug ?? ev?.slug ?? null;
+        const url = slug ? `https://www.mundopropicio.com/pt/eventos/${slug}` : null;
+        toast.success(
+          isTour && childCount > 0
+            ? `Publicado no portal (+${childCount} cidade${childCount === 1 ? "" : "s"}).`
+            : "Publicado no portal.",
+          url
+            ? {
+                description: url,
+                action: {
+                  label: "Abrir",
+                  onClick: () => window.open(url, "_blank", "noopener,noreferrer"),
+                },
+              }
+            : undefined,
+        );
+      } else {
+        toast.success(
+          isTour && childCount > 0
+            ? `Despublicado do portal (+${childCount} cidade${childCount === 1 ? "" : "s"}).`
+            : "Despublicado do portal.",
+        );
+      }
+      setPortalVisible(nextVisible);
+      qc.invalidateQueries({ queryKey: ["crm-event", eventId] });
+      qc.invalidateQueries({ queryKey: ["crm-event-marketing", eventId] });
+      qc.invalidateQueries({ queryKey: ["crm-eventos-list"] });
+    },
+    onError: (e: any) => toast.error(`Falha: ${e.message ?? e}`),
+  });
+
   return (
     <Card className="space-y-4 p-4">
       <MetaAudienceCard
