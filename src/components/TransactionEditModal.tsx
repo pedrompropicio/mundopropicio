@@ -409,27 +409,32 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ? Object.entries(childAdjustments).map(([id, amt]) => ({ id, amount: amt }))
         : undefined;
 
-      const { data, error } = await supabase.functions.invoke("update-transaction", {
-        body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
-      });
-      if (error) {
-        // FunctionsHttpError → tentar extrair mensagem do corpo
-        try {
-          const ctx: any = (error as any).context;
-          if (ctx?.json) {
-            const j = await ctx.json();
-            const msg = j?.error || j?.message;
-            if (msg) throw new Error(j?.details ? `${msg} — ${j.details}` : msg);
-          } else if (ctx?.text) {
-            const t = await ctx.text();
-            if (t) throw new Error(t);
+      let data: any = null;
+      if (changes.length > 0) {
+        const res = await supabase.functions.invoke("update-transaction", {
+          body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
+        });
+        const error = res.error;
+        data = res.data;
+        if (error) {
+          // FunctionsHttpError → tentar extrair mensagem do corpo
+          try {
+            const ctx: any = (error as any).context;
+            if (ctx?.json) {
+              const j = await ctx.json();
+              const msg = j?.error || j?.message;
+              if (msg) throw new Error(j?.details ? `${msg} — ${j.details}` : msg);
+            } else if (ctx?.text) {
+              const t = await ctx.text();
+              if (t) throw new Error(t);
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message) throw parseErr;
           }
-        } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message) throw parseErr;
+          throw error;
         }
-        throw error;
+        if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
       }
-      if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
 
       // Sync partner_paid_expenses.paid_date if it changed
       if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
