@@ -27,6 +27,7 @@ import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+import { CopyTourContentDialog } from "./CopyTourContentDialog";
 
 
 type FormState = Omit<
@@ -78,7 +79,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -213,6 +214,13 @@ export default function EventMarketingEditor() {
         </div>
         <div className="flex items-center gap-2">
           {headerStatus}
+          <CopyTourContentDialog
+            eventId={eventId}
+            eventName={ev?.name ?? ""}
+            parentEventId={ev?.parent_event_id ?? null}
+            eventType={ev?.event_type ?? null}
+            disabled={isForeign}
+          />
           <Button
             type="button"
             variant="outline"
