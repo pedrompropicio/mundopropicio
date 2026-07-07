@@ -462,6 +462,7 @@ export default function EventMarketingEditor() {
                   value={form!.press_quote_pt ?? ""}
                   onChange={(e) => set("press_quote_pt", e.target.value || null)}
                   rows={3}
+                  placeholder={ph(inherited?.press_quote_pt)}
                 />
               </Field>
               <Field label="Citação de imprensa (EN)">
@@ -469,12 +470,14 @@ export default function EventMarketingEditor() {
                   value={form!.press_quote_en ?? ""}
                   onChange={(e) => set("press_quote_en", e.target.value || null)}
                   rows={3}
+                  placeholder={ph(inherited?.press_quote_en)}
                 />
               </Field>
               <Field label="Fonte da citação">
                 <Input
                   value={form!.press_quote_source ?? ""}
                   onChange={(e) => set("press_quote_source", e.target.value || null)}
+                  placeholder={ph(inherited?.press_quote_source)}
                 />
               </Field>
             </div>
@@ -483,6 +486,7 @@ export default function EventMarketingEditor() {
                 <Input
                   value={form!.performer_name ?? ""}
                   onChange={(e) => set("performer_name", e.target.value || null)}
+                  placeholder={ph(inherited?.performer_name)}
                 />
               </Field>
               <Field label="Performer (URL)">
@@ -490,7 +494,7 @@ export default function EventMarketingEditor() {
                   type="url"
                   value={form!.performer_url ?? ""}
                   onChange={(e) => set("performer_url", e.target.value || null)}
-                  placeholder="https://…"
+                  placeholder={ph(inherited?.performer_url, "https://…")}
                 />
               </Field>
             </div>
