@@ -310,6 +310,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         payment_reference: "Referência Pagamento",
         declared_withholding_rate: "Retenção IRS declarada (%)",
         declared_withholding_amount: "Retenção IRS declarada (€)",
+        is_reimbursement: "Reembolso",
+        reimbursement_to: "Colaborador (reembolso)",
       };
       const allowedFields = paidLocked
         ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
