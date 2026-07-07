@@ -577,6 +577,7 @@ export default function EventMarketingEditor() {
                   maxLength={200}
                   value={form!.meta_description_pt ?? ""}
                   onChange={(e) => set("meta_description_pt", e.target.value || null)}
+                  placeholder={ph(inherited?.meta_description_pt)}
                 />
               </Field>
               <Field
@@ -588,6 +589,7 @@ export default function EventMarketingEditor() {
                   maxLength={200}
                   value={form!.meta_description_en ?? ""}
                   onChange={(e) => set("meta_description_en", e.target.value || null)}
+                  placeholder={ph(inherited?.meta_description_en)}
                 />
               </Field>
             </div>
