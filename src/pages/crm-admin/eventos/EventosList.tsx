@@ -184,7 +184,7 @@ function PropriosTab() {
             <SelectContent>
               <SelectItem value="all">Todos os estados</SelectItem>
               <SelectItem value="published">Publicado</SelectItem>
-              <SelectItem value="drafted">Rascunho</SelectItem>
+              <SelectItem value="draft">Rascunho</SelectItem>
               <SelectItem value="none">Sem marketing</SelectItem>
             </SelectContent>
           </Select>
@@ -249,11 +249,11 @@ function PropriosTab() {
               const badge =
                 st === "published"
                   ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                  : st === "drafted"
+                  : st === "draft"
                     ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
                     : "bg-muted text-muted-foreground border-border";
               const label =
-                st === "published" ? "Publicado" : st === "drafted" ? "Rascunho" : "Sem marketing";
+                st === "published" ? "Publicado" : st === "draft" ? "Rascunho" : "Sem marketing";
               const isPartner = e.management_type === "partner_managed";
               return (
                 <TableRow key={e.id}>

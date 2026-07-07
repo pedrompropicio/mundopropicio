@@ -37,7 +37,7 @@ type FormState = Omit<
 const emptyForm = (eventId: string): FormState => ({
   event_id: eventId,
   company_id: MP_COMPANY_ID,
-  status: "drafted",
+  status: "draft",
   published_at: null,
   hook_pt: null,
   hook_en: null,
@@ -142,7 +142,7 @@ export default function EventMarketingEditor() {
     if (!form) return;
     const next: FormState =
       form.status === "published"
-        ? { ...form, status: "drafted" }
+        ? { ...form, status: "draft" }
         : { ...form, status: "published", published_at: form.published_at ?? new Date().toISOString() };
     setForm(next);
     saveMutation.mutate(next);
