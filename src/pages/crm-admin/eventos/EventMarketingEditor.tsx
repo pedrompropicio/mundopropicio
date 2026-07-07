@@ -424,12 +424,14 @@ export default function EventMarketingEditor() {
                 <Input
                   value={form!.cta_primary_label_pt ?? ""}
                   onChange={(e) => set("cta_primary_label_pt", e.target.value || null)}
+                  placeholder={ph(inherited?.cta_primary_label_pt)}
                 />
               </Field>
               <Field label="CTA primário (EN)">
                 <Input
                   value={form!.cta_primary_label_en ?? ""}
                   onChange={(e) => set("cta_primary_label_en", e.target.value || null)}
+                  placeholder={ph(inherited?.cta_primary_label_en)}
                 />
               </Field>
               <Field label="Mensagem de urgência (PT)">
@@ -437,6 +439,7 @@ export default function EventMarketingEditor() {
                   value={form!.urgency_message_pt ?? ""}
                   onChange={(e) => set("urgency_message_pt", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.urgency_message_pt)}
                 />
               </Field>
               <Field label="Mensagem de urgência (EN)">
@@ -444,6 +447,7 @@ export default function EventMarketingEditor() {
                   value={form!.urgency_message_en ?? ""}
                   onChange={(e) => set("urgency_message_en", e.target.value || null)}
                   rows={2}
+                  placeholder={ph(inherited?.urgency_message_en)}
                 />
               </Field>
             </div>
