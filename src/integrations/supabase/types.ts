@@ -9874,6 +9874,8 @@ export type Database = {
       }
       events_public: {
         Row: {
+          city_id: string | null
+          city_name: string | null
           cta_primary_label_en: string | null
           cta_primary_label_pt: string | null
           date: string | null
@@ -9883,6 +9885,7 @@ export type Database = {
           description_pt: string | null
           endorsement_display_order: number | null
           endorsement_partner_label: string | null
+          event_type: string | null
           featured: boolean | null
           gallery_urls: string[] | null
           has_marketing: boolean | null
@@ -9904,6 +9907,7 @@ export type Database = {
           offer_price_max: number | null
           offer_price_min: number | null
           og_image_url: string | null
+          parent_event_id: string | null
           performer_name: string | null
           performer_url: string | null
           portal_company_id: string | null
