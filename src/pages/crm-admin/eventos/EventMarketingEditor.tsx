@@ -217,9 +217,15 @@ export default function EventMarketingEditor() {
           <CopyTourContentDialog
             eventId={eventId}
             eventName={ev?.name ?? ""}
+            eventDate={ev?.date ?? null}
             parentEventId={ev?.parent_event_id ?? null}
             eventType={ev?.event_type ?? null}
             disabled={isForeign}
+          />
+          <TourCreativesAudit
+            eventId={eventId}
+            parentEventId={ev?.parent_event_id ?? null}
+            eventType={ev?.event_type ?? null}
           />
           <Button
             type="button"
