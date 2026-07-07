@@ -206,6 +206,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isLinkedToReimbursementNote = !!reimbursementNoteLink;
+
+  // Notas de reembolso ativas (draft/approved) para permitir vincular no ato da edição.
+  const { data: reimbursementNotes = [] } = useQuery({
+    queryKey: ["reimbursement-notes-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reimbursement_notes")
+        .select("id, code, employee_name, status")
+        .in("status", ["draft", "approved"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: form.is_reimbursement && !isLinkedToReimbursementNote,
+  });
   const [partnerPaidDate, setPartnerPaidDate] = useState<string>("");
   useEffect(() => {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
