@@ -771,7 +771,7 @@ function CopyLine({ label, value, copyValue, mono, bold, hideIfEmpty = true }: {
 /* ─── View Payment List Details ─── */
 function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
@@ -830,6 +830,19 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       .update({ manually_marked_paid: !current } as any)
       .eq("id", itemId);
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+  };
+
+  const removeItemFromList = async (itemId: string, description: string) => {
+    if (!confirm(`Remover "${description}" desta lista de pagamento?\n\nA transação NÃO será eliminada — apenas sai desta lista e deixa de gerar alerta de liquidação pendente. Poderá incluí-la noutra lista mais tarde.`)) return;
+    const { error } = await supabase.from("payment_list_items").delete().eq("id", itemId);
+    if (error) {
+      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    await refreshBadgeFromDB();
+    toast({ title: "Item removido da lista" });
   };
 
   const { data: list } = useQuery({
@@ -1377,6 +1390,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         >
                           <Banknote className="h-3.5 w-3.5" />
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
+                        </button>
+                      )}
+                      {!isPaid && (isAdmin || isManager) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeItemFromList(item.id, tx?.description ?? "item"); }}
+                          className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/15 transition-colors"
+                          title="Remover este item da lista de pagamento (não elimina a transação)"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remover da lista
                         </button>
                       )}
                     </div>
