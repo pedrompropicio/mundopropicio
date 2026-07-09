@@ -771,7 +771,7 @@ function CopyLine({ label, value, copyValue, mono, bold, hideIfEmpty = true }: {
 /* ─── View Payment List Details ─── */
 function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
