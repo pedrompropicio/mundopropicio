@@ -1713,6 +1713,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (form.type === "expense" && !form.supplier_id) {
+      toast({ title: "Fornecedor obrigatório", description: "Selecione (ou crie) o fornecedor da despesa.", variant: "destructive" });
+      return;
+    }
     if (currency !== "EUR") {
       const orig = parseFloat(originalAmount) || 0;
       const rate = parseFloat(fxRate) || 0;
@@ -2800,14 +2804,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {form.type === "expense" && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor *</label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <SearchableSelect
                     options={supplierOptions}
                     value={form.supplier_id}
                     onValueChange={(v) => setForm({ ...form, supplier_id: v })}
-                    placeholder="Sem fornecedor"
+                    placeholder="Selecionar fornecedor…"
                     searchPlaceholder="Pesquisar fornecedor…"
                   />
                 </div>
