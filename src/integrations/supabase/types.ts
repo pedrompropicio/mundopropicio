@@ -1224,6 +1224,313 @@ export type Database = {
           },
         ]
       }
+      card_session_items: {
+        Row: {
+          amount: number
+          category_id: string | null
+          company_id: string
+          created_at: string
+          description: string | null
+          document_path: string | null
+          event_id: string | null
+          id: string
+          item_date: string
+          iva_rate: number
+          ocr_raw_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          session_id: string
+          status: string
+          submitted_by: string | null
+          supplier_name: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          document_path?: string | null
+          event_id?: string | null
+          id?: string
+          item_date?: string
+          iva_rate?: number
+          ocr_raw_payload?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          session_id: string
+          status?: string
+          submitted_by?: string | null
+          supplier_name?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          document_path?: string | null
+          event_id?: string | null
+          id?: string
+          item_date?: string
+          iva_rate?: number
+          ocr_raw_payload?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          session_id?: string
+          status?: string
+          submitted_by?: string | null
+          supplier_name?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_session_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_items_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_items_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "card_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_items_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_session_loads: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          in_transaction_id: string | null
+          load_date: string
+          notes: string | null
+          out_transaction_id: string | null
+          session_id: string
+          source_account_id: string | null
+        }
+        Insert: {
+          amount: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          in_transaction_id?: string | null
+          load_date?: string
+          notes?: string | null
+          out_transaction_id?: string | null
+          session_id: string
+          source_account_id?: string | null
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          in_transaction_id?: string | null
+          load_date?: string
+          notes?: string | null
+          out_transaction_id?: string | null
+          session_id?: string
+          source_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_session_loads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_loads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_loads_in_transaction_id_fkey"
+            columns: ["in_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_loads_out_transaction_id_fkey"
+            columns: ["out_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_loads_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "card_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_session_loads_source_account_id_fkey"
+            columns: ["source_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_sessions: {
+        Row: {
+          card_account_id: string
+          closed_at: string | null
+          closed_by: string | null
+          closing_balance_confirmed: number | null
+          closing_summary: Json | null
+          company_id: string
+          created_at: string
+          holder_name: string
+          holder_profile_id: string | null
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string | null
+          opening_balance: number
+          primary_event_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          card_account_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_balance_confirmed?: number | null
+          closing_summary?: Json | null
+          company_id?: string
+          created_at?: string
+          holder_name: string
+          holder_profile_id?: string | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          opening_balance?: number
+          primary_event_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          card_account_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_balance_confirmed?: number | null
+          closing_summary?: Json | null
+          company_id?: string
+          created_at?: string
+          holder_name?: string
+          holder_profile_id?: string | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          opening_balance?: number
+          primary_event_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_sessions_card_account_id_fkey"
+            columns: ["card_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_sessions_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_sessions_holder_profile_id_fkey"
+            columns: ["holder_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_sessions_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_sessions_primary_event_id_fkey"
+            columns: ["primary_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cities: {
         Row: {
           country: string
@@ -9265,6 +9572,7 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          card_session_id: string | null
           category_id: string | null
           company_id: string
           created_at: string
@@ -9313,6 +9621,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           amount: number
+          card_session_id?: string | null
           category_id?: string | null
           company_id?: string
           created_at?: string
@@ -9361,6 +9670,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           amount?: number
+          card_session_id?: string | null
           category_id?: string | null
           company_id?: string
           created_at?: string
@@ -9412,6 +9722,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_card_session_id_fkey"
+            columns: ["card_session_id"]
+            isOneToOne: false
+            referencedRelation: "card_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -10271,6 +10588,7 @@ export type Database = {
           window_days: number
         }[]
       }
+      can_manage_cards: { Args: { _user_id: string }; Returns: boolean }
       can_manage_event_operacao_full: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean

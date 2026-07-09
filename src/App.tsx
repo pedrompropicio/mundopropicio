@@ -92,6 +92,8 @@ import UserActivityLog from "./pages/UserActivityLog";
 import Camarim from "./pages/Camarim";
 import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
+import CardSessions from "./pages/CardSessions";
+import CardSessionDetail from "./pages/CardSessionDetail";
 import OperacaoLayout from "./pages/operacao/OperacaoLayout";
 import FrenteDetail from "./pages/operacao/FrenteDetail";
 import EtapaDetail from "./pages/operacao/EtapaDetail";
@@ -442,6 +444,8 @@ function ProtectedLayout() {
               <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/camarim" element={<Camarim />} />
               <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
+              <Route path="/cartoes" element={<CardSessions />} />
+              <Route path="/cartoes/:id" element={<CardSessionDetail />} />
               <Route path="/operacao" element={<OperacaoLayout />}>
                 <Route index element={<OperacaoHome />} />
                 <Route path=":eventId" element={<EventHub />} />
