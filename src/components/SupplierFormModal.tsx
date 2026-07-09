@@ -61,9 +61,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+    onSuccess: async (data) => {
+      // Refetch supplier lists BEFORE firing onCreated so the new id already
+      // exists in any parent Combobox options (evita "campo vazio" no modal
+      // de transação — o supplier_id ficava setado mas visualmente ausente).
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+        queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+      ]);
       onOpenChange(false);
       toast.success("Fornecedor criado com sucesso");
       onCreated?.(data.id);
