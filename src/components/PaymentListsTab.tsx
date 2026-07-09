@@ -832,6 +832,19 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
   };
 
+  const removeItemFromList = async (itemId: string, description: string) => {
+    if (!confirm(`Remover "${description}" desta lista de pagamento?\n\nA transação NÃO será eliminada — apenas sai desta lista e deixa de gerar alerta de liquidação pendente. Poderá incluí-la noutra lista mais tarde.`)) return;
+    const { error } = await supabase.from("payment_list_items").delete().eq("id", itemId);
+    if (error) {
+      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    await refreshBadgeFromDB();
+    toast({ title: "Item removido da lista" });
+  };
+
   const { data: list } = useQuery({
     queryKey: ["payment-list", listId],
     queryFn: async () => {
