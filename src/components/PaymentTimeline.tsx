@@ -23,6 +23,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Clock, Ban } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   transaction: any;
@@ -58,6 +71,9 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [markInstallment, setMarkInstallment] = useState<any | null>(null);
+  const [reverseOpen, setReverseOpen] = useState(false);
+  const [reverseRelease, setReverseRelease] = useState(false);
+  const [reverseReason, setReverseReason] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
@@ -221,45 +237,35 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  // Admin: desfazer liquidação (caso TX paga via lista de pagamento ou direto sem parcelas)
-  const undoSettlementMutation = useMutation({
-    mutationFn: async () => {
-      // 1) Remover ligação a payment_list_items (se houver)
-      const { error: delErr } = await supabase
-        .from("payment_list_items")
-        .delete()
-        .eq("transaction_id", txId);
-      if (delErr) throw delErr;
-
-      // 2) Reverter TX para 'approved' sem valor pago
-      const { error: updErr } = await supabase
-        .from("transactions")
-        .update({
-          paid_amount: 0,
-          payment_date: null,
-          status: "approved",
-        } as any)
-        .eq("id", txId);
-      if (updErr) throw updErr;
-
-      // 3) Audit log
-      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-      await supabase.from("transaction_audit_log").insert([{
-        transaction_id: txId,
-        changed_by: callerName,
-        field_name: "Desfazer liquidação (admin)",
-        old_value: `${formatCurrency(Number(transaction.paid_amount ?? 0))} · ${transaction.payment_date ?? "—"}`,
-        new_value: "0,00 € · aguardando pagamento",
-      }]);
+  // Admin: estornar transação (com opção de libertar para nova liquidação)
+  const reverseTxMutation = useMutation({
+    mutationFn: async ({ release, reason }: { release: boolean; reason: string }) => {
+      const { data, error } = await supabase.rpc("reverse_transaction" as any, {
+        p_tx_id: txId,
+        p_reverse_type: "cash_refund",
+        p_reverse_reason: reason || (release ? "Estorno + libertar para nova liquidação" : "Estorno"),
+        p_release_for_repayment: release,
+      } as any);
+      if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
-      toast({ title: "Liquidação revertida", description: "Transação voltou a 'Aprovada / aguarda pagamento'." });
+      toast({
+        title: vars.release ? "Transação libertada para nova liquidação" : "Transação estornada",
+        description: vars.release
+          ? "Voltou a 'A pagar'. Já pode entrar em nova lista de pagamento."
+          : "Estado ficou 'Estornada'. Para permitir nova liquidação, use a opção 'Libertar para nova liquidação'.",
+      });
+      setReverseOpen(false);
+      setReverseRelease(false);
+      setReverseReason("");
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Erro ao estornar", description: e.message, variant: "destructive" }),
   });
+
 
 
 
