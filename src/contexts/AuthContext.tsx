@@ -103,6 +103,8 @@ export const ALL_PERMISSIONS = [
   { key: "view_partner_documents", label: "Portal Sócio — Ver Faturas/Anexos", group: "Portal Sócio" },
   { key: "camarim_team", label: "Camarim — Equipa de Montagem", group: "Operacional" },
   { key: "camarim_manage", label: "Camarim — Gerir Sessões (criar/aprovar/fechar)", group: "Operacional" },
+  { key: "card_team", label: "Cartões — Produtor (submeter despesas)", group: "Operacional" },
+  { key: "card_manage", label: "Cartões — Gerir Sessões (abrir/aprovar/fechar)", group: "Operacional" },
   { key: "crm.audience.view", label: "MP Audience — Ver Dashboards", group: "MP Audience" },
   { key: "crm.audience.export", label: "MP Audience — Exportar Públicos", group: "MP Audience" },
   { key: "crm.campaign.create", label: "MP Audience — Criar Campanhas", group: "MP Audience" },
