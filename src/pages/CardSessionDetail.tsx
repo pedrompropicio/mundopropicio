@@ -382,3 +382,31 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
     </button>
   );
 }
+
+function CardItemThumb({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useMemo(() => {
+    let cancelled = false;
+    supabase.storage
+      .from("card-documents")
+      .createSignedUrl(path, 60 * 60)
+      .then(({ data }) => {
+        if (!cancelled) setUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  if (!url) return <div className="h-14 w-14 shrink-0 animate-pulse rounded bg-muted" />;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="h-14 w-14 shrink-0 overflow-hidden rounded border border-border bg-muted"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <img src={url} alt="Talão" className="h-full w-full object-cover" />
+    </a>
+  );
+}
