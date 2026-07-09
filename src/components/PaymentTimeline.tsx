@@ -242,8 +242,9 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     mutationFn: async ({ release, reason }: { release: boolean; reason: string }) => {
       const { data, error } = await supabase.rpc("reverse_transaction" as any, {
         p_tx_id: txId,
-        p_reverse_type: "cash_refund",
-        p_reverse_reason: reason || (release ? "Estorno + libertar para nova liquidação" : "Estorno"),
+        p_kind: "cash_refund",
+        p_reason: reason || (release ? "Estorno + libertar para nova liquidação" : "Estorno"),
+        p_valid_until: null,
         p_release_for_repayment: release,
       } as any);
       if (error) throw error;
