@@ -833,16 +833,43 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   };
 
   const removeItemFromList = async (itemId: string, description: string) => {
-    if (!confirm(`Remover "${description}" desta lista de pagamento?\n\nA transação NÃO será eliminada — apenas sai desta lista e deixa de gerar alerta de liquidação pendente. Poderá incluí-la noutra lista mais tarde.`)) return;
-    const { error } = await supabase.from("payment_list_items").delete().eq("id", itemId);
+    const reason = window.prompt(
+      `Remover "${description}" desta lista de pagamento?\n\nA transação NÃO é eliminada e o item continua visível na lista, marcado como "Removida da lista" para efeitos de auditoria.\n\nMotivo (opcional):`,
+      ""
+    );
+    if (reason === null) return; // cancelled
+    const { error } = await supabase
+      .from("payment_list_items")
+      .update({
+        removed_at: new Date().toISOString(),
+        removed_by: user?.email ?? null,
+        removed_reason: reason.trim() || null,
+      } as any)
+      .eq("id", itemId);
     if (error) {
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
     queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
-    toast({ title: "Item removido da lista" });
+    toast({ title: "Item removido da lista", description: "Continua visível para auditoria." });
+  };
+
+  const restoreItemToList = async (itemId: string) => {
+    const { error } = await supabase
+      .from("payment_list_items")
+      .update({ removed_at: null, removed_by: null, removed_reason: null } as any)
+      .eq("id", itemId);
+    if (error) {
+      toast({ title: "Erro ao restaurar", description: error.message, variant: "destructive" });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
+    await refreshBadgeFromDB();
+    toast({ title: "Item restaurado à lista" });
   };
 
   const { data: list } = useQuery({
@@ -943,6 +970,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const unpaidItems = items.filter((item: any) => {
     const tx = item.transactions;
     if (!tx) return false;
+    if (item.removed_at) return false;
     const totalWithIva = calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
     const paid = Number(tx.paid_amount ?? 0);
     return paid < totalWithIva - 0.05 && tx.status !== "paid";
@@ -1295,6 +1323,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
+            const isRemoved = !!item.removed_at;
             const np = itemNetPayable({
               amount,
               iva_rate: ivaRate,
@@ -1308,7 +1337,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               <div
                 key={item.id}
                 className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
-                  isPaid
+                  isRemoved
+                    ? "border-destructive/30 bg-destructive/5 opacity-70"
+                    : isPaid
                     ? "border-success/30 bg-success/5 opacity-70"
                     : manuallyMarked
                     ? "border-emerald-500/30 bg-emerald-500/5"
@@ -1317,8 +1348,23 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     : "border-border/50 bg-muted/20"
                 }`}
               >
+                {isRemoved && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+                    <Trash2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold">
+                        Removida da lista
+                        {item.removed_by ? ` por ${item.removed_by}` : ""}
+                        {item.removed_at ? ` em ${formatDate(item.removed_at)}` : ""}
+                      </p>
+                      {item.removed_reason && (
+                        <p className="text-destructive/80">Motivo: {item.removed_reason}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
-                  {isApproved && unpaidItems.length > 0 && (
+                  {isApproved && unpaidItems.length > 0 && !isRemoved && (
                     <div className="pt-0.5">
                       {isSelectable ? (
                         <Checkbox
@@ -1331,7 +1377,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       )}
                     </div>
                   )}
-                  <div className="flex-1 space-y-1">
+                  <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
                       <>
@@ -1378,7 +1424,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           onClick={() => setDocsTx({ id: tx.id, description: tx.description ?? "Transação" })}
                         />
                       )}
-                      {!isPaid && (
+                      {!isPaid && !isRemoved && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
                           className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
@@ -1392,16 +1438,27 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
-                      {!isPaid && (isAdmin || isManager) && (
+                      {!isPaid && !isRemoved && (isAdmin || isManager) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeItemFromList(item.id, tx?.description ?? "item"); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/15 transition-colors"
-                          title="Remover este item da lista de pagamento (não elimina a transação)"
+                          title="Remover este item da lista de pagamento (mantém o registo para auditoria)"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Remover da lista
                         </button>
                       )}
+                      {isRemoved && (isAdmin || isManager) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); restoreItemToList(item.id); }}
+                          className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
+                          title="Restaurar este item na lista"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Restaurar
+                        </button>
+                      )}
+
                     </div>
                   </div>
                 </div>

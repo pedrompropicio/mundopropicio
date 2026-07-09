@@ -7163,6 +7163,9 @@ export type Database = {
           id: string
           manually_marked_paid: boolean
           payment_list_id: string
+          removed_at: string | null
+          removed_by: string | null
+          removed_reason: string | null
           transaction_id: string
         }
         Insert: {
@@ -7171,6 +7174,9 @@ export type Database = {
           id?: string
           manually_marked_paid?: boolean
           payment_list_id: string
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_reason?: string | null
           transaction_id: string
         }
         Update: {
@@ -7179,6 +7185,9 @@ export type Database = {
           id?: string
           manually_marked_paid?: boolean
           payment_list_id?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          removed_reason?: string | null
           transaction_id?: string
         }
         Relationships: [
