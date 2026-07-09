@@ -17,6 +17,7 @@ interface Item {
   iva_rate: number;
   event_id: string | null;
   category_id: string | null;
+  document_path?: string | null;
 }
 
 interface Props {
