@@ -385,7 +385,7 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 
 function CardItemThumb({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  useMemo(() => {
+  useEffect(() => {
     let cancelled = false;
     supabase.storage
       .from("card-documents")
