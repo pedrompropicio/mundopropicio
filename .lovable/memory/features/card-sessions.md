@@ -63,3 +63,14 @@ Transições: open → in_review → closed. Manager/admin podem reabrir de in_r
 - Vista mobile `/cartoes-equipa` com OCR (Fase 2).
 - Bucket de storage `card-receipts` (Fase 2 — quando o produtor anexa fotos).
 - PDF dedicado de fecho (Fase 1 usa `window.print()` do detalhe fechado).
+
+## Fase 2 — Vista mobile do produtor (2026-07-09)
+
+- Rota `/cartao-equipa` fora do `ProtectedLayout` (mobile-first, sem sidebar) — espelho fiel do `/camarim-equipa`. Página `src/pages/CartaoEquipa.tsx`.
+- **Acesso**: permissão `card_team` (ou admin/manager/`card_manage`). Gestores veem todas as sessões `open`/`in_review`; um utilizador com só `card_team` vê APENAS as sessões onde `holder_profile_id = auth.uid()`.
+- **Cabeçalho ao portador**: saldo teórico do cartão (entregue + recargas − aprovadas − pendentes) + contadores "meus pendentes/aprovados" + evento principal. Não expõe mais nada do financeiro.
+- **Lançamento** (FAB câmara + FAB manual, só com sessão `open` e portador atribuído): `CardTeamItemModal` chama a edge function existente `extract-camarim-receipt` (reutilização — sem função nova) via pipeline `prepareFileForInvoiceOcr`; trata 429/402 e mostra `confidence`. Pré-preenche fornecedor/data/total/IVA/descrição. Todos editáveis. **Sem seletor de categoria** — atribuída pela financeira em `ApproveCardItemModal`. Seletor de evento: default = `primary_event_id` (marcado com ★), pode escolher outro evento em `planning|confirmed|active`.
+- **Escrita**: só em `card_session_items` (`status='submitted'`, `submitted_by=auth.uid`, `ocr_raw_payload`); NUNCA em `transactions`. Foto vai para bucket privado novo `card-documents`, path `{sessionId}/{itemId}/{ts}.{ext}` (padrão camarim), gravada em `document_path`.
+- **Edição/eliminação do produtor**: só os SEUS items ainda `submitted`, só com sessão `open`. RLS garante (policies `card_session_items_holder_insert|update|delete`).
+- **Bucket `card-documents`** (privado): 4 policies em `storage.objects` — SELECT/INSERT/UPDATE/DELETE gated por `can_manage_cards()` OU (holder da sessão do 1º segmento do path com sessão `open`).
+- **Fila de aprovação em `/cartoes/:id`**: agora mostra thumbnail do talão (signed URL 1h, `CardItemThumb`) ao lado de cada item pendente; `ApproveCardItemModal` mostra a foto acima dos campos com link para abrir em nova aba.
