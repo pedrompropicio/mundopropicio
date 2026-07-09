@@ -1,0 +1,1 @@
+INSERT INTO public.role_permissions (role, permission) VALUES ('editor'::app_role, 'card_manage') ON CONFLICT DO NOTHING;
