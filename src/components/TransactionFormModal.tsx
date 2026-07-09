@@ -1713,6 +1713,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (form.type === "expense" && !form.supplier_id) {
+      toast({ title: "Fornecedor obrigatório", description: "Selecione (ou crie) o fornecedor da despesa.", variant: "destructive" });
+      return;
+    }
     if (currency !== "EUR") {
       const orig = parseFloat(originalAmount) || 0;
       const rate = parseFloat(fxRate) || 0;
