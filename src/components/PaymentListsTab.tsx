@@ -833,16 +833,43 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   };
 
   const removeItemFromList = async (itemId: string, description: string) => {
-    if (!confirm(`Remover "${description}" desta lista de pagamento?\n\nA transação NÃO será eliminada — apenas sai desta lista e deixa de gerar alerta de liquidação pendente. Poderá incluí-la noutra lista mais tarde.`)) return;
-    const { error } = await supabase.from("payment_list_items").delete().eq("id", itemId);
+    const reason = window.prompt(
+      `Remover "${description}" desta lista de pagamento?\n\nA transação NÃO é eliminada e o item continua visível na lista, marcado como "Removida da lista" para efeitos de auditoria.\n\nMotivo (opcional):`,
+      ""
+    );
+    if (reason === null) return; // cancelled
+    const { error } = await supabase
+      .from("payment_list_items")
+      .update({
+        removed_at: new Date().toISOString(),
+        removed_by: user?.email ?? null,
+        removed_reason: reason.trim() || null,
+      } as any)
+      .eq("id", itemId);
     if (error) {
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
     queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
-    toast({ title: "Item removido da lista" });
+    toast({ title: "Item removido da lista", description: "Continua visível para auditoria." });
+  };
+
+  const restoreItemToList = async (itemId: string) => {
+    const { error } = await supabase
+      .from("payment_list_items")
+      .update({ removed_at: null, removed_by: null, removed_reason: null } as any)
+      .eq("id", itemId);
+    if (error) {
+      toast({ title: "Erro ao restaurar", description: error.message, variant: "destructive" });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
+    await refreshBadgeFromDB();
+    toast({ title: "Item restaurado à lista" });
   };
 
   const { data: list } = useQuery({
