@@ -88,7 +88,7 @@ export function CardLoadModal({ open, onOpenChange, sessionId, cardAccountId, ca
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
-              className="input-base"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="0.00"
             />
           </div>
@@ -107,7 +107,7 @@ export function CardLoadModal({ open, onOpenChange, sessionId, cardAccountId, ca
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Notas</label>
-            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className="input-base" />
+            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
 
           <div className="flex gap-2 pt-2">

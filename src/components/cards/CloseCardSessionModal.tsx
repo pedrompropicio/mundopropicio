@@ -156,7 +156,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                 type="number" step="0.01"
                 value={confirmedBalance}
                 onChange={(e) => setConfirmedBalance(e.target.value)}
-                className="input-base"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
               {Math.abs(diff) > 0.01 && (
                 <p className={`mt-1 text-xs font-medium ${diff < 0 ? "text-destructive" : "text-emerald-500"}`}>
@@ -187,7 +187,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
 
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota / justificação</label>
-              <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="input-base" />
+              <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
 
             <p className="text-xs text-muted-foreground">

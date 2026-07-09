@@ -126,16 +126,16 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
-            <input value={description} onChange={(e) => setDescription(e.target.value)} required className="input-base" />
+            <input value={description} onChange={(e) => setDescription(e.target.value)} required className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor (€) *</label>
-              <input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className="input-base" />
+              <input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">IVA (%)</label>
-              <input type="number" step="0.01" value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className="input-base" />
+              <input type="number" step="0.01" value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
           </div>
           <div>

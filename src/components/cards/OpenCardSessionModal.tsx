@@ -199,7 +199,7 @@ export function OpenCardSessionModal({
               value={holderName}
               onChange={(e) => setHolderName(e.target.value)}
               required
-              className="input-base"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Nome que aparece no cartão / responsável"
             />
           </Field>
@@ -219,7 +219,7 @@ export function OpenCardSessionModal({
               step="0.01"
               value={openingBalance}
               onChange={(e) => setOpeningBalance(e.target.value)}
-              className="input-base"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Snapshot do saldo do cartão no momento da entrega. Não movimenta contas.
@@ -238,7 +238,7 @@ export function OpenCardSessionModal({
                   step="0.01"
                   value={loadAmount}
                   onChange={(e) => setLoadAmount(e.target.value)}
-                  className="input-base"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   placeholder="0.00"
                 />
               </div>
@@ -263,7 +263,7 @@ export function OpenCardSessionModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="input-base"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </Field>
 
