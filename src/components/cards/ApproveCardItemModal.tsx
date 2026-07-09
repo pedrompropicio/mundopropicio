@@ -17,6 +17,7 @@ interface Item {
   iva_rate: number;
   event_id: string | null;
   category_id: string | null;
+  document_path?: string | null;
 }
 
 interface Props {
@@ -37,6 +38,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   const [eventId, setEventId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
 
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   useEffect(() => {
     if (item) {
       setDescription(item.description ?? "");
@@ -46,6 +49,13 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
       setSupplierName(item.supplier_name ?? "");
       setEventId(item.event_id ?? "");
       setCategoryId(item.category_id ?? "");
+      setPreviewUrl(null);
+      if (item.document_path) {
+        supabase.storage
+          .from("card-documents")
+          .createSignedUrl(item.document_path, 60 * 60)
+          .then(({ data }) => setPreviewUrl(data?.signedUrl ?? null));
+      }
     }
   }, [item]);
 
@@ -176,6 +186,15 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
         </div>
 
         <div className="space-y-3">
+          {previewUrl && (
+            <a href={previewUrl} target="_blank" rel="noreferrer" className="block">
+              <img
+                src={previewUrl}
+                alt="Talão submetido"
+                className="max-h-56 w-full rounded border border-border bg-muted object-contain"
+              />
+            </a>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />

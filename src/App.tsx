@@ -94,6 +94,7 @@ import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
 import CardSessions from "./pages/CardSessions";
 import CardSessionDetail from "./pages/CardSessionDetail";
+import CartaoEquipa from "./pages/CartaoEquipa";
 import OperacaoLayout from "./pages/operacao/OperacaoLayout";
 import FrenteDetail from "./pages/operacao/FrenteDetail";
 import EtapaDetail from "./pages/operacao/EtapaDetail";
@@ -578,6 +579,7 @@ function App() {
                   <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
                   <Route path="/operacao/onboarding" element={<OperacaoOnboarding />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
+                  <Route path="/cartao-equipa" element={<CartaoEquipa />} />
                   <Route path="/contabilidade" element={<AccountantGate />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
 
