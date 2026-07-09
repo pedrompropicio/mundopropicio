@@ -1424,7 +1424,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           onClick={() => setDocsTx({ id: tx.id, description: tx.description ?? "Transação" })}
                         />
                       )}
-                      {!isPaid && (
+                      {!isPaid && !isRemoved && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
                           className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
@@ -1438,11 +1438,26 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
-                      {!isPaid && (isAdmin || isManager) && (
+                      {!isPaid && !isRemoved && (isAdmin || isManager) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeItemFromList(item.id, tx?.description ?? "item"); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/15 transition-colors"
-                          title="Remover este item da lista de pagamento (não elimina a transação)"
+                          title="Remover este item da lista de pagamento (mantém o registo para auditoria)"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remover da lista
+                        </button>
+                      )}
+                      {isRemoved && (isAdmin || isManager) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); restoreItemToList(item.id); }}
+                          className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
+                          title="Restaurar este item na lista"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Restaurar
+                        </button>
+                      )}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Remover da lista
