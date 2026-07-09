@@ -38,7 +38,10 @@ interface PaymentListExport {
 }
 
 function calcWithIva(amount: number, ivaRate: number): number {
-  return amount * (1 + ivaRate / 100);
+  const base = Number(amount) || 0;
+  const rate = Number(ivaRate) || 0;
+  const iva = Math.round(base * (rate / 100) * 100) / 100;
+  return Math.round((base + iva) * 100) / 100;
 }
 
 /** Líquido a pagar (c/ IVA − retenção IRS declarada) para um item de lista. */

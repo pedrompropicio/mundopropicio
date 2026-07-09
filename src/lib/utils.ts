@@ -66,9 +66,17 @@ export function compareReportCodesUnclassifiedLast(a?: string | null, b?: string
 /**
  * Calcula o valor total com IVA, arredondado ao cêntimo mais próximo
  * conforme Artigo 18.º do CIVA (Portugal).
+ *
+ * IMPORTANTE: arredonda o IVA primeiro e só depois soma à base, para
+ * evitar erros de vírgula flutuante (ex.: 380.50 * 1.23 = 468.01499999…
+ * que Math.round arredondaria para 468.01 em vez de 468.02).
+ * Delega no SSoT em src/lib/iva.ts.
  */
 export function calcWithIva(baseAmount: number, ivaRate: number): number {
-  return Math.round(baseAmount * (1 + ivaRate / 100) * 100) / 100;
+  const base = Number(baseAmount) || 0;
+  const rate = Number(ivaRate) || 0;
+  const iva = Math.round(base * (rate / 100) * 100) / 100;
+  return Math.round((base + iva) * 100) / 100;
 }
 
 /**
