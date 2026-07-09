@@ -1323,6 +1323,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
+            const isRemoved = !!item.removed_at;
             const np = itemNetPayable({
               amount,
               iva_rate: ivaRate,
@@ -1336,7 +1337,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               <div
                 key={item.id}
                 className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
-                  isPaid
+                  isRemoved
+                    ? "border-destructive/30 bg-destructive/5 opacity-70"
+                    : isPaid
                     ? "border-success/30 bg-success/5 opacity-70"
                     : manuallyMarked
                     ? "border-emerald-500/30 bg-emerald-500/5"
@@ -1345,8 +1348,23 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     : "border-border/50 bg-muted/20"
                 }`}
               >
+                {isRemoved && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+                    <Trash2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold">
+                        Removida da lista
+                        {item.removed_by ? ` por ${item.removed_by}` : ""}
+                        {item.removed_at ? ` em ${formatDate(item.removed_at)}` : ""}
+                      </p>
+                      {item.removed_reason && (
+                        <p className="text-destructive/80">Motivo: {item.removed_reason}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
-                  {isApproved && unpaidItems.length > 0 && (
+                  {isApproved && unpaidItems.length > 0 && !isRemoved && (
                     <div className="pt-0.5">
                       {isSelectable ? (
                         <Checkbox
@@ -1359,7 +1377,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       )}
                     </div>
                   )}
-                  <div className="flex-1 space-y-1">
+                  <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
                       <>
