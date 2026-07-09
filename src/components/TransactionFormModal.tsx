@@ -2804,14 +2804,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {form.type === "expense" && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor *</label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <SearchableSelect
                     options={supplierOptions}
                     value={form.supplier_id}
                     onValueChange={(v) => setForm({ ...form, supplier_id: v })}
-                    placeholder="Sem fornecedor"
+                    placeholder="Selecionar fornecedor…"
                     searchPlaceholder="Pesquisar fornecedor…"
                   />
                 </div>
