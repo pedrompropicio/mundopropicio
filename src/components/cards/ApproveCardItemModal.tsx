@@ -38,6 +38,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   const [eventId, setEventId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
 
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   useEffect(() => {
     if (item) {
       setDescription(item.description ?? "");
@@ -47,6 +49,13 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
       setSupplierName(item.supplier_name ?? "");
       setEventId(item.event_id ?? "");
       setCategoryId(item.category_id ?? "");
+      setPreviewUrl(null);
+      if (item.document_path) {
+        supabase.storage
+          .from("card-documents")
+          .createSignedUrl(item.document_path, 60 * 60)
+          .then(({ data }) => setPreviewUrl(data?.signedUrl ?? null));
+      }
     }
   }, [item]);
 
