@@ -92,6 +92,8 @@ import UserActivityLog from "./pages/UserActivityLog";
 import Camarim from "./pages/Camarim";
 import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
+import CardSessions from "./pages/CardSessions";
+import CardSessionDetail from "./pages/CardSessionDetail";
 import OperacaoLayout from "./pages/operacao/OperacaoLayout";
 import FrenteDetail from "./pages/operacao/FrenteDetail";
 import EtapaDetail from "./pages/operacao/EtapaDetail";
