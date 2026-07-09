@@ -579,6 +579,7 @@ function App() {
                   <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
                   <Route path="/operacao/onboarding" element={<OperacaoOnboarding />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
+                  <Route path="/cartao-equipa" element={<CartaoEquipa />} />
                   <Route path="/contabilidade" element={<AccountantGate />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
 
