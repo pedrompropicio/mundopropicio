@@ -185,6 +185,9 @@ import CustomerMatchUpload from "./pages/crm-admin/meta-audiences/CustomerMatchU
 import GoogleAdsAdmin from "./pages/crm-admin/google-ads/GoogleAdsAdmin";
 import AudienceGoogleAds from "./pages/audience/AudienceGoogleAds";
 import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+const FULL_WIDTH_ROUTES = ["/transacoes"];
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -416,7 +419,7 @@ function ProtectedLayout() {
       <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
         <AppSidebar />
         <main className="flex-1 pl-16 lg:pl-56">
-          <div className="mx-auto max-w-7xl p-4 lg:p-6">
+          <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Routes>
               <Route path="/" element={<Index />} />
