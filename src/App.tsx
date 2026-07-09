@@ -444,6 +444,8 @@ function ProtectedLayout() {
               <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/camarim" element={<Camarim />} />
               <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
+              <Route path="/cartoes" element={<CardSessions />} />
+              <Route path="/cartoes/:id" element={<CardSessionDetail />} />
               <Route path="/operacao" element={<OperacaoLayout />}>
                 <Route index element={<OperacaoHome />} />
                 <Route path=":eventId" element={<EventHub />} />
