@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink as RouterNavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { FileDown } from "lucide-react";
+import { FileDown, CreditCard } from "lucide-react";
 import { OperationalReportDialog } from "@/components/operacao/reports/OperationalReportDialog";
 import {
   LayoutDashboard,
