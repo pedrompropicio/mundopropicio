@@ -350,26 +350,80 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         </div>
       </div>
 
-      {/* Admin: Desfazer liquidação */}
-      {isAdmin && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0) && (
+      {/* Admin: Estornar transação */}
+      {isAdmin && (transaction.status === "paid" || transaction.status === "reversed" || Number(transaction.paid_amount ?? 0) > 0) && (
         <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
           <div className="text-muted-foreground">
-            <span className="font-semibold text-destructive">Admin:</span> reverter esta liquidação devolve a transação a "aprovada / aguarda pagamento" e remove a ligação a listas de pagamento.
+            <span className="font-semibold text-destructive">Admin:</span> estornar esta transação regista o estorno. Opcionalmente pode libertá-la para nova liquidação (ex.: pagamento duplicado).
           </div>
           <button
             type="button"
-            onClick={() => {
-              if (confirm("Desfazer a liquidação desta transação?\n\nIsto vai:\n• Zerar o valor pago e a data de pagamento\n• Remover o item das listas de pagamento\n• Voltar o estado a 'Aprovada'\n\nContinuar?")) {
-                undoSettlementMutation.mutate();
-              }
-            }}
-            disabled={undoSettlementMutation.isPending}
+            onClick={() => setReverseOpen(true)}
+            disabled={reverseTxMutation.isPending}
             className="shrink-0 rounded bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
           >
-            {undoSettlementMutation.isPending ? "A reverter…" : "Desfazer liquidação"}
+            {reverseTxMutation.isPending ? "A estornar…" : "Estornar pagamento"}
           </button>
         </div>
       )}
+
+      <AlertDialog open={reverseOpen} onOpenChange={setReverseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O valor pago e a data de pagamento serão zerados e o estorno ficará registado no histórico da transação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-secondary/30 p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  checked={reverseRelease}
+                  onCheckedChange={(v) => setReverseRelease(v === true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium">Libertar para nova liquidação</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Marque se foi pagamento duplicado ou erro de conta e a transação deve poder ser paga novamente.
+                    A transação volta a "A pagar" e é removida de todas as listas de pagamento (incluindo aprovadas/pagas).
+                    Se não marcar, o estado fica "Estornada" e a transação não entra em novas listas.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="reverse-reason" className="text-xs">Motivo (opcional)</Label>
+              <Textarea
+                id="reverse-reason"
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                placeholder="Ex.: pagamento duplicado por erro de conta"
+                rows={2}
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverseTxMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                reverseTxMutation.mutate({ release: reverseRelease, reason: reverseReason });
+              }}
+              disabled={reverseTxMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {reverseTxMutation.isPending ? "A estornar…" : reverseRelease ? "Estornar e libertar" : "Estornar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Cronograma de parcelas (planned + cancelled) */}
       {hasSchedule && (
