@@ -251,16 +251,17 @@ export default function CardSessionDetail() {
       {tab === "queue" && (
         <div className="space-y-2">
           {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem itens submetidos pela equipa. (A Fase 2 dará ao produtor a submissão mobile com OCR.)</p>
+            <p className="text-sm text-muted-foreground">Sem itens submetidos pela equipa.</p>
           ) : (
             (items as any[]).map((it) => (
               <div key={it.id} className={cn(
-                "rounded-lg border px-3 py-2 text-sm",
+                "flex gap-3 rounded-lg border px-3 py-2 text-sm",
                 it.status === "approved" ? "border-emerald-500/40 bg-emerald-500/5" :
                 it.status === "rejected" ? "border-destructive/40 bg-destructive/5" :
                 "border-amber-500/40 bg-amber-500/5",
               )}>
-                <div className="flex items-center justify-between">
+                {it.document_path && <CardItemThumb path={it.document_path} />}
+                <div className="flex flex-1 items-center justify-between gap-2">
                   <div>
                     <div className="font-medium">{it.supplier_name || it.description || "—"}</div>
                     <div className="text-xs text-muted-foreground">
