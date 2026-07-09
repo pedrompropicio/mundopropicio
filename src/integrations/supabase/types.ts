@@ -10785,6 +10785,16 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              p_kind: string
+              p_reason: string
+              p_release_for_repayment: boolean
+              p_tx_id: string
+              p_valid_until: string
+            }
+            Returns: Json
+          }
       revert_to_bp_version: {
         Args: {
           _force?: boolean
