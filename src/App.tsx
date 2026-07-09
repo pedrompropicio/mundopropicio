@@ -185,6 +185,9 @@ import CustomerMatchUpload from "./pages/crm-admin/meta-audiences/CustomerMatchU
 import GoogleAdsAdmin from "./pages/crm-admin/google-ads/GoogleAdsAdmin";
 import AudienceGoogleAds from "./pages/audience/AudienceGoogleAds";
 import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+const FULL_WIDTH_ROUTES = ["/transacoes"];
 
 const queryClient = new QueryClient({
   defaultOptions: {
