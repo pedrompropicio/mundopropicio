@@ -71,6 +71,9 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [markInstallment, setMarkInstallment] = useState<any | null>(null);
+  const [reverseOpen, setReverseOpen] = useState(false);
+  const [reverseRelease, setReverseRelease] = useState(false);
+  const [reverseReason, setReverseReason] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
