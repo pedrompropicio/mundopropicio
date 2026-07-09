@@ -416,7 +416,7 @@ function ProtectedLayout() {
       <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
         <AppSidebar />
         <main className="flex-1 pl-16 lg:pl-56">
-          <div className="mx-auto max-w-7xl p-4 lg:p-6">
+          <div className={cn("mx-auto p-4 lg:p-6", isFullWidthRoute ? "max-w-none" : "max-w-7xl")}>
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Routes>
               <Route path="/" element={<Index />} />
