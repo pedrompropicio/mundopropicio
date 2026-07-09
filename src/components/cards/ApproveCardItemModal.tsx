@@ -186,6 +186,15 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
         </div>
 
         <div className="space-y-3">
+          {previewUrl && (
+            <a href={previewUrl} target="_blank" rel="noreferrer" className="block">
+              <img
+                src={previewUrl}
+                alt="Talão submetido"
+                className="max-h-56 w-full rounded border border-border bg-muted object-contain"
+              />
+            </a>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
