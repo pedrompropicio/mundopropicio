@@ -1458,11 +1458,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Restaurar
                         </button>
                       )}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Remover da lista
-                        </button>
-                      )}
+
                     </div>
                   </div>
                 </div>
