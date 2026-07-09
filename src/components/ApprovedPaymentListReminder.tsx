@@ -39,6 +39,7 @@ export function ApprovedPaymentListReminder() {
           payment_list_items (
             id,
             manually_marked_paid,
+            removed_at,
             transactions (
               id,
               amount,
@@ -61,6 +62,7 @@ export function ApprovedPaymentListReminder() {
       .map((list: any) => {
         const unpaidCount = (list.payment_list_items ?? []).filter((item: any) => {
           if (item.manually_marked_paid) return false;
+          if (item.removed_at) return false;
           const tx = item.transactions;
           if (!tx) return false;
           const totalWithIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
