@@ -108,6 +108,7 @@ interface InsightRow {
   purchases_value_cents: number | null;
   frequency: number | null;
   currency: string | null;
+  last_synced_at: string;
 }
 
 interface ConnectionRow {
@@ -1852,7 +1853,7 @@ export default function CrmCampaigns() {
         .schema("crm")
         .from("meta_campaign_insights_daily")
         .select(
-          "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, frequency, currency",
+          "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, frequency, currency, last_synced_at",
         )
         .eq("ad_account_id", adAccountId)
         .gte("date_start", format(sixtyAgo, "yyyy-MM-dd"));
@@ -2127,15 +2128,15 @@ export default function CrmCampaigns() {
 
   // ---------- Header counters ----------
   const lastSyncMeta = useMemo(() => {
-    if (!campaigns || campaigns.length === 0) return null;
-    const latest = campaigns
-      .map((c) => c.last_synced_at)
+    if (!insights || insights.length === 0) return null;
+    const latest = insights
+      .map((i) => i.last_synced_at)
       .filter(Boolean)
       .sort()
       .pop();
     if (!latest) return null;
     return formatDistanceToNow(parseISO(latest), { locale: ptBR, addSuffix: true });
-  }, [campaigns]);
+  }, [insights]);
 
   const adAccountsCount = useMemo(() => {
     const set = new Set((campaigns ?? []).map((c) => c.ad_account_id));
