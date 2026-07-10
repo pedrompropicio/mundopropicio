@@ -610,13 +610,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               </>
             ) : (
               <>
-                {/* Edit: blocked if event completed; paid = limited edit mode */}
-                {!eventCompleted && computedStatus !== "paid" && (
-                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
+                {/* Edit: blocked if event completed (admin bypass); paid = limited edit mode */}
+                {(!eventCompleted || isAdmin) && computedStatus !== "paid" && (
+                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title={eventCompleted ? "Editar (evento fechado — ajuste admin)" : "Editar"}>
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {!eventCompleted && computedStatus === "paid" && (
+                {(!eventCompleted || isAdmin) && computedStatus === "paid" && (
                   <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground/60 hover:bg-secondary hover:text-foreground transition-colors" title="Editar especificação / fornecedor">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
