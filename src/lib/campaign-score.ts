@@ -95,7 +95,7 @@ export function computeScore(m: ScoreMetrics): ScoreResult {
   const cp = cpcPts(m.cpcCents);
   const f = freqPts(m.frequency);
   const v = velPts(m.spendCurrentCents, m.spendPrevCents);
-  const score = Math.round(r * 0.4 + c * 0.2 + cp * 0.15 + f * 0.15 + v * 0.10);
+  const score = Math.round(r * 0.65 + c * 0.12 + cp * 0.08 + f * 0.12 + v * 0.03);
   const { grade, gradeClass } = gradeFromScore(score);
   return {
     score,
