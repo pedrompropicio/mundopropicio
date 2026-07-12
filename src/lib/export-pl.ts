@@ -395,7 +395,7 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }), d.name));
+        }), d.name, "income", group.groupCode));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
@@ -412,7 +412,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
+      }), group.groupName, "income", group.groupCode));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -461,7 +461,7 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }), d.name));
+        }), d.name, "expense", group.groupCode));
       });
     } else {
       lines.push(enrichLine(pl({
@@ -474,7 +474,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
+      }), group.groupName, "expense", group.groupCode));
     }
   });
 
