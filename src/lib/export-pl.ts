@@ -705,7 +705,7 @@ export async function exportPLToExcel(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead, expandForecasts);
 
     // Nova ordem: Rubrica | Especificação | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | (comparação: Real s/IVA | IVA Real | Total Real | Variação) | Formalidade
     const header = isComparison
@@ -948,7 +948,7 @@ export function exportPLToPDF(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead, expandForecasts);
 
     if (evtIdx > 0) {
       doc.addPage();
