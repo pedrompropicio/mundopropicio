@@ -380,6 +380,8 @@ export default function BPUniverSpike() {
     categoryDropdownRef.current = l3Categories.map((c) => c.label);
 
     const totalRows = built.length + 5;
+    const sheetRowCount = Math.max(totalRows, 200);
+    for (let r = 0; r < sheetRowCount; r++) markProtected(r, COL.TOTAL);
 
     return {
       id: "bp-univer-spike",
@@ -415,7 +417,7 @@ export default function BPUniverSpike() {
         sheet1: {
           id: "sheet1",
           name: "BP",
-          rowCount: Math.max(totalRows, 200),
+          rowCount: sheetRowCount,
           columnCount: N_COLS,
           freeze: { xSplit: 1, ySplit: 1, startRow: 1, startColumn: 1 },
           columnData: {
