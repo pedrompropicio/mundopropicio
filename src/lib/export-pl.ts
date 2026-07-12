@@ -986,13 +986,28 @@ export function exportPLToPDF(
       const rowH = line.subIndent ? 6 : 7;
 
       if (line.isGrandTotal) {
-        doc.setFillColor(230, 240, 255);
+        doc.setFillColor(15, 23, 42);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+      } else if (line.isTotal) {
+        doc.setFillColor(51, 65, 85);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+      } else if (line.hierLevel === 1) {
+        doc.setFillColor(203, 213, 225);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
-      } else if (line.isTotal) {
-        doc.setFillColor(240, 240, 245);
+      } else if (line.hierLevel === 2) {
+        doc.setFillColor(226, 232, 240);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+      } else if (line.hierLevel === 3) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
       } else if (line.isGroupHeader) {
@@ -1013,7 +1028,6 @@ export function exportPLToPDF(
         doc.setFontSize(6);
         doc.setTextColor(120, 120, 120);
       } else if ((line.overrideCount ?? 0) > 0) {
-        // Override line — light yellow background with left accent
         doc.setFillColor(255, 250, 230);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFillColor(245, 180, 50);
@@ -1025,7 +1039,17 @@ export function exportPLToPDF(
         doc.setFontSize(6.5);
       }
 
-      const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
+      const pad = "  ";
+      const indentLevel =
+        line.isGrandTotal || line.isTotal ? 0 :
+        line.hierLevel === 1 ? 1 :
+        line.hierLevel === 2 ? 2 :
+        line.hierLevel === 3 ? 3 :
+        line.subIndent ? 4 :
+        line.isGroupHeader ? 1 :
+        line.indent ? 2 : 0;
+      const label = pad.repeat(indentLevel) + line.label;
+
       const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do BP]` : "";
       doc.text(label, colX[0] + 2, y + 4);
       if (overrideSuffix) {
