@@ -146,7 +146,8 @@ function buildPLForExport(
   relevantEventIds: string[] = [eventId],
   typeFilter: PLTypeFilter = "both",
   level: AccountLevel = 2,
-  includeOverhead: boolean = false
+  includeOverhead: boolean = false,
+  expandForecasts: boolean = false
 ): PLLine[] {
   const showIncome = typeFilter === "income" || typeFilter === "both";
   const showExpense = typeFilter === "expense" || typeFilter === "both";
