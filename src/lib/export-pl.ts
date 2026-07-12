@@ -26,7 +26,17 @@ interface PLLine {
   unitPrice?: number;
   overrideCount?: number;
   categoryName?: string;
+  specification?: string | null;
+  formalidade?: string | null;
 }
+
+const FORMALIDADE_LABEL: Record<string, string> = {
+  estimado: "Estimado",
+  negociacao: "Negociação",
+  fechado: "Fechado",
+  pago_parcial: "Pago parcial",
+  pago_total: "Pago total",
+};
 
 function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
   return {
