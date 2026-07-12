@@ -463,7 +463,19 @@ function buildPLForExport(
   return lines;
 }
 
-export function exportPLToExcel(
+const CURRENCY_FMT = '#,##0.00\\ "€";[Red]-#,##0.00\\ "€"';
+const INT_FMT = '#,##0';
+
+function safeSheetName(name: string): string {
+  return name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
+}
+
+function fmtDateTime(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export async function exportPLToExcel(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
@@ -472,143 +484,286 @@ export function exportPLToExcel(
   includeOverhead: boolean = false,
   scenarioName: string | null = null
 ) {
-  void companyDisplayName;
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
+  wb.creator = companyDisplayName;
+  wb.created = new Date();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
+  const generatedAt = fmtDateTime(new Date());
 
-  const baseTitle = isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO";
-  const titleWithScenario = scenarioName ? `${baseTitle} — CENÁRIO ${scenarioName.toUpperCase()}` : baseTitle;
-  const summaryRows: any[][] = [
-    [titleWithScenario],
-    [],
-    isComparison
-      ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
-      : ["Evento", "Receita Prev.", "Despesa Prev.", "Resultado Prev."],
-  ];
+  const baseTitle = isComparison ? "Business Plan — Previsão vs Realizado" : "Business Plan — Previsão";
+  const titleFull = scenarioName ? `${baseTitle} · Cenário ${scenarioName}` : baseTitle;
 
-  let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
+  // ---------- helpers de estilo ----------
+  const applyHeaderBand = (ws: ExcelJS.Worksheet, row: number, colCount: number) => {
+    const r = ws.getRow(row);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = r.getCell(c);
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
+      cell.alignment = { vertical: "middle", horizontal: c === 1 ? "left" : "right", wrapText: true };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF1F2937" } },
+        bottom: { style: "thin", color: { argb: "FF1F2937" } },
+        left: { style: "thin", color: { argb: "FF1F2937" } },
+        right: { style: "thin", color: { argb: "FF1F2937" } },
+      };
+    }
+    r.height = 22;
+  };
 
-  eventsToExport.forEach((evt) => {
-    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let fInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
-    let ticketActualNet = 0;
-    evtZones.forEach((zone: any) => {
-      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => {
-        const ivaRate = Number(lot.iva_rate ?? 6);
-        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        fInc += netPrice * Number(lot.quantity);
-        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
-          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
-          return sum + Number(sl.quantity) * saleNet;
-        }, 0);
-      });
+  const setCurrencyRow = (ws: ExcelJS.Worksheet, row: number, valueCols: number[]) => {
+    valueCols.forEach((c) => {
+      const cell = ws.getRow(row).getCell(c);
+      cell.numFmt = CURRENCY_FMT;
+      cell.alignment = { ...(cell.alignment || {}), horizontal: "right" };
     });
-    const evtTicketNet = evtZones.reduce((sum: number, zone: any) => {
+  };
+
+  // ---------- Folha "Resumo" ----------
+  if (typeFilter === "both") {
+    const ws = wb.addWorksheet("Resumo", { views: [{ state: "frozen", ySplit: 6 }] });
+
+    ws.mergeCells(1, 1, 1, isComparison ? 8 : 4);
+    const t = ws.getCell(1, 1);
+    t.value = titleFull;
+    t.font = { bold: true, size: 16, color: { argb: "FF0F172A" } };
+    t.alignment = { vertical: "middle", horizontal: "left" };
+    ws.getRow(1).height = 26;
+
+    ws.getCell(2, 1).value = `Empresa: ${companyDisplayName}`;
+    ws.getCell(3, 1).value = `Gerado em: ${generatedAt}`;
+    ws.getCell(4, 1).value = `Nível de detalhe: N${accountLevel}${includeOverhead ? " · Com overhead" : " · Sem overhead"}`;
+    [2, 3, 4].forEach((r) => {
+      ws.getCell(r, 1).font = { color: { argb: "FF475569" }, italic: true };
+    });
+
+    const headerRow = 6;
+    const header = isComparison
+      ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
+      : ["Evento", "Receita Prev.", "Despesa Prev.", "Resultado Prev."];
+    ws.getRow(headerRow).values = header;
+    applyHeaderBand(ws, headerRow, header.length);
+
+    let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
+    let r = headerRow + 1;
+
+    eventsToExport.forEach((evt) => {
+      const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
+      let fInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+      const fExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+      const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+      const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+      const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+      const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
+      let ticketActualNet = 0;
+      evtZones.forEach((zone: any) => {
+        const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+        zoneLots.forEach((lot: any) => {
+          const ivaRate = Number(lot.iva_rate ?? 6);
+          const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+          fInc += netPrice * Number(lot.quantity);
+          const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+          ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
+            const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+            return sum + Number(sl.quantity) * saleNet;
+          }, 0);
+        });
+      });
+      const evtTicketNet = evtZones.reduce((sum: number, zone: any) => {
         const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
         return sum + zoneLots.reduce((lotSum: number, lot: any) => {
           const ivaRate = Number(lot.iva_rate ?? 6);
           return lotSum + Number(lot.quantity) * (Number(lot.price) / (1 + ivaRate / 100));
         }, 0);
       }, 0);
-    const evtTicketGross = evtZones.reduce((sum: number, zone: any) => {
+      const evtTicketGross = evtZones.reduce((sum: number, zone: any) => {
         const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
         return sum + zoneLots.reduce((lotSum: number, lot: any) => lotSum + Number(lot.quantity) * Number(lot.price), 0);
       }, 0);
-    const cachePLLines = calculateCacheLinesForPL(
-      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
-      cacheDeductions,
-      evtTicketNet,
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
-      evtTicketGross
-    );
-    const totalCache = cachePLLines.reduce((s, c) => s + c.amount, 0);
-    const fExp = fExpBase + totalCache;
-    const totalTInc = tInc + ticketActualNet;
-    gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
-    if (isComparison) {
-      summaryRows.push([evt.name, fInc, totalTInc, fExp, tExp, fInc - fExp, totalTInc - tExp, (totalTInc - tExp) - (fInc - fExp)]);
-    } else {
-      summaryRows.push([evt.name, fInc, fExp, fInc - fExp]);
-    }
-  });
+      const cachePLLines = calculateCacheLinesForPL(
+        cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+        cacheDeductions,
+        evtTicketNet,
+        evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+        evtTicketGross
+      );
+      const totalCache = cachePLLines.reduce((s, c) => s + c.amount, 0);
+      const fExp = fExpBase + totalCache;
+      const totalTInc = tInc + ticketActualNet;
+      gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
 
-  summaryRows.push([]);
-  if (isComparison) {
-    summaryRows.push(["TOTAL", gFInc, gTInc, gFExp, gTExp, gFInc - gFExp, gTInc - gTExp, (gTInc - gTExp) - (gFInc - gFExp)]);
-  } else {
-    summaryRows.push(["TOTAL", gFInc, gFExp, gFInc - gFExp]);
+      const row = isComparison
+        ? [evt.name, fInc, totalTInc, fExp, tExp, fInc - fExp, totalTInc - tExp, (totalTInc - tExp) - (fInc - fExp)]
+        : [evt.name, fInc, fExp, fInc - fExp];
+      ws.getRow(r).values = row;
+      setCurrencyRow(ws, r, isComparison ? [2, 3, 4, 5, 6, 7, 8] : [2, 3, 4]);
+      r++;
+    });
+
+    // Total
+    const totalRow = ws.getRow(r + 1);
+    totalRow.values = isComparison
+      ? ["TOTAL", gFInc, gTInc, gFExp, gTExp, gFInc - gFExp, gTInc - gTExp, (gTInc - gTExp) - (gFInc - gFExp)]
+      : ["TOTAL", gFInc, gFExp, gFInc - gFExp];
+    totalRow.font = { bold: true };
+    totalRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+      cell.border = { top: { style: "medium", color: { argb: "FF334155" } } };
+    });
+    setCurrencyRow(ws, r + 1, isComparison ? [2, 3, 4, 5, 6, 7, 8] : [2, 3, 4]);
+
+    ws.columns = (isComparison
+      ? [30, 16, 16, 16, 16, 16, 16, 16]
+      : [30, 16, 16, 16]
+    ).map((w) => ({ width: w }));
   }
 
-  // Folha "Resumo" só faz sentido em "Ambos" (Receita+Despesa+Resultado)
-  if (typeFilter === "both") {
-    const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-    summaryWs["!cols"] = isComparison
-      ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
-      : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
-    applyPTNumberFormat(summaryWs);
-    XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
-  }
-
+  // ---------- Folha por evento ----------
   eventsToExport.forEach((evt) => {
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
     const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
-    const rows: any[][] = [
-      [`Business Plan - ${evt.name}`],
-      [],
-      isComparison
-        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)", "Real s/ IVA (€)", "IVA Real (€)", "Total Real (€)", "Variação (€)"]
-        : ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)"],
-    ];
+
+    const header = isComparison
+      ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total", "Real s/ IVA", "IVA Real", "Total Real", "Variação"]
+      : ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total"];
+    const nCols = header.length;
+    const valueCols = isComparison ? [3, 4, 5, 6, 7, 8, 9, 10] : [3, 4, 5, 6];
+
+    const ws = wb.addWorksheet(safeSheetName(evt.name), { views: [{ state: "frozen", ySplit: 7 }] });
+
+    // Cabeçalho documento
+    ws.mergeCells(1, 1, 1, nCols);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = `Business Plan — ${evt.name}`;
+    titleCell.font = { bold: true, size: 16, color: { argb: "FF0F172A" } };
+    titleCell.alignment = { vertical: "middle", horizontal: "left" };
+    ws.getRow(1).height = 26;
+
+    const contextBits: string[] = [];
+    if (evt.date) contextBits.push(`Data: ${evt.date}`);
+    if (evt.location) contextBits.push(`Local: ${evt.location}`);
+    if (scenarioName) contextBits.push(`Cenário: ${scenarioName}`);
+    contextBits.push(`Nível: N${accountLevel}`);
+    contextBits.push(includeOverhead ? "Com overhead" : "Sem overhead");
+    ws.mergeCells(2, 1, 2, nCols);
+    ws.getCell(2, 1).value = contextBits.join("  ·  ");
+    ws.getCell(2, 1).font = { color: { argb: "FF475569" } };
+
+    ws.mergeCells(3, 1, 3, nCols);
+    ws.getCell(3, 1).value = `Empresa: ${companyDisplayName}  ·  Gerado em: ${generatedAt}`;
+    ws.getCell(3, 1).font = { italic: true, color: { argb: "FF64748B" }, size: 10 };
+
+    // linha 4 em branco
+    // Cabeçalho tabela em linha 5? Usamos 6 para melhor respiração e freeze ySplit=7
+    const headerRow = 6;
+    ws.getRow(headerRow).values = header;
+    applyHeaderBand(ws, headerRow, nCols);
+
+    // Linhas
+    let r = headerRow + 1;
     plLines.forEach((line) => {
-      const prefix = line.subIndent ? "      " : line.indent ? "      " : line.isGroupHeader ? "  " : "";
+      const row = ws.getRow(r);
       const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do BP)` : "";
-      if (isComparison) {
-        rows.push([
-          prefix + line.label + overrideSuffix,
-          line.quantity != null ? line.quantity : "",
-          line.unitPrice != null ? line.unitPrice : "",
-          line.forecast,
-          line.forecastIva,
-          line.forecastTotal,
-          line.actual,
-          line.actualIva,
-          line.actualTotal,
-          line.variance,
-        ]);
-      } else {
-        rows.push([
-          prefix + line.label + overrideSuffix,
-          line.quantity != null ? line.quantity : "",
-          line.unitPrice != null ? line.unitPrice : "",
-          line.forecast,
-          line.forecastIva,
-          line.forecastTotal,
-        ]);
+      let label = line.label + overrideSuffix;
+      // Determinar nível de indentação
+      let indent = 0;
+      if (line.isGrandTotal) indent = 0;
+      else if (line.isTotal) indent = 0;              // RECEITAS / DESPESAS (L1)
+      else if (line.isGroupHeader) indent = 1;        // L2
+      else if (line.indent) indent = 2;               // L3 detail
+      else if (line.subIndent) indent = 3;            // item
+
+      if (line.isTotal || line.isGrandTotal) label = label.toUpperCase();
+
+      const cells = isComparison
+        ? [label, line.quantity ?? null, line.unitPrice ?? null, line.forecast, line.forecastIva, line.forecastTotal, line.actual, line.actualIva, line.actualTotal, line.variance]
+        : [label, line.quantity ?? null, line.unitPrice ?? null, line.forecast, line.forecastIva, line.forecastTotal];
+      row.values = cells;
+
+      // Formatação numérica moeda
+      valueCols.forEach((c) => {
+        const cell = row.getCell(c);
+        cell.numFmt = CURRENCY_FMT;
+        cell.alignment = { horizontal: "right" };
+      });
+      // Qtd (col 2) inteiro
+      const qtyCell = row.getCell(2);
+      if (typeof qtyCell.value === "number") {
+        qtyCell.numFmt = INT_FMT;
+        qtyCell.alignment = { horizontal: "right" };
       }
+
+      // Label alignment com indent
+      row.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent };
+
+      // Estilo por tipo de linha
+      if (line.isGrandTotal) {
+        row.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
+          cell.border = { top: { style: "medium", color: { argb: "FF0F172A" } }, bottom: { style: "medium", color: { argb: "FF0F172A" } } };
+        });
+        row.height = 22;
+      } else if (line.isTotal) {
+        // L1 (RECEITAS/DESPESAS)
+        row.font = { bold: true, color: { argb: "FF0F172A" }, size: 12 };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
+          cell.border = { top: { style: "medium", color: { argb: "FF334155" } }, bottom: { style: "thin", color: { argb: "FF334155" } } };
+        });
+        row.height = 20;
+      } else if (line.isGroupHeader) {
+        // L2
+        row.font = { bold: true, color: { argb: "FF0F172A" } };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+        });
+      } else if (line.isSubTotal) {
+        row.font = { bold: true, italic: true, color: { argb: "FF334155" } };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = { top: { style: "thin", color: { argb: "FFCBD5E1" } } };
+        });
+      } else if (line.indent) {
+        row.font = { color: { argb: "FF1F2937" } };
+      } else if (line.subIndent) {
+        row.font = { color: { argb: "FF475569" }, size: 10 };
+      }
+
+      r++;
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = isComparison
-      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }]
-      : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }];
-    applyPTNumberFormat(ws);
-    const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    // Larguras das colunas
+    ws.columns = (isComparison
+      ? [42, 8, 14, 16, 12, 16, 16, 12, 16, 16]
+      : [42, 8, 14, 16, 12, 16]
+    ).map((w) => ({ width: w }));
+
+    // AutoFilter no cabeçalho da tabela
+    ws.autoFilter = {
+      from: { row: headerRow, column: 1 },
+      to: { row: headerRow, column: nCols },
+    };
   });
 
   const filterSuffix = typeFilter === "both" ? "" : typeFilter === "income" ? "_Receitas" : "_Despesas";
-  XLSX.writeFile(wb, `BP_Relatorio_N${accountLevel}${filterSuffix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const singleEventSuffix = eventsToExport.length === 1 ? `_${safeSheetName(eventsToExport[0].name).replace(/\s+/g, "-")}` : "";
+  const filename = `BP${singleEventSuffix}_N${accountLevel}${filterSuffix}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
+
 
 export function exportPLToPDF(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
