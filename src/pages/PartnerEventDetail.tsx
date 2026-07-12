@@ -98,6 +98,8 @@ export default function PartnerEventDetail() {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
   const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
+  // Modo de detalhe para as exportações (Excel/PDF) do BP.
+  const [bpDetailMode, setBpDetailMode] = useState<"aggregated" | "expanded">("aggregated");
   const isMobile = useIsMobile();
   // No mobile a edição em grelha não cabe — força sempre vista Agrupada.
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
