@@ -524,7 +524,8 @@ export async function exportPLToExcel(
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
   scenarioName: string | null = null,
-  expandForecasts: boolean = false
+  expandForecasts: boolean = false,
+  hideOverheadTag: boolean = false,
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = companyDisplayName;
