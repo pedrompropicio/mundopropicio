@@ -867,6 +867,17 @@ export default function PartnerEventDetail() {
   const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
   const transactionResult = transactionIncome - transactionExpense;
 
+  // ─── Cards do sócio (visão única e fixa) ───
+  // Receitas realizadas NET = bilhetes vendidos + patrocínios confirmados (1.2*) + bares (1.1.03*)
+  // Despesas = bpTotalExpense (BP aprovado c/IVA, já inclui overhead).
+  const incomeTxNet = (kindPrefix: string) => transactions
+    .filter((t: any) => t.type === "income" && (t.account_categories?.code ?? "").startsWith(kindPrefix))
+    .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+  const sponsorshipRealNet = incomeTxNet("1.2");
+  const barsRealNet = incomeTxNet("1.1.03");
+  const incomeRealNet = ticketRevenueNet + sponsorshipRealNet + barsRealNet;
+  const partnerResultValue = incomeRealNet - bpTotalExpense;
+
   return (
     <div className="space-y-6">
       <div>
