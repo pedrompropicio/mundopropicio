@@ -61,7 +61,10 @@ const emptyForm: AccountForm = {
 };
 
 export default function FinancialAccounts() {
-  const { isAdmin } = useAuth();
+  const { isAdmin: isAdminRaw, isManager } = useAuth();
+  // Admin + Manager podem criar/editar contas (incl. Saldo Inicial). Restantes verificações (ver saldo) continuam só admin via `isAdminStrict`.
+  const isAdminStrict = isAdminRaw;
+  const isAdmin = isAdminRaw || isManager;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
