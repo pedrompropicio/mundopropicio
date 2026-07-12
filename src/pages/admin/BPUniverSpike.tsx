@@ -102,6 +102,11 @@ const RANGE_WRITE_COMMANDS = new Set([
   "sheet.command.copy-right",
 ]);
 
+const USER_ACTION_COMMANDS = new Set([
+  ...EDIT_BLOCK_COMMANDS,
+  ...RANGE_WRITE_COMMANDS,
+]);
+
 const normalizeRange = (range: any): UniverRange | null => {
   const raw = typeof range?.getRange === "function" ? range.getRange() : range;
   if (!raw) return null;
@@ -346,7 +351,8 @@ export default function BPUniverSpike() {
         cellData[r][COL.AMOUNT] = { v: e.amount, s: "sMoney" };
         cellData[r][COL.IVA] = { v: e.iva_rate, s: "sIva" };
         const totalFormula = `=${L_AMOUNT}${r + 1}*(1+${L_IVA}${r + 1}/100)`;
-        cellData[r][COL.TOTAL] = { f: totalFormula, s: "sMoneyCalc" };
+        const totalValue = e.amount * (1 + (e.iva_rate ?? 0) / 100);
+        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: "sMoneyCalc" };
         cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: st };
         markProtected(r, COL.TOTAL);
         protectedFormulaRows.push(r);
@@ -356,13 +362,16 @@ export default function BPUniverSpike() {
         cellData[r][COL.RUBRIC] = { v: row.label, s: stLabel };
         cellData[r][COL.CATEGORY] = { v: "", s: st };
         cellData[r][COL.SPEC] = { v: "", s: st };
-        const childRefs = (row.childRows ?? []).map((cr) => cr + 1);
+        const childRows = row.childRows ?? [];
+        const childRefs = childRows.map((cr) => cr + 1);
         const sumAmount = childRefs.length ? `=` + childRefs.map((rr) => `${L_AMOUNT}${rr}`).join("+") : `=0`;
         const sumTotal = childRefs.length ? `=` + childRefs.map((rr) => `${L_TOTAL}${rr}`).join("+") : `=0`;
+        const sumAmountValue = childRows.reduce((sum, cr) => sum + (Number(cellData[cr]?.[COL.AMOUNT]?.v) || 0), 0);
+        const sumTotalValue = childRows.reduce((sum, cr) => sum + (Number(cellData[cr]?.[COL.TOTAL]?.v) || 0), 0);
         const moneyStyle = row.kind === "grand" ? "sMoneyGrand" : row.kind === "l1" ? "sMoneyL1" : row.kind === "l2" ? "sMoneyL2" : "sMoneyL3";
-        cellData[r][COL.AMOUNT] = { f: sumAmount, s: moneyStyle };
+        cellData[r][COL.AMOUNT] = { v: sumAmountValue, f: sumAmount, s: moneyStyle };
         cellData[r][COL.IVA] = { v: "", s: st };
-        cellData[r][COL.TOTAL] = { f: sumTotal, s: moneyStyle };
+        cellData[r][COL.TOTAL] = { v: sumTotalValue, f: sumTotal, s: moneyStyle };
         cellData[r][COL.FORMALIDADE] = { v: "", s: st };
         for (let c = 0; c < N_COLS; c++) markProtected(r, c);
         protectedRows.push(r);
@@ -489,16 +498,19 @@ export default function BPUniverSpike() {
       };
 
       const commandTouchesProtectedCell = (id: string, params: any) => {
+        if (!USER_ACTION_COMMANDS.has(id)) return false;
         const protectedCells = protectedCellsRef.current;
         if (matrixHitsProtectedCell(params?.cellValue, protectedCells)) return true;
         const ranges = getCommandRanges(params);
-        const candidateRanges = ranges.length ? ranges : getActiveRanges();
         if (EDIT_BLOCK_COMMANDS.has(id)) {
           // Only block OPENING the editor, not closing.
           if (params && params.visible === false) return false;
-          return candidateRanges.some((range) => rangeHitsProtectedCell(range, protectedCells));
+          // Click/selection commands in Univer 0.25 can arrive without a range; do not
+          // fall back to the last selection or every click may look protected.
+          return ranges.some((range) => rangeHitsProtectedCell(range, protectedCells));
         }
         if (RANGE_WRITE_COMMANDS.has(id)) {
+          const candidateRanges = ranges.length ? ranges : getActiveRanges();
           return candidateRanges.some((range) => rangeHitsProtectedCell(range, protectedCells));
         }
         return false;
