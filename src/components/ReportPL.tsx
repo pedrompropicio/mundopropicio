@@ -529,6 +529,7 @@ export default function ReportPL() {
   const [typeFilter, setTypeFilter] = useState<PLTypeFilter>("both");
   const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
   const [includeOverhead, setIncludeOverhead] = useState(false);
+  const [expandForecasts, setExpandForecasts] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
   const [showScenarioName, setShowScenarioName] = useState(true);
