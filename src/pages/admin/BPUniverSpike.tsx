@@ -458,6 +458,9 @@ export default function BPUniverSpike() {
 
       <div className="flex items-center gap-3">
         <Button onClick={dumpState} disabled={!ready}>Ver alterações (consola)</Button>
+        <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
+          {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
+        </Button>
         <span className="text-xs text-muted-foreground">
           {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
           {ready ? " · Univer pronto" : ""}
@@ -471,9 +474,29 @@ export default function BPUniverSpike() {
       )}
 
       <div
-        ref={containerRef}
-        style={{ width: "100%", height: "78vh", border: "1px solid hsl(var(--border))" }}
-      />
+        className={
+          fullscreen
+            ? "fixed inset-0 z-[9999] bg-background"
+            : "relative"
+        }
+        style={
+          fullscreen
+            ? { width: "100vw", height: "100vh" }
+            : { width: "100%", height: "78vh", border: "1px solid hsl(var(--border))" }
+        }
+      >
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {fullscreen && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setFullscreen(false)}
+            className="absolute top-3 right-3 z-10 shadow-lg"
+          >
+            <Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)
+          </Button>
+        )}
+      </div>
 
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Notas do spike (Fase 1b)</summary>
