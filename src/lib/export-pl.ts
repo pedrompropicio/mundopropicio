@@ -852,7 +852,8 @@ export function exportPLToPDF(
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
   scenarioName: string | null = null,
-  expandForecasts: boolean = false
+  expandForecasts: boolean = false,
+  _hideOverheadTag: boolean = false,
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
