@@ -21,6 +21,7 @@ import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
+import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
@@ -94,6 +95,7 @@ const statusLabels: Record<string, string> = {
 export default function PartnerEventDetail() {
   const { id } = useParams();
   const { user, hasPermission } = useAuth();
+  const { displayName: companyDisplayName } = useCompanyBranding();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
@@ -752,7 +754,7 @@ export default function PartnerEventDetail() {
         [],           // audit logs
         "expense",    // typeFilter — força sem folha Resumo, sem receitas
         3,            // accountLevel — N3
-        "MP Gestão Eventos",
+        companyDisplayName,
         true,         // includeOverhead
         null,         // scenarioName
         p.expand,     // expandForecasts
@@ -779,7 +781,7 @@ export default function PartnerEventDetail() {
         "expense",
         3,
         null,          // companyLogoDataUrl (usa fallback do módulo)
-        "MP Gestão Eventos",
+        companyDisplayName,
         true,
         null,
         p.expand,

@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import type { PLMode, PLTypeFilter } from "@/components/ReportPL";
-import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
+import { buildCategoryLookup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareReportCodesUnclassifiedLast } from "@/lib/utils";
 
@@ -28,6 +28,8 @@ interface PLLine {
   categoryName?: string;
   specification?: string | null;
   formalidade?: string | null;
+  /** Hierarquia contábil: 1=L1 (secção), 2=L2 (grupo), 3=L3 (rubrica). Undefined em totais/subtotais especiais/itens. */
+  hierLevel?: 1 | 2 | 3;
 }
 
 const FORMALIDADE_LABEL: Record<string, string> = {
@@ -48,38 +50,8 @@ function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | '
   };
 }
 
-function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]) {
-  const allGroupNames = [...new Set([...fGroups.map((g) => g.groupName), ...tGroups.map((g) => g.groupName)])];
-  const fMap = Object.fromEntries(fGroups.map((g) => [g.groupName, g]));
-  const tMap = Object.fromEntries(tGroups.map((g) => [g.groupName, g]));
 
-  return allGroupNames.map((name) => {
-    const fg = fMap[name];
-    const tg = tMap[name];
-    const code = fg?.groupCode ?? tg?.groupCode ?? "Z";
-    const allDetailNames = [...new Set([...(fg?.details.map((d) => d.name) ?? []), ...(tg?.details.map((d) => d.name) ?? [])])];
-    const fDetailMap = Object.fromEntries((fg?.details ?? []).map((d) => [d.name, d]));
-    const tDetailMap = Object.fromEntries((tg?.details ?? []).map((d) => [d.name, d]));
 
-    const details = allDetailNames.map((dn) => ({
-      name: dn,
-      fBase: fDetailMap[dn]?.base ?? 0,
-      fIva: fDetailMap[dn]?.iva ?? 0,
-      tBase: tDetailMap[dn]?.base ?? 0,
-      tIva: tDetailMap[dn]?.iva ?? 0,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-
-    return {
-      groupName: name,
-      groupCode: code,
-      fBase: fg?.totalBase ?? 0,
-      fIva: fg?.totalIva ?? 0,
-      tBase: tg?.totalBase ?? 0,
-      tIva: tg?.totalIva ?? 0,
-      details,
-    };
-  }).sort((a, b) => compareReportCodesUnclassifiedLast(a.groupCode, b.groupCode));
-}
 
 interface ExportHierarchyMaps {
   subEventParentMap: Record<string, string>;
@@ -241,31 +213,21 @@ function buildPLForExport(
     }));
   }
 
-  // Build override tracking by category name
-  const overrideByCatName: Record<string, number> = {};
-  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
-    const catInfo = lookup[t.category_id];
-    const catName = catInfo?.name ?? "Sem categoria";
-    overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
-  });
 
-  // Metadata (specification/formalidade) por chave "type|groupCode|detailName",
-  // seguindo a mesma categorização de aggregateByHierarchy(level). Só emitimos
-  // no Excel quando o conjunto de forecasts do detalhe partilha um único valor.
+
+
+  // Metadata (specification/formalidade) por chave LEAF "type|code|name" — sempre o
+  // código+nome da categoria do próprio forecast (L3 quando existe, senão L2, senão L1).
   const metaByKey = new Map<string, { specs: Set<string>; forms: Set<string> }>();
   const forecastsByKey = new Map<string, any[]>();
-  const derivedKey = (f: any): string | null => {
+  const derivedKey = (f: any): string => {
     const catInfo = lookup[f.category_id];
-    let groupCode: string; let detailName: string;
-    if (!catInfo) { groupCode = "Z"; detailName = "Sem categoria"; }
-    else if (level === 1) { groupCode = catInfo.l1Code; detailName = catInfo.l2Name ?? catInfo.name; }
-    else if (level === 3) { groupCode = catInfo.code; detailName = catInfo.name; }
-    else { groupCode = catInfo.groupCode; detailName = catInfo.name; }
-    return `${f.type}|${groupCode}|${detailName}`;
+    const code = catInfo?.code ?? "Z";
+    const name = catInfo?.name ?? "Sem categoria";
+    return `${f.type}|${code}|${name}`;
   };
   forecasts.forEach((f: any) => {
     const key = derivedKey(f);
-    if (!key) return;
     let entry = metaByKey.get(key);
     if (!entry) { entry = { specs: new Set(), forms: new Set() }; metaByKey.set(key, entry); }
     const spec = (f.specification ?? "").toString().trim();
@@ -276,27 +238,18 @@ function buildPLForExport(
     arr.push(f);
     forecastsByKey.set(key, arr);
   });
-  const readMeta = (type: "income" | "expense", groupCode: string, detailName: string) => {
-    const e = metaByKey.get(`${type}|${groupCode}|${detailName}`);
+  const readMeta = (type: "income" | "expense", code: string, name: string) => {
+    const e = metaByKey.get(`${type}|${code}|${name}`);
     return {
       specification: e && e.specs.size === 1 ? [...e.specs][0] : null,
       formalidade: e && e.forms.size === 1 ? [...e.forms][0] : null,
     };
   };
 
-  const enrichLine = (line: PLLine, detailName: string, type?: "income" | "expense", groupCode?: string): PLLine => {
-    const cnt = overrideByCatName[detailName];
-    // Em modo "linha a linha", spec/formalidade migram para as linhas-filho;
-    // o L3 fica sem essa info para não duplicar.
-    const meta = !expandForecasts && type && groupCode ? readMeta(type, groupCode, detailName) : { specification: null, formalidade: null };
-    const enriched: PLLine = { ...line, categoryName: detailName, specification: meta.specification, formalidade: meta.formalidade };
-    return cnt ? { ...enriched, overrideCount: cnt } : enriched;
-  };
-
   // Emite uma linha por forecast individual (só quando expandForecasts=true).
-  const pushForecastChildren = (target: PLLine[], type: "income" | "expense", groupCode: string, detailName: string) => {
+  const pushForecastChildren = (target: PLLine[], type: "income" | "expense", code: string, name: string) => {
     if (!expandForecasts) return;
-    const key = `${type}|${groupCode}|${detailName}`;
+    const key = `${type}|${code}|${name}`;
     const list = forecastsByKey.get(key) ?? [];
     if (list.length === 0) return;
     list.forEach((f: any) => {
@@ -320,16 +273,7 @@ function buildPLForExport(
     });
   };
 
-  const fInc = forecasts.filter((f) => f.type === "income");
-  const fExp = forecasts.filter((f) => f.type === "expense");
-  const tInc = transactions.filter((t) => t.type === "income");
-  const tExp = transactions.filter((t) => t.type === "expense");
-
-  const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
-  const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
-  const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
-  const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
-
+  // ─── Cache total (para injectar em 2.1.01 · Cachês) ───
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
   const cachePLLines = calculateCacheLinesForPL(
     eventCacheConfigs,
@@ -340,187 +284,204 @@ function buildPLForExport(
   );
   const totalCacheAmount = cachePLLines.reduce((s, c) => s + c.amount, 0);
 
+  // ─── Árvore hierárquica L1 > L2 > L3 (fonte única de emissão) ───
+  type TreeNode = {
+    code: string; name: string; level: 1 | 2 | 3;
+    fBase: number; fIva: number; tBase: number; tIva: number;
+    children: Map<string, TreeNode>;
+  };
+  const buildChain = (info: any): Array<{ code: string; name: string; level: 1 | 2 | 3 }> => {
+    if (!info) return [{ code: "Z", name: "Sem categoria", level: 1 }];
+    if (info.depth === 3) return [
+      { code: info.l1Code, name: info.l1Name, level: 1 },
+      { code: info.l2Code, name: info.l2Name, level: 2 },
+      { code: info.code, name: info.name, level: 3 },
+    ];
+    if (info.depth === 2) return [
+      { code: info.l1Code, name: info.l1Name, level: 1 },
+      { code: info.code, name: info.name, level: 2 },
+    ];
+    return [{ code: info.code, name: info.name, level: 1 }];
+  };
+  const ensurePath = (root: Map<string, TreeNode>, chain: Array<{ code: string; name: string; level: 1 | 2 | 3 }>): TreeNode[] => {
+    let cursor = root;
+    const path: TreeNode[] = [];
+    for (const seg of chain) {
+      let node = cursor.get(seg.code);
+      if (!node) {
+        node = { code: seg.code, name: seg.name, level: seg.level, fBase: 0, fIva: 0, tBase: 0, tIva: 0, children: new Map() };
+        cursor.set(seg.code, node);
+      }
+      path.push(node);
+      cursor = node.children;
+    }
+    return path;
+  };
+  const addToTree = (root: Map<string, TreeNode>, catId: string | null, base: number, iva: number, isForecast: boolean) => {
+    const info = catId ? lookup[catId] : null;
+    const chain = buildChain(info);
+    const path = ensurePath(root, chain);
+    for (const node of path) {
+      if (isForecast) { node.fBase += base; node.fIva += iva; }
+      else { node.tBase += base; node.tIva += iva; }
+    }
+  };
+
+  const incTree = new Map<string, TreeNode>();
+  const expTree = new Map<string, TreeNode>();
+  forecasts.forEach((f: any) => {
+    const base = Number(f.amount) || 0;
+    const iva = base * Number(f.iva_rate ?? 0) / 100;
+    const tree = f.type === "income" ? incTree : expTree;
+    addToTree(tree, f.category_id ?? null, base, iva, true);
+  });
+  transactions.forEach((t: any) => {
+    const base = Number(t.amount) || 0;
+    const iva = base * Number(t.iva_rate ?? 0) / 100;
+    const tree = t.type === "income" ? incTree : expTree;
+    addToTree(tree, t.category_id ?? null, base, iva, false);
+  });
+
+  // Injecção Cache → 2 · Custos do Evento > 2.1 · Artístico > 2.1.01 · Cachês
   if (totalCacheAmount > 0) {
-    const artisticoGroup = fExpGroups.find((g) => g.groupCode === "2.1" || g.groupName === "Artístico");
-    if (artisticoGroup) {
-      const cachesDetail = artisticoGroup.details.find((d) => d.code === "2.1.01" || d.name === "Cachês");
-      if (cachesDetail) {
-        cachesDetail.base += totalCacheAmount;
-      } else {
-        artisticoGroup.details.push({ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 });
-      }
-      artisticoGroup.totalBase += totalCacheAmount;
-    } else {
-      fExpGroups.push({
-        groupName: "Artístico",
-        groupCode: "2.1",
-        totalBase: totalCacheAmount,
-        totalIva: 0,
-        details: [{ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 }],
-      });
+    const cachesInfo = Object.values(lookup).find((l) => l.code === "2.1.01");
+    const chain: Array<{ code: string; name: string; level: 1 | 2 | 3 }> = cachesInfo
+      ? [
+          { code: cachesInfo.l1Code, name: cachesInfo.l1Name, level: 1 },
+          { code: cachesInfo.l2Code ?? "2.1", name: cachesInfo.l2Name ?? "Artístico", level: 2 },
+          { code: cachesInfo.code, name: cachesInfo.name, level: 3 },
+        ]
+      : [
+          { code: "2", name: "Custos do Evento", level: 1 },
+          { code: "2.1", name: "Artístico", level: 2 },
+          { code: "2.1.01", name: "Cachês", level: 3 },
+        ];
+    const path = ensurePath(expTree, chain);
+    for (const node of path) node.fBase += totalCacheAmount;
+  }
+
+  // Injecção Bilheteira → tree de receitas (previsto + real)
+  if (ticketForecastNet > 0 || totalTicketActualNet > 0 || ticketForecastIva > 0 || totalTicketActualIva > 0) {
+    const bilhInfo = Object.values(lookup).find((l) => l.name.toLowerCase().includes("bilhete"));
+    const chain: Array<{ code: string; name: string; level: 1 | 2 | 3 }> = bilhInfo
+      ? buildChain(bilhInfo)
+      : [
+          { code: "0", name: "Receitas", level: 1 },
+          { code: "0.0", name: "Bilheteira", level: 2 },
+          { code: "0.0.01", name: "Bilheteira", level: 3 },
+        ];
+    const path = ensurePath(incTree, chain);
+    for (const node of path) {
+      node.fBase += ticketForecastNet;
+      node.fIva += ticketForecastIva;
+      node.tBase += totalTicketActualNet;
+      node.tIva += totalTicketActualIva;
     }
   }
 
-  if (ticketForecastNet > 0) {
-    const bilhGroup = fIncGroups.find((g) => g.details.some((d) => d.name.toLowerCase().includes("bilhete")));
-    if (bilhGroup) {
-      const bilhDetail = bilhGroup.details.find((d) => d.name.toLowerCase().includes("bilhete"));
-      if (bilhDetail) {
-        bilhDetail.base += ticketForecastNet;
-        bilhDetail.iva += ticketForecastIva;
-      }
-      bilhGroup.totalBase += ticketForecastNet;
-      bilhGroup.totalIva += ticketForecastIva;
-    } else {
-      fIncGroups.push({
-        groupName: "Bilheteira",
-        groupCode: "0.0",
-        totalBase: ticketForecastNet,
-        totalIva: ticketForecastIva,
-        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastNet, iva: ticketForecastIva }],
-      });
-    }
-  }
-
-  const mergedInc = mergeGroupsExport(fIncGroups, tIncGroups);
-  const mergedExp = mergeGroupsExport(fExpGroups, tExpGroups);
-
-  const totalFIncBase = mergedInc.reduce((s, g) => s + g.fBase, 0);
-  const totalFIncIva = mergedInc.reduce((s, g) => s + g.fIva, 0);
-  const totalFExpBase = mergedExp.reduce((s, g) => s + g.fBase, 0);
-  const totalFExpIva = mergedExp.reduce((s, g) => s + g.fIva, 0);
-  const totalTIncBase = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualNet;
-  const totalTIncIva = mergedInc.reduce((s, g) => s + g.tIva, 0) + totalTicketActualIva;
-  const totalTExpBase = mergedExp.reduce((s, g) => s + g.tBase, 0);
-  const totalTExpIva = mergedExp.reduce((s, g) => s + g.tIva, 0);
+  // Totais globais a partir da árvore (bate com os cards da app)
+  const sumRoots = (tree: Map<string, TreeNode>) => {
+    let fB = 0, fI = 0, tB = 0, tI = 0;
+    tree.forEach((n) => { fB += n.fBase; fI += n.fIva; tB += n.tBase; tI += n.tIva; });
+    return { fB, fI, tB, tI };
+  };
+  const incT = sumRoots(incTree);
+  const expT = sumRoots(expTree);
+  const totalFIncBase = incT.fB, totalFIncIva = incT.fI;
+  const totalTIncBase = incT.tB, totalTIncIva = incT.tI;
+  const totalFExpBase = expT.fB, totalFExpIva = expT.fI;
+  const totalTExpBase = expT.tB, totalTExpIva = expT.tI;
 
   const lines: PLLine[] = [];
-  let ticketLinesInserted = false;
-  if (showIncome) {
-  lines.push(pl({
-    label: "RECEITAS",
-    forecast: totalFIncBase,
-    actual: totalTIncBase,
-    variance: totalTIncBase - totalFIncBase,
-    isTotal: true,
-    forecastIva: totalFIncIva,
-    forecastTotal: totalFIncBase + totalFIncIva,
-    actualIva: totalTIncIva,
-    actualTotal: totalTIncBase + totalTIncIva,
-  }));
-  mergedInc.forEach((group) => {
-    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
-    if (hasManyDetails) {
-      lines.push(pl({
-        label: group.groupName,
-        forecast: group.fBase,
-        actual: group.tBase,
-        variance: group.tBase - group.fBase,
-        isGroupHeader: true,
-        forecastIva: group.fIva,
-        forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva,
-        actualTotal: group.tBase + group.tIva,
-      }));
-      group.details.forEach((d) => {
-        lines.push(enrichLine(pl({
-          label: d.name,
-          forecast: d.fBase,
-          actual: d.tBase,
-          variance: d.tBase - d.fBase,
-          indent: true,
-          forecastIva: d.fIva,
-          forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva,
-          actualTotal: d.tBase + d.tIva,
-        }), d.name, "income", group.groupCode));
-        pushForecastChildren(lines, "income", group.groupCode, d.name);
-        if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
-          ticketLines.forEach((tl) => lines.push(tl));
-          ticketLinesInserted = true;
-        }
-      });
-    } else {
-      lines.push(enrichLine(pl({
-        label: group.groupName,
-        forecast: group.fBase,
-        actual: group.tBase,
-        variance: group.tBase - group.fBase,
-        indent: true,
-        forecastIva: group.fIva,
-        forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva,
-        actualTotal: group.tBase + group.tIva,
-      }), group.groupName, "income", group.groupCode));
-      pushForecastChildren(lines, "income", group.groupCode, group.groupName);
-      if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
-        ticketLines.forEach((tl) => lines.push(tl));
-        ticketLinesInserted = true;
+  const ticketInsertRef = { done: false };
+
+  const emitNode = (n: TreeNode, out: PLLine[], type: "income" | "expense") => {
+    // Corta pela profundidade escolhida: se este nó excede o level, não emite (mas
+    // os seus valores já estão agregados no pai — já foram emitidos).
+    if (n.level > level) return;
+    const label = `${n.code} · ${n.name}`;
+    const line = pl({
+      label,
+      forecast: n.fBase,
+      actual: n.tBase,
+      variance: n.tBase - n.fBase,
+      forecastIva: n.fIva,
+      forecastTotal: n.fBase + n.fIva,
+      actualIva: n.tIva,
+      actualTotal: n.tBase + n.tIva,
+    });
+    line.hierLevel = n.level;
+    out.push(line);
+
+    // "Folha de emissão": ou atingiu o level máximo, ou não tem filhos mais fundos.
+    const isEmitLeaf = n.level >= level || n.children.size === 0;
+    if (isEmitLeaf) {
+      line.categoryName = n.name;
+      if (!expandForecasts) {
+        const meta = readMeta(type, n.code, n.name);
+        line.specification = meta.specification;
+        line.formalidade = meta.formalidade;
       }
+      const cnt = overrideByCatName[n.name];
+      if (cnt) line.overrideCount = cnt;
+      // Sub-linhas da bilheteira (por zona/lote) inseridas depois do L3 "Bilheteira"
+      if (type === "income" && n.name.toLowerCase().includes("bilhete") && ticketLines.length > 0 && !ticketInsertRef.done) {
+        ticketLines.forEach((tl) => out.push(tl));
+        ticketInsertRef.done = true;
+      }
+      pushForecastChildren(out, type, n.code, n.name);
+      return;
     }
+    // Recurse (filhos por ordem hierárquica)
+    const kids = [...n.children.values()].sort((a, b) => compareReportCodesUnclassifiedLast(a.code, b.code));
+    for (const k of kids) emitNode(k, out, type);
+  };
+
+  const emitTree = (root: Map<string, TreeNode>, out: PLLine[], type: "income" | "expense") => {
+    const roots = [...root.values()].sort((a, b) => compareReportCodesUnclassifiedLast(a.code, b.code));
+    for (const r of roots) emitNode(r, out, type);
+  };
+
+  // Build override tracking (por nome de categoria — mantém comportamento anterior)
+  const overrideByCatName: Record<string, number> = {};
+  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
+    const catInfo = lookup[t.category_id];
+    const catName = catInfo?.name ?? "Sem categoria";
+    overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
   });
-  if (!ticketLinesInserted && ticketLines.length > 0) {
-    ticketLines.forEach((tl) => lines.push(tl));
+
+  if (showIncome) {
+    lines.push(pl({
+      label: "RECEITAS",
+      forecast: totalFIncBase,
+      actual: totalTIncBase,
+      variance: totalTIncBase - totalFIncBase,
+      isTotal: true,
+      forecastIva: totalFIncIva,
+      forecastTotal: totalFIncBase + totalFIncIva,
+      actualIva: totalTIncIva,
+      actualTotal: totalTIncBase + totalTIncIva,
+    }));
+    emitTree(incTree, lines, "income");
+    if (!ticketInsertRef.done && ticketLines.length > 0) {
+      ticketLines.forEach((tl) => lines.push(tl));
+    }
   }
-  } // end showIncome
 
   if (showExpense) {
-  lines.push(pl({
-    label: "DESPESAS",
-    forecast: totalFExpBase,
-    actual: totalTExpBase,
-    variance: totalTExpBase - totalFExpBase,
-    isTotal: true,
-    forecastIva: totalFExpIva,
-    forecastTotal: totalFExpBase + totalFExpIva,
-    actualIva: totalTExpIva,
-    actualTotal: totalTExpBase + totalTExpIva,
-  }));
-  mergedExp.forEach((group) => {
-    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
-    if (hasManyDetails) {
-      lines.push(pl({
-        label: group.groupName,
-        forecast: group.fBase,
-        actual: group.tBase,
-        variance: group.tBase - group.fBase,
-        isGroupHeader: true,
-        forecastIva: group.fIva,
-        forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva,
-        actualTotal: group.tBase + group.tIva,
-      }));
-      group.details.forEach((d) => {
-        lines.push(enrichLine(pl({
-          label: d.name,
-          forecast: d.fBase,
-          actual: d.tBase,
-          variance: d.tBase - d.fBase,
-          indent: true,
-          forecastIva: d.fIva,
-          forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva,
-          actualTotal: d.tBase + d.tIva,
-        }), d.name, "expense", group.groupCode));
-        pushForecastChildren(lines, "expense", group.groupCode, d.name);
-      });
-    } else {
-      lines.push(enrichLine(pl({
-        label: group.groupName,
-        forecast: group.fBase,
-        actual: group.tBase,
-        variance: group.tBase - group.fBase,
-        indent: true,
-        forecastIva: group.fIva,
-        forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva,
-        actualTotal: group.tBase + group.tIva,
-      }), group.groupName, "expense", group.groupCode));
-      pushForecastChildren(lines, "expense", group.groupCode, group.groupName);
-    }
-  });
-
-  } // end showExpense
+    lines.push(pl({
+      label: "DESPESAS",
+      forecast: totalFExpBase,
+      actual: totalTExpBase,
+      variance: totalTExpBase - totalFExpBase,
+      isTotal: true,
+      forecastIva: totalFExpIva,
+      forecastTotal: totalFExpBase + totalFExpIva,
+      actualIva: totalTExpIva,
+      actualTotal: totalTExpBase + totalTExpIva,
+    }));
+    emitTree(expTree, lines, "expense");
+  }
 
   if (showIncome && showExpense) {
     const fResBase = totalFIncBase - totalFExpBase;
@@ -756,15 +717,19 @@ export async function exportPLToExcel(
       let indent = 0;
       if (line.isGrandTotal) indent = 0;
       else if (line.isTotal) indent = 0;
+      else if (line.hierLevel === 1) indent = 1;
+      else if (line.hierLevel === 2) indent = 2;
+      else if (line.hierLevel === 3) indent = 3;
       else if (line.isGroupHeader) indent = 1;
       else if (line.indent) indent = 2;
-      else if (line.subIndent) indent = 3;
+      else if (line.subIndent) indent = 4;
 
       if (line.isTotal || line.isGrandTotal) label = label.toUpperCase();
 
-      // Especificação e Formalidade só nas linhas de detalhe (indent/subIndent),
-      // nunca em agregados (isTotal/isGroupHeader/isSubTotal/isGrandTotal).
-      const isDetail = !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal;
+      // Especificação e Formalidade só em linhas L3 (aggregate) ou lançamentos (subIndent),
+      // nunca em L1/L2/totais/subtotais especiais.
+      const isDetail = !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal
+                       && line.hierLevel !== 1 && line.hierLevel !== 2;
       const specValue = isDetail && line.specification ? line.specification : "";
       const formRaw = isDetail && line.formalidade ? line.formalidade : "";
       const formLabel = formRaw ? (FORMALIDADE_LABEL[formRaw] ?? formRaw) : "";
@@ -808,12 +773,26 @@ export async function exportPLToExcel(
         });
         row.height = 22;
       } else if (line.isTotal) {
+        row.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 13 };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
+          cell.border = { top: { style: "medium", color: { argb: "FF0F172A" } }, bottom: { style: "medium", color: { argb: "FF0F172A" } } };
+        });
+        row.height = 22;
+      } else if (line.hierLevel === 1) {
         row.font = { bold: true, color: { argb: "FF0F172A" }, size: 12 };
         row.eachCell({ includeEmpty: true }, (cell) => {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
-          cell.border = { top: { style: "medium", color: { argb: "FF334155" } }, bottom: { style: "thin", color: { argb: "FF334155" } } };
+          cell.border = { top: { style: "medium", color: { argb: "FF334155" } }, bottom: { style: "thin", color: { argb: "FF94A3B8" } } };
         });
         row.height = 20;
+      } else if (line.hierLevel === 2) {
+        row.font = { bold: true, color: { argb: "FF0F172A" } };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+        });
+      } else if (line.hierLevel === 3) {
+        row.font = { bold: true, color: { argb: "FF1F2937" } };
       } else if (line.isGroupHeader) {
         row.font = { bold: true, color: { argb: "FF0F172A" } };
         row.eachCell({ includeEmpty: true }, (cell) => {
@@ -829,6 +808,7 @@ export async function exportPLToExcel(
       } else if (line.subIndent) {
         row.font = { color: { argb: "FF475569" }, size: 10 };
       }
+
 
       r++;
     });
@@ -976,13 +956,28 @@ export function exportPLToPDF(
       const rowH = line.subIndent ? 6 : 7;
 
       if (line.isGrandTotal) {
-        doc.setFillColor(230, 240, 255);
+        doc.setFillColor(15, 23, 42);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+      } else if (line.isTotal) {
+        doc.setFillColor(51, 65, 85);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+      } else if (line.hierLevel === 1) {
+        doc.setFillColor(203, 213, 225);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
-      } else if (line.isTotal) {
-        doc.setFillColor(240, 240, 245);
+      } else if (line.hierLevel === 2) {
+        doc.setFillColor(226, 232, 240);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+      } else if (line.hierLevel === 3) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
       } else if (line.isGroupHeader) {
@@ -1003,7 +998,6 @@ export function exportPLToPDF(
         doc.setFontSize(6);
         doc.setTextColor(120, 120, 120);
       } else if ((line.overrideCount ?? 0) > 0) {
-        // Override line — light yellow background with left accent
         doc.setFillColor(255, 250, 230);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFillColor(245, 180, 50);
@@ -1015,7 +1009,17 @@ export function exportPLToPDF(
         doc.setFontSize(6.5);
       }
 
-      const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
+      const pad = "  ";
+      const indentLevel =
+        line.isGrandTotal || line.isTotal ? 0 :
+        line.hierLevel === 1 ? 1 :
+        line.hierLevel === 2 ? 2 :
+        line.hierLevel === 3 ? 3 :
+        line.subIndent ? 4 :
+        line.isGroupHeader ? 1 :
+        line.indent ? 2 : 0;
+      const label = pad.repeat(indentLevel) + line.label;
+
       const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do BP]` : "";
       doc.text(label, colX[0] + 2, y + 4);
       if (overrideSuffix) {
