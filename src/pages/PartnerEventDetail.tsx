@@ -24,7 +24,7 @@ import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
+import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 
 
