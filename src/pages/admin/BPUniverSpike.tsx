@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { buildCategoryLookup, type CategoryLookup } from "@/lib/category-hierarchy";
+import { toast } from "sonner";
 
 import { createUniver, LocaleType, merge } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
@@ -74,15 +75,97 @@ const L_AMOUNT = colLetter(COL.AMOUNT); // D
 const L_IVA = colLetter(COL.IVA); // E
 const L_TOTAL = colLetter(COL.TOTAL); // F
 
+type UniverRange = { startRow: number; endRow: number; startColumn: number; endColumn: number };
+
+const PROTECTED_CELL_TOAST = "Esta célula é calculada e não pode ser editada";
+const EDIT_BLOCK_COMMANDS = new Set([
+  "sheet.operation.set-cell-edit-visible",
+  "sheet.operation.set-cell-edit-visible-f2",
+  "sheet.operation.set-cell-edit-visible-arrow",
+  "sheet.operation.set-activate-cell-edit",
+]);
+const RANGE_WRITE_COMMANDS = new Set([
+  "sheet.command.set-range-values",
+  "sheet.mutation.set-range-values",
+  "sheet.command.clear-selection-all",
+  "sheet.command.clear-selection-content",
+  "sheet.command.clear-selection-format",
+  "sheet.command.paste",
+  "sheet.command.paste-value",
+  "sheet.command.paste-format",
+  "sheet.command.paste-col-width",
+  "sheet.command.paste-besides-border",
+  "sheet.command.optional-paste",
+  "sheet.command.auto-fill",
+  "sheet.command.auto-clear-content",
+  "sheet.command.refill",
+  "sheet.command.copy-down",
+  "sheet.command.copy-right",
+  "sheet.mutation.move-range",
+]);
+
+const normalizeRange = (range: any): UniverRange | null => {
+  const raw = typeof range?.getRange === "function" ? range.getRange() : range;
+  if (!raw) return null;
+  const startRow = raw.startRow ?? raw.row ?? raw.actualRow;
+  const startColumn = raw.startColumn ?? raw.column ?? raw.col ?? raw.actualColumn;
+  if (typeof startRow !== "number" || typeof startColumn !== "number") return null;
+  const endRow = raw.endRow ?? (typeof raw.numRows === "number" ? startRow + raw.numRows - 1 : startRow);
+  const endColumn = raw.endColumn ?? (typeof raw.numColumns === "number" ? startColumn + raw.numColumns - 1 : startColumn);
+  return { startRow, endRow, startColumn, endColumn };
+};
+
+const rangeHitsProtectedCell = (range: UniverRange, protectedCells: Set<string>) => {
+  const startRow = Math.max(0, Math.min(range.startRow, range.endRow));
+  const endRow = Math.max(range.startRow, range.endRow);
+  const startColumn = Math.max(0, Math.min(range.startColumn, range.endColumn));
+  const endColumn = Math.max(range.startColumn, range.endColumn);
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = startColumn; c <= endColumn; c++) {
+      if (protectedCells.has(`${r},${c}`)) return true;
+    }
+  }
+  return false;
+};
+
+const matrixHitsProtectedCell = (matrix: any, protectedCells: Set<string>) => {
+  if (!matrix || typeof matrix !== "object") return false;
+  for (const [rowKey, rowValue] of Object.entries(matrix)) {
+    if (!rowValue || typeof rowValue !== "object") continue;
+    for (const colKey of Object.keys(rowValue as Record<string, unknown>)) {
+      if (protectedCells.has(`${Number(rowKey)},${Number(colKey)}`)) return true;
+    }
+  }
+  return false;
+};
+
+const compactRowsToRanges = (rows: number[], col: number, width: number) => {
+  const sorted = Array.from(new Set(rows)).sort((a, b) => a - b);
+  const ranges: UniverRange[] = [];
+  for (const row of sorted) {
+    const last = ranges[ranges.length - 1];
+    if (last && last.endRow + 1 === row) {
+      last.endRow = row;
+    } else {
+      ranges.push({ startRow: row, endRow: row, startColumn: col, endColumn: col + width - 1 });
+    }
+  }
+  return ranges;
+};
+
 export default function BPUniverSpike() {
   const { role } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const univerRef = useRef<any>(null);
   const protectedCellsRef = useRef<Set<string>>(new Set()); // "r,c"
+  const protectedRowsRef = useRef<number[]>([]); // header + subtotal rows
+  const protectedFormulaRowsRef = useRef<number[]>([]); // entry rows with formula in Total c/IVA
   const originalFormulasRef = useRef<Map<string, string>>(new Map()); // "r,c" -> formula
   const entryRowsRef = useRef<number[]>([]); // row indexes of entry rows
   const categoryDropdownRef = useRef<string[]>([]); // labels for L3 dropdown
+  const selectionRangesRef = useRef<UniverRange[]>([]);
+  const toastThrottleRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -227,6 +310,8 @@ export default function BPUniverSpike() {
     const cellData: Record<number, Record<number, any>> = {};
     const rowData: Record<number, any> = {};
     const protectedCells = new Set<string>();
+    const protectedRows: number[] = [];
+    const protectedFormulaRows: number[] = [];
     const originalFormulas = new Map<string, string>();
     const entryRows: number[] = [];
 
@@ -237,6 +322,7 @@ export default function BPUniverSpike() {
       cellData[0][c] = { v: h, s: "sHeader" };
       markProtected(0, c);
     });
+    protectedRows.push(0);
     rowData[0] = { h: 28 };
 
     built.forEach((row, r) => {
@@ -264,6 +350,7 @@ export default function BPUniverSpike() {
         cellData[r][COL.TOTAL] = { f: totalFormula, s: "sMoneyCalc" };
         cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: st };
         markProtected(r, COL.TOTAL);
+        protectedFormulaRows.push(r);
         originalFormulas.set(`${r},${COL.TOTAL}`, totalFormula);
         entryRows.push(r);
       } else {
@@ -279,17 +366,22 @@ export default function BPUniverSpike() {
         cellData[r][COL.TOTAL] = { f: sumTotal, s: moneyStyle };
         cellData[r][COL.FORMALIDADE] = { v: "", s: st };
         for (let c = 0; c < N_COLS; c++) markProtected(r, c);
+        protectedRows.push(r);
         originalFormulas.set(`${r},${COL.AMOUNT}`, sumAmount);
         originalFormulas.set(`${r},${COL.TOTAL}`, sumTotal);
       }
     });
 
     protectedCellsRef.current = protectedCells;
+    protectedRowsRef.current = protectedRows;
+    protectedFormulaRowsRef.current = protectedFormulaRows;
     originalFormulasRef.current = originalFormulas;
     entryRowsRef.current = entryRows;
     categoryDropdownRef.current = l3Categories.map((c) => c.label);
 
     const totalRows = built.length + 5;
+    const sheetRowCount = Math.max(totalRows, 200);
+    for (let r = 0; r < sheetRowCount; r++) markProtected(r, COL.TOTAL);
 
     return {
       id: "bp-univer-spike",
@@ -325,7 +417,7 @@ export default function BPUniverSpike() {
         sheet1: {
           id: "sheet1",
           name: "BP",
-          rowCount: Math.max(totalRows, 200),
+          rowCount: sheetRowCount,
           columnCount: N_COLS,
           freeze: { xSplit: 1, ySplit: 1, startRow: 1, startColumn: 1 },
           columnData: {
@@ -359,6 +451,57 @@ export default function BPUniverSpike() {
       univerRef.current = univer;
       apiRef.current = univerAPI;
       univerAPI.createWorkbook(workbookData);
+      console.log("[BPUniverSpike] Univer events:", Object.keys((univerAPI as any).Event ?? {}));
+
+      const showProtectedToast = () => {
+        const now = Date.now();
+        if (now - toastThrottleRef.current < 1200) return;
+        toastThrottleRef.current = now;
+        toast.warning(PROTECTED_CELL_TOAST);
+      };
+
+      const getActiveRanges = (): UniverRange[] => {
+        const wb = univerAPI.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        const selectionRanges = selectionRangesRef.current;
+        if (selectionRanges.length) return selectionRanges;
+        const activeRange = wb?.getActiveRange?.() ?? sheet?.getActiveRange?.();
+        const normalized = normalizeRange(activeRange);
+        return normalized ? [normalized] : [];
+      };
+
+      const getCommandRanges = (params: any): UniverRange[] => {
+        const ranges: UniverRange[] = [];
+        const push = (value: any) => {
+          const normalized = normalizeRange(value);
+          if (normalized) ranges.push(normalized);
+        };
+        push(params?.range);
+        push(params?.targetRange);
+        push(params?.sourceRange);
+        push(params?.clearRange);
+        push(params?.selectionRange);
+        if (Array.isArray(params?.ranges)) params.ranges.forEach(push);
+        if (Array.isArray(params?.selections)) params.selections.forEach(push);
+        if (typeof params?.row === "number" && typeof params?.column === "number") {
+          push({ startRow: params.row, endRow: params.row, startColumn: params.column, endColumn: params.column });
+        }
+        return ranges;
+      };
+
+      const commandTouchesProtectedCell = (id: string, params: any) => {
+        const protectedCells = protectedCellsRef.current;
+        if (matrixHitsProtectedCell(params?.cellValue, protectedCells)) return true;
+        const ranges = getCommandRanges(params);
+        const candidateRanges = ranges.length ? ranges : getActiveRanges();
+        if (EDIT_BLOCK_COMMANDS.has(id)) {
+          return candidateRanges.some((range) => rangeHitsProtectedCell(range, protectedCells));
+        }
+        if (RANGE_WRITE_COMMANDS.has(id)) {
+          return candidateRanges.some((range) => rangeHitsProtectedCell(range, protectedCells));
+        }
+        return false;
+      };
 
       // Apply data validation on entry rows only
       try {
@@ -389,26 +532,35 @@ export default function BPUniverSpike() {
         console.warn("[BPUniverSpike] falha a aplicar data validation:", dvErr);
       }
 
-      // Soft protection
+      // Native OSS range protection (best effort) + hard pre-command protection.
       try {
         const wb = univerAPI.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        const permission = sheet?.getWorksheetPermission?.();
+        if (sheet && permission?.protectRanges) {
+          const rowRanges = compactRowsToRanges(protectedRowsRef.current, 0, N_COLS);
+          const formulaRanges = compactRowsToRanges(protectedFormulaRowsRef.current, COL.TOTAL, 1);
+          const configs = [...rowRanges, ...formulaRanges].map((range, idx) => ({
+            ranges: [sheet.getRange(range.startRow, range.startColumn, range.endRow - range.startRow + 1, range.endColumn - range.startColumn + 1)],
+            options: { name: `BP protegido ${idx + 1}`, allowViewByOthers: true },
+          }));
+          permission.protectRanges(configs).catch((protectionErr: any) => {
+            console.warn("[BPUniverSpike] proteção nativa Univer não aplicada:", protectionErr);
+          });
+        }
+
         const Event = (univerAPI as any).Event;
         if (Event && (univerAPI as any).addEvent) {
-          (univerAPI as any).addEvent(Event.SheetEditEnded, (params: any) => {
-            const { row, column } = params ?? {};
-            if (row == null || column == null) return;
-            const key = `${row},${column}`;
-            if (!protectedCellsRef.current.has(key)) return;
-            const sheet = wb?.getActiveSheet?.();
-            if (!sheet) return;
-            const orig = originalFormulasRef.current.get(key);
-            const range = sheet.getRange(row, column, 1, 1);
-            if (orig) {
-              range.setFormula?.(orig);
-            } else {
-              range.setValue?.("");
-            }
-            console.warn(`[BPUniverSpike] linha protegida — edição em (${row},${column}) revertida`);
+          wb?.onSelectionChange?.((ranges: any[]) => {
+            selectionRangesRef.current = (ranges ?? []).map(normalizeRange).filter(Boolean) as UniverRange[];
+          });
+
+          (univerAPI as any).addEvent(Event.BeforeCommandExecute, (event: any) => {
+            const id = event?.id;
+            if (!id || !commandTouchesProtectedCell(id, event?.params)) return;
+            event.cancel = true;
+            showProtectedToast();
+            console.warn(`[BPUniverSpike] comando bloqueado em célula protegida: ${id}`, event?.params);
           });
         }
       } catch (evtErr) {
