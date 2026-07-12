@@ -1,0 +1,14 @@
+-- Concede permissão card_manage ao role 'editor' (Editora Financeira)
+-- Efeito: editores passam a poder abrir sessões, recarregar cartões,
+-- aprovar itens e fechar sessões — sem alargar acesso a mais nada.
+-- Idempotente.
+
+INSERT INTO public.role_permissions (role, permission)
+VALUES ('editor'::app_role, 'card_manage')
+ON CONFLICT DO NOTHING;
+
+-- Verificação
+SELECT role, permission
+FROM public.role_permissions
+WHERE permission = 'card_manage'
+ORDER BY role;
