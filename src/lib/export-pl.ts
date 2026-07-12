@@ -576,7 +576,7 @@ export async function exportPLToExcel(
 
     ws.getCell(2, 1).value = `Empresa: ${companyDisplayName}`;
     ws.getCell(3, 1).value = `Gerado em: ${generatedAt}`;
-    ws.getCell(4, 1).value = `Nível de detalhe: N${accountLevel}${includeOverhead ? " · Com overhead" : " · Sem overhead"}`;
+    ws.getCell(4, 1).value = `Nível de detalhe: N${accountLevel}${hideOverheadTag ? "" : (includeOverhead ? " · Com overhead" : " · Sem overhead")}`;
     [2, 3, 4].forEach((r) => {
       ws.getCell(r, 1).font = { color: { argb: "FF475569" }, italic: true };
     });
