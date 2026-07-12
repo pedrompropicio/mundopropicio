@@ -20,7 +20,7 @@ import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
-import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
+import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
