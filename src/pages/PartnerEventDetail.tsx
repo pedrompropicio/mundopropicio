@@ -708,23 +708,87 @@ export default function PartnerEventDetail() {
   );
   const bpTotalResult = bpTotalIncome - bpTotalExpense;
 
-  const handleExportBPPdf = async () => {
-    if (!event) return;
+  // ─── Exportações do BP do sócio (Excel + PDF) ───
+  // Configuração FIXA: previsão + despesas + N3 + com overhead. Segurança:
+  // - transactions=[] ⇒ sem colunas "real", sem transações reveladas ao sócio
+  // - ticketZones/Lots/Sales=[] e cacheConfigs/Deductions=[] ⇒ sem receitas/cachê
+  // - typeFilter="expense" ⇒ folha "Resumo" NÃO é criada (só é se typeFilter==="both")
+  // - allEvents=[event] ⇒ hierarquia neutra; remapeamos os forecasts (já Master-rated
+  //   pelo rateForActive do portal) para event_id=activeEventId para bater com a vista.
+  const buildExportPayload = () => {
+    if (!event) return null;
+    const forecastsForExport = (bpExpenses ?? []).map((f: any) => ({
+      ...f,
+      event_id: activeEventId,
+    }));
+    const evtShim: any = {
+      id: activeEventId,
+      name: event.name,
+      date: event.date ?? null,
+      location: (event as any).location ?? null,
+    };
+    return {
+      eventsToExport: [evtShim],
+      allEvents: [evtShim],
+      forecasts: forecastsForExport,
+      categories: allCategories as any[],
+      expand: bpDetailMode === "expanded",
+    };
+  };
+
+  const handleExportBPExcel = async () => {
+    const p = buildExportPayload();
+    if (!p) return;
     try {
-      await exportPartnerBPPdf({
-        eventName: event.name,
-        eventDate: event.date ?? null,
-        eventLocation: (event as any).location ?? null,
-        cityLabel: (event as any).cities?.name ?? null,
-        bpVersionLabel,
-        bpVersionDescription: activeBPVersion?.description ?? null,
-        groups: bpGroupedHier as any,
-        totalExpense: bpTotalExpense,
-      });
+      await exportPLToExcel(
+        p.eventsToExport,
+        p.allEvents,
+        p.forecasts,
+        [],           // transactions — modo previsão + despesas: não usadas
+        p.categories,
+        [], [], [],   // ticketZones/Lots/Sales — sem receitas de bilheteira
+        "forecast",   // mode
+        [], [],       // cacheConfigs, cacheDeductions
+        [],           // audit logs
+        "expense",    // typeFilter — força sem folha Resumo, sem receitas
+        3,            // accountLevel — N3
+        "MP Gestão Eventos",
+        true,         // includeOverhead
+        null,         // scenarioName
+        p.expand,     // expandForecasts
+      );
+    } catch (err: any) {
+      toast.error("Erro ao exportar Excel", { description: err?.message });
+    }
+  };
+
+  const handleExportBPPdf = async () => {
+    const p = buildExportPayload();
+    if (!p) return;
+    try {
+      exportPLToPDF(
+        p.eventsToExport,
+        p.allEvents,
+        p.forecasts,
+        [],
+        p.categories,
+        [], [], [],
+        "forecast",
+        [], [],
+        [],
+        "expense",
+        3,
+        null,          // companyLogoDataUrl (usa fallback do módulo)
+        "MP Gestão Eventos",
+        true,
+        null,
+        p.expand,
+      );
     } catch (err: any) {
       toast.error("Erro ao exportar PDF", { description: err?.message });
     }
   };
+
 
 
   if (isLoading || isLoadingAccess) {
