@@ -1120,38 +1120,14 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
-          {/* 3 cards de resumo — modelo 4 modos (Auto / Realizado / Comprometido / Forecast) */}
-          <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <PartnerFinancialCard
-              kind="income"
-              eventId={activeEventId!}
-              userId={user?.id ?? "anon"}
-              eventStatus={event?.status}
-              primaryEventDate={event?.date}
-              transactions={transactions}
-              forecasts={partnerForecasts}
-              ticketRevenueNet={ticketRevenueNet}
-              ticketCargasNet={totalLotRevenueNet}
-              onValueChange={setPartnerIncomeValue}
+          {/* 3 cards de resumo — visão única e fixa (sem seletor de modos) */}
+          <div className="mb-3">
+            <PartnerFinancialCards
+              ticketsNet={ticketRevenueNet}
+              sponsorshipNet={sponsorshipRealNet}
+              barsNet={barsRealNet}
+              bpExpenseGross={bpTotalExpense}
             />
-            <PartnerFinancialCard
-              kind="expense"
-              eventId={activeEventId!}
-              userId={user?.id ?? "anon"}
-              eventStatus={event?.status}
-              primaryEventDate={event?.date}
-              transactions={transactions}
-              forecasts={partnerForecasts}
-              onValueChange={setPartnerExpenseValue}
-            />
-            <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
-              <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Resultado</span>
-                <span className={`text-xl sm:text-2xl font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                  {formatCurrency(partnerResultValue)}
-                </span>
-              </CardContent>
-            </Card>
           </div>
 
 
