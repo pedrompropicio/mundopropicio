@@ -166,6 +166,7 @@ export default function BPUniverSpike() {
   const categoryDropdownRef = useRef<string[]>([]); // labels for L3 dropdown
   const selectionRangesRef = useRef<UniverRange[]>([]);
   const toastThrottleRef = useRef(0);
+  const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
