@@ -28,6 +28,8 @@ interface PLLine {
   categoryName?: string;
   specification?: string | null;
   formalidade?: string | null;
+  /** Hierarquia contábil: 1=L1 (secção), 2=L2 (grupo), 3=L3 (rubrica). Undefined em totais/subtotais especiais/itens. */
+  hierLevel?: 1 | 2 | 3;
 }
 
 const FORMALIDADE_LABEL: Record<string, string> = {
