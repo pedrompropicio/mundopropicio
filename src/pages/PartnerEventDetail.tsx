@@ -781,7 +781,7 @@ export default function PartnerEventDetail() {
         "expense",
         3,
         null,          // companyLogoDataUrl (usa fallback do módulo)
-        "MP Gestão Eventos",
+        companyDisplayName,
         true,
         null,
         p.expand,
