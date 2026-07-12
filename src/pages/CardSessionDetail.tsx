@@ -88,7 +88,12 @@ export default function CardSessionDetail() {
     },
   });
 
-  const totalLoads = (loads as any[]).reduce((s, l) => s + Number(l.amount), 0);
+  const totalLoads = (loads as any[])
+    .filter((l) => l.in_transaction_id)
+    .reduce((s, l) => s + Number(l.amount), 0);
+  const totalLoadsPending = (loads as any[])
+    .filter((l) => !l.in_transaction_id)
+    .reduce((s, l) => s + Number(l.amount), 0);
   const totalApproved = (expenses as any[]).reduce((s, e) => s + Number(e.paid_amount ?? e.amount ?? 0), 0);
   const pendingItems = (items as any[]).filter((i) => i.status === "submitted");
   const totalPending = pendingItems.reduce((s, i) => s + Number(i.amount), 0);
