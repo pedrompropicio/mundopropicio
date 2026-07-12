@@ -747,15 +747,19 @@ export async function exportPLToExcel(
       let indent = 0;
       if (line.isGrandTotal) indent = 0;
       else if (line.isTotal) indent = 0;
+      else if (line.hierLevel === 1) indent = 1;
+      else if (line.hierLevel === 2) indent = 2;
+      else if (line.hierLevel === 3) indent = 3;
       else if (line.isGroupHeader) indent = 1;
       else if (line.indent) indent = 2;
-      else if (line.subIndent) indent = 3;
+      else if (line.subIndent) indent = 4;
 
       if (line.isTotal || line.isGrandTotal) label = label.toUpperCase();
 
-      // Especificação e Formalidade só nas linhas de detalhe (indent/subIndent),
-      // nunca em agregados (isTotal/isGroupHeader/isSubTotal/isGrandTotal).
-      const isDetail = !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal;
+      // Especificação e Formalidade só em linhas L3 (aggregate) ou lançamentos (subIndent),
+      // nunca em L1/L2/totais/subtotais especiais.
+      const isDetail = !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal
+                       && line.hierLevel !== 1 && line.hierLevel !== 2;
       const specValue = isDetail && line.specification ? line.specification : "";
       const formRaw = isDetail && line.formalidade ? line.formalidade : "";
       const formLabel = formRaw ? (FORMALIDADE_LABEL[formRaw] ?? formRaw) : "";
@@ -799,12 +803,26 @@ export async function exportPLToExcel(
         });
         row.height = 22;
       } else if (line.isTotal) {
+        row.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 13 };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
+          cell.border = { top: { style: "medium", color: { argb: "FF0F172A" } }, bottom: { style: "medium", color: { argb: "FF0F172A" } } };
+        });
+        row.height = 22;
+      } else if (line.hierLevel === 1) {
         row.font = { bold: true, color: { argb: "FF0F172A" }, size: 12 };
         row.eachCell({ includeEmpty: true }, (cell) => {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
-          cell.border = { top: { style: "medium", color: { argb: "FF334155" } }, bottom: { style: "thin", color: { argb: "FF334155" } } };
+          cell.border = { top: { style: "medium", color: { argb: "FF334155" } }, bottom: { style: "thin", color: { argb: "FF94A3B8" } } };
         });
         row.height = 20;
+      } else if (line.hierLevel === 2) {
+        row.font = { bold: true, color: { argb: "FF0F172A" } };
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+        });
+      } else if (line.hierLevel === 3) {
+        row.font = { bold: true, color: { argb: "FF1F2937" } };
       } else if (line.isGroupHeader) {
         row.font = { bold: true, color: { argb: "FF0F172A" } };
         row.eachCell({ includeEmpty: true }, (cell) => {
@@ -820,6 +838,7 @@ export async function exportPLToExcel(
       } else if (line.subIndent) {
         row.font = { color: { argb: "FF475569" }, size: 10 };
       }
+
 
       r++;
     });
