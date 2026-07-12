@@ -107,10 +107,7 @@ export default function PartnerEventDetail() {
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
-  // Estado dos cards financeiros do sócio (preenchido via onValueChange dos PartnerFinancialCard).
-  const [partnerIncomeValue, setPartnerIncomeValue] = useState(0);
-  const [partnerExpenseValue, setPartnerExpenseValue] = useState(0);
-  const partnerResultValue = partnerIncomeValue - partnerExpenseValue;
+  // Cards do sócio: visão única e fixa (calculada mais abaixo).
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessRows = [], isLoading: isLoadingAccess } = useQuery({
