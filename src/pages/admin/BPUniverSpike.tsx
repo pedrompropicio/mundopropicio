@@ -88,6 +88,28 @@ export default function BPUniverSpike() {
   const [categories, setCategories] = useState<any[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Escape to exit fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  // Force canvas resize on mode toggle (Univer listens to window resize)
+  useEffect(() => {
+    if (!ready) return;
+    const raf1 = requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+      const raf2 = requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+      (window as any).__univerResizeRaf = raf2;
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [fullscreen, ready]);
 
   const isAdmin = role === "admin" || role === "platform_admin";
 
