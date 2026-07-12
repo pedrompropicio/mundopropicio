@@ -82,6 +82,7 @@ import AdminPanel from "./pages/AdminPanel";
 import AuditoriaContas from "./pages/AuditoriaContas";
 import FormalidadeAudit from "./pages/FormalidadeAudit";
 import ReconciliacaoBpTx from "./pages/ReconciliacaoBpTx";
+import BPUniverSpike from "./pages/admin/BPUniverSpike";
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
