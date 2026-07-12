@@ -754,7 +754,7 @@ export default function PartnerEventDetail() {
         [],           // audit logs
         "expense",    // typeFilter — força sem folha Resumo, sem receitas
         3,            // accountLevel — N3
-        "MP Gestão Eventos",
+        companyDisplayName,
         true,         // includeOverhead
         null,         // scenarioName
         p.expand,     // expandForecasts
