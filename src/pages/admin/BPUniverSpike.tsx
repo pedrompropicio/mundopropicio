@@ -166,6 +166,7 @@ export default function BPUniverSpike() {
   const categoryDropdownRef = useRef<string[]>([]); // labels for L3 dropdown
   const selectionRangesRef = useRef<UniverRange[]>([]);
   const toastThrottleRef = useRef(0);
+  const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -495,12 +496,65 @@ export default function BPUniverSpike() {
         const ranges = getCommandRanges(params);
         const candidateRanges = ranges.length ? ranges : getActiveRanges();
         if (EDIT_BLOCK_COMMANDS.has(id)) {
+          // Only block OPENING the editor, not closing.
+          if (params && params.visible === false) return false;
           return candidateRanges.some((range) => rangeHitsProtectedCell(range, protectedCells));
         }
         if (RANGE_WRITE_COMMANDS.has(id)) {
           return candidateRanges.some((range) => rangeHitsProtectedCell(range, protectedCells));
         }
         return false;
+      };
+
+      // Backstop: swallow edit-triggering keys/paste at DOM level when active cell is protected.
+      const isProtectedActive = () => {
+        const protectedCells = protectedCellsRef.current;
+        const ranges = getActiveRanges();
+        return ranges.some((range) => rangeHitsProtectedCell(range, protectedCells));
+      };
+      const isEditingActive = () => {
+        // If a Univer editor input is focused, don't intercept (let user close editor).
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return false;
+        const tag = el.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return true;
+        return false;
+      };
+      const EDIT_KEYS = new Set(["Enter", "F2", "Delete", "Backspace"]);
+      const onDomKey = (e: KeyboardEvent) => {
+        const container = containerRef.current;
+        if (!container) return;
+        if (!container.contains(e.target as Node) && !container.contains(document.activeElement)) return;
+        if (isEditingActive()) return;
+        const key = e.key;
+        const isEditKey = EDIT_KEYS.has(key);
+        const isPrintable = key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+        const isPasteCut = (e.ctrlKey || e.metaKey) && (key === "v" || key === "V" || key === "x" || key === "X");
+        if (!isEditKey && !isPrintable && !isPasteCut) return;
+        if (!isProtectedActive()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        (e as any).stopImmediatePropagation?.();
+        showProtectedToast();
+      };
+      const onDomPaste = (e: ClipboardEvent) => {
+        const container = containerRef.current;
+        if (!container) return;
+        if (!container.contains(e.target as Node) && !container.contains(document.activeElement)) return;
+        if (isEditingActive()) return;
+        if (!isProtectedActive()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        (e as any).stopImmediatePropagation?.();
+        showProtectedToast();
+      };
+      document.addEventListener("keydown", onDomKey, true);
+      document.addEventListener("paste", onDomPaste, true);
+      document.addEventListener("cut", onDomPaste, true);
+      domProtectionCleanupRef.current = () => {
+        document.removeEventListener("keydown", onDomKey, true);
+        document.removeEventListener("paste", onDomPaste, true);
+        document.removeEventListener("cut", onDomPaste, true);
       };
 
       // Apply data validation on entry rows only
@@ -572,6 +626,8 @@ export default function BPUniverSpike() {
       setErr("Falha a inicializar Univer: " + (e?.message ?? String(e)));
     }
     return () => {
+      try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
+      domProtectionCleanupRef.current = null;
       try { univerRef.current?.dispose?.(); } catch { /* noop */ }
       univerRef.current = null;
       apiRef.current = null;
