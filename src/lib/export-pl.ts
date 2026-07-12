@@ -695,7 +695,7 @@ export async function exportPLToExcel(
     if (evt.location) contextBits.push(`Local: ${evt.location}`);
     if (scenarioName) contextBits.push(`Cenário: ${scenarioName}`);
     contextBits.push(`Nível: N${accountLevel}`);
-    contextBits.push(includeOverhead ? "Com overhead" : "Sem overhead");
+    if (!hideOverheadTag) contextBits.push(includeOverhead ? "Com overhead" : "Sem overhead");
     contextBits.push(expandForecasts ? "Detalhe: Linha a linha" : "Detalhe: Agregado");
     ws.mergeCells(2, 1, 2, nCols);
     ws.getCell(2, 1).value = contextBits.join("  ·  ");
