@@ -238,6 +238,51 @@ function buildPL(
   const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
   const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
 
+  // Modo "linha a linha": mapa (type|groupCode|detailName) → forecasts individuais.
+  const derivedKey = (f: any): string => {
+    const catInfo = lookup[f.category_id];
+    let groupCode: string; let detailName: string;
+    if (!catInfo) { groupCode = "Z"; detailName = "Sem categoria"; }
+    else if (level === 1) { groupCode = catInfo.l1Code; detailName = catInfo.l2Name ?? catInfo.name; }
+    else if (level === 3) { groupCode = catInfo.code; detailName = catInfo.name; }
+    else { groupCode = catInfo.groupCode; detailName = catInfo.name; }
+    return `${f.type}|${groupCode}|${detailName}`;
+  };
+  const forecastsByKey = new Map<string, any[]>();
+  if (expandForecasts) {
+    const src = [...fInc, ...fExp];
+    src.forEach((f: any) => {
+      const key = derivedKey(f);
+      const arr = forecastsByKey.get(key) ?? [];
+      arr.push(f);
+      forecastsByKey.set(key, arr);
+    });
+  }
+  const pushForecastChildren = (target: PLLine[], type: "income" | "expense", groupCode: string, detailName: string) => {
+    if (!expandForecasts) return;
+    const list = forecastsByKey.get(`${type}|${groupCode}|${detailName}`) ?? [];
+    list.forEach((f: any) => {
+      const base = Number(f.amount) || 0;
+      const rate = Number(f.iva_rate ?? 0) || 0;
+      const iva = base * rate / 100;
+      const label = (f.description && String(f.description).trim()) || "(sem descrição)";
+      target.push(plLine({
+        label,
+        forecast: base,
+        actual: 0,
+        variance: -base,
+        forecastIva: iva,
+        forecastTotal: base + iva,
+        actualIva: 0,
+        actualTotal: 0,
+        subIndent: true,
+        specification: (f.specification ?? null) || null,
+        formalidade: (f.formalidade ?? null) || null,
+      }));
+    });
+  };
+
+
   // Calculate cachê lines and inject into expense hierarchy under "Artístico" > "Cachês" (2.1.01)
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
   const cacheLines = calculateCacheLinesForPL(
