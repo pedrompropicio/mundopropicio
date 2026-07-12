@@ -434,6 +434,7 @@ function buildPLForExport(
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
         }), d.name, "income", group.groupCode));
+        pushForecastChildren(lines, "income", group.groupCode, d.name);
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
@@ -451,6 +452,7 @@ function buildPLForExport(
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
       }), group.groupName, "income", group.groupCode));
+      pushForecastChildren(lines, "income", group.groupCode, group.groupName);
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -500,6 +502,7 @@ function buildPLForExport(
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
         }), d.name, "expense", group.groupCode));
+        pushForecastChildren(lines, "expense", group.groupCode, d.name);
       });
     } else {
       lines.push(enrichLine(pl({
@@ -513,6 +516,7 @@ function buildPLForExport(
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
       }), group.groupName, "expense", group.groupCode));
+      pushForecastChildren(lines, "expense", group.groupCode, group.groupName);
     }
   });
 
