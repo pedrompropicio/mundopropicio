@@ -243,13 +243,8 @@ function buildPLForExport(
     }));
   }
 
-  // Build override tracking by category name
-  const overrideByCatName: Record<string, number> = {};
-  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
-    const catInfo = lookup[t.category_id];
-    const catName = catInfo?.name ?? "Sem categoria";
-    overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
-  });
+
+
 
   // Metadata (specification/formalidade) por chave LEAF "type|code|name" — sempre o
   // código+nome da categoria do próprio forecast (L3 quando existe, senão L2, senão L1).
