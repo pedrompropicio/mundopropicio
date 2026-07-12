@@ -928,6 +928,16 @@ export default function ReportPL() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Detalhe</label>
+            <Select value={expandForecasts ? "expanded" : "aggregated"} onValueChange={(v) => setExpandForecasts(v === "expanded")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="aggregated">Agregado</SelectItem>
+                <SelectItem value="expanded">Linha a linha</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="border-t border-border/30 pt-3 space-y-3">
           <div className="flex items-center justify-between">
