@@ -60,6 +60,9 @@ interface PLLine {
   viaMaster?: boolean;
   /** Nome do evento Master de origem (quando viaMaster=true). */
   viaMasterEventName?: string;
+  /** Metadados de forecast individual (só em modo "linha a linha"). */
+  specification?: string | null;
+  formalidade?: string | null;
 }
 
 
@@ -114,7 +117,8 @@ function buildPL(
   typeFilter: PLTypeFilter = "both",
   level: AccountLevel = 2,
   includeOverhead: boolean = false,
-  events: any[] = []
+  events: any[] = [],
+  expandForecasts: boolean = false
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
   const eventNameById = new Map<string, string>(events.map((e: any) => [e.id, e.name]));
@@ -233,6 +237,51 @@ function buildPL(
   const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
   const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
   const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
+
+  // Modo "linha a linha": mapa (type|groupCode|detailName) → forecasts individuais.
+  const derivedKey = (f: any): string => {
+    const catInfo = lookup[f.category_id];
+    let groupCode: string; let detailName: string;
+    if (!catInfo) { groupCode = "Z"; detailName = "Sem categoria"; }
+    else if (level === 1) { groupCode = catInfo.l1Code; detailName = catInfo.l2Name ?? catInfo.name; }
+    else if (level === 3) { groupCode = catInfo.code; detailName = catInfo.name; }
+    else { groupCode = catInfo.groupCode; detailName = catInfo.name; }
+    return `${f.type}|${groupCode}|${detailName}`;
+  };
+  const forecastsByKey = new Map<string, any[]>();
+  if (expandForecasts) {
+    const src = [...fInc, ...fExp];
+    src.forEach((f: any) => {
+      const key = derivedKey(f);
+      const arr = forecastsByKey.get(key) ?? [];
+      arr.push(f);
+      forecastsByKey.set(key, arr);
+    });
+  }
+  const pushForecastChildren = (target: PLLine[], type: "income" | "expense", groupCode: string, detailName: string) => {
+    if (!expandForecasts) return;
+    const list = forecastsByKey.get(`${type}|${groupCode}|${detailName}`) ?? [];
+    list.forEach((f: any) => {
+      const base = Number(f.amount) || 0;
+      const rate = Number(f.iva_rate ?? 0) || 0;
+      const iva = base * rate / 100;
+      const label = (f.description && String(f.description).trim()) || "(sem descrição)";
+      target.push(plLine({
+        label,
+        forecast: base,
+        actual: 0,
+        variance: -base,
+        forecastIva: iva,
+        forecastTotal: base + iva,
+        actualIva: 0,
+        actualTotal: 0,
+        subIndent: true,
+        specification: (f.specification ?? null) || null,
+        formalidade: (f.formalidade ?? null) || null,
+      }));
+    });
+  };
+
 
   // Calculate cachê lines and inject into expense hierarchy under "Artístico" > "Cachês" (2.1.01)
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
@@ -387,6 +436,7 @@ function buildPL(
             forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
             actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
           }), d.name));
+          pushForecastChildren(lines, "income", group.groupCode, d.name);
           if (level === 3 && d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
             ticketLines.forEach((tl) => lines.push(tl));
             ticketLinesInserted = true;
@@ -398,6 +448,7 @@ function buildPL(
           forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
           actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
         }), group.groupName));
+        pushForecastChildren(lines, "income", group.groupCode, group.groupName);
         if (level === 3 && group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
@@ -431,6 +482,7 @@ function buildPL(
             forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
             actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
           }), d.name));
+          pushForecastChildren(lines, "expense", group.groupCode, d.name);
           if (level === 3 && (d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
             cacheArtistLines.forEach((cl) => lines.push(cl));
             cacheArtistLinesInserted = true;
@@ -442,6 +494,7 @@ function buildPL(
           forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
           actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
         }), group.groupName));
+        pushForecastChildren(lines, "expense", group.groupCode, group.groupName);
         if (level === 3 && (group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
           cacheArtistLines.forEach((cl) => lines.push(cl));
           cacheArtistLinesInserted = true;
@@ -476,6 +529,7 @@ export default function ReportPL() {
   const [typeFilter, setTypeFilter] = useState<PLTypeFilter>("both");
   const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
   const [includeOverhead, setIncludeOverhead] = useState(false);
+  const [expandForecasts, setExpandForecasts] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
   const [showScenarioName, setShowScenarioName] = useState(true);
@@ -874,6 +928,16 @@ export default function ReportPL() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Detalhe</label>
+            <Select value={expandForecasts ? "expanded" : "aggregated"} onValueChange={(v) => setExpandForecasts(v === "expanded")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="aggregated">Agregado</SelectItem>
+                <SelectItem value="expanded">Linha a linha</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="border-t border-border/30 pt-3 space-y-3">
           <div className="flex items-center justify-between">
@@ -918,7 +982,7 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead, effectiveScenarioName)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead, effectiveScenarioName, expandForecasts)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -945,7 +1009,7 @@ export default function ReportPL() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, effectiveScenarioName);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, effectiveScenarioName, expandForecasts);
                 setShowPdfDialog(false);
               }}
             >
@@ -953,7 +1017,7 @@ export default function ReportPL() {
             </AlertDialogAction>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, effectiveScenarioName);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, effectiveScenarioName, expandForecasts);
                 setShowPdfDialog(false);
               }}
               className="bg-primary"
@@ -998,7 +1062,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel, includeOverhead, events) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel, includeOverhead, events, expandForecasts) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">

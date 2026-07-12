@@ -146,7 +146,8 @@ function buildPLForExport(
   relevantEventIds: string[] = [eventId],
   typeFilter: PLTypeFilter = "both",
   level: AccountLevel = 2,
-  includeOverhead: boolean = false
+  includeOverhead: boolean = false,
+  expandForecasts: boolean = false
 ): PLLine[] {
   const showIncome = typeFilter === "income" || typeFilter === "both";
   const showExpense = typeFilter === "expense" || typeFilter === "both";
@@ -252,20 +253,28 @@ function buildPLForExport(
   // seguindo a mesma categorização de aggregateByHierarchy(level). Só emitimos
   // no Excel quando o conjunto de forecasts do detalhe partilha um único valor.
   const metaByKey = new Map<string, { specs: Set<string>; forms: Set<string> }>();
-  forecasts.forEach((f: any) => {
+  const forecastsByKey = new Map<string, any[]>();
+  const derivedKey = (f: any): string | null => {
     const catInfo = lookup[f.category_id];
     let groupCode: string; let detailName: string;
     if (!catInfo) { groupCode = "Z"; detailName = "Sem categoria"; }
     else if (level === 1) { groupCode = catInfo.l1Code; detailName = catInfo.l2Name ?? catInfo.name; }
     else if (level === 3) { groupCode = catInfo.code; detailName = catInfo.name; }
     else { groupCode = catInfo.groupCode; detailName = catInfo.name; }
-    const key = `${f.type}|${groupCode}|${detailName}`;
+    return `${f.type}|${groupCode}|${detailName}`;
+  };
+  forecasts.forEach((f: any) => {
+    const key = derivedKey(f);
+    if (!key) return;
     let entry = metaByKey.get(key);
     if (!entry) { entry = { specs: new Set(), forms: new Set() }; metaByKey.set(key, entry); }
     const spec = (f.specification ?? "").toString().trim();
     if (spec) entry.specs.add(spec);
     const form = (f.formalidade ?? "").toString().trim();
     if (form) entry.forms.add(form);
+    const arr = forecastsByKey.get(key) ?? [];
+    arr.push(f);
+    forecastsByKey.set(key, arr);
   });
   const readMeta = (type: "income" | "expense", groupCode: string, detailName: string) => {
     const e = metaByKey.get(`${type}|${groupCode}|${detailName}`);
@@ -277,9 +286,38 @@ function buildPLForExport(
 
   const enrichLine = (line: PLLine, detailName: string, type?: "income" | "expense", groupCode?: string): PLLine => {
     const cnt = overrideByCatName[detailName];
-    const meta = type && groupCode ? readMeta(type, groupCode, detailName) : { specification: null, formalidade: null };
+    // Em modo "linha a linha", spec/formalidade migram para as linhas-filho;
+    // o L3 fica sem essa info para não duplicar.
+    const meta = !expandForecasts && type && groupCode ? readMeta(type, groupCode, detailName) : { specification: null, formalidade: null };
     const enriched: PLLine = { ...line, categoryName: detailName, specification: meta.specification, formalidade: meta.formalidade };
     return cnt ? { ...enriched, overrideCount: cnt } : enriched;
+  };
+
+  // Emite uma linha por forecast individual (só quando expandForecasts=true).
+  const pushForecastChildren = (target: PLLine[], type: "income" | "expense", groupCode: string, detailName: string) => {
+    if (!expandForecasts) return;
+    const key = `${type}|${groupCode}|${detailName}`;
+    const list = forecastsByKey.get(key) ?? [];
+    if (list.length === 0) return;
+    list.forEach((f: any) => {
+      const base = Number(f.amount) || 0;
+      const rate = Number(f.iva_rate ?? 0) || 0;
+      const iva = base * rate / 100;
+      const label = (f.description && String(f.description).trim()) || "(sem descrição)";
+      target.push(pl({
+        label,
+        forecast: base,
+        actual: 0,
+        variance: -base,
+        forecastIva: iva,
+        forecastTotal: base + iva,
+        actualIva: 0,
+        actualTotal: 0,
+        subIndent: true,
+        specification: (f.specification ?? null) || null,
+        formalidade: (f.formalidade ?? null) || null,
+      }));
+    });
   };
 
   const fInc = forecasts.filter((f) => f.type === "income");
@@ -396,6 +434,7 @@ function buildPLForExport(
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
         }), d.name, "income", group.groupCode));
+        pushForecastChildren(lines, "income", group.groupCode, d.name);
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
@@ -413,6 +452,7 @@ function buildPLForExport(
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
       }), group.groupName, "income", group.groupCode));
+      pushForecastChildren(lines, "income", group.groupCode, group.groupName);
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -462,6 +502,7 @@ function buildPLForExport(
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
         }), d.name, "expense", group.groupCode));
+        pushForecastChildren(lines, "expense", group.groupCode, d.name);
       });
     } else {
       lines.push(enrichLine(pl({
@@ -475,6 +516,7 @@ function buildPLForExport(
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
       }), group.groupName, "expense", group.groupCode));
+      pushForecastChildren(lines, "expense", group.groupCode, group.groupName);
     }
   });
 
@@ -520,7 +562,8 @@ export async function exportPLToExcel(
   _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
-  scenarioName: string | null = null
+  scenarioName: string | null = null,
+  expandForecasts: boolean = false
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = companyDisplayName;
@@ -662,7 +705,7 @@ export async function exportPLToExcel(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead, expandForecasts);
 
     // Nova ordem: Rubrica | Especificação | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | (comparação: Real s/IVA | IVA Real | Total Real | Variação) | Formalidade
     const header = isComparison
@@ -691,6 +734,7 @@ export async function exportPLToExcel(
     if (scenarioName) contextBits.push(`Cenário: ${scenarioName}`);
     contextBits.push(`Nível: N${accountLevel}`);
     contextBits.push(includeOverhead ? "Com overhead" : "Sem overhead");
+    contextBits.push(expandForecasts ? "Detalhe: Linha a linha" : "Detalhe: Agregado");
     ws.mergeCells(2, 1, 2, nCols);
     ws.getCell(2, 1).value = contextBits.join("  ·  ");
     ws.getCell(2, 1).font = { color: { argb: "FF475569" } };
@@ -826,7 +870,8 @@ export function exportPLToPDF(
   companyLogoDataUrl: string | null = null,
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
-  scenarioName: string | null = null
+  scenarioName: string | null = null,
+  expandForecasts: boolean = false
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -905,7 +950,7 @@ export function exportPLToPDF(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead, expandForecasts);
 
     if (evtIdx > 0) {
       doc.addPage();
