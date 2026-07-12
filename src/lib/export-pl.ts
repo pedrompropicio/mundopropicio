@@ -248,9 +248,37 @@ function buildPLForExport(
     overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
   });
 
-  const enrichLine = (line: PLLine, detailName: string): PLLine => {
+  // Metadata (specification/formalidade) por chave "type|groupCode|detailName",
+  // seguindo a mesma categorização de aggregateByHierarchy(level). Só emitimos
+  // no Excel quando o conjunto de forecasts do detalhe partilha um único valor.
+  const metaByKey = new Map<string, { specs: Set<string>; forms: Set<string> }>();
+  forecasts.forEach((f: any) => {
+    const catInfo = lookup[f.category_id];
+    let groupCode: string; let detailName: string;
+    if (!catInfo) { groupCode = "Z"; detailName = "Sem categoria"; }
+    else if (level === 1) { groupCode = catInfo.l1Code; detailName = catInfo.l2Name ?? catInfo.name; }
+    else if (level === 3) { groupCode = catInfo.code; detailName = catInfo.name; }
+    else { groupCode = catInfo.groupCode; detailName = catInfo.name; }
+    const key = `${f.type}|${groupCode}|${detailName}`;
+    let entry = metaByKey.get(key);
+    if (!entry) { entry = { specs: new Set(), forms: new Set() }; metaByKey.set(key, entry); }
+    const spec = (f.specification ?? "").toString().trim();
+    if (spec) entry.specs.add(spec);
+    const form = (f.formalidade ?? "").toString().trim();
+    if (form) entry.forms.add(form);
+  });
+  const readMeta = (type: "income" | "expense", groupCode: string, detailName: string) => {
+    const e = metaByKey.get(`${type}|${groupCode}|${detailName}`);
+    return {
+      specification: e && e.specs.size === 1 ? [...e.specs][0] : null,
+      formalidade: e && e.forms.size === 1 ? [...e.forms][0] : null,
+    };
+  };
+
+  const enrichLine = (line: PLLine, detailName: string, type?: "income" | "expense", groupCode?: string): PLLine => {
     const cnt = overrideByCatName[detailName];
-    const enriched = { ...line, categoryName: detailName };
+    const meta = type && groupCode ? readMeta(type, groupCode, detailName) : { specification: null, formalidade: null };
+    const enriched: PLLine = { ...line, categoryName: detailName, specification: meta.specification, formalidade: meta.formalidade };
     return cnt ? { ...enriched, overrideCount: cnt } : enriched;
   };
 
