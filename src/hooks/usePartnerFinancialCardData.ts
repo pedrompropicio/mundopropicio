@@ -180,7 +180,7 @@ export function usePartnerFinancialCardData(
     // ════════════════════════════════════════════════════
     if (modeUsed === "committed") {
       const approved = forecasts.filter(
-        (f) => f.type === kind && f.status === "approved" && !f.is_transitory && !f.exclude_from_result,
+        (f) => f.type === kind && f.status === "approved" && !f.is_transitory,
       );
 
       if (kind === "income") {
@@ -228,7 +228,7 @@ export function usePartnerFinancialCardData(
       // Sócio NÃO tem view_simulator → fallback CARGAS + patrocínio BP NET.
       // (Não dividir por IVA: tudo já é NET.)
       const incomeForecasts = forecasts.filter(
-        (f) => f.type === "income" && f.status === "approved" && !f.is_transitory && !f.exclude_from_result,
+        (f) => f.type === "income" && f.status === "approved" && !f.is_transitory,
       );
       const nonTicket = incomeForecasts.filter(
         (f) => classifyIncomeL1(f.account_categories?.code) !== "bilheteira",
@@ -253,7 +253,7 @@ export function usePartnerFinancialCardData(
     } else {
       // Forecast despesa: formalidade-aware × IVA.
       const approved = forecasts.filter(
-        (f) => f.type === "expense" && f.status === "approved" && !f.is_transitory && !f.exclude_from_result,
+        (f) => f.type === "expense" && f.status === "approved" && !f.is_transitory,
       );
       // TX expense (paid+approved+pending) agrupadas por category_id, em BRUTO.
       const txExpense = transactions.filter(

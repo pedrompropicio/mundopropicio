@@ -524,7 +524,8 @@ export async function exportPLToExcel(
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
   scenarioName: string | null = null,
-  expandForecasts: boolean = false
+  expandForecasts: boolean = false,
+  hideOverheadTag: boolean = false,
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = companyDisplayName;
@@ -575,7 +576,7 @@ export async function exportPLToExcel(
 
     ws.getCell(2, 1).value = `Empresa: ${companyDisplayName}`;
     ws.getCell(3, 1).value = `Gerado em: ${generatedAt}`;
-    ws.getCell(4, 1).value = `Nível de detalhe: N${accountLevel}${includeOverhead ? " · Com overhead" : " · Sem overhead"}`;
+    ws.getCell(4, 1).value = `Nível de detalhe: N${accountLevel}${hideOverheadTag ? "" : (includeOverhead ? " · Com overhead" : " · Sem overhead")}`;
     [2, 3, 4].forEach((r) => {
       ws.getCell(r, 1).font = { color: { argb: "FF475569" }, italic: true };
     });
@@ -694,7 +695,7 @@ export async function exportPLToExcel(
     if (evt.location) contextBits.push(`Local: ${evt.location}`);
     if (scenarioName) contextBits.push(`Cenário: ${scenarioName}`);
     contextBits.push(`Nível: N${accountLevel}`);
-    contextBits.push(includeOverhead ? "Com overhead" : "Sem overhead");
+    if (!hideOverheadTag) contextBits.push(includeOverhead ? "Com overhead" : "Sem overhead");
     contextBits.push(expandForecasts ? "Detalhe: Linha a linha" : "Detalhe: Agregado");
     ws.mergeCells(2, 1, 2, nCols);
     ws.getCell(2, 1).value = contextBits.join("  ·  ");
@@ -851,7 +852,8 @@ export function exportPLToPDF(
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
   scenarioName: string | null = null,
-  expandForecasts: boolean = false
+  expandForecasts: boolean = false,
+  _hideOverheadTag: boolean = false,
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
