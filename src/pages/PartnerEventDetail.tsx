@@ -786,6 +786,7 @@ export default function PartnerEventDetail() {
         true,
         null,
         p.expand,
+        true,         // hideOverheadTag — portal do sócio
       );
     } catch (err: any) {
       toast.error("Erro ao exportar PDF", { description: err?.message });
