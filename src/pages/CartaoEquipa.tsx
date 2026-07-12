@@ -120,7 +120,11 @@ export default function CartaoEquipa() {
     const ids = list.map((s) => s.id);
 
     const [{ data: loads }, { data: exps }, { data: allItems }] = await Promise.all([
-      supabase.from("card_session_loads").select("session_id, amount").in("session_id", ids),
+      supabase
+        .from("card_session_loads")
+        .select("session_id, amount, in_transaction_id")
+        .in("session_id", ids)
+        .not("in_transaction_id", "is", null),
       supabase
         .from("transactions")
         .select("card_session_id, paid_amount, amount")
