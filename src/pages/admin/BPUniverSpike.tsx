@@ -626,6 +626,8 @@ export default function BPUniverSpike() {
       setErr("Falha a inicializar Univer: " + (e?.message ?? String(e)));
     }
     return () => {
+      try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
+      domProtectionCleanupRef.current = null;
       try { univerRef.current?.dispose?.(); } catch { /* noop */ }
       univerRef.current = null;
       apiRef.current = null;
