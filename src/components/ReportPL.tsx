@@ -114,7 +114,8 @@ function buildPL(
   typeFilter: PLTypeFilter = "both",
   level: AccountLevel = 2,
   includeOverhead: boolean = false,
-  events: any[] = []
+  events: any[] = [],
+  expandForecasts: boolean = false
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
   const eventNameById = new Map<string, string>(events.map((e: any) => [e.id, e.name]));
