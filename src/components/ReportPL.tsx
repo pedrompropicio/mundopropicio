@@ -436,6 +436,7 @@ function buildPL(
             forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
             actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
           }), d.name));
+          pushForecastChildren(lines, "income", group.groupCode, d.name);
           if (level === 3 && d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
             ticketLines.forEach((tl) => lines.push(tl));
             ticketLinesInserted = true;
@@ -447,6 +448,7 @@ function buildPL(
           forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
           actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
         }), group.groupName));
+        pushForecastChildren(lines, "income", group.groupCode, group.groupName);
         if (level === 3 && group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
@@ -480,6 +482,7 @@ function buildPL(
             forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
             actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
           }), d.name));
+          pushForecastChildren(lines, "expense", group.groupCode, d.name);
           if (level === 3 && (d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
             cacheArtistLines.forEach((cl) => lines.push(cl));
             cacheArtistLinesInserted = true;
@@ -491,6 +494,7 @@ function buildPL(
           forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
           actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
         }), group.groupName));
+        pushForecastChildren(lines, "expense", group.groupCode, group.groupName);
         if (level === 3 && (group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
           cacheArtistLines.forEach((cl) => lines.push(cl));
           cacheArtistLinesInserted = true;
