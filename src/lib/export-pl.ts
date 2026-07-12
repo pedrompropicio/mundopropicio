@@ -853,7 +853,7 @@ export function exportPLToPDF(
   includeOverhead: boolean = false,
   scenarioName: string | null = null,
   expandForecasts: boolean = false,
-  _hideOverheadTag: boolean = false,
+  hideOverheadTag: boolean = false,
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -916,6 +916,7 @@ export function exportPLToPDF(
 
   const filterLabel = typeFilter === "income" ? " · Apenas Receitas" : typeFilter === "expense" ? " · Apenas Despesas" : "";
   const levelLabel = ` · Nível ${accountLevel}`;
+  const overheadLabel = hideOverheadTag ? "" : (includeOverhead ? " · Com overhead" : " · Sem overhead");
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   const baseTitle = isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão";
@@ -924,7 +925,7 @@ export function exportPLToPDF(
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(`${companyDisplayName} · Gerado em ${new Date().toLocaleDateString("pt-PT")}${filterLabel}${levelLabel}`, marginLeft, y);
+  doc.text(`${companyDisplayName} · Gerado em ${new Date().toLocaleDateString("pt-PT")}${filterLabel}${levelLabel}${overheadLabel}`, marginLeft, y);
   doc.setTextColor(0, 0, 0);
   y += 10;
 
