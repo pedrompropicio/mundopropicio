@@ -180,7 +180,7 @@ export function usePartnerFinancialCardData(
     // ════════════════════════════════════════════════════
     if (modeUsed === "committed") {
       const approved = forecasts.filter(
-        (f) => f.type === kind && f.status === "approved" && !f.is_transitory && !f.exclude_from_result,
+        (f) => f.type === kind && f.status === "approved" && !f.is_transitory,
       );
 
       if (kind === "income") {
