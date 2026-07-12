@@ -50,38 +50,8 @@ function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | '
   };
 }
 
-function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]) {
-  const allGroupNames = [...new Set([...fGroups.map((g) => g.groupName), ...tGroups.map((g) => g.groupName)])];
-  const fMap = Object.fromEntries(fGroups.map((g) => [g.groupName, g]));
-  const tMap = Object.fromEntries(tGroups.map((g) => [g.groupName, g]));
 
-  return allGroupNames.map((name) => {
-    const fg = fMap[name];
-    const tg = tMap[name];
-    const code = fg?.groupCode ?? tg?.groupCode ?? "Z";
-    const allDetailNames = [...new Set([...(fg?.details.map((d) => d.name) ?? []), ...(tg?.details.map((d) => d.name) ?? [])])];
-    const fDetailMap = Object.fromEntries((fg?.details ?? []).map((d) => [d.name, d]));
-    const tDetailMap = Object.fromEntries((tg?.details ?? []).map((d) => [d.name, d]));
 
-    const details = allDetailNames.map((dn) => ({
-      name: dn,
-      fBase: fDetailMap[dn]?.base ?? 0,
-      fIva: fDetailMap[dn]?.iva ?? 0,
-      tBase: tDetailMap[dn]?.base ?? 0,
-      tIva: tDetailMap[dn]?.iva ?? 0,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-
-    return {
-      groupName: name,
-      groupCode: code,
-      fBase: fg?.totalBase ?? 0,
-      fIva: fg?.totalIva ?? 0,
-      tBase: tg?.totalBase ?? 0,
-      tIva: tg?.totalIva ?? 0,
-      details,
-    };
-  }).sort((a, b) => compareReportCodesUnclassifiedLast(a.groupCode, b.groupCode));
-}
 
 interface ExportHierarchyMaps {
   subEventParentMap: Record<string, string>;
