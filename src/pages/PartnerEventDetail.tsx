@@ -20,7 +20,7 @@ import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
-import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
+import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
@@ -98,6 +98,8 @@ export default function PartnerEventDetail() {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
   const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
+  // Modo de detalhe para as exportações (Excel/PDF) do BP.
+  const [bpDetailMode, setBpDetailMode] = useState<"aggregated" | "expanded">("aggregated");
   const isMobile = useIsMobile();
   // No mobile a edição em grelha não cabe — força sempre vista Agrupada.
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
@@ -706,23 +708,87 @@ export default function PartnerEventDetail() {
   );
   const bpTotalResult = bpTotalIncome - bpTotalExpense;
 
-  const handleExportBPPdf = async () => {
-    if (!event) return;
+  // ─── Exportações do BP do sócio (Excel + PDF) ───
+  // Configuração FIXA: previsão + despesas + N3 + com overhead. Segurança:
+  // - transactions=[] ⇒ sem colunas "real", sem transações reveladas ao sócio
+  // - ticketZones/Lots/Sales=[] e cacheConfigs/Deductions=[] ⇒ sem receitas/cachê
+  // - typeFilter="expense" ⇒ folha "Resumo" NÃO é criada (só é se typeFilter==="both")
+  // - allEvents=[event] ⇒ hierarquia neutra; remapeamos os forecasts (já Master-rated
+  //   pelo rateForActive do portal) para event_id=activeEventId para bater com a vista.
+  const buildExportPayload = () => {
+    if (!event) return null;
+    const forecastsForExport = (bpExpenses ?? []).map((f: any) => ({
+      ...f,
+      event_id: activeEventId,
+    }));
+    const evtShim: any = {
+      id: activeEventId,
+      name: event.name,
+      date: event.date ?? null,
+      location: (event as any).location ?? null,
+    };
+    return {
+      eventsToExport: [evtShim],
+      allEvents: [evtShim],
+      forecasts: forecastsForExport,
+      categories: allCategories as any[],
+      expand: bpDetailMode === "expanded",
+    };
+  };
+
+  const handleExportBPExcel = async () => {
+    const p = buildExportPayload();
+    if (!p) return;
     try {
-      await exportPartnerBPPdf({
-        eventName: event.name,
-        eventDate: event.date ?? null,
-        eventLocation: (event as any).location ?? null,
-        cityLabel: (event as any).cities?.name ?? null,
-        bpVersionLabel,
-        bpVersionDescription: activeBPVersion?.description ?? null,
-        groups: bpGroupedHier as any,
-        totalExpense: bpTotalExpense,
-      });
+      await exportPLToExcel(
+        p.eventsToExport,
+        p.allEvents,
+        p.forecasts,
+        [],           // transactions — modo previsão + despesas: não usadas
+        p.categories,
+        [], [], [],   // ticketZones/Lots/Sales — sem receitas de bilheteira
+        "forecast",   // mode
+        [], [],       // cacheConfigs, cacheDeductions
+        [],           // audit logs
+        "expense",    // typeFilter — força sem folha Resumo, sem receitas
+        3,            // accountLevel — N3
+        "MP Gestão Eventos",
+        true,         // includeOverhead
+        null,         // scenarioName
+        p.expand,     // expandForecasts
+      );
+    } catch (err: any) {
+      toast.error("Erro ao exportar Excel", { description: err?.message });
+    }
+  };
+
+  const handleExportBPPdf = async () => {
+    const p = buildExportPayload();
+    if (!p) return;
+    try {
+      exportPLToPDF(
+        p.eventsToExport,
+        p.allEvents,
+        p.forecasts,
+        [],
+        p.categories,
+        [], [], [],
+        "forecast",
+        [], [],
+        [],
+        "expense",
+        3,
+        null,          // companyLogoDataUrl (usa fallback do módulo)
+        "MP Gestão Eventos",
+        true,
+        null,
+        p.expand,
+      );
     } catch (err: any) {
       toast.error("Erro ao exportar PDF", { description: err?.message });
     }
   };
+
 
 
   if (isLoading || isLoadingAccess) {
@@ -962,16 +1028,53 @@ export default function PartnerEventDetail() {
             </div>
             <div className="flex items-center gap-2">
               {bpGroupedHier.length > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportBPPdf}
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Exportar PDF
-                </Button>
+                <>
+                  {/* Seletor Detalhe: Agregado | Linha a linha — controla apenas as exportações */}
+                  <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5" title="Detalhe das exportações">
+                    <button
+                      type="button"
+                      onClick={() => setBpDetailMode("aggregated")}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        bpDetailMode === "aggregated"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Agregado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBpDetailMode("expanded")}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        bpDetailMode === "expanded"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Linha a linha
+                    </button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportBPExcel}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Exportar Excel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportBPPdf}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Exportar PDF
+                  </Button>
+                </>
               )}
               {canEditBpHere && !isMobile && (
                 <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
