@@ -562,7 +562,8 @@ export async function exportPLToExcel(
   _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyDisplayName: string = "MP Gestão Eventos",
   includeOverhead: boolean = false,
-  scenarioName: string | null = null
+  scenarioName: string | null = null,
+  expandForecasts: boolean = false
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = companyDisplayName;
