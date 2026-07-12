@@ -253,7 +253,7 @@ export function usePartnerFinancialCardData(
     } else {
       // Forecast despesa: formalidade-aware × IVA.
       const approved = forecasts.filter(
-        (f) => f.type === "expense" && f.status === "approved" && !f.is_transitory && !f.exclude_from_result,
+        (f) => f.type === "expense" && f.status === "approved" && !f.is_transitory,
       );
       // TX expense (paid+approved+pending) agrupadas por category_id, em BRUTO.
       const txExpense = transactions.filter(
