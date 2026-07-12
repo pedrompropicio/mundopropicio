@@ -26,7 +26,17 @@ interface PLLine {
   unitPrice?: number;
   overrideCount?: number;
   categoryName?: string;
+  specification?: string | null;
+  formalidade?: string | null;
 }
+
+const FORMALIDADE_LABEL: Record<string, string> = {
+  estimado: "Estimado",
+  negociacao: "Negociação",
+  fechado: "Fechado",
+  pago_parcial: "Pago parcial",
+  pago_total: "Pago total",
+};
 
 function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
   return {
@@ -238,9 +248,37 @@ function buildPLForExport(
     overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
   });
 
-  const enrichLine = (line: PLLine, detailName: string): PLLine => {
+  // Metadata (specification/formalidade) por chave "type|groupCode|detailName",
+  // seguindo a mesma categorização de aggregateByHierarchy(level). Só emitimos
+  // no Excel quando o conjunto de forecasts do detalhe partilha um único valor.
+  const metaByKey = new Map<string, { specs: Set<string>; forms: Set<string> }>();
+  forecasts.forEach((f: any) => {
+    const catInfo = lookup[f.category_id];
+    let groupCode: string; let detailName: string;
+    if (!catInfo) { groupCode = "Z"; detailName = "Sem categoria"; }
+    else if (level === 1) { groupCode = catInfo.l1Code; detailName = catInfo.l2Name ?? catInfo.name; }
+    else if (level === 3) { groupCode = catInfo.code; detailName = catInfo.name; }
+    else { groupCode = catInfo.groupCode; detailName = catInfo.name; }
+    const key = `${f.type}|${groupCode}|${detailName}`;
+    let entry = metaByKey.get(key);
+    if (!entry) { entry = { specs: new Set(), forms: new Set() }; metaByKey.set(key, entry); }
+    const spec = (f.specification ?? "").toString().trim();
+    if (spec) entry.specs.add(spec);
+    const form = (f.formalidade ?? "").toString().trim();
+    if (form) entry.forms.add(form);
+  });
+  const readMeta = (type: "income" | "expense", groupCode: string, detailName: string) => {
+    const e = metaByKey.get(`${type}|${groupCode}|${detailName}`);
+    return {
+      specification: e && e.specs.size === 1 ? [...e.specs][0] : null,
+      formalidade: e && e.forms.size === 1 ? [...e.forms][0] : null,
+    };
+  };
+
+  const enrichLine = (line: PLLine, detailName: string, type?: "income" | "expense", groupCode?: string): PLLine => {
     const cnt = overrideByCatName[detailName];
-    const enriched = { ...line, categoryName: detailName };
+    const meta = type && groupCode ? readMeta(type, groupCode, detailName) : { specification: null, formalidade: null };
+    const enriched: PLLine = { ...line, categoryName: detailName, specification: meta.specification, formalidade: meta.formalidade };
     return cnt ? { ...enriched, overrideCount: cnt } : enriched;
   };
 
@@ -357,7 +395,7 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }), d.name));
+        }), d.name, "income", group.groupCode));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
@@ -374,7 +412,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
+      }), group.groupName, "income", group.groupCode));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -423,7 +461,7 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }), d.name));
+        }), d.name, "expense", group.groupCode));
       });
     } else {
       lines.push(enrichLine(pl({
@@ -436,7 +474,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
+      }), group.groupName, "expense", group.groupCode));
     }
   });
 
@@ -626,11 +664,16 @@ export async function exportPLToExcel(
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
     const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
 
+    // Nova ordem: Rubrica | Especificação | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | (comparação: Real s/IVA | IVA Real | Total Real | Variação) | Formalidade
     const header = isComparison
-      ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total", "Real s/ IVA", "IVA Real", "Total Real", "Variação"]
-      : ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total"];
+      ? ["Rubrica", "Especificação", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total", "Real s/ IVA", "IVA Real", "Total Real", "Variação", "Formalidade"]
+      : ["Rubrica", "Especificação", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total", "Formalidade"];
     const nCols = header.length;
-    const valueCols = isComparison ? [3, 4, 5, 6, 7, 8, 9, 10] : [3, 4, 5, 6];
+    // Colunas de moeda (Preço Unit. + valores s/IVA/IVA/Total + reais/variação)
+    const valueCols = isComparison ? [4, 5, 6, 7, 8, 9, 10, 11] : [4, 5, 6, 7];
+    const qtyCol = 3;
+    const formalidadeCol = isComparison ? 12 : 8;
+    const specCol = 2;
 
     const ws = wb.addWorksheet(safeSheetName(evt.name), { views: [{ state: "frozen", ySplit: 7 }] });
 
@@ -656,8 +699,6 @@ export async function exportPLToExcel(
     ws.getCell(3, 1).value = `Empresa: ${companyDisplayName}  ·  Gerado em: ${generatedAt}`;
     ws.getCell(3, 1).font = { italic: true, color: { argb: "FF64748B" }, size: 10 };
 
-    // linha 4 em branco
-    // Cabeçalho tabela em linha 5? Usamos 6 para melhor respiração e freeze ySplit=7
     const headerRow = 6;
     ws.getRow(headerRow).values = header;
     applyHeaderBand(ws, headerRow, nCols);
@@ -668,38 +709,53 @@ export async function exportPLToExcel(
       const row = ws.getRow(r);
       const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do BP)` : "";
       let label = line.label + overrideSuffix;
-      // Determinar nível de indentação
       let indent = 0;
       if (line.isGrandTotal) indent = 0;
-      else if (line.isTotal) indent = 0;              // RECEITAS / DESPESAS (L1)
-      else if (line.isGroupHeader) indent = 1;        // L2
-      else if (line.indent) indent = 2;               // L3 detail
-      else if (line.subIndent) indent = 3;            // item
+      else if (line.isTotal) indent = 0;
+      else if (line.isGroupHeader) indent = 1;
+      else if (line.indent) indent = 2;
+      else if (line.subIndent) indent = 3;
 
       if (line.isTotal || line.isGrandTotal) label = label.toUpperCase();
 
+      // Especificação e Formalidade só nas linhas de detalhe (indent/subIndent),
+      // nunca em agregados (isTotal/isGroupHeader/isSubTotal/isGrandTotal).
+      const isDetail = !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal;
+      const specValue = isDetail && line.specification ? line.specification : "";
+      const formRaw = isDetail && line.formalidade ? line.formalidade : "";
+      const formLabel = formRaw ? (FORMALIDADE_LABEL[formRaw] ?? formRaw) : "";
+
       const cells = isComparison
-        ? [label, line.quantity ?? null, line.unitPrice ?? null, line.forecast, line.forecastIva, line.forecastTotal, line.actual, line.actualIva, line.actualTotal, line.variance]
-        : [label, line.quantity ?? null, line.unitPrice ?? null, line.forecast, line.forecastIva, line.forecastTotal];
+        ? [label, specValue, line.quantity ?? null, line.unitPrice ?? null, line.forecast, line.forecastIva, line.forecastTotal, line.actual, line.actualIva, line.actualTotal, line.variance, formLabel]
+        : [label, specValue, line.quantity ?? null, line.unitPrice ?? null, line.forecast, line.forecastIva, line.forecastTotal, formLabel];
       row.values = cells;
 
-      // Formatação numérica moeda
       valueCols.forEach((c) => {
         const cell = row.getCell(c);
         cell.numFmt = CURRENCY_FMT;
         cell.alignment = { horizontal: "right" };
       });
-      // Qtd (col 2) inteiro
-      const qtyCell = row.getCell(2);
+      const qtyCell = row.getCell(qtyCol);
       if (typeof qtyCell.value === "number") {
         qtyCell.numFmt = INT_FMT;
         qtyCell.alignment = { horizontal: "right" };
       }
 
-      // Label alignment com indent
       row.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent };
+      row.getCell(specCol).alignment = { vertical: "middle", horizontal: "left", wrapText: false };
+      row.getCell(formalidadeCol).alignment = { vertical: "middle", horizontal: "center" };
 
-      // Estilo por tipo de linha
+      // Cor do texto da formalidade (badge-like)
+      if (formRaw) {
+        const color =
+          formRaw === "pago_total" ? "FF15803D" :
+          formRaw === "pago_parcial" ? "FF15803D" :
+          formRaw === "fechado" ? "FF1D4ED8" :
+          formRaw === "negociacao" ? "FFB45309" :
+          "FF64748B";
+        row.getCell(formalidadeCol).font = { color: { argb: color }, bold: formRaw === "pago_total" || formRaw === "fechado" };
+      }
+
       if (line.isGrandTotal) {
         row.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
         row.eachCell({ includeEmpty: true }, (cell) => {
@@ -708,7 +764,6 @@ export async function exportPLToExcel(
         });
         row.height = 22;
       } else if (line.isTotal) {
-        // L1 (RECEITAS/DESPESAS)
         row.font = { bold: true, color: { argb: "FF0F172A" }, size: 12 };
         row.eachCell({ includeEmpty: true }, (cell) => {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCBD5E1" } };
@@ -716,7 +771,6 @@ export async function exportPLToExcel(
         });
         row.height = 20;
       } else if (line.isGroupHeader) {
-        // L2
         row.font = { bold: true, color: { argb: "FF0F172A" } };
         row.eachCell({ includeEmpty: true }, (cell) => {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
@@ -735,13 +789,12 @@ export async function exportPLToExcel(
       r++;
     });
 
-    // Larguras das colunas
+    // Larguras: Rubrica | Espec | Qtd | PU | s/IVA | IVA | Total | [Real s/IVA | IVA Real | Total Real | Variação] | Formalidade
     ws.columns = (isComparison
-      ? [42, 8, 14, 16, 12, 16, 16, 12, 16, 16]
-      : [42, 8, 14, 16, 12, 16]
+      ? [42, 30, 8, 14, 16, 12, 16, 16, 12, 16, 16, 16]
+      : [42, 30, 8, 14, 16, 12, 16, 16]
     ).map((w) => ({ width: w }));
 
-    // AutoFilter no cabeçalho da tabela
     ws.autoFilter = {
       from: { row: headerRow, column: 1 },
       to: { row: headerRow, column: nCols },
