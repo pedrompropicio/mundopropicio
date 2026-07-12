@@ -61,7 +61,9 @@ const emptyForm: AccountForm = {
 };
 
 export default function FinancialAccounts() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isManager } = useAuth();
+  // Admin + Manager podem criar/editar contas (incl. Saldo Inicial). Visibilidade de saldos permanece só admin.
+  const canManageAccounts = isAdmin || isManager;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
@@ -249,7 +251,7 @@ export default function FinancialAccounts() {
 
         <TabsContent value="accounts" className="space-y-6">
       <div className="flex items-center justify-end">
-        {isAdmin && (
+        {canManageAccounts && (
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
@@ -443,7 +445,7 @@ export default function FinancialAccounts() {
         <div className="glass rounded-xl p-8 text-center">
           <Landmark className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
           <p className="text-muted-foreground">Nenhuma conta cadastrada.</p>
-          {isAdmin && <p className="text-xs text-muted-foreground mt-1">Clique em "Nova Conta" para começar.</p>}
+          {canManageAccounts && <p className="text-xs text-muted-foreground mt-1">Clique em "Nova Conta" para começar.</p>}
         </div>
       ) : (
         <div className="space-y-6">
@@ -457,7 +459,7 @@ export default function FinancialAccounts() {
                     <TableHead className="text-right">Saldo Inicial</TableHead>
                     <TableHead className="text-right">Saldo Atual</TableHead>
                     <TableHead className="text-center">Visibilidade</TableHead>
-                    {isAdmin && <TableHead className="text-right">Ações</TableHead>}
+                    {canManageAccounts && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -504,7 +506,7 @@ export default function FinancialAccounts() {
                             <EyeOff className="h-4 w-4 text-muted-foreground mx-auto" />
                           )}
                         </TableCell>
-                        {isAdmin && (
+                        {canManageAccounts && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
@@ -568,7 +570,7 @@ export default function FinancialAccounts() {
                           <TableCell>
                             <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
                           </TableCell>
-                          {isAdmin && (
+                          {canManageAccounts && (
                             <TableCell className="text-right">
                               <button onClick={() => startEdit(acc)} className="rounded-lg p-1.5 hover:bg-secondary transition-colors">
                                 <Pencil className="h-4 w-4" />

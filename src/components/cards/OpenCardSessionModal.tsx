@@ -213,16 +213,14 @@ export function OpenCardSessionModal({
             />
           </Field>
 
-          <Field label="Saldo de abertura (€)">
-            <input
-              type="number"
-              step="0.01"
-              value={openingBalance}
-              onChange={(e) => setOpeningBalance(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+          <Field label="Saldo do cartão à data da entrega">
+            <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
+              {new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(
+                parseFloat(openingBalance) || 0,
+              )}
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Snapshot do saldo do cartão no momento da entrega. Não movimenta contas.
+              Snapshot informativo do saldo atual do cartão. Não movimenta contas. Para ajustar o saldo real da conta do cartão, use <strong>Contas de Movimentação</strong> (admin/gestor).
             </p>
           </Field>
 
