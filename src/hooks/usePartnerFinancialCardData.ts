@@ -228,7 +228,7 @@ export function usePartnerFinancialCardData(
       // Sócio NÃO tem view_simulator → fallback CARGAS + patrocínio BP NET.
       // (Não dividir por IVA: tudo já é NET.)
       const incomeForecasts = forecasts.filter(
-        (f) => f.type === "income" && f.status === "approved" && !f.is_transitory && !f.exclude_from_result,
+        (f) => f.type === "income" && f.status === "approved" && !f.is_transitory,
       );
       const nonTicket = incomeForecasts.filter(
         (f) => classifyIncomeL1(f.account_categories?.code) !== "bilheteira",
