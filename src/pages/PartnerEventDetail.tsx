@@ -758,6 +758,7 @@ export default function PartnerEventDetail() {
         true,         // includeOverhead
         null,         // scenarioName
         p.expand,     // expandForecasts
+        true,         // hideOverheadTag — portal do sócio: nunca identificar overhead
       );
     } catch (err: any) {
       toast.error("Erro ao exportar Excel", { description: err?.message });
