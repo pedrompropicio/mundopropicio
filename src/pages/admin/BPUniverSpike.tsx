@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { buildCategoryLookup, type CategoryLookup } from "@/lib/category-hierarchy";
 
