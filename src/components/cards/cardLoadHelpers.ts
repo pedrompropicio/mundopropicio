@@ -13,40 +13,38 @@ interface CardLoadParams {
 }
 
 /**
- * Cria par transitório de transações (saída da conta origem + entrada no cartão)
- * e regista o load em card_session_loads. Segue o padrão de transferências
- * (is_transitory=true, status=paid, sem event_id, sem BP/DRE impact).
+ * Fluxo aprovado (Pedro):
+ *   1. Cria APENAS a transação de saída da conta origem com status='pending'
+ *      (Aguardando Aprovação), categoria transferência (10.3), transitória e
+ *      excluída do resultado. Fornecedor não se aplica (o "credor" é o cartão,
+ *      que é uma conta financeira, não um supplier).
+ *   2. Regista o load em card_session_loads com in_transaction_id=NULL.
+ *   3. Só quando a transação for LIQUIDADA (via lista de pagamento) é que um
+ *      trigger em BD cria a transação de entrada no cartão (income transitório
+ *      já pago) e preenche in_transaction_id. Até lá o cartão NÃO vê o dinheiro.
+ *   4. Se a transação for eliminada (rejeição/cancelamento), um trigger apaga
+ *      também a entrada (se existir) e a linha de card_session_loads.
  */
 export async function performCardLoad(p: CardLoadParams) {
   if (!(p.amount > 0)) throw new Error("Valor inválido.");
 
-  const baseDesc = `Recarga cartão — ${p.cardName}`;
-  const inDesc = `Carga de ${p.sourceAccountName}`;
-
-  // Categoria transferência (10.3)
   const { data: cat } = await supabase
     .from("account_categories")
     .select("id")
     .eq("code", "10.3")
     .maybeSingle();
 
-  const commonBase = {
-    amount: p.amount,
-    iva_rate: 0,
-    date: p.loadDate,
-    status: "paid" as const,
-    paid_amount: p.amount,
-    payment_date: p.loadDate,
-    is_transitory: true,
-    exclude_from_result: true,
-    category_id: cat?.id ?? null,
-  };
-
   const { data: outTx, error: outErr } = await supabase
     .from("transactions")
     .insert({
-      ...commonBase,
-      description: `${baseDesc} (${p.sourceAccountName} → ${p.cardName})`,
+      amount: p.amount,
+      iva_rate: 0,
+      date: p.loadDate,
+      status: "pending",
+      is_transitory: true,
+      exclude_from_result: true,
+      category_id: cat?.id ?? null,
+      description: `Carga cartão — ${p.cardName} (${p.sourceAccountName} → ${p.cardName})`,
       type: "expense",
       account_id: p.sourceAccountId,
     })
@@ -54,29 +52,21 @@ export async function performCardLoad(p: CardLoadParams) {
     .single();
   if (outErr) throw outErr;
 
-  const { data: inTx, error: inErr } = await supabase
-    .from("transactions")
-    .insert({
-      ...commonBase,
-      description: `${inDesc} (${p.sourceAccountName} → ${p.cardName})`,
-      type: "income",
-      account_id: p.cardAccountId,
-    })
-    .select("id")
-    .single();
-  if (inErr) throw inErr;
-
   const { error: loadErr } = await supabase.from("card_session_loads").insert({
     session_id: p.sessionId,
     amount: p.amount,
     load_date: p.loadDate,
     source_account_id: p.sourceAccountId,
     out_transaction_id: outTx.id,
-    in_transaction_id: inTx.id,
+    in_transaction_id: null,
     notes: p.notes ?? null,
     created_by: p.userId,
   });
-  if (loadErr) throw loadErr;
+  if (loadErr) {
+    // rollback da OUT tx se o load falhar
+    await supabase.from("transactions").delete().eq("id", outTx.id);
+    throw loadErr;
+  }
 
-  return { outTxId: outTx.id, inTxId: inTx.id };
+  return { outTxId: outTx.id, inTxId: null };
 }
