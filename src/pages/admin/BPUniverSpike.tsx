@@ -86,7 +86,6 @@ const EDIT_BLOCK_COMMANDS = new Set([
 ]);
 const RANGE_WRITE_COMMANDS = new Set([
   "sheet.command.set-range-values",
-  "sheet.mutation.set-range-values",
   "sheet.command.clear-selection-all",
   "sheet.command.clear-selection-content",
   "sheet.command.clear-selection-format",
@@ -101,7 +100,6 @@ const RANGE_WRITE_COMMANDS = new Set([
   "sheet.command.refill",
   "sheet.command.copy-down",
   "sheet.command.copy-right",
-  "sheet.mutation.move-range",
 ]);
 
 const normalizeRange = (range: any): UniverRange | null => {
