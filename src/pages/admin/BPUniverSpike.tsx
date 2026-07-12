@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { buildCategoryLookup, type CategoryLookup } from "@/lib/category-hierarchy";
 
@@ -87,6 +88,28 @@ export default function BPUniverSpike() {
   const [categories, setCategories] = useState<any[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Escape to exit fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  // Force canvas resize on mode toggle (Univer listens to window resize)
+  useEffect(() => {
+    if (!ready) return;
+    const raf1 = requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+      const raf2 = requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+      (window as any).__univerResizeRaf = raf2;
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [fullscreen, ready]);
 
   const isAdmin = role === "admin" || role === "platform_admin";
 
@@ -435,6 +458,9 @@ export default function BPUniverSpike() {
 
       <div className="flex items-center gap-3">
         <Button onClick={dumpState} disabled={!ready}>Ver alterações (consola)</Button>
+        <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
+          {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
+        </Button>
         <span className="text-xs text-muted-foreground">
           {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
           {ready ? " · Univer pronto" : ""}
@@ -448,9 +474,29 @@ export default function BPUniverSpike() {
       )}
 
       <div
-        ref={containerRef}
-        style={{ width: "100%", height: "78vh", border: "1px solid hsl(var(--border))" }}
-      />
+        className={
+          fullscreen
+            ? "fixed inset-0 z-[9999] bg-background"
+            : "relative"
+        }
+        style={
+          fullscreen
+            ? { width: "100vw", height: "100vh" }
+            : { width: "100%", height: "78vh", border: "1px solid hsl(var(--border))" }
+        }
+      >
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {fullscreen && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setFullscreen(false)}
+            className="absolute top-3 right-3 z-10 shadow-lg"
+          >
+            <Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)
+          </Button>
+        )}
+      </div>
 
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Notas do spike (Fase 1b)</summary>
