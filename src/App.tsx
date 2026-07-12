@@ -82,6 +82,8 @@ import AdminPanel from "./pages/AdminPanel";
 import AuditoriaContas from "./pages/AuditoriaContas";
 import FormalidadeAudit from "./pages/FormalidadeAudit";
 import ReconciliacaoBpTx from "./pages/ReconciliacaoBpTx";
+import { lazy, Suspense } from "react";
+const BPUniverSpike = lazy(() => import("./pages/admin/BPUniverSpike"));
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
@@ -517,6 +519,7 @@ function ProtectedLayout() {
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
               <Route path="/admin/reconciliacao-bp-tx" element={<ReconciliacaoBpTx />} />
+              <Route path="/admin/bp-univer-spike" element={<Suspense fallback={<div className="p-6">A carregar Univer…</div>}><BPUniverSpike /></Suspense>} />
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
               
