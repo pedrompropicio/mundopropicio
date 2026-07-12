@@ -60,6 +60,9 @@ interface PLLine {
   viaMaster?: boolean;
   /** Nome do evento Master de origem (quando viaMaster=true). */
   viaMasterEventName?: string;
+  /** Metadados de forecast individual (só em modo "linha a linha"). */
+  specification?: string | null;
+  formalidade?: string | null;
 }
 
 
