@@ -1028,16 +1028,53 @@ export default function PartnerEventDetail() {
             </div>
             <div className="flex items-center gap-2">
               {bpGroupedHier.length > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportBPPdf}
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Exportar PDF
-                </Button>
+                <>
+                  {/* Seletor Detalhe: Agregado | Linha a linha — controla apenas as exportações */}
+                  <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5" title="Detalhe das exportações">
+                    <button
+                      type="button"
+                      onClick={() => setBpDetailMode("aggregated")}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        bpDetailMode === "aggregated"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Agregado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBpDetailMode("expanded")}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        bpDetailMode === "expanded"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Linha a linha
+                    </button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportBPExcel}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Exportar Excel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportBPPdf}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Exportar PDF
+                  </Button>
+                </>
               )}
               {canEditBpHere && !isMobile && (
                 <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
