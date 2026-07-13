@@ -127,6 +127,30 @@ export default function CardSessionDetail() {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  const deleteLoad = useMutation({
+    mutationFn: async (load: any) => {
+      if (load.in_transaction_id) {
+        throw new Error("Esta recarga já foi paga/liquidada. Elimine primeiro a transação de saída na Lista de Pagamento.");
+      }
+      if (!load.out_transaction_id) {
+        // fallback: apagar só a linha
+        const { error } = await supabase.from("card_session_loads").delete().eq("id", load.id);
+        if (error) throw error;
+        return;
+      }
+      // Apagar a transação OUT — o trigger trg_card_load_on_out_delete limpa card_session_loads
+      const { error } = await supabase.from("transactions").delete().eq("id", load.out_transaction_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Recarga eliminada." });
+      qc.invalidateQueries({ queryKey: ["card-session-loads", id] });
+      qc.invalidateQueries({ queryKey: ["card-session", id] });
+      qc.invalidateQueries({ queryKey: ["financial-accounts"] });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
   if (!session) {
     return <div className="p-6 text-sm text-muted-foreground">A carregar…</div>;
   }
