@@ -2173,12 +2173,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   selectedVersionId={selectedVersionId}
                 />
               ) : forecastsViewMode === "sheet" ? (
-                <BPUniverSpike
-                  eventId={eventId}
-                  canEdit={canEditBP}
-                  dryRun={bpUniverDryRun}
-                  embedded
-                />
+                <Suspense fallback={<p className="py-8 text-center text-muted-foreground">A carregar Planilha…</p>}>
+                  <BPUniverSpike
+                    eventId={eventId}
+                    canEdit={canEditBP}
+                    dryRun={bpUniverDryRun}
+                    embedded
+                  />
+                </Suspense>
               ) : (
                 <div className="space-y-6">
 
