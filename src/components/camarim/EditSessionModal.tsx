@@ -180,6 +180,15 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
       return;
     }
 
+    if (fundHolder.type === "employee" && !fundHolder.userId) {
+      toast({ variant: "destructive", title: "Seleciona o colaborador responsável pelo caixa" });
+      return;
+    }
+    if (fundHolder.type === "supplier" && !fundHolder.supplierId) {
+      toast({ variant: "destructive", title: "Seleciona o prestador responsável pelo caixa" });
+      return;
+    }
+
     let linkPayload: { masterRef: string | null; eventIds: string[] } | null = null;
     if (canEditLinks) {
       linkPayload = validateLinks();
@@ -193,6 +202,9 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
         title: title.trim(),
         budget_amount: budgetNum,
         notes: notes.trim() || null,
+        fund_holder_type: fundHolder.type,
+        fund_holder_supplier_id: fundHolder.supplierId,
+        fund_holder_user_id: fundHolder.userId,
       };
       if (canEditLinks && linkPayload) {
         updatePatch.master_event_id = linkPayload.masterRef;
