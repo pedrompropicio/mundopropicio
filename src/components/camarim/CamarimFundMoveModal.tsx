@@ -188,44 +188,73 @@ export function CamarimFundMoveModal({
           );
         }
         if (accountRequired) {
-          // Precisamos de saber a conta bancária (origem ou destino)
           if (!accountId) {
             throw new Error("Conta bancária obrigatória para gerar a transferência.");
           }
           const isInflow = moveType === "advance" || moveType === "reinforcement";
           const bankAccount = accountId;
           const sessionAccount = sessionInfo.advance_account_id;
-          const desc =
+          const fromAcc = isInflow ? bankAccount : sessionAccount;
+          const toAcc = isInflow ? sessionAccount : bankAccount;
+          const label =
             moveType === "advance"
-              ? `Adiantamento camarim — ${sessionInfo.title}`
+              ? "Adiantamento camarim"
               : moveType === "reinforcement"
-                ? `Reforço camarim — ${sessionInfo.title}`
-                : `Devolução camarim — ${sessionInfo.title}`;
+                ? "Reforço camarim"
+                : "Devolução camarim";
+          const desc = `${label} — ${sessionInfo.title}`;
           const supplierIdForTx =
             sessionInfo.fund_holder_type === "supplier"
               ? sessionInfo.fund_holder_supplier_id
               : null;
 
-          const { data: tx, error: txErr } = await (supabase as any)
+          // Categoria 10.3 = transferências entre contas
+          const { data: cat, error: catErr } = await supabase
+            .from("account_categories")
+            .select("id")
+            .eq("code", "10.3")
+            .maybeSingle();
+          if (catErr) throw catErr;
+          if (!cat) throw new Error("Categoria 10.3 (transferências) não encontrada.");
+
+          // Par expense (saída) + income (entrada), ambos pending
+          const { data: expTx, error: expErr } = await (supabase as any)
             .from("transactions")
             .insert({
-              type: "transfer",
+              type: "expense",
               description: desc,
               amount: numericAmount,
               iva_rate: 0,
+              category_id: cat.id,
+              account_id: fromAcc,
               date: moveDate,
               status: "pending",
               payment_method: "transfer",
               currency,
-              account_id: isInflow ? bankAccount : sessionAccount,
-              target_account_id: isInflow ? sessionAccount : bankAccount,
               supplier_id: supplierIdForTx,
               specification: notes || null,
             })
             .select("id")
             .single();
-          if (txErr) throw txErr;
-          transactionId = tx.id;
+          if (expErr) throw expErr;
+
+          const { error: incErr } = await (supabase as any)
+            .from("transactions")
+            .insert({
+              type: "income",
+              description: desc,
+              amount: numericAmount,
+              iva_rate: 0,
+              category_id: cat.id,
+              account_id: toAcc,
+              date: moveDate,
+              status: "pending",
+              payment_method: "transfer",
+              currency,
+              specification: notes || null,
+            });
+          if (incErr) throw incErr;
+          transactionId = expTx.id;
         }
 
         const { error } = await supabase.from("camarim_fund_moves" as any).insert({
