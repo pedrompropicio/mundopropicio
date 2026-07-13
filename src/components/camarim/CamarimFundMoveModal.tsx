@@ -67,6 +67,13 @@ export function CamarimFundMoveModal({
   const [accountId, setAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [saving, setSaving] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState<{
+    title: string;
+    advance_account_id: string | null;
+    fund_holder_type: "employee" | "supplier";
+    fund_holder_supplier_id: string | null;
+    fund_holder_user_id: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -78,7 +85,14 @@ export function CamarimFundMoveModal({
       .in("type", ["bank", "cash"])
       .order("name")
       .then(({ data }) => setAccounts((data ?? []) as Account[]));
-  }, [open]);
+
+    void supabase
+      .from("camarim_sessions" as any)
+      .select("title, advance_account_id, fund_holder_type, fund_holder_supplier_id, fund_holder_user_id")
+      .eq("id", sessionId)
+      .single()
+      .then(({ data }) => setSessionInfo((data ?? null) as any));
+  }, [open, sessionId]);
 
   // Preencher campos quando abre em modo edição.
   useEffect(() => {
