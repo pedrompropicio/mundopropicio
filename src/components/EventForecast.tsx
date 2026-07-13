@@ -2156,19 +2156,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     <Table2 className="h-3.5 w-3.5" />
                     Grelha
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setForecastsViewMode("sheet")}
-                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                      forecastsViewMode === "sheet"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    title="Planilha estilo Excel (Univer) — adiciona ?dryrun=1 ao URL para simular sem gravar"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    Planilha{bpUniverDryRun ? " (dry-run)" : ""}
-                  </button>
+                  {!isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setForecastsViewMode("sheet")}
+                      className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                        forecastsViewMode === "sheet"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="Planilha estilo Excel (Univer) — adiciona ?dryrun=1 ao URL para simular sem gravar"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Planilha{bpUniverDryRun ? " (dry-run)" : ""}
+                    </button>
+                  )}
                 </div>
               </div>
 
