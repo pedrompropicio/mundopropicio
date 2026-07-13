@@ -7726,6 +7726,7 @@ export type Database = {
           full_name: string
           id: string
           is_operacao_only: boolean
+          linked_supplier_id: string | null
           phone: string | null
           profile_type: string
           updated_at: string
@@ -7742,6 +7743,7 @@ export type Database = {
           full_name?: string
           id: string
           is_operacao_only?: boolean
+          linked_supplier_id?: string | null
           phone?: string | null
           profile_type?: string
           updated_at?: string
@@ -7758,6 +7760,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_operacao_only?: boolean
+          linked_supplier_id?: string | null
           phone?: string | null
           profile_type?: string
           updated_at?: string
@@ -7776,6 +7779,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_linked_supplier_id_fkey"
+            columns: ["linked_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
