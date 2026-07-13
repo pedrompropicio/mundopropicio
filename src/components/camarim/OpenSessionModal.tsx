@@ -352,6 +352,10 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             </>
           )}
 
+          <FundHolderPicker value={fundHolder} onChange={setFundHolder} />
+
+
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Responsável (camarim)</Label>
