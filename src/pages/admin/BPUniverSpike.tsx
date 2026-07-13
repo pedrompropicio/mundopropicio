@@ -227,8 +227,16 @@ const parseIntSafe = (v: any): number | null => {
   return isFinite(n) ? Math.round(n) : null;
 };
 
-export default function BPUniverSpike() {
+interface BPUniverSpikeProps {
+  eventId?: string;
+  canEdit?: boolean;
+  dryRun?: boolean;
+  embedded?: boolean;
+}
+
+export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = false, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
+  const EVENT_ID = eventIdProp ?? DEFAULT_EVENT_ID;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const univerRef = useRef<any>(null);
