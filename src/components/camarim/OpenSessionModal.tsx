@@ -50,6 +50,11 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
   const [selectedMasterId, setSelectedMasterId] = useState<string>("");
   const [selectedSplitIds, setSelectedSplitIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [fundHolder, setFundHolder] = useState<FundHolderValue>({
+    type: "employee",
+    supplierId: null,
+    userId: null,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -84,6 +89,7 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
     setSelectedEventId("");
     setSelectedMasterId("");
     setSelectedSplitIds([]);
+    setFundHolder({ type: "employee", supplierId: null, userId: null });
   };
 
   const handleSubmit = async () => {
@@ -105,6 +111,14 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
     }
     if (mode === "city_session" && selectedSplitIds.length === 0) {
       toast({ variant: "destructive", title: "Seleciona as cidades (uma sessão será criada por cidade)" });
+      return;
+    }
+    if (fundHolder.type === "employee" && !fundHolder.userId) {
+      toast({ variant: "destructive", title: "Seleciona o colaborador responsável pelo caixa" });
+      return;
+    }
+    if (fundHolder.type === "supplier" && !fundHolder.supplierId) {
+      toast({ variant: "destructive", title: "Seleciona o prestador responsável pelo caixa" });
       return;
     }
 
