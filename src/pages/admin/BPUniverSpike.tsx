@@ -230,7 +230,7 @@ const parseIntSafe = (v: any): number | null => {
 interface BPUniverSpikeProps {
   eventId?: string;
   canEdit?: boolean;
-  isDryRun?: boolean;
+  dryRun?: boolean;
   embedded?: boolean;
 }
 
