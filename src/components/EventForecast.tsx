@@ -190,8 +190,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
-  // Phase A.1: toggle entre vista Agrupada (atual) e Grelha (editor tipo planilha).
-  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid">("grouped");
+  // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Univer).
+  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
+  // Dry-run activa via ?dryrun=1 no URL — não grava na BD.
+  const bpUniverDryRun = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dryrun") === "1";
 
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
