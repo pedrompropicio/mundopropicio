@@ -1393,22 +1393,29 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
     toast.info("Rascunho descartado.");
   };
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!allowed) return embedded ? null : <Navigate to="/" replace />;
 
   const entryCount = built?.filter((r) => r.kind === "entry").length ?? 0;
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
   return (
-    <div className="p-6 max-w-[1500px] mx-auto space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">BP Univer Spike — Fase 2 (persistência)</h1>
-        <p className="text-sm text-muted-foreground">
-          Evento Anitta EDA 2026 · Editar em memória, validar e <b>gravar em lote</b> via
-          <code className="mx-1">batch_update_event_forecasts</code> +
-          <code className="mx-1">batch_insert_event_forecasts</code>. Carrega
-          <code className="mx-1">draft + approved</code> para linhas novas persistirem visualmente.
-        </p>
-      </div>
+    <div className={embedded ? "space-y-3" : "p-6 max-w-[1500px] mx-auto space-y-4"}>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold">BP Univer Spike — Fase 2 (persistência)</h1>
+          <p className="text-sm text-muted-foreground">
+            Sandbox · Editar em memória, validar e <b>gravar em lote</b> via
+            <code className="mx-1">batch_update_event_forecasts</code> +
+            <code className="mx-1">batch_insert_event_forecasts</code>.
+            {dryRun && <span className="ml-2 font-semibold text-amber-600">[DRY-RUN — não grava na BD]</span>}
+          </p>
+        </div>
+      )}
+      {embedded && dryRun && (
+        <div className="rounded bg-amber-100 border border-amber-300 text-amber-900 text-xs px-3 py-2">
+          <b>Modo DRY-RUN activo</b> — validações correm, mas <b>nada é gravado na BD</b>. Remove <code>?dryrun=1</code> do URL para gravar a sério.
+        </div>
+      )}
 
       <div className="flex items-center gap-2 flex-wrap">
         <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant="default">
