@@ -14,7 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
-import { Table2, LayoutList } from "lucide-react";
+import BPUniverSpike from "@/pages/admin/BPUniverSpike";
+import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
 import { StickyNote } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
@@ -190,8 +191,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
-  // Phase A.1: toggle entre vista Agrupada (atual) e Grelha (editor tipo planilha).
-  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid">("grouped");
+  // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Univer).
+  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
+  // Dry-run activa via ?dryrun=1 no URL — não grava na BD.
+  const bpUniverDryRun = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dryrun") === "1";
 
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
@@ -2144,6 +2147,19 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     <Table2 className="h-3.5 w-3.5" />
                     Grelha
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setForecastsViewMode("sheet")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      forecastsViewMode === "sheet"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Planilha estilo Excel (Univer) — adiciona ?dryrun=1 ao URL para simular sem gravar"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    Planilha{bpUniverDryRun ? " (dry-run)" : ""}
+                  </button>
                 </div>
               </div>
 
@@ -2154,6 +2170,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   categories={categories as any}
                   canEditBP={canEditBP}
                   selectedVersionId={selectedVersionId}
+                />
+              ) : forecastsViewMode === "sheet" ? (
+                <BPUniverSpike
+                  eventId={eventId}
+                  canEdit={canEditBP}
+                  dryRun={bpUniverDryRun}
+                  embedded
                 />
               ) : (
                 <div className="space-y-6">
