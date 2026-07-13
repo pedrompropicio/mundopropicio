@@ -623,6 +623,7 @@ export type Database = {
           move_type: string
           notes: string | null
           session_id: string
+          transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -638,6 +639,7 @@ export type Database = {
           move_type: string
           notes?: string | null
           session_id: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -653,6 +655,7 @@ export type Database = {
           move_type?: string
           notes?: string | null
           session_id?: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -689,6 +692,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "camarim_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_fund_moves_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
