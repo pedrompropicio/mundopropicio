@@ -1067,6 +1067,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
 
     setSaving(true);
     try {
+      // DRY-RUN: valida tudo mas não escreve na BD
+      if (dryRun) {
+        const editsArr = Object.entries(dirty);
+        toast.success(
+          `[DRY-RUN] ${changeCount} alteração(ões) validadas SEM gravar · ${editsArr.length} edições · ${pendingInserts.length} inserções · ${pendingDeletes.length} apagadas.`,
+        );
+        setSaving(false);
+        return;
+      }
       // 1) Updates
       const editsArr = Object.entries(dirty).map(([id, fields]) => ({ id, ...fields }));
       if (editsArr.length) {
