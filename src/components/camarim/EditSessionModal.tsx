@@ -292,6 +292,10 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
             />
           </div>
 
+          <FundHolderPicker value={fundHolder} onChange={setFundHolder} />
+
+
+
           {/* Vínculo a evento(s) */}
           <div className="rounded-md border border-border bg-muted/20 p-3">
             <div className="mb-2 flex items-center justify-between">
