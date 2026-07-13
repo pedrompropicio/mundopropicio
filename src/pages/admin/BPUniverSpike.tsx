@@ -60,7 +60,7 @@ import "@univerjs/preset-sheets-core/lib/index.css";
 import { UniverSheetsDataValidationPreset } from "@univerjs/preset-sheets-data-validation";
 import "@univerjs/preset-sheets-data-validation/lib/index.css";
 
-const EVENT_ID = "fdfb39fe-45f2-43f5-9ec9-7cb536360ae1"; // Anitta EDA 2026
+const DEFAULT_EVENT_ID = "fdfb39fe-45f2-43f5-9ec9-7cb536360ae1"; // Anitta EDA 2026 (fallback sandbox)
 const VALID_IVA = [0, 6, 13, 23] as const;
 
 // Formalidade: enum ↔ label
