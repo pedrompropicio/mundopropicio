@@ -234,13 +234,18 @@ interface BPUniverSpikeProps {
   embedded?: boolean;
 }
 
-export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = false, embedded = false }: BPUniverSpikeProps = {}) {
+export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: dryRunProp = false, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
-  // Standalone: aceita ?event=<uuid> no URL; fallback = Anitta EDA 2026.
-  const urlEventId = !eventIdProp && typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search).get("event") ?? undefined
-    : undefined;
+  // Standalone: aceita ?event=<uuid> e ?dryrun=1|true no URL; fallback = Anitta EDA 2026.
+  const urlParams = !embedded && typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search)
+    : null;
+  const urlEventId = !eventIdProp ? urlParams?.get("event") ?? undefined : undefined;
+  const urlDryRunRaw = urlParams?.get("dryrun")?.toLowerCase();
+  const urlDryRun = urlDryRunRaw === "1" || urlDryRunRaw === "true";
   const EVENT_ID = eventIdProp ?? urlEventId ?? DEFAULT_EVENT_ID;
+  const isDryRun = dryRunProp || urlDryRun;
+  const [eventName, setEventName] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const univerRef = useRef<any>(null);
@@ -293,6 +298,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
   const [actionLog, setActionLog] = useState<Array<{ kind: "insert" | "delete"; data: any }>>([]);
   const [pendingNavConfirm, setPendingNavConfirm] = useState<null | (() => void)>(null);
 
+  const [confirmRealSaveOpen, setConfirmRealSaveOpen] = useState(false);
   const changeCount = Object.keys(dirty).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
 
@@ -319,13 +325,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
   const isAdmin = role === "admin" || role === "platform_admin";
   const allowed = embedded ? (canEdit ?? true) : isAdmin;
   const userId = user?.id ?? "anon";
-  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}${dryRun ? ":dryrun" : ""}`;
+  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}${isDryRun ? ":dryrun" : ""}`;
 
   // Load data (loads draft+approved so newly-inserted draft rows persist across reloads)
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fRes, cRes] = await Promise.all([
+      const [fRes, cRes, eRes] = await Promise.all([
         supabase
           .from("event_forecasts")
           .select("id, category_id, description, specification, amount, iva_rate, formalidade, status")
@@ -334,11 +340,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
           .in("status", ["approved", "draft"])
           .eq("type", "expense"),
         supabase.from("account_categories").select("id, name, code, parent_id, type"),
+        supabase.from("events").select("name").eq("id", EVENT_ID).maybeSingle(),
       ]);
       if (fRes.error) throw fRes.error;
       if (cRes.error) throw cRes.error;
       setEntries((fRes.data ?? []) as Entry[]);
       setCategories(cRes.data ?? []);
+      setEventName((eRes.data as any)?.name ?? null);
       // Original snapshot
       const map = new Map<string, Entry>();
       for (const e of (fRes.data ?? []) as Entry[]) map.set(e.id, e);
@@ -1072,7 +1080,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
     setSaving(true);
     try {
       // DRY-RUN: valida tudo mas não escreve na BD
-      if (dryRun) {
+      if (isDryRun) {
         const editsArr = Object.entries(dirty);
         toast.success(
           `[DRY-RUN] ${changeCount} alteração(ões) validadas SEM gravar · ${editsArr.length} edições · ${pendingInserts.length} inserções · ${pendingDeletes.length} apagadas.`,
@@ -1405,26 +1413,56 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
   return (
     <div className={embedded ? "space-y-3" : "p-6 max-w-[1500px] mx-auto space-y-4"}>
       {!embedded && (
-        <div>
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold">BP Univer Spike — Fase 2 (persistência)</h1>
           <p className="text-sm text-muted-foreground">
             Sandbox · Editar em memória, validar e <b>gravar em lote</b> via
             <code className="mx-1">batch_update_event_forecasts</code> +
             <code className="mx-1">batch_insert_event_forecasts</code>.
-            {dryRun && <span className="ml-2 font-semibold text-amber-600">[DRY-RUN — não grava na BD]</span>}
           </p>
+          <div className="text-sm">
+            <span className="text-muted-foreground">Evento:</span>{" "}
+            <b>{eventName ?? "(a carregar…)"}</b>{" "}
+            <code className="ml-2 text-xs text-muted-foreground">{EVENT_ID}</code>
+          </div>
         </div>
       )}
-      {embedded && dryRun && (
-        <div className="rounded bg-amber-100 border border-amber-300 text-amber-900 text-xs px-3 py-2">
-          <b>Modo DRY-RUN activo</b> — validações correm, mas <b>nada é gravado na BD</b>. Remove <code>?dryrun=1</code> do URL para gravar a sério.
+      {isDryRun ? (
+        <div className="rounded-md bg-amber-100 border-2 border-amber-400 text-amber-900 px-4 py-3 flex items-start gap-2">
+          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <b>Modo DRY-RUN activo</b> — validações correm, mas <b>nada é gravado na base de dados</b>.
+            Remove <code>?dryrun=1</code> do URL para gravar a sério.
+          </div>
         </div>
+      ) : (
+        !embedded && (
+          <div className="rounded-md bg-red-100 border-2 border-red-500 text-red-900 px-4 py-3 flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <b>⚠️ MODO REAL</b> — as alterações serão <b>gravadas na base de dados</b> do evento
+              <b> "{eventName ?? EVENT_ID}"</b>. Para testar sem escrever, adiciona <code>?dryrun=1</code> ao URL.
+            </div>
+          </div>
+        )
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant={dryRun ? "outline" : "default"}>
+        <Button
+          onClick={() => {
+            if (!isDryRun && !embedded) {
+              // salvaguarda extra: rota standalone em modo real → confirmar
+              if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
+              setConfirmRealSaveOpen(true);
+              return;
+            }
+            void handleSave();
+          }}
+          disabled={!ready || saving || !hasChanges}
+          variant={isDryRun ? "outline" : "default"}
+        >
           <Save className="h-4 w-4 mr-2" />
-          {saving ? (dryRun ? "A simular…" : "A gravar…") : `${dryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
+          {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
         </Button>
         <Button onClick={() => setInsertDialogOpen(true)} disabled={!ready || saving} variant="outline">
           <Plus className="h-4 w-4 mr-2" />Nova linha
@@ -1658,6 +1696,30 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
           <AlertDialogFooter>
             <AlertDialogCancel onClick={discardDraft}>Descartar</AlertDialogCancel>
             <AlertDialogAction onClick={applyDraft}>Recuperar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmRealSaveOpen} onOpenChange={setConfirmRealSaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-700">⚠️ Gravar no BP REAL?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vais gravar <b>{changeCount}</b> alteração(ões) no BP REAL do evento{" "}
+              <b>"{eventName ?? EVENT_ID}"</b>.
+              <br /><br />
+              Isto <b>escreve na base de dados de produção</b>. Para simular sem escrever,
+              cancela e abre a página com <code>?dryrun=1</code> no URL.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmRealSaveOpen(false); void handleSave(); }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Gravar mesmo
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
