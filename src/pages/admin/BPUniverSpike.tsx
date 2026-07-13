@@ -1414,6 +1414,62 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const entryCount = built?.filter((r) => r.kind === "entry").length ?? 0;
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
+  const onGraveClick = () => {
+    if (!isDryRun && !embedded) {
+      if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
+      setConfirmRealSaveOpen(true);
+      return;
+    }
+    void handleSave();
+  };
+
+  // Barra de ações — reutilizada no modo normal e no overlay fullscreen
+  const actionBar = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Button
+        onClick={onGraveClick}
+        disabled={!ready || saving || !hasChanges}
+        variant={isDryRun ? "outline" : "default"}
+      >
+        <Save className="h-4 w-4 mr-2" />
+        {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
+      </Button>
+      <Button onClick={handleInsertInline} disabled={!ready || saving} variant="outline">
+        <Plus className="h-4 w-4 mr-2" />Nova linha
+      </Button>
+      <Button onClick={handleDeleteSelectedClick} disabled={!ready || saving} variant="outline">
+        <Trash2 className="h-4 w-4 mr-2" />Apagar linha
+      </Button>
+      <Button onClick={handleUndo} disabled={!ready || saving} variant="outline">
+        <Undo2 className="h-4 w-4 mr-2" />Desfazer
+      </Button>
+      <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
+        {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
+      </Button>
+      <span className="text-xs text-muted-foreground ml-2">
+        {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
+        {ready ? " · Univer pronto" : ""}
+      </span>
+      {hasChanges && (
+        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
+          ● {changeCount} alteração(ões) por gravar
+        </span>
+      )}
+      {isDryRun ? (
+        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 font-semibold">
+          DRY-RUN
+        </span>
+      ) : (
+        !embedded && (
+          <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-900 border border-red-400 font-semibold">
+            MODO REAL
+          </span>
+        )
+      )}
+    </div>
+  );
+
+
   return (
     <div className={embedded ? "space-y-3" : "p-6 max-w-[1500px] mx-auto space-y-4"}>
       {!embedded && (
