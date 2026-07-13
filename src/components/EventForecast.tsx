@@ -23,6 +23,7 @@ import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
