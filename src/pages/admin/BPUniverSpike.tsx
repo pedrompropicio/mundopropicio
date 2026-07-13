@@ -1554,12 +1554,16 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
           .univer-popup, .univer-dropdown, [class*="univer"][class*="popup"],
           [class*="univer"][class*="dropdown"], [class*="univer"][class*="menu"],
           [class*="univer"][class*="overlay"] { z-index: 10001 !important; }
+          /* Garantir que dialogs shadcn/Radix ficam por cima do overlay fullscreen */
+          [data-radix-portal] [role="dialog"],
+          [data-radix-portal] [role="alertdialog"],
+          [data-radix-portal] [data-state="open"][class*="fixed"] { z-index: 10100 !important; }
         `}</style>
       )}
       <div
         className={
           fullscreen
-            ? "fixed inset-0 z-50 bg-background"
+            ? "fixed inset-0 z-40 bg-background flex flex-col"
             : "relative"
         }
         style={
@@ -1568,18 +1572,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
             : { width: "100%", height: "78vh", border: "1px solid hsl(var(--border))" }
         }
       >
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
         {fullscreen && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setFullscreen(false)}
-            className="absolute top-3 right-3 z-[60] shadow-lg"
-          >
-            <Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)
-          </Button>
+          <div className="shrink-0 border-b bg-background/95 backdrop-blur px-3 py-2 shadow-sm">
+            {actionBar}
+          </div>
         )}
+        <div ref={containerRef} style={{ width: "100%", flex: fullscreen ? "1 1 auto" : undefined, height: fullscreen ? undefined : "100%" }} />
       </div>
+
 
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Notas do spike (Fase 2)</summary>
