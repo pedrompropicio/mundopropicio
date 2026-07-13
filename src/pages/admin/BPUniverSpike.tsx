@@ -298,6 +298,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const [actionLog, setActionLog] = useState<Array<{ kind: "insert" | "delete"; data: any }>>([]);
   const [pendingNavConfirm, setPendingNavConfirm] = useState<null | (() => void)>(null);
 
+  const [pendingNavConfirm2, setPendingNavConfirm2] = useState<boolean>(false);
   const changeCount = Object.keys(dirty).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
 
