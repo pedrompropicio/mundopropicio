@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown } from "lucide-react";
+import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -123,6 +123,30 @@ export default function CardSessionDetail() {
       toast({ title: "Estado atualizado." });
       qc.invalidateQueries({ queryKey: ["card-session", id] });
       qc.invalidateQueries({ queryKey: ["card-sessions"] });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteLoad = useMutation({
+    mutationFn: async (load: any) => {
+      if (load.in_transaction_id) {
+        throw new Error("Esta recarga já foi paga/liquidada. Elimine primeiro a transação de saída na Lista de Pagamento.");
+      }
+      if (!load.out_transaction_id) {
+        // fallback: apagar só a linha
+        const { error } = await supabase.from("card_session_loads").delete().eq("id", load.id);
+        if (error) throw error;
+        return;
+      }
+      // Apagar a transação OUT — o trigger trg_card_load_on_out_delete limpa card_session_loads
+      const { error } = await supabase.from("transactions").delete().eq("id", load.out_transaction_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Recarga eliminada." });
+      qc.invalidateQueries({ queryKey: ["card-session-loads", id] });
+      qc.invalidateQueries({ queryKey: ["card-session", id] });
+      qc.invalidateQueries({ queryKey: ["financial-accounts"] });
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
@@ -302,15 +326,40 @@ export default function CardSessionDetail() {
           {loads.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem recargas.</p>
           ) : (
-            (loads as any[]).map((l) => (
-              <div key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
-                <div>
-                  <div className="font-medium">{l.source?.name ?? "—"} → {cardName}</div>
-                  <div className="text-xs text-muted-foreground">{l.load_date}{l.notes ? ` · ${l.notes}` : ""}</div>
+            (loads as any[]).map((l) => {
+              const canDelete = canManage && !isLocked && !l.in_transaction_id;
+              return (
+                <div key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                  <div>
+                    <div className="font-medium">{l.source?.name ?? "—"} → {cardName}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {l.load_date}{l.notes ? ` · ${l.notes}` : ""}
+                      {" · "}
+                      {l.in_transaction_id
+                        ? <span className="text-emerald-500">liquidada</span>
+                        : <span className="text-amber-500">aguarda pagamento</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold text-emerald-500">+{formatCurrency(Number(l.amount))}</div>
+                    {canDelete && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Eliminar esta recarga? A transação de saída pendente será também removida.")) {
+                            deleteLoad.mutate(l);
+                          }
+                        }}
+                        disabled={deleteLoad.isPending}
+                        title="Eliminar recarga (só se ainda não foi paga)"
+                        className="rounded-md border border-destructive/40 bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="font-semibold text-emerald-500">+{formatCurrency(Number(l.amount))}</div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
