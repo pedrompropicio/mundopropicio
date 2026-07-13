@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Lock } from "lucide-react";
+import { FundHolderPicker, type FundHolderValue } from "./FundHolderPicker";
 
 type SessionMode = "single_event" | "tour_consolidated" | "city_session";
 
@@ -49,6 +50,11 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
   const [budget, setBudget] = useState(String(initial.budget_amount ?? 0));
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [fundHolder, setFundHolder] = useState<FundHolderValue>({
+    type: "employee",
+    supplierId: null,
+    userId: null,
+  });
 
   // Vinculo
   const [loadingLinks, setLoadingLinks] = useState(false);
@@ -79,7 +85,7 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
         const [{ data: ses }, { data: evs }, { data: links }, { count }] = await Promise.all([
           supabase
             .from("camarim_sessions" as any)
-            .select("mode, master_event_id")
+            .select("mode, master_event_id, fund_holder_type, fund_holder_supplier_id, fund_holder_user_id")
             .eq("id", sessionId)
             .single(),
           supabase
@@ -103,6 +109,11 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
         setMasterEventId(masterRef);
         setEvents((evs ?? []) as EventOption[]);
         setItemsCount(count ?? 0);
+        setFundHolder({
+          type: (((ses as any)?.fund_holder_type ?? "employee") as "employee" | "supplier"),
+          supplierId: ((ses as any)?.fund_holder_supplier_id ?? null) as string | null,
+          userId: ((ses as any)?.fund_holder_user_id ?? null) as string | null,
+        });
 
         const linkedIds = ((links ?? []) as any[]).map((l) => l.event_id as string);
         if (sesMode === "single_event") {
@@ -169,6 +180,15 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
       return;
     }
 
+    if (fundHolder.type === "employee" && !fundHolder.userId) {
+      toast({ variant: "destructive", title: "Seleciona o colaborador responsável pelo caixa" });
+      return;
+    }
+    if (fundHolder.type === "supplier" && !fundHolder.supplierId) {
+      toast({ variant: "destructive", title: "Seleciona o prestador responsável pelo caixa" });
+      return;
+    }
+
     let linkPayload: { masterRef: string | null; eventIds: string[] } | null = null;
     if (canEditLinks) {
       linkPayload = validateLinks();
@@ -182,6 +202,9 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
         title: title.trim(),
         budget_amount: budgetNum,
         notes: notes.trim() || null,
+        fund_holder_type: fundHolder.type,
+        fund_holder_supplier_id: fundHolder.supplierId,
+        fund_holder_user_id: fundHolder.userId,
       };
       if (canEditLinks && linkPayload) {
         updatePatch.master_event_id = linkPayload.masterRef;
@@ -268,6 +291,10 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
               rows={3}
             />
           </div>
+
+          <FundHolderPicker value={fundHolder} onChange={setFundHolder} />
+
+
 
           {/* Vínculo a evento(s) */}
           <div className="rounded-md border border-border bg-muted/20 p-3">

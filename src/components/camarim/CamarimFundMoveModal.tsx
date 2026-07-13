@@ -67,6 +67,13 @@ export function CamarimFundMoveModal({
   const [accountId, setAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [saving, setSaving] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState<{
+    title: string;
+    advance_account_id: string | null;
+    fund_holder_type: "employee" | "supplier";
+    fund_holder_supplier_id: string | null;
+    fund_holder_user_id: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -78,7 +85,14 @@ export function CamarimFundMoveModal({
       .in("type", ["bank", "cash"])
       .order("name")
       .then(({ data }) => setAccounts((data ?? []) as Account[]));
-  }, [open]);
+
+    void supabase
+      .from("camarim_sessions" as any)
+      .select("title, advance_account_id, fund_holder_type, fund_holder_supplier_id, fund_holder_user_id")
+      .eq("id", sessionId)
+      .single()
+      .then(({ data }) => setSessionInfo((data ?? null) as any));
+  }, [open, sessionId]);
 
   // Preencher campos quando abre em modo edição.
   useEffect(() => {
@@ -99,7 +113,8 @@ export function CamarimFundMoveModal({
   }, [open, existing]);
 
   const numericAmount = Number(amount);
-  const accountRequired = moveType === "advance" || moveType === "reinforcement";
+  const accountRequired =
+    moveType === "advance" || moveType === "reinforcement" || moveType === "refund";
 
   // Cálculo do saldo previsto após este movimento (excluindo o próprio em edição).
   const sumIn = allMoves
@@ -164,13 +179,68 @@ export function CamarimFundMoveModal({
         if (error) throw error;
         toast({ title: "Movimento atualizado" });
       } else {
+        // Novo movimento: cria também a transação financeira pendente
+        // (a aprovar → Lista de Pagamento) ligada à conta-corrente da sessão.
+        let transactionId: string | null = null;
+        if (!sessionInfo?.advance_account_id) {
+          throw new Error(
+            "Sessão sem conta-corrente. Actualiza a página e tenta de novo (a conta é criada automaticamente).",
+          );
+        }
+        if (accountRequired) {
+          // Precisamos de saber a conta bancária (origem ou destino)
+          if (!accountId) {
+            throw new Error("Conta bancária obrigatória para gerar a transferência.");
+          }
+          const isInflow = moveType === "advance" || moveType === "reinforcement";
+          const bankAccount = accountId;
+          const sessionAccount = sessionInfo.advance_account_id;
+          const desc =
+            moveType === "advance"
+              ? `Adiantamento camarim — ${sessionInfo.title}`
+              : moveType === "reinforcement"
+                ? `Reforço camarim — ${sessionInfo.title}`
+                : `Devolução camarim — ${sessionInfo.title}`;
+          const supplierIdForTx =
+            sessionInfo.fund_holder_type === "supplier"
+              ? sessionInfo.fund_holder_supplier_id
+              : null;
+
+          const { data: tx, error: txErr } = await (supabase as any)
+            .from("transactions")
+            .insert({
+              type: "transfer",
+              description: desc,
+              amount: numericAmount,
+              iva_rate: 0,
+              date: moveDate,
+              status: "pending",
+              payment_method: "transfer",
+              currency,
+              account_id: isInflow ? bankAccount : sessionAccount,
+              target_account_id: isInflow ? sessionAccount : bankAccount,
+              supplier_id: supplierIdForTx,
+              specification: notes || null,
+            })
+            .select("id")
+            .single();
+          if (txErr) throw txErr;
+          transactionId = tx.id;
+        }
+
         const { error } = await supabase.from("camarim_fund_moves" as any).insert({
           session_id: sessionId,
           ...payload,
+          transaction_id: transactionId,
           created_by: user?.id ?? null,
         } as any);
         if (error) throw error;
-        toast({ title: "Movimento registado" });
+        toast({
+          title: "Movimento registado",
+          description: transactionId
+            ? "Transação criada em estado 'a aprovar' — visível na Lista de Pagamento."
+            : undefined,
+        });
       }
       onSaved?.();
       onOpenChange(false);

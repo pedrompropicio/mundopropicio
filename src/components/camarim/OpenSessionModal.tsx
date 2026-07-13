@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Loader2, Calendar, Map, MapPin } from "lucide-react";
 import { type CamarimSessionMode, SESSION_MODE_LABELS, SESSION_MODE_DESCRIPTIONS } from "@/lib/camarim-helpers";
+import { FundHolderPicker, type FundHolderValue } from "./FundHolderPicker";
 
 interface EventOption {
   id: string;
@@ -49,6 +50,11 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
   const [selectedMasterId, setSelectedMasterId] = useState<string>("");
   const [selectedSplitIds, setSelectedSplitIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [fundHolder, setFundHolder] = useState<FundHolderValue>({
+    type: "employee",
+    supplierId: null,
+    userId: null,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -83,6 +89,7 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
     setSelectedEventId("");
     setSelectedMasterId("");
     setSelectedSplitIds([]);
+    setFundHolder({ type: "employee", supplierId: null, userId: null });
   };
 
   const handleSubmit = async () => {
@@ -106,6 +113,14 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
       toast({ variant: "destructive", title: "Seleciona as cidades (uma sessão será criada por cidade)" });
       return;
     }
+    if (fundHolder.type === "employee" && !fundHolder.userId) {
+      toast({ variant: "destructive", title: "Seleciona o colaborador responsável pelo caixa" });
+      return;
+    }
+    if (fundHolder.type === "supplier" && !fundHolder.supplierId) {
+      toast({ variant: "destructive", title: "Seleciona o prestador responsável pelo caixa" });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -126,6 +141,9 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
               budget_amount: budgetNum,
               currency: "EUR",
               responsible_profile_id: responsibleId || null,
+              fund_holder_type: fundHolder.type,
+              fund_holder_supplier_id: fundHolder.supplierId,
+              fund_holder_user_id: fundHolder.userId,
               notes: notes || null,
               created_by: user?.id ?? null,
             } as any)
@@ -155,6 +173,9 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             budget_amount: budgetNum,
             currency: "EUR",
             responsible_profile_id: responsibleId || null,
+            fund_holder_type: fundHolder.type,
+            fund_holder_supplier_id: fundHolder.supplierId,
+            fund_holder_user_id: fundHolder.userId,
             notes: notes || null,
             created_by: user?.id ?? null,
           } as any)
@@ -330,6 +351,10 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
               )}
             </>
           )}
+
+          <FundHolderPicker value={fundHolder} onChange={setFundHolder} />
+
+
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
