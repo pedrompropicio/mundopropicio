@@ -236,7 +236,11 @@ interface BPUniverSpikeProps {
 
 export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = false, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
-  const EVENT_ID = eventIdProp ?? DEFAULT_EVENT_ID;
+  // Standalone: aceita ?event=<uuid> no URL; fallback = Anitta EDA 2026.
+  const urlEventId = !eventIdProp && typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("event") ?? undefined
+    : undefined;
+  const EVENT_ID = eventIdProp ?? urlEventId ?? DEFAULT_EVENT_ID;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const univerRef = useRef<any>(null);

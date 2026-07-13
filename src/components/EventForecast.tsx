@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { roundCents, calcIvaAmount } from "@/lib/iva";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -14,7 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
-import BPUniverSpike from "@/pages/admin/BPUniverSpike";
+// Lazy: Univer é pesado (~10MB). Só carrega quando o utilizador escolhe a vista Planilha.
+const BPUniverSpike = lazy(() => import("@/pages/admin/BPUniverSpike"));
 import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
 import { StickyNote } from "lucide-react";
@@ -2172,12 +2173,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   selectedVersionId={selectedVersionId}
                 />
               ) : forecastsViewMode === "sheet" ? (
-                <BPUniverSpike
-                  eventId={eventId}
-                  canEdit={canEditBP}
-                  dryRun={bpUniverDryRun}
-                  embedded
-                />
+                <Suspense fallback={<p className="py-8 text-center text-muted-foreground">A carregar Planilha…</p>}>
+                  <BPUniverSpike
+                    eventId={eventId}
+                    canEdit={canEditBP}
+                    dryRun={bpUniverDryRun}
+                    embedded
+                  />
+                </Suspense>
               ) : (
                 <div className="space-y-6">
 
