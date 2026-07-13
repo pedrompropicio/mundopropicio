@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Lock } from "lucide-react";
+import { FundHolderPicker, type FundHolderValue } from "./FundHolderPicker";
 
 type SessionMode = "single_event" | "tour_consolidated" | "city_session";
 
@@ -49,6 +50,11 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
   const [budget, setBudget] = useState(String(initial.budget_amount ?? 0));
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [fundHolder, setFundHolder] = useState<FundHolderValue>({
+    type: "employee",
+    supplierId: null,
+    userId: null,
+  });
 
   // Vinculo
   const [loadingLinks, setLoadingLinks] = useState(false);
