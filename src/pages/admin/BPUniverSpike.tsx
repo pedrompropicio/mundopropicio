@@ -1418,9 +1418,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun = 
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant="default">
+        <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant={dryRun ? "outline" : "default"}>
           <Save className="h-4 w-4 mr-2" />
-          {saving ? "A gravar…" : `Gravar${hasChanges ? ` (${changeCount})` : ""}`}
+          {saving ? (dryRun ? "A simular…" : "A gravar…") : `${dryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
         </Button>
         <Button onClick={() => setInsertDialogOpen(true)} disabled={!ready || saving} variant="outline">
           <Plus className="h-4 w-4 mr-2" />Nova linha
