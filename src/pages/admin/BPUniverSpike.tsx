@@ -230,11 +230,11 @@ const parseIntSafe = (v: any): number | null => {
 interface BPUniverSpikeProps {
   eventId?: string;
   canEdit?: boolean;
-  dryRun?: boolean;
+  isDryRun?: boolean;
   embedded?: boolean;
 }
 
-export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: dryRunProp = false, embedded = false }: BPUniverSpikeProps = {}) {
+export default function BPUniverSpike({ eventId: eventIdProp, canEdit, isDryRun: dryRunProp = false, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
   // Standalone: aceita ?event=<uuid> e ?dryrun=1|true no URL; fallback = Anitta EDA 2026.
   const urlParams = !embedded && typeof window !== "undefined"
@@ -324,7 +324,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const isAdmin = role === "admin" || role === "platform_admin";
   const allowed = embedded ? (canEdit ?? true) : isAdmin;
   const userId = user?.id ?? "anon";
-  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}${dryRun ? ":dryrun" : ""}`;
+  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}${isDryRun ? ":dryrun" : ""}`;
 
   // Load data (loads draft+approved so newly-inserted draft rows persist across reloads)
   const fetchData = useCallback(async () => {
@@ -1077,7 +1077,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     setSaving(true);
     try {
       // DRY-RUN: valida tudo mas não escreve na BD
-      if (dryRun) {
+      if (isDryRun) {
         const editsArr = Object.entries(dirty);
         toast.success(
           `[DRY-RUN] ${changeCount} alteração(ões) validadas SEM gravar · ${editsArr.length} edições · ${pendingInserts.length} inserções · ${pendingDeletes.length} apagadas.`,
@@ -1416,20 +1416,20 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
             Sandbox · Editar em memória, validar e <b>gravar em lote</b> via
             <code className="mx-1">batch_update_event_forecasts</code> +
             <code className="mx-1">batch_insert_event_forecasts</code>.
-            {dryRun && <span className="ml-2 font-semibold text-amber-600">[DRY-RUN — não grava na BD]</span>}
+            {isDryRun && <span className="ml-2 font-semibold text-amber-600">[DRY-RUN — não grava na BD]</span>}
           </p>
         </div>
       )}
-      {embedded && dryRun && (
+      {embedded && isDryRun && (
         <div className="rounded bg-amber-100 border border-amber-300 text-amber-900 text-xs px-3 py-2">
           <b>Modo DRY-RUN activo</b> — validações correm, mas <b>nada é gravado na BD</b>. Remove <code>?dryrun=1</code> do URL para gravar a sério.
         </div>
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant={dryRun ? "outline" : "default"}>
+        <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant={isDryRun ? "outline" : "default"}>
           <Save className="h-4 w-4 mr-2" />
-          {saving ? (dryRun ? "A simular…" : "A gravar…") : `${dryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
+          {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
         </Button>
         <Button onClick={() => setInsertDialogOpen(true)} disabled={!ready || saving} variant="outline">
           <Plus className="h-4 w-4 mr-2" />Nova linha
