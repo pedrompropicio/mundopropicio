@@ -1451,45 +1451,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         )
       )}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          onClick={() => {
-            if (!isDryRun && !embedded) {
-              // salvaguarda extra: rota standalone em modo real → confirmar
-              if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
-              setConfirmRealSaveOpen(true);
-              return;
-            }
-            void handleSave();
-          }}
-          disabled={!ready || saving || !hasChanges}
-          variant={isDryRun ? "outline" : "default"}
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
-        </Button>
-        <Button onClick={() => setInsertDialogOpen(true)} disabled={!ready || saving} variant="outline">
-          <Plus className="h-4 w-4 mr-2" />Nova linha
-        </Button>
-        <Button onClick={handleDeleteSelectedClick} disabled={!ready || saving} variant="outline">
-          <Trash2 className="h-4 w-4 mr-2" />Apagar linha selecionada
-        </Button>
-        <Button onClick={handleUndo} disabled={!ready || saving} variant="outline">
-          <Undo2 className="h-4 w-4 mr-2" />Desfazer
-        </Button>
-        <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
-          {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
-        </Button>
-        <span className="text-xs text-muted-foreground ml-2">
-          {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
-          {ready ? " · Univer pronto" : ""}
-        </span>
-        {hasChanges && (
-          <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
-            ● {changeCount} alteração(ões) por gravar
-          </span>
-        )}
-      </div>
+      {actionBar}
 
       {err && (
         <div className="p-3 rounded bg-destructive/10 text-destructive text-sm whitespace-pre-wrap">
