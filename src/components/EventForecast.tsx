@@ -195,6 +195,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
   // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Univer).
   const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
+  const isMobile = useIsMobile();
+  // Planilha (Univer) é desktop-only; se o ecrã encolher, volta para Agrupada.
+  useEffect(() => {
+    if (isMobile && forecastsViewMode === "sheet") {
+      setForecastsViewMode("grouped");
+    }
+  }, [isMobile, forecastsViewMode]);
   // Dry-run activa via ?dryrun=1 no URL — não grava na BD.
   const bpUniverDryRun = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dryrun") === "1";
 
