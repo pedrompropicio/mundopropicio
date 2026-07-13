@@ -267,15 +267,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     { row: number; entryLabel: string; problems: string[] }[]
   >([]);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string; amount: number } | null>(null);
-  const [insertDialogOpen, setInsertDialogOpen] = useState(false);
-  const [newRowDraft, setNewRowDraft] = useState<{
-    category_id: string;
-    description: string;
-    amount: string;
-    iva_rate: string;
-    formalidade: string;
-    specification: string;
-  }>({ category_id: "", description: "", amount: "", iva_rate: "23", formalidade: "estimado", specification: "" });
+  // (modal "Nova linha" e newRowDraft removidos — inserção passou a ser inline)
   const [draftPromptOpen, setDraftPromptOpen] = useState(false);
   const [draftPromptMeta, setDraftPromptMeta] = useState<{ savedAt: string; edits: number; inserts: number; deletes: number } | null>(null);
   const pendingDraftRef = useRef<any>(null);
