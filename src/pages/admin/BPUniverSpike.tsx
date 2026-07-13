@@ -330,7 +330,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fRes, cRes] = await Promise.all([
+      const [fRes, cRes, eRes] = await Promise.all([
         supabase
           .from("event_forecasts")
           .select("id, category_id, description, specification, amount, iva_rate, formalidade, status")
@@ -339,11 +339,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
           .in("status", ["approved", "draft"])
           .eq("type", "expense"),
         supabase.from("account_categories").select("id, name, code, parent_id, type"),
+        supabase.from("events").select("name").eq("id", EVENT_ID).maybeSingle(),
       ]);
       if (fRes.error) throw fRes.error;
       if (cRes.error) throw cRes.error;
       setEntries((fRes.data ?? []) as Entry[]);
       setCategories(cRes.data ?? []);
+      setEventName((eRes.data as any)?.name ?? null);
       // Original snapshot
       const map = new Map<string, Entry>();
       for (const e of (fRes.data ?? []) as Entry[]) map.set(e.id, e);
