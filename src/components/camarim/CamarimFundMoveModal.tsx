@@ -187,7 +187,7 @@ export function CamarimFundMoveModal({
             "Sessão sem conta-corrente. Actualiza a página e tenta de novo (a conta é criada automaticamente).",
           );
         }
-        if (accountRequired || moveType === "refund") {
+        if (accountRequired) {
           // Precisamos de saber a conta bancária (origem ou destino)
           if (!accountId) {
             throw new Error("Conta bancária obrigatória para gerar a transferência.");
