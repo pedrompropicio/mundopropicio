@@ -1699,6 +1699,30 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={confirmRealSaveOpen} onOpenChange={setConfirmRealSaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-700">⚠️ Gravar no BP REAL?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vais gravar <b>{changeCount}</b> alteração(ões) no BP REAL do evento{" "}
+              <b>"{eventName ?? EVENT_ID}"</b>.
+              <br /><br />
+              Isto <b>escreve na base de dados de produção</b>. Para simular sem escrever,
+              cancela e abre a página com <code>?dryrun=1</code> no URL.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmRealSaveOpen(false); void handleSave(); }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Gravar mesmo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
