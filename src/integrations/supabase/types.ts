@@ -1119,6 +1119,7 @@ export type Database = {
       }
       camarim_sessions: {
         Row: {
+          advance_account_id: string | null
           advance_total: number
           budget_amount: number
           closed_at: string | null
@@ -1126,6 +1127,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency: string
+          fund_holder_supplier_id: string | null
+          fund_holder_type: string
+          fund_holder_user_id: string | null
           id: string
           integrated_at: string | null
           integration_summary: Json | null
@@ -1144,6 +1148,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          advance_account_id?: string | null
           advance_total?: number
           budget_amount?: number
           closed_at?: string | null
@@ -1151,6 +1156,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
+          fund_holder_supplier_id?: string | null
+          fund_holder_type?: string
+          fund_holder_user_id?: string | null
           id?: string
           integrated_at?: string | null
           integration_summary?: Json | null
@@ -1169,6 +1177,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          advance_account_id?: string | null
           advance_total?: number
           budget_amount?: number
           closed_at?: string | null
@@ -1176,6 +1185,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
+          fund_holder_supplier_id?: string | null
+          fund_holder_type?: string
+          fund_holder_user_id?: string | null
           id?: string
           integrated_at?: string | null
           integration_summary?: Json | null
@@ -1195,6 +1207,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "camarim_sessions_advance_account_id_fkey"
+            columns: ["advance_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "camarim_sessions_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -1204,6 +1223,20 @@ export type Database = {
           {
             foreignKeyName: "camarim_sessions_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_sessions_fund_holder_supplier_id_fkey"
+            columns: ["fund_holder_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_sessions_fund_holder_user_id_fkey"
+            columns: ["fund_holder_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
