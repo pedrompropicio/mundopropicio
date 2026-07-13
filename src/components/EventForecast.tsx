@@ -14,7 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
-import BPUniverSpike from "@/pages/admin/BPUniverSpike";
+// Lazy: Univer é pesado (~10MB). Só carrega quando o utilizador escolhe a vista Planilha.
+const BPUniverSpike = lazy(() => import("@/pages/admin/BPUniverSpike"));
 import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
 import { StickyNote } from "lucide-react";
