@@ -35,23 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// (modal de "Nova linha" removido — inserção passou a ser inline na grelha)
 
 import { createUniver, LocaleType, merge } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
@@ -283,15 +267,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     { row: number; entryLabel: string; problems: string[] }[]
   >([]);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string; amount: number } | null>(null);
-  const [insertDialogOpen, setInsertDialogOpen] = useState(false);
-  const [newRowDraft, setNewRowDraft] = useState<{
-    category_id: string;
-    description: string;
-    amount: string;
-    iva_rate: string;
-    formalidade: string;
-    specification: string;
-  }>({ category_id: "", description: "", amount: "", iva_rate: "23", formalidade: "estimado", specification: "" });
+  // (modal "Nova linha" e newRowDraft removidos — inserção passou a ser inline)
   const [draftPromptOpen, setDraftPromptOpen] = useState(false);
   const [draftPromptMeta, setDraftPromptMeta] = useState<{ savedAt: string; edits: number; inserts: number; deletes: number } | null>(null);
   const pendingDraftRef = useRef<any>(null);
@@ -1205,69 +1181,97 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     toast.info("Linha marcada para apagar (só ao gravar).");
   };
 
-  // --- Insert new row ---
-  const handleInsertConfirm = () => {
-    const amt = parseAmount(newRowDraft.amount);
-    const iva = parseIntSafe(newRowDraft.iva_rate);
-    if (!newRowDraft.description.trim()) { toast.error("Descrição obrigatória."); return; }
-    if (!newRowDraft.category_id) { toast.error("Categoria obrigatória."); return; }
-    if (amt == null || amt < 0) { toast.error("Valor inválido."); return; }
-    if (iva == null || !(VALID_IVA as readonly number[]).includes(iva)) { toast.error("IVA deve ser 0, 6, 13 ou 23."); return; }
+  // --- Insert new row (INLINE — sem modal) ---
+  // Adiciona uma linha vazia no FIM da folha (para não partir as fórmulas SUM
+  // dos subtotais que referenciam ranges por número de linha) e:
+  //   • herda a categoria da linha ativa (se aplicável)
+  //   • aplica dropdowns (Categoria + Formalidade) e a fórmula do Total c/IVA
+  //   • foca a célula da Descrição para escrita imediata
+  const handleInsertInline = () => {
+    const api = apiRef.current;
+    if (!api) { toast.error("Univer ainda não está pronto."); return; }
+    const wb = api.getActiveWorkbook?.();
+    const sheet = wb?.getActiveSheet?.();
+    if (!wb || !sheet) { toast.error("Folha não disponível."); return; }
+
+    // Descobrir categoria herdada a partir da célula ativa (walk-up até achar entry)
+    let inheritedCatId: string | null = null;
+    let inheritedCatLabel = "";
+    try {
+      const active = wb.getActiveRange?.();
+      const activeRow = normalizeRange(active)?.startRow;
+      if (typeof activeRow === "number") {
+        for (let r = activeRow; r >= 0; r--) {
+          const eid = rowToEntryIdRef.current.get(r);
+          if (eid) {
+            const overrideCat = (dirty[eid]?.category_id ?? undefined);
+            const original = originalEntriesRef.current.get(eid);
+            inheritedCatId = (overrideCat !== undefined ? overrideCat : original?.category_id) ?? null;
+            break;
+          }
+          const tempId = insertRowToTempIdRef.current.get(r);
+          if (tempId) {
+            const ins = pendingInserts.find((p) => p.tempId === tempId);
+            inheritedCatId = ins?.category_id ?? null;
+            break;
+          }
+        }
+      }
+    } catch { /* noop */ }
+    if (inheritedCatId) {
+      inheritedCatLabel = categoryIdToLabelRef.current.get(inheritedCatId) ?? "";
+    }
 
     const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const insertRow: InsertRow = {
       tempId,
-      category_id: newRowDraft.category_id,
-      description: newRowDraft.description.trim(),
-      specification: newRowDraft.specification.trim() || null,
-      amount: amt,
-      iva_rate: iva,
-      formalidade: newRowDraft.formalidade,
+      category_id: inheritedCatId,
+      description: "",
+      specification: null,
+      amount: 0,
+      iva_rate: 23,
+      formalidade: "estimado",
     };
     setPendingInserts((prev) => [...prev, insertRow]);
     setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
 
-    // Append visually
-    const api = apiRef.current;
-    if (api) {
-      try {
-        const wb = api.getActiveWorkbook?.();
-        const sheet = wb?.getActiveSheet?.();
-        const row = nextInsertRowRef.current;
-        nextInsertRowRef.current = row + 1;
-        insertRowToTempIdRef.current.set(row, tempId);
-        const catLabel = categoryIdToLabelRef.current.get(insertRow.category_id!) ?? "";
-        sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(insertRow.description);
-        sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(catLabel);
-        sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(insertRow.specification ?? "");
-        sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(insertRow.amount);
-        sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(insertRow.iva_rate);
-        sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(insertRow.formalidade));
-        // Formula for total
-        const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
-        sheet?.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
-        applyRowStyle(row, "sInsertedRow");
-        // Add dropdowns
-        if ((api as any).newDataValidation && sheet) {
-          const formRule = (api as any).newDataValidation()
-            .requireValueInList(FORMALIDADE_LABELS)
-            .setOptions({ allowInvalid: true, showDropdown: true })
-            .build();
-          sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
-          const catRule = (api as any).newDataValidation()
-            .requireValueInList(categoryDropdownRef.current)
-            .setOptions({ allowInvalid: true, showDropdown: true })
-            .build();
-          sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
-        }
-      } catch (e) {
-        console.warn("[BPUniverSpike] insert row visual failed", e);
+    const row = nextInsertRowRef.current;
+    nextInsertRowRef.current = row + 1;
+    insertRowToTempIdRef.current.set(row, tempId);
+    try {
+      // Descrição fica vazia (o utilizador escreve) — as outras defaults ajudam
+      sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.("");
+      sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(inheritedCatLabel);
+      sheet.getRange(row, COL.SPEC, 1, 1).setValue?.("");
+      sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(0);
+      sheet.getRange(row, COL.IVA, 1, 1).setValue?.(23);
+      sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel("estimado"));
+      const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
+      sheet.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
+      applyRowStyle(row, "sInsertedRow");
+      if ((api as any).newDataValidation) {
+        const formRule = (api as any).newDataValidation()
+          .requireValueInList(FORMALIDADE_LABELS)
+          .setOptions({ allowInvalid: true, showDropdown: true })
+          .build();
+        sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
+        const catRule = (api as any).newDataValidation()
+          .requireValueInList(categoryDropdownRef.current)
+          .setOptions({ allowInvalid: true, showDropdown: true })
+          .build();
+        sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
       }
+      // Foca a célula da Descrição para escrita imediata
+      sheet.getRange(row, COL.RUBRIC, 1, 1)?.activate?.();
+    } catch (e) {
+      console.warn("[BPUniverSpike] insert inline visual failed", e);
     }
 
-    setInsertDialogOpen(false);
-    setNewRowDraft({ category_id: "", description: "", amount: "", iva_rate: "23", formalidade: "estimado", specification: "" });
-    toast.success("Linha nova adicionada. Grave para persistir.");
+    if (inheritedCatLabel) {
+      toast.success(`Linha adicionada no fim (categoria herdada: ${inheritedCatLabel}). Ao gravar, será reposicionada no grupo correto.`);
+    } else {
+      toast.success("Linha adicionada no fim. Escolha a categoria e preencha os campos. Ao gravar, será reposicionada no grupo correto.");
+    }
   };
 
   // --- Undo (native Univer for cell edits + logical for insert/delete) ---
@@ -1410,6 +1414,62 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const entryCount = built?.filter((r) => r.kind === "entry").length ?? 0;
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
+  const onGraveClick = () => {
+    if (!isDryRun && !embedded) {
+      if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
+      setConfirmRealSaveOpen(true);
+      return;
+    }
+    void handleSave();
+  };
+
+  // Barra de ações — reutilizada no modo normal e no overlay fullscreen
+  const actionBar = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Button
+        onClick={onGraveClick}
+        disabled={!ready || saving || !hasChanges}
+        variant={isDryRun ? "outline" : "default"}
+      >
+        <Save className="h-4 w-4 mr-2" />
+        {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
+      </Button>
+      <Button onClick={handleInsertInline} disabled={!ready || saving} variant="outline">
+        <Plus className="h-4 w-4 mr-2" />Nova linha
+      </Button>
+      <Button onClick={handleDeleteSelectedClick} disabled={!ready || saving} variant="outline">
+        <Trash2 className="h-4 w-4 mr-2" />Apagar linha
+      </Button>
+      <Button onClick={handleUndo} disabled={!ready || saving} variant="outline">
+        <Undo2 className="h-4 w-4 mr-2" />Desfazer
+      </Button>
+      <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
+        {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
+      </Button>
+      <span className="text-xs text-muted-foreground ml-2">
+        {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
+        {ready ? " · Univer pronto" : ""}
+      </span>
+      {hasChanges && (
+        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
+          ● {changeCount} alteração(ões) por gravar
+        </span>
+      )}
+      {isDryRun ? (
+        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 font-semibold">
+          DRY-RUN
+        </span>
+      ) : (
+        !embedded && (
+          <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-900 border border-red-400 font-semibold">
+            MODO REAL
+          </span>
+        )
+      )}
+    </div>
+  );
+
+
   return (
     <div className={embedded ? "space-y-3" : "p-6 max-w-[1500px] mx-auto space-y-4"}>
       {!embedded && (
@@ -1447,45 +1507,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         )
       )}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          onClick={() => {
-            if (!isDryRun && !embedded) {
-              // salvaguarda extra: rota standalone em modo real → confirmar
-              if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
-              setConfirmRealSaveOpen(true);
-              return;
-            }
-            void handleSave();
-          }}
-          disabled={!ready || saving || !hasChanges}
-          variant={isDryRun ? "outline" : "default"}
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
-        </Button>
-        <Button onClick={() => setInsertDialogOpen(true)} disabled={!ready || saving} variant="outline">
-          <Plus className="h-4 w-4 mr-2" />Nova linha
-        </Button>
-        <Button onClick={handleDeleteSelectedClick} disabled={!ready || saving} variant="outline">
-          <Trash2 className="h-4 w-4 mr-2" />Apagar linha selecionada
-        </Button>
-        <Button onClick={handleUndo} disabled={!ready || saving} variant="outline">
-          <Undo2 className="h-4 w-4 mr-2" />Desfazer
-        </Button>
-        <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
-          {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
-        </Button>
-        <span className="text-xs text-muted-foreground ml-2">
-          {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
-          {ready ? " · Univer pronto" : ""}
-        </span>
-        {hasChanges && (
-          <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
-            ● {changeCount} alteração(ões) por gravar
-          </span>
-        )}
-      </div>
+      {actionBar}
 
       {err && (
         <div className="p-3 rounded bg-destructive/10 text-destructive text-sm whitespace-pre-wrap">
@@ -1532,12 +1554,16 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
           .univer-popup, .univer-dropdown, [class*="univer"][class*="popup"],
           [class*="univer"][class*="dropdown"], [class*="univer"][class*="menu"],
           [class*="univer"][class*="overlay"] { z-index: 10001 !important; }
+          /* Garantir que dialogs shadcn/Radix ficam por cima do overlay fullscreen */
+          [data-radix-portal] [role="dialog"],
+          [data-radix-portal] [role="alertdialog"],
+          [data-radix-portal] [data-state="open"][class*="fixed"] { z-index: 10100 !important; }
         `}</style>
       )}
       <div
         className={
           fullscreen
-            ? "fixed inset-0 z-50 bg-background"
+            ? "fixed inset-0 z-40 bg-background flex flex-col"
             : "relative"
         }
         style={
@@ -1546,18 +1572,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
             : { width: "100%", height: "78vh", border: "1px solid hsl(var(--border))" }
         }
       >
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
         {fullscreen && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setFullscreen(false)}
-            className="absolute top-3 right-3 z-[60] shadow-lg"
-          >
-            <Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)
-          </Button>
+          <div className="shrink-0 border-b bg-background/95 backdrop-blur px-3 py-2 shadow-sm">
+            {actionBar}
+          </div>
         )}
+        <div ref={containerRef} style={{ width: "100%", flex: fullscreen ? "1 1 auto" : undefined, height: fullscreen ? undefined : "100%" }} />
       </div>
+
 
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Notas do spike (Fase 2)</summary>
@@ -1593,89 +1615,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Insert dialog */}
-      <Dialog open={insertDialogOpen} onOpenChange={setInsertDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nova linha</DialogTitle>
-            <DialogDescription>
-              A linha nova é criada como <code>status=draft</code> ao gravar.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Categoria (L3) *</Label>
-              <Select
-                value={newRowDraft.category_id}
-                onValueChange={(v) => setNewRowDraft((s) => ({ ...s, category_id: v }))}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecionar categoria…" /></SelectTrigger>
-                <SelectContent>
-                  {l3Categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Descrição *</Label>
-              <Input
-                value={newRowDraft.description}
-                onChange={(e) => setNewRowDraft((s) => ({ ...s, description: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label>Especificação</Label>
-              <Input
-                value={newRowDraft.specification}
-                onChange={(e) => setNewRowDraft((s) => ({ ...s, specification: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Valor s/IVA *</Label>
-                <Input
-                  value={newRowDraft.amount}
-                  onChange={(e) => setNewRowDraft((s) => ({ ...s, amount: e.target.value }))}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>IVA %</Label>
-                <Select
-                  value={newRowDraft.iva_rate}
-                  onValueChange={(v) => setNewRowDraft((s) => ({ ...s, iva_rate: v }))}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {VALID_IVA.map((v) => (
-                      <SelectItem key={v} value={String(v)}>{v}%</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Formalidade</Label>
-              <Select
-                value={newRowDraft.formalidade}
-                onValueChange={(v) => setNewRowDraft((s) => ({ ...s, formalidade: v }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FORMALIDADE_OPTIONS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInsertDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleInsertConfirm}>Adicionar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* (modal "Nova linha" removido — inserção agora é inline na grelha) */}
+
 
       {/* Draft recovery */}
       <AlertDialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
