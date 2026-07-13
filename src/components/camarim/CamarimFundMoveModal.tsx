@@ -218,7 +218,14 @@ export function CamarimFundMoveModal({
           const supplierIdForTx =
             sessionInfo.fund_holder_type === "supplier"
               ? sessionInfo.fund_holder_supplier_id
-              : null;
+              : sessionInfo.linked_supplier_id;
+          if (!supplierIdForTx) {
+            throw new Error(
+              sessionInfo.fund_holder_type === "employee"
+                ? "Colaborador sem fornecedor vinculado (IBAN). Vincula em 'Editar sessão' antes de registar o movimento."
+                : "Fornecedor da sessão sem cadastro. Verifica em 'Editar sessão'.",
+            );
+          }
 
           // Categoria 10.3 = transferências entre contas
           const { data: cat, error: catErr } = await supabase
