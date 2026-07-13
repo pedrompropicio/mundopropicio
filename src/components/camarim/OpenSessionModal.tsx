@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Loader2, Calendar, Map, MapPin } from "lucide-react";
 import { type CamarimSessionMode, SESSION_MODE_LABELS, SESSION_MODE_DESCRIPTIONS } from "@/lib/camarim-helpers";
+import { FundHolderPicker, type FundHolderValue } from "./FundHolderPicker";
 
 interface EventOption {
   id: string;
