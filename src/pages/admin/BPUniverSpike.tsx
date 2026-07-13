@@ -1,20 +1,57 @@
 /**
- * BP Univer Spike — Fase 1b: dropdowns (data validation).
- * - Coluna Formalidade: dropdown com labels legíveis (mapa label ↔ enum).
- * - Nova coluna Categoria: dropdown com todas as L3 (código · nome).
- * - Dropdowns só nas linhas de LANÇAMENTO; subtotais continuam protegidos.
+ * BP Univer Spike — Fase 2: persistência na BD com validação, undo, rascunho.
+ *
+ * Modelo: editar em memória → validar → GRAVAR explicitamente (não é auto-save).
+ * - Alterações acumuladas em `dirty` (existentes), `pendingInserts` (novas), `pendingDeletes`.
+ * - Botão GRAVAR chama RPCs `batch_update_event_forecasts` + `batch_insert_event_forecasts`
+ *   (já existentes em produção) e delete direto para remoções.
+ * - Undo: Ctrl/Cmd+Z do Univer é nativo para células; botão dispara o mesmo comando.
+ *   Inserir/apagar linha têm undo lógico próprio ("Desfazer última ação").
+ * - Rascunho local em localStorage (`bp-univer-draft:${eventId}:${userId}`): guardado
+ *   a cada alteração e oferecido para recuperar ao abrir a página; limpo ao gravar.
+ * - Aviso ao sair: beforeunload nativo + intercepção do botão back via popstate.
+ *   (Navegação interna via <Link> não é intercetada nesta versão — limitação reportada.)
+ * - Linhas novas gravam como status='draft'. O spike passou a carregar draft+approved
+ *   (senão desapareceriam ao recarregar). REPORTAR ao Pedro.
+ *
  * ⚠️ DO NOT import from production code. Route: /admin/bp-univer-spike (admin only).
- * SEM persistência ainda (Fase 2).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Save, Trash2, Plus, Undo2, AlertTriangle } from "lucide-react";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { buildCategoryLookup, type CategoryLookup } from "@/lib/category-hierarchy";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { createUniver, LocaleType, merge } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
@@ -24,6 +61,7 @@ import { UniverSheetsDataValidationPreset } from "@univerjs/preset-sheets-data-v
 import "@univerjs/preset-sheets-data-validation/lib/index.css";
 
 const EVENT_ID = "fdfb39fe-45f2-43f5-9ec9-7cb536360ae1"; // Anitta EDA 2026
+const VALID_IVA = [0, 6, 13, 23] as const;
 
 // Formalidade: enum ↔ label
 const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
@@ -36,17 +74,28 @@ const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
 const FORMALIDADE_LABELS = FORMALIDADE_OPTIONS.map((o) => o.label);
 const enumToLabel = (v: string | null | undefined) =>
   FORMALIDADE_OPTIONS.find((o) => o.value === v)?.label ?? "";
-// (mantido para Fase 2 — save):
-// const labelToEnum = (l: string) => FORMALIDADE_OPTIONS.find((o) => o.label === l)?.value ?? null;
+const labelToEnum = (l: string | null | undefined) =>
+  FORMALIDADE_OPTIONS.find((o) => o.label === l)?.value ?? null;
 
 interface Entry {
   id: string;
-  category_id: string;
+  category_id: string | null;
   description: string | null;
   specification: string | null;
   amount: number;
   iva_rate: number;
   formalidade: string | null;
+  status?: string;
+}
+
+interface InsertRow {
+  tempId: string;
+  category_id: string | null;
+  description: string;
+  specification: string | null;
+  amount: number;
+  iva_rate: number;
+  formalidade: string;
 }
 
 type RowKind = "header" | "grand" | "l1" | "l2" | "l3" | "entry";
@@ -71,9 +120,9 @@ const COL = {
 };
 const N_COLS = 7;
 const colLetter = (c: number) => String.fromCharCode(65 + c);
-const L_AMOUNT = colLetter(COL.AMOUNT); // D
-const L_IVA = colLetter(COL.IVA); // E
-const L_TOTAL = colLetter(COL.TOTAL); // F
+const L_AMOUNT = colLetter(COL.AMOUNT);
+const L_IVA = colLetter(COL.IVA);
+const L_TOTAL = colLetter(COL.TOTAL);
 
 type UniverRange = { startRow: number; endRow: number; startColumn: number; endColumn: number };
 
@@ -156,26 +205,84 @@ const compactRowsToRanges = (rows: number[], col: number, width: number) => {
   return ranges;
 };
 
+// ---- Utility: parse amount string (accepts "1.234,56" or "1234.56") ----
+const parseAmount = (v: any): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  const s = String(v).trim().replace(/\s|€/g, "");
+  // If contains both . and , assume . is thousand and , is decimal
+  let normalized = s;
+  if (s.includes(",") && s.includes(".")) {
+    normalized = s.replace(/\./g, "").replace(",", ".");
+  } else if (s.includes(",")) {
+    normalized = s.replace(",", ".");
+  }
+  const n = parseFloat(normalized);
+  return isFinite(n) ? n : null;
+};
+
+const parseIntSafe = (v: any): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  return isFinite(n) ? Math.round(n) : null;
+};
+
 export default function BPUniverSpike() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const univerRef = useRef<any>(null);
-  const protectedCellsRef = useRef<Set<string>>(new Set()); // "r,c"
-  const protectedRowsRef = useRef<number[]>([]); // header + subtotal rows
-  const protectedFormulaRowsRef = useRef<number[]>([]); // entry rows with formula in Total c/IVA
-  const originalFormulasRef = useRef<Map<string, string>>(new Map()); // "r,c" -> formula
-  const entryRowsRef = useRef<number[]>([]); // row indexes of entry rows
-  const categoryDropdownRef = useRef<string[]>([]); // labels for L3 dropdown
+  const protectedCellsRef = useRef<Set<string>>(new Set());
+  const protectedRowsRef = useRef<number[]>([]);
+  const protectedFormulaRowsRef = useRef<number[]>([]);
+  const originalFormulasRef = useRef<Map<string, string>>(new Map());
+  const entryRowsRef = useRef<number[]>([]);
+  const rowToEntryIdRef = useRef<Map<number, string>>(new Map());
+  const entryIdToRowRef = useRef<Map<string, number>>(new Map());
+  const insertRowToTempIdRef = useRef<Map<number, string>>(new Map());
+  const originalEntriesRef = useRef<Map<string, Entry>>(new Map());
+  const categoryLabelToIdRef = useRef<Map<string, string>>(new Map());
+  const categoryIdToLabelRef = useRef<Map<string, string>>(new Map());
+  const categoryDropdownRef = useRef<string[]>([]);
   const selectionRangesRef = useRef<UniverRange[]>([]);
   const toastThrottleRef = useRef(0);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
+  const nextInsertRowRef = useRef<number>(0);
+  const sheetRowCountRef = useRef<number>(200);
+
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  // --- Fase 2 state ---
+  const [dirty, setDirty] = useState<Record<string, Partial<Entry>>>({});
+  const [pendingInserts, setPendingInserts] = useState<InsertRow[]>([]);
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<
+    { row: number; entryLabel: string; problems: string[] }[]
+  >([]);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string; amount: number } | null>(null);
+  const [insertDialogOpen, setInsertDialogOpen] = useState(false);
+  const [newRowDraft, setNewRowDraft] = useState<{
+    category_id: string;
+    description: string;
+    amount: string;
+    iva_rate: string;
+    formalidade: string;
+    specification: string;
+  }>({ category_id: "", description: "", amount: "", iva_rate: "23", formalidade: "estimado", specification: "" });
+  const [draftPromptOpen, setDraftPromptOpen] = useState(false);
+  const [draftPromptMeta, setDraftPromptMeta] = useState<{ savedAt: string; edits: number; inserts: number; deletes: number } | null>(null);
+  const pendingDraftRef = useRef<any>(null);
+  const [actionLog, setActionLog] = useState<Array<{ kind: "insert" | "delete"; data: any }>>([]);
+  const [pendingNavConfirm, setPendingNavConfirm] = useState<null | (() => void)>(null);
+
+  const changeCount = Object.keys(dirty).length + pendingInserts.length + pendingDeletes.length;
+  const hasChanges = changeCount > 0;
 
   // Escape to exit fullscreen
   useEffect(() => {
@@ -187,7 +294,6 @@ export default function BPUniverSpike() {
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  // Force canvas resize on mode toggle (Univer listens to window resize)
   useEffect(() => {
     if (!ready) return;
     const raf1 = requestAnimationFrame(() => {
@@ -199,33 +305,101 @@ export default function BPUniverSpike() {
   }, [fullscreen, ready]);
 
   const isAdmin = role === "admin" || role === "platform_admin";
+  const userId = user?.id ?? "anon";
+  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}`;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [fRes, cRes] = await Promise.all([
-          supabase
-            .from("event_forecasts")
-            .select("id, category_id, description, specification, amount, iva_rate, formalidade")
-            .eq("event_id", EVENT_ID)
-            .is("version_id", null)
-            .eq("status", "approved")
-            .eq("type", "expense"),
-          supabase.from("account_categories").select("id, name, code, parent_id, type"),
-        ]);
-        if (fRes.error) throw fRes.error;
-        if (cRes.error) throw cRes.error;
-        setEntries((fRes.data ?? []) as Entry[]);
-        setCategories(cRes.data ?? []);
-      } catch (e: any) {
-        setErr(e?.message ?? String(e));
-      } finally {
-        setLoading(false);
-      }
-    })();
+  // Load data (loads draft+approved so newly-inserted draft rows persist across reloads)
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [fRes, cRes] = await Promise.all([
+        supabase
+          .from("event_forecasts")
+          .select("id, category_id, description, specification, amount, iva_rate, formalidade, status")
+          .eq("event_id", EVENT_ID)
+          .is("version_id", null)
+          .in("status", ["approved", "draft"])
+          .eq("type", "expense"),
+        supabase.from("account_categories").select("id, name, code, parent_id, type"),
+      ]);
+      if (fRes.error) throw fRes.error;
+      if (cRes.error) throw cRes.error;
+      setEntries((fRes.data ?? []) as Entry[]);
+      setCategories(cRes.data ?? []);
+      // Original snapshot
+      const map = new Map<string, Entry>();
+      for (const e of (fRes.data ?? []) as Entry[]) map.set(e.id, e);
+      originalEntriesRef.current = map;
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Build L3 categories dropdown list (expense only)
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  // Draft recovery prompt on mount (after data loads)
+  useEffect(() => {
+    if (loading || !entries.length) return;
+    if (pendingDraftRef.current !== null) return; // already handled
+    pendingDraftRef.current = "checked";
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const editsN = Object.keys(parsed.edits ?? {}).length;
+      const insertsN = (parsed.inserts ?? []).length;
+      const deletesN = (parsed.deletes ?? []).length;
+      if (editsN + insertsN + deletesN === 0) {
+        localStorage.removeItem(draftKey);
+        return;
+      }
+      pendingDraftRef.current = parsed;
+      setDraftPromptMeta({ savedAt: parsed.savedAt ?? "?", edits: editsN, inserts: insertsN, deletes: deletesN });
+      setDraftPromptOpen(true);
+    } catch (e) {
+      console.warn("[BPUniverSpike] draft parse failed", e);
+    }
+  }, [loading, entries.length, draftKey]);
+
+  // Persist draft to localStorage
+  useEffect(() => {
+    if (!ready) return;
+    if (!hasChanges) {
+      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      return;
+    }
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          savedAt: new Date().toISOString(),
+          edits: dirty,
+          inserts: pendingInserts,
+          deletes: pendingDeletes,
+        }),
+      );
+    } catch (e) {
+      console.warn("[BPUniverSpike] draft save failed", e);
+    }
+  }, [dirty, pendingInserts, pendingDeletes, hasChanges, ready, draftKey]);
+
+  // beforeunload + popstate guards
+  useEffect(() => {
+    if (!hasChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasChanges]);
+
+  // L3 categories dropdown
   const l3Categories = useMemo(() => {
     if (!categories.length) return [] as { id: string; code: string; name: string; label: string }[];
     const byId: Record<string, any> = {};
@@ -242,6 +416,17 @@ export default function BPUniverSpike() {
     return list;
   }, [categories]);
 
+  useEffect(() => {
+    const l2i = new Map<string, string>();
+    const i2l = new Map<string, string>();
+    for (const c of l3Categories) {
+      l2i.set(c.label, c.id);
+      i2l.set(c.id, c.label);
+    }
+    categoryLabelToIdRef.current = l2i;
+    categoryIdToLabelRef.current = i2l;
+  }, [l3Categories]);
+
   const built = useMemo(() => {
     if (!entries.length || !categories.length) return null;
     const lookup: Record<string, CategoryLookup> = buildCategoryLookup(categories as any);
@@ -252,7 +437,7 @@ export default function BPUniverSpike() {
     const tree = new Map<string, L1Bucket>();
 
     for (const e of entries) {
-      const info = lookup[e.category_id];
+      const info = e.category_id ? lookup[e.category_id] : null;
       if (!info) continue;
       const l1Code = info.l1Code;
       const l1Name = info.l1Name;
@@ -318,6 +503,8 @@ export default function BPUniverSpike() {
     const protectedFormulaRows: number[] = [];
     const originalFormulas = new Map<string, string>();
     const entryRows: number[] = [];
+    const rowToEntryId = new Map<number, string>();
+    const entryIdToRow = new Map<string, number>();
 
     const markProtected = (r: number, c: number) => protectedCells.add(`${r},${c}`);
 
@@ -343,7 +530,7 @@ export default function BPUniverSpike() {
 
       if (row.kind === "entry") {
         const e = row.entry!;
-        const info = lookup[e.category_id];
+        const info = e.category_id ? lookup[e.category_id] : null;
         const catLabel = info ? `${info.code} · ${info.name}` : "";
         cellData[r][COL.RUBRIC] = { v: e.description ?? "(sem descrição)", s: stLabel };
         cellData[r][COL.CATEGORY] = { v: catLabel, s: st };
@@ -358,6 +545,8 @@ export default function BPUniverSpike() {
         protectedFormulaRows.push(r);
         originalFormulas.set(`${r},${COL.TOTAL}`, totalFormula);
         entryRows.push(r);
+        rowToEntryId.set(r, e.id);
+        entryIdToRow.set(e.id, r);
       } else {
         cellData[r][COL.RUBRIC] = { v: row.label, s: stLabel };
         cellData[r][COL.CATEGORY] = { v: "", s: st };
@@ -385,10 +574,15 @@ export default function BPUniverSpike() {
     protectedFormulaRowsRef.current = protectedFormulaRows;
     originalFormulasRef.current = originalFormulas;
     entryRowsRef.current = entryRows;
+    rowToEntryIdRef.current = rowToEntryId;
+    entryIdToRowRef.current = entryIdToRow;
     categoryDropdownRef.current = l3Categories.map((c) => c.label);
+    nextInsertRowRef.current = built.length; // append new rows after built content
+    insertRowToTempIdRef.current = new Map();
 
-    const totalRows = built.length + 5;
+    const totalRows = built.length + 50; // headroom for inserts
     const sheetRowCount = Math.max(totalRows, 200);
+    sheetRowCountRef.current = sheetRowCount;
     for (let r = 0; r < sheetRowCount; r++) markProtected(r, COL.TOTAL);
 
     return {
@@ -419,6 +613,9 @@ export default function BPUniverSpike() {
         sMoney: { n: { pattern: "#,##0.00 [$€-816]" } },
         sMoneyCalc: { n: { pattern: "#,##0.00 [$€-816]" }, cl: { rgb: "#475569" } },
         sIva: { n: { pattern: "0.0" }, ht: 3 },
+        sErrorRow: { bg: { rgb: "#fee2e2" } },
+        sDeletedRow: { bg: { rgb: "#fecaca" }, cl: { rgb: "#991b1b" }, st: { s: 1 } },
+        sInsertedRow: { bg: { rgb: "#dcfce7" } },
       },
       sheetOrder: ["sheet1"],
       sheets: {
@@ -444,6 +641,122 @@ export default function BPUniverSpike() {
     };
   }, [built, categories, l3Categories]);
 
+  // Reset dirty/pending state when data reloads (fresh save/reset)
+  useEffect(() => {
+    // Only reset if the underlying entries reference changed AND we are ready
+    // (not during initial mount before Univer built)
+    if (!ready) return;
+    setDirty({});
+    setPendingInserts([]);
+    setPendingDeletes([]);
+    setValidationErrors([]);
+    setActionLog([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries]);
+
+  // Command listener: track edits to entry rows / insert rows
+  const handleCommandExecuted = useCallback((id: string, params: any) => {
+    if (id !== "sheet.command.set-range-values") return;
+    const cellValue = params?.cellValue;
+    if (!cellValue) return;
+    const rowToEntry = rowToEntryIdRef.current;
+    const rowToTemp = insertRowToTempIdRef.current;
+    const originals = originalEntriesRef.current;
+    const catLabelToId = categoryLabelToIdRef.current;
+
+    const editsDelta: Record<string, Partial<Entry>> = {};
+    const insertsDelta: Record<string, Partial<InsertRow>> = {};
+
+    for (const [rowKey, rowMap] of Object.entries(cellValue)) {
+      const r = Number(rowKey);
+      if (!rowMap || typeof rowMap !== "object") continue;
+      const entryId = rowToEntry.get(r);
+      const tempId = rowToTemp.get(r);
+      if (!entryId && !tempId) continue;
+      for (const [colKey, cellRaw] of Object.entries(rowMap as Record<string, any>)) {
+        const c = Number(colKey);
+        const cell = cellRaw as any;
+        const v = cell?.v;
+        let field: keyof Entry | null = null;
+        let value: any = v;
+        switch (c) {
+          case COL.RUBRIC:
+            field = "description";
+            value = v == null ? "" : String(v);
+            break;
+          case COL.CATEGORY: {
+            field = "category_id";
+            const label = v == null ? "" : String(v).trim();
+            value = label ? (catLabelToId.get(label) ?? null) : null;
+            break;
+          }
+          case COL.SPEC:
+            field = "specification";
+            value = v == null || v === "" ? null : String(v);
+            break;
+          case COL.AMOUNT:
+            field = "amount";
+            value = parseAmount(v);
+            break;
+          case COL.IVA:
+            field = "iva_rate";
+            value = parseIntSafe(v);
+            break;
+          case COL.FORMALIDADE: {
+            field = "formalidade";
+            value = labelToEnum(v == null ? "" : String(v));
+            break;
+          }
+          default:
+            break;
+        }
+        if (!field) continue;
+        if (entryId) {
+          editsDelta[entryId] = { ...(editsDelta[entryId] ?? {}), [field]: value };
+        } else if (tempId) {
+          insertsDelta[tempId] = { ...(insertsDelta[tempId] ?? {}), [field]: value };
+        }
+      }
+    }
+
+    if (Object.keys(editsDelta).length) {
+      setDirty((prev) => {
+        const next = { ...prev };
+        for (const [id, delta] of Object.entries(editsDelta)) {
+          const original = originals.get(id);
+          const merged = { ...(next[id] ?? {}), ...delta };
+          // Prune fields that match the original
+          if (original) {
+            for (const k of Object.keys(merged) as (keyof Entry)[]) {
+              const origVal = (original as any)[k];
+              const newVal = (merged as any)[k];
+              const eq =
+                (origVal == null && (newVal == null || newVal === "")) ||
+                origVal === newVal ||
+                (typeof origVal === "number" && typeof newVal === "number" && Math.abs(origVal - newVal) < 1e-9);
+              if (eq) delete (merged as any)[k];
+            }
+          }
+          if (Object.keys(merged).length === 0) {
+            delete next[id];
+          } else {
+            next[id] = merged;
+          }
+        }
+        return next;
+      });
+    }
+    if (Object.keys(insertsDelta).length) {
+      setPendingInserts((prev) =>
+        prev.map((row) => {
+          const delta = insertsDelta[row.tempId];
+          if (!delta) return row;
+          return { ...row, ...delta } as InsertRow;
+        }),
+      );
+    }
+  }, []);
+
   // Instantiate Univer
   useEffect(() => {
     if (!containerRef.current || !workbookData || univerRef.current) return;
@@ -459,7 +772,6 @@ export default function BPUniverSpike() {
       univerRef.current = univer;
       apiRef.current = univerAPI;
       univerAPI.createWorkbook(workbookData);
-      console.log("[BPUniverSpike] Univer events:", Object.keys((univerAPI as any).Event ?? {}));
 
       const showProtectedToast = () => {
         const now = Date.now();
@@ -503,10 +815,7 @@ export default function BPUniverSpike() {
         if (matrixHitsProtectedCell(params?.cellValue, protectedCells)) return true;
         const ranges = getCommandRanges(params);
         if (EDIT_BLOCK_COMMANDS.has(id)) {
-          // Only block OPENING the editor, not closing.
           if (params && params.visible === false) return false;
-          // Click/selection commands in Univer 0.25 can arrive without a range; do not
-          // fall back to the last selection or every click may look protected.
           return ranges.some((range) => rangeHitsProtectedCell(range, protectedCells));
         }
         if (RANGE_WRITE_COMMANDS.has(id)) {
@@ -516,14 +825,12 @@ export default function BPUniverSpike() {
         return false;
       };
 
-      // Backstop: swallow edit-triggering keys/paste at DOM level when active cell is protected.
       const isProtectedActive = () => {
         const protectedCells = protectedCellsRef.current;
         const ranges = getActiveRanges();
         return ranges.some((range) => rangeHitsProtectedCell(range, protectedCells));
       };
       const isEditingActive = () => {
-        // If a Univer editor input is focused, don't intercept (let user close editor).
         const el = document.activeElement as HTMLElement | null;
         if (!el) return false;
         const tag = el.tagName;
@@ -567,20 +874,18 @@ export default function BPUniverSpike() {
         document.removeEventListener("cut", onDomPaste, true);
       };
 
-      // Apply data validation on entry rows only
+      // Data validation on entry rows
       try {
         const wb = univerAPI.getActiveWorkbook?.();
         const sheet = wb?.getActiveSheet?.();
         if (sheet && (univerAPI as any).newDataValidation) {
           for (const r of entryRowsRef.current) {
-            // Formalidade dropdown
             const formRule = (univerAPI as any).newDataValidation()
               .requireValueInList(FORMALIDADE_LABELS)
               .setOptions({ allowInvalid: true, showDropdown: true })
               .build();
             sheet.getRange(r, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
 
-            // Categoria dropdown
             if (categoryDropdownRef.current.length) {
               const catRule = (univerAPI as any).newDataValidation()
                 .requireValueInList(categoryDropdownRef.current)
@@ -589,14 +894,11 @@ export default function BPUniverSpike() {
               sheet.getRange(r, COL.CATEGORY, 1, 1).setDataValidation(catRule);
             }
           }
-        } else {
-          console.warn("[BPUniverSpike] newDataValidation não disponível na facade API");
         }
       } catch (dvErr) {
         console.warn("[BPUniverSpike] falha a aplicar data validation:", dvErr);
       }
 
-      // Native OSS range protection (best effort) + hard pre-command protection.
       try {
         const wb = univerAPI.getActiveWorkbook?.();
         const sheet = wb?.getActiveSheet?.();
@@ -624,8 +926,14 @@ export default function BPUniverSpike() {
             if (!id || !commandTouchesProtectedCell(id, event?.params)) return;
             event.cancel = true;
             showProtectedToast();
-            console.warn(`[BPUniverSpike] comando bloqueado em célula protegida: ${id}`, event?.params);
           });
+
+          // Track edits AFTER command executes
+          if (Event.CommandExecuted) {
+            (univerAPI as any).addEvent(Event.CommandExecuted, (event: any) => {
+              handleCommandExecuted(event?.id, event?.params);
+            });
+          }
         }
       } catch (evtErr) {
         console.warn("[BPUniverSpike] não foi possível instalar listener de proteção:", evtErr);
@@ -642,19 +950,429 @@ export default function BPUniverSpike() {
       univerRef.current = null;
       apiRef.current = null;
     };
-  }, [workbookData]);
+  }, [workbookData, handleCommandExecuted]);
 
-  const dumpState = () => {
+  // --- Apply visual state for deletes/inserts/errors (background tint) ---
+  const applyRowStyle = useCallback((row: number, styleName: string | null) => {
+    const api = apiRef.current;
+    if (!api) return;
+    try {
+      const wb = api.getActiveWorkbook?.();
+      const sheet = wb?.getActiveSheet?.();
+      if (!sheet) return;
+      const range = sheet.getRange(row, 0, 1, N_COLS);
+      if (styleName === null) {
+        // Reset — set undefined background
+        range.setBackground?.(null);
+      } else if (styleName === "sDeletedRow") {
+        range.setBackground?.("#fecaca");
+        range.setFontColor?.("#991b1b");
+      } else if (styleName === "sInsertedRow") {
+        range.setBackground?.("#dcfce7");
+      } else if (styleName === "sErrorRow") {
+        range.setBackground?.("#fee2e2");
+      }
+    } catch (e) {
+      console.warn("[BPUniverSpike] applyRowStyle failed", e);
+    }
+  }, []);
+
+  // Refresh delete/insert visual state
+  useEffect(() => {
+    if (!ready) return;
+    // Mark deletes
+    for (const id of pendingDeletes) {
+      const row = entryIdToRowRef.current.get(id);
+      if (row != null) applyRowStyle(row, "sDeletedRow");
+    }
+  }, [pendingDeletes, ready, applyRowStyle]);
+
+  // --- Validation ---
+  const validate = useCallback(() => {
+    const problems: { row: number; entryLabel: string; problems: string[] }[] = [];
+    const catLabelToId = categoryLabelToIdRef.current;
+    const categoryIds = new Set(l3Categories.map((c) => c.id));
+
+    // Existing rows with dirty
+    for (const [id, delta] of Object.entries(dirty)) {
+      const original = originalEntriesRef.current.get(id);
+      if (!original) continue;
+      const row = entryIdToRowRef.current.get(id) ?? -1;
+      const merged = { ...original, ...delta } as Entry;
+      const label = merged.description ?? original.description ?? "(sem descrição)";
+      const errs: string[] = [];
+      if (!merged.description || !String(merged.description).trim()) errs.push("descrição em falta");
+      if (!merged.category_id) errs.push("categoria em falta");
+      else if (!categoryIds.has(merged.category_id)) errs.push("categoria inválida (não é L3 expense)");
+      if (merged.amount == null || isNaN(Number(merged.amount)) || Number(merged.amount) < 0) errs.push("valor inválido (≥ 0)");
+      if (merged.iva_rate == null || !(VALID_IVA as readonly number[]).includes(merged.iva_rate as number)) errs.push("IVA deve ser 0, 6, 13 ou 23");
+      if (!merged.formalidade) errs.push("formalidade em falta");
+      if (errs.length) problems.push({ row, entryLabel: label, problems: errs });
+    }
+    // New inserts
+    for (const ins of pendingInserts) {
+      const row = -1; // we'll try to find it below
+      const label = ins.description || "(nova linha)";
+      const errs: string[] = [];
+      if (!ins.description || !ins.description.trim()) errs.push("descrição em falta");
+      if (!ins.category_id) errs.push("categoria em falta");
+      else if (!categoryIds.has(ins.category_id)) errs.push("categoria inválida");
+      if (ins.amount == null || isNaN(Number(ins.amount)) || Number(ins.amount) < 0) errs.push("valor inválido");
+      if (!(VALID_IVA as readonly number[]).includes(ins.iva_rate)) errs.push("IVA inválido");
+      if (!ins.formalidade) errs.push("formalidade em falta");
+      if (errs.length) {
+        // find visual row for the temp
+        let visualRow = row;
+        for (const [rr, tid] of insertRowToTempIdRef.current) {
+          if (tid === ins.tempId) { visualRow = rr; break; }
+        }
+        problems.push({ row: visualRow, entryLabel: label, problems: errs });
+      }
+    }
+    return problems;
+  }, [dirty, pendingInserts, l3Categories]);
+
+  // --- Save ---
+  const handleSave = async () => {
+    if (saving) return;
+    if (!hasChanges) {
+      toast.info("Sem alterações para gravar.");
+      return;
+    }
+    // Clear previous error highlights
+    setValidationErrors([]);
+    for (const r of entryRowsRef.current) {
+      if (!pendingDeletes.some((id) => entryIdToRowRef.current.get(id) === r)) {
+        applyRowStyle(r, null);
+      }
+    }
+
+    const errs = validate();
+    if (errs.length) {
+      setValidationErrors(errs);
+      // Highlight
+      for (const e of errs) if (e.row >= 0) applyRowStyle(e.row, "sErrorRow");
+      toast.error(`${errs.length} linha(s) com problemas — corrija antes de gravar.`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // 1) Updates
+      const editsArr = Object.entries(dirty).map(([id, fields]) => ({ id, ...fields }));
+      if (editsArr.length) {
+        const { error } = await supabase.rpc("batch_update_event_forecasts" as any, {
+          _event_id: EVENT_ID,
+          _version_id: null,
+          _edits: editsArr as any,
+        } as any);
+        if (error) throw error;
+      }
+
+      // 2) Inserts
+      if (pendingInserts.length) {
+        const payload = pendingInserts.map((p) => ({
+          type: "expense",
+          description: p.description.trim(),
+          specification: p.specification ?? null,
+          category_id: p.category_id,
+          amount: p.amount,
+          iva_rate: p.iva_rate,
+          formalidade: p.formalidade,
+        }));
+        const { error } = await supabase.rpc("batch_insert_event_forecasts" as any, {
+          _event_id: EVENT_ID,
+          _version_id: null,
+          _inserts: payload as any,
+        } as any);
+        if (error) throw error;
+      }
+
+      // 3) Deletes
+      if (pendingDeletes.length) {
+        const { error } = await supabase
+          .from("event_forecasts")
+          .delete()
+          .in("id", pendingDeletes);
+        if (error) throw error;
+      }
+
+      toast.success(
+        `${changeCount} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
+      );
+      // Clear draft + state
+      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      setDirty({});
+      setPendingInserts([]);
+      setPendingDeletes([]);
+      setActionLog([]);
+      setValidationErrors([]);
+      // Reload
+      await fetchData();
+      // Force Univer rebuild by disposing and re-creating (workbookData memo changes with entries)
+      try {
+        univerRef.current?.dispose?.();
+        univerRef.current = null;
+        apiRef.current = null;
+        setReady(false);
+      } catch { /* noop */ }
+    } catch (e: any) {
+      toast.error("Erro ao gravar: " + (e?.message ?? String(e)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Delete selected row ---
+  const handleDeleteSelectedClick = () => {
     const api = apiRef.current;
     if (!api) return;
     const wb = api.getActiveWorkbook?.();
-    const snapshot = wb?.getSnapshot?.();
-    console.log("[BPUniverSpike] snapshot:", snapshot);
-    console.log("[BPUniverSpike] built rows:", built);
-    console.log("[BPUniverSpike] protected cells:", Array.from(protectedCellsRef.current));
-    console.log("[BPUniverSpike] entry rows:", entryRowsRef.current);
-    console.log("[BPUniverSpike] L3 categories:", l3Categories);
-    alert(`Estado impresso na consola. ${built?.length ?? 0} linhas · ${entryRowsRef.current.length} lançamentos com dropdowns.`);
+    const active = wb?.getActiveRange?.();
+    const normalized = normalizeRange(active);
+    if (!normalized) {
+      toast.info("Selecione uma linha de lançamento para apagar.");
+      return;
+    }
+    const row = normalized.startRow;
+    const entryId = rowToEntryIdRef.current.get(row);
+    if (!entryId) {
+      // Maybe an insert row?
+      const tempId = insertRowToTempIdRef.current.get(row);
+      if (tempId) {
+        setPendingInserts((prev) => prev.filter((r) => r.tempId !== tempId));
+        insertRowToTempIdRef.current.delete(row);
+        // Clear visual row
+        try {
+          const sheet = wb?.getActiveSheet?.();
+          for (let c = 0; c < N_COLS; c++) sheet?.getRange(row, c, 1, 1).setValue?.("");
+          applyRowStyle(row, null);
+        } catch { /* noop */ }
+        setActionLog((log) => [...log, { kind: "insert", data: { tempId, row } }]);
+        toast.success("Linha nova removida.");
+        return;
+      }
+      toast.info("Selecione uma linha de lançamento (não subtotal) para apagar.");
+      return;
+    }
+    const original = originalEntriesRef.current.get(entryId);
+    if (!original) return;
+    setConfirmDelete({
+      id: entryId,
+      label: original.description ?? "(sem descrição)",
+      amount: original.amount,
+    });
+  };
+
+  const confirmDeleteApply = () => {
+    if (!confirmDelete) return;
+    const id = confirmDelete.id;
+    setPendingDeletes((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setActionLog((log) => [...log, { kind: "delete", data: { id } }]);
+    const row = entryIdToRowRef.current.get(id);
+    if (row != null) applyRowStyle(row, "sDeletedRow");
+    setConfirmDelete(null);
+    toast.info("Linha marcada para apagar (só ao gravar).");
+  };
+
+  // --- Insert new row ---
+  const handleInsertConfirm = () => {
+    const amt = parseAmount(newRowDraft.amount);
+    const iva = parseIntSafe(newRowDraft.iva_rate);
+    if (!newRowDraft.description.trim()) { toast.error("Descrição obrigatória."); return; }
+    if (!newRowDraft.category_id) { toast.error("Categoria obrigatória."); return; }
+    if (amt == null || amt < 0) { toast.error("Valor inválido."); return; }
+    if (iva == null || !(VALID_IVA as readonly number[]).includes(iva)) { toast.error("IVA deve ser 0, 6, 13 ou 23."); return; }
+
+    const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const insertRow: InsertRow = {
+      tempId,
+      category_id: newRowDraft.category_id,
+      description: newRowDraft.description.trim(),
+      specification: newRowDraft.specification.trim() || null,
+      amount: amt,
+      iva_rate: iva,
+      formalidade: newRowDraft.formalidade,
+    };
+    setPendingInserts((prev) => [...prev, insertRow]);
+    setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
+
+    // Append visually
+    const api = apiRef.current;
+    if (api) {
+      try {
+        const wb = api.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        const row = nextInsertRowRef.current;
+        nextInsertRowRef.current = row + 1;
+        insertRowToTempIdRef.current.set(row, tempId);
+        const catLabel = categoryIdToLabelRef.current.get(insertRow.category_id!) ?? "";
+        sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(insertRow.description);
+        sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(catLabel);
+        sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(insertRow.specification ?? "");
+        sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(insertRow.amount);
+        sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(insertRow.iva_rate);
+        sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(insertRow.formalidade));
+        // Formula for total
+        const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
+        sheet?.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
+        applyRowStyle(row, "sInsertedRow");
+        // Add dropdowns
+        if ((api as any).newDataValidation && sheet) {
+          const formRule = (api as any).newDataValidation()
+            .requireValueInList(FORMALIDADE_LABELS)
+            .setOptions({ allowInvalid: true, showDropdown: true })
+            .build();
+          sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
+          const catRule = (api as any).newDataValidation()
+            .requireValueInList(categoryDropdownRef.current)
+            .setOptions({ allowInvalid: true, showDropdown: true })
+            .build();
+          sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
+        }
+      } catch (e) {
+        console.warn("[BPUniverSpike] insert row visual failed", e);
+      }
+    }
+
+    setInsertDialogOpen(false);
+    setNewRowDraft({ category_id: "", description: "", amount: "", iva_rate: "23", formalidade: "estimado", specification: "" });
+    toast.success("Linha nova adicionada. Grave para persistir.");
+  };
+
+  // --- Undo (native Univer for cell edits + logical for insert/delete) ---
+  const handleUndo = () => {
+    const api = apiRef.current;
+    if (!api) return;
+    // First try to unwind last logical action
+    if (actionLog.length) {
+      const last = actionLog[actionLog.length - 1];
+      if (last.kind === "delete") {
+        setPendingDeletes((prev) => prev.filter((id) => id !== last.data.id));
+        const row = entryIdToRowRef.current.get(last.data.id);
+        if (row != null) applyRowStyle(row, null);
+        setActionLog((log) => log.slice(0, -1));
+        toast.success("Remoção desfeita.");
+        return;
+      }
+      if (last.kind === "insert") {
+        // Remove from pendingInserts
+        setPendingInserts((prev) => prev.filter((r) => r.tempId !== last.data.tempId));
+        for (const [row, tid] of insertRowToTempIdRef.current) {
+          if (tid === last.data.tempId) {
+            try {
+              const wb = api.getActiveWorkbook?.();
+              const sheet = wb?.getActiveSheet?.();
+              for (let c = 0; c < N_COLS; c++) sheet?.getRange(row, c, 1, 1).setValue?.("");
+              applyRowStyle(row, null);
+            } catch { /* noop */ }
+            insertRowToTempIdRef.current.delete(row);
+            break;
+          }
+        }
+        setActionLog((log) => log.slice(0, -1));
+        toast.success("Inserção desfeita.");
+        return;
+      }
+    }
+    // Otherwise trigger native Univer undo (cell edits)
+    try {
+      const commands = [
+        "univer.command.undo",
+        "doc.command.undo",
+        "sheet.command.undo",
+      ];
+      for (const cmd of commands) {
+        try {
+          const res = (api as any).executeCommand?.(cmd);
+          if (res) break;
+        } catch { /* try next */ }
+      }
+    } catch (e) {
+      console.warn("[BPUniverSpike] undo failed", e);
+    }
+  };
+
+  // Ctrl/Cmd+Z shortcut also feeds our logical undo when nothing else in Univer's undo stack matches
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
+        // Only intercept when NOT editing a cell (let Univer handle its own)
+        const el = document.activeElement as HTMLElement | null;
+        if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+        // If we have logical actions, use ours; else let Univer's global handler run
+        if (actionLog.length) {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionLog]);
+
+  const applyDraft = () => {
+    const parsed = pendingDraftRef.current;
+    if (!parsed || typeof parsed !== "object") { setDraftPromptOpen(false); return; }
+    setDirty(parsed.edits ?? {});
+    setPendingDeletes(parsed.deletes ?? []);
+    // Re-apply inserts visually
+    const inserts: InsertRow[] = parsed.inserts ?? [];
+    setPendingInserts([]);
+    setDraftPromptOpen(false);
+    // Give Univer a tick, then insert visually
+    setTimeout(() => {
+      const api = apiRef.current;
+      if (!api) return;
+      for (const ins of inserts) {
+        setPendingInserts((prev) => [...prev, ins]);
+        try {
+          const wb = api.getActiveWorkbook?.();
+          const sheet = wb?.getActiveSheet?.();
+          const row = nextInsertRowRef.current;
+          nextInsertRowRef.current = row + 1;
+          insertRowToTempIdRef.current.set(row, ins.tempId);
+          const catLabel = ins.category_id ? categoryIdToLabelRef.current.get(ins.category_id) ?? "" : "";
+          sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(ins.description);
+          sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(catLabel);
+          sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(ins.specification ?? "");
+          sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(ins.amount);
+          sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(ins.iva_rate);
+          sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(ins.formalidade));
+          const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
+          sheet?.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
+          applyRowStyle(row, "sInsertedRow");
+        } catch { /* noop */ }
+      }
+      // Re-apply edits visually to existing rows
+      const edits: Record<string, Partial<Entry>> = parsed.edits ?? {};
+      try {
+        const wb = api.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        for (const [id, delta] of Object.entries(edits)) {
+          const row = entryIdToRowRef.current.get(id);
+          if (row == null) continue;
+          if (delta.description !== undefined) sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
+          if (delta.category_id !== undefined) {
+            const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
+            sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
+          }
+          if (delta.specification !== undefined) sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
+          if (delta.amount !== undefined) sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
+          if (delta.iva_rate !== undefined) sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
+          if (delta.formalidade !== undefined) sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
+        }
+      } catch { /* noop */ }
+      toast.success("Rascunho recuperado.");
+    }, 200);
+  };
+
+  const discardDraft = () => {
+    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    pendingDraftRef.current = null;
+    setDraftPromptOpen(false);
+    toast.info("Rascunho descartado.");
   };
 
   if (!isAdmin) return <Navigate to="/" replace />;
@@ -665,29 +1383,80 @@ export default function BPUniverSpike() {
   return (
     <div className="p-6 max-w-[1500px] mx-auto space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">BP Univer Spike — Fase 1b (dropdowns)</h1>
+        <h1 className="text-2xl font-bold">BP Univer Spike — Fase 2 (persistência)</h1>
         <p className="text-sm text-muted-foreground">
-          Evento Anitta EDA 2026 · Despesas aprovadas · Hierarquia com subtotais SUM.
-          Dropdowns em <b>Categoria</b> (L3) e <b>Formalidade</b> nos lançamentos.
-          Nota: ao mudar a categoria de uma linha, ela fica no sítio nesta fase — será
-          reposicionada na hierarquia ao guardar (Fase 2, ainda sem persistência).
+          Evento Anitta EDA 2026 · Editar em memória, validar e <b>gravar em lote</b> via
+          <code className="mx-1">batch_update_event_forecasts</code> +
+          <code className="mx-1">batch_insert_event_forecasts</code>. Carrega
+          <code className="mx-1">draft + approved</code> para linhas novas persistirem visualmente.
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button onClick={dumpState} disabled={!ready}>Ver alterações (consola)</Button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button onClick={handleSave} disabled={!ready || saving || !hasChanges} variant="default">
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "A gravar…" : `Gravar${hasChanges ? ` (${changeCount})` : ""}`}
+        </Button>
+        <Button onClick={() => setInsertDialogOpen(true)} disabled={!ready || saving} variant="outline">
+          <Plus className="h-4 w-4 mr-2" />Nova linha
+        </Button>
+        <Button onClick={handleDeleteSelectedClick} disabled={!ready || saving} variant="outline">
+          <Trash2 className="h-4 w-4 mr-2" />Apagar linha selecionada
+        </Button>
+        <Button onClick={handleUndo} disabled={!ready || saving} variant="outline">
+          <Undo2 className="h-4 w-4 mr-2" />Desfazer
+        </Button>
         <Button variant="outline" onClick={() => setFullscreen((v) => !v)} disabled={!ready}>
           {fullscreen ? <><Minimize2 className="h-4 w-4 mr-2" />Recolher</> : <><Maximize2 className="h-4 w-4 mr-2" />Ecrã inteiro</>}
         </Button>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground ml-2">
           {loading ? "A carregar BP…" : `${entryCount} lançamentos · ${subtotalCount} subtotais · ${l3Categories.length} categorias L3`}
           {ready ? " · Univer pronto" : ""}
         </span>
+        {hasChanges && (
+          <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
+            ● {changeCount} alteração(ões) por gravar
+          </span>
+        )}
       </div>
 
       {err && (
         <div className="p-3 rounded bg-destructive/10 text-destructive text-sm whitespace-pre-wrap">
           {err}
+        </div>
+      )}
+
+      {validationErrors.length > 0 && (
+        <div className="p-3 rounded bg-destructive/10 border border-destructive text-sm space-y-1">
+          <div className="flex items-center gap-2 font-semibold text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            {validationErrors.length} linha(s) com problemas — corrija antes de gravar
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-6 text-xs"
+              onClick={() => {
+                const first = validationErrors[0];
+                if (first && first.row >= 0) {
+                  try {
+                    const api = apiRef.current;
+                    const wb = api?.getActiveWorkbook?.();
+                    const sheet = wb?.getActiveSheet?.();
+                    sheet?.getRange(first.row, 0, 1, 1)?.activate?.();
+                  } catch { /* noop */ }
+                }
+              }}
+            >
+              Ir para o primeiro erro
+            </Button>
+          </div>
+          <ul className="list-disc pl-5 text-xs text-destructive space-y-0.5 max-h-32 overflow-auto">
+            {validationErrors.map((e, i) => (
+              <li key={i}>
+                <b>{e.entryLabel}</b>: {e.problems.join(", ")}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -724,15 +1493,145 @@ export default function BPUniverSpike() {
       </div>
 
       <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Notas do spike (Fase 1b)</summary>
+        <summary className="cursor-pointer">Notas do spike (Fase 2)</summary>
         <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Colunas: A Rubrica · B Categoria (dropdown) · C Especificação · D Valor s/IVA · E IVA% · F Total c/IVA · G Formalidade (dropdown).</li>
-          <li>Total c/IVA = <code>D*(1+E/100)</code>. Subtotais somam <code>D</code> e <code>F</code> das linhas filhas diretas.</li>
-          <li>Formalidade: labels legíveis (Estimado / Em Negociação / Fechado / Pago Parcial / Pago Total) mapeadas ao enum <code>bp_formalidade</code>.</li>
-          <li>Categoria: todas as L3 sob raízes de <i>expense</i>, formato <code>código · nome</code>.</li>
-          <li>Dropdowns aplicados só nas linhas de lançamento via <code>UniverSheetsDataValidationPreset</code>.</li>
+          <li>Campos obrigatórios reais BD: <code>event_id, type, description, amount, iva_rate, status, formalidade, company_id</code> (todos com defaults exceto description, amount, event_id). <b>Categoria</b> é nullable em BD mas exigimos L3 na validação.</li>
+          <li>Undo: Ctrl/Cmd+Z é nativo Univer para células. O botão "Desfazer" também reverte inserções/remoções lógicas.</li>
+          <li>Aviso ao sair: <code>beforeunload</code> nativo (fechar/recarregar). Navegação interna via Link <b>não</b> intercetada (limitação — BrowserRouter não expõe <code>useBlocker</code> de forma estável).</li>
+          <li>Rascunho local: em <code>localStorage</code>. Muda de dispositivo/browser → não aparece.</li>
+          <li>Linhas novas gravam como <code>status='draft'</code> (RPC fixa). Por isso o spike carrega <code>draft+approved</code>.</li>
         </ul>
       </details>
+
+      {/* Confirm delete */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDelete && (
+                <>
+                  Marcar para apagar <b>&quot;{confirmDelete.label}&quot;</b>{" "}
+                  ({confirmDelete.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}).
+                  <br />
+                  Só é efetivado na BD quando clicar em <b>Gravar</b>.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteApply}>Marcar para apagar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Insert dialog */}
+      <Dialog open={insertDialogOpen} onOpenChange={setInsertDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nova linha</DialogTitle>
+            <DialogDescription>
+              A linha nova é criada como <code>status=draft</code> ao gravar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Categoria (L3) *</Label>
+              <Select
+                value={newRowDraft.category_id}
+                onValueChange={(v) => setNewRowDraft((s) => ({ ...s, category_id: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecionar categoria…" /></SelectTrigger>
+                <SelectContent>
+                  {l3Categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Descrição *</Label>
+              <Input
+                value={newRowDraft.description}
+                onChange={(e) => setNewRowDraft((s) => ({ ...s, description: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Especificação</Label>
+              <Input
+                value={newRowDraft.specification}
+                onChange={(e) => setNewRowDraft((s) => ({ ...s, specification: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Valor s/IVA *</Label>
+                <Input
+                  value={newRowDraft.amount}
+                  onChange={(e) => setNewRowDraft((s) => ({ ...s, amount: e.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>IVA %</Label>
+                <Select
+                  value={newRowDraft.iva_rate}
+                  onValueChange={(v) => setNewRowDraft((s) => ({ ...s, iva_rate: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VALID_IVA.map((v) => (
+                      <SelectItem key={v} value={String(v)}>{v}%</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Formalidade</Label>
+              <Select
+                value={newRowDraft.formalidade}
+                onValueChange={(v) => setNewRowDraft((s) => ({ ...s, formalidade: v }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FORMALIDADE_OPTIONS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInsertDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleInsertConfirm}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft recovery */}
+      <AlertDialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recuperar rascunho não gravado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {draftPromptMeta && (
+                <>
+                  Encontrámos alterações locais de{" "}
+                  <b>{new Date(draftPromptMeta.savedAt).toLocaleString("pt-PT")}</b>:{" "}
+                  {draftPromptMeta.edits} edição(ões), {draftPromptMeta.inserts} inserção(ões),{" "}
+                  {draftPromptMeta.deletes} remoção(ões).
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={discardDraft}>Descartar</AlertDialogCancel>
+            <AlertDialogAction onClick={applyDraft}>Recuperar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
