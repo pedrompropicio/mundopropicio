@@ -113,7 +113,8 @@ export function CamarimFundMoveModal({
   }, [open, existing]);
 
   const numericAmount = Number(amount);
-  const accountRequired = moveType === "advance" || moveType === "reinforcement";
+  const accountRequired =
+    moveType === "advance" || moveType === "reinforcement" || moveType === "refund";
 
   // Cálculo do saldo previsto após este movimento (excluindo o próprio em edição).
   const sumIn = allMoves
