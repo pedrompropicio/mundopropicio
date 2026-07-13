@@ -14,7 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
-import { Table2, LayoutList } from "lucide-react";
+import BPUniverSpike from "@/pages/admin/BPUniverSpike";
+import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
 import { StickyNote } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
