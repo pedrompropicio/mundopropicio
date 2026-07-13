@@ -691,10 +691,17 @@ export default function BPUniverSpike() {
         </div>
       )}
 
+      {fullscreen && (
+        <style>{`
+          .univer-popup, .univer-dropdown, [class*="univer"][class*="popup"],
+          [class*="univer"][class*="dropdown"], [class*="univer"][class*="menu"],
+          [class*="univer"][class*="overlay"] { z-index: 10001 !important; }
+        `}</style>
+      )}
       <div
         className={
           fullscreen
-            ? "fixed inset-0 z-[9999] bg-background"
+            ? "fixed inset-0 z-50 bg-background"
             : "relative"
         }
         style={
@@ -709,7 +716,7 @@ export default function BPUniverSpike() {
             size="sm"
             variant="secondary"
             onClick={() => setFullscreen(false)}
-            className="absolute top-3 right-3 z-10 shadow-lg"
+            className="absolute top-3 right-3 z-[60] shadow-lg"
           >
             <Minimize2 className="h-4 w-4 mr-2" />Recolher (Esc)
           </Button>
