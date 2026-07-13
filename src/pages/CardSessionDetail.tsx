@@ -326,15 +326,40 @@ export default function CardSessionDetail() {
           {loads.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem recargas.</p>
           ) : (
-            (loads as any[]).map((l) => (
-              <div key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
-                <div>
-                  <div className="font-medium">{l.source?.name ?? "—"} → {cardName}</div>
-                  <div className="text-xs text-muted-foreground">{l.load_date}{l.notes ? ` · ${l.notes}` : ""}</div>
+            (loads as any[]).map((l) => {
+              const canDelete = canManage && !isLocked && !l.in_transaction_id;
+              return (
+                <div key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                  <div>
+                    <div className="font-medium">{l.source?.name ?? "—"} → {cardName}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {l.load_date}{l.notes ? ` · ${l.notes}` : ""}
+                      {" · "}
+                      {l.in_transaction_id
+                        ? <span className="text-emerald-500">liquidada</span>
+                        : <span className="text-amber-500">aguarda pagamento</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold text-emerald-500">+{formatCurrency(Number(l.amount))}</div>
+                    {canDelete && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Eliminar esta recarga? A transação de saída pendente será também removida.")) {
+                            deleteLoad.mutate(l);
+                          }
+                        }}
+                        disabled={deleteLoad.isPending}
+                        title="Eliminar recarga (só se ainda não foi paga)"
+                        className="rounded-md border border-destructive/40 bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="font-semibold text-emerald-500">+{formatCurrency(Number(l.amount))}</div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
