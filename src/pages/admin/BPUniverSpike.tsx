@@ -234,7 +234,7 @@ interface BPUniverSpikeProps {
   embedded?: boolean;
 }
 
-export default function BPUniverSpike({ eventId: eventIdProp, canEdit, isDryRun: dryRunProp = false, embedded = false }: BPUniverSpikeProps = {}) {
+export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: dryRunProp = false, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
   // Standalone: aceita ?event=<uuid> e ?dryrun=1|true no URL; fallback = Anitta EDA 2026.
   const urlParams = !embedded && typeof window !== "undefined"
