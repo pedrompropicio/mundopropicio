@@ -1713,7 +1713,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (form.type === "expense" && !form.supplier_id) {
+    if (form.type === "expense" && !form.supplier_id && form.payment_method === "transfer") {
       toast({ title: "Fornecedor obrigatório", description: "Selecione (ou crie) o fornecedor da despesa.", variant: "destructive" });
       return;
     }
