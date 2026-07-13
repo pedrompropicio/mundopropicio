@@ -23,6 +23,7 @@ import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
@@ -194,6 +195,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
   // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Univer).
   const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
+  const isMobile = useIsMobile();
+  // Planilha (Univer) é desktop-only; se o ecrã encolher, volta para Agrupada.
+  useEffect(() => {
+    if (isMobile && forecastsViewMode === "sheet") {
+      setForecastsViewMode("grouped");
+    }
+  }, [isMobile, forecastsViewMode]);
   // Dry-run activa via ?dryrun=1 no URL — não grava na BD.
   const bpUniverDryRun = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dryrun") === "1";
 
@@ -2148,19 +2156,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     <Table2 className="h-3.5 w-3.5" />
                     Grelha
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setForecastsViewMode("sheet")}
-                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                      forecastsViewMode === "sheet"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    title="Planilha estilo Excel (Univer) — adiciona ?dryrun=1 ao URL para simular sem gravar"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    Planilha{bpUniverDryRun ? " (dry-run)" : ""}
-                  </button>
+                  {!isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setForecastsViewMode("sheet")}
+                      className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                        forecastsViewMode === "sheet"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="Planilha estilo Excel (Univer) — adiciona ?dryrun=1 ao URL para simular sem gravar"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Planilha{bpUniverDryRun ? " (dry-run)" : ""}
+                    </button>
+                  )}
                 </div>
               </div>
 
