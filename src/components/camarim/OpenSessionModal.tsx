@@ -141,6 +141,9 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
               budget_amount: budgetNum,
               currency: "EUR",
               responsible_profile_id: responsibleId || null,
+              fund_holder_type: fundHolder.type,
+              fund_holder_supplier_id: fundHolder.supplierId,
+              fund_holder_user_id: fundHolder.userId,
               notes: notes || null,
               created_by: user?.id ?? null,
             } as any)
@@ -170,6 +173,9 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             budget_amount: budgetNum,
             currency: "EUR",
             responsible_profile_id: responsibleId || null,
+            fund_holder_type: fundHolder.type,
+            fund_holder_supplier_id: fundHolder.supplierId,
+            fund_holder_user_id: fundHolder.userId,
             notes: notes || null,
             created_by: user?.id ?? null,
           } as any)
