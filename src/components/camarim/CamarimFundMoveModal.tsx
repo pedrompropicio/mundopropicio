@@ -73,6 +73,7 @@ export function CamarimFundMoveModal({
     fund_holder_type: "employee" | "supplier";
     fund_holder_supplier_id: string | null;
     fund_holder_user_id: string | null;
+    linked_supplier_id: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -86,12 +87,23 @@ export function CamarimFundMoveModal({
       .order("name")
       .then(({ data }) => setAccounts((data ?? []) as Account[]));
 
-    void supabase
-      .from("camarim_sessions" as any)
-      .select("title, advance_account_id, fund_holder_type, fund_holder_supplier_id, fund_holder_user_id")
-      .eq("id", sessionId)
-      .single()
-      .then(({ data }) => setSessionInfo((data ?? null) as any));
+    void (async () => {
+      const { data: s } = await (supabase as any)
+        .from("camarim_sessions")
+        .select("title, advance_account_id, fund_holder_type, fund_holder_supplier_id, fund_holder_user_id")
+        .eq("id", sessionId)
+        .single();
+      let linked: string | null = null;
+      if (s?.fund_holder_type === "employee" && s.fund_holder_user_id) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("linked_supplier_id")
+          .eq("id", s.fund_holder_user_id)
+          .maybeSingle();
+        linked = (p as any)?.linked_supplier_id ?? null;
+      }
+      setSessionInfo(s ? { ...(s as any), linked_supplier_id: linked } : null);
+    })();
   }, [open, sessionId]);
 
   // Preencher campos quando abre em modo edição.
