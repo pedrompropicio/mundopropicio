@@ -178,13 +178,68 @@ export function CamarimFundMoveModal({
         if (error) throw error;
         toast({ title: "Movimento atualizado" });
       } else {
+        // Novo movimento: cria também a transação financeira pendente
+        // (a aprovar → Lista de Pagamento) ligada à conta-corrente da sessão.
+        let transactionId: string | null = null;
+        if (!sessionInfo?.advance_account_id) {
+          throw new Error(
+            "Sessão sem conta-corrente. Actualiza a página e tenta de novo (a conta é criada automaticamente).",
+          );
+        }
+        if (accountRequired || moveType === "refund") {
+          // Precisamos de saber a conta bancária (origem ou destino)
+          if (!accountId) {
+            throw new Error("Conta bancária obrigatória para gerar a transferência.");
+          }
+          const isInflow = moveType === "advance" || moveType === "reinforcement";
+          const bankAccount = accountId;
+          const sessionAccount = sessionInfo.advance_account_id;
+          const desc =
+            moveType === "advance"
+              ? `Adiantamento camarim — ${sessionInfo.title}`
+              : moveType === "reinforcement"
+                ? `Reforço camarim — ${sessionInfo.title}`
+                : `Devolução camarim — ${sessionInfo.title}`;
+          const supplierIdForTx =
+            sessionInfo.fund_holder_type === "supplier"
+              ? sessionInfo.fund_holder_supplier_id
+              : null;
+
+          const { data: tx, error: txErr } = await (supabase as any)
+            .from("transactions")
+            .insert({
+              type: "transfer",
+              description: desc,
+              amount: numericAmount,
+              iva_rate: 0,
+              date: moveDate,
+              status: "pending",
+              payment_method: "transfer",
+              currency,
+              account_id: isInflow ? bankAccount : sessionAccount,
+              target_account_id: isInflow ? sessionAccount : bankAccount,
+              supplier_id: supplierIdForTx,
+              specification: notes || null,
+            })
+            .select("id")
+            .single();
+          if (txErr) throw txErr;
+          transactionId = tx.id;
+        }
+
         const { error } = await supabase.from("camarim_fund_moves" as any).insert({
           session_id: sessionId,
           ...payload,
+          transaction_id: transactionId,
           created_by: user?.id ?? null,
         } as any);
         if (error) throw error;
-        toast({ title: "Movimento registado" });
+        toast({
+          title: "Movimento registado",
+          description: transactionId
+            ? "Transação criada em estado 'a aprovar' — visível na Lista de Pagamento."
+            : undefined,
+        });
       }
       onSaved?.();
       onOpenChange(false);
