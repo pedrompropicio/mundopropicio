@@ -1181,69 +1181,97 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     toast.info("Linha marcada para apagar (só ao gravar).");
   };
 
-  // --- Insert new row ---
-  const handleInsertConfirm = () => {
-    const amt = parseAmount(newRowDraft.amount);
-    const iva = parseIntSafe(newRowDraft.iva_rate);
-    if (!newRowDraft.description.trim()) { toast.error("Descrição obrigatória."); return; }
-    if (!newRowDraft.category_id) { toast.error("Categoria obrigatória."); return; }
-    if (amt == null || amt < 0) { toast.error("Valor inválido."); return; }
-    if (iva == null || !(VALID_IVA as readonly number[]).includes(iva)) { toast.error("IVA deve ser 0, 6, 13 ou 23."); return; }
+  // --- Insert new row (INLINE — sem modal) ---
+  // Adiciona uma linha vazia no FIM da folha (para não partir as fórmulas SUM
+  // dos subtotais que referenciam ranges por número de linha) e:
+  //   • herda a categoria da linha ativa (se aplicável)
+  //   • aplica dropdowns (Categoria + Formalidade) e a fórmula do Total c/IVA
+  //   • foca a célula da Descrição para escrita imediata
+  const handleInsertInline = () => {
+    const api = apiRef.current;
+    if (!api) { toast.error("Univer ainda não está pronto."); return; }
+    const wb = api.getActiveWorkbook?.();
+    const sheet = wb?.getActiveSheet?.();
+    if (!wb || !sheet) { toast.error("Folha não disponível."); return; }
+
+    // Descobrir categoria herdada a partir da célula ativa (walk-up até achar entry)
+    let inheritedCatId: string | null = null;
+    let inheritedCatLabel = "";
+    try {
+      const active = wb.getActiveRange?.();
+      const activeRow = normalizeRange(active)?.startRow;
+      if (typeof activeRow === "number") {
+        for (let r = activeRow; r >= 0; r--) {
+          const eid = rowToEntryIdRef.current.get(r);
+          if (eid) {
+            const overrideCat = (dirty[eid]?.category_id ?? undefined);
+            const original = originalEntriesRef.current.get(eid);
+            inheritedCatId = (overrideCat !== undefined ? overrideCat : original?.category_id) ?? null;
+            break;
+          }
+          const tempId = insertRowToTempIdRef.current.get(r);
+          if (tempId) {
+            const ins = pendingInserts.find((p) => p.tempId === tempId);
+            inheritedCatId = ins?.category_id ?? null;
+            break;
+          }
+        }
+      }
+    } catch { /* noop */ }
+    if (inheritedCatId) {
+      inheritedCatLabel = categoryIdToLabelRef.current.get(inheritedCatId) ?? "";
+    }
 
     const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const insertRow: InsertRow = {
       tempId,
-      category_id: newRowDraft.category_id,
-      description: newRowDraft.description.trim(),
-      specification: newRowDraft.specification.trim() || null,
-      amount: amt,
-      iva_rate: iva,
-      formalidade: newRowDraft.formalidade,
+      category_id: inheritedCatId,
+      description: "",
+      specification: null,
+      amount: 0,
+      iva_rate: 23,
+      formalidade: "estimado",
     };
     setPendingInserts((prev) => [...prev, insertRow]);
     setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
 
-    // Append visually
-    const api = apiRef.current;
-    if (api) {
-      try {
-        const wb = api.getActiveWorkbook?.();
-        const sheet = wb?.getActiveSheet?.();
-        const row = nextInsertRowRef.current;
-        nextInsertRowRef.current = row + 1;
-        insertRowToTempIdRef.current.set(row, tempId);
-        const catLabel = categoryIdToLabelRef.current.get(insertRow.category_id!) ?? "";
-        sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(insertRow.description);
-        sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(catLabel);
-        sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(insertRow.specification ?? "");
-        sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(insertRow.amount);
-        sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(insertRow.iva_rate);
-        sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(insertRow.formalidade));
-        // Formula for total
-        const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
-        sheet?.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
-        applyRowStyle(row, "sInsertedRow");
-        // Add dropdowns
-        if ((api as any).newDataValidation && sheet) {
-          const formRule = (api as any).newDataValidation()
-            .requireValueInList(FORMALIDADE_LABELS)
-            .setOptions({ allowInvalid: true, showDropdown: true })
-            .build();
-          sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
-          const catRule = (api as any).newDataValidation()
-            .requireValueInList(categoryDropdownRef.current)
-            .setOptions({ allowInvalid: true, showDropdown: true })
-            .build();
-          sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
-        }
-      } catch (e) {
-        console.warn("[BPUniverSpike] insert row visual failed", e);
+    const row = nextInsertRowRef.current;
+    nextInsertRowRef.current = row + 1;
+    insertRowToTempIdRef.current.set(row, tempId);
+    try {
+      // Descrição fica vazia (o utilizador escreve) — as outras defaults ajudam
+      sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.("");
+      sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(inheritedCatLabel);
+      sheet.getRange(row, COL.SPEC, 1, 1).setValue?.("");
+      sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(0);
+      sheet.getRange(row, COL.IVA, 1, 1).setValue?.(23);
+      sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel("estimado"));
+      const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
+      sheet.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
+      applyRowStyle(row, "sInsertedRow");
+      if ((api as any).newDataValidation) {
+        const formRule = (api as any).newDataValidation()
+          .requireValueInList(FORMALIDADE_LABELS)
+          .setOptions({ allowInvalid: true, showDropdown: true })
+          .build();
+        sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
+        const catRule = (api as any).newDataValidation()
+          .requireValueInList(categoryDropdownRef.current)
+          .setOptions({ allowInvalid: true, showDropdown: true })
+          .build();
+        sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
       }
+      // Foca a célula da Descrição para escrita imediata
+      sheet.getRange(row, COL.RUBRIC, 1, 1)?.activate?.();
+    } catch (e) {
+      console.warn("[BPUniverSpike] insert inline visual failed", e);
     }
 
-    setInsertDialogOpen(false);
-    setNewRowDraft({ category_id: "", description: "", amount: "", iva_rate: "23", formalidade: "estimado", specification: "" });
-    toast.success("Linha nova adicionada. Grave para persistir.");
+    if (inheritedCatLabel) {
+      toast.success(`Linha adicionada no fim (categoria herdada: ${inheritedCatLabel}). Ao gravar, será reposicionada no grupo correto.`);
+    } else {
+      toast.success("Linha adicionada no fim. Escolha a categoria e preencha os campos. Ao gravar, será reposicionada no grupo correto.");
+    }
   };
 
   // --- Undo (native Univer for cell edits + logical for insert/delete) ---
