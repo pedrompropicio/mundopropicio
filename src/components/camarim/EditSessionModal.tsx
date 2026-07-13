@@ -85,7 +85,7 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
         const [{ data: ses }, { data: evs }, { data: links }, { count }] = await Promise.all([
           supabase
             .from("camarim_sessions" as any)
-            .select("mode, master_event_id")
+            .select("mode, master_event_id, fund_holder_type, fund_holder_supplier_id, fund_holder_user_id")
             .eq("id", sessionId)
             .single(),
           supabase
@@ -109,6 +109,11 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
         setMasterEventId(masterRef);
         setEvents((evs ?? []) as EventOption[]);
         setItemsCount(count ?? 0);
+        setFundHolder({
+          type: (((ses as any)?.fund_holder_type ?? "employee") as "employee" | "supplier"),
+          supplierId: ((ses as any)?.fund_holder_supplier_id ?? null) as string | null,
+          userId: ((ses as any)?.fund_holder_user_id ?? null) as string | null,
+        });
 
         const linkedIds = ((links ?? []) as any[]).map((l) => l.event_id as string);
         if (sesMode === "single_event") {
