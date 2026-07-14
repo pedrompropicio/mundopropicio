@@ -1414,6 +1414,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     toast.info("Rascunho descartado.");
   };
 
+  const discardAllChanges = () => {
+    setDirty({});
+    setPendingInserts([]);
+    setPendingDeletes([]);
+    setValidationErrors([]);
+    setActionLog([]);
+    setDryRunPreview(null);
+    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    toast.success("Alterações descartadas.");
+  };
+
+
   if (!allowed) return embedded ? null : <Navigate to="/" replace />;
 
   const entryCount = built?.filter((r) => r.kind === "entry").length ?? 0;
