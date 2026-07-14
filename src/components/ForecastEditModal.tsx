@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 interface Props {
   forecast: any;
