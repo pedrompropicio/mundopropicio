@@ -1124,6 +1124,32 @@ export default function PartnerEventDetail() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {canSeeRealized && bpGroupedHier.length > 0 && (
+                <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5" title="Vista da aba BP">
+                  <button
+                    type="button"
+                    onClick={() => setBpCompareMode("bp")}
+                    className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      bpCompareMode === "bp"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    BP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBpCompareMode("compare")}
+                    className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      bpCompareMode === "compare"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    BP × Realizado
+                  </button>
+                </div>
+              )}
               {bpGroupedHier.length > 0 && (
                 <>
                   {/* Seletor Detalhe: Agregado | Linha a linha — controla apenas as exportações */}
