@@ -1267,7 +1267,7 @@ export default function PartnerEventDetail() {
                   <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5">
                     <ClipboardList className="h-4 w-4" />
                     {canSeeRealized && bpCompareMode === "compare"
-                      ? "Business Plan × Realizado (até L2)"
+                      ? "Business Plan × Realizado"
                       : "Business Plan — Custos"}
                   </CardTitle>
                 </CardHeader>
