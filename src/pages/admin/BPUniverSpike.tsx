@@ -305,7 +305,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const isAdmin = role === "admin" || role === "platform_admin";
   const allowed = embedded ? (canEdit ?? true) : isAdmin;
   const userId = user?.id ?? "anon";
-  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}${isDryRun ? ":dryrun" : ""}`;
+  const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}`;
 
   // Load data (loads draft+approved so newly-inserted draft rows persist across reloads)
   const fetchData = useCallback(async () => {
