@@ -1372,57 +1372,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const applyDraft = () => {
     const parsed = pendingDraftRef.current;
     if (!parsed || typeof parsed !== "object") { setDraftPromptOpen(false); return; }
+    // Basta atualizar o state — o rebuild (via workbookData memo) coloca
+    // inserts na árvore e o efeito de reaplicação aplica edits/deletes.
     setDirty(parsed.edits ?? {});
     setPendingDeletes(parsed.deletes ?? []);
-    // Re-apply inserts visually
-    const inserts: InsertRow[] = parsed.inserts ?? [];
-    setPendingInserts([]);
+    setPendingInserts(parsed.inserts ?? []);
     setDraftPromptOpen(false);
-    // Give Univer a tick, then insert visually
-    setTimeout(() => {
-      const api = apiRef.current;
-      if (!api) return;
-      for (const ins of inserts) {
-        setPendingInserts((prev) => [...prev, ins]);
-        try {
-          const wb = api.getActiveWorkbook?.();
-          const sheet = wb?.getActiveSheet?.();
-          const row = nextInsertRowRef.current;
-          nextInsertRowRef.current = row + 1;
-          insertRowToTempIdRef.current.set(row, ins.tempId);
-          const catLabel = ins.category_id ? categoryIdToLabelRef.current.get(ins.category_id) ?? "" : "";
-          sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(ins.description);
-          sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(catLabel);
-          sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(ins.specification ?? "");
-          sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(ins.amount);
-          sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(ins.iva_rate);
-          sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(ins.formalidade));
-          const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
-          sheet?.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
-          applyRowStyle(row, "sInsertedRow");
-        } catch { /* noop */ }
-      }
-      // Re-apply edits visually to existing rows
-      const edits: Record<string, Partial<Entry>> = parsed.edits ?? {};
-      try {
-        const wb = api.getActiveWorkbook?.();
-        const sheet = wb?.getActiveSheet?.();
-        for (const [id, delta] of Object.entries(edits)) {
-          const row = entryIdToRowRef.current.get(id);
-          if (row == null) continue;
-          if (delta.description !== undefined) sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
-          if (delta.category_id !== undefined) {
-            const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
-            sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
-          }
-          if (delta.specification !== undefined) sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
-          if (delta.amount !== undefined) sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
-          if (delta.iva_rate !== undefined) sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
-          if (delta.formalidade !== undefined) sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
-        }
-      } catch { /* noop */ }
-      toast.success("Rascunho recuperado.");
-    }, 200);
+    toast.success("Rascunho recuperado.");
   };
 
   const discardDraft = () => {
