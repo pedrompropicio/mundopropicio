@@ -1685,15 +1685,33 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
 
       {fullscreen && (
         <style>{`
-          .univer-popup, .univer-dropdown, [class*="univer"][class*="popup"],
-          [class*="univer"][class*="dropdown"], [class*="univer"][class*="menu"],
-          [class*="univer"][class*="overlay"] { z-index: 10001 !important; }
-          /* Garantir que dialogs shadcn/Radix ficam por cima do overlay fullscreen */
-          [data-radix-portal] [role="dialog"],
-          [data-radix-portal] [role="alertdialog"],
-          [data-radix-portal] [data-state="open"][class*="fixed"] { z-index: 10100 !important; }
+          /* Popups do Univer (data validation dropdown, editor, menus, tooltips)
+             montam num container no body. Sobem acima do overlay fullscreen. */
+          .univer-render-canvas,
+          .univer-popup, .univer-dropdown, .univer-menu,
+          [class*="univer"][class*="popup"],
+          [class*="univer"][class*="dropdown"],
+          [class*="univer"][class*="menu"],
+          [class*="univer"][class*="overlay"],
+          [class*="univer"][class*="tooltip"],
+          [data-u-comp*="popup"], [data-u-comp*="dropdown"], [data-u-comp*="menu"] {
+            z-index: 10001 !important;
+          }
+          /* Radix (shadcn AlertDialog/Dialog) — portais no body.
+             Cobrimos overlay + content, com e sem data-radix-portal. */
+          [data-radix-portal],
+          [data-radix-popper-content-wrapper],
+          [role="dialog"][data-state="open"],
+          [role="alertdialog"][data-state="open"],
+          [data-radix-dialog-overlay],
+          [data-radix-alert-dialog-overlay] {
+            z-index: 10100 !important;
+          }
+          /* Sonner toasts */
+          [data-sonner-toaster] { z-index: 10200 !important; }
         `}</style>
       )}
+
       <div
         className={
           fullscreen
