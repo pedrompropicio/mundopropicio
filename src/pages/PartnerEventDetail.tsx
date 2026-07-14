@@ -1272,12 +1272,13 @@ export default function PartnerEventDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                  {canSeeRealized && bpCompareMode === "compare" ? (
-                    // ─── Vista BP × Realizado (até L2) ───
-                    // Racional: as transações reais não seguem o desdobramento fino do BP em L3.
-                    // A comparação Previsto vs Realizado só é fiável ao nível L2 — por isso não
-                    // mostramos L3 nem lançamentos individuais nesta vista. TOTAL bate ao cêntimo
-                    // com o card Despesas (bpTotalExpense) e Realizado com bpTotalRealizedExpense.
+                    {canSeeRealized && bpCompareMode === "compare" ? (
+                    // ─── Vista BP × Realizado ───
+                    // Racional: a comparação desce até ao nível L3 usando os totais agregados
+                    // devolvidos pela RPC get_partner_bp_realized (já por rubrica L3). Não mostramos
+                    // lançamentos individuais nem coluna Formalidade aqui — esses detalhes ficam na
+                    // vista "BP". TOTAL bate ao cêntimo com o card Despesas (bpTotalExpense) e
+                    // Realizado com bpTotalRealizedExpense.
                     (() => {
                       const gridCmp: React.CSSProperties = {
                         display: "grid",
@@ -1309,11 +1310,25 @@ export default function PartnerEventDetail() {
                                   const l2Real = realizedTotals.l2[`${l1.code}/${l2.code}`] ?? 0;
                                   const l2Diff = l2.total - l2Real;
                                   return (
-                                    <div key={l2.name} style={gridCmp} className="bg-muted/20 px-4 py-1 border-b border-border/40">
-                                      <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
-                                      <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
-                                      <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l2Real)}</span>
-                                      <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l2Diff)}`}>{formatCurrency(l2Diff)}</span>
+                                    <div key={l2.name}>
+                                      <div style={gridCmp} className="bg-muted/20 px-4 py-1 border-b border-border/40">
+                                        <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
+                                        <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
+                                        <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l2Real)}</span>
+                                        <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l2Diff)}`}>{formatCurrency(l2Diff)}</span>
+                                      </div>
+                                      {l2.l3Groups.map((l3) => {
+                                        const l3Real = realizedTotals.l3[`${l1.code}/${l2.code}/${l3.code}/${l3.name}`] ?? 0;
+                                        const l3Diff = l3.total - l3Real;
+                                        return (
+                                          <div key={l3.name} style={gridCmp} className="px-4 py-1 border-b border-border/15 bg-muted/5">
+                                            <span className="text-[11px] font-semibold text-foreground min-w-0 truncate pl-8">{l3.code} · {l3.name}</span>
+                                            <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l3.total)}</span>
+                                            <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l3Real)}</span>
+                                            <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l3Diff)}`}>{formatCurrency(l3Diff)}</span>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   );
                                 })}
