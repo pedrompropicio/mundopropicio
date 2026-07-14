@@ -824,7 +824,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         locale: LocaleType.EN_US,
         locales: { [LocaleType.EN_US]: merge({}, sheetsCoreEnUS) },
         presets: [
-          UniverSheetsCorePreset({ container: containerRef.current }),
+          UniverSheetsCorePreset({ container: containerRef.current, header: false, toolbar: false } as any),
           UniverSheetsDataValidationPreset(),
         ],
       });
