@@ -784,12 +784,33 @@ export default function PartnerEventDetail() {
       date: event.date ?? null,
       location: (event as any).location ?? null,
     };
+    // Shim de "transações" para o modo comparação — 1 linha por rubrica L3
+    // com o realizado agregado. Nunca contém transações individuais nem
+    // fornecedores; alimenta apenas as colunas Real s/IVA e Variação.
+    const pseudoTransactions = canSeeRealized
+      ? (realizedRows ?? [])
+          .filter((r) => r.l3_category_id)
+          .map((r) => {
+            const base = Number(r.real_base) || 0;
+            const iva = Number(r.real_iva) || 0;
+            return {
+              id: `partner-realized-${r.l3_category_id}`,
+              event_id: activeEventId,
+              type: "expense",
+              category_id: r.l3_category_id,
+              amount: base,
+              iva_rate: base > 0 ? (iva / base) * 100 : 0,
+            };
+          })
+      : [];
     return {
       eventsToExport: [evtShim],
       allEvents: [evtShim],
       forecasts: forecastsForExport,
       categories: allCategories as any[],
       expand: bpDetailMode === "expanded",
+      mode: (canSeeRealized ? "comparison" : "forecast") as "comparison" | "forecast",
+      pseudoTransactions,
     };
   };
 
@@ -801,10 +822,10 @@ export default function PartnerEventDetail() {
         p.eventsToExport,
         p.allEvents,
         p.forecasts,
-        [],           // transactions — modo previsão + despesas: não usadas
+        p.pseudoTransactions, // agregados por L3 (sem transações individuais) ou [] sem permissão
         p.categories,
         [], [], [],   // ticketZones/Lots/Sales — sem receitas de bilheteira
-        "forecast",   // mode
+        p.mode,       // "comparison" com permissão, "forecast" caso contrário
         [], [],       // cacheConfigs, cacheDeductions
         [],           // audit logs
         "expense",    // typeFilter — força sem folha Resumo, sem receitas
@@ -828,10 +849,10 @@ export default function PartnerEventDetail() {
         p.eventsToExport,
         p.allEvents,
         p.forecasts,
-        [],
+        p.pseudoTransactions,
         p.categories,
         [], [], [],
-        "forecast",
+        p.mode,
         [], [],
         [],
         "expense",
@@ -847,6 +868,7 @@ export default function PartnerEventDetail() {
       toast.error("Erro ao exportar PDF", { description: err?.message });
     }
   };
+
 
 
 
