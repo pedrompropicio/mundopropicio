@@ -575,7 +575,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         // uma variante com fundo verde. Isto garante que o rebuild trata a
         // nova linha como um lançamento normal.
         const rubricStyle = isInsert ? "sInsertedLabel" : stLabel;
-        const catStyle = isInsert ? "sInsertedRow" : st;
+        const catStyle = isInsert ? "sInsertedCategoryLocked" : st;
         const specStyle = isInsert ? "sInsertedRow" : st;
         const amountStyle = isInsert ? "sInsertedMoney" : "sMoney";
         const ivaStyle = isInsert ? "sInsertedIva" : "sIva";
