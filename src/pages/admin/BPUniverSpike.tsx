@@ -556,21 +556,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         const e = row.entry!;
         const info = e.category_id ? lookup[e.category_id] : null;
         const catLabel = info ? `${info.code} · ${info.name}` : "";
-        cellData[r][COL.RUBRIC] = { v: e.description ?? "(sem descrição)", s: stLabel };
-        cellData[r][COL.CATEGORY] = { v: catLabel, s: st };
-        cellData[r][COL.SPEC] = { v: e.specification ?? "", s: st };
-        cellData[r][COL.AMOUNT] = { v: e.amount, s: "sMoney" };
-        cellData[r][COL.IVA] = { v: e.iva_rate, s: "sIva" };
+        const isInsert = !!e.__insertTempId;
+        const rubricStyle = isInsert ? "sInsertedRow" : stLabel;
+        const rowStyle = isInsert ? "sInsertedRow" : st;
+        cellData[r][COL.RUBRIC] = { v: e.description ?? "", s: rubricStyle };
+        cellData[r][COL.CATEGORY] = { v: catLabel, s: rowStyle };
+        cellData[r][COL.SPEC] = { v: e.specification ?? "", s: rowStyle };
+        cellData[r][COL.AMOUNT] = { v: e.amount, s: isInsert ? "sInsertedRow" : "sMoney" };
+        cellData[r][COL.IVA] = { v: e.iva_rate, s: isInsert ? "sInsertedRow" : "sIva" };
         const totalFormula = `=${L_AMOUNT}${r + 1}*(1+${L_IVA}${r + 1}/100)`;
-        const totalValue = e.amount * (1 + (e.iva_rate ?? 0) / 100);
-        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: "sMoneyCalc" };
-        cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: st };
+        const totalValue = (e.amount ?? 0) * (1 + (e.iva_rate ?? 0) / 100);
+        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: isInsert ? "sInsertedRow" : "sMoneyCalc" };
+        cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: rowStyle };
         markProtected(r, COL.TOTAL);
         protectedFormulaRows.push(r);
         originalFormulas.set(`${r},${COL.TOTAL}`, totalFormula);
         entryRows.push(r);
-        rowToEntryId.set(r, e.id);
-        entryIdToRow.set(e.id, r);
+        if (isInsert) {
+          insertRowToTempId.set(r, e.__insertTempId!);
+        } else {
+          rowToEntryId.set(r, e.id);
+          entryIdToRow.set(e.id, r);
+        }
       } else {
         cellData[r][COL.RUBRIC] = { v: row.label, s: stLabel };
         cellData[r][COL.CATEGORY] = { v: "", s: st };
