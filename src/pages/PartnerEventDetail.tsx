@@ -1208,6 +1208,9 @@ export default function PartnerEventDetail() {
               sponsorshipNet={sponsorshipRealNet}
               barsNet={barsRealNet}
               bpExpenseGross={bpTotalExpense}
+              bpExpenseRealized={bpTotalRealizedExpense}
+              showRealized={canSeeRealized}
+              realizedError={canSeeRealized && realizedIsError}
             />
           </div>
 
