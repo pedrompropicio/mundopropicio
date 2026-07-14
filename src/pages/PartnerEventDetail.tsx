@@ -698,7 +698,7 @@ export default function PartnerEventDetail() {
 
   // ─── Realizados por rubrica (via RPC — só com permissão dedicada) ───
   const canSeeRealized = hasPermission("view_partner_realized");
-  const { data: realizedRows = [] } = useQuery({
+  const { data: realizedRows = [], isError: realizedIsError } = useQuery({
     queryKey: ["partner_bp_realized", activeEventId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_partner_bp_realized", { p_event_id: activeEventId! });
@@ -713,6 +713,7 @@ export default function PartnerEventDetail() {
       }>;
     },
     enabled: canSeeRealized && !!activeEventId,
+    retry: 1,
   });
 
   const realizedByL3Id = useMemo(() => {
