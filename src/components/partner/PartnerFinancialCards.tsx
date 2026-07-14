@@ -15,13 +15,21 @@ export interface PartnerFinancialCardsProps {
   sponsorshipNet: number;
   barsNet: number;
   bpExpenseGross: number;
+  bpExpenseRealized?: number | null;
+  showRealized?: boolean;
+  realizedError?: boolean;
 }
 
 export function PartnerFinancialCards({
   ticketsNet, sponsorshipNet, barsNet, bpExpenseGross,
+  bpExpenseRealized = 0, showRealized = false, realizedError = false,
 }: PartnerFinancialCardsProps) {
   const incomeNet = ticketsNet + sponsorshipNet + barsNet;
   const result = incomeNet - bpExpenseGross;
+  const pct = showRealized && bpExpenseGross > 0
+    ? (bpExpenseRealized ?? 0) / bpExpenseGross * 100
+    : 0;
+  const pctColor = pct <= 100 ? "text-emerald-500" : pct <= 110 ? "text-amber-500" : "text-red-500";
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -54,7 +62,19 @@ export function PartnerFinancialCards({
         <p className="mt-2 text-xl sm:text-2xl font-bold font-mono text-amber-500">
           {formatCurrency(bpExpenseGross)}
         </p>
-        <p className="mt-2 text-[10px] text-muted-foreground">Total previsto c/IVA</p>
+        {showRealized ? (
+          realizedError ? (
+            <p className="mt-2 text-[10px] text-red-400">Não foi possível carregar os realizados</p>
+          ) : (
+            <p className="mt-2 text-[10px] text-muted-foreground">
+              Previsto c/IVA · Realizado{" "}
+              <span className="font-semibold text-foreground/80 font-mono">{formatCurrency(bpExpenseRealized ?? 0)}</span>{" "}
+              <span className={`font-semibold ${pctColor}`}>({pct.toFixed(0)}%)</span>
+            </p>
+          )
+        ) : (
+          <p className="mt-2 text-[10px] text-muted-foreground">Total previsto c/IVA</p>
+        )}
       </div>
 
       {/* RESULTADO */}
