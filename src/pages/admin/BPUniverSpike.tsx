@@ -111,6 +111,7 @@ const L_TOTAL = colLetter(COL.TOTAL);
 type UniverRange = { startRow: number; endRow: number; startColumn: number; endColumn: number };
 
 const PROTECTED_CELL_TOAST = "Esta célula é calculada e não pode ser editada";
+const INSERTED_CATEGORY_TOAST = "A categoria é herdada do grupo onde a linha foi criada.";
 const EDIT_BLOCK_COMMANDS = new Set([
   "sheet.operation.set-cell-edit-visible",
   "sheet.operation.set-cell-edit-visible-f2",
