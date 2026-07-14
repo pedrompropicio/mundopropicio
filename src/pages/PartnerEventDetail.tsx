@@ -696,16 +696,74 @@ export default function PartnerEventDetail() {
       .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
   }, [bpExpenses, allCategories]);
 
+  // ─── Realizados por rubrica (via RPC — só com permissão dedicada) ───
+  const canSeeRealized = hasPermission("view_partner_realized");
+  const { data: realizedRows = [] } = useQuery({
+    queryKey: ["partner_bp_realized", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_partner_bp_realized", { p_event_id: activeEventId! });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        l3_category_id: string | null;
+        l3_code: string | null;
+        l3_name: string | null;
+        real_base: number;
+        real_iva: number;
+        real_total: number;
+      }>;
+    },
+    enabled: canSeeRealized && !!activeEventId,
+  });
+
+  const realizedByL3Id = useMemo(() => {
+    const m: Record<string, { base: number; iva: number; total: number }> = {};
+    (realizedRows ?? []).forEach((r) => {
+      if (!r.l3_category_id) return;
+      m[r.l3_category_id] = {
+        base: Number(r.real_base) || 0,
+        iva: Number(r.real_iva) || 0,
+        total: Number(r.real_total) || 0,
+      };
+    });
+    return m;
+  }, [realizedRows]);
+
+  // Propaga realizado para L1/L2/L3 (só usado quando canSeeRealized).
+  const realizedTotals = useMemo(() => {
+    const l3: Record<string, number> = {};
+    const l2: Record<string, number> = {};
+    const l1: Record<string, number> = {};
+    let grand = 0;
+    bpGroupedHier.forEach((g1) => {
+      let s1 = 0;
+      g1.l2Groups.forEach((g2) => {
+        let s2 = 0;
+        g2.l3Groups.forEach((g3) => {
+          const r = g3.id ? realizedByL3Id[g3.id]?.total ?? 0 : 0;
+          l3[`${g1.code}/${g2.code}/${g3.code}/${g3.name}`] = r;
+          s2 += r;
+        });
+        l2[`${g1.code}/${g2.code}`] = s2;
+        s1 += s2;
+      });
+      l1[g1.code] = s1;
+      grand += s1;
+    });
+    return { l1, l2, l3, grand };
+  }, [bpGroupedHier, realizedByL3Id]);
+
   const bpTotalExpense = useMemo(
     () => bpGroupedHier.reduce((s, g) => s + g.total, 0),
     [bpGroupedHier],
   );
+  const bpTotalRealizedExpense = realizedTotals.grand;
   // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
   const bpTotalIncome = useMemo(
     () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
     [bpIncomes],
   );
   const bpTotalResult = bpTotalIncome - bpTotalExpense;
+
 
   // ─── Exportações do BP do sócio (Excel + PDF) ───
   // Configuração FIXA: previsão + despesas + N3 + com overhead. Segurança:
