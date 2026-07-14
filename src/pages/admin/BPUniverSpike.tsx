@@ -1018,15 +1018,50 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     }
   }, []);
 
-  // Refresh delete/insert visual state
+  // Refresh visual state APÓS cada rebuild: reaplica dirty (edições), marca deletes,
+  // marca inserted rows e foca a Descrição da linha nova (se houver focusInsertTempId).
   useEffect(() => {
     if (!ready) return;
-    // Mark deletes
+    const api = apiRef.current;
+    const wb = api?.getActiveWorkbook?.();
+    const sheet = wb?.getActiveSheet?.();
+    if (!sheet) return;
+
+    // 1) Reaplicar dirty (as linhas mudaram de número após rebuild)
+    const d = dirtyRef.current;
+    for (const [id, delta] of Object.entries(d)) {
+      const row = entryIdToRowRef.current.get(id);
+      if (row == null) continue;
+      try {
+        if (delta.description !== undefined) sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
+        if (delta.category_id !== undefined) {
+          const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
+          sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
+        }
+        if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
+        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
+        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
+        if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
+      } catch { /* noop */ }
+    }
+
+    // 2) Marcar linhas apagadas
     for (const id of pendingDeletes) {
       const row = entryIdToRowRef.current.get(id);
       if (row != null) applyRowStyle(row, "sDeletedRow");
     }
-  }, [pendingDeletes, ready, applyRowStyle]);
+
+    // 3) Focar linha nova se pedido
+    if (focusInsertTempId) {
+      for (const [rr, tid] of insertRowToTempIdRef.current) {
+        if (tid === focusInsertTempId) {
+          try { sheet.getRange(rr, COL.RUBRIC, 1, 1)?.activate?.(); } catch { /* noop */ }
+          break;
+        }
+      }
+      setFocusInsertTempId(null);
+    }
+  }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId]);
 
   // --- Validation ---
   const validate = useCallback(() => {
