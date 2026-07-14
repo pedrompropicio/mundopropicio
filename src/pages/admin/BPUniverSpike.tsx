@@ -941,31 +941,41 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       // ignorada. Lê SEMPRE entryRowsRef.current no momento da aplicação,
       // já remapeado pelo useMemo do workbookData.
       const applyDataValidations = () => {
-        try {
-          const wb = univerAPI.getActiveWorkbook?.();
-          const sheet = wb?.getActiveSheet?.();
-          if (!sheet || !(univerAPI as any).newDataValidation) return;
-          for (const r of entryRowsRef.current) {
-            // Formalidade — bloqueante (rejeita texto fora da lista, inclui paste)
+        const wb = univerAPI.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        if (!sheet || !(univerAPI as any).newDataValidation) return;
+        for (const r of entryRowsRef.current) {
+          // Formalidade — bloqueante (rejeita texto fora da lista, inclui paste)
+          try {
+            const formRange = sheet.getRange(r, COL.FORMALIDADE, 1, 1);
+            // Idempotência: limpa regra existente antes de reaplicar. Sem isto,
+            // reaplicar a mesma regra pode disparar exceção e abortar o loop.
+            try { formRange.setDataValidation(null as any); } catch {}
             const formRule = (univerAPI as any).newDataValidation()
               .requireValueInList(FORMALIDADE_LABELS)
               .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe um estado da lista." })
               .build();
-            sheet.getRange(r, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
+            formRange.setDataValidation(formRule);
+          } catch (dvErr) {
+            console.warn(`[BPUniverSpike] DV Formalidade falhou r=${r}:`, dvErr);
+          }
 
-            if (categoryDropdownRef.current.length) {
-              // Categoria — também bloqueante (só L3 válidos)
+          if (categoryDropdownRef.current.length) {
+            try {
+              const catRange = sheet.getRange(r, COL.CATEGORY, 1, 1);
+              try { catRange.setDataValidation(null as any); } catch {}
               const catRule = (univerAPI as any).newDataValidation()
                 .requireValueInList(categoryDropdownRef.current)
                 .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe uma categoria L3 da lista." })
                 .build();
-              sheet.getRange(r, COL.CATEGORY, 1, 1).setDataValidation(catRule);
+              catRange.setDataValidation(catRule);
+            } catch (dvErr) {
+              console.warn(`[BPUniverSpike] DV Categoria falhou r=${r}:`, dvErr);
             }
           }
-        } catch (dvErr) {
-          console.warn("[BPUniverSpike] falha a aplicar data validation:", dvErr);
         }
       };
+
       applyDataValidations();
       // Reaplicar após o browser paintar — cobre o caso de rebuild em que a
       // sheet ainda estava a materializar as linhas novas na 1ª chamada.
