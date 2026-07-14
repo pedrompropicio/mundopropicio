@@ -232,12 +232,12 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
 
   const isExpense = forecast.type === "expense";
   const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
-
-  return (
   const backdrop = useBackdropClose(onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+
 
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold">Editar Previsão Aprovada</h2>
