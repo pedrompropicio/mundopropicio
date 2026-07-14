@@ -102,6 +102,10 @@ export default function PartnerEventDetail() {
   const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
   // Modo de detalhe para as exportações (Excel/PDF) do BP.
   const [bpDetailMode, setBpDetailMode] = useState<"aggregated" | "expanded">("aggregated");
+  // Vista da aba BP: "bp" (previsão + formalidade, hierarquia completa) vs "compare" (BP × Realizado até L2).
+  // Racional: as transações reais não seguem o desdobramento fino do BP em L3, por isso a comparação
+  // Previsto vs Realizado só é fiável ao nível L2. O seletor só aparece com view_partner_realized.
+  const [bpCompareMode, setBpCompareMode] = useState<"bp" | "compare">("bp");
   const isMobile = useIsMobile();
   // No mobile a edição em grelha não cabe — força sempre vista Agrupada.
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
@@ -1120,6 +1124,32 @@ export default function PartnerEventDetail() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {canSeeRealized && bpGroupedHier.length > 0 && (
+                <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5" title="Vista da aba BP">
+                  <button
+                    type="button"
+                    onClick={() => setBpCompareMode("bp")}
+                    className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      bpCompareMode === "bp"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    BP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBpCompareMode("compare")}
+                    className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      bpCompareMode === "compare"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    BP × Realizado
+                  </button>
+                </div>
+              )}
               {bpGroupedHier.length > 0 && (
                 <>
                   {/* Seletor Detalhe: Agregado | Linha a linha — controla apenas as exportações */}
@@ -1234,169 +1264,188 @@ export default function PartnerEventDetail() {
             <div className="space-y-3 max-w-4xl mx-auto">
               <Card>
                 <CardHeader className="pb-0 px-4 pt-4">
-                  <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" /> Business Plan — Custos</CardTitle>
+                  <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5">
+                    <ClipboardList className="h-4 w-4" />
+                    {canSeeRealized && bpCompareMode === "compare"
+                      ? "Business Plan × Realizado (até L2)"
+                      : "Business Plan — Custos"}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                  {(() => {
-                    const gridStyle: React.CSSProperties = {
-                      display: "grid",
-                      gridTemplateColumns: canSeeRealized
-                        ? "minmax(0,1fr) 6rem 6rem 6rem 6rem"
-                        : "minmax(0,1fr) 6rem 6rem",
-                      alignItems: "center",
-                      columnGap: "0.75rem",
-                    };
-                    const diffColor = (diff: number) => diff >= 0 ? "text-emerald-500" : "text-red-500";
-                    return (
-                      <>
-                        <div style={gridStyle} className="px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                          <span>Rubrica</span>
-                          <span className="text-right tabular-nums">Previsto</span>
-                          {canSeeRealized && (
-                            <>
-                              <span className="text-right tabular-nums">Realizado</span>
-                              <span className="text-right tabular-nums">Diferença</span>
-                            </>
-                          )}
-                          <span className="text-right tabular-nums">Formalidade</span>
-                        </div>
-                        {bpGroupedHier.map((l1) => {
-                          const l1Real = canSeeRealized ? (realizedTotals.l1[l1.code] ?? 0) : 0;
-                          const l1Diff = l1.total - l1Real;
-                          return (
+                  {canSeeRealized && bpCompareMode === "compare" ? (
+                    // ─── Vista BP × Realizado (até L2) ───
+                    // Racional: as transações reais não seguem o desdobramento fino do BP em L3.
+                    // A comparação Previsto vs Realizado só é fiável ao nível L2 — por isso não
+                    // mostramos L3 nem lançamentos individuais nesta vista. TOTAL bate ao cêntimo
+                    // com o card Despesas (bpTotalExpense) e Realizado com bpTotalRealizedExpense.
+                    (() => {
+                      const gridCmp: React.CSSProperties = {
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0,1fr) 7rem 7rem 7rem",
+                        alignItems: "center",
+                        columnGap: "0.75rem",
+                      };
+                      const diffColor = (diff: number) => diff >= 0 ? "text-emerald-500" : "text-red-500";
+                      return (
+                        <>
+                          <div style={gridCmp} className="px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                            <span>Rubrica</span>
+                            <span className="text-right tabular-nums">Previsto</span>
+                            <span className="text-right tabular-nums">Realizado</span>
+                            <span className="text-right tabular-nums">Diferença</span>
+                          </div>
+                          {bpGroupedHier.map((l1) => {
+                            const l1Real = realizedTotals.l1[l1.code] ?? 0;
+                            const l1Diff = l1.total - l1Real;
+                            return (
+                              <div key={l1.name} className="mb-2">
+                                <div style={gridCmp} className="bg-muted/40 px-4 py-1.5">
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
+                                  <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l1.total)}</span>
+                                  <span className="text-[11px] font-bold font-mono text-foreground text-right tabular-nums">{formatCurrency(l1Real)}</span>
+                                  <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${diffColor(l1Diff)}`}>{formatCurrency(l1Diff)}</span>
+                                </div>
+                                {l1.l2Groups.map((l2) => {
+                                  const l2Real = realizedTotals.l2[`${l1.code}/${l2.code}`] ?? 0;
+                                  const l2Diff = l2.total - l2Real;
+                                  return (
+                                    <div key={l2.name} style={gridCmp} className="bg-muted/20 px-4 py-1 border-b border-border/40">
+                                      <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
+                                      <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
+                                      <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l2Real)}</span>
+                                      <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l2Diff)}`}>{formatCurrency(l2Diff)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                          {/* Linha TOTAL — bate ao cêntimo com o card Despesas */}
+                          {(() => {
+                            const totDiff = bpTotalExpense - bpTotalRealizedExpense;
+                            const diffCls = totDiff >= 0 ? "text-emerald-500" : "text-red-500";
+                            return (
+                              <div style={gridCmp} className="bg-muted/60 border-t-2 border-border px-4 py-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
+                                <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(bpTotalExpense)}</span>
+                                <span className="text-[11px] font-bold font-mono text-foreground text-right tabular-nums">{formatCurrency(bpTotalRealizedExpense)}</span>
+                                <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${diffCls}`}>{formatCurrency(totDiff)}</span>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    // ─── Vista BP (previsão + formalidade, hierarquia completa L1>L2>L3>lançamentos) ───
+                    (() => {
+                      const gridStyle: React.CSSProperties = {
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0,1fr) 6rem 6rem",
+                        alignItems: "center",
+                        columnGap: "0.75rem",
+                      };
+                      return (
+                        <>
+                          <div style={gridStyle} className="px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                            <span>Rubrica</span>
+                            <span className="text-right tabular-nums">Previsto</span>
+                            <span className="text-right tabular-nums">Formalidade</span>
+                          </div>
+                          {bpGroupedHier.map((l1) => (
                             <div key={l1.name} className="mb-2">
                               <div style={gridStyle} className="bg-muted/40 px-4 py-1.5">
                                 <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
                                 <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l1.total)}</span>
-                                {canSeeRealized && (
-                                  <>
-                                    <span className="text-[11px] font-bold font-mono text-foreground text-right tabular-nums">{formatCurrency(l1Real)}</span>
-                                    <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${diffColor(l1Diff)}`}>{formatCurrency(l1Diff)}</span>
-                                  </>
-                                )}
                                 <span aria-hidden />
                               </div>
-                              {l1.l2Groups.map((l2) => {
-                                const l2Real = canSeeRealized ? (realizedTotals.l2[`${l1.code}/${l2.code}`] ?? 0) : 0;
-                                const l2Diff = l2.total - l2Real;
-                                return (
-                                  <div key={l2.name}>
-                                    <div style={gridStyle} className="bg-muted/20 px-4 py-1 border-b border-border/40">
-                                      <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
-                                      <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
-                                      {canSeeRealized && (
-                                        <>
-                                          <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l2Real)}</span>
-                                          <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l2Diff)}`}>{formatCurrency(l2Diff)}</span>
-                                        </>
-                                      )}
-                                      <span aria-hidden />
-                                    </div>
-                                    {l2.l3Groups.map((l3) => {
-                                      const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
-                                      const l3Real = canSeeRealized ? (realizedTotals.l3[`${l1.code}/${l2.code}/${l3.code}/${l3.name}`] ?? 0) : 0;
-                                      const l3Diff = l3.total - l3Real;
-                                      return (
-                                        <div key={l3.name}>
-                                          <div style={gridStyle} className="px-4 py-1 border-b border-border/20 bg-muted/5">
-                                            <span className="text-[11px] font-semibold text-foreground min-w-0 pl-8 flex items-center gap-2">
-                                              <span className="truncate flex-1">{l3.code} · {l3.name}</span>
-                                              {l3Atts.length > 0 && (
-                                                <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <button
-                                                      type="button"
-                                                      className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors shrink-0"
-                                                      title={`${l3Atts.length} anexo(s) na rubrica ${l3.name}`}
-                                                    >
-                                                      <Paperclip className="h-3.5 w-3.5" />
-                                                      <span className="text-[10px] font-semibold">{l3Atts.length}</span>
-                                                    </button>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent side="left" align="end" className="w-80 p-2">
-                                                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                      {l3.code} · {l3.name} — {l3Atts.length} anexo(s)
-                                                    </p>
-                                                    <div className="space-y-1 max-h-72 overflow-y-auto">
-                                                      {l3Atts.map((a) => (
-                                                        <button
-                                                          key={a.document_id}
-                                                          type="button"
-                                                          onClick={() => openBpAttachment(a.kind, a.document_id)}
-                                                          className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-                                                        >
-                                                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                          <span className="truncate flex-1">{a.file_name}</span>
-                                                        </button>
-                                                      ))}
-                                                    </div>
-                                                  </PopoverContent>
-                                                </Popover>
+                              {l1.l2Groups.map((l2) => (
+                                <div key={l2.name}>
+                                  <div style={gridStyle} className="bg-muted/20 px-4 py-1 border-b border-border/40">
+                                    <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
+                                    <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
+                                    <span aria-hidden />
+                                  </div>
+                                  {l2.l3Groups.map((l3) => {
+                                    const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
+                                    return (
+                                      <div key={l3.name}>
+                                        <div style={gridStyle} className="px-4 py-1 border-b border-border/20 bg-muted/5">
+                                          <span className="text-[11px] font-semibold text-foreground min-w-0 pl-8 flex items-center gap-2">
+                                            <span className="truncate flex-1">{l3.code} · {l3.name}</span>
+                                            {l3Atts.length > 0 && (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors shrink-0"
+                                                    title={`${l3Atts.length} anexo(s) na rubrica ${l3.name}`}
+                                                  >
+                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                    <span className="text-[10px] font-semibold">{l3Atts.length}</span>
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent side="left" align="end" className="w-80 p-2">
+                                                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                    {l3.code} · {l3.name} — {l3Atts.length} anexo(s)
+                                                  </p>
+                                                  <div className="space-y-1 max-h-72 overflow-y-auto">
+                                                    {l3Atts.map((a) => (
+                                                      <button
+                                                        key={a.document_id}
+                                                        type="button"
+                                                        onClick={() => openBpAttachment(a.kind, a.document_id)}
+                                                        className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+                                                      >
+                                                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                        <span className="truncate flex-1">{a.file_name}</span>
+                                                      </button>
+                                                    ))}
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            )}
+                                          </span>
+                                          <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l3.total)}</span>
+                                          <span aria-hidden />
+                                        </div>
+                                        {l3.items.map((it) => (
+                                          <div key={it.id} style={gridStyle} className="px-4 py-1.5 border-b border-border/15">
+                                            <span className="text-xs min-w-0 truncate pl-12">
+                                              {it.description}
+                                              {it.specification && (
+                                                <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
                                               )}
                                             </span>
-                                            <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l3.total)}</span>
-                                            {canSeeRealized && (
-                                              <>
-                                                <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l3Real)}</span>
-                                                <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l3Diff)}`}>{formatCurrency(l3Diff)}</span>
-                                              </>
-                                            )}
-                                            <span aria-hidden />
+                                            <span className="text-xs font-mono font-semibold text-amber-500 text-right tabular-nums">{formatCurrency(it.amount)}</span>
+                                            <span className="flex justify-end">
+                                              <FormalidadeBadge
+                                                forecastId={it.id}
+                                                eventId={activeEventId!}
+                                                current={(it.formalidade ?? "estimado") as any}
+                                                readOnly
+                                                compact
+                                              />
+                                            </span>
                                           </div>
-                                          {l3.items.map((it) => (
-                                            <div key={it.id} style={gridStyle} className="px-4 py-1.5 border-b border-border/15">
-                                              <span className="text-xs min-w-0 truncate pl-12">
-                                                {it.description}
-                                                {it.specification && (
-                                                  <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
-                                                )}
-                                              </span>
-                                              <span className="text-xs font-mono font-semibold text-amber-500 text-right tabular-nums">{formatCurrency(it.amount)}</span>
-                                              {canSeeRealized && (
-                                                <>
-                                                  <span aria-hidden />
-                                                  <span aria-hidden />
-                                                </>
-                                              )}
-                                              <span className="flex justify-end">
-                                                <FormalidadeBadge
-                                                  forecastId={it.id}
-                                                  eventId={activeEventId!}
-                                                  current={(it.formalidade ?? "estimado") as any}
-                                                  readOnly
-                                                  compact
-                                                />
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                );
-                              })}
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ))}
                             </div>
-                          );
-                        })}
-                        {/* Linha TOTAL — bate ao cêntimo com o card Despesas */}
-                        <div style={gridStyle} className="bg-muted/60 border-t-2 border-border px-4 py-2">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
-                          <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(bpTotalExpense)}</span>
-                          {canSeeRealized && (() => {
-                            const totDiff = bpTotalExpense - bpTotalRealizedExpense;
-                            const diffCls = totDiff >= 0 ? "text-emerald-500" : "text-red-500";
-                            return (
-                              <>
-                                <span className="text-[11px] font-bold font-mono text-foreground text-right tabular-nums">{formatCurrency(bpTotalRealizedExpense)}</span>
-                                <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${diffCls}`}>{formatCurrency(totDiff)}</span>
-                              </>
-                            );
-                          })()}
-                          <span aria-hidden />
-                        </div>
-                      </>
-                    );
-                  })()}
+                          ))}
+                          {/* Linha TOTAL — bate ao cêntimo com o card Despesas */}
+                          <div style={gridStyle} className="bg-muted/60 border-t-2 border-border px-4 py-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
+                            <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(bpTotalExpense)}</span>
+                            <span aria-hidden />
+                          </div>
+                        </>
+                      );
+                    })()
+                  )}
                 </CardContent>
 
               </Card>
