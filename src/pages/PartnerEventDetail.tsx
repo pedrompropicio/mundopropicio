@@ -102,6 +102,10 @@ export default function PartnerEventDetail() {
   const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
   // Modo de detalhe para as exportações (Excel/PDF) do BP.
   const [bpDetailMode, setBpDetailMode] = useState<"aggregated" | "expanded">("aggregated");
+  // Vista da aba BP: "bp" (previsão + formalidade, hierarquia completa) vs "compare" (BP × Realizado até L2).
+  // Racional: as transações reais não seguem o desdobramento fino do BP em L3, por isso a comparação
+  // Previsto vs Realizado só é fiável ao nível L2. O seletor só aparece com view_partner_realized.
+  const [bpCompareMode, setBpCompareMode] = useState<"bp" | "compare">("bp");
   const isMobile = useIsMobile();
   // No mobile a edição em grelha não cabe — força sempre vista Agrupada.
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
