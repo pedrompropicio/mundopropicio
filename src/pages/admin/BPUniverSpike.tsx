@@ -1253,22 +1253,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     toast.info("Linha marcada para apagar (só ao gravar).");
   };
 
-  // --- Insert new row (INLINE — sem modal) ---
-  // Adiciona uma linha vazia no FIM da folha (para não partir as fórmulas SUM
-  // dos subtotais que referenciam ranges por número de linha) e:
-  //   • herda a categoria da linha ativa (se aplicável)
-  //   • aplica dropdowns (Categoria + Formalidade) e a fórmula do Total c/IVA
-  //   • foca a célula da Descrição para escrita imediata
+  // --- Insert new row (INLINE — sem modal, integrado na árvore) ---
+  // Adiciona a InsertRow ao state; o rebuild coloca-a DENTRO do grupo da categoria
+  // (ou no grupo "⚠ Sem categoria" se sem categoria) e recalcula subtotais SUM
+  // corretamente. As edições pendentes são reaplicadas pelo efeito de rebuild.
   const handleInsertInline = () => {
     const api = apiRef.current;
     if (!api) { toast.error("Univer ainda não está pronto."); return; }
     const wb = api.getActiveWorkbook?.();
-    const sheet = wb?.getActiveSheet?.();
-    if (!wb || !sheet) { toast.error("Folha não disponível."); return; }
+    if (!wb) { toast.error("Folha não disponível."); return; }
 
-    // Descobrir categoria herdada a partir da célula ativa (walk-up até achar entry)
+    // Descobrir categoria herdada a partir da célula ativa (walk-up)
     let inheritedCatId: string | null = null;
-    let inheritedCatLabel = "";
     try {
       const active = wb.getActiveRange?.();
       const activeRow = normalizeRange(active)?.startRow;
@@ -1290,9 +1286,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         }
       }
     } catch { /* noop */ }
-    if (inheritedCatId) {
-      inheritedCatLabel = categoryIdToLabelRef.current.get(inheritedCatId) ?? "";
-    }
 
     const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const insertRow: InsertRow = {
@@ -1306,45 +1299,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     };
     setPendingInserts((prev) => [...prev, insertRow]);
     setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
-
-    const row = nextInsertRowRef.current;
-    nextInsertRowRef.current = row + 1;
-    insertRowToTempIdRef.current.set(row, tempId);
-    try {
-      // Descrição fica vazia (o utilizador escreve) — as outras defaults ajudam
-      sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.("");
-      sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(inheritedCatLabel);
-      sheet.getRange(row, COL.SPEC, 1, 1).setValue?.("");
-      sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(0);
-      sheet.getRange(row, COL.IVA, 1, 1).setValue?.(23);
-      sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel("estimado"));
-      const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
-      sheet.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
-      applyRowStyle(row, "sInsertedRow");
-      if ((api as any).newDataValidation) {
-        const formRule = (api as any).newDataValidation()
-          .requireValueInList(FORMALIDADE_LABELS)
-          .setOptions({ allowInvalid: true, showDropdown: true })
-          .build();
-        sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
-        const catRule = (api as any).newDataValidation()
-          .requireValueInList(categoryDropdownRef.current)
-          .setOptions({ allowInvalid: true, showDropdown: true })
-          .build();
-        sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
-      }
-      // Foca a célula da Descrição para escrita imediata
-      sheet.getRange(row, COL.RUBRIC, 1, 1)?.activate?.();
-    } catch (e) {
-      console.warn("[BPUniverSpike] insert inline visual failed", e);
-    }
-
-    if (inheritedCatLabel) {
-      toast.success(`Linha adicionada no fim (categoria herdada: ${inheritedCatLabel}). Ao gravar, será reposicionada no grupo correto.`);
+    setFocusInsertTempId(tempId); // efeito de rebuild vai focar a Descrição
+    const catLabel = inheritedCatId ? categoryIdToLabelRef.current.get(inheritedCatId) ?? "" : "";
+    if (catLabel) {
+      toast.success(`Linha adicionada em ${catLabel}. Preencha a Descrição.`);
     } else {
-      toast.success("Linha adicionada no fim. Escolha a categoria e preencha os campos. Ao gravar, será reposicionada no grupo correto.");
+      toast.info("Linha adicionada em «⚠ Sem categoria». Escolha uma categoria L3.");
     }
   };
+
 
   // --- Undo (native Univer for cell edits + logical for insert/delete) ---
   const handleUndo = () => {
