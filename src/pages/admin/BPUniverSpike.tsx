@@ -1211,41 +1211,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
     setSaving(true);
     try {
-      // DRY-RUN: valida tudo mas não escreve na BD; devolve preview detalhado
-      if (isDryRun) {
-        const fmt = (n: number) => n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
-        const editSummaries = Object.entries(dirty).map(([id, delta]) => {
-          const orig = originalEntriesRef.current.get(id);
-          const label = (delta.description ?? orig?.description) ?? "(sem descrição)";
-          const changes: string[] = [];
-          for (const [k, v] of Object.entries(delta)) {
-            const origV = (orig as any)?.[k];
-            if (k === "category_id") {
-              const oldL = origV ? categoryIdToLabelRef.current.get(origV as string) ?? "—" : "—";
-              const newL = v ? categoryIdToLabelRef.current.get(v as string) ?? "—" : "—";
-              changes.push(`categoria: ${oldL} → ${newL}`);
-            } else if (k === "amount") {
-              changes.push(`valor: ${fmt(Number(origV ?? 0))} → ${fmt(Number(v ?? 0))}`);
-            } else {
-              changes.push(`${k}: ${String(origV ?? "—")} → ${String(v ?? "—")}`);
-            }
-          }
-          return { id, label, changes };
-        });
-        const insertSummaries = pendingInserts.map((ins) => ({
-          label: ins.description || "(sem descrição)",
-          catLabel: ins.category_id ? categoryIdToLabelRef.current.get(ins.category_id) ?? "?" : "⚠ Sem categoria",
-          amount: ins.amount,
-          iva: ins.iva_rate,
-        }));
-        const deleteSummaries = pendingDeletes.map((id) => {
-          const orig = originalEntriesRef.current.get(id);
-          return { id, label: orig?.description ?? "(sem descrição)", amount: orig?.amount ?? 0 };
-        });
-        setDryRunPreview({ edits: editSummaries, inserts: insertSummaries, deletes: deleteSummaries });
-        setSaving(false);
-        return;
-      }
+
       // 1) Updates
       const editsArr = Object.entries(dirty).map(([id, fields]) => ({ id, ...fields }));
       if (editsArr.length) {
