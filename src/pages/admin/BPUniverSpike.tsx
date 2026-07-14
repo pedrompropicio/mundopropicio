@@ -1274,12 +1274,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   // --- Delete selected row ---
   const handleDeleteSelectedClick = () => {
     const api = apiRef.current;
-    if (!api) return;
+    if (!api) {
+      toast.error("Grelha ainda não está pronta. Tenta novamente.");
+      return;
+    }
+    // A seleção "ativa" do Univer volta a null após um rebuild (dispose+create)
+    // até o utilizador clicar de novo. Cair para o último range capturado pelo
+    // onSelectionChange evita o silent-fail depois de inserir/apagar.
     const wb = api.getActiveWorkbook?.();
     const active = wb?.getActiveRange?.();
-    const normalized = normalizeRange(active);
+    const normalized = normalizeRange(active) ?? selectionRangesRef.current[0] ?? null;
     if (!normalized) {
-      toast.info("Selecione uma linha de lançamento para apagar.");
+      toast.info("Seleciona primeiro uma linha de lançamento para apagar.");
       return;
     }
     const row = normalized.startRow;
@@ -1293,17 +1299,21 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         toast.success("Linha nova removida.");
         return;
       }
-      toast.info("Selecione uma linha de lançamento (não subtotal) para apagar.");
+      toast.info("Seleciona uma linha de lançamento (não subtotal/cabeçalho) para apagar.");
       return;
     }
     const original = originalEntriesRef.current.get(entryId);
-    if (!original) return;
+    if (!original) {
+      toast.error("Não consegui recuperar os dados originais desta linha. Recarrega a página.");
+      return;
+    }
     setConfirmDelete({
       id: entryId,
       label: original.description ?? "(sem descrição)",
       amount: original.amount,
     });
   };
+
 
   const confirmDeleteApply = () => {
     if (!confirmDelete) return;
