@@ -696,16 +696,74 @@ export default function PartnerEventDetail() {
       .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
   }, [bpExpenses, allCategories]);
 
+  // ─── Realizados por rubrica (via RPC — só com permissão dedicada) ───
+  const canSeeRealized = hasPermission("view_partner_realized");
+  const { data: realizedRows = [] } = useQuery({
+    queryKey: ["partner_bp_realized", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_partner_bp_realized", { p_event_id: activeEventId! });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        l3_category_id: string | null;
+        l3_code: string | null;
+        l3_name: string | null;
+        real_base: number;
+        real_iva: number;
+        real_total: number;
+      }>;
+    },
+    enabled: canSeeRealized && !!activeEventId,
+  });
+
+  const realizedByL3Id = useMemo(() => {
+    const m: Record<string, { base: number; iva: number; total: number }> = {};
+    (realizedRows ?? []).forEach((r) => {
+      if (!r.l3_category_id) return;
+      m[r.l3_category_id] = {
+        base: Number(r.real_base) || 0,
+        iva: Number(r.real_iva) || 0,
+        total: Number(r.real_total) || 0,
+      };
+    });
+    return m;
+  }, [realizedRows]);
+
+  // Propaga realizado para L1/L2/L3 (só usado quando canSeeRealized).
+  const realizedTotals = useMemo(() => {
+    const l3: Record<string, number> = {};
+    const l2: Record<string, number> = {};
+    const l1: Record<string, number> = {};
+    let grand = 0;
+    bpGroupedHier.forEach((g1) => {
+      let s1 = 0;
+      g1.l2Groups.forEach((g2) => {
+        let s2 = 0;
+        g2.l3Groups.forEach((g3) => {
+          const r = g3.id ? realizedByL3Id[g3.id]?.total ?? 0 : 0;
+          l3[`${g1.code}/${g2.code}/${g3.code}/${g3.name}`] = r;
+          s2 += r;
+        });
+        l2[`${g1.code}/${g2.code}`] = s2;
+        s1 += s2;
+      });
+      l1[g1.code] = s1;
+      grand += s1;
+    });
+    return { l1, l2, l3, grand };
+  }, [bpGroupedHier, realizedByL3Id]);
+
   const bpTotalExpense = useMemo(
     () => bpGroupedHier.reduce((s, g) => s + g.total, 0),
     [bpGroupedHier],
   );
+  const bpTotalRealizedExpense = realizedTotals.grand;
   // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
   const bpTotalIncome = useMemo(
     () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
     [bpIncomes],
   );
   const bpTotalResult = bpTotalIncome - bpTotalExpense;
+
 
   // ─── Exportações do BP do sócio (Excel + PDF) ───
   // Configuração FIXA: previsão + despesas + N3 + com overhead. Segurança:
@@ -726,12 +784,33 @@ export default function PartnerEventDetail() {
       date: event.date ?? null,
       location: (event as any).location ?? null,
     };
+    // Shim de "transações" para o modo comparação — 1 linha por rubrica L3
+    // com o realizado agregado. Nunca contém transações individuais nem
+    // fornecedores; alimenta apenas as colunas Real s/IVA e Variação.
+    const pseudoTransactions = canSeeRealized
+      ? (realizedRows ?? [])
+          .filter((r) => r.l3_category_id)
+          .map((r) => {
+            const base = Number(r.real_base) || 0;
+            const iva = Number(r.real_iva) || 0;
+            return {
+              id: `partner-realized-${r.l3_category_id}`,
+              event_id: activeEventId,
+              type: "expense",
+              category_id: r.l3_category_id,
+              amount: base,
+              iva_rate: base > 0 ? (iva / base) * 100 : 0,
+            };
+          })
+      : [];
     return {
       eventsToExport: [evtShim],
       allEvents: [evtShim],
       forecasts: forecastsForExport,
       categories: allCategories as any[],
       expand: bpDetailMode === "expanded",
+      mode: (canSeeRealized ? "comparison" : "forecast") as "comparison" | "forecast",
+      pseudoTransactions,
     };
   };
 
@@ -743,10 +822,10 @@ export default function PartnerEventDetail() {
         p.eventsToExport,
         p.allEvents,
         p.forecasts,
-        [],           // transactions — modo previsão + despesas: não usadas
+        p.pseudoTransactions, // agregados por L3 (sem transações individuais) ou [] sem permissão
         p.categories,
         [], [], [],   // ticketZones/Lots/Sales — sem receitas de bilheteira
-        "forecast",   // mode
+        p.mode,       // "comparison" com permissão, "forecast" caso contrário
         [], [],       // cacheConfigs, cacheDeductions
         [],           // audit logs
         "expense",    // typeFilter — força sem folha Resumo, sem receitas
@@ -770,10 +849,10 @@ export default function PartnerEventDetail() {
         p.eventsToExport,
         p.allEvents,
         p.forecasts,
-        [],
+        p.pseudoTransactions,
         p.categories,
         [], [], [],
-        "forecast",
+        p.mode,
         [], [],
         [],
         "expense",
@@ -789,6 +868,7 @@ export default function PartnerEventDetail() {
       toast.error("Erro ao exportar PDF", { description: err?.message });
     }
   };
+
 
 
 
@@ -1149,9 +1229,23 @@ export default function PartnerEventDetail() {
           ) : (
             <div className="space-y-3 max-w-4xl mx-auto">
               <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <span className="text-sm font-bold">Total previsto (despesas, c/IVA)</span>
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <span className="text-sm font-bold flex-1">Total previsto (despesas, c/IVA)</span>
                   <span className="text-lg font-bold font-mono text-amber-500">{formatCurrency(bpTotalExpense)}</span>
+                  {canSeeRealized && (
+                    <>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Realizado</span>
+                        <span className="text-lg font-bold font-mono text-foreground">{formatCurrency(bpTotalRealizedExpense)}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Variação</span>
+                        <span className={`text-lg font-bold font-mono ${bpTotalRealizedExpense - bpTotalExpense > 0 ? "text-red-500" : "text-emerald-500"}`}>
+                          {formatCurrency(bpTotalRealizedExpense - bpTotalExpense)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -1159,20 +1253,41 @@ export default function PartnerEventDetail() {
                   <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" /> Business Plan — Custos</CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                  {bpGroupedHier.map((l1) => (
+                  {bpGroupedHier.map((l1) => {
+                    const l1Real = canSeeRealized ? (realizedTotals.l1[l1.code] ?? 0) : 0;
+                    const l1Var = l1Real - l1.total;
+                    return (
                     <div key={l1.name} className="mb-2">
-                      <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} · {l1.name}</span>
-                        <span className="text-[11px] font-bold font-mono text-amber-500">{formatCurrency(l1.total)}</span>
+                      <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between gap-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-foreground flex-1 min-w-0 truncate">{l1.code} · {l1.name}</span>
+                        <span className="text-[11px] font-bold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l1.total)}</span>
+                        {canSeeRealized && (
+                          <>
+                            <span className="text-[11px] font-bold font-mono text-foreground whitespace-nowrap w-24 text-right">{formatCurrency(l1Real)}</span>
+                            <span className={`text-[11px] font-bold font-mono whitespace-nowrap w-24 text-right ${l1Var > 0 ? "text-red-500" : "text-emerald-500"}`}>{formatCurrency(l1Var)}</span>
+                          </>
+                        )}
                       </div>
-                      {l1.l2Groups.map((l2) => (
+                      {l1.l2Groups.map((l2) => {
+                        const l2Real = canSeeRealized ? (realizedTotals.l2[`${l1.code}/${l2.code}`] ?? 0) : 0;
+                        const l2Var = l2Real - l2.total;
+                        return (
                         <div key={l2.name}>
-                          <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40">
-                            <span className="text-[11px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
-                            <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
+                          <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40 gap-3">
+                            <span className="text-[11px] font-semibold text-muted-foreground flex-1 min-w-0 truncate">{l2.code} · {l2.name}</span>
+                            <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l2.total)}</span>
+                            {canSeeRealized && (
+                              <>
+                                <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right">{formatCurrency(l2Real)}</span>
+                                <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-24 text-right ${l2Var > 0 ? "text-red-500" : "text-emerald-500"}`}>{formatCurrency(l2Var)}</span>
+                              </>
+                            )}
                           </div>
                           {l2.l3Groups.map((l3) => {
                             const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
+                            const l3Real = canSeeRealized ? (realizedTotals.l3[`${l1.code}/${l2.code}/${l3.code}/${l3.name}`] ?? 0) : 0;
+                            const l3Var = l3Real - l3.total;
+                            const l3Pct = l3.total > 0 ? Math.min(100, (l3Real / l3.total) * 100) : 0;
                             return (
                             <div key={l3.name}>
                               <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5 gap-2">
@@ -1210,7 +1325,18 @@ export default function PartnerEventDetail() {
                                   </Popover>
                                 )}
                                 <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l3.total)}</span>
+                                {canSeeRealized && (
+                                  <>
+                                    <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right">{formatCurrency(l3Real)}</span>
+                                    <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-24 text-right ${l3Var > 0 ? "text-red-500" : "text-emerald-500"}`}>{formatCurrency(l3Var)}</span>
+                                  </>
+                                )}
                               </div>
+                              {canSeeRealized && l3.total > 0 && (
+                                <div className="px-4 pl-12 pb-1">
+                                  <Progress value={l3Pct} className="h-1" />
+                                </div>
+                              )}
                               {l3.items.map((it) => (
                                 <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
                                   <span className="text-xs flex-1 min-w-0 truncate">
@@ -1234,10 +1360,13 @@ export default function PartnerEventDetail() {
                           })}
 
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
+
               </Card>
             </div>
           )}

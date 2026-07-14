@@ -1,70 +1,62 @@
-## Sessões de Cartão — FASE 1 (backend + gestão)
 
-Feature de gestão de cartões pré-pagos entregues a produtores, seguindo o padrão do módulo Camarim. Cartões continuam como `financial_accounts` (`type='prepaid_card'`); sessão é camada de responsabilidade + fecho.
+# Portal do Sócio — "Realizados do evento"
 
-### 1. Migration única (`supabase/migrations/<ts>_card_sessions.sql`)
+Feature nova que expõe ao sócio o realizado por rubrica (L3), sem nunca enviar transações individuais ao cliente. Ligada a uma nova permissão custom.
 
-Tabelas novas (todas com `company_id`, RLS por `row_belongs_to_current_company()` + gate `card_manage` para writes, `service_role` GRANT, `updated_at` trigger):
+## 1. Permissão nova `view_partner_realized`
 
-- **card_sessions** — `card_account_id`, `holder_profile_id?`, `holder_name`, `primary_event_id?`, `opening_balance`, `status ∈ open|in_review|closed`, `opened_at/by`, `closed_at/by`, `closing_balance_confirmed?`, `closing_summary jsonb?`, `notes`. Unique parcial: uma sessão não-fechada por cartão.
-- **card_session_loads** — `session_id CASCADE`, `amount>0`, `load_date`, `source_account_id`, `out_transaction_id?`, `in_transaction_id?`, `created_by/at`. Guarda o par transitório.
-- **card_session_items** — espelho de `camarim_items`: `session_id`, `submitted_by`, `item_date`, `supplier_name`, `description`, `amount`, `iva_rate`, `event_id?`, `document_path?`, `ocr_raw_payload?`, `status ∈ submitted|approved|rejected`, `rejection_reason?`, `transaction_id UNIQUE?`, `reviewed_by/at`.
-- **transactions**: adicionar `card_session_id uuid NULL FK card_sessions` (carimbo).
-- **user_permissions enum**: `card_manage`, `card_team` (default admin+manager); grant a editor via seed opcional (não obrigatório).
-- **RLS pós-close**: `card_sessions/loads/items` — updates só admin quando `status='closed'` (padrão camarim lock).
+- Adicionar entrada em `ALL_PERMISSIONS` (`src/contexts/AuthContext.tsx`), grupo **Geral**, label **"Ver Realizados do Evento"**, imediatamente a seguir a `view_bp`.
+- Default: desligada para todos os roles (nenhum `INSERT` em `role_permissions`). Fica ligável só por override individual no modal existente `UserPermissionsModal` — usa a mesma UI (toggle + tag CUSTOM) sem alterações.
+- Migration só adiciona a permission ao `ALL_PERMISSIONS`; sem RLS nova (a RPC é que valida).
 
-### 2. Recarga (par transitório)
+## 2. RPC `get_partner_bp_realized(p_event_id uuid)` — SECURITY DEFINER
 
-Ao abrir modal Recarga (ou carga inicial na abertura):
-- INSERT transação **expense** transitória (`is_transitory=true`, `status='paid'`, `paid_amount=amount`, `account_id=source_account_id`, sem `event_id`, descrição `Recarga cartão — {nome cartão}`).
-- INSERT transação **income** transitória equivalente com `account_id=card_account_id`, descrição `Carga de {conta origem}`.
-- INSERT `card_session_loads` com os dois IDs.
+Fonte única do realizado do sócio. Nunca devolve linhas de transação.
 
-### 3. Frontend
+Validações (todas obrigatórias, aborta com `raise exception` se falhar):
+1. `auth.uid()` não nulo.
+2. Utilizador tem acesso ao evento via `partner_event_access` (linha ativa, ou acesso ao Master quando o evento é Split — replicar a regra já usada em `PartnerEventDetail`).
+3. `has_permission(auth.uid(), 'view_partner_realized')` = true.
 
-Adicionar entrada sidebar "Cartões" (ícone CreditCard, gate `card_manage`), rotas:
+Cálculo:
+- Espelha o cálculo do `ReportPL` em modo `comparison` para despesas: para cada `event_forecast` do evento (incluindo `is_overhead`, incluindo linhas com `master_forecast_id` — mesmas linhas que a aba BP do sócio já lê), junta a `transactions` pelo `transaction_id` **direct** e por match de `category_id` (UNION direct+category — parcelas BP), replicando a "memoria core" `bp-installments`.
+- Agrega por `category_id` da transação e resolve L3 via `account_categories`.
+- Devolve `JSONB` array de `{ l3_category_id, l3_code, l3_name, l2_code, l1_code, real_base, real_iva, real_total }` (despesas c/IVA). Nenhum campo `is_overhead` na saída (invisível).
 
-- **/cartoes** (`src/pages/CardSessions.tsx`) — lista contas `prepaid_card` com saldo atual, sessão ativa (portador, evento, status) + botão "Entregar cartão" (`OpenCardSessionModal`).
-- **/cartoes/:id** (`src/pages/CardSessionDetail.tsx`) — KPIs (Entregue / Aprovado / Pendente / Saldo teórico) + breakdown por evento. Abas:
-  - **Despesas** — transações com `card_session_id=id` + botão "Nova despesa" (`NewCardExpenseModal`: cria transação real expense/paid direta na conta do cartão, categoria + evento à escolha, carimba `card_session_id`).
-  - **Fila de aprovação** — `card_session_items` submitted, editar + atribuir categoria → Aprovar cria transação real e grava `transaction_id`; Rejeitar exige motivo.
-  - **Recargas** — histórico + botão Recarga (`CardLoadModal`).
-- Transições: open → in_review → closed + botão "Reabrir" (manager/admin).
+Grants: `GRANT EXECUTE ON FUNCTION public.get_partner_bp_realized(uuid) TO authenticated`.
 
-### 4. Fecho (`CloseCardSessionModal`, manager/admin)
+## 3. UI — aba BP do `PartnerEventDetail.tsx`
 
-- Bloqueado se existir item `submitted`.
-- Mostra: abertura + Σ recargas − Σ despesas aprovadas = saldo teórico.
-- Campo "Saldo real conferido"; se diferença ≠ 0 → opção "Criar transação de ajuste" (expense/income no cartão, categoria à escolha) OU nota justificativa.
-- Grava `closing_balance_confirmed` + `closing_summary` (totais, cargas, despesas por evento, diferença, autor, data) e `status='closed'`.
-- Botão "Exportar PDF" (jspdf, padrão dos fechos existentes).
-- Sem movimento bancário — remanescente fica no cartão.
+- Novo `useQuery` `["partner_bp_realized", eventId]` que chama a RPC **só se `hasPermission('view_partner_realized')`**. Sem a permissão, query desativada — payload de rede fica idêntico ao atual.
+- Extender `bpGroupedHier` (memo) para mesclar realizados por `l3.id` a partir do resultado da RPC, propagando totais realizados para L2 e L1.
+- Renderização (apenas quando permissão ativa):
+  - Linhas L1 / L2 / L3 (subtotais) ganham 2 colunas extra à direita: **Realizado** (mesmo formato monetário) e **Variação** (colorida verde/vermelho). Barra `<Progress>` fininha por baixo do L3 mostrando `min(100, real/previsto*100)`.
+  - Itens individuais (linha 1214) — inalterados, continuam a mostrar só previsão.
+  - Card "Total previsto" (linha 1151) ganha versão comparativa: total realizado + variação.
+- Header layout mantém-se; só ajustamos larguras.
 
-### 5. Componentes novos
+## 4. Exportação Excel/PDF
 
-```
-src/pages/CardSessions.tsx
-src/pages/CardSessionDetail.tsx
-src/components/cards/OpenCardSessionModal.tsx
-src/components/cards/CardLoadModal.tsx
-src/components/cards/NewCardExpenseModal.tsx
-src/components/cards/ApproveCardItemModal.tsx
-src/components/cards/CloseCardSessionModal.tsx
-src/lib/card-session-helpers.ts
-```
+- `exportPLToExcel`/`exportPLToPDF` já suportam `mode="comparison"` a partir das `transactions` recebidas. Como não podemos enviar transações ao sócio, fazemos **shim**: construímos um array `pseudoTransactions` local, uma linha por agregado da RPC, com `{ event_id: activeEventId, type: 'expense', category_id: l3_id, amount: real_base, iva_rate: real_base>0 ? real_iva/real_base*100 : 0 }`. Nada mais.
+- `buildExportPayload` passa a devolver também `pseudoTransactions` e `mode` (`"comparison"` se permissão ligada, senão `"forecast"` como hoje).
+- Handlers `handleExportBPExcel`/`Pdf` passam `mode` dinâmico + `pseudoTransactions`. Mantidos `typeFilter="expense"`, `hideOverheadTag=true`, todos os arrays de bilheteira/cache vazios.
 
-### 6. Fora de âmbito (Fase 2)
+## 5. Não mexer
 
-- Vista mobile do produtor (`/cartoes-equipa`), OCR e submissão de items pelo produtor.
-- Nesta fase os `card_session_items` só existem no schema + fila de aprovação (permite testar aprovação inserindo manualmente ou já ficam prontos para Fase 2).
+- Spike Univer, `ReportPL` staff, `BPGridEditor`, RLS de `event_forecasts`/`transactions`.
+- Nenhuma escrita direta a `transactions` no cliente do sócio.
 
-### 7. Memória
+## Ficheiros afetados
 
-Criar `.lovable/memory/features/card-sessions.md` (schema, fluxo aprovação, recarga par transitório, fecho, permissões).
+- `supabase/migrations/<ts>_partner_bp_realized.sql` — nova RPC + grant.
+- `src/contexts/AuthContext.tsx` — nova permission em `ALL_PERMISSIONS`.
+- `src/pages/PartnerEventDetail.tsx` — query da RPC, merge nos subtotais, colunas extra na UI, shim de export.
+- `.lovable/memory/features/event-view-permissions.md` — regista `view_partner_realized`.
 
-### Pressupostos que assumo salvo indicação em contrário
+## Critério de aceitação
 
-- Permissões `card_manage` e `card_team` entram no enum `app_permission` existente (não são coluna nova em `user_permissions`).
-- Storage bucket para docs dos items fica para Fase 2 (produtor submete). Fase 1 não precisa.
-- Categoria da despesa direta usa o `AccountCategorySelector` já existente (L3 only).
-- "Nova despesa" pode ter `event_id` NULL (custo comum do cartão).
+- (a) Toggle novo aparece no `UserPermissionsModal` e persiste em `user_permissions`.
+- (b) Sem toggle: portal do sócio idêntico ao atual (mesmo payload de rede).
+- (c) Com toggle: subtotais L1/L2/L3 mostram Realizado + Variação; total realizado coincide com o do Relatório BP staff (modo comparação, `typeFilter=expense`, `includeOverhead=true`) para o mesmo evento.
+- (d) DevTools → Network: request do sócio a `get_partner_bp_realized` devolve só agregados por L3, sem `transaction_id`, `supplier`, `description` nem datas.
+- (e) Excel/PDF exportados pelo sócio com permissão ativa entram no modo Previsão vs Realizado com os mesmos números.
