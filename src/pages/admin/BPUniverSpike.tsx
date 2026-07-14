@@ -567,17 +567,26 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         const info = e.category_id ? lookup[e.category_id] : null;
         const catLabel = info ? `${info.code} · ${info.name}` : "";
         const isInsert = !!e.__insertTempId;
-        const rubricStyle = isInsert ? "sInsertedRow" : stLabel;
-        const rowStyle = isInsert ? "sInsertedRow" : st;
+        // Linhas inseridas partilham EXATAMENTE os mesmos estilos das entries
+        // (indentação, formato numérico, IVA) — apenas trocamos o preset por
+        // uma variante com fundo verde. Isto garante que o rebuild trata a
+        // nova linha como um lançamento normal.
+        const rubricStyle = isInsert ? "sInsertedLabel" : stLabel;
+        const catStyle = isInsert ? "sInsertedRow" : st;
+        const specStyle = isInsert ? "sInsertedRow" : st;
+        const amountStyle = isInsert ? "sInsertedMoney" : "sMoney";
+        const ivaStyle = isInsert ? "sInsertedIva" : "sIva";
+        const totalStyle = isInsert ? "sInsertedMoneyCalc" : "sMoneyCalc";
+        const formalidadeStyle = isInsert ? "sInsertedRow" : st;
         cellData[r][COL.RUBRIC] = { v: e.description ?? "", s: rubricStyle };
-        cellData[r][COL.CATEGORY] = { v: catLabel, s: rowStyle };
-        cellData[r][COL.SPEC] = { v: e.specification ?? "", s: rowStyle };
-        cellData[r][COL.AMOUNT] = { v: e.amount, s: isInsert ? "sInsertedRow" : "sMoney" };
-        cellData[r][COL.IVA] = { v: e.iva_rate, s: isInsert ? "sInsertedRow" : "sIva" };
+        cellData[r][COL.CATEGORY] = { v: catLabel, s: catStyle };
+        cellData[r][COL.SPEC] = { v: e.specification ?? "", s: specStyle };
+        cellData[r][COL.AMOUNT] = { v: e.amount, s: amountStyle };
+        cellData[r][COL.IVA] = { v: e.iva_rate, s: ivaStyle };
         const totalFormula = `=${L_AMOUNT}${r + 1}*(1+${L_IVA}${r + 1}/100)`;
         const totalValue = (e.amount ?? 0) * (1 + (e.iva_rate ?? 0) / 100);
-        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: isInsert ? "sInsertedRow" : "sMoneyCalc" };
-        cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: rowStyle };
+        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: totalStyle };
+        cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: formalidadeStyle };
         markProtected(r, COL.TOTAL);
         protectedFormulaRows.push(r);
         originalFormulas.set(`${r},${COL.TOTAL}`, totalFormula);
