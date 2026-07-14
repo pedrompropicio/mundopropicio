@@ -247,6 +247,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const categoryDropdownRef = useRef<string[]>([]);
   const selectionRangesRef = useRef<UniverRange[]>([]);
   const toastThrottleRef = useRef(0);
+  const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const nextInsertRowRef = useRef<number>(0);
   const sheetRowCountRef = useRef<number>(200);
@@ -932,15 +933,20 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         document.removeEventListener("cut", onDomPaste, true);
       };
 
-      // Data validation on entry rows
-      try {
-        const wb = univerAPI.getActiveWorkbook?.();
-        const sheet = wb?.getActiveSheet?.();
-        if (sheet && (univerAPI as any).newDataValidation) {
+      // Data validation on entry rows.
+      // Corre em cada rebuild (o effect tem workbookData na dep list) e é
+      // adiada em duplo rAF para garantir que a sheet acabou de inicializar
+      // as linhas recém-inseridas antes de lhes aplicar regras — sem esta
+      // deferração, setDataValidation em linhas novas era silenciosamente
+      // ignorada. Lê SEMPRE entryRowsRef.current no momento da aplicação,
+      // já remapeado pelo useMemo do workbookData.
+      const applyDataValidations = () => {
+        try {
+          const wb = univerAPI.getActiveWorkbook?.();
+          const sheet = wb?.getActiveSheet?.();
+          if (!sheet || !(univerAPI as any).newDataValidation) return;
           for (const r of entryRowsRef.current) {
-            // Formalidade: dropdown BLOQUEANTE — rejeita valores fora da lista
-            // (inclui colar texto). allowInvalid:false é o que impede o
-            // utilizador de introduzir "Erro Teste" numa linha nova.
+            // Formalidade — bloqueante (rejeita texto fora da lista, inclui paste)
             const formRule = (univerAPI as any).newDataValidation()
               .requireValueInList(FORMALIDADE_LABELS)
               .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe um estado da lista." })
@@ -948,17 +954,27 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
             sheet.getRange(r, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
 
             if (categoryDropdownRef.current.length) {
+              // Categoria — também bloqueante (só L3 válidos)
               const catRule = (univerAPI as any).newDataValidation()
                 .requireValueInList(categoryDropdownRef.current)
-                .setOptions({ allowInvalid: true, showDropdown: true })
+                .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe uma categoria L3 da lista." })
                 .build();
               sheet.getRange(r, COL.CATEGORY, 1, 1).setDataValidation(catRule);
             }
           }
+        } catch (dvErr) {
+          console.warn("[BPUniverSpike] falha a aplicar data validation:", dvErr);
         }
-      } catch (dvErr) {
-        console.warn("[BPUniverSpike] falha a aplicar data validation:", dvErr);
-      }
+      };
+      applyDataValidations();
+      // Reaplicar após o browser paintar — cobre o caso de rebuild em que a
+      // sheet ainda estava a materializar as linhas novas na 1ª chamada.
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(applyDataValidations);
+        (dvRafRef as any).current = raf2;
+      });
+      (dvRafRef as any).current = raf1;
+
 
       try {
         const wb = univerAPI.getActiveWorkbook?.();
@@ -1005,6 +1021,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       setErr("Falha a inicializar Univer: " + (e?.message ?? String(e)));
     }
     return () => {
+      if (dvRafRef.current != null) { cancelAnimationFrame(dvRafRef.current); dvRafRef.current = null; }
       try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
       domProtectionCleanupRef.current = null;
       try { univerRef.current?.dispose?.(); } catch { /* noop */ }
