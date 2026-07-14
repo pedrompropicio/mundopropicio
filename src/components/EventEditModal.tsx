@@ -176,6 +176,8 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
     setLocalFestivalDates(localFestivalDates.filter(fd => fd !== d));
   };
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>

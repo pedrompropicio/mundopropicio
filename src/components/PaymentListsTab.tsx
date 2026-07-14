@@ -615,6 +615,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     }
   };
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-4xl lg:max-w-[min(95vw,1400px)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -1245,6 +1247,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     });
   };
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4" {...backdrop}>
       <div
@@ -1603,6 +1607,8 @@ function RevisionModal({
 }) {
   const [notes, setNotes] = useState("");
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-md rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -1794,6 +1800,8 @@ function ApproveModal({
       setSubmitting(false);
     }
   };
+
+  const backdrop = useBackdropClose(onClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
