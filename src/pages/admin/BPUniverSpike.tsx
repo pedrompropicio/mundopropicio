@@ -677,6 +677,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         sInsertedMoney: { bg: { rgb: "#dcfce7" }, n: { pattern: "#,##0.00 [$€-816]" } },
         sInsertedMoneyCalc: { bg: { rgb: "#dcfce7" }, n: { pattern: "#,##0.00 [$€-816]" }, cl: { rgb: "#475569" } },
         sInsertedIva: { bg: { rgb: "#dcfce7" }, n: { pattern: "0.0" }, ht: 3 },
+        // Categoria herdada — read-only, texto esbatido
+        sInsertedCategoryLocked: { bg: { rgb: "#dcfce7" }, cl: { rgb: "#94a3b8" }, it: 1 },
       },
       sheetOrder: ["sheet1"],
       sheets: {
