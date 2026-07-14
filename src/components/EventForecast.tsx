@@ -1146,22 +1146,64 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
       const isBPApproved = forecast.status === "approved";
       const txStatus = isBPApproved ? "approved" : "pending";
+      const preparedInstallments = installments.map((inst, i) => ({
+        amount: roundCents(Number(inst.amount) || 0),
+        date: inst.date,
+        description: inst.description || `${forecast.description} (${i + 1}/${installments.length})`,
+      }));
+
+      if (forecast.transaction_id) {
+        throw new Error("Esta linha do BP já tem transações/parcelas programadas.");
+      }
+
+      const installmentDescriptions = [...new Set(preparedInstallments.map((inst) => inst.description))];
+      const installmentDates = [...new Set(preparedInstallments.map((inst) => inst.date))];
+      let existingQuery = supabase
+        .from("transactions")
+        .select("id, description, amount, iva_rate, due_date")
+        .eq("event_id", eventId)
+        .eq("type", forecast.type)
+        .in("description", installmentDescriptions)
+        .in("due_date", installmentDates);
+
+      existingQuery = forecast.category_id
+        ? existingQuery.eq("category_id", forecast.category_id)
+        : existingQuery.is("category_id", null);
+
+      const { data: existingInstallments, error: existingError } = await existingQuery;
+      if (existingError) throw existingError;
+
+      const expectedKeys = new Set(
+        preparedInstallments.map((inst) => `${inst.description}|${inst.date}|${inst.amount.toFixed(2)}|${Number(forecast.iva_rate).toFixed(2)}`),
+      );
+      const alreadyExists = (existingInstallments ?? []).some((tx: any) =>
+        expectedKeys.has(`${tx.description}|${tx.due_date}|${Number(tx.amount).toFixed(2)}|${Number(tx.iva_rate).toFixed(2)}`),
+      );
+      if (alreadyExists) {
+        throw new Error("Estas parcelas já existem para esta linha do BP. Remova/edite as existentes antes de reprogramar.");
+      }
+
       const ids: string[] = [];
-      for (let i = 0; i < installments.length; i++) {
-        const inst = installments[i];
+      for (let i = 0; i < preparedInstallments.length; i++) {
+        const inst = preparedInstallments[i];
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           event_id: eventId,
           type: forecast.type,
-          description: inst.description || `${forecast.description} (${i + 1}/${installments.length})`,
+          description: inst.description,
           specification: forecast.specification || null,
-          amount: Number(inst.amount),
+          amount: inst.amount,
           iva_rate: Number(forecast.iva_rate),
           category_id: forecast.category_id || null,
           date: inst.date,
           due_date: inst.date,
           status: txStatus,
         } as any).select("id").single();
-        if (error) throw error;
+        if (error) {
+          if ((error as any).code === "23505") {
+            throw new Error("Estas parcelas já existem para esta linha do BP. A criação duplicada foi bloqueada.");
+          }
+          throw error;
+        }
         if (insertedTx?.id) {
           ids.push(insertedTx.id);
           await supabase.from("transaction_audit_log").insert({
@@ -1169,7 +1211,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             changed_by: callerName,
             field_name: "Criação",
             old_value: null,
-            new_value: `Programação de parcelas — ${i + 1}/${installments.length} de "${forecast.description}" — ${Number(inst.amount).toFixed(2)} €`,
+              new_value: `Programação de parcelas — ${i + 1}/${preparedInstallments.length} de "${forecast.description}" — ${Number(inst.amount).toFixed(2)} €`,
           });
           if (isBPApproved) {
             await supabase.from("transaction_audit_log").insert({
@@ -3373,7 +3415,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
-              {isApproved && isAdmin && isEligibleForGen && onScheduleInstallments && (
+              {isApproved && isAdmin && isEligibleForGen && !item.transaction_id && !hasMatchingTx && onScheduleInstallments && (
                 <button
                   onClick={() => onScheduleInstallments(item)}
                   className="rounded p-1 hover:bg-primary/20"
