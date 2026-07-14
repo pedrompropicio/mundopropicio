@@ -542,6 +542,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     const rowToEntryId = new Map<number, string>();
     const entryIdToRow = new Map<string, number>();
     const insertRowToTempId = new Map<number, string>();
+    const insertedCategoryCells = new Set<string>();
 
     const markProtected = (r: number, c: number) => protectedCells.add(`${r},${c}`);
 
