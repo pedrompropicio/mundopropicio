@@ -335,6 +335,25 @@ export default function Transactions() {
     return next;
   }, [transactions, selectedEventScopeIds]);
 
+  // Parents that ARE true Master splits (parent has no event_id → children have event_id).
+  // Only children of these are hidden from the flat list; installment siblings within the
+  // same event stay visible.
+  const masterSplitParentIds = useMemo(() => {
+    const byId = new Map<string, any>();
+    transactions.forEach((t: any) => byId.set(t.id, t));
+    const s = new Set<string>();
+    transactions.forEach((t: any) => {
+      if (!t.parent_transaction_id) return;
+      const parent = byId.get(t.parent_transaction_id);
+      if (parent && !parent.event_id) s.add(t.parent_transaction_id);
+    });
+    return s;
+  }, [transactions]);
+
+  const isHiddenSplitChild = (t: any) =>
+    !!t.parent_transaction_id && masterSplitParentIds.has(t.parent_transaction_id);
+
+
   const matchesEventFilter = (transaction: any) => {
     if (selectedEventIds.size === 0) return true;
     if (transaction.event_id && selectedEventScopeIds.has(transaction.event_id)) return true;
