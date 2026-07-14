@@ -1237,58 +1237,59 @@ export default function PartnerEventDetail() {
                   <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" /> Business Plan — Custos</CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                  {canSeeRealized && (
-                    <div className="px-4 py-1.5 flex items-center justify-between gap-3 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                      <span className="flex-1">Rubrica</span>
-                      <span className="w-24 text-right tabular-nums">Previsto</span>
-                      <span className="w-24 text-right tabular-nums">Realizado</span>
-                      <span className="w-16 text-right tabular-nums">Execução</span>
-                    </div>
-                  )}
+                  <div className="px-4 py-1.5 flex items-center gap-3 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    <span className="flex-1">Rubrica</span>
+                    <span className="w-24 text-right tabular-nums">Previsto</span>
+                    {canSeeRealized && (
+                      <>
+                        <span className="w-24 text-right tabular-nums">Realizado</span>
+                        <span className="w-24 text-right tabular-nums">Diferença</span>
+                      </>
+                    )}
+                    <span className="w-24 shrink-0 text-right tabular-nums">Formalidade</span>
+                  </div>
                   {(() => {
-                    const pctColor = (pct: number) =>
-                      pct <= 100 ? "text-emerald-500" : pct <= 110 ? "text-amber-500" : "text-red-500";
-                    const pctOf = (real: number, prev: number) =>
-                      prev > 0 ? (real / prev) * 100 : (real > 0 ? Infinity : 0);
-                    const pctLabel = (pct: number) => (isFinite(pct) ? `${pct.toFixed(0)}%` : "—");
+                    const diffColor = (diff: number) => diff >= 0 ? "text-emerald-500" : "text-red-500";
                     return bpGroupedHier.map((l1) => {
                     const l1Real = canSeeRealized ? (realizedTotals.l1[l1.code] ?? 0) : 0;
-                    const l1Pct = pctOf(l1Real, l1.total);
+                    const l1Diff = l1.total - l1Real;
                     return (
                     <div key={l1.name} className="mb-2">
-                      <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between gap-3">
+                      <div className="bg-muted/40 px-4 py-1.5 flex items-center gap-3">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-foreground flex-1 min-w-0 truncate">{l1.code} · {l1.name}</span>
                         <span className="text-[11px] font-bold font-mono text-amber-500 whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l1.total)}</span>
                         {canSeeRealized && (
                           <>
                             <span className="text-[11px] font-bold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l1Real)}</span>
-                            <span className={`text-[11px] font-bold font-mono whitespace-nowrap w-16 text-right tabular-nums ${pctColor(l1Pct)}`}>{pctLabel(l1Pct)}</span>
+                            <span className={`text-[11px] font-bold font-mono whitespace-nowrap w-24 text-right tabular-nums ${diffColor(l1Diff)}`}>{formatCurrency(l1Diff)}</span>
                           </>
                         )}
+                        <span className="w-24 shrink-0" aria-hidden />
                       </div>
                       {l1.l2Groups.map((l2) => {
                         const l2Real = canSeeRealized ? (realizedTotals.l2[`${l1.code}/${l2.code}`] ?? 0) : 0;
-                        const l2Pct = pctOf(l2Real, l2.total);
+                        const l2Diff = l2.total - l2Real;
                         return (
                         <div key={l2.name}>
-                          <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40 gap-3">
+                          <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center border-b border-border/40 gap-3">
                             <span className="text-[11px] font-semibold text-muted-foreground flex-1 min-w-0 truncate">{l2.code} · {l2.name}</span>
                             <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l2.total)}</span>
                             {canSeeRealized && (
                               <>
                                 <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l2Real)}</span>
-                                <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-16 text-right tabular-nums ${pctColor(l2Pct)}`}>{pctLabel(l2Pct)}</span>
+                                <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-24 text-right tabular-nums ${diffColor(l2Diff)}`}>{formatCurrency(l2Diff)}</span>
                               </>
                             )}
+                            <span className="w-24 shrink-0" aria-hidden />
                           </div>
                           {l2.l3Groups.map((l3) => {
                             const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
                             const l3Real = canSeeRealized ? (realizedTotals.l3[`${l1.code}/${l2.code}/${l3.code}/${l3.name}`] ?? 0) : 0;
-                            const l3Pct = pctOf(l3Real, l3.total);
+                            const l3Diff = l3.total - l3Real;
                             const l3BarPct = l3.total > 0 ? Math.min(100, (l3Real / l3.total) * 100) : 0;
                             return (
                             <div key={l3.name}>
-                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5 gap-2">
+                              <div className="px-4 pl-12 py-1 flex items-center border-b border-border/20 bg-muted/5 gap-2">
                                 <span className="text-[11px] font-semibold text-foreground flex-1 min-w-0 truncate">{l3.code} · {l3.name}</span>
                                 {l3Atts.length > 0 && (
                                   <Popover>
@@ -1326,9 +1327,10 @@ export default function PartnerEventDetail() {
                                 {canSeeRealized && (
                                   <>
                                     <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l3Real)}</span>
-                                    <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-16 text-right tabular-nums ${pctColor(l3Pct)}`}>{pctLabel(l3Pct)}</span>
+                                    <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-24 text-right tabular-nums ${diffColor(l3Diff)}`}>{formatCurrency(l3Diff)}</span>
                                   </>
                                 )}
+                                <span className="w-24 shrink-0" aria-hidden />
                               </div>
                               {canSeeRealized && l3.total > 0 && (
                                 <div className="px-4 pl-12 pb-1">
@@ -1336,21 +1338,29 @@ export default function PartnerEventDetail() {
                                 </div>
                               )}
                               {l3.items.map((it) => (
-                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                <div key={it.id} className="flex items-center px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
                                   <span className="text-xs flex-1 min-w-0 truncate">
                                     {it.description}
                                     {it.specification && (
                                       <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
                                     )}
                                   </span>
-                                  <FormalidadeBadge
-                                    forecastId={it.id}
-                                    eventId={activeEventId!}
-                                    current={(it.formalidade ?? "estimado") as any}
-                                    readOnly
-                                    compact
-                                  />
-                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500 w-24 text-right tabular-nums">{formatCurrency(it.amount)}</span>
+                                  {canSeeRealized && (
+                                    <>
+                                      <span className="w-24 shrink-0" aria-hidden />
+                                      <span className="w-24 shrink-0" aria-hidden />
+                                    </>
+                                  )}
+                                  <span className="w-24 shrink-0 flex justify-end">
+                                    <FormalidadeBadge
+                                      forecastId={it.id}
+                                      eventId={activeEventId!}
+                                      current={(it.formalidade ?? "estimado") as any}
+                                      readOnly
+                                      compact
+                                    />
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -1364,6 +1374,22 @@ export default function PartnerEventDetail() {
                     );
                   });
                   })()}
+                  {/* Linha TOTAL — bate ao cêntimo com o card Despesas */}
+                  <div className="bg-muted/60 border-t-2 border-border px-4 py-2 flex items-center gap-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-foreground flex-1 min-w-0">TOTAL</span>
+                    <span className="text-[11px] font-bold font-mono text-amber-500 whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(bpTotalExpense)}</span>
+                    {canSeeRealized && (() => {
+                      const totDiff = bpTotalExpense - bpTotalRealizedExpense;
+                      const diffCls = totDiff >= 0 ? "text-emerald-500" : "text-red-500";
+                      return (
+                        <>
+                          <span className="text-[11px] font-bold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(bpTotalRealizedExpense)}</span>
+                          <span className={`text-[11px] font-bold font-mono whitespace-nowrap w-24 text-right tabular-nums ${diffCls}`}>{formatCurrency(totDiff)}</span>
+                        </>
+                      );
+                    })()}
+                    <span className="w-24 shrink-0" aria-hidden />
+                  </div>
                 </CardContent>
 
               </Card>
