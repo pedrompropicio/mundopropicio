@@ -87,7 +87,7 @@ type RowKind = "header" | "grand" | "l1" | "l2" | "l3" | "entry";
 interface BuiltRow {
   kind: RowKind;
   label: string;
-  entry?: Entry;
+  entry?: Entry & { __insertTempId?: string };
   childRows?: number[];
   indent: number;
 }
@@ -275,8 +275,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const [pendingNavConfirm, setPendingNavConfirm] = useState<null | (() => void)>(null);
 
   const [confirmRealSaveOpen, setConfirmRealSaveOpen] = useState(false);
+  const [dryRunPreview, setDryRunPreview] = useState<null | {
+    edits: { id: string; label: string; changes: string[] }[];
+    inserts: { label: string; catLabel: string; amount: number; iva: number }[];
+    deletes: { id: string; label: string; amount: number }[];
+  }>(null);
+  const [focusInsertTempId, setFocusInsertTempId] = useState<string | null>(null);
   const changeCount = Object.keys(dirty).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
+
+  // Ref para o dirty atual — usado no efeito de reaplicação (evita re-fire por keystroke)
+  const dirtyRef = useRef(dirty);
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
   // Escape to exit fullscreen
   useEffect(() => {
@@ -428,27 +438,47 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     if (!entries.length || !categories.length) return null;
     const lookup: Record<string, CategoryLookup> = buildCategoryLookup(categories as any);
 
-    type L3Bucket = { code: string; name: string; entries: Entry[] };
+    type L3Bucket = { code: string; name: string; entries: (Entry & { __insertTempId?: string })[] };
     type L2Bucket = { code: string; name: string; l3s: Map<string, L3Bucket> };
     type L1Bucket = { code: string; name: string; l2s: Map<string, L2Bucket> };
     const tree = new Map<string, L1Bucket>();
 
-    for (const e of entries) {
-      const info = e.category_id ? lookup[e.category_id] : null;
-      if (!info) continue;
-      const l1Code = info.l1Code;
-      const l1Name = info.l1Name;
-      const l2Code = info.l2Code ?? info.l1Code;
-      const l2Name = info.l2Name ?? info.l1Name;
-      const l3Code = info.code;
-      const l3Name = info.name;
+    const placeInTree = (item: Entry & { __insertTempId?: string }) => {
+      const info = item.category_id ? lookup[item.category_id] : null;
+      let l1Code: string, l1Name: string, l2Code: string, l2Name: string, l3Code: string, l3Name: string;
+      if (info) {
+        l1Code = info.l1Code; l1Name = info.l1Name;
+        l2Code = info.l2Code ?? info.l1Code; l2Name = info.l2Name ?? info.l1Name;
+        l3Code = info.code; l3Name = info.name;
+      } else {
+        // "Sem categoria" bucket at the end (código Z para ordenar por último)
+        l1Code = "Z"; l1Name = "⚠ Sem categoria — escolher categoria";
+        l2Code = "Z.Z"; l2Name = "⚠ Sem categoria";
+        l3Code = "Z.Z.Z"; l3Name = "⚠ Sem categoria";
+      }
       let l1 = tree.get(l1Code);
       if (!l1) { l1 = { code: l1Code, name: l1Name, l2s: new Map() }; tree.set(l1Code, l1); }
       let l2 = l1.l2s.get(l2Code);
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3s: new Map() }; l1.l2s.set(l2Code, l2); }
       let l3 = l2.l3s.get(l3Code);
       if (!l3) { l3 = { code: l3Code, name: l3Name, entries: [] }; l2.l3s.set(l3Code, l3); }
-      l3.entries.push(e);
+      l3.entries.push(item);
+    };
+
+    for (const e of entries) placeInTree(e);
+    // Adicionar inserções pendentes como entries virtuais (com __insertTempId)
+    for (const ins of pendingInserts) {
+      placeInTree({
+        id: `__insert__${ins.tempId}`,
+        category_id: ins.category_id,
+        description: ins.description,
+        specification: ins.specification,
+        amount: ins.amount,
+        iva_rate: ins.iva_rate,
+        formalidade: ins.formalidade,
+        status: "draft",
+        __insertTempId: ins.tempId,
+      });
     }
 
     const rows: BuiltRow[] = [];
@@ -477,7 +507,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
           rows.push({ kind: "l3", label: `${l3.code} · ${l3.name}`, indent: 3, childRows: [] });
           rows[l2Idx].childRows!.push(l3Idx);
 
-          l3.entries.sort((a, b) => (a.description ?? "").localeCompare(b.description ?? ""));
+          l3.entries.sort((a, b) => {
+            // inserções vão para o fim do grupo
+            const aIns = !!a.__insertTempId;
+            const bIns = !!b.__insertTempId;
+            if (aIns !== bIns) return aIns ? 1 : -1;
+            return (a.description ?? "").localeCompare(b.description ?? "");
+          });
           for (const e of l3.entries) {
             const eIdx = rows.length;
             rows.push({ kind: "entry", label: "", indent: 4, entry: e });
@@ -487,7 +523,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       }
     }
     return rows;
-  }, [entries, categories]);
+  }, [entries, categories, pendingInserts]);
 
   const workbookData = useMemo(() => {
     if (!built) return null;
@@ -502,6 +538,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     const entryRows: number[] = [];
     const rowToEntryId = new Map<number, string>();
     const entryIdToRow = new Map<string, number>();
+    const insertRowToTempId = new Map<number, string>();
 
     const markProtected = (r: number, c: number) => protectedCells.add(`${r},${c}`);
 
@@ -529,21 +566,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         const e = row.entry!;
         const info = e.category_id ? lookup[e.category_id] : null;
         const catLabel = info ? `${info.code} · ${info.name}` : "";
-        cellData[r][COL.RUBRIC] = { v: e.description ?? "(sem descrição)", s: stLabel };
-        cellData[r][COL.CATEGORY] = { v: catLabel, s: st };
-        cellData[r][COL.SPEC] = { v: e.specification ?? "", s: st };
-        cellData[r][COL.AMOUNT] = { v: e.amount, s: "sMoney" };
-        cellData[r][COL.IVA] = { v: e.iva_rate, s: "sIva" };
+        const isInsert = !!e.__insertTempId;
+        const rubricStyle = isInsert ? "sInsertedRow" : stLabel;
+        const rowStyle = isInsert ? "sInsertedRow" : st;
+        cellData[r][COL.RUBRIC] = { v: e.description ?? "", s: rubricStyle };
+        cellData[r][COL.CATEGORY] = { v: catLabel, s: rowStyle };
+        cellData[r][COL.SPEC] = { v: e.specification ?? "", s: rowStyle };
+        cellData[r][COL.AMOUNT] = { v: e.amount, s: isInsert ? "sInsertedRow" : "sMoney" };
+        cellData[r][COL.IVA] = { v: e.iva_rate, s: isInsert ? "sInsertedRow" : "sIva" };
         const totalFormula = `=${L_AMOUNT}${r + 1}*(1+${L_IVA}${r + 1}/100)`;
-        const totalValue = e.amount * (1 + (e.iva_rate ?? 0) / 100);
-        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: "sMoneyCalc" };
-        cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: st };
+        const totalValue = (e.amount ?? 0) * (1 + (e.iva_rate ?? 0) / 100);
+        cellData[r][COL.TOTAL] = { v: totalValue, f: totalFormula, s: isInsert ? "sInsertedRow" : "sMoneyCalc" };
+        cellData[r][COL.FORMALIDADE] = { v: enumToLabel(e.formalidade), s: rowStyle };
         markProtected(r, COL.TOTAL);
         protectedFormulaRows.push(r);
         originalFormulas.set(`${r},${COL.TOTAL}`, totalFormula);
         entryRows.push(r);
-        rowToEntryId.set(r, e.id);
-        entryIdToRow.set(e.id, r);
+        if (isInsert) {
+          insertRowToTempId.set(r, e.__insertTempId!);
+        } else {
+          rowToEntryId.set(r, e.id);
+          entryIdToRow.set(e.id, r);
+        }
       } else {
         cellData[r][COL.RUBRIC] = { v: row.label, s: stLabel };
         cellData[r][COL.CATEGORY] = { v: "", s: st };
@@ -574,8 +618,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     rowToEntryIdRef.current = rowToEntryId;
     entryIdToRowRef.current = entryIdToRow;
     categoryDropdownRef.current = l3Categories.map((c) => c.label);
-    nextInsertRowRef.current = built.length; // append new rows after built content
-    insertRowToTempIdRef.current = new Map();
+    nextInsertRowRef.current = built.length; // legacy — no longer used
+    insertRowToTempIdRef.current = insertRowToTempId;
 
     const totalRows = built.length + 50; // headroom for inserts
     const sheetRowCount = Math.max(totalRows, 200);
@@ -974,15 +1018,50 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     }
   }, []);
 
-  // Refresh delete/insert visual state
+  // Refresh visual state APÓS cada rebuild: reaplica dirty (edições), marca deletes,
+  // marca inserted rows e foca a Descrição da linha nova (se houver focusInsertTempId).
   useEffect(() => {
     if (!ready) return;
-    // Mark deletes
+    const api = apiRef.current;
+    const wb = api?.getActiveWorkbook?.();
+    const sheet = wb?.getActiveSheet?.();
+    if (!sheet) return;
+
+    // 1) Reaplicar dirty (as linhas mudaram de número após rebuild)
+    const d = dirtyRef.current;
+    for (const [id, delta] of Object.entries(d)) {
+      const row = entryIdToRowRef.current.get(id);
+      if (row == null) continue;
+      try {
+        if (delta.description !== undefined) sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
+        if (delta.category_id !== undefined) {
+          const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
+          sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
+        }
+        if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
+        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
+        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
+        if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
+      } catch { /* noop */ }
+    }
+
+    // 2) Marcar linhas apagadas
     for (const id of pendingDeletes) {
       const row = entryIdToRowRef.current.get(id);
       if (row != null) applyRowStyle(row, "sDeletedRow");
     }
-  }, [pendingDeletes, ready, applyRowStyle]);
+
+    // 3) Focar linha nova se pedido
+    if (focusInsertTempId) {
+      for (const [rr, tid] of insertRowToTempIdRef.current) {
+        if (tid === focusInsertTempId) {
+          try { sheet.getRange(rr, COL.RUBRIC, 1, 1)?.activate?.(); } catch { /* noop */ }
+          break;
+        }
+      }
+      setFocusInsertTempId(null);
+    }
+  }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId]);
 
   // --- Validation ---
   const validate = useCallback(() => {
@@ -1055,12 +1134,38 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
 
     setSaving(true);
     try {
-      // DRY-RUN: valida tudo mas não escreve na BD
+      // DRY-RUN: valida tudo mas não escreve na BD; devolve preview detalhado
       if (isDryRun) {
-        const editsArr = Object.entries(dirty);
-        toast.success(
-          `[DRY-RUN] ${changeCount} alteração(ões) validadas SEM gravar · ${editsArr.length} edições · ${pendingInserts.length} inserções · ${pendingDeletes.length} apagadas.`,
-        );
+        const fmt = (n: number) => n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+        const editSummaries = Object.entries(dirty).map(([id, delta]) => {
+          const orig = originalEntriesRef.current.get(id);
+          const label = (delta.description ?? orig?.description) ?? "(sem descrição)";
+          const changes: string[] = [];
+          for (const [k, v] of Object.entries(delta)) {
+            const origV = (orig as any)?.[k];
+            if (k === "category_id") {
+              const oldL = origV ? categoryIdToLabelRef.current.get(origV as string) ?? "—" : "—";
+              const newL = v ? categoryIdToLabelRef.current.get(v as string) ?? "—" : "—";
+              changes.push(`categoria: ${oldL} → ${newL}`);
+            } else if (k === "amount") {
+              changes.push(`valor: ${fmt(Number(origV ?? 0))} → ${fmt(Number(v ?? 0))}`);
+            } else {
+              changes.push(`${k}: ${String(origV ?? "—")} → ${String(v ?? "—")}`);
+            }
+          }
+          return { id, label, changes };
+        });
+        const insertSummaries = pendingInserts.map((ins) => ({
+          label: ins.description || "(sem descrição)",
+          catLabel: ins.category_id ? categoryIdToLabelRef.current.get(ins.category_id) ?? "?" : "⚠ Sem categoria",
+          amount: ins.amount,
+          iva: ins.iva_rate,
+        }));
+        const deleteSummaries = pendingDeletes.map((id) => {
+          const orig = originalEntriesRef.current.get(id);
+          return { id, label: orig?.description ?? "(sem descrição)", amount: orig?.amount ?? 0 };
+        });
+        setDryRunPreview({ edits: editSummaries, inserts: insertSummaries, deletes: deleteSummaries });
         setSaving(false);
         return;
       }
@@ -1143,18 +1248,11 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     const row = normalized.startRow;
     const entryId = rowToEntryIdRef.current.get(row);
     if (!entryId) {
-      // Maybe an insert row?
+      // Insert row? — apenas remove do state; o rebuild elimina a linha da grelha
       const tempId = insertRowToTempIdRef.current.get(row);
       if (tempId) {
         setPendingInserts((prev) => prev.filter((r) => r.tempId !== tempId));
-        insertRowToTempIdRef.current.delete(row);
-        // Clear visual row
-        try {
-          const sheet = wb?.getActiveSheet?.();
-          for (let c = 0; c < N_COLS; c++) sheet?.getRange(row, c, 1, 1).setValue?.("");
-          applyRowStyle(row, null);
-        } catch { /* noop */ }
-        setActionLog((log) => [...log, { kind: "insert", data: { tempId, row } }]);
+        setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
         toast.success("Linha nova removida.");
         return;
       }
@@ -1181,22 +1279,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     toast.info("Linha marcada para apagar (só ao gravar).");
   };
 
-  // --- Insert new row (INLINE — sem modal) ---
-  // Adiciona uma linha vazia no FIM da folha (para não partir as fórmulas SUM
-  // dos subtotais que referenciam ranges por número de linha) e:
-  //   • herda a categoria da linha ativa (se aplicável)
-  //   • aplica dropdowns (Categoria + Formalidade) e a fórmula do Total c/IVA
-  //   • foca a célula da Descrição para escrita imediata
+  // --- Insert new row (INLINE — sem modal, integrado na árvore) ---
+  // Adiciona a InsertRow ao state; o rebuild coloca-a DENTRO do grupo da categoria
+  // (ou no grupo "⚠ Sem categoria" se sem categoria) e recalcula subtotais SUM
+  // corretamente. As edições pendentes são reaplicadas pelo efeito de rebuild.
   const handleInsertInline = () => {
     const api = apiRef.current;
     if (!api) { toast.error("Univer ainda não está pronto."); return; }
     const wb = api.getActiveWorkbook?.();
-    const sheet = wb?.getActiveSheet?.();
-    if (!wb || !sheet) { toast.error("Folha não disponível."); return; }
+    if (!wb) { toast.error("Folha não disponível."); return; }
 
-    // Descobrir categoria herdada a partir da célula ativa (walk-up até achar entry)
+    // Descobrir categoria herdada a partir da célula ativa (walk-up)
     let inheritedCatId: string | null = null;
-    let inheritedCatLabel = "";
     try {
       const active = wb.getActiveRange?.();
       const activeRow = normalizeRange(active)?.startRow;
@@ -1218,9 +1312,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         }
       }
     } catch { /* noop */ }
-    if (inheritedCatId) {
-      inheritedCatLabel = categoryIdToLabelRef.current.get(inheritedCatId) ?? "";
-    }
 
     const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const insertRow: InsertRow = {
@@ -1234,45 +1325,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     };
     setPendingInserts((prev) => [...prev, insertRow]);
     setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
-
-    const row = nextInsertRowRef.current;
-    nextInsertRowRef.current = row + 1;
-    insertRowToTempIdRef.current.set(row, tempId);
-    try {
-      // Descrição fica vazia (o utilizador escreve) — as outras defaults ajudam
-      sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.("");
-      sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(inheritedCatLabel);
-      sheet.getRange(row, COL.SPEC, 1, 1).setValue?.("");
-      sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(0);
-      sheet.getRange(row, COL.IVA, 1, 1).setValue?.(23);
-      sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel("estimado"));
-      const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
-      sheet.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
-      applyRowStyle(row, "sInsertedRow");
-      if ((api as any).newDataValidation) {
-        const formRule = (api as any).newDataValidation()
-          .requireValueInList(FORMALIDADE_LABELS)
-          .setOptions({ allowInvalid: true, showDropdown: true })
-          .build();
-        sheet.getRange(row, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
-        const catRule = (api as any).newDataValidation()
-          .requireValueInList(categoryDropdownRef.current)
-          .setOptions({ allowInvalid: true, showDropdown: true })
-          .build();
-        sheet.getRange(row, COL.CATEGORY, 1, 1).setDataValidation(catRule);
-      }
-      // Foca a célula da Descrição para escrita imediata
-      sheet.getRange(row, COL.RUBRIC, 1, 1)?.activate?.();
-    } catch (e) {
-      console.warn("[BPUniverSpike] insert inline visual failed", e);
-    }
-
-    if (inheritedCatLabel) {
-      toast.success(`Linha adicionada no fim (categoria herdada: ${inheritedCatLabel}). Ao gravar, será reposicionada no grupo correto.`);
+    setFocusInsertTempId(tempId); // efeito de rebuild vai focar a Descrição
+    const catLabel = inheritedCatId ? categoryIdToLabelRef.current.get(inheritedCatId) ?? "" : "";
+    if (catLabel) {
+      toast.success(`Linha adicionada em ${catLabel}. Preencha a Descrição.`);
     } else {
-      toast.success("Linha adicionada no fim. Escolha a categoria e preencha os campos. Ao gravar, será reposicionada no grupo correto.");
+      toast.info("Linha adicionada em «⚠ Sem categoria». Escolha uma categoria L3.");
     }
   };
+
 
   // --- Undo (native Univer for cell edits + logical for insert/delete) ---
   const handleUndo = () => {
@@ -1290,20 +1351,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         return;
       }
       if (last.kind === "insert") {
-        // Remove from pendingInserts
+        // Só remove do state — rebuild elimina a linha da grelha
         setPendingInserts((prev) => prev.filter((r) => r.tempId !== last.data.tempId));
-        for (const [row, tid] of insertRowToTempIdRef.current) {
-          if (tid === last.data.tempId) {
-            try {
-              const wb = api.getActiveWorkbook?.();
-              const sheet = wb?.getActiveSheet?.();
-              for (let c = 0; c < N_COLS; c++) sheet?.getRange(row, c, 1, 1).setValue?.("");
-              applyRowStyle(row, null);
-            } catch { /* noop */ }
-            insertRowToTempIdRef.current.delete(row);
-            break;
-          }
-        }
         setActionLog((log) => log.slice(0, -1));
         toast.success("Inserção desfeita.");
         return;
@@ -1349,57 +1398,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const applyDraft = () => {
     const parsed = pendingDraftRef.current;
     if (!parsed || typeof parsed !== "object") { setDraftPromptOpen(false); return; }
+    // Basta atualizar o state — o rebuild (via workbookData memo) coloca
+    // inserts na árvore e o efeito de reaplicação aplica edits/deletes.
     setDirty(parsed.edits ?? {});
     setPendingDeletes(parsed.deletes ?? []);
-    // Re-apply inserts visually
-    const inserts: InsertRow[] = parsed.inserts ?? [];
-    setPendingInserts([]);
+    setPendingInserts(parsed.inserts ?? []);
     setDraftPromptOpen(false);
-    // Give Univer a tick, then insert visually
-    setTimeout(() => {
-      const api = apiRef.current;
-      if (!api) return;
-      for (const ins of inserts) {
-        setPendingInserts((prev) => [...prev, ins]);
-        try {
-          const wb = api.getActiveWorkbook?.();
-          const sheet = wb?.getActiveSheet?.();
-          const row = nextInsertRowRef.current;
-          nextInsertRowRef.current = row + 1;
-          insertRowToTempIdRef.current.set(row, ins.tempId);
-          const catLabel = ins.category_id ? categoryIdToLabelRef.current.get(ins.category_id) ?? "" : "";
-          sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(ins.description);
-          sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(catLabel);
-          sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(ins.specification ?? "");
-          sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(ins.amount);
-          sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(ins.iva_rate);
-          sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(ins.formalidade));
-          const totalFormula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
-          sheet?.getRange(row, COL.TOTAL, 1, 1).setFormula?.(totalFormula);
-          applyRowStyle(row, "sInsertedRow");
-        } catch { /* noop */ }
-      }
-      // Re-apply edits visually to existing rows
-      const edits: Record<string, Partial<Entry>> = parsed.edits ?? {};
-      try {
-        const wb = api.getActiveWorkbook?.();
-        const sheet = wb?.getActiveSheet?.();
-        for (const [id, delta] of Object.entries(edits)) {
-          const row = entryIdToRowRef.current.get(id);
-          if (row == null) continue;
-          if (delta.description !== undefined) sheet?.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
-          if (delta.category_id !== undefined) {
-            const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
-            sheet?.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
-          }
-          if (delta.specification !== undefined) sheet?.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
-          if (delta.amount !== undefined) sheet?.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
-          if (delta.iva_rate !== undefined) sheet?.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
-          if (delta.formalidade !== undefined) sheet?.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
-        }
-      } catch { /* noop */ }
-      toast.success("Rascunho recuperado.");
-    }, 200);
+    toast.success("Rascunho recuperado.");
   };
 
   const discardDraft = () => {
@@ -1408,6 +1413,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     setDraftPromptOpen(false);
     toast.info("Rascunho descartado.");
   };
+
+  const discardAllChanges = () => {
+    setDirty({});
+    setPendingInserts([]);
+    setPendingDeletes([]);
+    setValidationErrors([]);
+    setActionLog([]);
+    setDryRunPreview(null);
+    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    toast.success("Alterações descartadas.");
+  };
+
 
   if (!allowed) return embedded ? null : <Navigate to="/" replace />;
 
@@ -1509,6 +1526,66 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
 
       {actionBar}
 
+      {dryRunPreview && (
+        <div className="rounded-md border-2 border-amber-400 bg-amber-50 text-amber-950 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="h-4 w-4" />
+            [DRY-RUN] Simulação concluída — <span className="underline">nada foi gravado</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-6 text-xs"
+              onClick={() => setDryRunPreview(null)}
+            >
+              Fechar
+            </Button>
+          </div>
+          <div className="text-xs space-y-1">
+            {dryRunPreview.edits.length > 0 && (
+              <div>
+                <b>✓ {dryRunPreview.edits.length} edição(ões):</b>
+                <ul className="list-disc pl-5">
+                  {dryRunPreview.edits.map((e) => (
+                    <li key={e.id}><b>{e.label}</b>: {e.changes.join("; ")}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dryRunPreview.inserts.length > 0 && (
+              <div>
+                <b>✓ {dryRunPreview.inserts.length} linha(s) nova(s):</b>
+                <ul className="list-disc pl-5">
+                  {dryRunPreview.inserts.map((i, idx) => (
+                    <li key={idx}>
+                      <b>{i.label}</b> ({i.catLabel}) — {i.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} + {i.iva}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dryRunPreview.deletes.length > 0 && (
+              <div>
+                <b>✓ {dryRunPreview.deletes.length} linha(s) a apagar:</b>
+                <ul className="list-disc pl-5">
+                  {dryRunPreview.deletes.map((d) => (
+                    <li key={d.id}><b>{d.label}</b> ({d.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })})</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="pt-1 italic text-amber-800">
+              As marcas visuais (🟥 apagar, 🟩 nova) mantêm-se para continuar a editar — não é bug.
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="destructive" onClick={discardAllChanges}>
+              Descartar todas as alterações
+            </Button>
+          </div>
+        </div>
+      )}
+
+
       {err && (
         <div className="p-3 rounded bg-destructive/10 text-destructive text-sm whitespace-pre-wrap">
           {err}
@@ -1563,7 +1640,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       <div
         className={
           fullscreen
-            ? "fixed inset-0 z-40 bg-background flex flex-col"
+            ? "fixed inset-0 z-[9999] bg-background flex flex-col"
             : "relative"
         }
         style={
