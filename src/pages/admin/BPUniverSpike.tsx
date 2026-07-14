@@ -1703,25 +1703,27 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={confirmRealSaveOpen} onOpenChange={setConfirmRealSaveOpen}>
+      <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-700">⚠️ Gravar no BP REAL?</AlertDialogTitle>
+            <AlertDialogTitle>Gravar alterações?</AlertDialogTitle>
             <AlertDialogDescription>
-              Vais gravar <b>{changeCount}</b> alteração(ões) no BP REAL do evento{" "}
-              <b>"{eventName ?? EVENT_ID}"</b>.
-              <br /><br />
-              Isto <b>escreve na base de dados de produção</b>. Para simular sem escrever,
-              cancela e abre a página com <code>?dryrun=1</code> no URL.
+              Vais gravar <b>{changeCount}</b> alteração(ões) no BP do evento{" "}
+              <b>"{eventName ?? EVENT_ID}"</b>:
+              <br />
+              <ul className="list-disc pl-5 mt-2">
+                <li><b>{editCount}</b> edição(ões)</li>
+                <li><b>{insertCount}</b> nova(s) linha(s)</li>
+                <li><b>{deleteCount}</b> eliminação(ões)</li>
+              </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { setConfirmRealSaveOpen(false); void handleSave(); }}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { setConfirmSaveOpen(false); void handleSave(); }}
             >
-              Gravar mesmo
+              Gravar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
