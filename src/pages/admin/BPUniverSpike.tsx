@@ -87,7 +87,7 @@ type RowKind = "header" | "grand" | "l1" | "l2" | "l3" | "entry";
 interface BuiltRow {
   kind: RowKind;
   label: string;
-  entry?: Entry;
+  entry?: Entry & { __insertTempId?: string };
   childRows?: number[];
   indent: number;
 }
