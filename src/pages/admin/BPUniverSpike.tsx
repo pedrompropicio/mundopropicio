@@ -428,27 +428,47 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     if (!entries.length || !categories.length) return null;
     const lookup: Record<string, CategoryLookup> = buildCategoryLookup(categories as any);
 
-    type L3Bucket = { code: string; name: string; entries: Entry[] };
+    type L3Bucket = { code: string; name: string; entries: (Entry & { __insertTempId?: string })[] };
     type L2Bucket = { code: string; name: string; l3s: Map<string, L3Bucket> };
     type L1Bucket = { code: string; name: string; l2s: Map<string, L2Bucket> };
     const tree = new Map<string, L1Bucket>();
 
-    for (const e of entries) {
-      const info = e.category_id ? lookup[e.category_id] : null;
-      if (!info) continue;
-      const l1Code = info.l1Code;
-      const l1Name = info.l1Name;
-      const l2Code = info.l2Code ?? info.l1Code;
-      const l2Name = info.l2Name ?? info.l1Name;
-      const l3Code = info.code;
-      const l3Name = info.name;
+    const placeInTree = (item: Entry & { __insertTempId?: string }) => {
+      const info = item.category_id ? lookup[item.category_id] : null;
+      let l1Code: string, l1Name: string, l2Code: string, l2Name: string, l3Code: string, l3Name: string;
+      if (info) {
+        l1Code = info.l1Code; l1Name = info.l1Name;
+        l2Code = info.l2Code ?? info.l1Code; l2Name = info.l2Name ?? info.l1Name;
+        l3Code = info.code; l3Name = info.name;
+      } else {
+        // "Sem categoria" bucket at the end (código Z para ordenar por último)
+        l1Code = "Z"; l1Name = "⚠ Sem categoria — escolher categoria";
+        l2Code = "Z.Z"; l2Name = "⚠ Sem categoria";
+        l3Code = "Z.Z.Z"; l3Name = "⚠ Sem categoria";
+      }
       let l1 = tree.get(l1Code);
       if (!l1) { l1 = { code: l1Code, name: l1Name, l2s: new Map() }; tree.set(l1Code, l1); }
       let l2 = l1.l2s.get(l2Code);
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3s: new Map() }; l1.l2s.set(l2Code, l2); }
       let l3 = l2.l3s.get(l3Code);
       if (!l3) { l3 = { code: l3Code, name: l3Name, entries: [] }; l2.l3s.set(l3Code, l3); }
-      l3.entries.push(e);
+      l3.entries.push(item);
+    };
+
+    for (const e of entries) placeInTree(e);
+    // Adicionar inserções pendentes como entries virtuais (com __insertTempId)
+    for (const ins of pendingInserts) {
+      placeInTree({
+        id: `__insert__${ins.tempId}`,
+        category_id: ins.category_id,
+        description: ins.description,
+        specification: ins.specification,
+        amount: ins.amount,
+        iva_rate: ins.iva_rate,
+        formalidade: ins.formalidade,
+        status: "draft",
+        __insertTempId: ins.tempId,
+      });
     }
 
     const rows: BuiltRow[] = [];
@@ -477,7 +497,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
           rows.push({ kind: "l3", label: `${l3.code} · ${l3.name}`, indent: 3, childRows: [] });
           rows[l2Idx].childRows!.push(l3Idx);
 
-          l3.entries.sort((a, b) => (a.description ?? "").localeCompare(b.description ?? ""));
+          l3.entries.sort((a, b) => {
+            // inserções vão para o fim do grupo
+            const aIns = !!a.__insertTempId;
+            const bIns = !!b.__insertTempId;
+            if (aIns !== bIns) return aIns ? 1 : -1;
+            return (a.description ?? "").localeCompare(b.description ?? "");
+          });
           for (const e of l3.entries) {
             const eIdx = rows.length;
             rows.push({ kind: "entry", label: "", indent: 4, entry: e });
@@ -487,7 +513,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       }
     }
     return rows;
-  }, [entries, categories]);
+  }, [entries, categories, pendingInserts]);
 
   const workbookData = useMemo(() => {
     if (!built) return null;
