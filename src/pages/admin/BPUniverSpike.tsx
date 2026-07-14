@@ -1580,7 +1580,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       <div
         className={
           fullscreen
-            ? "fixed inset-0 z-40 bg-background flex flex-col"
+            ? "fixed inset-0 z-[9999] bg-background flex flex-col"
             : "relative"
         }
         style={
