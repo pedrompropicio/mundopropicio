@@ -33,6 +33,9 @@ import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
 import EventABTab from "@/components/EventABTab";
+import { EventRealizedAllocation } from "@/components/EventRealizedAllocation";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -112,6 +115,8 @@ export default function EventDetail() {
   const canViewSponsorship = isAdmin || isManager || hasPermission("view_sponsorship");
   const canViewAB = isAdmin || isManager || hasPermission("view_ab");
   const canViewSimulator = isAdmin || isManager || hasPermission("view_simulator");
+  const canManageTx = isAdmin || isManager || hasPermission("manage_transactions");
+  const [allocOpen, setAllocOpen] = useState(false);
   const { companyId } = useCompany();
   const queryClient = useQueryClient();
 
@@ -1186,6 +1191,19 @@ export default function EventDetail() {
         </TabsContent>}
 
         <TabsContent value="forecast">
+          {canManageTx && (
+            <div className="flex justify-end mb-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setAllocOpen(true)}>
+                <Sparkles className="h-4 w-4" /> Alocar realizado
+              </Button>
+            </div>
+          )}
+          <EventRealizedAllocation
+            open={allocOpen}
+            onOpenChange={setAllocOpen}
+            eventId={selectedSubEvent || event.id}
+            eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
+          />
           {isMultiEvent && !selectedSubEvent && !event?.parent_event_id ? (
             <div className="space-y-4">
               <EventForecast eventId={event.id} eventDate={event.date} eventName={event.name} expenseOnly eventStatus={event.status} childEventIds={subEvents.map((s: any) => s.id)} />
