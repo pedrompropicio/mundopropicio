@@ -242,6 +242,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const rowToEntryIdRef = useRef<Map<number, string>>(new Map());
   const entryIdToRowRef = useRef<Map<string, number>>(new Map());
   const insertRowToTempIdRef = useRef<Map<number, string>>(new Map());
+  const insertedCategoryCellsRef = useRef<Set<string>>(new Set());
   const originalEntriesRef = useRef<Map<string, Entry>>(new Map());
   const categoryLabelToIdRef = useRef<Map<string, string>>(new Map());
   const categoryIdToLabelRef = useRef<Map<string, string>>(new Map());
