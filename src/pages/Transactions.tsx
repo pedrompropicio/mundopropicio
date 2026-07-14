@@ -626,7 +626,8 @@ export default function Transactions() {
 
   // Base filter (type, event, account, open only, search, hidden)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
-    .filter((t: any) => !t.parent_transaction_id) // hide child splits — shown via master expand
+    .filter((t: any) => !isHiddenSplitChild(t)) // hide only true Master-split children; installment siblings stay visible
+
     .filter((t: any) => showHidden || !t.is_hidden) // hide hidden transactions unless toggle is on
     .filter(matchesSearch)
     .filter(matchesEventFilter)
