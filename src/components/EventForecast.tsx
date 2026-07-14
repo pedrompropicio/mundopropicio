@@ -202,8 +202,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       setForecastsViewMode("grouped");
     }
   }, [isMobile, forecastsViewMode]);
-  // Dry-run activa via ?dryrun=1 no URL — não grava na BD.
-  const bpUniverDryRun = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dryrun") === "1";
+
+
 
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
