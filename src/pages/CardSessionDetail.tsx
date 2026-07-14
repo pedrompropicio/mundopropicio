@@ -443,6 +443,16 @@ export default function CardSessionDetail() {
           expenses_by_event: expensesByEvent,
         }}
       />
+      {docsTx && (
+        <TransactionDocumentsModal
+          transactionId={docsTx.id}
+          transactionDescription={docsTx.description}
+          onClose={() => {
+            setDocsTx(null);
+            qc.invalidateQueries({ queryKey: ["card-session-expense-doc-counts", id] });
+          }}
+        />
+      )}
     </div>
   );
 }
