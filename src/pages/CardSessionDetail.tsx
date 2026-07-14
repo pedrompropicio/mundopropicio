@@ -90,6 +90,22 @@ export default function CardSessionDetail() {
     },
   });
 
+  const expenseIds = (expenses as any[]).map((e) => e.id);
+  const { data: docCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ["card-session-expense-doc-counts", id, expenseIds.length],
+    enabled: expenseIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id")
+        .in("transaction_id", expenseIds);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const d of data ?? []) map[(d as any).transaction_id] = (map[(d as any).transaction_id] ?? 0) + 1;
+      return map;
+    },
+  });
+
   const totalLoads = (loads as any[])
     .filter((l) => l.in_transaction_id)
     .reduce((s, l) => s + Number(l.amount), 0);
