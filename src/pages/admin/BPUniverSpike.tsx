@@ -938,9 +938,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         const sheet = wb?.getActiveSheet?.();
         if (sheet && (univerAPI as any).newDataValidation) {
           for (const r of entryRowsRef.current) {
+            // Formalidade: dropdown BLOQUEANTE — rejeita valores fora da lista
+            // (inclui colar texto). allowInvalid:false é o que impede o
+            // utilizador de introduzir "Erro Teste" numa linha nova.
             const formRule = (univerAPI as any).newDataValidation()
               .requireValueInList(FORMALIDADE_LABELS)
-              .setOptions({ allowInvalid: true, showDropdown: true })
+              .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe um estado da lista." })
               .build();
             sheet.getRange(r, COL.FORMALIDADE, 1, 1).setDataValidation(formRule);
 
