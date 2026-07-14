@@ -1526,6 +1526,66 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
 
       {actionBar}
 
+      {dryRunPreview && (
+        <div className="rounded-md border-2 border-amber-400 bg-amber-50 text-amber-950 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="h-4 w-4" />
+            [DRY-RUN] Simulação concluída — <span className="underline">nada foi gravado</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-6 text-xs"
+              onClick={() => setDryRunPreview(null)}
+            >
+              Fechar
+            </Button>
+          </div>
+          <div className="text-xs space-y-1">
+            {dryRunPreview.edits.length > 0 && (
+              <div>
+                <b>✓ {dryRunPreview.edits.length} edição(ões):</b>
+                <ul className="list-disc pl-5">
+                  {dryRunPreview.edits.map((e) => (
+                    <li key={e.id}><b>{e.label}</b>: {e.changes.join("; ")}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dryRunPreview.inserts.length > 0 && (
+              <div>
+                <b>✓ {dryRunPreview.inserts.length} linha(s) nova(s):</b>
+                <ul className="list-disc pl-5">
+                  {dryRunPreview.inserts.map((i, idx) => (
+                    <li key={idx}>
+                      <b>{i.label}</b> ({i.catLabel}) — {i.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} + {i.iva}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dryRunPreview.deletes.length > 0 && (
+              <div>
+                <b>✓ {dryRunPreview.deletes.length} linha(s) a apagar:</b>
+                <ul className="list-disc pl-5">
+                  {dryRunPreview.deletes.map((d) => (
+                    <li key={d.id}><b>{d.label}</b> ({d.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })})</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="pt-1 italic text-amber-800">
+              As marcas visuais (🟥 apagar, 🟩 nova) mantêm-se para continuar a editar — não é bug.
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="destructive" onClick={discardAllChanges}>
+              Descartar todas as alterações
+            </Button>
+          </div>
+        </div>
+      )}
+
+
       {err && (
         <div className="p-3 rounded bg-destructive/10 text-destructive text-sm whitespace-pre-wrap">
           {err}
