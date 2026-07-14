@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2, Paperclip } from "lucide-react";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export default function CardSessionDetail() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
 
   const { data: session } = useQuery({
     queryKey: ["card-session", id],
@@ -85,6 +87,22 @@ export default function CardSessionDetail() {
         .eq("session_id", id!)
         .order("item_date", { ascending: false });
       return data ?? [];
+    },
+  });
+
+  const expenseIds = (expenses as any[]).map((e) => e.id);
+  const { data: docCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ["card-session-expense-doc-counts", id, expenseIds.length],
+    enabled: expenseIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id")
+        .in("transaction_id", expenseIds);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const d of data ?? []) map[(d as any).transaction_id] = (map[(d as any).transaction_id] ?? 0) + 1;
+      return map;
     },
   });
 
@@ -261,17 +279,35 @@ export default function CardSessionDetail() {
             <p className="text-sm text-muted-foreground">Sem despesas registadas.</p>
           ) : (
             <div className="space-y-1">
-              {(expenses as any[]).map((e) => (
-                <div key={e.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
-                  <div>
-                    <div className="font-medium">{e.description}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {e.date} · {e.events?.name ?? "Sem evento"} · {e.account_categories?.code ?? "—"}
+              {(expenses as any[]).map((e) => {
+                const count = (docCounts as Record<string, number>)[e.id] ?? 0;
+                return (
+                  <div key={e.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{e.description}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {e.date} · {e.events?.name ?? "Sem evento"} · {e.account_categories?.code ?? "—"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setDocsTx({ id: e.id, description: e.description })}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors",
+                          count > 0
+                            ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        )}
+                        title={count > 0 ? `${count} anexo(s)` : "Anexar fatura/documento"}
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        {count > 0 ? count : "Anexar"}
+                      </button>
+                      <div className="font-semibold">{formatCurrency(Number(e.paid_amount ?? e.amount))}</div>
                     </div>
                   </div>
-                  <div className="font-semibold">{formatCurrency(Number(e.paid_amount ?? e.amount))}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -407,6 +443,16 @@ export default function CardSessionDetail() {
           expenses_by_event: expensesByEvent,
         }}
       />
+      {docsTx && (
+        <TransactionDocumentsModal
+          transactionId={docsTx.id}
+          transactionDescription={docsTx.description}
+          onClose={() => {
+            setDocsTx(null);
+            qc.invalidateQueries({ queryKey: ["card-session-expense-doc-counts", id] });
+          }}
+        />
+      )}
     </div>
   );
 }
