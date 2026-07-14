@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
+import { useBackdropClose } from "@/lib/backdropClose";
   AlertTriangle, CheckCircle2, Loader2, RotateCcw, Search, Table as TableIcon, Calendar, X,
 } from "lucide-react";
 
@@ -148,7 +149,7 @@ export default function SelectiveRestoreModal({ fileName, onClose }: Props) {
   useEffect(() => { setPreview(null); setResult(null); }, [mode]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-3xl max-h-[90vh] rounded-xl p-5 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div>

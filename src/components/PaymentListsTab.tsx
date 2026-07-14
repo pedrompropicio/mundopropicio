@@ -72,6 +72,7 @@ function PaymentDocsButton({ transactionId, onClick }: { transactionId: string; 
 }
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
@@ -615,7 +616,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-4xl lg:max-w-[min(95vw,1400px)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">Nova Lista de Contas a Pagar</h2>
 
@@ -1245,7 +1246,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4" {...backdrop}>
       <div
         className="glass w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 absolute left-2 right-2 sm:left-auto sm:right-auto"
         style={{
@@ -1603,7 +1604,7 @@ function RevisionModal({
   const [notes, setNotes] = useState("");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-md rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <RotateCcw className="h-5 w-5 text-amber-500" />
@@ -1795,7 +1796,7 @@ function ApproveModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="h-5 w-5 text-emerald-500" />
