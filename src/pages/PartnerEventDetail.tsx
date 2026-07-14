@@ -1232,66 +1232,60 @@ export default function PartnerEventDetail() {
             </div>
           ) : (
             <div className="space-y-3 max-w-4xl mx-auto">
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-4 flex items-center justify-between gap-4">
-                  <span className="text-sm font-bold flex-1">Total previsto (despesas, c/IVA)</span>
-                  <span className="text-lg font-bold font-mono text-amber-500">{formatCurrency(bpTotalExpense)}</span>
-                  {canSeeRealized && (
-                    <>
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Realizado</span>
-                        <span className="text-lg font-bold font-mono text-foreground">{formatCurrency(bpTotalRealizedExpense)}</span>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Variação</span>
-                        <span className={`text-lg font-bold font-mono ${bpTotalRealizedExpense - bpTotalExpense > 0 ? "text-red-500" : "text-emerald-500"}`}>
-                          {formatCurrency(bpTotalRealizedExpense - bpTotalExpense)}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
               <Card>
                 <CardHeader className="pb-0 px-4 pt-4">
                   <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" /> Business Plan — Custos</CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                  {bpGroupedHier.map((l1) => {
+                  {canSeeRealized && (
+                    <div className="px-4 py-1.5 flex items-center justify-between gap-3 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      <span className="flex-1">Rubrica</span>
+                      <span className="w-24 text-right tabular-nums">Previsto</span>
+                      <span className="w-24 text-right tabular-nums">Realizado</span>
+                      <span className="w-16 text-right tabular-nums">Execução</span>
+                    </div>
+                  )}
+                  {(() => {
+                    const pctColor = (pct: number) =>
+                      pct <= 100 ? "text-emerald-500" : pct <= 110 ? "text-amber-500" : "text-red-500";
+                    const pctOf = (real: number, prev: number) =>
+                      prev > 0 ? (real / prev) * 100 : (real > 0 ? Infinity : 0);
+                    const pctLabel = (pct: number) => (isFinite(pct) ? `${pct.toFixed(0)}%` : "—");
+                    return bpGroupedHier.map((l1) => {
                     const l1Real = canSeeRealized ? (realizedTotals.l1[l1.code] ?? 0) : 0;
-                    const l1Var = l1Real - l1.total;
+                    const l1Pct = pctOf(l1Real, l1.total);
                     return (
                     <div key={l1.name} className="mb-2">
                       <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between gap-3">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-foreground flex-1 min-w-0 truncate">{l1.code} · {l1.name}</span>
-                        <span className="text-[11px] font-bold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l1.total)}</span>
+                        <span className="text-[11px] font-bold font-mono text-amber-500 whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l1.total)}</span>
                         {canSeeRealized && (
                           <>
-                            <span className="text-[11px] font-bold font-mono text-foreground whitespace-nowrap w-24 text-right">{formatCurrency(l1Real)}</span>
-                            <span className={`text-[11px] font-bold font-mono whitespace-nowrap w-24 text-right ${l1Var > 0 ? "text-red-500" : "text-emerald-500"}`}>{formatCurrency(l1Var)}</span>
+                            <span className="text-[11px] font-bold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l1Real)}</span>
+                            <span className={`text-[11px] font-bold font-mono whitespace-nowrap w-16 text-right tabular-nums ${pctColor(l1Pct)}`}>{pctLabel(l1Pct)}</span>
                           </>
                         )}
                       </div>
                       {l1.l2Groups.map((l2) => {
                         const l2Real = canSeeRealized ? (realizedTotals.l2[`${l1.code}/${l2.code}`] ?? 0) : 0;
-                        const l2Var = l2Real - l2.total;
+                        const l2Pct = pctOf(l2Real, l2.total);
                         return (
                         <div key={l2.name}>
                           <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40 gap-3">
                             <span className="text-[11px] font-semibold text-muted-foreground flex-1 min-w-0 truncate">{l2.code} · {l2.name}</span>
-                            <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l2.total)}</span>
+                            <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l2.total)}</span>
                             {canSeeRealized && (
                               <>
-                                <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right">{formatCurrency(l2Real)}</span>
-                                <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-24 text-right ${l2Var > 0 ? "text-red-500" : "text-emerald-500"}`}>{formatCurrency(l2Var)}</span>
+                                <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l2Real)}</span>
+                                <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-16 text-right tabular-nums ${pctColor(l2Pct)}`}>{pctLabel(l2Pct)}</span>
                               </>
                             )}
                           </div>
                           {l2.l3Groups.map((l3) => {
                             const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
                             const l3Real = canSeeRealized ? (realizedTotals.l3[`${l1.code}/${l2.code}/${l3.code}/${l3.name}`] ?? 0) : 0;
-                            const l3Var = l3Real - l3.total;
-                            const l3Pct = l3.total > 0 ? Math.min(100, (l3Real / l3.total) * 100) : 0;
+                            const l3Pct = pctOf(l3Real, l3.total);
+                            const l3BarPct = l3.total > 0 ? Math.min(100, (l3Real / l3.total) * 100) : 0;
                             return (
                             <div key={l3.name}>
                               <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5 gap-2">
@@ -1328,17 +1322,17 @@ export default function PartnerEventDetail() {
                                     </PopoverContent>
                                   </Popover>
                                 )}
-                                <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l3.total)}</span>
+                                <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l3.total)}</span>
                                 {canSeeRealized && (
                                   <>
-                                    <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right">{formatCurrency(l3Real)}</span>
-                                    <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-24 text-right ${l3Var > 0 ? "text-red-500" : "text-emerald-500"}`}>{formatCurrency(l3Var)}</span>
+                                    <span className="text-[11px] font-semibold font-mono text-foreground whitespace-nowrap w-24 text-right tabular-nums">{formatCurrency(l3Real)}</span>
+                                    <span className={`text-[11px] font-semibold font-mono whitespace-nowrap w-16 text-right tabular-nums ${pctColor(l3Pct)}`}>{pctLabel(l3Pct)}</span>
                                   </>
                                 )}
                               </div>
                               {canSeeRealized && l3.total > 0 && (
                                 <div className="px-4 pl-12 pb-1">
-                                  <Progress value={l3Pct} className="h-1" />
+                                  <Progress value={l3BarPct} className="h-0.5" />
                                 </div>
                               )}
                               {l3.items.map((it) => (
@@ -1368,7 +1362,8 @@ export default function PartnerEventDetail() {
                       })}
                     </div>
                     );
-                  })}
+                  });
+                  })()}
                 </CardContent>
 
               </Card>
