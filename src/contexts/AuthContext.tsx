@@ -69,6 +69,7 @@ export const ALL_PERMISSIONS = [
   { key: "view_reports", label: "Ver Relatórios (geral)", group: "Geral" },
   { key: "view_events", label: "Ver Eventos (Resumo + Bilheteira)", group: "Geral" },
   { key: "view_bp", label: "Ver Business Plan do Evento", group: "Geral" },
+  { key: "view_partner_realized", label: "Ver Realizados do Evento", group: "Geral" },
   { key: "view_sponsorship", label: "Ver Patrocínios do Evento", group: "Geral" },
   { key: "view_ab", label: "Ver A&B do Evento", group: "Geral" },
   { key: "view_simulator", label: "Ver Simulador do Evento", group: "Geral" },
