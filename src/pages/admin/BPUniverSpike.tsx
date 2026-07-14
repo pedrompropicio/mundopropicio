@@ -999,6 +999,10 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
             try {
               const catRange = sheet.getRange(r, COL.CATEGORY, 1, 1);
               try { catRange.setDataValidation(null as any); } catch {}
+              // Linhas inseridas: categoria herdada da posição, read-only — sem dropdown.
+              if (insertedCategoryCellsRef.current.has(`${r},${COL.CATEGORY}`)) {
+                continue;
+              }
               const catRule = (univerAPI as any).newDataValidation()
                 .requireValueInList(categoryDropdownRef.current)
                 .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe uma categoria L3 da lista." })
