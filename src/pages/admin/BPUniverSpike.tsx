@@ -608,8 +608,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     rowToEntryIdRef.current = rowToEntryId;
     entryIdToRowRef.current = entryIdToRow;
     categoryDropdownRef.current = l3Categories.map((c) => c.label);
-    nextInsertRowRef.current = built.length; // append new rows after built content
-    insertRowToTempIdRef.current = new Map();
+    nextInsertRowRef.current = built.length; // legacy — no longer used
+    insertRowToTempIdRef.current = insertRowToTempId;
 
     const totalRows = built.length + 50; // headroom for inserts
     const sheetRowCount = Math.max(totalRows, 200);
