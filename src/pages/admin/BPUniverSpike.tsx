@@ -247,6 +247,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const categoryDropdownRef = useRef<string[]>([]);
   const selectionRangesRef = useRef<UniverRange[]>([]);
   const toastThrottleRef = useRef(0);
+  const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const nextInsertRowRef = useRef<number>(0);
   const sheetRowCountRef = useRef<number>(200);
