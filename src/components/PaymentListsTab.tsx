@@ -75,6 +75,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
+const buildHiddenSplitChildChecker = (transactions: any[]) => {
+  const byId = new Map<string, any>();
+  transactions.forEach((tx: any) => {
+    if (tx?.id) byId.set(tx.id, tx);
+  });
+
+  return (tx: any) => {
+    if (!tx?.parent_transaction_id) return false;
+    const parent = byId.get(tx.parent_transaction_id);
+    return !!parent && !parent.event_id && !!parent.split_mode;
+  };
+};
+
 /** Hook: fetch approved forecasts for given event IDs and build a lookup by event+category */
 function useForecastLookup(eventIds: string[]) {
   const uniqueEventIds = useMemo(() => [...new Set(eventIds.filter(Boolean))], [eventIds.join(",")]);
@@ -498,12 +511,25 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         .select("*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
-        .is("parent_transaction_id", null)
         // Reembolsos só podem ser liquidados via Nota de Reembolso — nunca em Lista de Pagamento
         .or("is_reimbursement.is.null,is_reimbursement.eq.false")
         .order("date", { ascending: false });
       if (error) throw error;
-      return data;
+      const rows = data ?? [];
+      const loadedIds = new Set(rows.map((tx: any) => tx.id).filter(Boolean));
+      const missingParentIds = [...new Set(rows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
+        .filter((id: string) => !loadedIds.has(id));
+      let parentRows: any[] = [];
+      if (missingParentIds.length > 0) {
+        const { data: parents, error: parentErr } = await supabase
+          .from("transactions")
+          .select("id, event_id, split_mode")
+          .in("id", missingParentIds);
+        if (parentErr) throw parentErr;
+        parentRows = parents ?? [];
+      }
+      const isHiddenSplitChild = buildHiddenSplitChildChecker([...rows, ...parentRows]);
+      return rows.filter((tx: any) => !isHiddenSplitChild(tx));
     },
   });
 
@@ -890,7 +916,22 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         .eq("payment_list_id", listId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      const filtered = (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
+      const rows = data ?? [];
+      const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
+      const loadedIds = new Set(txRows.map((tx: any) => tx.id).filter(Boolean));
+      const missingParentIds = [...new Set(txRows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
+        .filter((id: string) => !loadedIds.has(id));
+      let parentRows: any[] = [];
+      if (missingParentIds.length > 0) {
+        const { data: parents, error: parentErr } = await supabase
+          .from("transactions")
+          .select("id, event_id, split_mode")
+          .in("id", missingParentIds);
+        if (parentErr) throw parentErr;
+        parentRows = parents ?? [];
+      }
+      const isHiddenSplitChild = buildHiddenSplitChildChecker([...txRows, ...parentRows]);
+      const filtered = rows.filter((item: any) => !isHiddenSplitChild(item.transactions));
 
       // For master apportionment transactions (event_id is null), resolve event names from children
       const masterIds = filtered
@@ -1021,19 +1062,22 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           .update({ paid_amount: totalWithIva, status: "paid", payment_date: pDate })
           .eq("id", txId);
 
-        // Propagate payment to child split transactions
-        const { data: children } = await supabase
-          .from("transactions")
-          .select("id, split_percentage, amount, iva_rate, paid_amount")
-          .eq("parent_transaction_id", txId);
+        // Propagate only true Master/Split apportionment payments.
+        // Installment siblings also use parent_transaction_id, but each parcela must be paid independently.
+        if (!tx.event_id && tx.split_mode) {
+          const { data: children } = await supabase
+            .from("transactions")
+            .select("id, split_percentage, amount, iva_rate, paid_amount")
+            .eq("parent_transaction_id", txId);
 
-        if (children && children.length > 0) {
-          for (const child of children) {
-            const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 23));
-            await supabase
-              .from("transactions")
-              .update({ paid_amount: childTotal, status: "paid", payment_date: pDate })
-              .eq("id", child.id);
+          if (children && children.length > 0) {
+            for (const child of children) {
+              const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 23));
+              await supabase
+                .from("transactions")
+                .update({ paid_amount: childTotal, status: "paid", payment_date: pDate })
+                .eq("id", child.id);
+            }
           }
         }
       }
@@ -1620,7 +1664,22 @@ function ApproveModal({
         .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
         .eq("payment_list_id", listId);
       if (error) throw error;
-      const filtered = (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
+      const rows = data ?? [];
+      const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
+      const loadedIds = new Set(txRows.map((tx: any) => tx.id).filter(Boolean));
+      const missingParentIds = [...new Set(txRows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
+        .filter((id: string) => !loadedIds.has(id));
+      let parentRows: any[] = [];
+      if (missingParentIds.length > 0) {
+        const { data: parents, error: parentErr } = await supabase
+          .from("transactions")
+          .select("id, event_id, split_mode")
+          .in("id", missingParentIds);
+        if (parentErr) throw parentErr;
+        parentRows = parents ?? [];
+      }
+      const isHiddenSplitChild = buildHiddenSplitChildChecker([...txRows, ...parentRows]);
+      const filtered = rows.filter((item: any) => !isHiddenSplitChild(item.transactions));
 
       // Resolve event names for master apportionment transactions
       const masterIds = filtered
