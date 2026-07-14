@@ -1190,6 +1190,19 @@ export default function EventDetail() {
         </TabsContent>}
 
         <TabsContent value="forecast">
+          {canManageTx && (
+            <div className="flex justify-end mb-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setAllocOpen(true)}>
+                <Sparkles className="h-4 w-4" /> Alocar realizado
+              </Button>
+            </div>
+          )}
+          <EventRealizedAllocation
+            open={allocOpen}
+            onOpenChange={setAllocOpen}
+            eventId={selectedSubEvent || event.id}
+            eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
+          />
           {isMultiEvent && !selectedSubEvent && !event?.parent_event_id ? (
             <div className="space-y-4">
               <EventForecast eventId={event.id} eventDate={event.date} eventName={event.name} expenseOnly eventStatus={event.status} childEventIds={subEvents.map((s: any) => s.id)} />
