@@ -597,6 +597,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         entryRows.push(r);
         if (isInsert) {
           insertRowToTempId.set(r, e.__insertTempId!);
+          // Categoria herdada da posição no grupo — read-only
+          markProtected(r, COL.CATEGORY);
+          insertedCategoryCells.add(`${r},${COL.CATEGORY}`);
         } else {
           rowToEntryId.set(r, e.id);
           entryIdToRow.set(e.id, r);
