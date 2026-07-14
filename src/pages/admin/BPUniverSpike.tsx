@@ -1222,18 +1222,11 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     const row = normalized.startRow;
     const entryId = rowToEntryIdRef.current.get(row);
     if (!entryId) {
-      // Maybe an insert row?
+      // Insert row? — apenas remove do state; o rebuild elimina a linha da grelha
       const tempId = insertRowToTempIdRef.current.get(row);
       if (tempId) {
         setPendingInserts((prev) => prev.filter((r) => r.tempId !== tempId));
-        insertRowToTempIdRef.current.delete(row);
-        // Clear visual row
-        try {
-          const sheet = wb?.getActiveSheet?.();
-          for (let c = 0; c < N_COLS; c++) sheet?.getRange(row, c, 1, 1).setValue?.("");
-          applyRowStyle(row, null);
-        } catch { /* noop */ }
-        setActionLog((log) => [...log, { kind: "insert", data: { tempId, row } }]);
+        setActionLog((log) => [...log, { kind: "insert", data: { tempId } }]);
         toast.success("Linha nova removida.");
         return;
       }
