@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { X, UserPlus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 interface Props {
   accountId: string;
@@ -99,8 +100,10 @@ export default function AccountAccessModal({ accountId, accountName, onClose }: 
     return { name: profile?.full_name || "—", email: profile?.email || "", role: role?.role || "user" };
   }
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-md rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>

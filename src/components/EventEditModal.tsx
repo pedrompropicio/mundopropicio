@@ -7,6 +7,7 @@ import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
 import { formatCityLabel } from "@/lib/country";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 interface EventEditModalProps {
   event: any;
@@ -175,8 +176,10 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
     setLocalFestivalDates(localFestivalDates.filter(fd => fd !== d));
   };
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Editar Evento</h2>

@@ -12,6 +12,7 @@ import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -303,8 +304,10 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
     },
   });
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Histórico de Pagamentos</h2>

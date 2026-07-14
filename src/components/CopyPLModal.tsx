@@ -5,6 +5,7 @@ import { X, Copy, Search, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/mock-data";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 interface CopyPLModalProps {
   targetEventId: string;
@@ -105,8 +106,10 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">

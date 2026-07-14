@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { formatDatePT } from "@/lib/utils";
 import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
+import { useBackdropClose } from "@/lib/backdropClose";
 
 /** Detect if a ref:// entry actually contains an http(s) URL (clickable external link). */
 function isExternalLinkRef(fileUrl: string): boolean {
@@ -271,8 +272,10 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     }
   };
 
+  const backdrop = useBackdropClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 p-4 sm:flex sm:items-center sm:justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 p-4 sm:flex sm:items-center sm:justify-center" {...backdrop}>
       <div className="glass mx-auto mt-6 w-full max-w-lg rounded-xl p-4 sm:mt-0 sm:p-6 space-y-4 max-h-[calc(100dvh-3rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
