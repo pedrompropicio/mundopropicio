@@ -666,6 +666,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         sErrorRow: { bg: { rgb: "#fee2e2" } },
         sDeletedRow: { bg: { rgb: "#fecaca" }, cl: { rgb: "#991b1b" }, st: { s: 1 } },
         sInsertedRow: { bg: { rgb: "#dcfce7" } },
+        // Variantes "inserted" que preservam indentação/formato numérico das
+        // linhas de lançamento normais (mesmo pd/n/ht) e apenas somam o fundo
+        // verde. Fix: garante que colar/pintar linha nova mostra indent na
+        // coluna A e formata D/E/F como as restantes.
+        sInsertedLabel: { bg: { rgb: "#dcfce7" }, pd: { l: 48 } },
+        sInsertedMoney: { bg: { rgb: "#dcfce7" }, n: { pattern: "#,##0.00 [$€-816]" } },
+        sInsertedMoneyCalc: { bg: { rgb: "#dcfce7" }, n: { pattern: "#,##0.00 [$€-816]" }, cl: { rgb: "#475569" } },
+        sInsertedIva: { bg: { rgb: "#dcfce7" }, n: { pattern: "0.0" }, ht: 3 },
       },
       sheetOrder: ["sheet1"],
       sheets: {
