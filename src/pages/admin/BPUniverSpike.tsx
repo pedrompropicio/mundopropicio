@@ -1485,13 +1485,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
   const onGraveClick = () => {
-    if (!isDryRun && !embedded) {
-      if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
-      setConfirmRealSaveOpen(true);
-      return;
-    }
-    void handleSave();
+    if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
+    setConfirmSaveOpen(true);
   };
+
+  const editCount = Object.keys(dirty).length;
+  const insertCount = pendingInserts.length;
+  const deleteCount = pendingDeletes.length;
 
   // Barra de ações — reutilizada no modo normal e no overlay fullscreen
   const actionBar = (
@@ -1499,10 +1499,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       <Button
         onClick={onGraveClick}
         disabled={!ready || saving || !hasChanges}
-        variant={isDryRun ? "outline" : "default"}
       >
         <Save className="h-4 w-4 mr-2" />
-        {saving ? (isDryRun ? "A simular…" : "A gravar…") : `${isDryRun ? "Simular gravação" : "Gravar"}${hasChanges ? ` (${changeCount})` : ""}`}
+        {saving ? "A gravar…" : `Gravar${hasChanges ? ` (${changeCount})` : ""}`}
       </Button>
       <Button onClick={handleInsertInline} disabled={!ready || saving} variant="outline">
         <Plus className="h-4 w-4 mr-2" />Nova linha
@@ -1525,17 +1524,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           ● {changeCount} alteração(ões) por gravar
         </span>
       )}
-      {isDryRun ? (
-        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 font-semibold">
-          DRY-RUN
-        </span>
-      ) : (
-        !embedded && (
-          <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-900 border border-red-400 font-semibold">
-            MODO REAL
-          </span>
-        )
-      )}
     </div>
   );
 
@@ -1557,25 +1545,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           </div>
         </div>
       )}
-      {isDryRun ? (
-        <div className="rounded-md bg-amber-100 border-2 border-amber-400 text-amber-900 px-4 py-3 flex items-start gap-2">
-          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <b>Modo DRY-RUN activo</b> — validações correm, mas <b>nada é gravado na base de dados</b>.
-            Remove <code>?dryrun=1</code> do URL para gravar a sério.
-          </div>
-        </div>
-      ) : (
-        !embedded && (
-          <div className="rounded-md bg-red-100 border-2 border-red-500 text-red-900 px-4 py-3 flex items-start gap-2">
-            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <b>⚠️ MODO REAL</b> — as alterações serão <b>gravadas na base de dados</b> do evento
-              <b> "{eventName ?? EVENT_ID}"</b>. Para testar sem escrever, adiciona <code>?dryrun=1</code> ao URL.
-            </div>
-          </div>
-        )
-      )}
+
 
       {actionBar}
 
