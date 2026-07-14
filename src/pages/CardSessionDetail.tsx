@@ -35,6 +35,7 @@ export default function CardSessionDetail() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
 
   const { data: session } = useQuery({
     queryKey: ["card-session", id],
