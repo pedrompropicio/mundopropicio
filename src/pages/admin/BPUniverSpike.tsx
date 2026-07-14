@@ -1021,6 +1021,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       setErr("Falha a inicializar Univer: " + (e?.message ?? String(e)));
     }
     return () => {
+      if (dvRafRef.current != null) { cancelAnimationFrame(dvRafRef.current); dvRafRef.current = null; }
       try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
       domProtectionCleanupRef.current = null;
       try { univerRef.current?.dispose?.(); } catch { /* noop */ }
