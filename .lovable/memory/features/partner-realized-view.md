@@ -17,8 +17,10 @@ type: feature
 
 ## UI (`src/pages/PartnerEventDetail.tsx`)
 - Query `partner_bp_realized` só corre com a permissão ligada.
-- Subtotais L1/L2/L3 ganham colunas Realizado + Variação (cor verde/vermelho); L3 tem barra Progress.
-- Itens individuais continuam a mostrar só previsão.
+- Com permissão, a aba BP tem seletor "BP | BP × Realizado":
+  - **Vista "BP"**: previsão + formalidade, hierarquia completa L1 > L2 > L3 > lançamentos.
+  - **Vista "BP × Realizado"**: hierarquia L1 > L2 > L3 com colunas Previsto | Realizado | Diferença (c/IVA, verde/vermelho). Usa os agregados por L3 da RPC. Não mostra lançamentos individuais nem coluna Formalidade.
+- Linha TOTAL da vista comparação bate ao cêntimo com o card Despesas (`bpTotalExpense` vs `bpTotalRealizedExpense`).
 
 ## Exportação Excel/PDF
 - Com permissão: `mode="comparison"` + shim `pseudoTransactions` (1 linha por L3 com base+iva reconstruído a partir da RPC). Alimenta as colunas Real s/IVA e Variação do exportPLToExcel/PDF sem revelar transações reais.
