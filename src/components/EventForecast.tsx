@@ -2165,10 +2165,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
-                      title="Planilha estilo Excel (Univer) — adiciona ?dryrun=1 ao URL para simular sem gravar"
+                      title="Planilha estilo Excel (Univer)"
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5" />
-                      Planilha{bpUniverDryRun ? " (dry-run)" : ""}
+                      Planilha
                     </button>
                   )}
                 </div>
@@ -2187,7 +2187,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <BPUniverSpike
                     eventId={eventId}
                     canEdit={canEditBP}
-                    dryRun={bpUniverDryRun}
                     embedded
                   />
                 </Suspense>
