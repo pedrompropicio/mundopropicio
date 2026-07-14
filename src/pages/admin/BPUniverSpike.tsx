@@ -111,6 +111,7 @@ const L_TOTAL = colLetter(COL.TOTAL);
 type UniverRange = { startRow: number; endRow: number; startColumn: number; endColumn: number };
 
 const PROTECTED_CELL_TOAST = "Esta célula é calculada e não pode ser editada";
+const INSERTED_CATEGORY_TOAST = "A categoria é herdada do grupo onde a linha foi criada.";
 const EDIT_BLOCK_COMMANDS = new Set([
   "sheet.operation.set-cell-edit-visible",
   "sheet.operation.set-cell-edit-visible-f2",
@@ -241,6 +242,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const rowToEntryIdRef = useRef<Map<number, string>>(new Map());
   const entryIdToRowRef = useRef<Map<string, number>>(new Map());
   const insertRowToTempIdRef = useRef<Map<number, string>>(new Map());
+  const insertedCategoryCellsRef = useRef<Set<string>>(new Set());
   const originalEntriesRef = useRef<Map<string, Entry>>(new Map());
   const categoryLabelToIdRef = useRef<Map<string, string>>(new Map());
   const categoryIdToLabelRef = useRef<Map<string, string>>(new Map());
@@ -540,6 +542,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     const rowToEntryId = new Map<number, string>();
     const entryIdToRow = new Map<string, number>();
     const insertRowToTempId = new Map<number, string>();
+    const insertedCategoryCells = new Set<string>();
 
     const markProtected = (r: number, c: number) => protectedCells.add(`${r},${c}`);
 
@@ -573,7 +576,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         // uma variante com fundo verde. Isto garante que o rebuild trata a
         // nova linha como um lançamento normal.
         const rubricStyle = isInsert ? "sInsertedLabel" : stLabel;
-        const catStyle = isInsert ? "sInsertedRow" : st;
+        const catStyle = isInsert ? "sInsertedCategoryLocked" : st;
         const specStyle = isInsert ? "sInsertedRow" : st;
         const amountStyle = isInsert ? "sInsertedMoney" : "sMoney";
         const ivaStyle = isInsert ? "sInsertedIva" : "sIva";
@@ -594,6 +597,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         entryRows.push(r);
         if (isInsert) {
           insertRowToTempId.set(r, e.__insertTempId!);
+          // Categoria herdada da posição no grupo — read-only
+          markProtected(r, COL.CATEGORY);
+          insertedCategoryCells.add(`${r},${COL.CATEGORY}`);
         } else {
           rowToEntryId.set(r, e.id);
           entryIdToRow.set(e.id, r);
@@ -630,6 +636,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
     categoryDropdownRef.current = l3Categories.map((c) => c.label);
     nextInsertRowRef.current = built.length; // legacy — no longer used
     insertRowToTempIdRef.current = insertRowToTempId;
+    insertedCategoryCellsRef.current = insertedCategoryCells;
 
     const totalRows = built.length + 50; // headroom for inserts
     const sheetRowCount = Math.max(totalRows, 200);
@@ -675,6 +682,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         sInsertedMoney: { bg: { rgb: "#dcfce7" }, n: { pattern: "#,##0.00 [$€-816]" } },
         sInsertedMoneyCalc: { bg: { rgb: "#dcfce7" }, n: { pattern: "#,##0.00 [$€-816]" }, cl: { rgb: "#475569" } },
         sInsertedIva: { bg: { rgb: "#dcfce7" }, n: { pattern: "0.0" }, ht: 3 },
+        // Categoria herdada — read-only, texto esbatido
+        sInsertedCategoryLocked: { bg: { rgb: "#dcfce7" }, cl: { rgb: "#94a3b8" }, it: 1 },
       },
       sheetOrder: ["sheet1"],
       sheets: {
@@ -832,11 +841,37 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       apiRef.current = univerAPI;
       univerAPI.createWorkbook(workbookData);
 
+      const rangeHitsInsertedCategory = (): boolean => {
+        const cells = insertedCategoryCellsRef.current;
+        if (!cells.size) return false;
+        const ranges = getActiveRangesForToast();
+        return ranges.some((range) => {
+          for (let r = range.startRow; r <= range.endRow; r++) {
+            for (let c = range.startColumn; c <= range.endColumn; c++) {
+              if (cells.has(`${r},${c}`)) return true;
+            }
+          }
+          return false;
+        });
+      };
+      const getActiveRangesForToast = (): UniverRange[] => {
+        const wb = univerAPI.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        const selectionRanges = selectionRangesRef.current;
+        if (selectionRanges.length) return selectionRanges;
+        const activeRange = wb?.getActiveRange?.() ?? sheet?.getActiveRange?.();
+        const normalized = normalizeRange(activeRange);
+        return normalized ? [normalized] : [];
+      };
       const showProtectedToast = () => {
         const now = Date.now();
         if (now - toastThrottleRef.current < 1200) return;
         toastThrottleRef.current = now;
-        toast.warning(PROTECTED_CELL_TOAST);
+        if (rangeHitsInsertedCategory()) {
+          toast.info(INSERTED_CATEGORY_TOAST);
+        } else {
+          toast.warning(PROTECTED_CELL_TOAST);
+        }
       };
 
       const getActiveRanges = (): UniverRange[] => {
@@ -964,6 +999,10 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
             try {
               const catRange = sheet.getRange(r, COL.CATEGORY, 1, 1);
               try { catRange.setDataValidation(null as any); } catch {}
+              // Linhas inseridas: categoria herdada da posição, read-only — sem dropdown.
+              if (insertedCategoryCellsRef.current.has(`${r},${COL.CATEGORY}`)) {
+                continue;
+              }
               const catRule = (univerAPI as any).newDataValidation()
                 .requireValueInList(categoryDropdownRef.current)
                 .setOptions({ allowInvalid: false, showDropdown: true, error: "Escolhe uma categoria L3 da lista." })
