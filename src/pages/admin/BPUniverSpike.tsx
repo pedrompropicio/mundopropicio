@@ -1325,20 +1325,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
         return;
       }
       if (last.kind === "insert") {
-        // Remove from pendingInserts
+        // Só remove do state — rebuild elimina a linha da grelha
         setPendingInserts((prev) => prev.filter((r) => r.tempId !== last.data.tempId));
-        for (const [row, tid] of insertRowToTempIdRef.current) {
-          if (tid === last.data.tempId) {
-            try {
-              const wb = api.getActiveWorkbook?.();
-              const sheet = wb?.getActiveSheet?.();
-              for (let c = 0; c < N_COLS; c++) sheet?.getRange(row, c, 1, 1).setValue?.("");
-              applyRowStyle(row, null);
-            } catch { /* noop */ }
-            insertRowToTempIdRef.current.delete(row);
-            break;
-          }
-        }
         setActionLog((log) => log.slice(0, -1));
         toast.success("Inserção desfeita.");
         return;
