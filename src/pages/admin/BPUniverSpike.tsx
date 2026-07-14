@@ -275,8 +275,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
   const [pendingNavConfirm, setPendingNavConfirm] = useState<null | (() => void)>(null);
 
   const [confirmRealSaveOpen, setConfirmRealSaveOpen] = useState(false);
+  const [dryRunPreview, setDryRunPreview] = useState<null | {
+    edits: { id: string; label: string; changes: string[] }[];
+    inserts: { label: string; catLabel: string; amount: number; iva: number }[];
+    deletes: { id: string; label: string; amount: number }[];
+  }>(null);
+  const [focusInsertTempId, setFocusInsertTempId] = useState<string | null>(null);
   const changeCount = Object.keys(dirty).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
+
+  // Ref para o dirty atual — usado no efeito de reaplicação (evita re-fire por keystroke)
+  const dirtyRef = useRef(dirty);
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
   // Escape to exit fullscreen
   useEffect(() => {
