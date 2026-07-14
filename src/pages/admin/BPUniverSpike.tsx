@@ -215,21 +215,17 @@ const parseIntSafe = (v: any): number | null => {
 interface BPUniverSpikeProps {
   eventId?: string;
   canEdit?: boolean;
-  dryRun?: boolean;
   embedded?: boolean;
 }
 
-export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: dryRunProp = false, embedded = false }: BPUniverSpikeProps = {}) {
+export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
-  // Standalone: aceita ?event=<uuid> e ?dryrun=1|true no URL; fallback = Anitta EDA 2026.
+  // Standalone: aceita ?event=<uuid> no URL; fallback = Anitta EDA 2026.
   const urlParams = !embedded && typeof window !== "undefined"
     ? new URLSearchParams(window.location.search)
     : null;
   const urlEventId = !eventIdProp ? urlParams?.get("event") ?? undefined : undefined;
-  const urlDryRunRaw = urlParams?.get("dryrun")?.toLowerCase();
-  const urlDryRun = urlDryRunRaw === "1" || urlDryRunRaw === "true";
   const EVENT_ID = eventIdProp ?? urlEventId ?? DEFAULT_EVENT_ID;
-  const isDryRun = dryRunProp || urlDryRun;
   const [eventName, setEventName] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
