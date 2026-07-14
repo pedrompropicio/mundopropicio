@@ -1473,7 +1473,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     setPendingDeletes([]);
     setValidationErrors([]);
     setActionLog([]);
-    setDryRunPreview(null);
+    
     try { localStorage.removeItem(draftKey); } catch { /* noop */ }
     toast.success("Alterações descartadas.");
   };
