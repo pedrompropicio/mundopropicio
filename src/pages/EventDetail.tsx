@@ -114,6 +114,8 @@ export default function EventDetail() {
   const canViewSponsorship = isAdmin || isManager || hasPermission("view_sponsorship");
   const canViewAB = isAdmin || isManager || hasPermission("view_ab");
   const canViewSimulator = isAdmin || isManager || hasPermission("view_simulator");
+  const canManageTx = isAdmin || isManager || hasPermission("manage_transactions");
+  const [allocOpen, setAllocOpen] = useState(false);
   const { companyId } = useCompany();
   const queryClient = useQueryClient();
 
