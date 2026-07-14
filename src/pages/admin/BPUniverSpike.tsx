@@ -841,11 +841,37 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, dryRun: d
       apiRef.current = univerAPI;
       univerAPI.createWorkbook(workbookData);
 
+      const rangeHitsInsertedCategory = (): boolean => {
+        const cells = insertedCategoryCellsRef.current;
+        if (!cells.size) return false;
+        const ranges = getActiveRangesForToast();
+        return ranges.some((range) => {
+          for (let r = range.startRow; r <= range.endRow; r++) {
+            for (let c = range.startColumn; c <= range.endColumn; c++) {
+              if (cells.has(`${r},${c}`)) return true;
+            }
+          }
+          return false;
+        });
+      };
+      const getActiveRangesForToast = (): UniverRange[] => {
+        const wb = univerAPI.getActiveWorkbook?.();
+        const sheet = wb?.getActiveSheet?.();
+        const selectionRanges = selectionRangesRef.current;
+        if (selectionRanges.length) return selectionRanges;
+        const activeRange = wb?.getActiveRange?.() ?? sheet?.getActiveRange?.();
+        const normalized = normalizeRange(activeRange);
+        return normalized ? [normalized] : [];
+      };
       const showProtectedToast = () => {
         const now = Date.now();
         if (now - toastThrottleRef.current < 1200) return;
         toastThrottleRef.current = now;
-        toast.warning(PROTECTED_CELL_TOAST);
+        if (rangeHitsInsertedCategory()) {
+          toast.info(INSERTED_CATEGORY_TOAST);
+        } else {
+          toast.warning(PROTECTED_CELL_TOAST);
+        }
       };
 
       const getActiveRanges = (): UniverRange[] => {
