@@ -513,13 +513,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
   );
 }
 
-type BpOption = { groupLabel: string } | { forecast: Forecast };
+type BpOption = { l3: Cat } | { forecast: Forecast };
 
 interface TxTableProps {
   txs: Tx[];
   forecastByTxId: Map<string, Forecast>;
   catLabel: (id: string | null | undefined) => string;
-  onChange: (t: Tx, targetForecastId: string | null) => void;
+  onChange: (t: Tx, arg: { targetForecastId?: string | null; targetL3Id?: string }) => void;
   options: BpOption[];
 }
 
@@ -533,14 +533,16 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
             <th className="text-left px-2 py-1.5 font-medium">Descrição</th>
             <th className="text-right px-2 py-1.5 font-medium">Valor c/IVA</th>
             <th className="text-left px-2 py-1.5 font-medium">Estado</th>
-            <th className="text-left px-2 py-1.5 font-medium min-w-[320px]">Linha BP</th>
+            <th className="text-left px-2 py-1.5 font-medium min-w-[320px]">Linha BP / Rubrica</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/30">
           {txs.map((t) => {
             const linked = forecastByTxId.get(t.id);
             const total = withIva(t.amount, t.iva_rate);
-            const value = linked?.id ?? "";
+            // Estados: linked (linha específica) / rubric-only (tem L3 mas sem linked) / vazio
+            const hasL3 = !!t.category_id;
+            const value = linked ? linked.id : hasL3 && !linked ? `${L3_PREFIX}${t.category_id}` : undefined;
             return (
               <tr key={t.id}>
                 <td className="px-2 py-1.5 whitespace-nowrap">{formatDate(t.date)}</td>
@@ -555,10 +557,11 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1">
                     <Select
-                      value={value || undefined}
+                      value={value}
                       onValueChange={(v) => {
-                        if (v === UNLINK_VALUE) onChange(t, null);
-                        else onChange(t, v);
+                        if (v === UNLINK_VALUE) onChange(t, { targetForecastId: null });
+                        else if (v.startsWith(L3_PREFIX)) onChange(t, { targetL3Id: v.slice(L3_PREFIX.length) });
+                        else onChange(t, { targetForecastId: v });
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -570,39 +573,49 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                               {linked.specification ? ` · ${linked.specification}` : ""}
                             </span>
                           </span>
+                        ) : hasL3 ? (
+                          <span className="flex items-center gap-1 truncate text-muted-foreground">
+                            <Tag className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{catLabel(t.category_id)} · só rubrica</span>
+                          </span>
                         ) : (
-                          <span className="text-muted-foreground">Escolher linha BP…</span>
+                          <span className="text-muted-foreground">Escolher rubrica ou linha BP…</span>
                         )}
                       </SelectTrigger>
-                      <SelectContent className="max-h-[360px] w-[520px]">
-                        {linked && (
+                      <SelectContent className="max-h-[360px] w-[560px]">
+                        {(linked || hasL3) && (
                           <SelectItem value={UNLINK_VALUE}>
                             <span className="flex items-center gap-1 text-muted-foreground">
-                              <Link2Off className="h-3 w-3" /> Desvincular
+                              <Link2Off className="h-3 w-3" /> Desvincular {linked ? "linha" : ""}
                             </span>
                           </SelectItem>
                         )}
                         {options.length === 0 && (
-                          <div className="px-2 py-2 text-[11px] text-muted-foreground italic">Sem linhas BP neste L2.</div>
+                          <div className="px-2 py-2 text-[11px] text-muted-foreground italic">Sem rubricas neste L2.</div>
                         )}
                         {options.map((opt, i) => {
-                          if ("groupLabel" in opt) {
+                          if ("l3" in opt) {
+                            const l3 = opt.l3;
                             return (
-                              <div
-                                key={`g-${i}`}
-                                className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30"
-                              >
-                                {opt.groupLabel}
-                              </div>
+                              <SelectItem key={`l3-${l3.id}`} value={`${L3_PREFIX}${l3.id}`}>
+                                <span className="flex items-center gap-1">
+                                  <Tag className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {l3.code} {l3.name}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">— só a rubrica</span>
+                                </span>
+                              </SelectItem>
                             );
                           }
                           const f = opt.forecast;
                           const busy = !!f.transaction_id && f.transaction_id !== t.id;
                           const prev = withIva(f.amount, f.iva_rate);
                           return (
-                            <SelectItem key={f.id} value={f.id} disabled={busy}>
+                            <SelectItem key={f.id} value={f.id} disabled={busy} className="pl-6">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
+                                  <Link2 className="h-3 w-3 text-emerald-500 shrink-0" />
                                   <span className="font-medium">{f.description || "(sem descrição)"}</span>
                                   {busy && (
                                     <Badge variant="outline" className="h-4 text-[9px] px-1">
@@ -615,7 +628,7 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground">
+                                <div className="text-[10px] text-muted-foreground pl-5">
                                   {f.specification ? `${f.specification} · ` : ""}
                                   Previsto {formatCurrency(prev)}
                                 </div>
