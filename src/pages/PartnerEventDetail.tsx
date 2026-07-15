@@ -762,12 +762,78 @@ export default function PartnerEventDetail() {
     [bpGroupedHier],
   );
   const bpTotalRealizedExpense = realizedTotals.grand;
+
+  // ─── "BP ajustado à realidade" ──────────────────────────────────────────
+  // Racional (decisão do Pedro): enquanto o evento decorre, uma rubrica L3
+  // cujo realizado (c/IVA, vindo da RPC get_partner_bp_realized) JÁ
+  // ULTRAPASSOU o previsto deixa de representar realidade. Nesse caso a
+  // linha L3 passa a mostrar o realizado (destacado a âmbar) com o previsto
+  // riscado ao lado, e o EXCESSO propaga a L2, L1, TOTAL, card Despesas e
+  // (por consequência) card Resultado. Rubricas com realizado ≤ previsto
+  // NÃO mudam — ainda está em curso, não se pode assumir que baixaram.
+  // Aplica-se só na vista "BP" e nos cards (com permissão). A vista
+  // "BP × Realizado" e os exports mantêm-se com o previsto original.
+  const bpL3Overrun = useMemo(() => {
+    const m: Record<string, { forecast: number; realized: number; excess: number }> = {};
+    if (!canSeeRealized) return m;
+    bpGroupedHier.forEach((l1) => {
+      l1.l2Groups.forEach((l2) => {
+        l2.l3Groups.forEach((l3) => {
+          if (!l3.id) return;
+          const realized = realizedByL3Id[l3.id]?.total ?? 0;
+          const forecast = Number(l3.total) || 0;
+          if (realized > forecast + 0.005) {
+            m[l3.id] = { forecast, realized, excess: realized - forecast };
+          }
+        });
+      });
+    });
+    return m;
+  }, [canSeeRealized, bpGroupedHier, realizedByL3Id]);
+
+  const bpExcessTotal = useMemo(
+    () => Object.values(bpL3Overrun).reduce((s, r) => s + r.excess, 0),
+    [bpL3Overrun],
+  );
+  const bpAdjustedCount = Object.keys(bpL3Overrun).length;
+  const bpTotalExpenseAdjusted = bpTotalExpense + bpExcessTotal;
+
+  // Excessos agregados por L2 (chave "l1code/l2code") e L1 (chave "l1code"),
+  // para propagar o ajuste aos subtotais mostrados na vista BP.
+  const bpExcessByL2 = useMemo(() => {
+    const m: Record<string, number> = {};
+    bpGroupedHier.forEach((l1) => {
+      l1.l2Groups.forEach((l2) => {
+        let s = 0;
+        l2.l3Groups.forEach((l3) => {
+          if (l3.id && bpL3Overrun[l3.id]) s += bpL3Overrun[l3.id].excess;
+        });
+        if (s > 0) m[`${l1.code}/${l2.code}`] = s;
+      });
+    });
+    return m;
+  }, [bpGroupedHier, bpL3Overrun]);
+
+  const bpExcessByL1 = useMemo(() => {
+    const m: Record<string, number> = {};
+    bpGroupedHier.forEach((l1) => {
+      let s = 0;
+      l1.l2Groups.forEach((l2) => {
+        l2.l3Groups.forEach((l3) => {
+          if (l3.id && bpL3Overrun[l3.id]) s += bpL3Overrun[l3.id].excess;
+        });
+      });
+      if (s > 0) m[l1.code] = s;
+    });
+    return m;
+  }, [bpGroupedHier, bpL3Overrun]);
+
   // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
   const bpTotalIncome = useMemo(
     () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
     [bpIncomes],
   );
-  const bpTotalResult = bpTotalIncome - bpTotalExpense;
+  const bpTotalResult = bpTotalIncome - bpTotalExpenseAdjusted;
 
 
   // ─── Exportações do BP do sócio (Excel + PDF) ───
@@ -961,7 +1027,7 @@ export default function PartnerEventDetail() {
   const sponsorshipRealNet = incomeTxNet("1.2");
   const barsRealNet = incomeTxNet("1.1.03");
   const incomeRealNet = ticketRevenueNet + sponsorshipRealNet + barsRealNet;
-  const partnerResultValue = incomeRealNet - bpTotalExpense;
+  const partnerResultValue = incomeRealNet - bpTotalExpenseAdjusted;
 
   return (
     <div className="space-y-6">
@@ -1237,10 +1303,11 @@ export default function PartnerEventDetail() {
               ticketsNet={ticketRevenueNet}
               sponsorshipNet={sponsorshipRealNet}
               barsNet={barsRealNet}
-              bpExpenseGross={bpTotalExpense}
+              bpExpenseGross={bpTotalExpenseAdjusted}
               bpExpenseRealized={bpTotalRealizedExpense}
               showRealized={canSeeRealized}
               realizedError={canSeeRealized && realizedIsError}
+              adjustedRubricsCount={bpAdjustedCount}
             />
           </div>
 
@@ -1367,27 +1434,46 @@ export default function PartnerEventDetail() {
                             <span className="text-right tabular-nums">Previsto</span>
                             <span className="text-right tabular-nums">Formalidade</span>
                           </div>
-                          {bpGroupedHier.map((l1) => (
+                          {bpGroupedHier.map((l1) => {
+                            // "BP ajustado à realidade": propaga excessos das
+                            // rubricas L3 ultrapassadas aos subtotais L2/L1 e
+                            // ao TOTAL. Ver comentário no cálculo bpL3Overrun.
+                            const l1Excess = bpExcessByL1[l1.code] ?? 0;
+                            const l1Display = l1.total + l1Excess;
+                            return (
                             <div key={l1.name} className="mb-2">
                               <div style={gridStyle} className="bg-muted/40 px-4 py-1.5">
                                 <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
-                                <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l1.total)}</span>
+                                <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${l1Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l1Display)}</span>
                                 <span aria-hidden />
                               </div>
-                              {l1.l2Groups.map((l2) => (
+                              {l1.l2Groups.map((l2) => {
+                                const l2Excess = bpExcessByL2[`${l1.code}/${l2.code}`] ?? 0;
+                                const l2Display = l2.total + l2Excess;
+                                return (
                                 <div key={l2.name}>
                                   <div style={gridStyle} className="bg-muted/20 px-4 py-1 border-b border-border/40">
                                     <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
-                                    <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
+                                    <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${l2Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l2Display)}</span>
                                     <span aria-hidden />
                                   </div>
                                   {l2.l3Groups.map((l3) => {
                                     const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
+                                    const overrun = l3.id ? bpL3Overrun[l3.id] : undefined;
                                     return (
                                       <div key={l3.name}>
                                         <div style={gridStyle} className="px-4 py-1 border-b border-border/20 bg-muted/5">
                                           <span className="text-[11px] font-semibold text-foreground min-w-0 pl-8 flex items-center gap-2">
                                             <span className="truncate flex-1">{l3.code} · {l3.name}</span>
+                                            {overrun && (
+                                              <span
+                                                className="inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wider text-amber-600 shrink-0"
+                                                title="Realizado c/IVA ultrapassou o previsto — linha ajustada à realidade"
+                                              >
+                                                <TrendingUp className="h-2.5 w-2.5" />
+                                                acima BP
+                                              </span>
+                                            )}
                                             {l3Atts.length > 0 && (
                                               <Popover>
                                                 <PopoverTrigger asChild>
@@ -1421,7 +1507,21 @@ export default function PartnerEventDetail() {
                                               </Popover>
                                             )}
                                           </span>
-                                          <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l3.total)}</span>
+                                          {overrun ? (
+                                            <span className="text-right tabular-nums flex flex-col items-end leading-tight">
+                                              <span className="text-[11px] font-bold font-mono text-amber-600">
+                                                {formatCurrency(overrun.realized)}
+                                              </span>
+                                              <span
+                                                className="text-[9px] font-mono text-muted-foreground line-through"
+                                                title="Previsto original c/IVA"
+                                              >
+                                                BP: {formatCurrency(overrun.forecast)}
+                                              </span>
+                                            </span>
+                                          ) : (
+                                            <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l3.total)}</span>
+                                          )}
                                           <span aria-hidden />
                                         </div>
                                         {l3.items.map((it) => (
@@ -1448,13 +1548,15 @@ export default function PartnerEventDetail() {
                                     );
                                   })}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
-                          ))}
-                          {/* Linha TOTAL — bate ao cêntimo com o card Despesas */}
+                            );
+                          })}
+                          {/* Linha TOTAL — bate ao cêntimo com o card Despesas (já ajustado) */}
                           <div style={gridStyle} className="bg-muted/60 border-t-2 border-border px-4 py-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
-                            <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(bpTotalExpense)}</span>
+                            <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${bpExcessTotal > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(bpTotalExpenseAdjusted)}</span>
                             <span aria-hidden />
                           </div>
                         </>
@@ -1677,7 +1779,9 @@ export default function PartnerEventDetail() {
                 ticketsNet={ticketRevenueNet}
                 sponsorshipNet={sponsorshipRealNet}
                 barsNet={barsRealNet}
-                bpExpenseGross={bpTotalExpense}
+                bpExpenseGross={bpTotalExpenseAdjusted}
+                showRealized={canSeeRealized}
+                adjustedRubricsCount={bpAdjustedCount}
               />
 
 
