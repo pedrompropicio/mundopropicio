@@ -1535,7 +1535,13 @@ export default function PartnerEventDetail() {
                                           )}
                                           <span aria-hidden />
                                         </div>
-                                        {l3.items.map((it) => (
+                                        {l3.items.map((it) => {
+                                          // Rubrica ultrapassada com 1 única linha BP:
+                                          // é seguro atribuir o realizado da rubrica a essa
+                                          // linha (Valor=realizado destacado, Previsto=original).
+                                          // 2+ linhas: distribuição fica para Fase 2.
+                                          const singleOverrun = overrun && l3.items.length === 1;
+                                          return (
                                           <div key={it.id} style={gridStyle} className="px-4 py-1.5 border-b border-border/15">
                                             <span className="text-xs min-w-0 truncate pl-12">
                                               {it.description}
@@ -1543,8 +1549,17 @@ export default function PartnerEventDetail() {
                                                 <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
                                               )}
                                             </span>
-                                            <span className="text-xs font-mono font-semibold text-amber-500 text-right tabular-nums">{formatCurrency(it.amount)}</span>
-                                            {canSeeRealized && <span aria-hidden />}
+                                            <span className={`text-xs font-mono font-semibold text-right tabular-nums ${singleOverrun ? "text-amber-600" : "text-amber-500"}`}>
+                                              {formatCurrency(singleOverrun ? overrun!.realized : it.amount)}
+                                            </span>
+                                            {canSeeRealized && (
+                                              <span
+                                                className="text-[10px] font-mono text-muted-foreground text-right tabular-nums"
+                                                title={singleOverrun ? "Previsto original c/IVA" : undefined}
+                                              >
+                                                {singleOverrun ? formatCurrency(it.amount) : ""}
+                                              </span>
+                                            )}
                                             <span className="flex justify-end">
                                               <FormalidadeBadge
                                                 forecastId={it.id}
@@ -1555,7 +1570,8 @@ export default function PartnerEventDetail() {
                                               />
                                             </span>
                                           </div>
-                                        ))}
+                                          );
+                                        })}
                                       </div>
                                     );
                                   })}
