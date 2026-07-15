@@ -785,7 +785,7 @@ export default function PartnerEventDetail() {
   // "BP × Realizado" e os exports mantêm-se com o previsto original.
   const bpL3Overrun = useMemo(() => {
     const m: Record<string, { forecast: number; realized: number; excess: number }> = {};
-    if (!canSeeRealized) return m;
+    if (!canSeeAdjusted) return m;
     bpGroupedHier.forEach((l1) => {
       l1.l2Groups.forEach((l2) => {
         l2.l3Groups.forEach((l3) => {
