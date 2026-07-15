@@ -1452,11 +1452,11 @@ export default function PartnerEventDetail() {
                               <div style={gridStyle} className="bg-muted/40 px-4 py-1.5">
                                 <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
                                 <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${l1Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l1Display)}</span>
-                                {canSeeRealized && (
-                                  <span className="text-[10px] font-mono text-muted-foreground text-right tabular-nums">
-                                    {l1Excess > 0 ? formatCurrency(l1.total) : ""}
-                                  </span>
-                                )}
+                                {/* Coluna Previsto: só preenchida em rubricas L3 ajustadas
+                                    (e nas linhas BP quando a rubrica tem 1 única linha).
+                                    Subtotais L1/L2/TOTAL ficam sempre vazios — o Valor já
+                                    está ajustado, não duplicamos aqui. */}
+                                {canSeeRealized && <span aria-hidden />}
                                 <span aria-hidden />
                               </div>
                               {l1.l2Groups.map((l2) => {
