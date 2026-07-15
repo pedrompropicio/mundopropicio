@@ -762,12 +762,78 @@ export default function PartnerEventDetail() {
     [bpGroupedHier],
   );
   const bpTotalRealizedExpense = realizedTotals.grand;
+
+  // ─── "BP ajustado à realidade" ──────────────────────────────────────────
+  // Racional (decisão do Pedro): enquanto o evento decorre, uma rubrica L3
+  // cujo realizado (c/IVA, vindo da RPC get_partner_bp_realized) JÁ
+  // ULTRAPASSOU o previsto deixa de representar realidade. Nesse caso a
+  // linha L3 passa a mostrar o realizado (destacado a âmbar) com o previsto
+  // riscado ao lado, e o EXCESSO propaga a L2, L1, TOTAL, card Despesas e
+  // (por consequência) card Resultado. Rubricas com realizado ≤ previsto
+  // NÃO mudam — ainda está em curso, não se pode assumir que baixaram.
+  // Aplica-se só na vista "BP" e nos cards (com permissão). A vista
+  // "BP × Realizado" e os exports mantêm-se com o previsto original.
+  const bpL3Overrun = useMemo(() => {
+    const m: Record<string, { forecast: number; realized: number; excess: number }> = {};
+    if (!canSeeRealized) return m;
+    bpGroupedHier.forEach((l1) => {
+      l1.l2Groups.forEach((l2) => {
+        l2.l3Groups.forEach((l3) => {
+          if (!l3.id) return;
+          const realized = realizedByL3Id[l3.id]?.total ?? 0;
+          const forecast = Number(l3.total) || 0;
+          if (realized > forecast + 0.005) {
+            m[l3.id] = { forecast, realized, excess: realized - forecast };
+          }
+        });
+      });
+    });
+    return m;
+  }, [canSeeRealized, bpGroupedHier, realizedByL3Id]);
+
+  const bpExcessTotal = useMemo(
+    () => Object.values(bpL3Overrun).reduce((s, r) => s + r.excess, 0),
+    [bpL3Overrun],
+  );
+  const bpAdjustedCount = Object.keys(bpL3Overrun).length;
+  const bpTotalExpenseAdjusted = bpTotalExpense + bpExcessTotal;
+
+  // Excessos agregados por L2 (chave "l1code/l2code") e L1 (chave "l1code"),
+  // para propagar o ajuste aos subtotais mostrados na vista BP.
+  const bpExcessByL2 = useMemo(() => {
+    const m: Record<string, number> = {};
+    bpGroupedHier.forEach((l1) => {
+      l1.l2Groups.forEach((l2) => {
+        let s = 0;
+        l2.l3Groups.forEach((l3) => {
+          if (l3.id && bpL3Overrun[l3.id]) s += bpL3Overrun[l3.id].excess;
+        });
+        if (s > 0) m[`${l1.code}/${l2.code}`] = s;
+      });
+    });
+    return m;
+  }, [bpGroupedHier, bpL3Overrun]);
+
+  const bpExcessByL1 = useMemo(() => {
+    const m: Record<string, number> = {};
+    bpGroupedHier.forEach((l1) => {
+      let s = 0;
+      l1.l2Groups.forEach((l2) => {
+        l2.l3Groups.forEach((l3) => {
+          if (l3.id && bpL3Overrun[l3.id]) s += bpL3Overrun[l3.id].excess;
+        });
+      });
+      if (s > 0) m[l1.code] = s;
+    });
+    return m;
+  }, [bpGroupedHier, bpL3Overrun]);
+
   // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
   const bpTotalIncome = useMemo(
     () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
     [bpIncomes],
   );
-  const bpTotalResult = bpTotalIncome - bpTotalExpense;
+  const bpTotalResult = bpTotalIncome - bpTotalExpenseAdjusted;
 
 
   // ─── Exportações do BP do sócio (Excel + PDF) ───
