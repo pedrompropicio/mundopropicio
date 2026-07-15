@@ -312,8 +312,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     return s;
   }, [previstoByCat, txs, byId]);
 
-  // "Por alocar" = TX sem vínculo directo a linha BP
-  const unallocatedCount = useMemo(
+  // Critical: TX sem rubrica L3 (categoria vazia ou não-L3)
+  const semRubricaCount = useMemo(
+    () => txs.filter((t) => levelOf(t.category_id) !== 3).length,
+    [txs, byId],
+  );
+  // Informative: TX sem linha específica (independente da rubrica)
+  const semLinhaCount = useMemo(
     () => txs.filter((t) => !forecastByTxId.has(t.id)).length,
     [txs, forecastByTxId],
   );
