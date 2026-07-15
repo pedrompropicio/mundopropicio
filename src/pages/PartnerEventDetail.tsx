@@ -1433,13 +1433,15 @@ export default function PartnerEventDetail() {
                     (() => {
                       // Layout: com permissão view_partner_realized a grelha
                       // ganha uma coluna "Previsto" dedicada (só preenchida em
-                      // rubricas/subtotais ajustados ao realizado). Sem
-                      // permissão a coluna nem aparece — comportamento antigo.
+                      // Layout: 4 colunas fixas (Rubrica | Valor | Previsto |
+                      // Formalidade). A coluna Previsto só é preenchida em
+                      // rubricas L3 ajustadas ao realizado (e na linha BP
+                      // única correspondente); nas restantes fica vazia.
+                      // Aplicável a todos os sócios com acesso ao BP — o
+                      // "BP ajustado à realidade" passou a ser padrão.
                       const gridStyle: React.CSSProperties = {
                         display: "grid",
-                        gridTemplateColumns: canSeeRealized
-                          ? "minmax(0,1fr) 6rem 6rem 6rem"
-                          : "minmax(0,1fr) 6rem 6rem",
+                        gridTemplateColumns: "minmax(0,1fr) 6rem 6rem 6rem",
                         alignItems: "center",
                         columnGap: "0.75rem",
                       };
