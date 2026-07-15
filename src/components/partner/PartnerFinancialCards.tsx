@@ -18,11 +18,18 @@ export interface PartnerFinancialCardsProps {
   bpExpenseRealized?: number | null;
   showRealized?: boolean;
   realizedError?: boolean;
+  /**
+   * Nº de rubricas L3 cujo previsto foi substituído pelo realizado (ver
+   * "BP ajustado à realidade" em PartnerEventDetail). Quando > 0 acrescenta
+   * uma nota discreta no card Despesas.
+   */
+  adjustedRubricsCount?: number;
 }
 
 export function PartnerFinancialCards({
   ticketsNet, sponsorshipNet, barsNet, bpExpenseGross,
   bpExpenseRealized = 0, showRealized = false, realizedError = false,
+  adjustedRubricsCount = 0,
 }: PartnerFinancialCardsProps) {
   const incomeNet = ticketsNet + sponsorshipNet + barsNet;
   const result = incomeNet - bpExpenseGross;
