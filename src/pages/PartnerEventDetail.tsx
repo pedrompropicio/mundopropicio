@@ -1452,11 +1452,11 @@ export default function PartnerEventDetail() {
                               <div style={gridStyle} className="bg-muted/40 px-4 py-1.5">
                                 <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
                                 <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${l1Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l1Display)}</span>
-                                {canSeeRealized && (
-                                  <span className="text-[10px] font-mono text-muted-foreground text-right tabular-nums">
-                                    {l1Excess > 0 ? formatCurrency(l1.total) : ""}
-                                  </span>
-                                )}
+                                {/* Coluna Previsto: só preenchida em rubricas L3 ajustadas
+                                    (e nas linhas BP quando a rubrica tem 1 única linha).
+                                    Subtotais L1/L2/TOTAL ficam sempre vazios — o Valor já
+                                    está ajustado, não duplicamos aqui. */}
+                                {canSeeRealized && <span aria-hidden />}
                                 <span aria-hidden />
                               </div>
                               {l1.l2Groups.map((l2) => {
@@ -1467,11 +1467,7 @@ export default function PartnerEventDetail() {
                                   <div style={gridStyle} className="bg-muted/20 px-4 py-1 border-b border-border/40">
                                     <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
                                     <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${l2Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l2Display)}</span>
-                                    {canSeeRealized && (
-                                      <span className="text-[10px] font-mono text-muted-foreground text-right tabular-nums">
-                                        {l2Excess > 0 ? formatCurrency(l2.total) : ""}
-                                      </span>
-                                    )}
+                                    {canSeeRealized && <span aria-hidden />}
                                     <span aria-hidden />
                                   </div>
                                   {l2.l3Groups.map((l3) => {
@@ -1539,7 +1535,13 @@ export default function PartnerEventDetail() {
                                           )}
                                           <span aria-hidden />
                                         </div>
-                                        {l3.items.map((it) => (
+                                        {l3.items.map((it) => {
+                                          // Rubrica ultrapassada com 1 única linha BP:
+                                          // é seguro atribuir o realizado da rubrica a essa
+                                          // linha (Valor=realizado destacado, Previsto=original).
+                                          // 2+ linhas: distribuição fica para Fase 2.
+                                          const singleOverrun = overrun && l3.items.length === 1;
+                                          return (
                                           <div key={it.id} style={gridStyle} className="px-4 py-1.5 border-b border-border/15">
                                             <span className="text-xs min-w-0 truncate pl-12">
                                               {it.description}
@@ -1547,8 +1549,17 @@ export default function PartnerEventDetail() {
                                                 <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
                                               )}
                                             </span>
-                                            <span className="text-xs font-mono font-semibold text-amber-500 text-right tabular-nums">{formatCurrency(it.amount)}</span>
-                                            {canSeeRealized && <span aria-hidden />}
+                                            <span className={`text-xs font-mono font-semibold text-right tabular-nums ${singleOverrun ? "text-amber-600" : "text-amber-500"}`}>
+                                              {formatCurrency(singleOverrun ? overrun!.realized : it.amount)}
+                                            </span>
+                                            {canSeeRealized && (
+                                              <span
+                                                className="text-[10px] font-mono text-muted-foreground text-right tabular-nums"
+                                                title={singleOverrun ? "Previsto original c/IVA" : undefined}
+                                              >
+                                                {singleOverrun ? formatCurrency(it.amount) : ""}
+                                              </span>
+                                            )}
                                             <span className="flex justify-end">
                                               <FormalidadeBadge
                                                 forecastId={it.id}
@@ -1559,7 +1570,8 @@ export default function PartnerEventDetail() {
                                               />
                                             </span>
                                           </div>
-                                        ))}
+                                          );
+                                        })}
                                       </div>
                                     );
                                   })}
@@ -1573,11 +1585,7 @@ export default function PartnerEventDetail() {
                           <div style={gridStyle} className="bg-muted/60 border-t-2 border-border px-4 py-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
                             <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${bpExcessTotal > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(bpTotalExpenseAdjusted)}</span>
-                            {canSeeRealized && (
-                              <span className="text-[10px] font-mono text-muted-foreground text-right tabular-nums">
-                                {bpExcessTotal > 0 ? formatCurrency(bpTotalExpense) : ""}
-                              </span>
-                            )}
+                            {canSeeRealized && <span aria-hidden />}
                             <span aria-hidden />
                           </div>
                         </>
