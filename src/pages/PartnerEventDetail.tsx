@@ -1467,11 +1467,7 @@ export default function PartnerEventDetail() {
                                   <div style={gridStyle} className="bg-muted/20 px-4 py-1 border-b border-border/40">
                                     <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
                                     <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${l2Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l2Display)}</span>
-                                    {canSeeRealized && (
-                                      <span className="text-[10px] font-mono text-muted-foreground text-right tabular-nums">
-                                        {l2Excess > 0 ? formatCurrency(l2.total) : ""}
-                                      </span>
-                                    )}
+                                    {canSeeRealized && <span aria-hidden />}
                                     <span aria-hidden />
                                   </div>
                                   {l2.l3Groups.map((l3) => {
