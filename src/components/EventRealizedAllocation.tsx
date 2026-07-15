@@ -437,9 +437,16 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 
   const buildSuggestions = () => {
     const THRESHOLD = 0.25;
+    // "Sem linha" usa a MESMA definição da grelha (directa + via categoria) — o
+    // que a grelha já reconhece não é candidato a nova sugestão, e forecasts
+    // inferidas também estão indisponíveis.
     const candidateTxs = txs.filter((t) => !forecastByTxId.has(t.id));
     const freeForecasts = forecasts.filter(
-      (f) => !f.transaction_id && f.category_id && levelOf(f.category_id) === 3,
+      (f) =>
+        !f.transaction_id &&
+        !inferredForecastIds.has(f.id) &&
+        f.category_id &&
+        levelOf(f.category_id) === 3,
     );
 
     type Pair = Suggestion & { raw: number };
