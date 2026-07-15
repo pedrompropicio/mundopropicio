@@ -376,11 +376,16 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-3 text-xs">
-          <Badge variant={unallocatedCount > 0 ? "destructive" : "secondary"} className="gap-1">
-            <AlertTriangle className="h-3 w-3" /> {unallocatedCount} por alocar
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <Badge variant={semRubricaCount > 0 ? "destructive" : "secondary"} className="gap-1">
+            <AlertTriangle className="h-3 w-3" /> {semRubricaCount} sem rubrica L3
           </Badge>
-          <span className="text-muted-foreground">Transações sem vínculo a linha BP.</span>
+          <Badge variant="outline" className="gap-1">
+            <Link2Off className="h-3 w-3" /> {semLinhaCount} sem linha específica
+          </Badge>
+          <span className="text-muted-foreground">
+            Sem rubrica é crítico; sem linha é informativo — pode ficar só na rubrica.
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-6 pr-2">
