@@ -700,8 +700,18 @@ export default function PartnerEventDetail() {
       .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
   }, [bpExpenses, allCategories]);
 
-  // ─── Realizados por rubrica (via RPC — só com permissão dedicada) ───
-  const canSeeRealized = hasPermission("view_partner_realized");
+  // ─── Realizados por rubrica (via RPC) ───
+  // Decisão do Pedro: dois níveis de acesso distintos.
+  //  • canSeeAdjusted → QUALQUER sócio com acesso ao BP: vê o "BP ajustado
+  //    à realidade" (rubricas ultrapassadas com Valor=realizado destacado
+  //    e Previsto original ao lado; propagação a subtotais/TOTAL/cards).
+  //  • canSeeComparative (permissão view_partner_realized) → adiciona o
+  //    seletor "BP | BP × Realizado", a vista de comparação L1/L2/L3 e
+  //    a linha "Previsto c/IVA · Realizado X (Y%)" no card Despesas.
+  // A RPC já autoriza qualquer parceiro com partner_event_access — não
+  // exige mais a permissão. Devolve apenas agregados por L3.
+  const canSeeAdjusted = !!activeEventId;
+  const canSeeComparative = hasPermission("view_partner_realized");
   const { data: realizedRows = [], isError: realizedIsError } = useQuery({
     queryKey: ["partner_bp_realized", activeEventId],
     queryFn: async () => {
@@ -716,7 +726,7 @@ export default function PartnerEventDetail() {
         real_total: number;
       }>;
     },
-    enabled: canSeeRealized && !!activeEventId,
+    enabled: canSeeAdjusted,
     retry: 1,
   });
 
