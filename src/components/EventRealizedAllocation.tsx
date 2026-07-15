@@ -355,9 +355,11 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       toast({
         title: r?.rubricOnly
           ? "Transação alocada só à rubrica L3"
-          : r?.unlinked
-            ? "Transação desvinculada"
-            : "Transação vinculada à linha BP",
+          : r?.wasInferred
+            ? "Vínculo era inferido pela rubrica — muda a categoria para desfazer"
+            : r?.unlinked
+              ? "Transação desvinculada"
+              : "Transação vinculada à linha BP",
       });
       qc.invalidateQueries({ queryKey: ["ra_txs", eventId] });
       qc.invalidateQueries({ queryKey: ["ra_forecasts", eventId] });
