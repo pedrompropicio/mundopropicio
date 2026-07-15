@@ -808,10 +808,11 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 }
 
 type BpOption = { l3: Cat } | { forecast: Forecast };
+type LinkEntry = { forecast: Forecast; kind: "direct" | "category" };
 
 interface TxTableProps {
   txs: Tx[];
-  forecastByTxId: Map<string, Forecast>;
+  forecastByTxId: Map<string, LinkEntry>;
   catLabel: (id: string | null | undefined) => string;
   onChange: (t: Tx, arg: { targetForecastId?: string | null; targetL3Id?: string }) => void;
   options: BpOption[];
@@ -832,9 +833,10 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
         </thead>
         <tbody className="divide-y divide-border/30">
           {txs.map((t) => {
-            const linked = forecastByTxId.get(t.id);
+            const entry = forecastByTxId.get(t.id);
+            const linked = entry?.forecast;
+            const kind = entry?.kind;
             const total = withIva(t.amount, t.iva_rate);
-            // Estados: linked (linha específica) / rubric-only (tem L3 mas sem linked) / vazio
             const hasL3 = !!t.category_id;
             const value = linked ? linked.id : hasL3 && !linked ? `${L3_PREFIX}${t.category_id}` : undefined;
             return (
@@ -861,11 +863,17 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                       <SelectTrigger className="h-8 text-xs">
                         {linked ? (
                           <span className="flex items-center gap-1 truncate">
-                            <Link2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <Link2 className={`h-3 w-3 shrink-0 ${kind === "direct" ? "text-emerald-500" : "text-sky-500"}`} />
                             <span className="truncate">
                               {linked.description || catLabel(linked.category_id)}
                               {linked.specification ? ` · ${linked.specification}` : ""}
                             </span>
+                            <Badge
+                              variant="outline"
+                              className={`h-4 text-[9px] px-1 shrink-0 ${kind === "direct" ? "" : "border-sky-500/40 text-sky-500"}`}
+                            >
+                              {kind === "direct" ? "vínculo directo" : "via rubrica"}
+                            </Badge>
                           </span>
                         ) : hasL3 ? (
                           <span className="flex items-center gap-1 truncate text-muted-foreground">
@@ -880,7 +888,12 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                         {(linked || hasL3) && (
                           <SelectItem value={UNLINK_VALUE}>
                             <span className="flex items-center gap-1 text-muted-foreground">
-                              <Link2Off className="h-3 w-3" /> Desvincular {linked ? "linha" : ""}
+                              <Link2Off className="h-3 w-3" />
+                              {kind === "direct"
+                                ? "Desvincular linha"
+                                : kind === "category"
+                                  ? "Vínculo via rubrica (muda a categoria para desfazer)"
+                                  : "Desvincular"}
                             </span>
                           </SelectItem>
                         )}
