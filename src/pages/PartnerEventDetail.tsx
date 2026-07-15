@@ -743,7 +743,7 @@ export default function PartnerEventDetail() {
     return m;
   }, [realizedRows]);
 
-  // Propaga realizado para L1/L2/L3 (só usado quando canSeeRealized).
+  // Propaga realizado para L1/L2/L3 (só usado quando true).
   const realizedTotals = useMemo(() => {
     const l3: Record<string, number> = {};
     const l2: Record<string, number> = {};
@@ -799,7 +799,7 @@ export default function PartnerEventDetail() {
       });
     });
     return m;
-  }, [canSeeRealized, bpGroupedHier, realizedByL3Id]);
+  }, [true, bpGroupedHier, realizedByL3Id]);
 
   const bpExcessTotal = useMemo(
     () => Object.values(bpL3Overrun).reduce((s, r) => s + r.excess, 0),
@@ -868,7 +868,7 @@ export default function PartnerEventDetail() {
     // Shim de "transações" para o modo comparação — 1 linha por rubrica L3
     // com o realizado agregado. Nunca contém transações individuais nem
     // fornecedores; alimenta apenas as colunas Real s/IVA e Variação.
-    const pseudoTransactions = canSeeRealized
+    const pseudoTransactions = true
       ? (realizedRows ?? [])
           .filter((r) => r.l3_category_id)
           .map((r) => {
@@ -890,7 +890,7 @@ export default function PartnerEventDetail() {
       forecasts: forecastsForExport,
       categories: allCategories as any[],
       expand: bpDetailMode === "expanded",
-      mode: (canSeeRealized ? "comparison" : "forecast") as "comparison" | "forecast",
+      mode: (true ? "comparison" : "forecast") as "comparison" | "forecast",
       pseudoTransactions,
     };
   };
@@ -1200,7 +1200,7 @@ export default function PartnerEventDetail() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {canSeeRealized && bpGroupedHier.length > 0 && (
+              {true && bpGroupedHier.length > 0 && (
                 <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5" title="Vista da aba BP">
                   <button
                     type="button"
@@ -1315,8 +1315,8 @@ export default function PartnerEventDetail() {
               barsNet={barsRealNet}
               bpExpenseGross={bpTotalExpenseAdjusted}
               bpExpenseRealized={bpTotalRealizedExpense}
-              showRealized={canSeeRealized}
-              realizedError={canSeeRealized && realizedIsError}
+              showRealized={true}
+              realizedError={true && realizedIsError}
               adjustedRubricsCount={bpAdjustedCount}
             />
           </div>
@@ -1343,13 +1343,13 @@ export default function PartnerEventDetail() {
                 <CardHeader className="pb-0 px-4 pt-4">
                   <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5">
                     <ClipboardList className="h-4 w-4" />
-                    {canSeeRealized && bpCompareMode === "compare"
+                    {true && bpCompareMode === "compare"
                       ? "Business Plan × Realizado"
                       : "Business Plan — Custos"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                    {canSeeRealized && bpCompareMode === "compare" ? (
+                    {true && bpCompareMode === "compare" ? (
                     // ─── Vista BP × Realizado ───
                     // Racional: a comparação desce até ao nível L3 usando os totais agregados
                     // devolvidos pela RPC get_partner_bp_realized (já por rubrica L3). Não mostramos
@@ -1450,7 +1450,7 @@ export default function PartnerEventDetail() {
                           <div style={gridStyle} className="px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                             <span>Rubrica</span>
                             <span className="text-right tabular-nums">Valor</span>
-                            {canSeeRealized && <span className="text-right tabular-nums">Previsto</span>}
+                            {true && <span className="text-right tabular-nums">Previsto</span>}
                             <span className="text-right tabular-nums">Formalidade</span>
                           </div>
                           {bpGroupedHier.map((l1) => {
@@ -1468,7 +1468,7 @@ export default function PartnerEventDetail() {
                                     (e nas linhas BP quando a rubrica tem 1 única linha).
                                     Subtotais L1/L2/TOTAL ficam sempre vazios — o Valor já
                                     está ajustado, não duplicamos aqui. */}
-                                {canSeeRealized && <span aria-hidden />}
+                                {true && <span aria-hidden />}
                                 <span aria-hidden />
                               </div>
                               {l1.l2Groups.map((l2) => {
@@ -1479,7 +1479,7 @@ export default function PartnerEventDetail() {
                                   <div style={gridStyle} className="bg-muted/20 px-4 py-1 border-b border-border/40">
                                     <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
                                     <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${l2Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l2Display)}</span>
-                                    {canSeeRealized && <span aria-hidden />}
+                                    {true && <span aria-hidden />}
                                     <span aria-hidden />
                                   </div>
                                   {l2.l3Groups.map((l3) => {
@@ -1537,7 +1537,7 @@ export default function PartnerEventDetail() {
                                           >
                                             {formatCurrency(overrun ? overrun.realized : l3.total)}
                                           </span>
-                                          {canSeeRealized && (
+                                          {true && (
                                             <span
                                               className="text-[10px] font-mono text-muted-foreground text-right tabular-nums"
                                               title={overrun ? "Previsto original c/IVA" : undefined}
@@ -1564,7 +1564,7 @@ export default function PartnerEventDetail() {
                                             <span className={`text-xs font-mono font-semibold text-right tabular-nums ${singleOverrun ? "text-amber-600" : "text-amber-500"}`}>
                                               {formatCurrency(singleOverrun ? overrun!.realized : it.amount)}
                                             </span>
-                                            {canSeeRealized && (
+                                            {true && (
                                               <span
                                                 className="text-[10px] font-mono text-muted-foreground text-right tabular-nums"
                                                 title={singleOverrun ? "Previsto original c/IVA" : undefined}
@@ -1597,7 +1597,7 @@ export default function PartnerEventDetail() {
                           <div style={gridStyle} className="bg-muted/60 border-t-2 border-border px-4 py-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
                             <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${bpExcessTotal > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(bpTotalExpenseAdjusted)}</span>
-                            {canSeeRealized && <span aria-hidden />}
+                            {true && <span aria-hidden />}
                             <span aria-hidden />
                           </div>
                         </>
@@ -1821,7 +1821,7 @@ export default function PartnerEventDetail() {
                 sponsorshipNet={sponsorshipRealNet}
                 barsNet={barsRealNet}
                 bpExpenseGross={bpTotalExpenseAdjusted}
-                showRealized={canSeeRealized}
+                showRealized={true}
                 adjustedRubricsCount={bpAdjustedCount}
               />
 
