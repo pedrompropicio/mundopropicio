@@ -1569,11 +1569,7 @@ export default function PartnerEventDetail() {
                           <div style={gridStyle} className="bg-muted/60 border-t-2 border-border px-4 py-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
                             <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${bpExcessTotal > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(bpTotalExpenseAdjusted)}</span>
-                            {canSeeRealized && (
-                              <span className="text-[10px] font-mono text-muted-foreground text-right tabular-nums">
-                                {bpExcessTotal > 0 ? formatCurrency(bpTotalExpense) : ""}
-                              </span>
-                            )}
+                            {canSeeRealized && <span aria-hidden />}
                             <span aria-hidden />
                           </div>
                         </>
