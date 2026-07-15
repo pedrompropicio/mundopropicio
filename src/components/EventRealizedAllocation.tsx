@@ -162,11 +162,43 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     return m;
   }, [forecasts]);
 
+  // targetForecastId: string (forecast.id) = link to specific BP line
+  // targetForecastId: null = unlink (keep category)
+  // targetL3Id: string = rubric-only allocation (set category to L3, unlink any existing FK)
   const linkMut = useMutation({
-    mutationFn: async ({ tx, targetForecastId }: { tx: Tx; targetForecastId: string | null }) => {
+    mutationFn: async ({
+      tx,
+      targetForecastId,
+      targetL3Id,
+    }: {
+      tx: Tx;
+      targetForecastId?: string | null;
+      targetL3Id?: string;
+    }) => {
       const currentLinked = forecastByTxId.get(tx.id);
 
-      // Case: unlink
+      // Case A: rubric-only — set tx.category_id to L3, unlink any existing forecast link
+      if (targetL3Id) {
+        // 1) unlink first (trigger valida L2 no UPDATE de tx.category_id se ainda houver FK)
+        if (currentLinked) {
+          const { error: eu } = await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: null } as any)
+            .eq("id", currentLinked.id);
+          if (eu) throw eu;
+        }
+        // 2) update category_id
+        if (tx.category_id !== targetL3Id) {
+          const { error: ec } = await supabase
+            .from("transactions")
+            .update({ category_id: targetL3Id })
+            .eq("id", tx.id);
+          if (ec) throw ec;
+        }
+        return { rubricOnly: true };
+      }
+
+      // Case B: unlink
       if (targetForecastId === null) {
         if (!currentLinked) return { unlinked: true };
         const { error } = await supabase
@@ -177,14 +209,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         return { unlinked: true };
       }
 
-      // Case: link (or re-link)
+      // Case C: link (or re-link) to a specific BP line
       const target = forecasts.find((f) => f.id === targetForecastId);
       if (!target) throw new Error("Linha BP não encontrada");
       if (target.transaction_id && target.transaction_id !== tx.id) {
         throw new Error("Esta linha BP já tem outra transação vinculada. Desvincula-a primeiro na edição da transação atual dessa linha.");
       }
 
-      // 1) unlink prior forecast (if any and different)
       if (currentLinked && currentLinked.id !== target.id) {
         const { error: eu } = await supabase
           .from("event_forecasts")
@@ -193,8 +224,6 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         if (eu) throw eu;
       }
 
-      // 2) Align tx.category_id with target.category_id BEFORE linking
-      //    (trigger trg_enforce_tx_category_l2_match valida L2 no INSERT/UPDATE de transactions).
       if (target.category_id && target.category_id !== tx.category_id) {
         const { error: ec } = await supabase
           .from("transactions")
@@ -203,7 +232,6 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         if (ec) throw ec;
       }
 
-      // 3) Write FK — mesma defesa do modal: só escreve se ainda estiver NULL.
       const { error: ef, data: updated } = await supabase
         .from("event_forecasts")
         .update({ transaction_id: tx.id } as any)
@@ -216,8 +244,14 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       }
       return { linked: true };
     },
-    onSuccess: (r) => {
-      toast({ title: r?.unlinked ? "Transação desvinculada" : "Transação vinculada à linha BP" });
+    onSuccess: (r: any) => {
+      toast({
+        title: r?.rubricOnly
+          ? "Transação alocada só à rubrica L3"
+          : r?.unlinked
+            ? "Transação desvinculada"
+            : "Transação vinculada à linha BP",
+      });
       qc.invalidateQueries({ queryKey: ["ra_txs", eventId] });
       qc.invalidateQueries({ queryKey: ["ra_forecasts", eventId] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
@@ -226,7 +260,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       refetchT();
       refetchF();
     },
-    onError: (e: any) => toast({ title: "Não foi possível vincular", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Não foi possível alocar", description: e.message, variant: "destructive" }),
   });
 
   // Group txs by L2 (using their current category)
