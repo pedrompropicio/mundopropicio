@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag } from "lucide-react";
+import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag, Wand2, Check, X } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -51,6 +51,43 @@ const L3_PREFIX = "l3:";
 
 const withIva = (amount: number, iva: number | null | undefined) =>
   Number(amount || 0) * (1 + Number(iva || 0) / 100);
+
+// ─────────── Matching helpers (sugeridor de vínculos) ───────────
+const STOP = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "as", "os", "para", "por", "com", "sem", "em", "no", "na", "-", "&"]);
+
+function normalizeText(s: string | null | undefined): string {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function tokenize(s: string | null | undefined): string[] {
+  return normalizeText(s)
+    .split(" ")
+    .filter((t) => t.length >= 2 && !STOP.has(t));
+}
+function jaccard(a: string[], b: string[]): { score: number; common: string[] } {
+  if (a.length === 0 || b.length === 0) return { score: 0, common: [] };
+  const sa = new Set(a);
+  const sb = new Set(b);
+  const common: string[] = [];
+  for (const t of sa) if (sb.has(t)) common.push(t);
+  const uni = new Set([...sa, ...sb]).size;
+  return { score: uni === 0 ? 0 : common.length / uni, common };
+}
+
+interface Suggestion {
+  tx: Tx;
+  forecast: Forecast;
+  score: number;
+  common: string[];
+  sameL3: boolean;
+  fitsAmount: boolean;
+}
+
 
 export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName }: Props) {
   const qc = useQueryClient();
@@ -323,6 +360,86 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     [txs, forecastByTxId],
   );
 
+  // ─── Sugeridor de vínculos: gera pares (tx sem linha, forecast livre) do mesmo L2 ───
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [processing, setProcessing] = useState(false);
+
+  const buildSuggestions = () => {
+    const THRESHOLD = 0.25;
+    const candidateTxs = txs.filter((t) => !forecastByTxId.has(t.id));
+    const freeForecasts = forecasts.filter(
+      (f) => !f.transaction_id && f.category_id && levelOf(f.category_id) === 3,
+    );
+
+    type Pair = Suggestion & { raw: number };
+    const pairs: Pair[] = [];
+    for (const t of candidateTxs) {
+      const tl2 = l2Of(t.category_id);
+      const tTokens = tokenize(t.description);
+      if (tTokens.length === 0) continue;
+      for (const f of freeForecasts) {
+        const fl2 = l2Of(f.category_id);
+        // Mesmo L2 obrigatório (se tx tem L2). Se tx não tem categoria, aceita qualquer.
+        if (tl2 && fl2 && tl2 !== fl2) continue;
+        if (tl2 && !fl2) continue;
+        const fTokens = tokenize(`${f.description ?? ""} ${f.specification ?? ""}`);
+        if (fTokens.length === 0) continue;
+        const { score: jac, common } = jaccard(tTokens, fTokens);
+        if (jac < THRESHOLD) continue;
+        const sameL3 = !!t.category_id && t.category_id === f.category_id;
+        const txTotal = withIva(t.amount, t.iva_rate);
+        const fTotal = withIva(f.amount, f.iva_rate);
+        const fitsAmount = fTotal > 0 && txTotal <= fTotal + 0.01;
+        let score = jac;
+        if (sameL3) score += 0.25;
+        if (fitsAmount) score += 0.08;
+        pairs.push({ tx: t, forecast: f, score, common, sameL3, fitsAmount, raw: jac });
+      }
+    }
+    pairs.sort((a, b) => b.score - a.score);
+    const usedTx = new Set<string>();
+    const usedF = new Set<string>();
+    const picked: Suggestion[] = [];
+    for (const p of pairs) {
+      if (usedTx.has(p.tx.id) || usedF.has(p.forecast.id)) continue;
+      usedTx.add(p.tx.id);
+      usedF.add(p.forecast.id);
+      picked.push({ tx: p.tx, forecast: p.forecast, score: p.score, common: p.common, sameL3: p.sameL3, fitsAmount: p.fitsAmount });
+    }
+    setSuggestions(picked);
+    setSuggestOpen(true);
+  };
+
+  const acceptOne = async (s: Suggestion) => {
+    try {
+      await linkMut.mutateAsync({ tx: s.tx, targetForecastId: s.forecast.id });
+      setSuggestions((prev) => prev.filter((x) => x.tx.id !== s.tx.id));
+    } catch {
+      /* toast handled by mutation */
+    }
+  };
+
+  const acceptAll = async () => {
+    setProcessing(true);
+    const queue = [...suggestions];
+    let ok = 0;
+    let fail = 0;
+    for (const s of queue) {
+      try {
+        await linkMut.mutateAsync({ tx: s.tx, targetForecastId: s.forecast.id });
+        ok++;
+        setSuggestions((prev) => prev.filter((x) => x.tx.id !== s.tx.id));
+      } catch {
+        fail++;
+      }
+    }
+    setProcessing(false);
+    toast({
+      title: `Sugestões aplicadas: ${ok}${fail > 0 ? ` · ${fail} falharam` : ""}`,
+    });
+  };
+
   const isLoading = loadingCats || loadingF || loadingT;
 
   const catLabel = (id: string | null | undefined) => {
@@ -388,10 +505,117 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
           <Badge variant="outline" className="gap-1">
             <Link2Off className="h-3 w-3" /> {semLinhaCount} sem linha específica
           </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1"
+            onClick={buildSuggestions}
+            disabled={isLoading || semLinhaCount === 0}
+          >
+            <Wand2 className="h-3.5 w-3.5" /> Sugerir vínculos
+          </Button>
           <span className="text-muted-foreground">
             Sem rubrica é crítico; sem linha é informativo — pode ficar só na rubrica.
           </span>
         </div>
+
+        {/* Sub-diálogo: revisão de sugestões */}
+        <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-primary" />
+                Sugestões de vínculos ({suggestions.length})
+              </DialogTitle>
+              <DialogDescription>
+                Pares (transação → linha BP livre) do mesmo L2, ordenados por afinidade textual.
+                Nada é gravado sem confirmação explícita.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {suggestions.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-10">
+                  Sem sugestões acima do limiar. Faz alocação manual nos casos restantes.
+                </div>
+              ) : (
+                suggestions.map((s) => {
+                  const txTotal = withIva(s.tx.amount, s.tx.iva_rate);
+                  const fTotal = withIva(s.forecast.amount, s.forecast.iva_rate);
+                  return (
+                    <div
+                      key={s.tx.id}
+                      className="rounded-md border border-border/60 p-3 text-xs flex items-start gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Transação</span>
+                          <span className="text-[10px] text-muted-foreground">{formatDate(s.tx.date)}</span>
+                        </div>
+                        <div className="font-medium truncate">{s.tx.description || "—"}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {catLabel(s.tx.category_id)} · <span className="font-mono">{formatCurrency(txTotal)}</span>
+                        </div>
+                      </div>
+                      <div className="text-muted-foreground pt-4">→</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Linha BP livre</span>
+                          {s.sameL3 && <Badge variant="secondary" className="h-4 text-[9px] px-1">mesma L3</Badge>}
+                          {s.fitsAmount && <Badge variant="outline" className="h-4 text-[9px] px-1">cabe no previsto</Badge>}
+                        </div>
+                        <div className="font-medium truncate">
+                          {s.forecast.description || "(sem descrição)"}
+                          {s.forecast.specification ? ` · ${s.forecast.specification}` : ""}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {catLabel(s.forecast.category_id)} · Previsto <span className="font-mono">{formatCurrency(fTotal)}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          Palavras comuns: <span className="italic">{s.common.join(", ") || "—"}</span> · score {(s.score * 100).toFixed(0)}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1"
+                          onClick={() => acceptOne(s)}
+                          disabled={processing || linkMut.isPending}
+                        >
+                          <Check className="h-3 w-3" /> Aceitar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 gap-1"
+                          onClick={() => setSuggestions((prev) => prev.filter((x) => x.tx.id !== s.tx.id))}
+                          disabled={processing}
+                        >
+                          <X className="h-3 w-3" /> Descartar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-between pt-2 border-t">
+              <Button variant="outline" onClick={() => setSuggestOpen(false)} disabled={processing}>
+                Fechar
+              </Button>
+              <Button
+                onClick={acceptAll}
+                disabled={suggestions.length === 0 || processing || linkMut.isPending}
+                className="gap-1"
+              >
+                {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Aceitar todas ({suggestions.length})
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
 
         <div className="flex-1 overflow-y-auto space-y-6 pr-2">
           {isLoading ? (
