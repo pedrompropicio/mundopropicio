@@ -52,6 +52,43 @@ const L3_PREFIX = "l3:";
 const withIva = (amount: number, iva: number | null | undefined) =>
   Number(amount || 0) * (1 + Number(iva || 0) / 100);
 
+// ─────────── Matching helpers (sugeridor de vínculos) ───────────
+const STOP = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "as", "os", "para", "por", "com", "sem", "em", "no", "na", "-", "&"]);
+
+function normalizeText(s: string | null | undefined): string {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function tokenize(s: string | null | undefined): string[] {
+  return normalizeText(s)
+    .split(" ")
+    .filter((t) => t.length >= 2 && !STOP.has(t));
+}
+function jaccard(a: string[], b: string[]): { score: number; common: string[] } {
+  if (a.length === 0 || b.length === 0) return { score: 0, common: [] };
+  const sa = new Set(a);
+  const sb = new Set(b);
+  const common: string[] = [];
+  for (const t of sa) if (sb.has(t)) common.push(t);
+  const uni = new Set([...sa, ...sb]).size;
+  return { score: uni === 0 ? 0 : common.length / uni, common };
+}
+
+interface Suggestion {
+  tx: Tx;
+  forecast: Forecast;
+  score: number;
+  common: string[];
+  sameL3: boolean;
+  fitsAmount: boolean;
+}
+
+
 export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName }: Props) {
   const qc = useQueryClient();
 
