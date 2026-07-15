@@ -280,19 +280,18 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       targetForecastId?: string | null;
       targetL3Id?: string;
     }) => {
-      const currentLinked = forecastByTxId.get(tx.id);
+      const currentEntry = forecastByTxId.get(tx.id);
+      const currentDirect = currentEntry?.kind === "direct" ? currentEntry.forecast : null;
 
-      // Case A: rubric-only — set tx.category_id to L3, unlink any existing forecast link
+      // Case A: rubric-only — set tx.category_id to L3, unlink any existing FK direct
       if (targetL3Id) {
-        // 1) unlink first (trigger valida L2 no UPDATE de tx.category_id se ainda houver FK)
-        if (currentLinked) {
+        if (currentDirect) {
           const { error: eu } = await supabase
             .from("event_forecasts")
             .update({ transaction_id: null } as any)
-            .eq("id", currentLinked.id);
+            .eq("id", currentDirect.id);
           if (eu) throw eu;
         }
-        // 2) update category_id
         if (tx.category_id !== targetL3Id) {
           const { error: ec } = await supabase
             .from("transactions")
@@ -305,11 +304,14 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 
       // Case B: unlink
       if (targetForecastId === null) {
-        if (!currentLinked) return { unlinked: true };
+        if (!currentDirect) {
+          // inferido por categoria não tem FK para remover — informar e sair.
+          return { unlinked: true, wasInferred: currentEntry?.kind === "category" };
+        }
         const { error } = await supabase
           .from("event_forecasts")
           .update({ transaction_id: null } as any)
-          .eq("id", currentLinked.id);
+          .eq("id", currentDirect.id);
         if (error) throw error;
         return { unlinked: true };
       }
@@ -321,11 +323,11 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         throw new Error("Esta linha BP já tem outra transação vinculada. Desvincula-a primeiro na edição da transação atual dessa linha.");
       }
 
-      if (currentLinked && currentLinked.id !== target.id) {
+      if (currentDirect && currentDirect.id !== target.id) {
         const { error: eu } = await supabase
           .from("event_forecasts")
           .update({ transaction_id: null } as any)
-          .eq("id", currentLinked.id);
+          .eq("id", currentDirect.id);
         if (eu) throw eu;
       }
 
