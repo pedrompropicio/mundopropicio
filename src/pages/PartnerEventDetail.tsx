@@ -799,7 +799,7 @@ export default function PartnerEventDetail() {
       });
     });
     return m;
-  }, [true, bpGroupedHier, realizedByL3Id]);
+  }, [canSeeAdjusted, bpGroupedHier, realizedByL3Id]);
 
   const bpExcessTotal = useMemo(
     () => Object.values(bpL3Overrun).reduce((s, r) => s + r.excess, 0),
@@ -868,7 +868,7 @@ export default function PartnerEventDetail() {
     // Shim de "transações" para o modo comparação — 1 linha por rubrica L3
     // com o realizado agregado. Nunca contém transações individuais nem
     // fornecedores; alimenta apenas as colunas Real s/IVA e Variação.
-    const pseudoTransactions = true
+    const pseudoTransactions = canSeeComparative
       ? (realizedRows ?? [])
           .filter((r) => r.l3_category_id)
           .map((r) => {
@@ -890,7 +890,7 @@ export default function PartnerEventDetail() {
       forecasts: forecastsForExport,
       categories: allCategories as any[],
       expand: bpDetailMode === "expanded",
-      mode: (true ? "comparison" : "forecast") as "comparison" | "forecast",
+      mode: (canSeeComparative ? "comparison" : "forecast") as "comparison" | "forecast",
       pseudoTransactions,
     };
   };
@@ -1200,7 +1200,7 @@ export default function PartnerEventDetail() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {true && bpGroupedHier.length > 0 && (
+              {canSeeComparative && bpGroupedHier.length > 0 && (
                 <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5" title="Vista da aba BP">
                   <button
                     type="button"
@@ -1315,8 +1315,8 @@ export default function PartnerEventDetail() {
               barsNet={barsRealNet}
               bpExpenseGross={bpTotalExpenseAdjusted}
               bpExpenseRealized={bpTotalRealizedExpense}
-              showRealized={true}
-              realizedError={true && realizedIsError}
+              showRealized={canSeeComparative}
+              realizedError={canSeeComparative && realizedIsError}
               adjustedRubricsCount={bpAdjustedCount}
             />
           </div>
@@ -1343,13 +1343,13 @@ export default function PartnerEventDetail() {
                 <CardHeader className="pb-0 px-4 pt-4">
                   <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5">
                     <ClipboardList className="h-4 w-4" />
-                    {true && bpCompareMode === "compare"
+                    {canSeeComparative && bpCompareMode === "compare"
                       ? "Business Plan × Realizado"
                       : "Business Plan — Custos"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 pb-0">
-                    {true && bpCompareMode === "compare" ? (
+                    {canSeeComparative && bpCompareMode === "compare" ? (
                     // ─── Vista BP × Realizado ───
                     // Racional: a comparação desce até ao nível L3 usando os totais agregados
                     // devolvidos pela RPC get_partner_bp_realized (já por rubrica L3). Não mostramos
@@ -1821,7 +1821,7 @@ export default function PartnerEventDetail() {
                 sponsorshipNet={sponsorshipRealNet}
                 barsNet={barsRealNet}
                 bpExpenseGross={bpTotalExpenseAdjusted}
-                showRealized={true}
+                showRealized={canSeeComparative}
                 adjustedRubricsCount={bpAdjustedCount}
               />
 
