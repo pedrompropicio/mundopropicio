@@ -360,6 +360,86 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     [txs, forecastByTxId],
   );
 
+  // ─── Sugeridor de vínculos: gera pares (tx sem linha, forecast livre) do mesmo L2 ───
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [processing, setProcessing] = useState(false);
+
+  const buildSuggestions = () => {
+    const THRESHOLD = 0.25;
+    const candidateTxs = txs.filter((t) => !forecastByTxId.has(t.id));
+    const freeForecasts = forecasts.filter(
+      (f) => !f.transaction_id && f.category_id && levelOf(f.category_id) === 3,
+    );
+
+    type Pair = Suggestion & { raw: number };
+    const pairs: Pair[] = [];
+    for (const t of candidateTxs) {
+      const tl2 = l2Of(t.category_id);
+      const tTokens = tokenize(t.description);
+      if (tTokens.length === 0) continue;
+      for (const f of freeForecasts) {
+        const fl2 = l2Of(f.category_id);
+        // Mesmo L2 obrigatório (se tx tem L2). Se tx não tem categoria, aceita qualquer.
+        if (tl2 && fl2 && tl2 !== fl2) continue;
+        if (tl2 && !fl2) continue;
+        const fTokens = tokenize(`${f.description ?? ""} ${f.specification ?? ""}`);
+        if (fTokens.length === 0) continue;
+        const { score: jac, common } = jaccard(tTokens, fTokens);
+        if (jac < THRESHOLD) continue;
+        const sameL3 = !!t.category_id && t.category_id === f.category_id;
+        const txTotal = withIva(t.amount, t.iva_rate);
+        const fTotal = withIva(f.amount, f.iva_rate);
+        const fitsAmount = fTotal > 0 && txTotal <= fTotal + 0.01;
+        let score = jac;
+        if (sameL3) score += 0.25;
+        if (fitsAmount) score += 0.08;
+        pairs.push({ tx: t, forecast: f, score, common, sameL3, fitsAmount, raw: jac });
+      }
+    }
+    pairs.sort((a, b) => b.score - a.score);
+    const usedTx = new Set<string>();
+    const usedF = new Set<string>();
+    const picked: Suggestion[] = [];
+    for (const p of pairs) {
+      if (usedTx.has(p.tx.id) || usedF.has(p.forecast.id)) continue;
+      usedTx.add(p.tx.id);
+      usedF.add(p.forecast.id);
+      picked.push({ tx: p.tx, forecast: p.forecast, score: p.score, common: p.common, sameL3: p.sameL3, fitsAmount: p.fitsAmount });
+    }
+    setSuggestions(picked);
+    setSuggestOpen(true);
+  };
+
+  const acceptOne = async (s: Suggestion) => {
+    try {
+      await linkMut.mutateAsync({ tx: s.tx, targetForecastId: s.forecast.id });
+      setSuggestions((prev) => prev.filter((x) => x.tx.id !== s.tx.id));
+    } catch {
+      /* toast handled by mutation */
+    }
+  };
+
+  const acceptAll = async () => {
+    setProcessing(true);
+    const queue = [...suggestions];
+    let ok = 0;
+    let fail = 0;
+    for (const s of queue) {
+      try {
+        await linkMut.mutateAsync({ tx: s.tx, targetForecastId: s.forecast.id });
+        ok++;
+        setSuggestions((prev) => prev.filter((x) => x.tx.id !== s.tx.id));
+      } catch {
+        fail++;
+      }
+    }
+    setProcessing(false);
+    toast({
+      title: `Sugestões aplicadas: ${ok}${fail > 0 ? ` · ${fail} falharam` : ""}`,
+    });
+  };
+
   const isLoading = loadingCats || loadingF || loadingT;
 
   const catLabel = (id: string | null | undefined) => {
