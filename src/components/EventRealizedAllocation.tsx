@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatTransactionStatusPT } from "@/lib/transaction-status";
 import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag, Wand2, Check, X } from "lucide-react";
 
 interface Props {
@@ -857,7 +858,7 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono">{formatCurrency(total)}</td>
                 <td className="px-2 py-1.5">
-                  <span className="text-[10px] uppercase tracking-wider">{t.status || "—"}</span>
+                  <span className="text-[10px] tracking-wider">{formatTransactionStatusPT(t.status)}</span>
                 </td>
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1">
