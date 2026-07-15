@@ -47,6 +47,7 @@ interface Forecast {
 }
 
 const UNLINK_VALUE = "__unlink__";
+const L3_PREFIX = "l3:";
 
 const withIva = (amount: number, iva: number | null | undefined) =>
   Number(amount || 0) * (1 + Number(iva || 0) / 100);
