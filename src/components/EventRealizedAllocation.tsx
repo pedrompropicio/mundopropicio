@@ -190,14 +190,82 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     return map;
   }, [forecasts, byId]);
 
-  // Map tx.id -> forecast (linked_direct)
+  // Map tx.id -> { forecast, kind }
+  // Alinha com a grelha do BP (EventForecast.findMatchingTransactionsForForecast):
+  // a grelha reclama uma TX para uma linha por UNIÃO de (a) back-link directo
+  // event_forecasts.transaction_id, e (b) match por categoria — quando existe
+  // uma só forecast na L3, TODAS as TXs dessa L3 caem lá; quando há várias,
+  // winner-takes-all por tokens da descrição. Se a ferramenta só olhasse o FK,
+  // apareceriam falsos "sem vínculo" (ex.: Anitta 2.5.05 · Bees).
+  type LinkKind = "direct" | "category";
+  const raTokenize = (s: string | null | undefined) =>
+    String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 3);
+  const raScore = (fd: string | null | undefined, td: string | null | undefined) => {
+    const f = String(fd ?? "").toLowerCase().trim();
+    const t = String(td ?? "").toLowerCase().trim();
+    if (!f && !t) return 0;
+    if (f === t) return 1000;
+    if (!f || !t) return 0;
+    const fT = new Set(raTokenize(f));
+    const tT = new Set(raTokenize(t));
+    if (fT.size === 0 || tT.size === 0) return 0;
+    let shared = 0;
+    for (const tok of tT) if (fT.has(tok)) shared += 1;
+    if (shared === 0) return 0;
+    return shared * 100 + (shared / fT.size) * 10 - Math.abs(f.length - t.length) / 10000;
+  };
+
   const forecastByTxId = useMemo(() => {
-    const m = new Map<string, Forecast>();
+    const m = new Map<string, { forecast: Forecast; kind: LinkKind }>();
+    // (a) directo por FK
     for (const f of forecasts) {
-      if (f.transaction_id) m.set(f.transaction_id, f);
+      if (f.transaction_id) m.set(f.transaction_id, { forecast: f, kind: "direct" });
+    }
+    // (b) inferido por categoria (só L3), sem sobrepor directos
+    const forecastsByCat = new Map<string, Forecast[]>();
+    for (const f of forecasts) {
+      if (!f.category_id || levelOf(f.category_id) !== 3) continue;
+      const arr = forecastsByCat.get(f.category_id) ?? [];
+      arr.push(f);
+      forecastsByCat.set(f.category_id, arr);
+    }
+    for (const t of txs) {
+      if (m.has(t.id)) continue; // já directo
+      if (!t.category_id) continue;
+      const candidates = forecastsByCat.get(t.category_id);
+      if (!candidates || candidates.length === 0) continue;
+      if (candidates.length === 1) {
+        m.set(t.id, { forecast: candidates[0], kind: "category" });
+        continue;
+      }
+      // winner-takes-all por tokens (mesma lógica da grelha)
+      let winner: Forecast | null = null;
+      let winnerScore = 0;
+      for (const f of candidates) {
+        const my = raScore(f.description, t.description);
+        if (my <= 0) continue;
+        const bestOther = candidates.reduce((max, other) => {
+          if (other.id === f.id) return max;
+          const s = raScore(other.description, t.description);
+          return s > max ? s : max;
+        }, 0);
+        if (my > bestOther && my > winnerScore) {
+          winner = f;
+          winnerScore = my;
+        }
+      }
+      if (winner) m.set(t.id, { forecast: winner, kind: "category" });
     }
     return m;
-  }, [forecasts]);
+  }, [forecasts, txs, byId]);
+
+  // Forecasts que já estão "reclamadas" via categoria — não devem aparecer como
+  // livres no sugeridor nem oferecer duplicação.
+  const inferredForecastIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const [, v] of forecastByTxId) if (v.kind === "category") s.add(v.forecast.id);
+    return s;
+  }, [forecastByTxId]);
 
   // targetForecastId: string (forecast.id) = link to specific BP line
   // targetForecastId: null = unlink (keep category)
@@ -212,19 +280,18 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       targetForecastId?: string | null;
       targetL3Id?: string;
     }) => {
-      const currentLinked = forecastByTxId.get(tx.id);
+      const currentEntry = forecastByTxId.get(tx.id);
+      const currentDirect = currentEntry?.kind === "direct" ? currentEntry.forecast : null;
 
-      // Case A: rubric-only — set tx.category_id to L3, unlink any existing forecast link
+      // Case A: rubric-only — set tx.category_id to L3, unlink any existing FK direct
       if (targetL3Id) {
-        // 1) unlink first (trigger valida L2 no UPDATE de tx.category_id se ainda houver FK)
-        if (currentLinked) {
+        if (currentDirect) {
           const { error: eu } = await supabase
             .from("event_forecasts")
             .update({ transaction_id: null } as any)
-            .eq("id", currentLinked.id);
+            .eq("id", currentDirect.id);
           if (eu) throw eu;
         }
-        // 2) update category_id
         if (tx.category_id !== targetL3Id) {
           const { error: ec } = await supabase
             .from("transactions")
@@ -237,11 +304,14 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 
       // Case B: unlink
       if (targetForecastId === null) {
-        if (!currentLinked) return { unlinked: true };
+        if (!currentDirect) {
+          // inferido por categoria não tem FK para remover — informar e sair.
+          return { unlinked: true, wasInferred: currentEntry?.kind === "category" };
+        }
         const { error } = await supabase
           .from("event_forecasts")
           .update({ transaction_id: null } as any)
-          .eq("id", currentLinked.id);
+          .eq("id", currentDirect.id);
         if (error) throw error;
         return { unlinked: true };
       }
@@ -253,11 +323,11 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         throw new Error("Esta linha BP já tem outra transação vinculada. Desvincula-a primeiro na edição da transação atual dessa linha.");
       }
 
-      if (currentLinked && currentLinked.id !== target.id) {
+      if (currentDirect && currentDirect.id !== target.id) {
         const { error: eu } = await supabase
           .from("event_forecasts")
           .update({ transaction_id: null } as any)
-          .eq("id", currentLinked.id);
+          .eq("id", currentDirect.id);
         if (eu) throw eu;
       }
 
@@ -285,9 +355,11 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       toast({
         title: r?.rubricOnly
           ? "Transação alocada só à rubrica L3"
-          : r?.unlinked
-            ? "Transação desvinculada"
-            : "Transação vinculada à linha BP",
+          : r?.wasInferred
+            ? "Vínculo era inferido pela rubrica — muda a categoria para desfazer"
+            : r?.unlinked
+              ? "Transação desvinculada"
+              : "Transação vinculada à linha BP",
       });
       qc.invalidateQueries({ queryKey: ["ra_txs", eventId] });
       qc.invalidateQueries({ queryKey: ["ra_forecasts", eventId] });
@@ -367,9 +439,16 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 
   const buildSuggestions = () => {
     const THRESHOLD = 0.25;
+    // "Sem linha" usa a MESMA definição da grelha (directa + via categoria) — o
+    // que a grelha já reconhece não é candidato a nova sugestão, e forecasts
+    // inferidas também estão indisponíveis.
     const candidateTxs = txs.filter((t) => !forecastByTxId.has(t.id));
     const freeForecasts = forecasts.filter(
-      (f) => !f.transaction_id && f.category_id && levelOf(f.category_id) === 3,
+      (f) =>
+        !f.transaction_id &&
+        !inferredForecastIds.has(f.id) &&
+        f.category_id &&
+        levelOf(f.category_id) === 3,
     );
 
     type Pair = Suggestion & { raw: number };
@@ -738,10 +817,11 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 }
 
 type BpOption = { l3: Cat } | { forecast: Forecast };
+type LinkEntry = { forecast: Forecast; kind: "direct" | "category" };
 
 interface TxTableProps {
   txs: Tx[];
-  forecastByTxId: Map<string, Forecast>;
+  forecastByTxId: Map<string, LinkEntry>;
   catLabel: (id: string | null | undefined) => string;
   onChange: (t: Tx, arg: { targetForecastId?: string | null; targetL3Id?: string }) => void;
   options: BpOption[];
@@ -762,9 +842,10 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
         </thead>
         <tbody className="divide-y divide-border/30">
           {txs.map((t) => {
-            const linked = forecastByTxId.get(t.id);
+            const entry = forecastByTxId.get(t.id);
+            const linked = entry?.forecast;
+            const kind = entry?.kind;
             const total = withIva(t.amount, t.iva_rate);
-            // Estados: linked (linha específica) / rubric-only (tem L3 mas sem linked) / vazio
             const hasL3 = !!t.category_id;
             const value = linked ? linked.id : hasL3 && !linked ? `${L3_PREFIX}${t.category_id}` : undefined;
             return (
@@ -791,11 +872,17 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                       <SelectTrigger className="h-8 text-xs">
                         {linked ? (
                           <span className="flex items-center gap-1 truncate">
-                            <Link2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <Link2 className={`h-3 w-3 shrink-0 ${kind === "direct" ? "text-emerald-500" : "text-sky-500"}`} />
                             <span className="truncate">
                               {linked.description || catLabel(linked.category_id)}
                               {linked.specification ? ` · ${linked.specification}` : ""}
                             </span>
+                            <Badge
+                              variant="outline"
+                              className={`h-4 text-[9px] px-1 shrink-0 ${kind === "direct" ? "" : "border-sky-500/40 text-sky-500"}`}
+                            >
+                              {kind === "direct" ? "vínculo directo" : "via rubrica"}
+                            </Badge>
                           </span>
                         ) : hasL3 ? (
                           <span className="flex items-center gap-1 truncate text-muted-foreground">
@@ -810,7 +897,12 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                         {(linked || hasL3) && (
                           <SelectItem value={UNLINK_VALUE}>
                             <span className="flex items-center gap-1 text-muted-foreground">
-                              <Link2Off className="h-3 w-3" /> Desvincular {linked ? "linha" : ""}
+                              <Link2Off className="h-3 w-3" />
+                              {kind === "direct"
+                                ? "Desvincular linha"
+                                : kind === "category"
+                                  ? "Vínculo via rubrica (muda a categoria para desfazer)"
+                                  : "Desvincular"}
                             </span>
                           </SelectItem>
                         )}
