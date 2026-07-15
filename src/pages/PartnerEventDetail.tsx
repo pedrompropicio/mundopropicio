@@ -1027,7 +1027,7 @@ export default function PartnerEventDetail() {
   const sponsorshipRealNet = incomeTxNet("1.2");
   const barsRealNet = incomeTxNet("1.1.03");
   const incomeRealNet = ticketRevenueNet + sponsorshipRealNet + barsRealNet;
-  const partnerResultValue = incomeRealNet - bpTotalExpense;
+  const partnerResultValue = incomeRealNet - bpTotalExpenseAdjusted;
 
   return (
     <div className="space-y-6">
