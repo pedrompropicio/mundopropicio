@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatTransactionStatusPT } from "@/lib/transaction-status";
 import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag, Wand2, Check, X } from "lucide-react";
 
 interface Props {
