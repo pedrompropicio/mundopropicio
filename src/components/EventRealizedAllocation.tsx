@@ -505,10 +505,117 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
           <Badge variant="outline" className="gap-1">
             <Link2Off className="h-3 w-3" /> {semLinhaCount} sem linha específica
           </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1"
+            onClick={buildSuggestions}
+            disabled={isLoading || semLinhaCount === 0}
+          >
+            <Wand2 className="h-3.5 w-3.5" /> Sugerir vínculos
+          </Button>
           <span className="text-muted-foreground">
             Sem rubrica é crítico; sem linha é informativo — pode ficar só na rubrica.
           </span>
         </div>
+
+        {/* Sub-diálogo: revisão de sugestões */}
+        <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-primary" />
+                Sugestões de vínculos ({suggestions.length})
+              </DialogTitle>
+              <DialogDescription>
+                Pares (transação → linha BP livre) do mesmo L2, ordenados por afinidade textual.
+                Nada é gravado sem confirmação explícita.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {suggestions.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-10">
+                  Sem sugestões acima do limiar. Faz alocação manual nos casos restantes.
+                </div>
+              ) : (
+                suggestions.map((s) => {
+                  const txTotal = withIva(s.tx.amount, s.tx.iva_rate);
+                  const fTotal = withIva(s.forecast.amount, s.forecast.iva_rate);
+                  return (
+                    <div
+                      key={s.tx.id}
+                      className="rounded-md border border-border/60 p-3 text-xs flex items-start gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Transação</span>
+                          <span className="text-[10px] text-muted-foreground">{formatDate(s.tx.date)}</span>
+                        </div>
+                        <div className="font-medium truncate">{s.tx.description || "—"}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {catLabel(s.tx.category_id)} · <span className="font-mono">{formatCurrency(txTotal)}</span>
+                        </div>
+                      </div>
+                      <div className="text-muted-foreground pt-4">→</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Linha BP livre</span>
+                          {s.sameL3 && <Badge variant="secondary" className="h-4 text-[9px] px-1">mesma L3</Badge>}
+                          {s.fitsAmount && <Badge variant="outline" className="h-4 text-[9px] px-1">cabe no previsto</Badge>}
+                        </div>
+                        <div className="font-medium truncate">
+                          {s.forecast.description || "(sem descrição)"}
+                          {s.forecast.specification ? ` · ${s.forecast.specification}` : ""}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {catLabel(s.forecast.category_id)} · Previsto <span className="font-mono">{formatCurrency(fTotal)}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          Palavras comuns: <span className="italic">{s.common.join(", ") || "—"}</span> · score {(s.score * 100).toFixed(0)}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1"
+                          onClick={() => acceptOne(s)}
+                          disabled={processing || linkMut.isPending}
+                        >
+                          <Check className="h-3 w-3" /> Aceitar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 gap-1"
+                          onClick={() => setSuggestions((prev) => prev.filter((x) => x.tx.id !== s.tx.id))}
+                          disabled={processing}
+                        >
+                          <X className="h-3 w-3" /> Descartar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-between pt-2 border-t">
+              <Button variant="outline" onClick={() => setSuggestOpen(false)} disabled={processing}>
+                Fechar
+              </Button>
+              <Button
+                onClick={acceptAll}
+                disabled={suggestions.length === 0 || processing || linkMut.isPending}
+                className="gap-1"
+              >
+                {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Aceitar todas ({suggestions.length})
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
 
         <div className="flex-1 overflow-y-auto space-y-6 pr-2">
           {isLoading ? (
