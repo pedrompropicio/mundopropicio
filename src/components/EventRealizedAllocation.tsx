@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off } from "lucide-react";
+import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -47,6 +47,7 @@ interface Forecast {
 }
 
 const UNLINK_VALUE = "__unlink__";
+const L3_PREFIX = "l3:";
 
 const withIva = (amount: number, iva: number | null | undefined) =>
   Number(amount || 0) * (1 + Number(iva || 0) / 100);
@@ -161,11 +162,43 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     return m;
   }, [forecasts]);
 
+  // targetForecastId: string (forecast.id) = link to specific BP line
+  // targetForecastId: null = unlink (keep category)
+  // targetL3Id: string = rubric-only allocation (set category to L3, unlink any existing FK)
   const linkMut = useMutation({
-    mutationFn: async ({ tx, targetForecastId }: { tx: Tx; targetForecastId: string | null }) => {
+    mutationFn: async ({
+      tx,
+      targetForecastId,
+      targetL3Id,
+    }: {
+      tx: Tx;
+      targetForecastId?: string | null;
+      targetL3Id?: string;
+    }) => {
       const currentLinked = forecastByTxId.get(tx.id);
 
-      // Case: unlink
+      // Case A: rubric-only — set tx.category_id to L3, unlink any existing forecast link
+      if (targetL3Id) {
+        // 1) unlink first (trigger valida L2 no UPDATE de tx.category_id se ainda houver FK)
+        if (currentLinked) {
+          const { error: eu } = await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: null } as any)
+            .eq("id", currentLinked.id);
+          if (eu) throw eu;
+        }
+        // 2) update category_id
+        if (tx.category_id !== targetL3Id) {
+          const { error: ec } = await supabase
+            .from("transactions")
+            .update({ category_id: targetL3Id })
+            .eq("id", tx.id);
+          if (ec) throw ec;
+        }
+        return { rubricOnly: true };
+      }
+
+      // Case B: unlink
       if (targetForecastId === null) {
         if (!currentLinked) return { unlinked: true };
         const { error } = await supabase
@@ -176,14 +209,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         return { unlinked: true };
       }
 
-      // Case: link (or re-link)
+      // Case C: link (or re-link) to a specific BP line
       const target = forecasts.find((f) => f.id === targetForecastId);
       if (!target) throw new Error("Linha BP não encontrada");
       if (target.transaction_id && target.transaction_id !== tx.id) {
         throw new Error("Esta linha BP já tem outra transação vinculada. Desvincula-a primeiro na edição da transação atual dessa linha.");
       }
 
-      // 1) unlink prior forecast (if any and different)
       if (currentLinked && currentLinked.id !== target.id) {
         const { error: eu } = await supabase
           .from("event_forecasts")
@@ -192,8 +224,6 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         if (eu) throw eu;
       }
 
-      // 2) Align tx.category_id with target.category_id BEFORE linking
-      //    (trigger trg_enforce_tx_category_l2_match valida L2 no INSERT/UPDATE de transactions).
       if (target.category_id && target.category_id !== tx.category_id) {
         const { error: ec } = await supabase
           .from("transactions")
@@ -202,7 +232,6 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         if (ec) throw ec;
       }
 
-      // 3) Write FK — mesma defesa do modal: só escreve se ainda estiver NULL.
       const { error: ef, data: updated } = await supabase
         .from("event_forecasts")
         .update({ transaction_id: tx.id } as any)
@@ -215,8 +244,14 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       }
       return { linked: true };
     },
-    onSuccess: (r) => {
-      toast({ title: r?.unlinked ? "Transação desvinculada" : "Transação vinculada à linha BP" });
+    onSuccess: (r: any) => {
+      toast({
+        title: r?.rubricOnly
+          ? "Transação alocada só à rubrica L3"
+          : r?.unlinked
+            ? "Transação desvinculada"
+            : "Transação vinculada à linha BP",
+      });
       qc.invalidateQueries({ queryKey: ["ra_txs", eventId] });
       qc.invalidateQueries({ queryKey: ["ra_forecasts", eventId] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
@@ -225,7 +260,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       refetchT();
       refetchF();
     },
-    onError: (e: any) => toast({ title: "Não foi possível vincular", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Não foi possível alocar", description: e.message, variant: "destructive" }),
   });
 
   // Group txs by L2 (using their current category)
@@ -277,8 +312,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     return s;
   }, [previstoByCat, txs, byId]);
 
-  // "Por alocar" = TX sem vínculo directo a linha BP
-  const unallocatedCount = useMemo(
+  // Critical: TX sem rubrica L3 (categoria vazia ou não-L3)
+  const semRubricaCount = useMemo(
+    () => txs.filter((t) => levelOf(t.category_id) !== 3).length,
+    [txs, byId],
+  );
+  // Informative: TX sem linha específica (independente da rubrica)
+  const semLinhaCount = useMemo(
     () => txs.filter((t) => !forecastByTxId.has(t.id)).length,
     [txs, forecastByTxId],
   );
@@ -300,12 +340,17 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     [activeL2Ids, byId],
   );
 
-  // Build options for a given L2: [{group: L3 label}, ...forecasts of that L3]
+  // Build options for a given L2. Each L3 rende como opção seleccionável ("só a rubrica"),
+  // seguida das linhas BP dessa L3 (se existirem). L3s sem forecasts também aparecem.
   const optionsForL2 = (l2Id: string | null): BpOption[] => {
     const opts: BpOption[] = [];
-    const l3List = l2Id ? (l3sByL2.get(l2Id) ?? []) : l2s.slice().sort((a, b) => (a.code || "").localeCompare(b.code || "")).flatMap((l2) => l3sByL2.get(l2.id) ?? []);
+    const l3List = l2Id
+      ? (l3sByL2.get(l2Id) ?? [])
+      : l2s
+          .slice()
+          .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
+          .flatMap((l2) => l3sByL2.get(l2.id) ?? []);
     const allFcasts = l2Id ? (forecastsByL2.get(l2Id) ?? []) : forecasts;
-    // Group by L3 category_id
     const byL3 = new Map<string, Forecast[]>();
     for (const f of allFcasts) {
       if (!f.category_id || levelOf(f.category_id) !== 3) continue;
@@ -314,9 +359,9 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       byL3.set(f.category_id, arr);
     }
     for (const l3 of l3List) {
+      opts.push({ l3 });
       const arr = byL3.get(l3.id);
       if (!arr || arr.length === 0) continue;
-      opts.push({ groupLabel: `${l3.code ?? ""} ${l3.name}`.trim() });
       arr.sort((a, b) => (a.description ?? "").localeCompare(b.description ?? ""));
       for (const f of arr) opts.push({ forecast: f });
     }
@@ -336,11 +381,16 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-3 text-xs">
-          <Badge variant={unallocatedCount > 0 ? "destructive" : "secondary"} className="gap-1">
-            <AlertTriangle className="h-3 w-3" /> {unallocatedCount} por alocar
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <Badge variant={semRubricaCount > 0 ? "destructive" : "secondary"} className="gap-1">
+            <AlertTriangle className="h-3 w-3" /> {semRubricaCount} sem rubrica L3
           </Badge>
-          <span className="text-muted-foreground">Transações sem vínculo a linha BP.</span>
+          <Badge variant="outline" className="gap-1">
+            <Link2Off className="h-3 w-3" /> {semLinhaCount} sem linha específica
+          </Badge>
+          <span className="text-muted-foreground">
+            Sem rubrica é crítico; sem linha é informativo — pode ficar só na rubrica.
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-6 pr-2">
@@ -357,7 +407,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                     txs={txsByL2.noCat}
                     forecastByTxId={forecastByTxId}
                     catLabel={catLabel}
-                    onChange={(tx, id) => linkMut.mutate({ tx, targetForecastId: id })}
+                    onChange={(tx, arg) => linkMut.mutate({ tx, ...arg })}
                     options={optionsForL2(null)}
                   />
                 </section>
@@ -429,7 +479,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                           txs={semVinculo}
                           forecastByTxId={forecastByTxId}
                           catLabel={catLabel}
-                          onChange={(tx, id) => linkMut.mutate({ tx, targetForecastId: id })}
+                          onChange={(tx, arg) => linkMut.mutate({ tx, ...arg })}
                           options={opts}
                         />
                       </div>
@@ -440,7 +490,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                         txs={comVinculo}
                         forecastByTxId={forecastByTxId}
                         catLabel={catLabel}
-                        onChange={(tx, id) => linkMut.mutate({ tx, targetForecastId: id })}
+                        onChange={(tx, arg) => linkMut.mutate({ tx, ...arg })}
                         options={opts}
                       />
                     )}
@@ -463,13 +513,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
   );
 }
 
-type BpOption = { groupLabel: string } | { forecast: Forecast };
+type BpOption = { l3: Cat } | { forecast: Forecast };
 
 interface TxTableProps {
   txs: Tx[];
   forecastByTxId: Map<string, Forecast>;
   catLabel: (id: string | null | undefined) => string;
-  onChange: (t: Tx, targetForecastId: string | null) => void;
+  onChange: (t: Tx, arg: { targetForecastId?: string | null; targetL3Id?: string }) => void;
   options: BpOption[];
 }
 
@@ -483,14 +533,16 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
             <th className="text-left px-2 py-1.5 font-medium">Descrição</th>
             <th className="text-right px-2 py-1.5 font-medium">Valor c/IVA</th>
             <th className="text-left px-2 py-1.5 font-medium">Estado</th>
-            <th className="text-left px-2 py-1.5 font-medium min-w-[320px]">Linha BP</th>
+            <th className="text-left px-2 py-1.5 font-medium min-w-[320px]">Linha BP / Rubrica</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/30">
           {txs.map((t) => {
             const linked = forecastByTxId.get(t.id);
             const total = withIva(t.amount, t.iva_rate);
-            const value = linked?.id ?? "";
+            // Estados: linked (linha específica) / rubric-only (tem L3 mas sem linked) / vazio
+            const hasL3 = !!t.category_id;
+            const value = linked ? linked.id : hasL3 && !linked ? `${L3_PREFIX}${t.category_id}` : undefined;
             return (
               <tr key={t.id}>
                 <td className="px-2 py-1.5 whitespace-nowrap">{formatDate(t.date)}</td>
@@ -505,10 +557,11 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1">
                     <Select
-                      value={value || undefined}
+                      value={value}
                       onValueChange={(v) => {
-                        if (v === UNLINK_VALUE) onChange(t, null);
-                        else onChange(t, v);
+                        if (v === UNLINK_VALUE) onChange(t, { targetForecastId: null });
+                        else if (v.startsWith(L3_PREFIX)) onChange(t, { targetL3Id: v.slice(L3_PREFIX.length) });
+                        else onChange(t, { targetForecastId: v });
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -520,39 +573,49 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                               {linked.specification ? ` · ${linked.specification}` : ""}
                             </span>
                           </span>
+                        ) : hasL3 ? (
+                          <span className="flex items-center gap-1 truncate text-muted-foreground">
+                            <Tag className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{catLabel(t.category_id)} · só rubrica</span>
+                          </span>
                         ) : (
-                          <span className="text-muted-foreground">Escolher linha BP…</span>
+                          <span className="text-muted-foreground">Escolher rubrica ou linha BP…</span>
                         )}
                       </SelectTrigger>
-                      <SelectContent className="max-h-[360px] w-[520px]">
-                        {linked && (
+                      <SelectContent className="max-h-[360px] w-[560px]">
+                        {(linked || hasL3) && (
                           <SelectItem value={UNLINK_VALUE}>
                             <span className="flex items-center gap-1 text-muted-foreground">
-                              <Link2Off className="h-3 w-3" /> Desvincular
+                              <Link2Off className="h-3 w-3" /> Desvincular {linked ? "linha" : ""}
                             </span>
                           </SelectItem>
                         )}
                         {options.length === 0 && (
-                          <div className="px-2 py-2 text-[11px] text-muted-foreground italic">Sem linhas BP neste L2.</div>
+                          <div className="px-2 py-2 text-[11px] text-muted-foreground italic">Sem rubricas neste L2.</div>
                         )}
                         {options.map((opt, i) => {
-                          if ("groupLabel" in opt) {
+                          if ("l3" in opt) {
+                            const l3 = opt.l3;
                             return (
-                              <div
-                                key={`g-${i}`}
-                                className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30"
-                              >
-                                {opt.groupLabel}
-                              </div>
+                              <SelectItem key={`l3-${l3.id}`} value={`${L3_PREFIX}${l3.id}`}>
+                                <span className="flex items-center gap-1">
+                                  <Tag className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {l3.code} {l3.name}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">— só a rubrica</span>
+                                </span>
+                              </SelectItem>
                             );
                           }
                           const f = opt.forecast;
                           const busy = !!f.transaction_id && f.transaction_id !== t.id;
                           const prev = withIva(f.amount, f.iva_rate);
                           return (
-                            <SelectItem key={f.id} value={f.id} disabled={busy}>
+                            <SelectItem key={f.id} value={f.id} disabled={busy} className="pl-6">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
+                                  <Link2 className="h-3 w-3 text-emerald-500 shrink-0" />
                                   <span className="font-medium">{f.description || "(sem descrição)"}</span>
                                   {busy && (
                                     <Badge variant="outline" className="h-4 text-[9px] px-1">
@@ -565,7 +628,7 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground">
+                                <div className="text-[10px] text-muted-foreground pl-5">
                                   {f.specification ? `${f.specification} · ` : ""}
                                   Previsto {formatCurrency(prev)}
                                 </div>
