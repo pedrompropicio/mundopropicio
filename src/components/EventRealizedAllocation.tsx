@@ -340,12 +340,17 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     [activeL2Ids, byId],
   );
 
-  // Build options for a given L2: [{group: L3 label}, ...forecasts of that L3]
+  // Build options for a given L2. Each L3 rende como opção seleccionável ("só a rubrica"),
+  // seguida das linhas BP dessa L3 (se existirem). L3s sem forecasts também aparecem.
   const optionsForL2 = (l2Id: string | null): BpOption[] => {
     const opts: BpOption[] = [];
-    const l3List = l2Id ? (l3sByL2.get(l2Id) ?? []) : l2s.slice().sort((a, b) => (a.code || "").localeCompare(b.code || "")).flatMap((l2) => l3sByL2.get(l2.id) ?? []);
+    const l3List = l2Id
+      ? (l3sByL2.get(l2Id) ?? [])
+      : l2s
+          .slice()
+          .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
+          .flatMap((l2) => l3sByL2.get(l2.id) ?? []);
     const allFcasts = l2Id ? (forecastsByL2.get(l2Id) ?? []) : forecasts;
-    // Group by L3 category_id
     const byL3 = new Map<string, Forecast[]>();
     for (const f of allFcasts) {
       if (!f.category_id || levelOf(f.category_id) !== 3) continue;
@@ -354,9 +359,9 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       byL3.set(f.category_id, arr);
     }
     for (const l3 of l3List) {
+      opts.push({ l3 });
       const arr = byL3.get(l3.id);
       if (!arr || arr.length === 0) continue;
-      opts.push({ groupLabel: `${l3.code ?? ""} ${l3.name}`.trim() });
       arr.sort((a, b) => (a.description ?? "").localeCompare(b.description ?? ""));
       for (const f of arr) opts.push({ forecast: f });
     }
