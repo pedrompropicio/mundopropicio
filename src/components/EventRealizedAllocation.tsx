@@ -407,7 +407,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                     txs={txsByL2.noCat}
                     forecastByTxId={forecastByTxId}
                     catLabel={catLabel}
-                    onChange={(tx, id) => linkMut.mutate({ tx, targetForecastId: id })}
+                    onChange={(tx, arg) => linkMut.mutate({ tx, ...arg })}
                     options={optionsForL2(null)}
                   />
                 </section>
@@ -479,7 +479,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                           txs={semVinculo}
                           forecastByTxId={forecastByTxId}
                           catLabel={catLabel}
-                          onChange={(tx, id) => linkMut.mutate({ tx, targetForecastId: id })}
+                          onChange={(tx, arg) => linkMut.mutate({ tx, ...arg })}
                           options={opts}
                         />
                       </div>
@@ -490,7 +490,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                         txs={comVinculo}
                         forecastByTxId={forecastByTxId}
                         catLabel={catLabel}
-                        onChange={(tx, id) => linkMut.mutate({ tx, targetForecastId: id })}
+                        onChange={(tx, arg) => linkMut.mutate({ tx, ...arg })}
                         options={opts}
                       />
                     )}
