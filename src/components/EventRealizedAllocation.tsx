@@ -858,7 +858,7 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono">{formatCurrency(total)}</td>
                 <td className="px-2 py-1.5">
-                  <span className="text-[10px] uppercase tracking-wider">{t.status || "—"}</span>
+                  <span className="text-[10px] tracking-wider">{formatTransactionStatusPT(t.status)}</span>
                 </td>
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1">
