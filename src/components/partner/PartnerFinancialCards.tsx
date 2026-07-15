@@ -82,6 +82,11 @@ export function PartnerFinancialCards({
         ) : (
           <p className="mt-2 text-[10px] text-muted-foreground">Total previsto c/IVA</p>
         )}
+        {adjustedRubricsCount > 0 && (
+          <p className="mt-1 text-[10px] text-amber-500/80 italic">
+            inclui {adjustedRubricsCount} rubrica{adjustedRubricsCount === 1 ? "" : "s"} ajustada{adjustedRubricsCount === 1 ? "" : "s"} ao realizado
+          </p>
+        )}
       </div>
 
       {/* RESULTADO */}
