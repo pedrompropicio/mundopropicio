@@ -1952,6 +1952,96 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         toast.success("Inserção desfeita.");
         return;
       }
+      if (last.kind === "edit") {
+        const { prevEntry, prevInsert, rowsAffected } = last.data || {};
+        const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
+        const originals = originalEntriesRef.current;
+
+        const writeField = (row: number, field: keyof Entry, val: any) => {
+          if (!sheet) return;
+          switch (field) {
+            case "description":
+              sheet.getRange(row, COL.RUBRIC, 1, 1)?.setValue?.(val == null ? "" : String(val));
+              break;
+            case "category_id": {
+              const label = val ? (categoryIdToLabelRef.current.get(val) ?? "") : "";
+              sheet.getRange(row, COL.CATEGORY, 1, 1)?.setValue?.(label);
+              break;
+            }
+            case "specification":
+              sheet.getRange(row, COL.SPEC, 1, 1)?.setValue?.(val == null ? "" : String(val));
+              break;
+            case "amount":
+              sheet.getRange(row, COL.AMOUNT, 1, 1)?.setValue?.(typeof val === "number" ? val : Number(val) || 0);
+              break;
+            case "iva_rate":
+              sheet.getRange(row, COL.IVA, 1, 1)?.setValue?.(typeof val === "number" ? val : Number(val) || 0);
+              break;
+            case "formalidade":
+              sheet.getRange(row, COL.FORMALIDADE, 1, 1)?.setValue?.(enumToLabel(val));
+              break;
+            default:
+              break;
+          }
+        };
+
+        isProgrammaticWriteRef.current = true;
+        try {
+          for (const [id, snap] of Object.entries(prevEntry ?? {})) {
+            const row = entryIdToRowRef.current.get(id);
+            if (row == null) continue;
+            for (const [field, val] of Object.entries(snap as any)) {
+              writeField(row, field as keyof Entry, val);
+            }
+          }
+          for (const [tempId, snap] of Object.entries(prevInsert ?? {})) {
+            const rowEntry = [...insertRowToTempIdRef.current.entries()].find(([, t]) => t === tempId);
+            const row = rowEntry ? rowEntry[0] : null;
+            if (row == null) continue;
+            for (const [field, val] of Object.entries(snap as any)) {
+              writeField(row, field as keyof Entry, val);
+            }
+          }
+          if (sheet && Array.isArray(rowsAffected)) {
+            for (const r of rowsAffected) forceRecalcFormula(sheet, r);
+          }
+        } finally {
+          requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
+        }
+
+        setDirty((prev) => {
+          const next = { ...prev };
+          for (const [id, snap] of Object.entries(prevEntry ?? {})) {
+            const original = originals.get(id);
+            const merged = { ...(next[id] ?? {}) };
+            for (const [field, val] of Object.entries(snap as any)) {
+              const origVal = original ? (original as any)[field] : undefined;
+              if (entryFieldEquals(origVal, val)) {
+                delete (merged as any)[field];
+              } else {
+                (merged as any)[field] = val;
+              }
+            }
+            if (Object.keys(merged).length === 0) delete next[id];
+            else next[id] = merged;
+          }
+          return next;
+        });
+
+        if (prevInsert && Object.keys(prevInsert).length) {
+          setPendingInserts((prev) =>
+            prev.map((row) => {
+              const snap = (prevInsert as any)[row.tempId];
+              if (!snap) return row;
+              return { ...row, ...snap } as InsertRow;
+            }),
+          );
+        }
+
+        setActionLog((log) => log.slice(0, -1));
+        toast.success("Edição desfeita.");
+        return;
+      }
     }
     // Otherwise trigger native Univer undo (cell edits)
     try {
