@@ -489,9 +489,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   useEffect(() => {
     console.debug(
       "[BPUniverSpike] dirty:",
-      Object.entries(dirty).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+      Object.entries(effectiveDirtyForCount).map(([id, d]) => ({ id, campos: Object.keys(d) })),
     );
-  }, [changeCount, dirty]);
+  }, [changeCount, effectiveDirtyForCount]);
 
   // Escape to exit fullscreen
   useEffect(() => {
