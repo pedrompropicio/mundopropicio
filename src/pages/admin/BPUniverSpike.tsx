@@ -1415,6 +1415,17 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       } catch { /* noop */ }
     }
 
+    // Força o motor de fórmulas a recalcular F (=D*(1+E/100)) e subtotais depois
+    // de reaplicar edits do rascunho via setValue. Sem isto, F pode ficar com o
+    // valor pré-computado inicial (com o amount original) enquanto D já mostra
+    // o valor saneado do rascunho.
+    if (Object.keys(d).length) {
+      try {
+        const formula = (apiRef.current as any)?.getFormula?.();
+        formula?.executeCalculation?.();
+      } catch { /* noop */ }
+    }
+
     // 2) Marcar linhas apagadas
     for (const id of pendingDeletes) {
       const row = entryIdToRowRef.current.get(id);
