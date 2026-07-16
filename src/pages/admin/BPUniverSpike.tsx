@@ -454,15 +454,21 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const raw = localStorage.getItem(draftKey);
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      const editsN = Object.keys(parsed.edits ?? {}).length;
-      const insertsN = (parsed.inserts ?? []).length;
-      const deletesN = (parsed.deletes ?? []).length;
+      const { draft: sanitized, converted, removed } = sanitizeDraftPayload(parsed);
+      const editsN = Object.keys(sanitized.edits ?? {}).length;
+      const insertsN = (sanitized.inserts ?? []).length;
+      const deletesN = (sanitized.deletes ?? []).length;
       if (editsN + insertsN + deletesN === 0) {
         localStorage.removeItem(draftKey);
+        if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
-      pendingDraftRef.current = parsed;
-      setDraftPromptMeta({ savedAt: parsed.savedAt ?? "?", edits: editsN, inserts: insertsN, deletes: deletesN });
+      if (converted > 0 || removed > 0) {
+        localStorage.setItem(draftKey, JSON.stringify({ ...sanitized, savedAt: sanitized.savedAt ?? parsed.savedAt ?? new Date().toISOString() }));
+        if (removed > 0) toast.warning(draftRemovalMessage(removed));
+      }
+      pendingDraftRef.current = sanitized;
+      setDraftPromptMeta({ savedAt: sanitized.savedAt ?? parsed.savedAt ?? "?", edits: editsN, inserts: insertsN, deletes: deletesN });
       setDraftPromptOpen(true);
     } catch (e) {
       console.warn("[BPUniverSpike] draft parse failed", e);
@@ -474,6 +480,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (!ready) return;
     if (!hasChanges) {
       try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      return;
+    }
+    const { draft: sanitized, converted, removed } = sanitizeDraftPayload({
+      edits: dirty,
+      inserts: pendingInserts,
+      deletes: pendingDeletes,
+    });
+    if (converted > 0 || removed > 0) {
+      setDirty(sanitized.edits ?? {});
+      setPendingInserts(sanitized.inserts ?? []);
+      setPendingDeletes(sanitized.deletes ?? []);
+      if (removed > 0) toast.warning(draftRemovalMessage(removed));
       return;
     }
     try {
