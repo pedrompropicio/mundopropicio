@@ -1353,10 +1353,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       categoryLabelToIdRef.current,
     );
 
-    for (const entryId of Object.keys(editsDelta)) {
+    for (const [entryId, delta] of Object.entries(editsDelta)) {
       const effectiveDelta = nextDirtyFromDelta[entryId];
-      if (!effectiveDelta) delete editsDelta[entryId];
-      else editsDelta[entryId] = effectiveDelta;
+      for (const field of Object.keys(delta) as (keyof Entry)[]) {
+        if (!effectiveDelta || !Object.prototype.hasOwnProperty.call(effectiveDelta, field)) {
+          delete (delta as any)[field];
+        }
+      }
+      if (Object.keys(delta).length === 0) delete editsDelta[entryId];
     }
 
     for (const [tempId, delta] of Object.entries(insertsDelta)) {
