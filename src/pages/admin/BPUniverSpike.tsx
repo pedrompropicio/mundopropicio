@@ -1566,13 +1566,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId, forceRecalcFormula]);
 
   // --- Validation ---
-  const validate = useCallback(() => {
+  const validate = useCallback((dirtyToValidate: Record<string, Partial<Entry>> = dirty) => {
     const problems: { row: number; entryLabel: string; problems: string[] }[] = [];
     const catLabelToId = categoryLabelToIdRef.current;
     const categoryIds = new Set(l3Categories.map((c) => c.id));
 
     // Existing rows with dirty
-    for (const [id, delta] of Object.entries(dirty)) {
+    for (const [id, delta] of Object.entries(dirtyToValidate)) {
       const original = originalEntriesRef.current.get(id);
       if (!original) continue;
       const row = entryIdToRowRef.current.get(id) ?? -1;
@@ -1625,7 +1625,22 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    const errs = validate();
+    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(dirty, originalEntriesRef.current);
+    if (prunedRows > 0 || prunedFields > 0) {
+      setDirty(effectiveDirty);
+      try {
+        const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
+        if (!effectiveHasChanges) localStorage.removeItem(draftKey);
+        else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: effectiveDirty, inserts: pendingInserts, deletes: pendingDeletes }));
+      } catch { /* noop */ }
+    }
+
+    if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
+      toast.info("Sem alterações reais para gravar.");
+      return;
+    }
+
+    const errs = validate(effectiveDirty);
     if (errs.length) {
       setValidationErrors(errs);
       // Highlight
@@ -1638,7 +1653,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     try {
 
       // 1) Updates
-      const editsArr = Object.entries(dirty).map(([id, fields]) => ({ id, ...fields }));
+      const editsArr = Object.entries(effectiveDirty).map(([id, fields]) => ({ id, ...fields }));
       if (editsArr.length) {
         const { error } = await supabase.rpc("batch_update_event_forecasts" as any, {
           _event_id: EVENT_ID,
@@ -1677,7 +1692,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
 
       toast.success(
-        `${changeCount} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
+        `${editsArr.length + pendingInserts.length + pendingDeletes.length} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
       );
       // Clear draft + state
       try { localStorage.removeItem(draftKey); } catch { /* noop */ }
