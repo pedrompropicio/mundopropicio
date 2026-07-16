@@ -1692,8 +1692,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(dirty, originalEntriesRef.current);
-    if (prunedRows > 0 || prunedFields > 0) {
+    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
+    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
+    if (normalizedFields > 0 || prunedRows > 0 || prunedFields > 0) {
       setDirty(effectiveDirty);
       try {
         const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
@@ -1959,9 +1960,11 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const parsed = pendingDraftRef.current;
     if (!parsed || typeof parsed !== "object") { setDraftPromptOpen(false); return; }
     const { draft: sanitized, removed } = sanitizeDraftPayload(parsed);
+    const { edits: normalizedEdits } = normalizeRecoveredEditValues(sanitized.edits ?? {}, categoryLabelLookup);
+    const { edits: cleanEdits } = pruneNoOpEdits(normalizedEdits, originalEntriesRef.current);
     // Basta atualizar o state — o rebuild (via workbookData memo) coloca
     // inserts na árvore e o efeito de reaplicação aplica edits/deletes.
-    setDirty(sanitized.edits ?? {});
+    setDirty(cleanEdits);
     setPendingDeletes(sanitized.deletes ?? []);
     setPendingInserts(sanitized.inserts ?? []);
     setDraftPromptOpen(false);
