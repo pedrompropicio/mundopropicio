@@ -1829,7 +1829,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
+    const sheetDirty = collectSheetDirtyEdits();
+    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(sheetDirty, categoryLabelLookup);
     const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
     if (normalizedFields > 0 || prunedRows > 0 || prunedFields > 0) {
       setDirty(effectiveDirty);
