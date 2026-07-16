@@ -1086,6 +1086,48 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   }, []);
 
   // Command listener: track edits to entry rows / insert rows
+  const collectSheetDirtyEdits = useCallback((): Record<string, Partial<Entry>> => {
+    const api = apiRef.current;
+    const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
+    if (!sheet) return dirtyRef.current;
+
+    const readCellValue = (row: number, col: number) => {
+      const raw = sheet.getRange(row, col, 1, 1)?.getValue?.();
+      return raw && typeof raw === "object" && "v" in raw ? (raw as any).v : raw;
+    };
+
+    const next: Record<string, Partial<Entry>> = {};
+    const originals = originalEntriesRef.current;
+    const catLabelToId = categoryLabelToIdRef.current;
+
+    for (const [row, id] of rowToEntryIdRef.current) {
+      const original = originals.get(id);
+      if (!original) continue;
+
+      const amount = parseAmount(readCellValue(row, COL.AMOUNT));
+      const ivaRate = parseIntSafe(readCellValue(row, COL.IVA));
+      const values: Partial<Entry> = {
+        description: readCellValue(row, COL.RUBRIC) == null ? "" : String(readCellValue(row, COL.RUBRIC)),
+        category_id: normalizeCategoryEditValue(readCellValue(row, COL.CATEGORY), catLabelToId),
+        specification: readCellValue(row, COL.SPEC) == null || readCellValue(row, COL.SPEC) === "" ? null : String(readCellValue(row, COL.SPEC)),
+        amount: amount === null || !isFinite(amount) ? original.amount : amount,
+        iva_rate: ivaRate === null || !isFinite(ivaRate) || ivaRate < 0 ? original.iva_rate : ivaRate,
+        formalidade: normalizeFormalidadeEditValue(readCellValue(row, COL.FORMALIDADE)),
+      };
+
+      const delta: Partial<Entry> = {};
+      for (const field of ["description", "category_id", "specification", "amount", "iva_rate", "formalidade"] as (keyof Entry)[]) {
+        if (!entryFieldEquals((original as any)[field], (values as any)[field])) {
+          (delta as any)[field] = (values as any)[field];
+        }
+      }
+      if (Object.keys(delta).length) next[id] = delta;
+    }
+
+    const { edits: normalized } = normalizeRecoveredEditValues(next, categoryLabelToIdRef.current);
+    return pruneNoOpEdits(normalized, originals).edits;
+  }, []);
+
   const sweepNumericColumnsFromSheet = useCallback(() => {
     const api = apiRef.current;
     const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
@@ -1170,29 +1212,11 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
-    if (Object.keys(editsDelta).length) {
-      setDirty((prev) => {
-        const next = { ...prev };
-        for (const [id, delta] of Object.entries(editsDelta)) {
-          const original = originals.get(id);
-          const merged = { ...(next[id] ?? {}), ...delta };
-          if (original) {
-            for (const k of Object.keys(merged) as (keyof Entry)[]) {
-              const origVal = (original as any)[k];
-              const newVal = (merged as any)[k];
-              if (typeof origVal === "number" && typeof newVal === "number" && Math.abs(origVal - newVal) < 1e-9) delete (merged as any)[k];
-            }
-          }
-          if (Object.keys(merged).length === 0) delete next[id];
-          else next[id] = merged;
-        }
-        return next;
-      });
-    }
+    setDirty(collectSheetDirtyEdits());
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
-  }, [pendingInserts, forceRecalcFormula]);
+  }, [pendingInserts, forceRecalcFormula, collectSheetDirtyEdits]);
 
   const scheduleNumericSweep = useCallback(() => {
     if (numericSweepRafRef.current != null) cancelAnimationFrame(numericSweepRafRef.current);
@@ -1209,6 +1233,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (isProgrammaticWriteRef.current) return;
     const cellValue = getCommandCellValueMatrix(params);
     if (!cellValue) {
+      setDirty(collectSheetDirtyEdits());
       scheduleNumericSweep();
       return;
     }
@@ -1334,29 +1359,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       ]);
     }
 
-    if (hasEdits) {
-      setDirty((prev) => {
-        const next = { ...prev };
-        for (const [id, delta] of Object.entries(editsDelta)) {
-          const original = originals.get(id);
-          const merged = { ...(next[id] ?? {}), ...delta };
-          // Prune fields that match the original
-          if (original) {
-            for (const k of Object.keys(merged) as (keyof Entry)[]) {
-              const origVal = (original as any)[k];
-              const newVal = (merged as any)[k];
-              if (entryFieldEquals(origVal, newVal)) delete (merged as any)[k];
-            }
-          }
-          if (Object.keys(merged).length === 0) {
-            delete next[id];
-          } else {
-            next[id] = merged;
-          }
-        }
-        return next;
-      });
-    }
+    setDirty(collectSheetDirtyEdits());
     if (hasInserts) {
       setPendingInserts((prev) =>
         prev.map((row) => {
@@ -1367,7 +1370,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       );
     }
     scheduleNumericSweep();
-  }, [scheduleNumericSweep, pendingInserts]);
+  }, [scheduleNumericSweep, pendingInserts, collectSheetDirtyEdits]);
 
   // Ref indireto para o handler — evita que o useEffect que instancia o Univer
   // (deps: [workbookData, handleCommandExecuted]) re-monte a cada mudança em
