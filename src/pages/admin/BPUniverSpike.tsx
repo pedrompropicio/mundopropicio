@@ -1824,7 +1824,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   // --- Save ---
   const handleSave = async () => {
     if (saving) return;
-    if (!hasChanges) {
+    const sheetDirty = collectSheetDirtyEdits();
+    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(sheetDirty, categoryLabelLookup);
+    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
+    const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
+    dirtyRef.current = effectiveDirty;
+    setDirty(effectiveDirty);
+    if (!effectiveHasChanges) {
+      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
       toast.info("Sem alterações para gravar.");
       return;
     }
@@ -1836,21 +1843,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    const sheetDirty = collectSheetDirtyEdits();
-    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(sheetDirty, categoryLabelLookup);
-    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
     if (normalizedFields > 0 || prunedRows > 0 || prunedFields > 0) {
       setDirty(effectiveDirty);
       try {
-        const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
         if (!effectiveHasChanges) localStorage.removeItem(draftKey);
         else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: effectiveDirty, inserts: pendingInserts, deletes: pendingDeletes }));
       } catch { /* noop */ }
-    }
-
-    if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
-      toast.info("Sem alterações reais para gravar.");
-      return;
     }
 
     const errs = validate(effectiveDirty);
