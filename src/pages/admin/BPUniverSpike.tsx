@@ -1334,7 +1334,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           // Track edits AFTER command executes
           if (Event.CommandExecuted) {
             (univerAPI as any).addEvent(Event.CommandExecuted, (event: any) => {
-              handleCommandExecuted(event?.id, event?.params);
+              handleCommandExecutedRef.current?.(event?.id, event?.params);
             });
           }
         }
@@ -1355,7 +1355,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       univerRef.current = null;
       apiRef.current = null;
     };
-  }, [workbookData, handleCommandExecuted]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workbookData]);
 
   // --- Apply visual state for deletes/inserts/errors (background tint) ---
   const applyRowStyle = useCallback((row: number, styleName: string | null) => {
