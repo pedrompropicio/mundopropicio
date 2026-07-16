@@ -352,6 +352,10 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const numericSweepRafRef = useRef<number | null>(null);
+  // Flag ligada durante escritas programáticas (sweep, replay de rascunho,
+  // recálculo de F). handleCommandExecuted ignora comandos disparados enquanto
+  // este flag está true — assim edições fantasma (writes internos) não entram no dirty.
+  const isProgrammaticWriteRef = useRef(false);
   const nextInsertRowRef = useRef<number>(0);
   const sheetRowCountRef = useRef<number>(200);
 
@@ -457,6 +461,29 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const { draft: sanitized, converted, removed } = sanitizeDraftPayload(parsed);
+      // Prune edições cujo valor final é igual ao original da BD (no-ops).
+      // Isto elimina "edições fantasma" gravadas por rascunhos anteriores em
+      // que escritas programáticas foram capturadas como do utilizador.
+      const origs = originalEntriesRef.current;
+      let prunedCount = 0;
+      const cleanEdits: Record<string, Partial<Entry>> = {};
+      for (const [id, delta] of Object.entries(sanitized.edits ?? {})) {
+        const orig = origs.get(id);
+        if (!orig) { cleanEdits[id] = delta; continue; }
+        const pruned: Partial<Entry> = {};
+        for (const k of Object.keys(delta) as (keyof Entry)[]) {
+          const o = (orig as any)[k];
+          const n = (delta as any)[k];
+          const eq =
+            (o == null && (n == null || n === "")) ||
+            o === n ||
+            (typeof o === "number" && typeof n === "number" && Math.abs(o - n) < 1e-9);
+          if (!eq) (pruned as any)[k] = n;
+        }
+        if (Object.keys(pruned).length) cleanEdits[id] = pruned;
+        else prunedCount++;
+      }
+      sanitized.edits = cleanEdits;
       const editsN = Object.keys(sanitized.edits ?? {}).length;
       const insertsN = (sanitized.inserts ?? []).length;
       const deletesN = (sanitized.deletes ?? []).length;
@@ -465,7 +492,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
-      if (converted > 0 || removed > 0) {
+      if (converted > 0 || removed > 0 || prunedCount > 0) {
         localStorage.setItem(draftKey, JSON.stringify({ ...sanitized, savedAt: sanitized.savedAt ?? parsed.savedAt ?? new Date().toISOString() }));
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
       }
@@ -836,6 +863,27 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries]);
 
+  // Reescreve a fórmula de F para uma linha — força o motor a recalcular F e
+  // os subtotais SUM acima. Substitui chamadas frágeis a getFormula().executeCalculation
+  // (API não garantida em @univerjs/presets 0.25). DETERMINÍSTICO.
+  const forceRecalcFormula = useCallback((sheet: any, row: number) => {
+    try {
+      const formula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
+      const aRaw = sheet.getRange(row, COL.AMOUNT, 1, 1)?.getValue?.();
+      const iRaw = sheet.getRange(row, COL.IVA, 1, 1)?.getValue?.();
+      const a = aRaw && typeof aRaw === "object" && "v" in aRaw ? (aRaw as any).v : aRaw;
+      const i = iRaw && typeof iRaw === "object" && "v" in iRaw ? (iRaw as any).v : iRaw;
+      const numAmount = Number(a) || 0;
+      const numIva = Number(i) || 0;
+      const v = numAmount * (1 + numIva / 100);
+      const range = sheet.getRange(row, COL.TOTAL, 1, 1);
+      // Escrever { f, v } reforça a fórmula E dá um valor imediato caso o motor demore.
+      range?.setValue?.({ f: formula, v });
+    } catch (e) {
+      console.warn("[BPUniverSpike] força recálculo F falhou linha", row, e);
+    }
+  }, []);
+
   // Command listener: track edits to entry rows / insert rows
   const sweepNumericColumnsFromSheet = useCallback(() => {
     const api = apiRef.current;
@@ -845,6 +893,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const editsDelta: Record<string, Partial<Entry>> = {};
     const insertsDelta: Record<string, Partial<InsertRow>> = {};
     const originals = originalEntriesRef.current;
+    const rowsTouched = new Set<number>();
 
     const readCellValue = (row: number, col: number) => {
       const raw = sheet.getRange(row, col, 1, 1)?.getValue?.();
@@ -881,27 +930,43 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (parsed === null || !isFinite(parsed) || (field === "iva_rate" && parsed < 0)) {
         const fallback = ownerType === "entry" ? fallbackForEntry(ownerId, field) : fallbackForInsert(ownerId, field);
         writeNumber(row, col, fallback);
+        rowsTouched.add(row);
         toast.error(field === "amount" ? "Valor numérico inválido — usa vírgula ou ponto decimal." : "IVA inválido — usa uma percentagem numérica.");
         return;
       }
       // Only re-write if the cell wasn't already numeric (avoid unnecessary command loop).
-      if (typeof raw !== "number") writeNumber(row, col, parsed);
-      // Always register the value so the "Gravar" button knows the row is dirty,
-      // even if the BeforeCommandExecute interceptor already normalized "1064,42" → 1064.42.
+      if (typeof raw !== "number") {
+        writeNumber(row, col, parsed);
+        rowsTouched.add(row);
+      }
+      // Só regista dirty se o valor difere do original (evita alterações fantasma
+      // quando o sweep re-lê um valor já correcto).
+      const original = ownerType === "entry" ? originals.get(ownerId)?.[field] : undefined;
+      const alreadyEqualsOriginal =
+        typeof original === "number" && Math.abs(original - parsed) < 1e-9;
       if (ownerType === "entry") {
-        editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
+        if (!alreadyEqualsOriginal) editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
       } else {
         insertsDelta[ownerId] = { ...(insertsDelta[ownerId] ?? {}), [field]: parsed };
       }
     };
 
-    for (const [row, id] of rowToEntryIdRef.current) {
-      normalizeCell(row, COL.AMOUNT, id, "entry");
-      normalizeCell(row, COL.IVA, id, "entry");
-    }
-    for (const [row, tempId] of insertRowToTempIdRef.current) {
-      normalizeCell(row, COL.AMOUNT, tempId, "insert");
-      normalizeCell(row, COL.IVA, tempId, "insert");
+    // Todas as escritas abaixo são programáticas — não devem alimentar dirty via listener.
+    isProgrammaticWriteRef.current = true;
+    try {
+      for (const [row, id] of rowToEntryIdRef.current) {
+        normalizeCell(row, COL.AMOUNT, id, "entry");
+        normalizeCell(row, COL.IVA, id, "entry");
+      }
+      for (const [row, tempId] of insertRowToTempIdRef.current) {
+        normalizeCell(row, COL.AMOUNT, tempId, "insert");
+        normalizeCell(row, COL.IVA, tempId, "insert");
+      }
+      // Reescreve a fórmula de F para cada linha que teve D/E tocado — força recálculo.
+      for (const row of rowsTouched) forceRecalcFormula(sheet, row);
+    } finally {
+      // Liberta o flag após o próximo frame para apanhar comandos que o Univer despacha async.
+      requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
     if (Object.keys(editsDelta).length) {
@@ -926,7 +991,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
-  }, [pendingInserts]);
+  }, [pendingInserts, forceRecalcFormula]);
 
   const scheduleNumericSweep = useCallback(() => {
     if (numericSweepRafRef.current != null) cancelAnimationFrame(numericSweepRafRef.current);
@@ -938,6 +1003,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
   const handleCommandExecuted = useCallback((id: string, params: any) => {
     if (id !== "sheet.command.set-range-values" && !RANGE_WRITE_COMMANDS.has(id)) return;
+    // Ignora escritas programáticas (sweep, replay de rascunho, recálculo de F).
+    // Estas alteram células mas NÃO são edições do utilizador → não podem entrar no dirty.
+    if (isProgrammaticWriteRef.current) return;
     const cellValue = params?.cellValue;
     if (!cellValue) {
       scheduleNumericSweep();
@@ -1399,31 +1467,31 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (removed > 0) toast.warning(draftRemovalMessage(removed));
     }
     const d = replayDraft.edits ?? {};
-    for (const [id, delta] of Object.entries(d)) {
-      const row = entryIdToRowRef.current.get(id);
-      if (row == null) continue;
-      try {
-        if (delta.description !== undefined) sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
-        if (delta.category_id !== undefined) {
-          const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
-          sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
-        }
-        if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
-        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0);
-        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0);
-        if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
-      } catch { /* noop */ }
-    }
-
-    // Força o motor de fórmulas a recalcular F (=D*(1+E/100)) e subtotais depois
-    // de reaplicar edits do rascunho via setValue. Sem isto, F pode ficar com o
-    // valor pré-computado inicial (com o amount original) enquanto D já mostra
-    // o valor saneado do rascunho.
-    if (Object.keys(d).length) {
-      try {
-        const formula = (apiRef.current as any)?.getFormula?.();
-        formula?.executeCalculation?.();
-      } catch { /* noop */ }
+    // Toda esta reaplicação é programática — não pode alimentar dirty via listener.
+    isProgrammaticWriteRef.current = true;
+    try {
+      const rowsToRecalc = new Set<number>();
+      for (const [id, delta] of Object.entries(d)) {
+        const row = entryIdToRowRef.current.get(id);
+        if (row == null) continue;
+        try {
+          if (delta.description !== undefined) sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
+          if (delta.category_id !== undefined) {
+            const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
+            sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
+          }
+          if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
+          if (delta.amount !== undefined) { sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0); rowsToRecalc.add(row); }
+          if (delta.iva_rate !== undefined) { sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0); rowsToRecalc.add(row); }
+          if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
+        } catch { /* noop */ }
+      }
+      // Reescrever F (fórmula + valor) para cada linha tocada força o motor a recalcular
+      // essa célula E propaga aos subtotais SUM acima. Substitui getFormula().executeCalculation
+      // (API não garantida em @univerjs/presets 0.25).
+      for (const row of rowsToRecalc) forceRecalcFormula(sheet, row);
+    } finally {
+      requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
     // 2) Marcar linhas apagadas
@@ -1442,7 +1510,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
       setFocusInsertTempId(null);
     }
-  }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId]);
+  }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId, forceRecalcFormula]);
 
   // --- Validation ---
   const validate = useCallback(() => {
