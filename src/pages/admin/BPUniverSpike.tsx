@@ -942,6 +942,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
   const handleCommandExecuted = useCallback((id: string, params: any) => {
     if (id !== "sheet.command.set-range-values" && !RANGE_WRITE_COMMANDS.has(id)) return;
+    // Ignora escritas programáticas (sweep, replay de rascunho, recálculo de F).
+    // Estas alteram células mas NÃO são edições do utilizador → não podem entrar no dirty.
+    if (isProgrammaticWriteRef.current) return;
     const cellValue = params?.cellValue;
     if (!cellValue) {
       scheduleNumericSweep();
