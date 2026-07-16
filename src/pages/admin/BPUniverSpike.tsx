@@ -194,23 +194,126 @@ const compactRowsToRanges = (rows: number[], col: number, width: number) => {
 const parseAmount = (v: any): number | null => {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === "number") return isFinite(v) ? v : null;
-  const s = String(v).trim().replace(/\s|€/g, "");
-  // If contains both . and , assume . is thousand and , is decimal
-  let normalized = s;
-  if (s.includes(",") && s.includes(".")) {
-    normalized = s.replace(/\./g, "").replace(",", ".");
-  } else if (s.includes(",")) {
-    normalized = s.replace(",", ".");
-  }
-  const n = parseFloat(normalized);
+  const s = String(v).trim().replace(/[\s€]/g, "");
+  if (!s) return null;
+  // If contains comma, PT-style: dots are thousands and comma is decimal.
+  const normalized = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
+  if (!/^[+-]?\d+(\.\d+)?$/.test(normalized)) return null;
+  const n = Number(normalized);
   return isFinite(n) ? n : null;
 };
 
 const parseIntSafe = (v: any): number | null => {
   if (v === null || v === undefined || v === "") return null;
-  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  if (typeof v === "number") return isFinite(v) ? Math.round(v) : null;
+  const normalized = String(v).trim().replace(/[\s%]/g, "").replace(",", ".");
+  if (!/^[+-]?\d+(\.\d+)?$/.test(normalized)) return null;
+  const n = Number(normalized);
   return isFinite(n) ? Math.round(n) : null;
 };
+
+type DraftPayload = {
+  savedAt?: string;
+  edits?: Record<string, Partial<Entry>>;
+  inserts?: InsertRow[];
+  deletes?: string[];
+};
+
+type DraftSanitizeResult = {
+  draft: DraftPayload;
+  converted: number;
+  removed: number;
+};
+
+const normalizeDraftAmount = (value: unknown) => {
+  const parsed = parseAmount(value);
+  return parsed === null || !isFinite(parsed) ? null : parsed;
+};
+
+const normalizeDraftIva = (value: unknown) => {
+  const parsed = parseIntSafe(value);
+  return parsed === null || !isFinite(parsed) || parsed < 0 ? null : parsed;
+};
+
+const sanitizeDraftPayload = (rawDraft: any): DraftSanitizeResult => {
+  const raw = rawDraft && typeof rawDraft === "object" ? rawDraft : {};
+  let converted = 0;
+  let removed = 0;
+
+  const edits: Record<string, Partial<Entry>> = {};
+  const rawEdits = raw.edits && typeof raw.edits === "object" ? raw.edits : {};
+  for (const [id, rawDelta] of Object.entries(rawEdits)) {
+    if (!rawDelta || typeof rawDelta !== "object") {
+      removed++;
+      continue;
+    }
+    const delta = rawDelta as Record<string, unknown>;
+    const clean: Partial<Entry> = {};
+    for (const [field, value] of Object.entries(delta)) {
+      if (field === "amount") {
+        const parsed = normalizeDraftAmount(value);
+        if (parsed === null) { removed++; continue; }
+        if (typeof value !== "number" || value !== parsed) converted++;
+        clean.amount = parsed;
+      } else if (field === "iva_rate") {
+        const parsed = normalizeDraftIva(value);
+        if (parsed === null) { removed++; continue; }
+        if (typeof value !== "number" || value !== parsed) converted++;
+        clean.iva_rate = parsed;
+      } else if (field === "category_id") {
+        clean.category_id = value == null || value === "" ? null : String(value);
+      } else if (field === "description") {
+        clean.description = value == null ? "" : String(value);
+      } else if (field === "specification") {
+        clean.specification = value == null || value === "" ? null : String(value);
+      } else if (field === "formalidade") {
+        clean.formalidade = value == null || value === "" ? null : String(value);
+      }
+    }
+    if (Object.keys(clean).length) edits[id] = clean;
+  }
+
+  const inserts: InsertRow[] = [];
+  const rawInserts = Array.isArray(raw.inserts) ? raw.inserts : [];
+  for (const rawInsert of rawInserts) {
+    if (!rawInsert || typeof rawInsert !== "object") {
+      removed++;
+      continue;
+    }
+    const row = rawInsert as Record<string, unknown>;
+    const amount = normalizeDraftAmount(row.amount);
+    const iva = normalizeDraftIva(row.iva_rate);
+    if (amount === null || iva === null) {
+      removed++;
+      continue;
+    }
+    if (typeof row.amount !== "number" || row.amount !== amount) converted++;
+    if (typeof row.iva_rate !== "number" || row.iva_rate !== iva) converted++;
+    inserts.push({
+      tempId: typeof row.tempId === "string" && row.tempId ? row.tempId : `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      category_id: row.category_id == null || row.category_id === "" ? null : String(row.category_id),
+      description: row.description == null ? "" : String(row.description),
+      specification: row.specification == null || row.specification === "" ? null : String(row.specification),
+      amount,
+      iva_rate: iva,
+      formalidade: row.formalidade == null || row.formalidade === "" ? "estimado" : String(row.formalidade),
+    });
+  }
+
+  return {
+    draft: {
+      savedAt: typeof raw.savedAt === "string" ? raw.savedAt : undefined,
+      edits,
+      inserts,
+      deletes: Array.isArray(raw.deletes) ? raw.deletes.filter((id: unknown): id is string => typeof id === "string") : [],
+    },
+    converted,
+    removed,
+  };
+};
+
+const draftRemovalMessage = (count: number) =>
+  `${count} edição${count === 1 ? " inválida foi removida" : "ões inválidas foram removidas"} do rascunho.`;
 
 interface BPUniverSpikeProps {
   eventId?: string;
@@ -351,15 +454,21 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const raw = localStorage.getItem(draftKey);
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      const editsN = Object.keys(parsed.edits ?? {}).length;
-      const insertsN = (parsed.inserts ?? []).length;
-      const deletesN = (parsed.deletes ?? []).length;
+      const { draft: sanitized, converted, removed } = sanitizeDraftPayload(parsed);
+      const editsN = Object.keys(sanitized.edits ?? {}).length;
+      const insertsN = (sanitized.inserts ?? []).length;
+      const deletesN = (sanitized.deletes ?? []).length;
       if (editsN + insertsN + deletesN === 0) {
         localStorage.removeItem(draftKey);
+        if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
-      pendingDraftRef.current = parsed;
-      setDraftPromptMeta({ savedAt: parsed.savedAt ?? "?", edits: editsN, inserts: insertsN, deletes: deletesN });
+      if (converted > 0 || removed > 0) {
+        localStorage.setItem(draftKey, JSON.stringify({ ...sanitized, savedAt: sanitized.savedAt ?? parsed.savedAt ?? new Date().toISOString() }));
+        if (removed > 0) toast.warning(draftRemovalMessage(removed));
+      }
+      pendingDraftRef.current = sanitized;
+      setDraftPromptMeta({ savedAt: sanitized.savedAt ?? parsed.savedAt ?? "?", edits: editsN, inserts: insertsN, deletes: deletesN });
       setDraftPromptOpen(true);
     } catch (e) {
       console.warn("[BPUniverSpike] draft parse failed", e);
@@ -371,6 +480,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (!ready) return;
     if (!hasChanges) {
       try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      return;
+    }
+    const { draft: sanitized, converted, removed } = sanitizeDraftPayload({
+      edits: dirty,
+      inserts: pendingInserts,
+      deletes: pendingDeletes,
+    });
+    if (converted > 0 || removed > 0) {
+      setDirty(sanitized.edits ?? {});
+      setPendingInserts(sanitized.inserts ?? []);
+      setPendingDeletes(sanitized.deletes ?? []);
+      if (removed > 0) toast.warning(draftRemovalMessage(removed));
       return;
     }
     try {
@@ -715,7 +836,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
   // Command listener: track edits to entry rows / insert rows
   const handleCommandExecuted = useCallback((id: string, params: any) => {
-    if (id !== "sheet.command.set-range-values") return;
+    if (id !== "sheet.command.set-range-values" && !RANGE_WRITE_COMMANDS.has(id)) return;
     const cellValue = params?.cellValue;
     if (!cellValue) return;
     const rowToEntry = rowToEntryIdRef.current;
@@ -756,10 +877,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           case COL.AMOUNT:
             field = "amount";
             value = parseAmount(v);
+            if (value === null || !isFinite(value)) {
+              toast.error("Valor numérico inválido — usa números (ex.: 1064,42 ou 1064.42).");
+              continue;
+            }
             break;
           case COL.IVA:
             field = "iva_rate";
             value = parseIntSafe(v);
+            if (value === null || !isFinite(value) || value < 0) {
+              toast.error("IVA inválido — usa uma percentagem numérica.");
+              continue;
+            }
             break;
           case COL.FORMALIDADE: {
             field = "formalidade";
@@ -1049,7 +1178,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             // Normalização de input numérico PT nas colunas AMOUNT e IVA.
             // Se o utilizador escrever "1064,42" / "1.064,42" / "1 064,42" / "1.064,42 €"
             // convertemos para número antes do commit. Se for texto não numérico → rejeita.
-            if (id === "sheet.command.set-range-values") {
+            if (id === "sheet.command.set-range-values" || RANGE_WRITE_COMMANDS.has(id)) {
               const cellValue = event?.params?.cellValue;
               if (cellValue && typeof cellValue === "object") {
                 let invalid = false;
@@ -1148,7 +1277,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (!sheet) return;
 
     // 1) Reaplicar dirty (as linhas mudaram de número após rebuild)
-    const d = dirtyRef.current;
+    const { draft: replayDraft, converted, removed } = sanitizeDraftPayload({ edits: dirtyRef.current, inserts: [], deletes: [] });
+    if (converted > 0 || removed > 0) {
+      setDirty(replayDraft.edits ?? {});
+      if (removed > 0) toast.warning(draftRemovalMessage(removed));
+    }
+    const d = replayDraft.edits ?? {};
     for (const [id, delta] of Object.entries(d)) {
       const row = entryIdToRowRef.current.get(id);
       if (row == null) continue;
@@ -1159,8 +1293,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
         }
         if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
-        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
-        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
+        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0);
+        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0);
         if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
       } catch { /* noop */ }
     }
@@ -1494,12 +1628,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const applyDraft = () => {
     const parsed = pendingDraftRef.current;
     if (!parsed || typeof parsed !== "object") { setDraftPromptOpen(false); return; }
+    const { draft: sanitized, removed } = sanitizeDraftPayload(parsed);
     // Basta atualizar o state — o rebuild (via workbookData memo) coloca
     // inserts na árvore e o efeito de reaplicação aplica edits/deletes.
-    setDirty(parsed.edits ?? {});
-    setPendingDeletes(parsed.deletes ?? []);
-    setPendingInserts(parsed.inserts ?? []);
+    setDirty(sanitized.edits ?? {});
+    setPendingDeletes(sanitized.deletes ?? []);
+    setPendingInserts(sanitized.inserts ?? []);
     setDraftPromptOpen(false);
+    if (removed > 0) toast.warning(draftRemovalMessage(removed));
     toast.success("Rascunho recuperado.");
   };
 
