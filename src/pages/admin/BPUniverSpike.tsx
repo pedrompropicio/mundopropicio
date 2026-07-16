@@ -374,14 +374,49 @@ const sanitizeDraftPayload = (rawDraft: any): DraftSanitizeResult => {
   };
 };
 
+const normalizeComparableText = (value: unknown) => {
+  if (value == null || value === "") return null;
+  return String(value)
+    .normalize("NFC")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 const entryFieldEquals = (originalValue: unknown, nextValue: unknown) => {
   if (typeof originalValue === "number" || typeof nextValue === "number") {
     const o = Number(originalValue);
     const n = Number(nextValue);
-    return isFinite(o) && isFinite(n) && Math.abs(o - n) < 1e-9;
+    return isFinite(o) && isFinite(n) && Math.abs(o - n) < 1e-6;
   }
-  const normalizeEmpty = (value: unknown) => (value == null || value === "" ? null : value);
-  return normalizeEmpty(originalValue) === normalizeEmpty(nextValue);
+  return normalizeComparableText(originalValue) === normalizeComparableText(nextValue);
+};
+
+const mergeDirtyEdits = (
+  current: Record<string, Partial<Entry>>,
+  deltaById: Record<string, Partial<Entry>>,
+  originals: Map<string, Entry>,
+  categoryLabelToId: Map<string, string>,
+) => {
+  const next: Record<string, Partial<Entry>> = { ...current };
+
+  for (const [id, delta] of Object.entries(deltaById)) {
+    const original = originals.get(id);
+    if (!original) continue;
+    const rowDelta: Partial<Entry> = { ...(next[id] ?? {}) };
+
+    for (const field of Object.keys(delta) as (keyof Entry)[]) {
+      const value = (delta as any)[field];
+      if (entryFieldEquals((original as any)[field], value)) delete (rowDelta as any)[field];
+      else (rowDelta as any)[field] = value;
+    }
+
+    if (Object.keys(rowDelta).length) next[id] = rowDelta;
+    else delete next[id];
+  }
+
+  const { edits: normalized } = normalizeRecoveredEditValues(next, categoryLabelToId);
+  return pruneNoOpEdits(normalized, originals).edits;
 };
 
 const pruneNoOpEdits = (edits: Record<string, Partial<Entry>>, originals: Map<string, Entry>) => {
@@ -1311,12 +1346,19 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
+    const nextDirtyFromDelta = mergeDirtyEdits(
+      dirtyRef.current,
+      editsDelta,
+      originals,
+      categoryLabelToIdRef.current,
+    );
+
     for (const [entryId, delta] of Object.entries(editsDelta)) {
-      const currentDelta = dirtyRef.current[entryId] ?? {};
-      const original = originals.get(entryId);
+      const effectiveDelta = nextDirtyFromDelta[entryId];
       for (const field of Object.keys(delta) as (keyof Entry)[]) {
-        const currentValue = field in currentDelta ? (currentDelta as any)[field] : (original as any)?.[field];
-        if (entryFieldEquals(currentValue, (delta as any)[field])) delete (delta as any)[field];
+        if (!effectiveDelta || !Object.prototype.hasOwnProperty.call(effectiveDelta, field)) {
+          delete (delta as any)[field];
+        }
       }
       if (Object.keys(delta).length === 0) delete editsDelta[entryId];
     }
@@ -1367,9 +1409,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       ]);
     }
 
-    const sheetDirty = collectSheetDirtyEdits();
-    dirtyRef.current = sheetDirty;
-    setDirty(sheetDirty);
+    dirtyRef.current = nextDirtyFromDelta;
+    setDirty(nextDirtyFromDelta);
     if (hasInserts) {
       setPendingInserts((prev) =>
         prev.map((row) => {
