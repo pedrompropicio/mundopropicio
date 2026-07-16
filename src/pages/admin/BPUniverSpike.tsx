@@ -1215,7 +1215,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
-    setDirty(collectSheetDirtyEdits());
+    const sheetDirty = collectSheetDirtyEdits();
+    dirtyRef.current = sheetDirty;
+    setDirty(sheetDirty);
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
@@ -1236,7 +1238,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (isProgrammaticWriteRef.current) return;
     const cellValue = getCommandCellValueMatrix(params);
     if (!cellValue) {
-      setDirty(collectSheetDirtyEdits());
+      const sheetDirty = collectSheetDirtyEdits();
+      dirtyRef.current = sheetDirty;
+      setDirty(sheetDirty);
       scheduleNumericSweep();
       return;
     }
@@ -1255,6 +1259,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const tempId = rowToTemp.get(r);
       if (!entryId && !tempId) continue;
       for (const [colKey, cellRaw] of Object.entries(rowMap as Record<string, any>)) {
+        if (cellRaw && typeof cellRaw === "object" && !Object.prototype.hasOwnProperty.call(cellRaw, "v")) continue;
         const c = Number(colKey);
         const v = getCellValuePayload(cellRaw);
         let field: keyof Entry | null = null;
@@ -1362,7 +1367,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       ]);
     }
 
-    setDirty(collectSheetDirtyEdits());
+    const sheetDirty = collectSheetDirtyEdits();
+    dirtyRef.current = sheetDirty;
+    setDirty(sheetDirty);
     if (hasInserts) {
       setPendingInserts((prev) =>
         prev.map((row) => {
