@@ -313,6 +313,48 @@ const sanitizeDraftPayload = (rawDraft: any): DraftSanitizeResult => {
   };
 };
 
+const entryFieldEquals = (originalValue: unknown, nextValue: unknown) => {
+  if (typeof originalValue === "number" || typeof nextValue === "number") {
+    const o = Number(originalValue);
+    const n = Number(nextValue);
+    return isFinite(o) && isFinite(n) && Math.abs(o - n) < 1e-9;
+  }
+  const normalizeEmpty = (value: unknown) => (value == null || value === "" ? null : value);
+  return normalizeEmpty(originalValue) === normalizeEmpty(nextValue);
+};
+
+const pruneNoOpEdits = (edits: Record<string, Partial<Entry>>, originals: Map<string, Entry>) => {
+  if (!originals.size) return { edits, prunedRows: 0, prunedFields: 0 };
+  let prunedRows = 0;
+  let prunedFields = 0;
+  let changed = false;
+  const cleanEdits: Record<string, Partial<Entry>> = {};
+
+  for (const [id, delta] of Object.entries(edits ?? {})) {
+    const original = originals.get(id);
+    if (!original) {
+      cleanEdits[id] = delta;
+      continue;
+    }
+    const clean: Partial<Entry> = {};
+    for (const key of Object.keys(delta) as (keyof Entry)[]) {
+      if (entryFieldEquals((original as any)[key], (delta as any)[key])) {
+        prunedFields++;
+        changed = true;
+      } else {
+        (clean as any)[key] = (delta as any)[key];
+      }
+    }
+    if (Object.keys(clean).length) cleanEdits[id] = clean;
+    else {
+      prunedRows++;
+      changed = true;
+    }
+  }
+
+  return { edits: changed ? cleanEdits : edits, prunedRows, prunedFields };
+};
+
 const draftRemovalMessage = (count: number) =>
   `${count} edição${count === 1 ? " inválida foi removida" : "ões inválidas foram removidas"} do rascunho.`;
 
@@ -391,6 +433,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const dirtyRef = useRef(dirty);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
+  useEffect(() => {
+    console.debug(
+      "[BPUniverSpike] dirty:",
+      Object.entries(dirty).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+    );
+  }, [changeCount, dirty]);
+
   // Escape to exit fullscreen
   useEffect(() => {
     if (!fullscreen) return;
@@ -461,28 +510,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const { draft: sanitized, converted, removed } = sanitizeDraftPayload(parsed);
-      // Prune edições cujo valor final é igual ao original da BD (no-ops).
-      // Isto elimina "edições fantasma" gravadas por rascunhos anteriores em
-      // que escritas programáticas foram capturadas como do utilizador.
-      const origs = originalEntriesRef.current;
-      let prunedCount = 0;
-      const cleanEdits: Record<string, Partial<Entry>> = {};
-      for (const [id, delta] of Object.entries(sanitized.edits ?? {})) {
-        const orig = origs.get(id);
-        if (!orig) { cleanEdits[id] = delta; continue; }
-        const pruned: Partial<Entry> = {};
-        for (const k of Object.keys(delta) as (keyof Entry)[]) {
-          const o = (orig as any)[k];
-          const n = (delta as any)[k];
-          const eq =
-            (o == null && (n == null || n === "")) ||
-            o === n ||
-            (typeof o === "number" && typeof n === "number" && Math.abs(o - n) < 1e-9);
-          if (!eq) (pruned as any)[k] = n;
-        }
-        if (Object.keys(pruned).length) cleanEdits[id] = pruned;
-        else prunedCount++;
-      }
+      const { edits: cleanEdits, prunedRows, prunedFields } = pruneNoOpEdits(sanitized.edits ?? {}, originalEntriesRef.current);
       sanitized.edits = cleanEdits;
       const editsN = Object.keys(sanitized.edits ?? {}).length;
       const insertsN = (sanitized.inserts ?? []).length;
@@ -492,7 +520,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
-      if (converted > 0 || removed > 0 || prunedCount > 0) {
+      if (converted > 0 || removed > 0 || prunedRows > 0 || prunedFields > 0) {
         localStorage.setItem(draftKey, JSON.stringify({ ...sanitized, savedAt: sanitized.savedAt ?? parsed.savedAt ?? new Date().toISOString() }));
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
       }
@@ -503,6 +531,35 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       console.warn("[BPUniverSpike] draft parse failed", e);
     }
   }, [loading, entries.length, draftKey]);
+
+  // Depois de os originais da BD chegarem, poda no-ops que possam ter entrado
+  // antes do snapshot estar populado. Atualiza state e localStorage em conjunto.
+  useEffect(() => {
+    if (loading || !ready || !originalEntriesRef.current.size) return;
+    const { edits: cleanEdits, prunedRows, prunedFields } = pruneNoOpEdits(dirtyRef.current, originalEntriesRef.current);
+    if (prunedRows === 0 && prunedFields === 0) return;
+
+    setDirty(cleanEdits);
+
+    const nextHasChanges = Object.keys(cleanEdits).length + pendingInserts.length + pendingDeletes.length > 0;
+    try {
+      if (!nextHasChanges) {
+        localStorage.removeItem(draftKey);
+      } else {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            savedAt: new Date().toISOString(),
+            edits: cleanEdits,
+            inserts: pendingInserts,
+            deletes: pendingDeletes,
+          }),
+        );
+      }
+    } catch (e) {
+      console.warn("[BPUniverSpike] draft prune save failed", e);
+    }
+  }, [loading, ready, entries, draftKey, pendingInserts, pendingDeletes]);
 
   // Persist draft to localStorage
   useEffect(() => {
@@ -1090,11 +1147,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             for (const k of Object.keys(merged) as (keyof Entry)[]) {
               const origVal = (original as any)[k];
               const newVal = (merged as any)[k];
-              const eq =
-                (origVal == null && (newVal == null || newVal === "")) ||
-                origVal === newVal ||
-                (typeof origVal === "number" && typeof newVal === "number" && Math.abs(origVal - newVal) < 1e-9);
-              if (eq) delete (merged as any)[k];
+              if (entryFieldEquals(origVal, newVal)) delete (merged as any)[k];
             }
           }
           if (Object.keys(merged).length === 0) {
@@ -1513,13 +1566,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId, forceRecalcFormula]);
 
   // --- Validation ---
-  const validate = useCallback(() => {
+  const validate = useCallback((dirtyToValidate: Record<string, Partial<Entry>> = dirty) => {
     const problems: { row: number; entryLabel: string; problems: string[] }[] = [];
     const catLabelToId = categoryLabelToIdRef.current;
     const categoryIds = new Set(l3Categories.map((c) => c.id));
 
     // Existing rows with dirty
-    for (const [id, delta] of Object.entries(dirty)) {
+    for (const [id, delta] of Object.entries(dirtyToValidate)) {
       const original = originalEntriesRef.current.get(id);
       if (!original) continue;
       const row = entryIdToRowRef.current.get(id) ?? -1;
@@ -1572,7 +1625,22 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    const errs = validate();
+    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(dirty, originalEntriesRef.current);
+    if (prunedRows > 0 || prunedFields > 0) {
+      setDirty(effectiveDirty);
+      try {
+        const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
+        if (!effectiveHasChanges) localStorage.removeItem(draftKey);
+        else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: effectiveDirty, inserts: pendingInserts, deletes: pendingDeletes }));
+      } catch { /* noop */ }
+    }
+
+    if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
+      toast.info("Sem alterações reais para gravar.");
+      return;
+    }
+
+    const errs = validate(effectiveDirty);
     if (errs.length) {
       setValidationErrors(errs);
       // Highlight
@@ -1585,7 +1653,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     try {
 
       // 1) Updates
-      const editsArr = Object.entries(dirty).map(([id, fields]) => ({ id, ...fields }));
+      const editsArr = Object.entries(effectiveDirty).map(([id, fields]) => ({ id, ...fields }));
       if (editsArr.length) {
         const { error } = await supabase.rpc("batch_update_event_forecasts" as any, {
           _event_id: EVENT_ID,
@@ -1624,7 +1692,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
 
       toast.success(
-        `${changeCount} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
+        `${editsArr.length + pendingInserts.length + pendingDeletes.length} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
       );
       // Clear draft + state
       try { localStorage.removeItem(draftKey); } catch { /* noop */ }
