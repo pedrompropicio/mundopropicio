@@ -57,10 +57,51 @@ const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
   { value: "pago_total", label: "Pago Total" },
 ];
 const FORMALIDADE_LABELS = FORMALIDADE_OPTIONS.map((o) => o.label);
+
+const normalizeLookupKey = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[·•]/g, " ")
+    .replace(/[–—-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const formalidadeLookup = new Map<string, string>();
+for (const option of FORMALIDADE_OPTIONS) {
+  formalidadeLookup.set(normalizeLookupKey(option.value), option.value);
+  formalidadeLookup.set(normalizeLookupKey(option.label), option.value);
+}
+
 const enumToLabel = (v: string | null | undefined) =>
   FORMALIDADE_OPTIONS.find((o) => o.value === v)?.label ?? "";
-const labelToEnum = (l: string | null | undefined) =>
-  FORMALIDADE_OPTIONS.find((o) => o.label === l)?.value ?? null;
+const labelToEnum = (l: string | null | undefined) => {
+  const raw = l == null ? "" : String(l).trim();
+  if (!raw) return null;
+  return FORMALIDADE_OPTIONS.find((o) => o.label === raw || o.value === raw)?.value
+    ?? formalidadeLookup.get(normalizeLookupKey(raw))
+    ?? null;
+};
+
+const addLookupAlias = (map: Map<string, string>, alias: unknown, id: string) => {
+  const raw = alias == null ? "" : String(alias).trim();
+  if (!raw) return;
+  map.set(raw, id);
+  map.set(normalizeLookupKey(raw), id);
+};
+
+const normalizeCategoryEditValue = (value: unknown, categoryLabelToId: Map<string, string>) => {
+  const raw = value == null ? "" : String(value).trim();
+  if (!raw) return null;
+  return categoryLabelToId.get(raw) ?? categoryLabelToId.get(normalizeLookupKey(raw)) ?? raw;
+};
+
+const normalizeFormalidadeEditValue = (value: unknown) => {
+  const raw = value == null ? "" : String(value).trim();
+  if (!raw) return null;
+  return labelToEnum(raw) ?? raw;
+};
 
 interface Entry {
   id: string;
@@ -176,6 +217,26 @@ const matrixHitsProtectedCell = (matrix: any, protectedCells: Set<string>) => {
   }
   return false;
 };
+
+const getCommandCellValueMatrix = (params: any) => {
+  if (params?.cellValue && typeof params.cellValue === "object") return params.cellValue;
+  const range = normalizeRange(params?.range);
+  if (!range || params?.value === undefined) return null;
+  const matrix: Record<number, Record<number, unknown>> = {};
+  const value = params.value;
+  if (value && typeof value === "object" && !("v" in value)) {
+    const maybeMatrix = value as Record<string, unknown>;
+    if (Object.keys(maybeMatrix).some((key) => /^\d+$/.test(key))) return maybeMatrix;
+  }
+  for (let r = range.startRow; r <= range.endRow; r++) {
+    matrix[r] = matrix[r] ?? {};
+    for (let c = range.startColumn; c <= range.endColumn; c++) matrix[r][c] = value;
+  }
+  return matrix;
+};
+
+const getCellValuePayload = (cell: any) =>
+  cell && typeof cell === "object" && "v" in cell ? cell.v : cell;
 
 const compactRowsToRanges = (rows: number[], col: number, width: number) => {
   const sorted = Array.from(new Set(rows)).sort((a, b) => a - b);
@@ -368,8 +429,7 @@ const normalizeRecoveredEditValues = (
 
     if (Object.prototype.hasOwnProperty.call(clean, "category_id")) {
       const raw = (clean as any).category_id;
-      const label = raw == null ? "" : String(raw).trim();
-      const normalized = label ? (categoryLabelToId.get(label) ?? label) : null;
+      const normalized = normalizeCategoryEditValue(raw, categoryLabelToId);
       if (!entryFieldEquals(raw, normalized)) {
         normalizedFields++;
         changed = true;
@@ -379,8 +439,7 @@ const normalizeRecoveredEditValues = (
 
     if (Object.prototype.hasOwnProperty.call(clean, "formalidade")) {
       const raw = (clean as any).formalidade;
-      const label = raw == null ? "" : String(raw).trim();
-      const normalized = label ? (labelToEnum(label) ?? label) : null;
+      const normalized = normalizeFormalidadeEditValue(raw);
       if (!entryFieldEquals(raw, normalized)) {
         normalizedFields++;
         changed = true;
@@ -469,7 +528,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const categoryLabelLookup = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of categories) {
-      if (c?.id && c?.code && c?.name) map.set(`${c.code} · ${c.name}`, c.id);
+      if (!c?.id) continue;
+      addLookupAlias(map, c.id, c.id);
+      if (c?.code) addLookupAlias(map, c.code, c.id);
+      if (c?.code && c?.name) {
+        addLookupAlias(map, `${c.code} · ${c.name}`, c.id);
+        addLookupAlias(map, `${c.code} - ${c.name}`, c.id);
+        addLookupAlias(map, `${c.code} – ${c.name}`, c.id);
+        addLookupAlias(map, `${c.code} — ${c.name}`, c.id);
+      }
     }
     return map;
   }, [categories]);
@@ -489,9 +556,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   useEffect(() => {
     console.debug(
       "[BPUniverSpike] dirty:",
-      Object.entries(effectiveDirtyForCount).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+      {
+        edits: Object.entries(effectiveDirtyForCount).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+        inserts: pendingInserts.map((row) => row.tempId),
+        deletes: pendingDeletes,
+        total: changeCount,
+      },
     );
-  }, [changeCount, effectiveDirtyForCount]);
+  }, [changeCount, effectiveDirtyForCount, pendingInserts, pendingDeletes]);
 
   // Escape to exit fullscreen
   useEffect(() => {
@@ -695,7 +767,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const l2i = new Map<string, string>();
     const i2l = new Map<string, string>();
     for (const c of l3Categories) {
-      l2i.set(c.label, c.id);
+      addLookupAlias(l2i, c.id, c.id);
+      addLookupAlias(l2i, c.code, c.id);
+      addLookupAlias(l2i, c.label, c.id);
+      addLookupAlias(l2i, `${c.code} - ${c.name}`, c.id);
+      addLookupAlias(l2i, `${c.code} – ${c.name}`, c.id);
+      addLookupAlias(l2i, `${c.code} — ${c.name}`, c.id);
       i2l.set(c.id, c.label);
     }
     categoryLabelToIdRef.current = l2i;
@@ -1130,7 +1207,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     // Ignora escritas programáticas (sweep, replay de rascunho, recálculo de F).
     // Estas alteram células mas NÃO são edições do utilizador → não podem entrar no dirty.
     if (isProgrammaticWriteRef.current) return;
-    const cellValue = params?.cellValue;
+    const cellValue = getCommandCellValueMatrix(params);
     if (!cellValue) {
       scheduleNumericSweep();
       return;
@@ -1151,8 +1228,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!entryId && !tempId) continue;
       for (const [colKey, cellRaw] of Object.entries(rowMap as Record<string, any>)) {
         const c = Number(colKey);
-        const cell = cellRaw as any;
-        const v = cell?.v;
+        const v = getCellValuePayload(cellRaw);
         let field: keyof Entry | null = null;
         let value: any = v;
         switch (c) {
@@ -1162,8 +1238,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             break;
           case COL.CATEGORY: {
             field = "category_id";
-            const label = v == null ? "" : String(v).trim();
-            value = label ? (catLabelToId.get(label) ?? null) : null;
+            value = normalizeCategoryEditValue(v, catLabelToId);
             break;
           }
           case COL.SPEC:
@@ -1201,6 +1276,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           insertsDelta[tempId] = { ...(insertsDelta[tempId] ?? {}), [field]: value };
         }
       }
+    }
+
+    for (const [entryId, delta] of Object.entries(editsDelta)) {
+      const currentDelta = dirtyRef.current[entryId] ?? {};
+      const original = originals.get(entryId);
+      for (const field of Object.keys(delta) as (keyof Entry)[]) {
+        const currentValue = field in currentDelta ? (currentDelta as any)[field] : (original as any)?.[field];
+        if (entryFieldEquals(currentValue, (delta as any)[field])) delete (delta as any)[field];
+      }
+      if (Object.keys(delta).length === 0) delete editsDelta[entryId];
+    }
+
+    for (const [tempId, delta] of Object.entries(insertsDelta)) {
+      const current = pendingInserts.find((p) => p.tempId === tempId);
+      if (!current) {
+        delete insertsDelta[tempId];
+        continue;
+      }
+      for (const field of Object.keys(delta) as (keyof InsertRow)[]) {
+        if (entryFieldEquals((current as any)[field], (delta as any)[field])) delete (delta as any)[field];
+      }
+      if (Object.keys(delta).length === 0) delete insertsDelta[tempId];
     }
 
     // Capture previous values (from dirty or originals) BEFORE mutating state, so
@@ -1934,6 +2031,38 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const handleUndo = () => {
     const api = apiRef.current;
     if (!api) return;
+    const wb = api.getActiveWorkbook?.();
+    const sheet = wb?.getActiveSheet?.();
+    const originals = originalEntriesRef.current;
+
+    const writeField = (row: number, field: keyof Entry, val: any) => {
+      if (!sheet) return;
+      switch (field) {
+        case "description":
+          sheet.getRange(row, COL.RUBRIC, 1, 1)?.setValue?.(val == null ? "" : String(val));
+          break;
+        case "category_id": {
+          const label = val ? (categoryIdToLabelRef.current.get(val) ?? "") : "";
+          sheet.getRange(row, COL.CATEGORY, 1, 1)?.setValue?.(label);
+          break;
+        }
+        case "specification":
+          sheet.getRange(row, COL.SPEC, 1, 1)?.setValue?.(val == null ? "" : String(val));
+          break;
+        case "amount":
+          sheet.getRange(row, COL.AMOUNT, 1, 1)?.setValue?.(typeof val === "number" ? val : Number(val) || 0);
+          break;
+        case "iva_rate":
+          sheet.getRange(row, COL.IVA, 1, 1)?.setValue?.(typeof val === "number" ? val : Number(val) || 0);
+          break;
+        case "formalidade":
+          sheet.getRange(row, COL.FORMALIDADE, 1, 1)?.setValue?.(enumToLabel(val));
+          break;
+        default:
+          break;
+      }
+    };
+
     // First try to unwind last logical action
     if (actionLog.length) {
       const last = actionLog[actionLog.length - 1];
@@ -1954,37 +2083,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
       if (last.kind === "edit") {
         const { prevEntry, prevInsert, rowsAffected } = last.data || {};
-        const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
-        const originals = originalEntriesRef.current;
-
-        const writeField = (row: number, field: keyof Entry, val: any) => {
-          if (!sheet) return;
-          switch (field) {
-            case "description":
-              sheet.getRange(row, COL.RUBRIC, 1, 1)?.setValue?.(val == null ? "" : String(val));
-              break;
-            case "category_id": {
-              const label = val ? (categoryIdToLabelRef.current.get(val) ?? "") : "";
-              sheet.getRange(row, COL.CATEGORY, 1, 1)?.setValue?.(label);
-              break;
-            }
-            case "specification":
-              sheet.getRange(row, COL.SPEC, 1, 1)?.setValue?.(val == null ? "" : String(val));
-              break;
-            case "amount":
-              sheet.getRange(row, COL.AMOUNT, 1, 1)?.setValue?.(typeof val === "number" ? val : Number(val) || 0);
-              break;
-            case "iva_rate":
-              sheet.getRange(row, COL.IVA, 1, 1)?.setValue?.(typeof val === "number" ? val : Number(val) || 0);
-              break;
-            case "formalidade":
-              sheet.getRange(row, COL.FORMALIDADE, 1, 1)?.setValue?.(enumToLabel(val));
-              break;
-            default:
-              break;
-          }
-        };
-
         isProgrammaticWriteRef.current = true;
         try {
           for (const [id, snap] of Object.entries(prevEntry ?? {})) {
@@ -2010,7 +2108,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         }
 
         setDirty((prev) => {
-          const next = { ...prev };
+          const { edits: normalizedPrev } = normalizeRecoveredEditValues(prev, categoryLabelLookup);
+          const { edits: effectivePrev } = pruneNoOpEdits(normalizedPrev, originals);
+          const next = { ...effectivePrev };
           for (const [id, snap] of Object.entries(prevEntry ?? {})) {
             const original = originals.get(id);
             const merged = { ...(next[id] ?? {}) };
@@ -2043,6 +2143,54 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         return;
       }
     }
+
+    const { edits: normalizedDirty } = normalizeRecoveredEditValues(dirtyRef.current, categoryLabelLookup);
+    const { edits: effectiveDirty } = pruneNoOpEdits(normalizedDirty, originals);
+    const selectedRange = normalizeRange(wb?.getActiveRange?.()) ?? selectionRangesRef.current[0] ?? null;
+    const selectedEntryId = selectedRange ? rowToEntryIdRef.current.get(selectedRange.startRow) : undefined;
+    const dirtyIds = Object.keys(effectiveDirty);
+
+    if (pendingDeletes.length) {
+      const id = pendingDeletes[pendingDeletes.length - 1];
+      setPendingDeletes((prev) => prev.slice(0, -1));
+      const row = entryIdToRowRef.current.get(id);
+      if (row != null) applyRowStyle(row, null);
+      toast.success("Remoção desfeita.");
+      return;
+    }
+
+    if (pendingInserts.length) {
+      setPendingInserts((prev) => prev.slice(0, -1));
+      toast.success("Inserção desfeita.");
+      return;
+    }
+
+    if (dirtyIds.length) {
+      const id = selectedEntryId && effectiveDirty[selectedEntryId]
+        ? selectedEntryId
+        : dirtyIds[dirtyIds.length - 1];
+      const original = originals.get(id);
+      if (!original) return;
+      const row = entryIdToRowRef.current.get(id);
+      const fields = Object.keys(effectiveDirty[id] ?? {}) as (keyof Entry)[];
+      isProgrammaticWriteRef.current = true;
+      try {
+        if (row != null) {
+          for (const field of fields) writeField(row, field, (original as any)[field]);
+          if (fields.includes("amount") || fields.includes("iva_rate")) forceRecalcFormula(sheet, row);
+        }
+      } finally {
+        requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
+      }
+      setDirty(() => {
+        const next = { ...effectiveDirty };
+        delete next[id];
+        return next;
+      });
+      toast.success("Edição desfeita.");
+      return;
+    }
+
     // Otherwise trigger native Univer undo (cell edits)
     try {
       const commands = [
@@ -2125,7 +2273,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     setConfirmSaveOpen(true);
   };
 
-  const editCount = Object.keys(dirty).length;
+  const editCount = Object.keys(effectiveDirtyForCount).length;
   const insertCount = pendingInserts.length;
   const deleteCount = pendingDeletes.length;
 
