@@ -1346,14 +1346,17 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    for (const [entryId, delta] of Object.entries(editsDelta)) {
-      const currentDelta = dirtyRef.current[entryId] ?? {};
-      const original = originals.get(entryId);
-      for (const field of Object.keys(delta) as (keyof Entry)[]) {
-        const currentValue = field in currentDelta ? (currentDelta as any)[field] : (original as any)?.[field];
-        if (entryFieldEquals(currentValue, (delta as any)[field])) delete (delta as any)[field];
-      }
-      if (Object.keys(delta).length === 0) delete editsDelta[entryId];
+    const nextDirtyFromDelta = mergeDirtyEdits(
+      dirtyRef.current,
+      editsDelta,
+      originals,
+      categoryLabelToIdRef.current,
+    );
+
+    for (const entryId of Object.keys(editsDelta)) {
+      const effectiveDelta = nextDirtyFromDelta[entryId];
+      if (!effectiveDelta) delete editsDelta[entryId];
+      else editsDelta[entryId] = effectiveDelta;
     }
 
     for (const [tempId, delta] of Object.entries(insertsDelta)) {
@@ -1402,9 +1405,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       ]);
     }
 
-    const sheetDirty = collectSheetDirtyEdits();
-    dirtyRef.current = sheetDirty;
-    setDirty(sheetDirty);
+    dirtyRef.current = nextDirtyFromDelta;
+    setDirty(nextDirtyFromDelta);
     if (hasInserts) {
       setPendingInserts((prev) =>
         prev.map((row) => {
