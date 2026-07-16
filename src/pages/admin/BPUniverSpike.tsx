@@ -1104,15 +1104,26 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const original = originals.get(id);
       if (!original) continue;
 
-      const amount = parseAmount(readCellValue(row, COL.AMOUNT));
-      const ivaRate = parseIntSafe(readCellValue(row, COL.IVA));
+      const rawDescription = readCellValue(row, COL.RUBRIC);
+      const rawCategory = readCellValue(row, COL.CATEGORY);
+      const rawSpecification = readCellValue(row, COL.SPEC);
+      const rawAmount = readCellValue(row, COL.AMOUNT);
+      const rawIva = readCellValue(row, COL.IVA);
+      const rawFormalidade = readCellValue(row, COL.FORMALIDADE);
+      const amount = parseAmount(rawAmount);
+      const ivaRate = parseIntSafe(rawIva);
+      const originalCategoryHasLabel = !!(original.category_id && categoryIdToLabelRef.current.has(original.category_id));
+      const categoryValue =
+        (rawCategory == null || rawCategory === "") && original.category_id && !originalCategoryHasLabel
+          ? original.category_id
+          : normalizeCategoryEditValue(rawCategory, catLabelToId);
       const values: Partial<Entry> = {
-        description: readCellValue(row, COL.RUBRIC) == null ? "" : String(readCellValue(row, COL.RUBRIC)),
-        category_id: normalizeCategoryEditValue(readCellValue(row, COL.CATEGORY), catLabelToId),
-        specification: readCellValue(row, COL.SPEC) == null || readCellValue(row, COL.SPEC) === "" ? null : String(readCellValue(row, COL.SPEC)),
+        description: rawDescription == null ? "" : String(rawDescription),
+        category_id: categoryValue,
+        specification: rawSpecification == null || rawSpecification === "" ? null : String(rawSpecification),
         amount: amount === null || !isFinite(amount) ? original.amount : amount,
         iva_rate: ivaRate === null || !isFinite(ivaRate) || ivaRate < 0 ? original.iva_rate : ivaRate,
-        formalidade: normalizeFormalidadeEditValue(readCellValue(row, COL.FORMALIDADE)),
+        formalidade: normalizeFormalidadeEditValue(rawFormalidade),
       };
 
       const delta: Partial<Entry> = {};
@@ -1133,7 +1144,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
     if (!sheet) return;
 
-    const editsDelta: Record<string, Partial<Entry>> = {};
     const insertsDelta: Record<string, Partial<InsertRow>> = {};
     const originals = originalEntriesRef.current;
     const rowsTouched = new Set<number>();
@@ -1182,14 +1192,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         writeNumber(row, col, parsed);
         rowsTouched.add(row);
       }
-      // Só regista dirty se o valor difere do original (evita alterações fantasma
-      // quando o sweep re-lê um valor já correcto).
-      const original = ownerType === "entry" ? originals.get(ownerId)?.[field] : undefined;
-      const alreadyEqualsOriginal =
-        typeof original === "number" && Math.abs(original - parsed) < 1e-9;
-      if (ownerType === "entry") {
-        if (!alreadyEqualsOriginal) editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
-      } else {
+      if (ownerType === "insert") {
         insertsDelta[ownerId] = { ...(insertsDelta[ownerId] ?? {}), [field]: parsed };
       }
     };
