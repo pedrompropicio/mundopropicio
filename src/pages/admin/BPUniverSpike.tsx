@@ -313,6 +313,48 @@ const sanitizeDraftPayload = (rawDraft: any): DraftSanitizeResult => {
   };
 };
 
+const entryFieldEquals = (originalValue: unknown, nextValue: unknown) => {
+  if (typeof originalValue === "number" || typeof nextValue === "number") {
+    const o = Number(originalValue);
+    const n = Number(nextValue);
+    return isFinite(o) && isFinite(n) && Math.abs(o - n) < 1e-9;
+  }
+  const normalizeEmpty = (value: unknown) => (value == null || value === "" ? null : value);
+  return normalizeEmpty(originalValue) === normalizeEmpty(nextValue);
+};
+
+const pruneNoOpEdits = (edits: Record<string, Partial<Entry>>, originals: Map<string, Entry>) => {
+  if (!originals.size) return { edits, prunedRows: 0, prunedFields: 0 };
+  let prunedRows = 0;
+  let prunedFields = 0;
+  let changed = false;
+  const cleanEdits: Record<string, Partial<Entry>> = {};
+
+  for (const [id, delta] of Object.entries(edits ?? {})) {
+    const original = originals.get(id);
+    if (!original) {
+      cleanEdits[id] = delta;
+      continue;
+    }
+    const clean: Partial<Entry> = {};
+    for (const key of Object.keys(delta) as (keyof Entry)[]) {
+      if (entryFieldEquals((original as any)[key], (delta as any)[key])) {
+        prunedFields++;
+        changed = true;
+      } else {
+        (clean as any)[key] = (delta as any)[key];
+      }
+    }
+    if (Object.keys(clean).length) cleanEdits[id] = clean;
+    else {
+      prunedRows++;
+      changed = true;
+    }
+  }
+
+  return { edits: changed ? cleanEdits : edits, prunedRows, prunedFields };
+};
+
 const draftRemovalMessage = (count: number) =>
   `${count} edição${count === 1 ? " inválida foi removida" : "ões inválidas foram removidas"} do rascunho.`;
 
