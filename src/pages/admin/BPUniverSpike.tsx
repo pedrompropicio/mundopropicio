@@ -461,6 +461,29 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const { draft: sanitized, converted, removed } = sanitizeDraftPayload(parsed);
+      // Prune edições cujo valor final é igual ao original da BD (no-ops).
+      // Isto elimina "edições fantasma" gravadas por rascunhos anteriores em
+      // que escritas programáticas foram capturadas como do utilizador.
+      const origs = originalEntriesRef.current;
+      let prunedCount = 0;
+      const cleanEdits: Record<string, Partial<Entry>> = {};
+      for (const [id, delta] of Object.entries(sanitized.edits ?? {})) {
+        const orig = origs.get(id);
+        if (!orig) { cleanEdits[id] = delta; continue; }
+        const pruned: Partial<Entry> = {};
+        for (const k of Object.keys(delta) as (keyof Entry)[]) {
+          const o = (orig as any)[k];
+          const n = (delta as any)[k];
+          const eq =
+            (o == null && (n == null || n === "")) ||
+            o === n ||
+            (typeof o === "number" && typeof n === "number" && Math.abs(o - n) < 1e-9);
+          if (!eq) (pruned as any)[k] = n;
+        }
+        if (Object.keys(pruned).length) cleanEdits[id] = pruned;
+        else prunedCount++;
+      }
+      sanitized.edits = cleanEdits;
       const editsN = Object.keys(sanitized.edits ?? {}).length;
       const insertsN = (sanitized.inserts ?? []).length;
       const deletesN = (sanitized.deletes ?? []).length;
@@ -469,7 +492,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
-      if (converted > 0 || removed > 0) {
+      if (converted > 0 || removed > 0 || prunedCount > 0) {
         localStorage.setItem(draftKey, JSON.stringify({ ...sanitized, savedAt: sanitized.savedAt ?? parsed.savedAt ?? new Date().toISOString() }));
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
       }
