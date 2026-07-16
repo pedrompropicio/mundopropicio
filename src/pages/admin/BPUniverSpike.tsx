@@ -840,6 +840,27 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries]);
 
+  // Reescreve a fórmula de F para uma linha — força o motor a recalcular F e
+  // os subtotais SUM acima. Substitui chamadas frágeis a getFormula().executeCalculation
+  // (API não garantida em @univerjs/presets 0.25). DETERMINÍSTICO.
+  const forceRecalcFormula = useCallback((sheet: any, row: number) => {
+    try {
+      const formula = `=${L_AMOUNT}${row + 1}*(1+${L_IVA}${row + 1}/100)`;
+      const aRaw = sheet.getRange(row, COL.AMOUNT, 1, 1)?.getValue?.();
+      const iRaw = sheet.getRange(row, COL.IVA, 1, 1)?.getValue?.();
+      const a = aRaw && typeof aRaw === "object" && "v" in aRaw ? (aRaw as any).v : aRaw;
+      const i = iRaw && typeof iRaw === "object" && "v" in iRaw ? (iRaw as any).v : iRaw;
+      const numAmount = Number(a) || 0;
+      const numIva = Number(i) || 0;
+      const v = numAmount * (1 + numIva / 100);
+      const range = sheet.getRange(row, COL.TOTAL, 1, 1);
+      // Escrever { f, v } reforça a fórmula E dá um valor imediato caso o motor demore.
+      range?.setValue?.({ f: formula, v });
+    } catch (e) {
+      console.warn("[BPUniverSpike] força recálculo F falhou linha", row, e);
+    }
+  }, []);
+
   // Command listener: track edits to entry rows / insert rows
   const sweepNumericColumnsFromSheet = useCallback(() => {
     const api = apiRef.current;
@@ -849,6 +870,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const editsDelta: Record<string, Partial<Entry>> = {};
     const insertsDelta: Record<string, Partial<InsertRow>> = {};
     const originals = originalEntriesRef.current;
+    const rowsTouched = new Set<number>();
 
     const readCellValue = (row: number, col: number) => {
       const raw = sheet.getRange(row, col, 1, 1)?.getValue?.();
@@ -885,27 +907,43 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (parsed === null || !isFinite(parsed) || (field === "iva_rate" && parsed < 0)) {
         const fallback = ownerType === "entry" ? fallbackForEntry(ownerId, field) : fallbackForInsert(ownerId, field);
         writeNumber(row, col, fallback);
+        rowsTouched.add(row);
         toast.error(field === "amount" ? "Valor numérico inválido — usa vírgula ou ponto decimal." : "IVA inválido — usa uma percentagem numérica.");
         return;
       }
       // Only re-write if the cell wasn't already numeric (avoid unnecessary command loop).
-      if (typeof raw !== "number") writeNumber(row, col, parsed);
-      // Always register the value so the "Gravar" button knows the row is dirty,
-      // even if the BeforeCommandExecute interceptor already normalized "1064,42" → 1064.42.
+      if (typeof raw !== "number") {
+        writeNumber(row, col, parsed);
+        rowsTouched.add(row);
+      }
+      // Só regista dirty se o valor difere do original (evita alterações fantasma
+      // quando o sweep re-lê um valor já correcto).
+      const original = ownerType === "entry" ? originals.get(ownerId)?.[field] : undefined;
+      const alreadyEqualsOriginal =
+        typeof original === "number" && Math.abs(original - parsed) < 1e-9;
       if (ownerType === "entry") {
-        editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
+        if (!alreadyEqualsOriginal) editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
       } else {
         insertsDelta[ownerId] = { ...(insertsDelta[ownerId] ?? {}), [field]: parsed };
       }
     };
 
-    for (const [row, id] of rowToEntryIdRef.current) {
-      normalizeCell(row, COL.AMOUNT, id, "entry");
-      normalizeCell(row, COL.IVA, id, "entry");
-    }
-    for (const [row, tempId] of insertRowToTempIdRef.current) {
-      normalizeCell(row, COL.AMOUNT, tempId, "insert");
-      normalizeCell(row, COL.IVA, tempId, "insert");
+    // Todas as escritas abaixo são programáticas — não devem alimentar dirty via listener.
+    isProgrammaticWriteRef.current = true;
+    try {
+      for (const [row, id] of rowToEntryIdRef.current) {
+        normalizeCell(row, COL.AMOUNT, id, "entry");
+        normalizeCell(row, COL.IVA, id, "entry");
+      }
+      for (const [row, tempId] of insertRowToTempIdRef.current) {
+        normalizeCell(row, COL.AMOUNT, tempId, "insert");
+        normalizeCell(row, COL.IVA, tempId, "insert");
+      }
+      // Reescreve a fórmula de F para cada linha que teve D/E tocado — força recálculo.
+      for (const row of rowsTouched) forceRecalcFormula(sheet, row);
+    } finally {
+      // Liberta o flag após o próximo frame para apanhar comandos que o Univer despacha async.
+      requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
     if (Object.keys(editsDelta).length) {
@@ -930,7 +968,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
-  }, [pendingInserts]);
+  }, [pendingInserts, forceRecalcFormula]);
 
   const scheduleNumericSweep = useCallback(() => {
     if (numericSweepRafRef.current != null) cancelAnimationFrame(numericSweepRafRef.current);
