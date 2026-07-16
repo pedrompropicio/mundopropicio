@@ -870,16 +870,24 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
     const normalizeCell = (row: number, col: number, ownerId: string, ownerType: "entry" | "insert") => {
       const raw = readCellValue(row, col);
-      if (raw === null || raw === undefined || raw === "" || typeof raw === "number") return;
-      const parsed = col === COL.AMOUNT ? parseAmount(raw) : parseIntSafe(raw);
+      if (raw === null || raw === undefined || raw === "") return;
       const field = col === COL.AMOUNT ? "amount" : "iva_rate";
+      let parsed: number | null;
+      if (typeof raw === "number") {
+        parsed = isFinite(raw) ? raw : null;
+      } else {
+        parsed = col === COL.AMOUNT ? parseAmount(raw) : parseIntSafe(raw);
+      }
       if (parsed === null || !isFinite(parsed) || (field === "iva_rate" && parsed < 0)) {
         const fallback = ownerType === "entry" ? fallbackForEntry(ownerId, field) : fallbackForInsert(ownerId, field);
         writeNumber(row, col, fallback);
         toast.error(field === "amount" ? "Valor numérico inválido — usa vírgula ou ponto decimal." : "IVA inválido — usa uma percentagem numérica.");
         return;
       }
-      writeNumber(row, col, parsed);
+      // Only re-write if the cell wasn't already numeric (avoid unnecessary command loop).
+      if (typeof raw !== "number") writeNumber(row, col, parsed);
+      // Always register the value so the "Gravar" button knows the row is dirty,
+      // even if the BeforeCommandExecute interceptor already normalized "1064,42" → 1064.42.
       if (ownerType === "entry") {
         editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
       } else {
