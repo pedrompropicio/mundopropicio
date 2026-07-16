@@ -836,7 +836,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
   // Command listener: track edits to entry rows / insert rows
   const handleCommandExecuted = useCallback((id: string, params: any) => {
-    if (id !== "sheet.command.set-range-values") return;
+    if (id !== "sheet.command.set-range-values" && !RANGE_WRITE_COMMANDS.has(id)) return;
     const cellValue = params?.cellValue;
     if (!cellValue) return;
     const rowToEntry = rowToEntryIdRef.current;
@@ -1178,7 +1178,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             // Normalização de input numérico PT nas colunas AMOUNT e IVA.
             // Se o utilizador escrever "1064,42" / "1.064,42" / "1 064,42" / "1.064,42 €"
             // convertemos para número antes do commit. Se for texto não numérico → rejeita.
-            if (id === "sheet.command.set-range-values") {
+            if (id === "sheet.command.set-range-values" || RANGE_WRITE_COMMANDS.has(id)) {
               const cellValue = event?.params?.cellValue;
               if (cellValue && typeof cellValue === "object") {
                 let invalid = false;
