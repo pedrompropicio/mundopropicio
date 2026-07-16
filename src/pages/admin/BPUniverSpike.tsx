@@ -1086,12 +1086,64 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   }, []);
 
   // Command listener: track edits to entry rows / insert rows
+  const collectSheetDirtyEdits = useCallback((): Record<string, Partial<Entry>> => {
+    const api = apiRef.current;
+    const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
+    if (!sheet) return dirtyRef.current;
+
+    const readCellValue = (row: number, col: number) => {
+      const raw = sheet.getRange(row, col, 1, 1)?.getValue?.();
+      return raw && typeof raw === "object" && "v" in raw ? (raw as any).v : raw;
+    };
+
+    const next: Record<string, Partial<Entry>> = {};
+    const originals = originalEntriesRef.current;
+    const catLabelToId = categoryLabelToIdRef.current;
+
+    for (const [row, id] of rowToEntryIdRef.current) {
+      const original = originals.get(id);
+      if (!original) continue;
+
+      const rawDescription = readCellValue(row, COL.RUBRIC);
+      const rawCategory = readCellValue(row, COL.CATEGORY);
+      const rawSpecification = readCellValue(row, COL.SPEC);
+      const rawAmount = readCellValue(row, COL.AMOUNT);
+      const rawIva = readCellValue(row, COL.IVA);
+      const rawFormalidade = readCellValue(row, COL.FORMALIDADE);
+      const amount = parseAmount(rawAmount);
+      const ivaRate = parseIntSafe(rawIva);
+      const originalCategoryHasLabel = !!(original.category_id && categoryIdToLabelRef.current.has(original.category_id));
+      const categoryValue =
+        (rawCategory == null || rawCategory === "") && original.category_id && !originalCategoryHasLabel
+          ? original.category_id
+          : normalizeCategoryEditValue(rawCategory, catLabelToId);
+      const values: Partial<Entry> = {
+        description: rawDescription == null ? "" : String(rawDescription),
+        category_id: categoryValue,
+        specification: rawSpecification == null || rawSpecification === "" ? null : String(rawSpecification),
+        amount: amount === null || !isFinite(amount) ? original.amount : amount,
+        iva_rate: ivaRate === null || !isFinite(ivaRate) || ivaRate < 0 ? original.iva_rate : ivaRate,
+        formalidade: normalizeFormalidadeEditValue(rawFormalidade),
+      };
+
+      const delta: Partial<Entry> = {};
+      for (const field of ["description", "category_id", "specification", "amount", "iva_rate", "formalidade"] as (keyof Entry)[]) {
+        if (!entryFieldEquals((original as any)[field], (values as any)[field])) {
+          (delta as any)[field] = (values as any)[field];
+        }
+      }
+      if (Object.keys(delta).length) next[id] = delta;
+    }
+
+    const { edits: normalized } = normalizeRecoveredEditValues(next, categoryLabelToIdRef.current);
+    return pruneNoOpEdits(normalized, originals).edits;
+  }, []);
+
   const sweepNumericColumnsFromSheet = useCallback(() => {
     const api = apiRef.current;
     const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
     if (!sheet) return;
 
-    const editsDelta: Record<string, Partial<Entry>> = {};
     const insertsDelta: Record<string, Partial<InsertRow>> = {};
     const originals = originalEntriesRef.current;
     const rowsTouched = new Set<number>();
@@ -1140,14 +1192,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         writeNumber(row, col, parsed);
         rowsTouched.add(row);
       }
-      // Só regista dirty se o valor difere do original (evita alterações fantasma
-      // quando o sweep re-lê um valor já correcto).
-      const original = ownerType === "entry" ? originals.get(ownerId)?.[field] : undefined;
-      const alreadyEqualsOriginal =
-        typeof original === "number" && Math.abs(original - parsed) < 1e-9;
-      if (ownerType === "entry") {
-        if (!alreadyEqualsOriginal) editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
-      } else {
+      if (ownerType === "insert") {
         insertsDelta[ownerId] = { ...(insertsDelta[ownerId] ?? {}), [field]: parsed };
       }
     };
@@ -1170,29 +1215,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
-    if (Object.keys(editsDelta).length) {
-      setDirty((prev) => {
-        const next = { ...prev };
-        for (const [id, delta] of Object.entries(editsDelta)) {
-          const original = originals.get(id);
-          const merged = { ...(next[id] ?? {}), ...delta };
-          if (original) {
-            for (const k of Object.keys(merged) as (keyof Entry)[]) {
-              const origVal = (original as any)[k];
-              const newVal = (merged as any)[k];
-              if (typeof origVal === "number" && typeof newVal === "number" && Math.abs(origVal - newVal) < 1e-9) delete (merged as any)[k];
-            }
-          }
-          if (Object.keys(merged).length === 0) delete next[id];
-          else next[id] = merged;
-        }
-        return next;
-      });
-    }
+    const sheetDirty = collectSheetDirtyEdits();
+    dirtyRef.current = sheetDirty;
+    setDirty(sheetDirty);
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
-  }, [pendingInserts, forceRecalcFormula]);
+  }, [pendingInserts, forceRecalcFormula, collectSheetDirtyEdits]);
 
   const scheduleNumericSweep = useCallback(() => {
     if (numericSweepRafRef.current != null) cancelAnimationFrame(numericSweepRafRef.current);
@@ -1209,6 +1238,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (isProgrammaticWriteRef.current) return;
     const cellValue = getCommandCellValueMatrix(params);
     if (!cellValue) {
+      const sheetDirty = collectSheetDirtyEdits();
+      dirtyRef.current = sheetDirty;
+      setDirty(sheetDirty);
       scheduleNumericSweep();
       return;
     }
@@ -1227,6 +1259,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const tempId = rowToTemp.get(r);
       if (!entryId && !tempId) continue;
       for (const [colKey, cellRaw] of Object.entries(rowMap as Record<string, any>)) {
+        if (cellRaw && typeof cellRaw === "object" && !Object.prototype.hasOwnProperty.call(cellRaw, "v")) continue;
         const c = Number(colKey);
         const v = getCellValuePayload(cellRaw);
         let field: keyof Entry | null = null;
@@ -1334,29 +1367,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       ]);
     }
 
-    if (hasEdits) {
-      setDirty((prev) => {
-        const next = { ...prev };
-        for (const [id, delta] of Object.entries(editsDelta)) {
-          const original = originals.get(id);
-          const merged = { ...(next[id] ?? {}), ...delta };
-          // Prune fields that match the original
-          if (original) {
-            for (const k of Object.keys(merged) as (keyof Entry)[]) {
-              const origVal = (original as any)[k];
-              const newVal = (merged as any)[k];
-              if (entryFieldEquals(origVal, newVal)) delete (merged as any)[k];
-            }
-          }
-          if (Object.keys(merged).length === 0) {
-            delete next[id];
-          } else {
-            next[id] = merged;
-          }
-        }
-        return next;
-      });
-    }
+    const sheetDirty = collectSheetDirtyEdits();
+    dirtyRef.current = sheetDirty;
+    setDirty(sheetDirty);
     if (hasInserts) {
       setPendingInserts((prev) =>
         prev.map((row) => {
@@ -1367,7 +1380,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       );
     }
     scheduleNumericSweep();
-  }, [scheduleNumericSweep, pendingInserts]);
+  }, [scheduleNumericSweep, pendingInserts, collectSheetDirtyEdits]);
 
   // Ref indireto para o handler — evita que o useEffect que instancia o Univer
   // (deps: [workbookData, handleCommandExecuted]) re-monte a cada mudança em
@@ -1811,7 +1824,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   // --- Save ---
   const handleSave = async () => {
     if (saving) return;
-    if (!hasChanges) {
+    const sheetDirty = collectSheetDirtyEdits();
+    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(sheetDirty, categoryLabelLookup);
+    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
+    const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
+    dirtyRef.current = effectiveDirty;
+    setDirty(effectiveDirty);
+    if (!effectiveHasChanges) {
+      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
       toast.info("Sem alterações para gravar.");
       return;
     }
@@ -1823,20 +1843,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
-    const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
     if (normalizedFields > 0 || prunedRows > 0 || prunedFields > 0) {
       setDirty(effectiveDirty);
       try {
-        const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
         if (!effectiveHasChanges) localStorage.removeItem(draftKey);
         else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: effectiveDirty, inserts: pendingInserts, deletes: pendingDeletes }));
       } catch { /* noop */ }
-    }
-
-    if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
-      toast.info("Sem alterações reais para gravar.");
-      return;
     }
 
     const errs = validate(effectiveDirty);
@@ -2269,7 +2281,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
   const onGraveClick = () => {
-    if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
+    const sheetDirty = collectSheetDirtyEdits();
+    dirtyRef.current = sheetDirty;
+    setDirty(sheetDirty);
+    if (Object.keys(sheetDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
+      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      toast.info("Sem alterações para gravar.");
+      return;
+    }
     setConfirmSaveOpen(true);
   };
 
