@@ -2281,7 +2281,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
   const onGraveClick = () => {
-    if (!hasChanges) { toast.info("Sem alterações para gravar."); return; }
+    const sheetDirty = collectSheetDirtyEdits();
+    dirtyRef.current = sheetDirty;
+    setDirty(sheetDirty);
+    if (Object.keys(sheetDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
+      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      toast.info("Sem alterações para gravar.");
+      return;
+    }
     setConfirmSaveOpen(true);
   };
 
