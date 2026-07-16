@@ -1040,9 +1040,52 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
           (univerAPI as any).addEvent(Event.BeforeCommandExecute, (event: any) => {
             const id = event?.id;
-            if (!id || !commandTouchesProtectedCell(id, event?.params)) return;
-            event.cancel = true;
-            showProtectedToast();
+            if (!id) return;
+            if (commandTouchesProtectedCell(id, event?.params)) {
+              event.cancel = true;
+              showProtectedToast();
+              return;
+            }
+            // Normalização de input numérico PT nas colunas AMOUNT e IVA.
+            // Se o utilizador escrever "1064,42" / "1.064,42" / "1 064,42" / "1.064,42 €"
+            // convertemos para número antes do commit. Se for texto não numérico → rejeita.
+            if (id === "sheet.command.set-range-values") {
+              const cellValue = event?.params?.cellValue;
+              if (cellValue && typeof cellValue === "object") {
+                let invalid = false;
+                for (const rowKey of Object.keys(cellValue)) {
+                  const rowMap = cellValue[rowKey];
+                  if (!rowMap || typeof rowMap !== "object") continue;
+                  for (const colKey of Object.keys(rowMap)) {
+                    const c = Number(colKey);
+                    if (c !== COL.AMOUNT && c !== COL.IVA) continue;
+                    const cell = rowMap[colKey];
+                    if (!cell) continue;
+                    const raw = cell.v;
+                    if (raw === null || raw === undefined || raw === "") continue;
+                    if (typeof raw === "number") continue;
+                    const parsed = c === COL.AMOUNT ? parseAmount(raw) : parseIntSafe(raw);
+                    if (parsed === null || !isFinite(parsed) || (c === COL.IVA && parsed < 0)) {
+                      invalid = true;
+                      break;
+                    }
+                    cell.v = parsed;
+                    // Limpa formatos herdados de string (ex.: paste com "€").
+                    if (cell.t !== undefined) cell.t = 2; // CellValueType.NUMBER
+                  }
+                  if (invalid) break;
+                }
+                if (invalid) {
+                  event.cancel = true;
+                  const now = Date.now();
+                  if (now - toastThrottleRef.current >= 1200) {
+                    toastThrottleRef.current = now;
+                    toast.error("Valor numérico inválido — usa números (ex.: 1064,42 ou 1064.42).");
+                  }
+                  return;
+                }
+              }
+            }
           });
 
           // Track edits AFTER command executes
