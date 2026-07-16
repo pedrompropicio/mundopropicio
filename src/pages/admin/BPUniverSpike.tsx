@@ -460,7 +460,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const [draftPromptOpen, setDraftPromptOpen] = useState(false);
   const [draftPromptMeta, setDraftPromptMeta] = useState<{ savedAt: string; edits: number; inserts: number; deletes: number } | null>(null);
   const pendingDraftRef = useRef<any>(null);
-  const [actionLog, setActionLog] = useState<Array<{ kind: "insert" | "delete"; data: any }>>([]);
+  const [actionLog, setActionLog] = useState<Array<{ kind: "insert" | "delete" | "edit"; data: any }>>([]);
   const [pendingNavConfirm, setPendingNavConfirm] = useState<null | (() => void)>(null);
 
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
