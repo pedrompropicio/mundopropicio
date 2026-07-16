@@ -1233,8 +1233,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             break;
           case COL.CATEGORY: {
             field = "category_id";
-            const label = v == null ? "" : String(v).trim();
-            value = label ? (catLabelToId.get(label) ?? null) : null;
+            value = normalizeCategoryEditValue(v, catLabelToId);
             break;
           }
           case COL.SPEC:
