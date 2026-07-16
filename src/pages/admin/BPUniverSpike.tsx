@@ -767,7 +767,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const l2i = new Map<string, string>();
     const i2l = new Map<string, string>();
     for (const c of l3Categories) {
-      l2i.set(c.label, c.id);
+      addLookupAlias(l2i, c.id, c.id);
+      addLookupAlias(l2i, c.code, c.id);
+      addLookupAlias(l2i, c.label, c.id);
+      addLookupAlias(l2i, `${c.code} - ${c.name}`, c.id);
+      addLookupAlias(l2i, `${c.code} – ${c.name}`, c.id);
+      addLookupAlias(l2i, `${c.code} — ${c.name}`, c.id);
       i2l.set(c.id, c.label);
     }
     categoryLabelToIdRef.current = l2i;
