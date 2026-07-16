@@ -877,10 +877,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           case COL.AMOUNT:
             field = "amount";
             value = parseAmount(v);
+            if (value === null || !isFinite(value)) {
+              toast.error("Valor numérico inválido — usa números (ex.: 1064,42 ou 1064.42).");
+              continue;
+            }
             break;
           case COL.IVA:
             field = "iva_rate";
             value = parseIntSafe(v);
+            if (value === null || !isFinite(value) || value < 0) {
+              toast.error("IVA inválido — usa uma percentagem numérica.");
+              continue;
+            }
             break;
           case COL.FORMALIDADE: {
             field = "formalidade";
@@ -1269,7 +1277,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (!sheet) return;
 
     // 1) Reaplicar dirty (as linhas mudaram de número após rebuild)
-    const d = dirtyRef.current;
+    const { draft: replayDraft, converted, removed } = sanitizeDraftPayload({ edits: dirtyRef.current, inserts: [], deletes: [] });
+    if (converted > 0 || removed > 0) {
+      setDirty(replayDraft.edits ?? {});
+      if (removed > 0) toast.warning(draftRemovalMessage(removed));
+    }
+    const d = replayDraft.edits ?? {};
     for (const [id, delta] of Object.entries(d)) {
       const row = entryIdToRowRef.current.get(id);
       if (row == null) continue;
@@ -1280,8 +1293,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
         }
         if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
-        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(delta.amount ?? 0);
-        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(delta.iva_rate ?? 0);
+        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0);
+        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0);
         if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
       } catch { /* noop */ }
     }
@@ -1615,12 +1628,14 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const applyDraft = () => {
     const parsed = pendingDraftRef.current;
     if (!parsed || typeof parsed !== "object") { setDraftPromptOpen(false); return; }
+    const { draft: sanitized, removed } = sanitizeDraftPayload(parsed);
     // Basta atualizar o state — o rebuild (via workbookData memo) coloca
     // inserts na árvore e o efeito de reaplicação aplica edits/deletes.
-    setDirty(parsed.edits ?? {});
-    setPendingDeletes(parsed.deletes ?? []);
-    setPendingInserts(parsed.inserts ?? []);
+    setDirty(sanitized.edits ?? {});
+    setPendingDeletes(sanitized.deletes ?? []);
+    setPendingInserts(sanitized.inserts ?? []);
     setDraftPromptOpen(false);
+    if (removed > 0) toast.warning(draftRemovalMessage(removed));
     toast.success("Rascunho recuperado.");
   };
 
