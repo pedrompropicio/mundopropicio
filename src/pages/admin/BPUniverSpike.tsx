@@ -1444,31 +1444,31 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (removed > 0) toast.warning(draftRemovalMessage(removed));
     }
     const d = replayDraft.edits ?? {};
-    for (const [id, delta] of Object.entries(d)) {
-      const row = entryIdToRowRef.current.get(id);
-      if (row == null) continue;
-      try {
-        if (delta.description !== undefined) sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
-        if (delta.category_id !== undefined) {
-          const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
-          sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
-        }
-        if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
-        if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0);
-        if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0);
-        if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
-      } catch { /* noop */ }
-    }
-
-    // Força o motor de fórmulas a recalcular F (=D*(1+E/100)) e subtotais depois
-    // de reaplicar edits do rascunho via setValue. Sem isto, F pode ficar com o
-    // valor pré-computado inicial (com o amount original) enquanto D já mostra
-    // o valor saneado do rascunho.
-    if (Object.keys(d).length) {
-      try {
-        const formula = (apiRef.current as any)?.getFormula?.();
-        formula?.executeCalculation?.();
-      } catch { /* noop */ }
+    // Toda esta reaplicação é programática — não pode alimentar dirty via listener.
+    isProgrammaticWriteRef.current = true;
+    try {
+      const rowsToRecalc = new Set<number>();
+      for (const [id, delta] of Object.entries(d)) {
+        const row = entryIdToRowRef.current.get(id);
+        if (row == null) continue;
+        try {
+          if (delta.description !== undefined) sheet.getRange(row, COL.RUBRIC, 1, 1).setValue?.(delta.description ?? "");
+          if (delta.category_id !== undefined) {
+            const label = delta.category_id ? categoryIdToLabelRef.current.get(delta.category_id) ?? "" : "";
+            sheet.getRange(row, COL.CATEGORY, 1, 1).setValue?.(label);
+          }
+          if (delta.specification !== undefined) sheet.getRange(row, COL.SPEC, 1, 1).setValue?.(delta.specification ?? "");
+          if (delta.amount !== undefined) { sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0); rowsToRecalc.add(row); }
+          if (delta.iva_rate !== undefined) { sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0); rowsToRecalc.add(row); }
+          if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
+        } catch { /* noop */ }
+      }
+      // Reescrever F (fórmula + valor) para cada linha tocada força o motor a recalcular
+      // essa célula E propaga aos subtotais SUM acima. Substitui getFormula().executeCalculation
+      // (API não garantida em @univerjs/presets 0.25).
+      for (const row of rowsToRecalc) forceRecalcFormula(sheet, row);
+    } finally {
+      requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
     // 2) Marcar linhas apagadas
