@@ -1050,6 +1050,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     scheduleNumericSweep();
   }, [scheduleNumericSweep]);
 
+  // Ref indireto para o handler — evita que o useEffect que instancia o Univer
+  // (deps: [workbookData, handleCommandExecuted]) re-monte a cada mudança em
+  // pendingInserts (que altera sweepNumericColumnsFromSheet → scheduleNumericSweep
+  // → handleCommandExecuted). O re-mount destruía o stack de Undo nativo e fazia
+  // o Univer recarregar workbookData com valores pré-computados obsoletos (F
+  // ficava estática em vez de recalcular).
+  const handleCommandExecutedRef = useRef(handleCommandExecuted);
+  useEffect(() => { handleCommandExecutedRef.current = handleCommandExecuted; }, [handleCommandExecuted]);
+
   // Instantiate Univer
   useEffect(() => {
     if (!containerRef.current || !workbookData || univerRef.current) return;
