@@ -40,6 +40,7 @@ import {
 import { createUniver, LocaleType, merge } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
 import sheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
+import sheetsCorePtBR from "@univerjs/preset-sheets-core/locales/pt-BR";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import { UniverSheetsDataValidationPreset } from "@univerjs/preset-sheets-data-validation";
 import "@univerjs/preset-sheets-data-validation/lib/index.css";
@@ -350,6 +351,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const toastThrottleRef = useRef(0);
   const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
+  const numericSweepRafRef = useRef<number | null>(null);
   const nextInsertRowRef = useRef<number>(0);
   const sheetRowCountRef = useRef<number>(200);
 
@@ -835,10 +837,104 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   }, [entries]);
 
   // Command listener: track edits to entry rows / insert rows
+  const sweepNumericColumnsFromSheet = useCallback(() => {
+    const api = apiRef.current;
+    const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
+    if (!sheet) return;
+
+    const editsDelta: Record<string, Partial<Entry>> = {};
+    const insertsDelta: Record<string, Partial<InsertRow>> = {};
+    const originals = originalEntriesRef.current;
+
+    const readCellValue = (row: number, col: number) => {
+      const raw = sheet.getRange(row, col, 1, 1)?.getValue?.();
+      return raw && typeof raw === "object" && "v" in raw ? (raw as any).v : raw;
+    };
+
+    const writeNumber = (row: number, col: number, value: number) => {
+      sheet.getRange(row, col, 1, 1)?.setValue?.(value);
+    };
+
+    const fallbackForEntry = (id: string, field: "amount" | "iva_rate") => {
+      const current = dirtyRef.current[id]?.[field];
+      if (typeof current === "number" && isFinite(current)) return current;
+      const original = originals.get(id)?.[field];
+      return typeof original === "number" && isFinite(original) ? original : 0;
+    };
+
+    const fallbackForInsert = (tempId: string, field: "amount" | "iva_rate") => {
+      const row = pendingInserts.find((p) => p.tempId === tempId);
+      const value = row?.[field];
+      return typeof value === "number" && isFinite(value) ? value : 0;
+    };
+
+    const normalizeCell = (row: number, col: number, ownerId: string, ownerType: "entry" | "insert") => {
+      const raw = readCellValue(row, col);
+      if (raw === null || raw === undefined || raw === "" || typeof raw === "number") return;
+      const parsed = col === COL.AMOUNT ? parseAmount(raw) : parseIntSafe(raw);
+      const field = col === COL.AMOUNT ? "amount" : "iva_rate";
+      if (parsed === null || !isFinite(parsed) || (field === "iva_rate" && parsed < 0)) {
+        const fallback = ownerType === "entry" ? fallbackForEntry(ownerId, field) : fallbackForInsert(ownerId, field);
+        writeNumber(row, col, fallback);
+        toast.error(field === "amount" ? "Valor numérico inválido — usa vírgula ou ponto decimal." : "IVA inválido — usa uma percentagem numérica.");
+        return;
+      }
+      writeNumber(row, col, parsed);
+      if (ownerType === "entry") {
+        editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
+      } else {
+        insertsDelta[ownerId] = { ...(insertsDelta[ownerId] ?? {}), [field]: parsed };
+      }
+    };
+
+    for (const [row, id] of rowToEntryIdRef.current) {
+      normalizeCell(row, COL.AMOUNT, id, "entry");
+      normalizeCell(row, COL.IVA, id, "entry");
+    }
+    for (const [row, tempId] of insertRowToTempIdRef.current) {
+      normalizeCell(row, COL.AMOUNT, tempId, "insert");
+      normalizeCell(row, COL.IVA, tempId, "insert");
+    }
+
+    if (Object.keys(editsDelta).length) {
+      setDirty((prev) => {
+        const next = { ...prev };
+        for (const [id, delta] of Object.entries(editsDelta)) {
+          const original = originals.get(id);
+          const merged = { ...(next[id] ?? {}), ...delta };
+          if (original) {
+            for (const k of Object.keys(merged) as (keyof Entry)[]) {
+              const origVal = (original as any)[k];
+              const newVal = (merged as any)[k];
+              if (typeof origVal === "number" && typeof newVal === "number" && Math.abs(origVal - newVal) < 1e-9) delete (merged as any)[k];
+            }
+          }
+          if (Object.keys(merged).length === 0) delete next[id];
+          else next[id] = merged;
+        }
+        return next;
+      });
+    }
+    if (Object.keys(insertsDelta).length) {
+      setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
+    }
+  }, [pendingInserts]);
+
+  const scheduleNumericSweep = useCallback(() => {
+    if (numericSweepRafRef.current != null) cancelAnimationFrame(numericSweepRafRef.current);
+    numericSweepRafRef.current = requestAnimationFrame(() => {
+      numericSweepRafRef.current = null;
+      sweepNumericColumnsFromSheet();
+    });
+  }, [sweepNumericColumnsFromSheet]);
+
   const handleCommandExecuted = useCallback((id: string, params: any) => {
     if (id !== "sheet.command.set-range-values" && !RANGE_WRITE_COMMANDS.has(id)) return;
     const cellValue = params?.cellValue;
-    if (!cellValue) return;
+    if (!cellValue) {
+      scheduleNumericSweep();
+      return;
+    }
     const rowToEntry = rowToEntryIdRef.current;
     const rowToTemp = insertRowToTempIdRef.current;
     const originals = originalEntriesRef.current;
@@ -943,15 +1039,16 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         }),
       );
     }
-  }, []);
+    scheduleNumericSweep();
+  }, [scheduleNumericSweep]);
 
   // Instantiate Univer
   useEffect(() => {
     if (!containerRef.current || !workbookData || univerRef.current) return;
     try {
       const { univer, univerAPI } = createUniver({
-        locale: LocaleType.EN_US,
-        locales: { [LocaleType.EN_US]: merge({}, sheetsCoreEnUS) },
+        locale: LocaleType.PT_BR,
+        locales: { [LocaleType.EN_US]: merge({}, sheetsCoreEnUS), [LocaleType.PT_BR]: merge({}, sheetsCorePtBR) },
         presets: [
           UniverSheetsCorePreset({ container: containerRef.current, header: false, toolbar: false } as any),
           UniverSheetsDataValidationPreset(),
@@ -1234,6 +1331,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     }
     return () => {
       if (dvRafRef.current != null) { cancelAnimationFrame(dvRafRef.current); dvRafRef.current = null; }
+      if (numericSweepRafRef.current != null) { cancelAnimationFrame(numericSweepRafRef.current); numericSweepRafRef.current = null; }
       try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
       domProtectionCleanupRef.current = null;
       try { univerRef.current?.dispose?.(); } catch { /* noop */ }
