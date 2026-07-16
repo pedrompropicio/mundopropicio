@@ -761,7 +761,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       id: "bp-univer-spike",
       name: "BP Anitta EDA 2026",
       appVersion: "0.25.1",
-      locale: LocaleType.EN_US,
+      locale: LocaleType.PT_BR,
       styles: {
         sHeader: {
           bl: 1, bg: { rgb: "#0f172a" }, cl: { rgb: "#ffffff" },
