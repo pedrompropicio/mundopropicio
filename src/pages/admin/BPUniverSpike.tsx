@@ -1273,6 +1273,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
+    for (const [entryId, delta] of Object.entries(editsDelta)) {
+      const currentDelta = dirtyRef.current[entryId] ?? {};
+      const original = originals.get(entryId);
+      for (const field of Object.keys(delta) as (keyof Entry)[]) {
+        const currentValue = field in currentDelta ? (currentDelta as any)[field] : (original as any)?.[field];
+        if (entryFieldEquals(currentValue, (delta as any)[field])) delete (delta as any)[field];
+      }
+      if (Object.keys(delta).length === 0) delete editsDelta[entryId];
+    }
+
+    for (const [tempId, delta] of Object.entries(insertsDelta)) {
+      const current = pendingInserts.find((p) => p.tempId === tempId);
+      if (!current) {
+        delete insertsDelta[tempId];
+        continue;
+      }
+      for (const field of Object.keys(delta) as (keyof InsertRow)[]) {
+        if (entryFieldEquals((current as any)[field], (delta as any)[field])) delete (delta as any)[field];
+      }
+      if (Object.keys(delta).length === 0) delete insertsDelta[tempId];
+    }
+
     // Capture previous values (from dirty or originals) BEFORE mutating state, so
     // that Desfazer pode reverter célula-a-célula.
     const prevEntry: Record<string, Partial<Entry>> = {};
