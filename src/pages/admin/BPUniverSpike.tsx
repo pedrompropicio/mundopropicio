@@ -1203,7 +1203,41 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
-    if (Object.keys(editsDelta).length) {
+    // Capture previous values (from dirty or originals) BEFORE mutating state, so
+    // that Desfazer pode reverter célula-a-célula.
+    const prevEntry: Record<string, Partial<Entry>> = {};
+    const prevInsert: Record<string, Partial<InsertRow>> = {};
+    const rowsAffected = new Set<number>();
+    for (const [id, delta] of Object.entries(editsDelta)) {
+      const cur = dirtyRef.current[id] ?? {};
+      const orig = originals.get(id);
+      const snap: Partial<Entry> = {};
+      for (const k of Object.keys(delta) as (keyof Entry)[]) {
+        const prevVal = k in cur ? (cur as any)[k] : (orig ? (orig as any)[k] : undefined);
+        (snap as any)[k] = prevVal;
+      }
+      prevEntry[id] = snap;
+      const r = entryIdToRowRef.current.get(id);
+      if (r != null) rowsAffected.add(r);
+    }
+    for (const [tempId, delta] of Object.entries(insertsDelta)) {
+      const cur = pendingInserts.find((p) => p.tempId === tempId);
+      const snap: Partial<InsertRow> = {};
+      for (const k of Object.keys(delta) as (keyof InsertRow)[]) {
+        (snap as any)[k] = cur ? (cur as any)[k] : undefined;
+      }
+      prevInsert[tempId] = snap;
+    }
+    const hasEdits = Object.keys(editsDelta).length > 0;
+    const hasInserts = Object.keys(insertsDelta).length > 0;
+    if (hasEdits || hasInserts) {
+      setActionLog((log) => [
+        ...log,
+        { kind: "edit", data: { prevEntry, prevInsert, rowsAffected: Array.from(rowsAffected) } },
+      ]);
+    }
+
+    if (hasEdits) {
       setDirty((prev) => {
         const next = { ...prev };
         for (const [id, delta] of Object.entries(editsDelta)) {
@@ -1226,7 +1260,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         return next;
       });
     }
-    if (Object.keys(insertsDelta).length) {
+    if (hasInserts) {
       setPendingInserts((prev) =>
         prev.map((row) => {
           const delta = insertsDelta[row.tempId];
@@ -1236,7 +1270,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       );
     }
     scheduleNumericSweep();
-  }, [scheduleNumericSweep]);
+  }, [scheduleNumericSweep, pendingInserts]);
 
   // Ref indireto para o handler — evita que o useEffect que instancia o Univer
   // (deps: [workbookData, handleCommandExecuted]) re-monte a cada mudança em
