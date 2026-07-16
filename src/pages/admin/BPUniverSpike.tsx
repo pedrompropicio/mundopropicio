@@ -1487,7 +1487,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
       setFocusInsertTempId(null);
     }
-  }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId]);
+  }, [pendingDeletes, ready, applyRowStyle, workbookData, focusInsertTempId, forceRecalcFormula]);
 
   // --- Validation ---
   const validate = useCallback(() => {
