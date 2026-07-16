@@ -433,6 +433,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const dirtyRef = useRef(dirty);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
+  useEffect(() => {
+    console.debug(
+      "[BPUniverSpike] dirty:",
+      Object.entries(dirty).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+    );
+  }, [changeCount, dirty]);
+
   // Escape to exit fullscreen
   useEffect(() => {
     if (!fullscreen) return;
@@ -503,28 +510,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const { draft: sanitized, converted, removed } = sanitizeDraftPayload(parsed);
-      // Prune edições cujo valor final é igual ao original da BD (no-ops).
-      // Isto elimina "edições fantasma" gravadas por rascunhos anteriores em
-      // que escritas programáticas foram capturadas como do utilizador.
-      const origs = originalEntriesRef.current;
-      let prunedCount = 0;
-      const cleanEdits: Record<string, Partial<Entry>> = {};
-      for (const [id, delta] of Object.entries(sanitized.edits ?? {})) {
-        const orig = origs.get(id);
-        if (!orig) { cleanEdits[id] = delta; continue; }
-        const pruned: Partial<Entry> = {};
-        for (const k of Object.keys(delta) as (keyof Entry)[]) {
-          const o = (orig as any)[k];
-          const n = (delta as any)[k];
-          const eq =
-            (o == null && (n == null || n === "")) ||
-            o === n ||
-            (typeof o === "number" && typeof n === "number" && Math.abs(o - n) < 1e-9);
-          if (!eq) (pruned as any)[k] = n;
-        }
-        if (Object.keys(pruned).length) cleanEdits[id] = pruned;
-        else prunedCount++;
-      }
+      const { edits: cleanEdits, prunedRows, prunedFields } = pruneNoOpEdits(sanitized.edits ?? {}, originalEntriesRef.current);
       sanitized.edits = cleanEdits;
       const editsN = Object.keys(sanitized.edits ?? {}).length;
       const insertsN = (sanitized.inserts ?? []).length;
@@ -534,7 +520,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
-      if (converted > 0 || removed > 0 || prunedCount > 0) {
+      if (converted > 0 || removed > 0 || prunedRows > 0 || prunedFields > 0) {
         localStorage.setItem(draftKey, JSON.stringify({ ...sanitized, savedAt: sanitized.savedAt ?? parsed.savedAt ?? new Date().toISOString() }));
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
       }
@@ -545,6 +531,35 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       console.warn("[BPUniverSpike] draft parse failed", e);
     }
   }, [loading, entries.length, draftKey]);
+
+  // Depois de os originais da BD chegarem, poda no-ops que possam ter entrado
+  // antes do snapshot estar populado. Atualiza state e localStorage em conjunto.
+  useEffect(() => {
+    if (loading || !ready || !originalEntriesRef.current.size) return;
+    const { edits: cleanEdits, prunedRows, prunedFields } = pruneNoOpEdits(dirtyRef.current, originalEntriesRef.current);
+    if (prunedRows === 0 && prunedFields === 0) return;
+
+    setDirty(cleanEdits);
+
+    const nextHasChanges = Object.keys(cleanEdits).length + pendingInserts.length + pendingDeletes.length > 0;
+    try {
+      if (!nextHasChanges) {
+        localStorage.removeItem(draftKey);
+      } else {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            savedAt: new Date().toISOString(),
+            edits: cleanEdits,
+            inserts: pendingInserts,
+            deletes: pendingDeletes,
+          }),
+        );
+      }
+    } catch (e) {
+      console.warn("[BPUniverSpike] draft prune save failed", e);
+    }
+  }, [loading, ready, entries, draftKey, pendingInserts, pendingDeletes]);
 
   // Persist draft to localStorage
   useEffect(() => {
@@ -1132,11 +1147,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             for (const k of Object.keys(merged) as (keyof Entry)[]) {
               const origVal = (original as any)[k];
               const newVal = (merged as any)[k];
-              const eq =
-                (origVal == null && (newVal == null || newVal === "")) ||
-                origVal === newVal ||
-                (typeof origVal === "number" && typeof newVal === "number" && Math.abs(origVal - newVal) < 1e-9);
-              if (eq) delete (merged as any)[k];
+              if (entryFieldEquals(origVal, newVal)) delete (merged as any)[k];
             }
           }
           if (Object.keys(merged).length === 0) {
