@@ -1050,6 +1050,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     scheduleNumericSweep();
   }, [scheduleNumericSweep]);
 
+  // Ref indireto para o handler — evita que o useEffect que instancia o Univer
+  // (deps: [workbookData, handleCommandExecuted]) re-monte a cada mudança em
+  // pendingInserts (que altera sweepNumericColumnsFromSheet → scheduleNumericSweep
+  // → handleCommandExecuted). O re-mount destruía o stack de Undo nativo e fazia
+  // o Univer recarregar workbookData com valores pré-computados obsoletos (F
+  // ficava estática em vez de recalcular).
+  const handleCommandExecutedRef = useRef(handleCommandExecuted);
+  useEffect(() => { handleCommandExecutedRef.current = handleCommandExecuted; }, [handleCommandExecuted]);
+
   // Instantiate Univer
   useEffect(() => {
     if (!containerRef.current || !workbookData || univerRef.current) return;
@@ -1325,7 +1334,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           // Track edits AFTER command executes
           if (Event.CommandExecuted) {
             (univerAPI as any).addEvent(Event.CommandExecuted, (event: any) => {
-              handleCommandExecuted(event?.id, event?.params);
+              handleCommandExecutedRef.current?.(event?.id, event?.params);
             });
           }
         }
@@ -1346,7 +1355,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       univerRef.current = null;
       apiRef.current = null;
     };
-  }, [workbookData, handleCommandExecuted]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workbookData]);
 
   // --- Apply visual state for deletes/inserts/errors (background tint) ---
   const applyRowStyle = useCallback((row: number, styleName: string | null) => {
@@ -1402,6 +1412,17 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         if (delta.amount !== undefined) sheet.getRange(row, COL.AMOUNT, 1, 1).setValue?.(Number(delta.amount) || 0);
         if (delta.iva_rate !== undefined) sheet.getRange(row, COL.IVA, 1, 1).setValue?.(Number(delta.iva_rate) || 0);
         if (delta.formalidade !== undefined) sheet.getRange(row, COL.FORMALIDADE, 1, 1).setValue?.(enumToLabel(delta.formalidade));
+      } catch { /* noop */ }
+    }
+
+    // Força o motor de fórmulas a recalcular F (=D*(1+E/100)) e subtotais depois
+    // de reaplicar edits do rascunho via setValue. Sem isto, F pode ficar com o
+    // valor pré-computado inicial (com o amount original) enquanto D já mostra
+    // o valor saneado do rascunho.
+    if (Object.keys(d).length) {
+      try {
+        const formula = (apiRef.current as any)?.getFormula?.();
+        formula?.executeCalculation?.();
       } catch { /* noop */ }
     }
 
