@@ -352,6 +352,10 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const numericSweepRafRef = useRef<number | null>(null);
+  // Flag ligada durante escritas programáticas (sweep, replay de rascunho,
+  // recálculo de F). handleCommandExecuted ignora comandos disparados enquanto
+  // este flag está true — assim edições fantasma (writes internos) não entram no dirty.
+  const isProgrammaticWriteRef = useRef(false);
   const nextInsertRowRef = useRef<number>(0);
   const sheetRowCountRef = useRef<number>(200);
 
