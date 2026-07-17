@@ -656,6 +656,19 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const userId = user?.id ?? "anon";
   const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}`;
 
+  const removeLocalDraft = useCallback(() => {
+    try {
+      const prefix = `bp-univer-draft:${EVENT_ID}:`;
+      localStorage.removeItem(draftKey);
+      // Limpa também rascunhos antigos do mesmo evento gravados antes do auth
+      // hidratar (ex.: key "anon") ou por sessões anteriores do mesmo browser.
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(prefix)) localStorage.removeItem(key);
+      }
+    } catch { /* noop */ }
+  }, [EVENT_ID, draftKey]);
+
   // Load data (loads draft+approved so newly-inserted draft rows persist across reloads)
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -732,8 +745,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setDraftPromptOpen(true);
     } catch (e) {
       console.warn("[BPUniverSpike] draft parse failed", e);
+      removeLocalDraft();
     }
-  }, [loading, entries.length, draftKey, categoryLabelLookup]);
+  }, [loading, entries.length, draftKey, categoryLabelLookup, removeLocalDraft]);
 
   // Depois de os originais da BD chegarem, poda no-ops que possam ter entrado
   // antes do snapshot estar populado. Atualiza state e localStorage em conjunto.
