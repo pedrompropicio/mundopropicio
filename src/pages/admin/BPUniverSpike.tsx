@@ -567,6 +567,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [workbookResetNonce, setWorkbookResetNonce] = useState(0);
 
   // --- Fase 2 state ---
   const [dirty, setDirty] = useState<Record<string, Partial<Entry>>>({});
@@ -2343,6 +2344,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       univerRef.current = null;
       apiRef.current = null;
       setReady(false);
+      setWorkbookResetNonce((n) => n + 1);
     } finally {
       requestAnimationFrame(() => {
         suppressDraftPersistRef.current = false;
