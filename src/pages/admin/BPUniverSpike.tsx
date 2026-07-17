@@ -1896,7 +1896,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     dirtyRef.current = effectiveDirty;
     setDirty(effectiveDirty);
     if (!effectiveHasChanges) {
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       toast.info("Sem alterações para gravar.");
       return;
     }
@@ -1911,7 +1911,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (normalizedFields > 0 || prunedRows > 0 || prunedFields > 0) {
       setDirty(effectiveDirty);
       try {
-        if (!effectiveHasChanges) localStorage.removeItem(draftKey);
+        if (!effectiveHasChanges) removeLocalDraft();
         else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: effectiveDirty, inserts: pendingInserts, deletes: pendingDeletes }));
       } catch { /* noop */ }
     }
@@ -1971,7 +1971,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         `${editsArr.length + pendingInserts.length + pendingDeletes.length} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
       );
       // Clear draft + state
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       setDirty({});
       setPendingInserts([]);
       setPendingDeletes([]);
