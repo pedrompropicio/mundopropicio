@@ -576,15 +576,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     return map;
   }, [categories]);
 
-  const categoryIdLabelLookup = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of categories) {
-      if (!c?.id) continue;
-      map.set(c.id, c?.code && c?.name ? `${c.code} · ${c.name}` : String(c.name ?? c.code ?? c.id));
-    }
-    return map;
-  }, [categories]);
-
   const effectiveDirtyForCount = useMemo(() => {
     const normalized = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
     return pruneNoOpEdits(normalized.edits, originalEntriesRef.current).edits;
