@@ -1167,7 +1167,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   }, []);
 
   // Command listener: track edits to entry rows / insert rows
-  const collectSheetDirtyEdits = useCallback((): Record<string, Partial<Entry>> => {
+  const collectSheetDirtyEdits = useCallback((rowsFilter?: Set<number>): Record<string, Partial<Entry>> => {
     const api = apiRef.current;
     const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
     if (!sheet) return dirtyRef.current;
@@ -1182,6 +1182,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const catLabelToId = categoryLabelToIdRef.current;
 
     for (const [row, id] of rowToEntryIdRef.current) {
+      if (rowsFilter && !rowsFilter.has(row)) continue;
       const original = originals.get(id);
       if (!original) continue;
 
@@ -1231,6 +1232,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (!sheet) return;
 
     const insertsDelta: Record<string, Partial<InsertRow>> = {};
+    const editsDelta: Record<string, Partial<Entry>> = {};
     const originals = originalEntriesRef.current;
     const rowsTouched = new Set<number>();
 
@@ -1270,6 +1272,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         const fallback = ownerType === "entry" ? fallbackForEntry(ownerId, field) : fallbackForInsert(ownerId, field);
         writeNumber(row, col, fallback);
         rowsTouched.add(row);
+        if (ownerType === "entry") editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: fallback };
         toast.error(field === "amount" ? "Valor numérico inválido — usa vírgula ou ponto decimal." : "IVA inválido — usa uma percentagem numérica.");
         return;
       }
@@ -1277,6 +1280,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (typeof raw !== "number") {
         writeNumber(row, col, parsed);
         rowsTouched.add(row);
+        if (ownerType === "entry") editsDelta[ownerId] = { ...(editsDelta[ownerId] ?? {}), [field]: parsed };
       }
       if (ownerType === "insert") {
         insertsDelta[ownerId] = { ...(insertsDelta[ownerId] ?? {}), [field]: parsed };
@@ -1301,9 +1305,16 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       requestAnimationFrame(() => { isProgrammaticWriteRef.current = false; });
     }
 
-    const sheetDirty = collectSheetDirtyEdits();
-    dirtyRef.current = sheetDirty;
-    setDirty(sheetDirty);
+    if (Object.keys(editsDelta).length) {
+      const nextDirty = mergeDirtyEdits(
+        dirtyRef.current,
+        editsDelta,
+        originals,
+        categoryLabelToIdRef.current,
+      );
+      dirtyRef.current = nextDirty;
+      setDirty(nextDirty);
+    }
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
@@ -1324,9 +1335,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (isProgrammaticWriteRef.current) return;
     const cellValue = getCommandCellValueMatrix(params);
     if (!cellValue) {
-      const sheetDirty = collectSheetDirtyEdits();
-      dirtyRef.current = sheetDirty;
-      setDirty(sheetDirty);
+      // Sem matriz explícita não fazemos scan global: isso acordava divergências
+      // antigas e inflava o contador. O sweep abaixo só normaliza D/E tocadas.
       scheduleNumericSweep();
       return;
     }
@@ -1924,8 +1934,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   // --- Save ---
   const handleSave = async () => {
     if (saving) return;
-    const sheetDirty = collectSheetDirtyEdits();
-    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(sheetDirty, categoryLabelLookup);
+    const { edits: normalizedDirty, normalizedFields } = normalizeRecoveredEditValues(dirtyRef.current, categoryLabelLookup);
     const { edits: effectiveDirty, prunedRows, prunedFields } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
     const effectiveHasChanges = Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length > 0;
     dirtyRef.current = effectiveDirty;
@@ -2383,10 +2392,11 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const subtotalCount = built?.filter((r) => r.kind !== "entry" && r.kind !== "header").length ?? 0;
 
   const onGraveClick = () => {
-    const sheetDirty = collectSheetDirtyEdits();
-    dirtyRef.current = sheetDirty;
-    setDirty(sheetDirty);
-    if (Object.keys(sheetDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
+    const { edits: normalizedDirty } = normalizeRecoveredEditValues(dirtyRef.current, categoryLabelLookup);
+    const { edits: effectiveDirty } = pruneNoOpEdits(normalizedDirty, originalEntriesRef.current);
+    dirtyRef.current = effectiveDirty;
+    setDirty(effectiveDirty);
+    if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
       try { localStorage.removeItem(draftKey); } catch { /* noop */ }
       toast.info("Sem alterações para gravar.");
       return;
