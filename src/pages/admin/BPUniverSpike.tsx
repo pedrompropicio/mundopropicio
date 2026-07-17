@@ -105,6 +105,7 @@ const normalizeFormalidadeEditValue = (value: unknown) => {
 
 interface Entry {
   id: string;
+  company_id?: string;
   category_id: string | null;
   description: string | null;
   specification: string | null;
@@ -629,16 +630,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fRes, cRes, eRes] = await Promise.all([
+      const eRes = await supabase
+        .from("events")
+        .select("name, company_id")
+        .eq("id", EVENT_ID)
+        .maybeSingle();
+      if (eRes.error) throw eRes.error;
+
+      const eventCompanyId = (eRes.data as any)?.company_id ?? null;
+      const categoryQuery = supabase
+        .from("account_categories")
+        .select("id, name, code, parent_id, type, company_id")
+        .eq("is_active", true);
+
+      const [fRes, cRes] = await Promise.all([
         supabase
           .from("event_forecasts")
-          .select("id, category_id, description, specification, amount, iva_rate, formalidade, status")
+          .select("id, company_id, category_id, description, specification, amount, iva_rate, formalidade, status")
           .eq("event_id", EVENT_ID)
           .is("version_id", null)
           .in("status", ["approved", "draft"])
           .eq("type", "expense"),
-        supabase.from("account_categories").select("id, name, code, parent_id, type"),
-        supabase.from("events").select("name").eq("id", EVENT_ID).maybeSingle(),
+        eventCompanyId ? categoryQuery.eq("company_id", eventCompanyId) : categoryQuery,
       ]);
       if (fRes.error) throw fRes.error;
       if (cRes.error) throw cRes.error;
@@ -654,7 +667,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [EVENT_ID]);
 
   useEffect(() => {
     void fetchData();
