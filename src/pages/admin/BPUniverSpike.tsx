@@ -640,8 +640,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const eventCompanyId = (eRes.data as any)?.company_id ?? null;
       const categoryQuery = supabase
         .from("account_categories")
-        .select("id, name, code, parent_id, type, company_id")
-        .eq("is_active", true);
+        .select("id, name, code, parent_id, type, company_id");
 
       const [fRes, cRes] = await Promise.all([
         supabase
