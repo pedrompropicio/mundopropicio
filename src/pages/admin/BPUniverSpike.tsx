@@ -97,6 +97,31 @@ const normalizeCategoryEditValue = (value: unknown, categoryLabelToId: Map<strin
   return categoryLabelToId.get(raw) ?? categoryLabelToId.get(normalizeLookupKey(raw)) ?? raw;
 };
 
+const resolveCategoryEditValue = (
+  value: unknown,
+  originalCategoryId: string | null | undefined,
+  categoryIdToLabel: Map<string, string>,
+  categoryLabelToId: Map<string, string>,
+) => {
+  const raw = value == null ? "" : String(value).trim();
+  if (!raw) return null;
+
+  // A célula mostra label, mas a BD guarda UUID. Se existirem labels iguais
+  // (multi-empresa/categorias duplicadas), preservar o ID original quando o
+  // texto visível é exatamente o mesmo evita dirty fantasma por colisão de map.
+  if (originalCategoryId) {
+    const originalLabel = categoryIdToLabel.get(originalCategoryId);
+    if (
+      raw === originalCategoryId ||
+      (originalLabel && normalizeLookupKey(raw) === normalizeLookupKey(originalLabel))
+    ) {
+      return originalCategoryId;
+    }
+  }
+
+  return normalizeCategoryEditValue(raw, categoryLabelToId);
+};
+
 const normalizeFormalidadeEditValue = (value: unknown) => {
   const raw = value == null ? "" : String(value).trim();
   if (!raw) return null;
@@ -563,8 +588,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
 
   const categoryLabelLookup = useMemo(() => {
     const map = new Map<string, string>();
+    const byId: Record<string, any> = {};
+    categories.forEach((c) => { if (c?.id) byId[c.id] = c; });
     for (const c of categories) {
       if (!c?.id) continue;
+      const p = c.parent_id ? byId[c.parent_id] : null;
+      const gp = p?.parent_id ? byId[p.parent_id] : null;
+      if (!gp || !(c.type === "expense" || gp.type === "expense")) continue;
       addLookupAlias(map, c.id, c.id);
       if (c?.code) addLookupAlias(map, c.code, c.id);
       if (c?.code && c?.name) {
@@ -815,14 +845,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const i2l = new Map<string, string>();
     for (const c of categories) {
       if (!c?.id) continue;
-      addLookupAlias(l2i, c.id, c.id);
-      if (c?.code) addLookupAlias(l2i, c.code, c.id);
-      if (c?.code && c?.name) {
-        addLookupAlias(l2i, `${c.code} · ${c.name}`, c.id);
-        addLookupAlias(l2i, `${c.code} - ${c.name}`, c.id);
-        addLookupAlias(l2i, `${c.code} – ${c.name}`, c.id);
-        addLookupAlias(l2i, `${c.code} — ${c.name}`, c.id);
-      }
       i2l.set(c.id, c?.code && c?.name ? `${c.code} · ${c.name}` : String(c.name ?? c.code ?? c.id));
     }
     for (const c of l3Categories) {
@@ -1175,7 +1197,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const categoryValue =
         (rawCategory == null || rawCategory === "") && original.category_id && !originalCategoryHasLabel
           ? original.category_id
-          : normalizeCategoryEditValue(rawCategory, catLabelToId);
+          : resolveCategoryEditValue(
+            rawCategory,
+            original.category_id,
+            categoryIdToLabelRef.current,
+            catLabelToId,
+          );
       const values: Partial<Entry> = {
         description: rawDescription == null ? "" : String(rawDescription),
         category_id: categoryValue,
@@ -1330,7 +1357,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             break;
           case COL.CATEGORY: {
             field = "category_id";
-            value = normalizeCategoryEditValue(v, catLabelToId);
+            const original = entryId ? originals.get(entryId) : null;
+            value = resolveCategoryEditValue(
+              v,
+              original?.category_id,
+              categoryIdToLabelRef.current,
+              catLabelToId,
+            );
             break;
           }
           case COL.SPEC:
@@ -1369,6 +1402,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         }
       }
     }
+
+    if (!Object.keys(editsDelta).length && !Object.keys(insertsDelta).length) return;
 
     const nextDirtyFromDelta = mergeDirtyEdits(
       dirtyRef.current,
@@ -2202,6 +2237,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
             if (Object.keys(merged).length === 0) delete next[id];
             else next[id] = merged;
           }
+          dirtyRef.current = next;
           return next;
         });
 
@@ -2262,6 +2298,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setDirty(() => {
         const next = { ...effectiveDirty };
         delete next[id];
+        dirtyRef.current = next;
         return next;
       });
       toast.success("Edição desfeita.");
