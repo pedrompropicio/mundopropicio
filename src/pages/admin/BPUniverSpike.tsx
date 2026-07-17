@@ -1755,7 +1755,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       apiRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workbookData]);
+  }, [workbookData, workbookResetNonce]);
 
   // --- Apply visual state for deletes/inserts/errors (background tint) ---
   const applyRowStyle = useCallback((row: number, styleName: string | null) => {
