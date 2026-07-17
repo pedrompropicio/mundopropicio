@@ -634,10 +634,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     return map;
   }, [categories]);
 
+  const entriesSignature = useMemo(
+    () => entries.map((entry) => `${entry.id}:${entry.category_id ?? ""}:${entry.formalidade ?? ""}:${entry.amount}:${entry.iva_rate}`).join("|"),
+    [entries],
+  );
+
   const effectiveDirtyForCount = useMemo(() => {
     const normalized = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
     return pruneNoOpEdits(normalized.edits, originalEntriesRef.current).edits;
-  }, [dirty, categoryLabelLookup, entries]);
+  }, [dirty, categoryLabelLookup, entriesSignature]);
 
   const formatChangeValue = useCallback((field: keyof Entry, value: unknown) => {
     if (field === "category_id") return value ? categoryIdLabelLookup.get(String(value)) ?? String(value) : "(sem categoria)";
@@ -670,7 +675,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         fields,
       };
     });
-  }, [effectiveDirtyForCount, entries, formatChangeValue]);
+  }, [effectiveDirtyForCount, entriesSignature, formatChangeValue]);
 
   const changeCount = Object.keys(effectiveDirtyForCount).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
