@@ -150,7 +150,23 @@ interface InsertRow {
   formalidade: string;
 }
 
+interface ChangeDetail {
+  id: string;
+  row: number | null;
+  label: string;
+  fields: { field: string; original: string; next: string }[];
+}
+
 type RowKind = "header" | "grand" | "l1" | "l2" | "l3" | "entry";
+
+const ENTRY_FIELD_LABELS: Partial<Record<keyof Entry, string>> = {
+  description: "Rubrica",
+  category_id: "Categoria",
+  specification: "Especificação",
+  amount: "Valor s/IVA",
+  iva_rate: "IVA %",
+  formalidade: "Formalidade",
+};
 
 interface BuiltRow {
   kind: RowKind;
