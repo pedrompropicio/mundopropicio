@@ -683,13 +683,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     console.debug(
       "[BPUniverSpike] dirty:",
       {
-        edits: Object.entries(effectiveDirtyForCount).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+        edits: changeDetails,
         inserts: pendingInserts.map((row) => row.tempId),
         deletes: pendingDeletes,
         total: changeCount,
       },
     );
-  }, [changeCount, effectiveDirtyForCount, pendingInserts, pendingDeletes]);
+  }, [changeCount, changeDetails, pendingInserts, pendingDeletes]);
 
   // Escape to exit fullscreen
   useEffect(() => {
