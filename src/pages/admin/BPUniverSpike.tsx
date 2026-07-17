@@ -576,6 +576,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     return map;
   }, [categories]);
 
+  const categoryIdLabelLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) {
+      if (!c?.id) continue;
+      map.set(c.id, c?.code && c?.name ? `${c.code} · ${c.name}` : String(c.name ?? c.code ?? c.id));
+    }
+    return map;
+  }, [categories]);
+
   const effectiveDirtyForCount = useMemo(() => {
     const normalized = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
     return pruneNoOpEdits(normalized.edits, originalEntriesRef.current).edits;
@@ -801,6 +810,18 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   useEffect(() => {
     const l2i = new Map<string, string>();
     const i2l = new Map<string, string>();
+    for (const c of categories) {
+      if (!c?.id) continue;
+      addLookupAlias(l2i, c.id, c.id);
+      if (c?.code) addLookupAlias(l2i, c.code, c.id);
+      if (c?.code && c?.name) {
+        addLookupAlias(l2i, `${c.code} · ${c.name}`, c.id);
+        addLookupAlias(l2i, `${c.code} - ${c.name}`, c.id);
+        addLookupAlias(l2i, `${c.code} – ${c.name}`, c.id);
+        addLookupAlias(l2i, `${c.code} — ${c.name}`, c.id);
+      }
+      i2l.set(c.id, c?.code && c?.name ? `${c.code} · ${c.name}` : String(c.name ?? c.code ?? c.id));
+    }
     for (const c of l3Categories) {
       addLookupAlias(l2i, c.id, c.id);
       addLookupAlias(l2i, c.code, c.id);
@@ -812,7 +833,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     }
     categoryLabelToIdRef.current = l2i;
     categoryIdToLabelRef.current = i2l;
-  }, [l3Categories]);
+  }, [categories, l3Categories]);
 
   const built = useMemo(() => {
     if (!entries.length || !categories.length) return null;
