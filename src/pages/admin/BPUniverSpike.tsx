@@ -150,7 +150,23 @@ interface InsertRow {
   formalidade: string;
 }
 
+interface ChangeDetail {
+  id: string;
+  row: number | null;
+  label: string;
+  fields: { field: string; original: string; next: string }[];
+}
+
 type RowKind = "header" | "grand" | "l1" | "l2" | "l3" | "entry";
+
+const ENTRY_FIELD_LABELS: Partial<Record<keyof Entry, string>> = {
+  description: "Rubrica",
+  category_id: "Categoria",
+  specification: "Especificação",
+  amount: "Valor s/IVA",
+  iva_rate: "IVA %",
+  formalidade: "Formalidade",
+};
 
 interface BuiltRow {
   kind: RowKind;
@@ -609,10 +625,57 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     return map;
   }, [categories]);
 
+  const categoryIdLabelLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) {
+      if (!c?.id) continue;
+      map.set(c.id, c?.code && c?.name ? `${c.code} · ${c.name}` : String(c.name ?? c.code ?? c.id));
+    }
+    return map;
+  }, [categories]);
+
+  const entriesSignature = useMemo(
+    () => entries.map((entry) => `${entry.id}:${entry.category_id ?? ""}:${entry.formalidade ?? ""}:${entry.amount}:${entry.iva_rate}`).join("|"),
+    [entries],
+  );
+
   const effectiveDirtyForCount = useMemo(() => {
     const normalized = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
     return pruneNoOpEdits(normalized.edits, originalEntriesRef.current).edits;
-  }, [dirty, categoryLabelLookup, entries]);
+  }, [dirty, categoryLabelLookup, entriesSignature]);
+
+  const formatChangeValue = useCallback((field: keyof Entry, value: unknown) => {
+    if (field === "category_id") return value ? categoryIdLabelLookup.get(String(value)) ?? String(value) : "(sem categoria)";
+    if (field === "formalidade") return value ? enumToLabel(String(value)) || String(value) : "(vazio)";
+    if (field === "amount") {
+      const n = Number(value);
+      return isFinite(n) ? n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }) : "(inválido)";
+    }
+    if (field === "iva_rate") {
+      const n = Number(value);
+      return isFinite(n) ? `${n}%` : "(inválido)";
+    }
+    const text = normalizeComparableText(value);
+    return text && text.length ? text : "(vazio)";
+  }, [categoryIdLabelLookup]);
+
+  const changeDetails = useMemo<ChangeDetail[]>(() => {
+    return Object.entries(effectiveDirtyForCount).map(([id, delta]) => {
+      const original = originalEntriesRef.current.get(id);
+      const row = entryIdToRowRef.current.get(id);
+      const fields = (Object.keys(delta) as (keyof Entry)[]).map((field) => ({
+        field: ENTRY_FIELD_LABELS[field] ?? String(field),
+        original: formatChangeValue(field, original ? (original as any)[field] : undefined),
+        next: formatChangeValue(field, (delta as any)[field]),
+      }));
+      return {
+        id,
+        row: row == null ? null : row + 1,
+        label: original?.description?.trim() || id,
+        fields,
+      };
+    });
+  }, [effectiveDirtyForCount, entriesSignature, formatChangeValue]);
 
   const changeCount = Object.keys(effectiveDirtyForCount).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
@@ -625,13 +688,13 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     console.debug(
       "[BPUniverSpike] dirty:",
       {
-        edits: Object.entries(effectiveDirtyForCount).map(([id, d]) => ({ id, campos: Object.keys(d) })),
+        edits: changeDetails,
         inserts: pendingInserts.map((row) => row.tempId),
         deletes: pendingDeletes,
         total: changeCount,
       },
     );
-  }, [changeCount, effectiveDirtyForCount, pendingInserts, pendingDeletes]);
+  }, [changeCount, changeDetails, pendingInserts, pendingDeletes]);
 
   // Escape to exit fullscreen
   useEffect(() => {
@@ -2417,9 +2480,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         {ready ? " · Univer pronto" : ""}
       </span>
       {hasChanges && (
-        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
-          ● {changeCount} alteração(ões) por gravar
-        </span>
+        <div className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 max-w-[620px]">
+          <div className="font-medium">● {changeCount} alteração(ões) por gravar</div>
+          {changeDetails.length > 0 && (
+            <details className="mt-1">
+              <summary className="cursor-pointer">Ver alterações detetadas</summary>
+              <ul className="mt-1 space-y-1 max-h-32 overflow-auto">
+                {changeDetails.map((change) => (
+                  <li key={change.id}>
+                    <span className="font-medium">{change.row ? `L${change.row} · ` : ""}{change.label}</span>
+                    <ul className="pl-3">
+                      {change.fields.map((field) => (
+                        <li key={field.field}>
+                          {field.field}: <span className="line-through opacity-70">{field.original}</span> → <span>{field.next}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
       )}
     </div>
   );
@@ -2613,6 +2695,25 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
                 <li><b>{insertCount}</b> nova(s) linha(s)</li>
                 <li><b>{deleteCount}</b> eliminação(ões)</li>
               </ul>
+              {changeDetails.length > 0 && (
+                <div className="mt-3 text-xs">
+                  <div className="font-semibold mb-1">Edições detetadas</div>
+                  <ul className="space-y-2 max-h-56 overflow-auto rounded border p-2">
+                    {changeDetails.map((change) => (
+                      <li key={change.id}>
+                        <div className="font-medium">{change.row ? `Linha ${change.row} · ` : ""}{change.label}</div>
+                        <ul className="list-disc pl-5">
+                          {change.fields.map((field) => (
+                            <li key={field.field}>
+                              {field.field}: <span className="line-through opacity-70">{field.original}</span> → <span>{field.next}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
