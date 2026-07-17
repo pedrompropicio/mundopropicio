@@ -2323,21 +2323,45 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     toast.success("Rascunho recuperado.");
   };
 
+  const resetWorkbookToDatabase = useCallback(() => {
+    suppressDraftPersistRef.current = true;
+    isProgrammaticWriteRef.current = true;
+    try {
+      setDirty({});
+      dirtyRef.current = {};
+      setPendingInserts([]);
+      setPendingDeletes([]);
+      setValidationErrors([]);
+      setActionLog([]);
+      if (numericSweepRafRef.current != null) {
+        cancelAnimationFrame(numericSweepRafRef.current);
+        numericSweepRafRef.current = null;
+      }
+      try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
+      domProtectionCleanupRef.current = null;
+      try { univerRef.current?.dispose?.(); } catch { /* noop */ }
+      univerRef.current = null;
+      apiRef.current = null;
+      setReady(false);
+    } finally {
+      requestAnimationFrame(() => {
+        suppressDraftPersistRef.current = false;
+        isProgrammaticWriteRef.current = false;
+      });
+    }
+  }, []);
+
   const discardDraft = () => {
-    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    removeLocalDraft();
     pendingDraftRef.current = null;
     setDraftPromptOpen(false);
+    resetWorkbookToDatabase();
     toast.info("Rascunho descartado.");
   };
 
   const discardAllChanges = () => {
-    setDirty({});
-    setPendingInserts([]);
-    setPendingDeletes([]);
-    setValidationErrors([]);
-    setActionLog([]);
-    
-    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    removeLocalDraft();
+    resetWorkbookToDatabase();
     toast.success("Alterações descartadas.");
   };
 
@@ -2353,7 +2377,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     dirtyRef.current = effectiveDirty;
     setDirty(effectiveDirty);
     if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       toast.info("Sem alterações para gravar.");
       return;
     }
