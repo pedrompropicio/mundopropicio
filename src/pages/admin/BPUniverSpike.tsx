@@ -553,6 +553,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const numericSweepRafRef = useRef<number | null>(null);
+  const suppressDraftPersistRef = useRef(false);
   // Flag ligada durante escritas programáticas (sweep, replay de rascunho,
   // recálculo de F). handleCommandExecuted ignora comandos disparados enquanto
   // este flag está true — assim edições fantasma (writes internos) não entram no dirty.
@@ -566,6 +567,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [workbookResetNonce, setWorkbookResetNonce] = useState(0);
 
   // --- Fase 2 state ---
   const [dirty, setDirty] = useState<Record<string, Partial<Entry>>>({});
@@ -656,6 +658,19 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const userId = user?.id ?? "anon";
   const draftKey = `bp-univer-draft:${EVENT_ID}:${userId}`;
 
+  const removeLocalDraft = useCallback(() => {
+    try {
+      const prefix = `bp-univer-draft:${EVENT_ID}:`;
+      localStorage.removeItem(draftKey);
+      // Limpa também rascunhos antigos do mesmo evento gravados antes do auth
+      // hidratar (ex.: key "anon") ou por sessões anteriores do mesmo browser.
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(prefix)) localStorage.removeItem(key);
+      }
+    } catch { /* noop */ }
+  }, [EVENT_ID, draftKey]);
+
   // Load data (loads draft+approved so newly-inserted draft rows persist across reloads)
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -719,7 +734,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const insertsN = (sanitized.inserts ?? []).length;
       const deletesN = (sanitized.deletes ?? []).length;
       if (editsN + insertsN + deletesN === 0) {
-        localStorage.removeItem(draftKey);
+        removeLocalDraft();
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
@@ -732,8 +747,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setDraftPromptOpen(true);
     } catch (e) {
       console.warn("[BPUniverSpike] draft parse failed", e);
+      removeLocalDraft();
     }
-  }, [loading, entries.length, draftKey, categoryLabelLookup]);
+  }, [loading, entries.length, draftKey, categoryLabelLookup, removeLocalDraft]);
 
   // Depois de os originais da BD chegarem, poda no-ops que possam ter entrado
   // antes do snapshot estar populado. Atualiza state e localStorage em conjunto.
@@ -748,7 +764,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const nextHasChanges = Object.keys(cleanEdits).length + pendingInserts.length + pendingDeletes.length > 0;
     try {
       if (!nextHasChanges) {
-        localStorage.removeItem(draftKey);
+          removeLocalDraft();
       } else {
         localStorage.setItem(
           draftKey,
@@ -763,14 +779,15 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     } catch (e) {
       console.warn("[BPUniverSpike] draft prune save failed", e);
     }
-  }, [loading, ready, entries, dirty, draftKey, pendingInserts, pendingDeletes, categoryLabelLookup]);
+  }, [loading, ready, entries, dirty, draftKey, pendingInserts, pendingDeletes, categoryLabelLookup, removeLocalDraft]);
 
   // Persist draft to localStorage
   useEffect(() => {
     if (!ready) return;
+    if (suppressDraftPersistRef.current) return;
     if (!hasChanges) {
       if (Object.keys(dirty).length) setDirty(effectiveDirtyForCount);
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       return;
     }
     const { edits: normalizedEdits, normalizedFields } = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
@@ -779,7 +796,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setDirty(cleanEdits);
       const nextHasChanges = Object.keys(cleanEdits).length + pendingInserts.length + pendingDeletes.length > 0;
       try {
-        if (!nextHasChanges) localStorage.removeItem(draftKey);
+        if (!nextHasChanges) removeLocalDraft();
         else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: cleanEdits, inserts: pendingInserts, deletes: pendingDeletes }));
       } catch { /* noop */ }
       return;
@@ -809,7 +826,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     } catch (e) {
       console.warn("[BPUniverSpike] draft save failed", e);
     }
-  }, [dirty, pendingInserts, pendingDeletes, hasChanges, ready, draftKey, categoryLabelLookup, effectiveDirtyForCount]);
+  }, [dirty, pendingInserts, pendingDeletes, hasChanges, ready, draftKey, categoryLabelLookup, effectiveDirtyForCount, removeLocalDraft]);
 
   // beforeunload + popstate guards
   useEffect(() => {
@@ -1738,7 +1755,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       apiRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workbookData]);
+  }, [workbookData, workbookResetNonce]);
 
   // --- Apply visual state for deletes/inserts/errors (background tint) ---
   const applyRowStyle = useCallback((row: number, styleName: string | null) => {
@@ -1880,7 +1897,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     dirtyRef.current = effectiveDirty;
     setDirty(effectiveDirty);
     if (!effectiveHasChanges) {
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       toast.info("Sem alterações para gravar.");
       return;
     }
@@ -1895,7 +1912,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (normalizedFields > 0 || prunedRows > 0 || prunedFields > 0) {
       setDirty(effectiveDirty);
       try {
-        if (!effectiveHasChanges) localStorage.removeItem(draftKey);
+        if (!effectiveHasChanges) removeLocalDraft();
         else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: effectiveDirty, inserts: pendingInserts, deletes: pendingDeletes }));
       } catch { /* noop */ }
     }
@@ -1955,7 +1972,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         `${editsArr.length + pendingInserts.length + pendingDeletes.length} alteração(ões) gravada(s) · ${editsArr.length} edições · ${pendingInserts.length} inseridas · ${pendingDeletes.length} apagadas.`,
       );
       // Clear draft + state
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       setDirty({});
       setPendingInserts([]);
       setPendingDeletes([]);
@@ -2307,21 +2324,46 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     toast.success("Rascunho recuperado.");
   };
 
+  const resetWorkbookToDatabase = useCallback(() => {
+    suppressDraftPersistRef.current = true;
+    isProgrammaticWriteRef.current = true;
+    try {
+      setDirty({});
+      dirtyRef.current = {};
+      setPendingInserts([]);
+      setPendingDeletes([]);
+      setValidationErrors([]);
+      setActionLog([]);
+      if (numericSweepRafRef.current != null) {
+        cancelAnimationFrame(numericSweepRafRef.current);
+        numericSweepRafRef.current = null;
+      }
+      try { domProtectionCleanupRef.current?.(); } catch { /* noop */ }
+      domProtectionCleanupRef.current = null;
+      try { univerRef.current?.dispose?.(); } catch { /* noop */ }
+      univerRef.current = null;
+      apiRef.current = null;
+      setReady(false);
+      setWorkbookResetNonce((n) => n + 1);
+    } finally {
+      requestAnimationFrame(() => {
+        suppressDraftPersistRef.current = false;
+        isProgrammaticWriteRef.current = false;
+      });
+    }
+  }, []);
+
   const discardDraft = () => {
-    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    removeLocalDraft();
     pendingDraftRef.current = null;
     setDraftPromptOpen(false);
+    resetWorkbookToDatabase();
     toast.info("Rascunho descartado.");
   };
 
   const discardAllChanges = () => {
-    setDirty({});
-    setPendingInserts([]);
-    setPendingDeletes([]);
-    setValidationErrors([]);
-    setActionLog([]);
-    
-    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+    removeLocalDraft();
+    resetWorkbookToDatabase();
     toast.success("Alterações descartadas.");
   };
 
@@ -2337,7 +2379,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     dirtyRef.current = effectiveDirty;
     setDirty(effectiveDirty);
     if (Object.keys(effectiveDirty).length + pendingInserts.length + pendingDeletes.length === 0) {
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       toast.info("Sem alterações para gravar.");
       return;
     }
