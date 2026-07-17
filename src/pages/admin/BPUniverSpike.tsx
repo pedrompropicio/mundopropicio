@@ -1995,12 +1995,16 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       // 1) Updates
       const editsArr = Object.entries(effectiveDirty).map(([id, fields]) => ({ id, ...fields }));
       if (editsArr.length) {
-        const { error } = await supabase.rpc("batch_update_event_forecasts" as any, {
+        const { data, error } = await supabase.rpc("batch_update_event_forecasts" as any, {
           _event_id: EVENT_ID,
           _version_id: null,
           _edits: editsArr as any,
         } as any);
         if (error) throw error;
+        const updated = Number((data as any)?.updated ?? 0);
+        if (updated !== editsArr.length) {
+          throw new Error(`A base confirmou ${updated}/${editsArr.length} edição(ões). Nada foi limpo; tente gravar novamente.`);
+        }
       }
 
       // 2) Inserts
