@@ -1166,66 +1166,6 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     }
   }, []);
 
-  // Command listener: track edits to entry rows / insert rows
-  const collectSheetDirtyEdits = useCallback((rowsFilter?: Set<number>): Record<string, Partial<Entry>> => {
-    const api = apiRef.current;
-    const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
-    if (!sheet) return dirtyRef.current;
-
-    const readCellValue = (row: number, col: number) => {
-      const raw = sheet.getRange(row, col, 1, 1)?.getValue?.();
-      return raw && typeof raw === "object" && "v" in raw ? (raw as any).v : raw;
-    };
-
-    const next: Record<string, Partial<Entry>> = {};
-    const originals = originalEntriesRef.current;
-    const catLabelToId = categoryLabelToIdRef.current;
-
-    for (const [row, id] of rowToEntryIdRef.current) {
-      if (rowsFilter && !rowsFilter.has(row)) continue;
-      const original = originals.get(id);
-      if (!original) continue;
-
-      const rawDescription = readCellValue(row, COL.RUBRIC);
-      const rawCategory = readCellValue(row, COL.CATEGORY);
-      const rawSpecification = readCellValue(row, COL.SPEC);
-      const rawAmount = readCellValue(row, COL.AMOUNT);
-      const rawIva = readCellValue(row, COL.IVA);
-      const rawFormalidade = readCellValue(row, COL.FORMALIDADE);
-      const amount = parseAmount(rawAmount);
-      const ivaRate = parseIntSafe(rawIva);
-      const originalCategoryHasLabel = !!(original.category_id && categoryIdToLabelRef.current.has(original.category_id));
-      const categoryValue =
-        (rawCategory == null || rawCategory === "") && original.category_id && !originalCategoryHasLabel
-          ? original.category_id
-          : resolveCategoryEditValue(
-            rawCategory,
-            original.category_id,
-            categoryIdToLabelRef.current,
-            catLabelToId,
-          );
-      const values: Partial<Entry> = {
-        description: rawDescription == null ? "" : String(rawDescription),
-        category_id: categoryValue,
-        specification: rawSpecification == null || rawSpecification === "" ? null : String(rawSpecification),
-        amount: amount === null || !isFinite(amount) ? original.amount : amount,
-        iva_rate: ivaRate === null || !isFinite(ivaRate) || ivaRate < 0 ? original.iva_rate : ivaRate,
-        formalidade: normalizeFormalidadeEditValue(rawFormalidade),
-      };
-
-      const delta: Partial<Entry> = {};
-      for (const field of ["description", "category_id", "specification", "amount", "iva_rate", "formalidade"] as (keyof Entry)[]) {
-        if (!entryFieldEquals((original as any)[field], (values as any)[field])) {
-          (delta as any)[field] = (values as any)[field];
-        }
-      }
-      if (Object.keys(delta).length) next[id] = delta;
-    }
-
-    const { edits: normalized } = normalizeRecoveredEditValues(next, categoryLabelToIdRef.current);
-    return pruneNoOpEdits(normalized, originals).edits;
-  }, []);
-
   const sweepNumericColumnsFromSheet = useCallback(() => {
     const api = apiRef.current;
     const sheet = api?.getActiveWorkbook?.()?.getActiveSheet?.();
@@ -1318,7 +1258,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (Object.keys(insertsDelta).length) {
       setPendingInserts((prev) => prev.map((row) => ({ ...row, ...(insertsDelta[row.tempId] ?? {}) })));
     }
-  }, [pendingInserts, forceRecalcFormula, collectSheetDirtyEdits]);
+  }, [pendingInserts, forceRecalcFormula]);
 
   const scheduleNumericSweep = useCallback(() => {
     if (numericSweepRafRef.current != null) cancelAnimationFrame(numericSweepRafRef.current);
@@ -1490,7 +1430,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       );
     }
     scheduleNumericSweep();
-  }, [scheduleNumericSweep, pendingInserts, collectSheetDirtyEdits]);
+  }, [scheduleNumericSweep, pendingInserts]);
 
   // Ref indireto para o handler — evita que o useEffect que instancia o Univer
   // (deps: [workbookData, handleCommandExecuted]) re-monte a cada mudança em
