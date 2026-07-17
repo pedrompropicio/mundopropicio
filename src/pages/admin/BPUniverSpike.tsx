@@ -2475,9 +2475,28 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
         {ready ? " · Univer pronto" : ""}
       </span>
       {hasChanges && (
-        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
-          ● {changeCount} alteração(ões) por gravar
-        </span>
+        <div className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 max-w-[620px]">
+          <div className="font-medium">● {changeCount} alteração(ões) por gravar</div>
+          {changeDetails.length > 0 && (
+            <details className="mt-1">
+              <summary className="cursor-pointer">Ver alterações detetadas</summary>
+              <ul className="mt-1 space-y-1 max-h-32 overflow-auto">
+                {changeDetails.map((change) => (
+                  <li key={change.id}>
+                    <span className="font-medium">{change.row ? `L${change.row} · ` : ""}{change.label}</span>
+                    <ul className="pl-3">
+                      {change.fields.map((field) => (
+                        <li key={field.field}>
+                          {field.field}: <span className="line-through opacity-70">{field.original}</span> → <span>{field.next}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
       )}
     </div>
   );
@@ -2671,6 +2690,25 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
                 <li><b>{insertCount}</b> nova(s) linha(s)</li>
                 <li><b>{deleteCount}</b> eliminação(ões)</li>
               </ul>
+              {changeDetails.length > 0 && (
+                <div className="mt-3 text-xs">
+                  <div className="font-semibold mb-1">Edições detetadas</div>
+                  <ul className="space-y-2 max-h-56 overflow-auto rounded border p-2">
+                    {changeDetails.map((change) => (
+                      <li key={change.id}>
+                        <div className="font-medium">{change.row ? `Linha ${change.row} · ` : ""}{change.label}</div>
+                        <ul className="list-disc pl-5">
+                          {change.fields.map((field) => (
+                            <li key={field.field}>
+                              {field.field}: <span className="line-through opacity-70">{field.original}</span> → <span>{field.next}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
