@@ -733,7 +733,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       const insertsN = (sanitized.inserts ?? []).length;
       const deletesN = (sanitized.deletes ?? []).length;
       if (editsN + insertsN + deletesN === 0) {
-        localStorage.removeItem(draftKey);
+        removeLocalDraft();
         if (removed > 0) toast.warning(draftRemovalMessage(removed));
         return;
       }
@@ -763,7 +763,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     const nextHasChanges = Object.keys(cleanEdits).length + pendingInserts.length + pendingDeletes.length > 0;
     try {
       if (!nextHasChanges) {
-        localStorage.removeItem(draftKey);
+          removeLocalDraft();
       } else {
         localStorage.setItem(
           draftKey,
@@ -778,7 +778,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     } catch (e) {
       console.warn("[BPUniverSpike] draft prune save failed", e);
     }
-  }, [loading, ready, entries, dirty, draftKey, pendingInserts, pendingDeletes, categoryLabelLookup]);
+  }, [loading, ready, entries, dirty, draftKey, pendingInserts, pendingDeletes, categoryLabelLookup, removeLocalDraft]);
 
   // Persist draft to localStorage
   useEffect(() => {
