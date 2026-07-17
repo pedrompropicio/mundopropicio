@@ -625,10 +625,52 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     return map;
   }, [categories]);
 
+  const categoryIdLabelLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) {
+      if (!c?.id) continue;
+      map.set(c.id, c?.code && c?.name ? `${c.code} · ${c.name}` : String(c.name ?? c.code ?? c.id));
+    }
+    return map;
+  }, [categories]);
+
   const effectiveDirtyForCount = useMemo(() => {
     const normalized = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
     return pruneNoOpEdits(normalized.edits, originalEntriesRef.current).edits;
   }, [dirty, categoryLabelLookup, entries]);
+
+  const formatChangeValue = useCallback((field: keyof Entry, value: unknown) => {
+    if (field === "category_id") return value ? categoryIdLabelLookup.get(String(value)) ?? String(value) : "(sem categoria)";
+    if (field === "formalidade") return value ? enumToLabel(String(value)) || String(value) : "(vazio)";
+    if (field === "amount") {
+      const n = Number(value);
+      return isFinite(n) ? n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }) : "(inválido)";
+    }
+    if (field === "iva_rate") {
+      const n = Number(value);
+      return isFinite(n) ? `${n}%` : "(inválido)";
+    }
+    const text = normalizeComparableText(value);
+    return text && text.length ? text : "(vazio)";
+  }, [categoryIdLabelLookup]);
+
+  const changeDetails = useMemo<ChangeDetail[]>(() => {
+    return Object.entries(effectiveDirtyForCount).map(([id, delta]) => {
+      const original = originalEntriesRef.current.get(id);
+      const row = entryIdToRowRef.current.get(id);
+      const fields = (Object.keys(delta) as (keyof Entry)[]).map((field) => ({
+        field: ENTRY_FIELD_LABELS[field] ?? String(field),
+        original: formatChangeValue(field, original ? (original as any)[field] : undefined),
+        next: formatChangeValue(field, (delta as any)[field]),
+      }));
+      return {
+        id,
+        row: row == null ? null : row + 1,
+        label: original?.description?.trim() || id,
+        fields,
+      };
+    });
+  }, [effectiveDirtyForCount, entries, formatChangeValue]);
 
   const changeCount = Object.keys(effectiveDirtyForCount).length + pendingInserts.length + pendingDeletes.length;
   const hasChanges = changeCount > 0;
