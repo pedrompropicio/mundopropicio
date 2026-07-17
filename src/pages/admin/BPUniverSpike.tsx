@@ -553,6 +553,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const dvRafRef = useRef<number | null>(null);
   const domProtectionCleanupRef = useRef<null | (() => void)>(null);
   const numericSweepRafRef = useRef<number | null>(null);
+  const suppressDraftPersistRef = useRef(false);
   // Flag ligada durante escritas programáticas (sweep, replay de rascunho,
   // recálculo de F). handleCommandExecuted ignora comandos disparados enquanto
   // este flag está true — assim edições fantasma (writes internos) não entram no dirty.
@@ -782,9 +783,10 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   // Persist draft to localStorage
   useEffect(() => {
     if (!ready) return;
+    if (suppressDraftPersistRef.current) return;
     if (!hasChanges) {
       if (Object.keys(dirty).length) setDirty(effectiveDirtyForCount);
-      try { localStorage.removeItem(draftKey); } catch { /* noop */ }
+      removeLocalDraft();
       return;
     }
     const { edits: normalizedEdits, normalizedFields } = normalizeRecoveredEditValues(dirty, categoryLabelLookup);
@@ -793,7 +795,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setDirty(cleanEdits);
       const nextHasChanges = Object.keys(cleanEdits).length + pendingInserts.length + pendingDeletes.length > 0;
       try {
-        if (!nextHasChanges) localStorage.removeItem(draftKey);
+        if (!nextHasChanges) removeLocalDraft();
         else localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), edits: cleanEdits, inserts: pendingInserts, deletes: pendingDeletes }));
       } catch { /* noop */ }
       return;
@@ -823,7 +825,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     } catch (e) {
       console.warn("[BPUniverSpike] draft save failed", e);
     }
-  }, [dirty, pendingInserts, pendingDeletes, hasChanges, ready, draftKey, categoryLabelLookup, effectiveDirtyForCount]);
+  }, [dirty, pendingInserts, pendingDeletes, hasChanges, ready, draftKey, categoryLabelLookup, effectiveDirtyForCount, removeLocalDraft]);
 
   // beforeunload + popstate guards
   useEffect(() => {
