@@ -2059,6 +2059,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setValidationErrors([]);
       // Reload
       await fetchData();
+      // Invalidate outer views (Agrupada, cards, diffs) so they refetch on next mount
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["bp"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-bp-realized"] });
+      queryClient.invalidateQueries({ queryKey: ["scenario-forecasts"] });
       // Force Univer rebuild by disposing and re-creating (workbookData memo changes with entries)
       try {
         univerRef.current?.dispose?.();
