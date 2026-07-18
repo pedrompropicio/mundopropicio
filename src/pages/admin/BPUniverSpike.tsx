@@ -1352,8 +1352,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
     if (id !== "sheet.command.set-range-values" && !RANGE_WRITE_COMMANDS.has(id)) return;
     // Ignora escritas programáticas (sweep, replay de rascunho, recálculo de F).
     // Estas alteram células mas NÃO são edições do utilizador → não podem entrar no dirty.
-    if (isProgrammaticWriteRef.current) return;
+    if (isProgrammaticWriteRef.current) {
+      console.debug("[BPUniverSpike] cmd ignorado (programmatic):", id);
+      return;
+    }
     const cellValue = getCommandCellValueMatrix(params);
+    console.debug("[BPUniverSpike] cmd:", id, "cellValue:", cellValue, "params:", params);
     if (!cellValue) {
       // Sem matriz explícita não fazemos scan global: isso acordava divergências
       // antigas e inflava o contador. O sweep abaixo só normaliza D/E tocadas.
