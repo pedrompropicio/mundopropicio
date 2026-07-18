@@ -17,6 +17,7 @@
  * ⚠️ DO NOT import from production code. Route: /admin/bp-univer-spike (admin only).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
