@@ -1751,6 +1751,9 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
           });
 
           (univerAPI as any).addEvent(Event.BeforeCommandExecute, (event: any) => {
+            if (event?.id && (event.id === "sheet.command.set-range-values" || RANGE_WRITE_COMMANDS.has(event.id))) {
+              console.debug("[BPUniverSpike] BeforeCommand:", event.id, "params:", event?.params);
+            }
             const id = event?.id;
             if (!id) return;
             if (commandTouchesProtectedCell(id, event?.params)) {
