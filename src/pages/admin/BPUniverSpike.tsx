@@ -1437,6 +1437,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       }
     }
 
+    console.debug("[BPUniverSpike] editsDelta:", editsDelta, "insertsDelta:", insertsDelta);
     if (!Object.keys(editsDelta).length && !Object.keys(insertsDelta).length) return;
 
     const nextDirtyFromDelta = mergeDirtyEdits(
@@ -1445,6 +1446,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       originals,
       categoryLabelToIdRef.current,
     );
+    console.debug("[BPUniverSpike] nextDirtyFromDelta (após merge/prune):", nextDirtyFromDelta);
+
 
     for (const [entryId, delta] of Object.entries(editsDelta)) {
       const effectiveDelta = nextDirtyFromDelta[entryId];
