@@ -542,6 +542,7 @@ interface BPUniverSpikeProps {
 
 export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
+  const queryClient = useQueryClient();
   // Standalone: aceita ?event=<uuid> no URL; fallback = Anitta EDA 2026.
   const urlParams = !embedded && typeof window !== "undefined"
     ? new URLSearchParams(window.location.search)
