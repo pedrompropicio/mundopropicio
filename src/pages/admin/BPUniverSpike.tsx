@@ -17,6 +17,7 @@
  * ⚠️ DO NOT import from production code. Route: /admin/bp-univer-spike (admin only).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -541,6 +542,7 @@ interface BPUniverSpikeProps {
 
 export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded = false }: BPUniverSpikeProps = {}) {
   const { role, user } = useAuth();
+  const queryClient = useQueryClient();
   // Standalone: aceita ?event=<uuid> no URL; fallback = Anitta EDA 2026.
   const urlParams = !embedded && typeof window !== "undefined"
     ? new URLSearchParams(window.location.search)
@@ -2057,6 +2059,12 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       setValidationErrors([]);
       // Reload
       await fetchData();
+      // Invalidate outer views (Agrupada, cards, diffs) so they refetch on next mount
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["bp"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-bp-realized"] });
+      queryClient.invalidateQueries({ queryKey: ["scenario-forecasts"] });
       // Force Univer rebuild by disposing and re-creating (workbookData memo changes with entries)
       try {
         univerRef.current?.dispose?.();
