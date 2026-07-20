@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { formatCityLabel } from "@/lib/country";
+import { createSubEventInTour } from "@/lib/create-sub-event";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
