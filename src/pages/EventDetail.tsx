@@ -6,7 +6,7 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { computeEventLastDate } from "@/lib/event-dates";
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen, AlertTriangle } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen, AlertTriangle, Plus } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventFinancialCard } from "@/components/EventFinancialCard";
@@ -29,6 +29,7 @@ import { formatDatePT } from "@/lib/utils";
 import { useCompany } from "@/hooks/useCompany";
 
 import { EventEditModal } from "@/components/EventEditModal";
+import { AddSubEventModal } from "@/components/AddSubEventModal";
 
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
@@ -146,6 +147,7 @@ export default function EventDetail() {
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
+  const [showAddSubEvent, setShowAddSubEvent] = useState(false);
   // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
   const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
   const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
@@ -854,7 +856,18 @@ export default function EventDetail() {
 
       {isMultiEvent && subEvents.length > 0 && (
         <div className="glass rounded-xl p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Datas da Turnê</h3>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datas da Turnê</h3>
+            {(isAdmin || isManager) && (
+              <button
+                onClick={() => setShowAddSubEvent(true)}
+                className="inline-flex items-center gap-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 text-xs font-medium transition-colors"
+                title="Adicionar uma nova cidade / data a esta turnê"
+              >
+                <Plus className="h-3.5 w-3.5" /> Adicionar cidade
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedSubEvent(null)}
@@ -982,6 +995,16 @@ export default function EventDetail() {
 
       {editingSubEvent && (
         <EventEditModal event={editingSubEvent} onClose={() => setEditingSubEvent(null)} />
+      )}
+
+      {isMultiEvent && event && (
+        <AddSubEventModal
+          open={showAddSubEvent}
+          onOpenChange={setShowAddSubEvent}
+          masterEventId={event.id}
+          masterStatus={event.status}
+          onCreated={(newSubId) => setSelectedSubEvent(newSubId)}
+        />
       )}
 
       {/* Main tabs — wrapped in scenario provider so BP/Bilheteira/Cachê share the same selected version */}
