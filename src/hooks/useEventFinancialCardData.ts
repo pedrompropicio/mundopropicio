@@ -25,6 +25,8 @@ export interface UseEventFinancialCardDataArgs {
   masterForecastShare?: number;
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
+  /** Se true, aplica IVA (bruto). Default false = base líquida. */
+  withVat?: boolean;
 }
 
 export interface Subtotal {
@@ -45,9 +47,16 @@ export interface UseEventFinancialCardDataResult {
 }
 
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
-  const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate } = args;
+  const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate, withVat = false } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
+
+  // Multiplicador c/IVA por linha (fallback 0 quando iva_rate ausente).
+  const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) => {
+    const a = Number(amount || 0);
+    if (!withVat) return a;
+    return a * (1 + Number(ivaRate || 0) / 100);
+  };
 
   // ── transactions (paid + approved, NÃO inclui pending para alinhar com Cards/Análise) ──
   const { data: txs = [] } = useQuery({
@@ -55,7 +64,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, category_id, is_transitory, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -69,7 +78,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, category_id, formalidade, is_transitory, exclude_from_result")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, formalidade, is_transitory, exclude_from_result")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
@@ -129,8 +138,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       if (kind === "income") {
         const incomeTx = realizedTx.filter((t: any) => t.type === "income");
         const nonTicket = incomeTx.filter((t: any) => t.account_categories?.code !== "1.1.01");
-        const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-        const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+        const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
+        const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
         const hasSalesNow = (args.ticketSalesRevenue ?? 0) > 0;
         const display = hasSalesNow ? (args.ticketSalesRevenue ?? 0) + nonTicketSum : allIncomeSum;
 
@@ -140,9 +149,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         for (const t of source) {
           const cls = classifyIncomeL1(t.account_categories?.code);
           if (hasSalesNow && cls === "bilheteira") { /* já contado em ticketSales */ continue; }
-          if (cls === "bilheteira") buckets.bilheteira += Number(t.amount || 0);
-          else if (cls === "patrocinio") buckets.patrocinio += Number(t.amount || 0);
-          else buckets.outros += Number(t.amount || 0);
+          const v = eff(t.amount, t.iva_rate);
+          if (cls === "bilheteira") buckets.bilheteira += v;
+          else if (cls === "patrocinio") buckets.patrocinio += v;
+          else buckets.outros += v;
         }
         return {
           displayValue: display,
@@ -156,8 +166,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       } else {
         // Expense
         const expTx = realizedTx.filter((t: any) => t.type === "expense");
-        const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-        const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+        const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
+        const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
         const own = paid + approved;
         const masterTx = Number(args.masterExpenseShare || 0);
         const cache = Number(args.cacheImpact || 0);
@@ -180,9 +190,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      const total = approved.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+      const total = approved.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0);
       const bd = approved.reduce<FormalidadeBreakdown>(
-        (acc, f) => addToBreakdown(acc, f.formalidade, Number(f.amount || 0)),
+        (acc, f) => addToBreakdown(acc, f.formalidade, eff(f.amount, f.iva_rate)),
         emptyBreakdown(),
       );
       const extra = kind === "expense"
@@ -265,7 +275,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       for (const t of txExpense) {
         if (!t.category_id) continue;
         if (t.status !== "paid" && t.status !== "approved" && t.status !== "pending") continue;
-        txByCat.set(t.category_id, (txByCat.get(t.category_id) ?? 0) + Number(t.amount || 0));
+        txByCat.set(t.category_id, (txByCat.get(t.category_id) ?? 0) + eff(t.amount, t.iva_rate));
       }
       // categorias cobertas pelo BP
       const bpCats = new Set<string>(approved.map((f: any) => f.category_id).filter(Boolean));
@@ -284,7 +294,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             continue;
           }
         }
-        bpSum += Number(f_.amount || 0);
+        bpSum += eff(f_.amount, f_.iva_rate);
       }
       // órfãs: TX em categorias fora do BP
       let orphanSum = 0;
@@ -306,6 +316,6 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     }
-  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
+  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
       args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 }

@@ -4,6 +4,7 @@ import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
+  readStoredWithVat, writeStoredWithVat,
 } from "@/lib/event-financial-card";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,8 +59,10 @@ export function EventFinancialCard(props: Props) {
 
   const [mode, setMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
+  const [withVat, setWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
+  useEffect(() => { writeStoredWithVat(userId, eventId, kind, withVat); }, [userId, eventId, kind, withVat]);
 
   const data = useEventFinancialCardData({
     eventId,
@@ -73,6 +76,7 @@ export function EventFinancialCard(props: Props) {
     masterExpenseShare: props.masterExpenseShare,
     masterForecastShare: props.masterForecastShare,
     cacheImpact: props.cacheImpact,
+    withVat,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
@@ -112,6 +116,9 @@ export function EventFinancialCard(props: Props) {
             {MODE_LABEL[mode === "auto" ? "auto" : data.modeUsed]}
             {mode === "auto" && <span className="opacity-60"> · {MODE_LABEL[data.modeUsed]}</span>}
           </span>
+          <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {withVat ? "c/IVA" : "s/IVA"}
+          </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -121,13 +128,19 @@ export function EventFinancialCard(props: Props) {
                 <Settings2 className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel className="text-xs">Modo</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as CardMode)}>
                 <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="committed">Comprometido</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs">IVA</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
+                <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
               {showScenarioToggle && (
                 <>

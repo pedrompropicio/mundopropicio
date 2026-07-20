@@ -82,3 +82,21 @@ export function readStoredMode(userId: string, eventId: string, kind: "income" |
 export function writeStoredMode(userId: string, eventId: string, kind: "income" | "expense", mode: CardMode) {
   try { localStorage.setItem(modeStorageKey(userId, eventId, kind), mode); } catch {/* noop */}
 }
+
+/** localStorage key para preferência de IVA no card (c/IVA vs s/IVA). */
+export function vatStorageKey(userId: string, eventId: string, kind: "income" | "expense"): string {
+  return `ef-card-vat-${userId}-${eventId}-${kind}`;
+}
+
+export function readStoredWithVat(userId: string, eventId: string, kind: "income" | "expense"): boolean {
+  try {
+    const v = localStorage.getItem(vatStorageKey(userId, eventId, kind));
+    if (v === "1") return true;
+    if (v === "0") return false;
+  } catch {/* noop */}
+  return false; // default s/IVA (base líquida, comportamento atual)
+}
+
+export function writeStoredWithVat(userId: string, eventId: string, kind: "income" | "expense", withVat: boolean) {
+  try { localStorage.setItem(vatStorageKey(userId, eventId, kind), withVat ? "1" : "0"); } catch {/* noop */}
+}
