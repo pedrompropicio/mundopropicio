@@ -4,6 +4,7 @@ import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
+  readStoredWithVat, writeStoredWithVat,
 } from "@/lib/event-financial-card";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
