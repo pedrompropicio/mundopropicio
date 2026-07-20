@@ -25,6 +25,8 @@ export interface UseEventFinancialCardDataArgs {
   masterForecastShare?: number;
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
+  /** Se true, aplica IVA (bruto). Default false = base líquida. */
+  withVat?: boolean;
 }
 
 export interface Subtotal {
