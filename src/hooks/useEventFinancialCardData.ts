@@ -190,9 +190,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      const total = approved.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+      const total = approved.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0);
       const bd = approved.reduce<FormalidadeBreakdown>(
-        (acc, f) => addToBreakdown(acc, f.formalidade, Number(f.amount || 0)),
+        (acc, f) => addToBreakdown(acc, f.formalidade, eff(f.amount, f.iva_rate)),
         emptyBreakdown(),
       );
       const extra = kind === "expense"
