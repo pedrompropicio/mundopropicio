@@ -138,8 +138,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       if (kind === "income") {
         const incomeTx = realizedTx.filter((t: any) => t.type === "income");
         const nonTicket = incomeTx.filter((t: any) => t.account_categories?.code !== "1.1.01");
-        const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-        const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+        const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
+        const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
         const hasSalesNow = (args.ticketSalesRevenue ?? 0) > 0;
         const display = hasSalesNow ? (args.ticketSalesRevenue ?? 0) + nonTicketSum : allIncomeSum;
 
@@ -149,9 +149,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         for (const t of source) {
           const cls = classifyIncomeL1(t.account_categories?.code);
           if (hasSalesNow && cls === "bilheteira") { /* já contado em ticketSales */ continue; }
-          if (cls === "bilheteira") buckets.bilheteira += Number(t.amount || 0);
-          else if (cls === "patrocinio") buckets.patrocinio += Number(t.amount || 0);
-          else buckets.outros += Number(t.amount || 0);
+          const v = eff(t.amount, t.iva_rate);
+          if (cls === "bilheteira") buckets.bilheteira += v;
+          else if (cls === "patrocinio") buckets.patrocinio += v;
+          else buckets.outros += v;
         }
         return {
           displayValue: display,
@@ -165,8 +166,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       } else {
         // Expense
         const expTx = realizedTx.filter((t: any) => t.type === "expense");
-        const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-        const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+        const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
+        const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
         const own = paid + approved;
         const masterTx = Number(args.masterExpenseShare || 0);
         const cache = Number(args.cacheImpact || 0);
