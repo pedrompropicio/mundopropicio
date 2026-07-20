@@ -59,8 +59,10 @@ export function EventFinancialCard(props: Props) {
 
   const [mode, setMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
+  const [withVat, setWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
+  useEffect(() => { writeStoredWithVat(userId, eventId, kind, withVat); }, [userId, eventId, kind, withVat]);
 
   const data = useEventFinancialCardData({
     eventId,
@@ -74,6 +76,7 @@ export function EventFinancialCard(props: Props) {
     masterExpenseShare: props.masterExpenseShare,
     masterForecastShare: props.masterForecastShare,
     cacheImpact: props.cacheImpact,
+    withVat,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
