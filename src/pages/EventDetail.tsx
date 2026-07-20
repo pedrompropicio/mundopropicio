@@ -997,6 +997,16 @@ export default function EventDetail() {
         <EventEditModal event={editingSubEvent} onClose={() => setEditingSubEvent(null)} />
       )}
 
+      {isMultiEvent && event && (
+        <AddSubEventModal
+          open={showAddSubEvent}
+          onOpenChange={setShowAddSubEvent}
+          masterEventId={event.id}
+          masterStatus={event.status}
+          onCreated={(newSubId) => setSelectedSubEvent(newSubId)}
+        />
+      )}
+
       {/* Main tabs — wrapped in scenario provider so BP/Bilheteira/Cachê share the same selected version */}
       <EventScenarioProvider eventId={activeEventId}>
       <ScenarioModeBanner eventId={activeEventId} />
