@@ -146,6 +146,7 @@ export default function EventDetail() {
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
+  const [showAddSubEvent, setShowAddSubEvent] = useState(false);
   // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
   const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
   const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
