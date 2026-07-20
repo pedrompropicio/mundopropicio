@@ -854,7 +854,18 @@ export default function EventDetail() {
 
       {isMultiEvent && subEvents.length > 0 && (
         <div className="glass rounded-xl p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Datas da Turnê</h3>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datas da Turnê</h3>
+            {(isAdmin || isManager) && (
+              <button
+                onClick={() => setShowAddSubEvent(true)}
+                className="inline-flex items-center gap-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 text-xs font-medium transition-colors"
+                title="Adicionar uma nova cidade / data a esta turnê"
+              >
+                <Plus className="h-3.5 w-3.5" /> Adicionar cidade
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedSubEvent(null)}
