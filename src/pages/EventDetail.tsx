@@ -29,6 +29,7 @@ import { formatDatePT } from "@/lib/utils";
 import { useCompany } from "@/hooks/useCompany";
 
 import { EventEditModal } from "@/components/EventEditModal";
+import { AddSubEventModal } from "@/components/AddSubEventModal";
 
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
