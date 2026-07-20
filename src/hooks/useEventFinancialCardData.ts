@@ -275,7 +275,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       for (const t of txExpense) {
         if (!t.category_id) continue;
         if (t.status !== "paid" && t.status !== "approved" && t.status !== "pending") continue;
-        txByCat.set(t.category_id, (txByCat.get(t.category_id) ?? 0) + Number(t.amount || 0));
+        txByCat.set(t.category_id, (txByCat.get(t.category_id) ?? 0) + eff(t.amount, t.iva_rate));
       }
       // categorias cobertas pelo BP
       const bpCats = new Set<string>(approved.map((f: any) => f.category_id).filter(Boolean));
@@ -294,7 +294,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             continue;
           }
         }
-        bpSum += Number(f_.amount || 0);
+        bpSum += eff(f_.amount, f_.iva_rate);
       }
       // órfãs: TX em categorias fora do BP
       let orphanSum = 0;
@@ -316,6 +316,6 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     }
-  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
+  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
       args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 }
