@@ -8010,6 +8010,7 @@ export type Database = {
         Row: {
           client_event_id: string | null
           created_at: string
+          destination_url: string | null
           event_slug: string
           fbc: string | null
           fbp: string | null
@@ -8030,6 +8031,7 @@ export type Database = {
         Insert: {
           client_event_id?: string | null
           created_at?: string
+          destination_url?: string | null
           event_slug: string
           fbc?: string | null
           fbp?: string | null
@@ -8050,6 +8052,7 @@ export type Database = {
         Update: {
           client_event_id?: string | null
           created_at?: string
+          destination_url?: string | null
           event_slug?: string
           fbc?: string | null
           fbp?: string | null
