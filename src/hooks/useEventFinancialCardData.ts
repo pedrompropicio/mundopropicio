@@ -47,9 +47,16 @@ export interface UseEventFinancialCardDataResult {
 }
 
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
-  const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate } = args;
+  const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate, withVat = false } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
+
+  // Multiplicador c/IVA por linha (fallback 0 quando iva_rate ausente).
+  const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) => {
+    const a = Number(amount || 0);
+    if (!withVat) return a;
+    return a * (1 + Number(ivaRate || 0) / 100);
+  };
 
   // ── transactions (paid + approved, NÃO inclui pending para alinhar com Cards/Análise) ──
   const { data: txs = [] } = useQuery({
@@ -57,7 +64,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, category_id, is_transitory, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -71,7 +78,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, category_id, formalidade, is_transitory, exclude_from_result")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, formalidade, is_transitory, exclude_from_result")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
