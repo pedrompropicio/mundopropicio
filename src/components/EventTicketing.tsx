@@ -88,8 +88,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     return v.scenario_label ?? `v${v.version_number}`;
   }, [selectedVersionId, bpVersions]);
   const isEventLocked = eventStatus === "completed" && !isScenarioMode; // sandbox unlocks edits
+  const canManageTicketsPerm = hasPermission("manage_tickets");
   const isEditor = !isAdmin && !isManager;
-  const canEditTickets = isEventLocked ? false : isEditor ? eventStatus === "planning" : true;
+  // Admin/Manager: sempre. Editores: só na fase de planeamento, salvo permissão granular "manage_tickets".
+  const canEditTickets = isEventLocked
+    ? false
+    : isEditor
+      ? eventStatus === "planning" || canManageTicketsPerm
+      : true;
   const canManageOffices = (isAdmin || hasPermission("manage_accounts")) && !isEventLocked;
   const [addingZone, setAddingZone] = useState(false);
   const [zoneForm, setZoneForm] = useState<ZoneForm>(emptyZone);
