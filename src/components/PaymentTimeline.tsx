@@ -264,7 +264,14 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       setReverseRelease(false);
       setReverseReason("");
     },
-    onError: (e: any) => toast({ title: "Erro ao estornar", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      console.error("[PaymentTimeline] erro no estorno", e);
+      toast({
+        title: "Erro ao estornar",
+        description: e?.message ?? e?.details ?? "Erro desconhecido — ver consola.",
+        variant: "destructive",
+      });
+    },
   });
 
 
@@ -410,17 +417,29 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={reverseTxMutation.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
+            <button
+              type="button"
+              disabled={reverseTxMutation.isPending}
+              onClick={() => setReverseOpen(false)}
+              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-secondary/50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                // Radix: dialog aninhado pode intercetar o click — dispara no pointerdown
                 e.preventDefault();
+                e.stopPropagation();
+                if (reverseTxMutation.isPending) return;
+                console.log("[PaymentTimeline] estorno →", { txId, release: reverseRelease });
                 reverseTxMutation.mutate({ release: reverseRelease, reason: reverseReason });
               }}
               disabled={reverseTxMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
               {reverseTxMutation.isPending ? "A estornar…" : reverseRelease ? "Estornar e libertar" : "Estornar"}
-            </AlertDialogAction>
+            </button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
