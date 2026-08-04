@@ -242,17 +242,18 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
           </div>
         ) : (
           <div className="flex gap-2">
-            <select
+            <SearchableSelect
+              options={venueOptions}
               value={venueId}
-              onChange={(e) => onVenueChange(e.target.value)}
-              className={inputClass}
+              onValueChange={onVenueChange}
               disabled={!cityId}
-            >
-              <option value="">{cityId ? "Selecionar local…" : "Selecione uma cidade primeiro"}</option>
-              {venues.map((v: any) => (
-                <option key={v.id} value={v.id}>{v.name}</option>
-              ))}
-            </select>
+              placeholder={cityId ? "Selecionar local…" : "Selecione uma cidade primeiro"}
+              searchPlaceholder="Pesquisar sala/local…"
+              emptyMessage="Nenhum local encontrado."
+              className="flex-1 min-w-0"
+              triggerClassName={compact ? "py-1.5" : undefined}
+            />
+
             <button
               type="button"
               onClick={() => setShowNewVenue(true)}
