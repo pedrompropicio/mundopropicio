@@ -23,19 +23,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Clock, Ban } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   transaction: any;
@@ -364,25 +355,30 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           <div className="text-muted-foreground">
             <span className="font-semibold text-destructive">Admin:</span> estornar esta transação regista o estorno. Opcionalmente pode libertá-la para nova liquidação (ex.: pagamento duplicado).
           </div>
-          <button
+          <Button
             type="button"
-            onClick={() => setReverseOpen(true)}
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              reverseTxMutation.reset();
+              setReverseOpen(true);
+            }}
             disabled={reverseTxMutation.isPending}
-            className="shrink-0 rounded bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            className="shrink-0 text-xs"
           >
             {reverseTxMutation.isPending ? "A estornar…" : "Estornar pagamento"}
-          </button>
+          </Button>
         </div>
       )}
 
-      <AlertDialog open={reverseOpen} onOpenChange={setReverseOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
-            <AlertDialogDescription>
+      {reverseOpen && (
+        <section className="space-y-4 rounded-lg border border-destructive/40 bg-background p-4" aria-labelledby="reverse-payment-title">
+          <div className="space-y-1">
+            <h3 id="reverse-payment-title" className="font-semibold">Estornar pagamento?</h3>
+            <p className="text-sm text-muted-foreground">
               O valor pago e a data de pagamento serão zerados e o estorno ficará registado no histórico da transação.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </p>
+          </div>
 
           <div className="space-y-3">
             <div className="rounded-md border border-border bg-secondary/30 p-3">
@@ -414,35 +410,44 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
                 className="text-sm"
               />
             </div>
+
+            {reverseTxMutation.isError && (
+              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <p className="font-medium">Não foi possível concluir o estorno.</p>
+                <p className="mt-0.5 text-xs">
+                  {(reverseTxMutation.error as any)?.message ?? (reverseTxMutation.error as any)?.details ?? "Erro desconhecido."}
+                </p>
+              </div>
+            )}
           </div>
 
-          <AlertDialogFooter>
-            <button
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
               type="button"
+              variant="outline"
               disabled={reverseTxMutation.isPending}
-              onClick={() => setReverseOpen(false)}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-secondary/50 disabled:opacity-50"
+              onClick={() => {
+                reverseTxMutation.reset();
+                setReverseOpen(false);
+              }}
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onPointerDown={(e) => {
-                // Radix: dialog aninhado pode intercetar o click — dispara no pointerdown
-                e.preventDefault();
-                e.stopPropagation();
-                if (reverseTxMutation.isPending) return;
-                console.log("[PaymentTimeline] estorno →", { txId, release: reverseRelease });
+              variant="destructive"
+              onClick={() => {
+                reverseTxMutation.reset();
                 reverseTxMutation.mutate({ release: reverseRelease, reason: reverseReason });
               }}
               disabled={reverseTxMutation.isPending}
-              className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
+              {reverseTxMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {reverseTxMutation.isPending ? "A estornar…" : reverseRelease ? "Estornar e libertar" : "Estornar"}
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </div>
+        </section>
+      )}
 
 
       {/* Cronograma de parcelas (planned + cancelled) */}
