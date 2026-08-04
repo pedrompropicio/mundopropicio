@@ -46,3 +46,8 @@ type: feature
 
 ## Storage no evento
 - `events.city_id uuid` (FK lógica para `cities.id`) — inalterado. Nada de texto livre.
+
+## Seed Espanha (2026-08)
+- 14 cidades ES (Madrid, Barcelona, Valência, Sevilha, Bilbau, Málaga, Saragoça, Granada, A Corunha, Alicante, Múrcia, Palma de Maiorca, Vigo, San Sebastián), `state` NULL.
+- 21 salas em `venues` associadas à empresa Mundo Propício (`venues.company_id` é NOT NULL com default `current_company_id()` — em seeds SQL passar o company_id explícito).
+- Salas são visíveis só à empresa dona (RLS multi-tenant).
