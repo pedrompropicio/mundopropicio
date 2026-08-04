@@ -415,7 +415,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
               <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 <p className="font-medium">Não foi possível concluir o estorno.</p>
                 <p className="mt-0.5 text-xs">
-                  {(reverseTxMutation.error as any)?.message ?? (reverseTxMutation.error as any)?.details ?? "Erro desconhecido."}
+                  {reverseTxMutation.error instanceof Error ? reverseTxMutation.error.message : "Erro desconhecido."}
                 </p>
               </div>
             )}
