@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 import { countryIsoToName, formatCityLabel, KNOWN_COUNTRY_NAMES } from "@/lib/country";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
+import { Button } from "@/components/ui/button";
 
 interface CityVenueSelectorProps {
   cityId: string;
@@ -35,7 +36,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
 
   // Busca sempre TODAS as cidades (uma só cache-key) e filtra no cliente conforme
   // o toggle — evita depender de refetch por mudança de queryKey.
-  const { data: allCities = [] } = useQuery({
+  const { data: allCities = [], refetch: refetchCities } = useQuery({
     queryKey: ["cities", "all"],
     queryFn: async () => {
       const { data, error } = await supabase.from("cities" as any).select("*").order("name");
@@ -176,12 +177,12 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCreateCity())}
               />
             )}
-            <button type="button" onClick={handleCreateCity} className="rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+            <Button type="button" size="sm" onClick={handleCreateCity}>
               OK
-            </button>
-            <button type="button" onClick={() => { setShowNewCity(false); setNewCityState(""); setNewCityCountry(""); }} className="text-xs text-muted-foreground hover:text-foreground">
+            </Button>
+            <Button type="button" size="icon" variant="ghost" onClick={() => { setShowNewCity(false); setNewCityState(""); setNewCityCountry(""); }} aria-label="Cancelar nova cidade">
               ✕
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -196,14 +197,17 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
               triggerClassName={compact ? "py-1.5" : undefined}
             />
 
-            <button
+            <Button
               type="button"
               onClick={() => setShowNewCity(true)}
-              className="shrink-0 rounded-lg bg-secondary p-2 text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-              title="Nova cidade"
+              variant="secondary"
+              size="icon"
+              className="shrink-0"
+              title="Criar nova cidade"
+              aria-label="Criar nova cidade"
             >
               <Plus className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         )}
         {countryName && (
@@ -211,7 +215,15 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             <input
               type="checkbox"
               checked={showForeign}
-              onChange={(e) => setShowForeign(e.target.checked)}
+               onChange={(e) => {
+                 const checked = e.target.checked;
+                 setShowForeign(checked);
+                 setShowNewCity(false);
+                 setNewCityName("");
+                 setNewCityState("");
+                 setNewCityCountry("");
+                 if (checked) void refetchCities();
+               }}
               className="h-3 w-3 accent-primary"
             />
             Mostrar cidades de outros países
@@ -233,12 +245,12 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCreateVenue())}
             />
-            <button type="button" onClick={handleCreateVenue} className="rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+            <Button type="button" size="sm" onClick={handleCreateVenue}>
               OK
-            </button>
-            <button type="button" onClick={() => setShowNewVenue(false)} className="text-xs text-muted-foreground hover:text-foreground">
+            </Button>
+            <Button type="button" size="icon" variant="ghost" onClick={() => setShowNewVenue(false)} aria-label="Cancelar novo local">
               ✕
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -254,15 +266,18 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
               triggerClassName={compact ? "py-1.5" : undefined}
             />
 
-            <button
+            <Button
               type="button"
               onClick={() => setShowNewVenue(true)}
               disabled={!cityId}
-              className="shrink-0 rounded-lg bg-secondary p-2 text-muted-foreground hover:text-foreground hover:bg-secondary/80 disabled:opacity-40 disabled:cursor-not-allowed"
+              variant="secondary"
+              size="icon"
+              className="shrink-0"
               title="Novo local"
+              aria-label="Criar novo local"
             >
               <Plus className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         )}
       </div>
