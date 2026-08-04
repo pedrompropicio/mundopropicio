@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 import { countryIsoToName, formatCityLabel, KNOWN_COUNTRY_NAMES } from "@/lib/country";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 
 interface CityVenueSelectorProps {
   cityId: string;
@@ -32,16 +33,22 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
     : (countryName ?? "Portugal");
   const isBR = effectiveNewCountry === "Brasil";
 
-  const { data: cities = [] } = useQuery({
-    queryKey: ["cities", showForeign ? "all" : (countryName ?? "all")],
+  // Busca sempre TODAS as cidades (uma só cache-key) e filtra no cliente conforme
+  // o toggle — evita depender de refetch por mudança de queryKey.
+  const { data: allCities = [] } = useQuery({
+    queryKey: ["cities", "all"],
     queryFn: async () => {
-      let q = supabase.from("cities" as any).select("*").order("name");
-      if (countryName && !showForeign) q = q.eq("country", countryName);
-      const { data, error } = await q;
+      const { data, error } = await supabase.from("cities" as any).select("*").order("name");
       if (error) throw error;
       return data as any[];
     },
   });
+
+  const cities = useMemo(() => {
+    if (showForeign || !countryName) return allCities;
+    // A cidade já selecionada mantém-se na lista mesmo se for estrangeira.
+    return allCities.filter((c: any) => c.country === countryName || c.id === cityId);
+  }, [allCities, showForeign, countryName, cityId]);
 
   const { data: venues = [] } = useQuery({
     queryKey: ["venues", cityId],
@@ -58,9 +65,25 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
 
   const cityOptionLabel = (c: any) => {
     const base = formatCityLabel(c.name, c.state);
-    if (showForeign && c.country && c.country !== countryName) return `${base} · ${c.country}`;
+    if (c.country && countryName && c.country !== countryName) return `${base} · ${c.country}`;
     return base;
   };
+
+  const cityOptions: SearchableSelectOption[] = useMemo(
+    () =>
+      cities.map((c: any) => ({
+        value: c.id,
+        label: cityOptionLabel(c),
+        searchText: [c.name, c.state, c.country].filter(Boolean).join(" "),
+      })),
+    [cities, countryName]
+  );
+
+  const venueOptions: SearchableSelectOption[] = useMemo(
+    () => venues.map((v: any) => ({ value: v.id, label: v.name, searchText: v.address ?? undefined })),
+    [venues]
+  );
+
 
   const handleCreateCity = async () => {
     const name = newCityName.trim();
