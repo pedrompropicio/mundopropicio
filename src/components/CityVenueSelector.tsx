@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
-import { countryIsoToName, formatCityLabel } from "@/lib/country";
+import { countryIsoToName, formatCityLabel, KNOWN_COUNTRY_NAMES } from "@/lib/country";
 
 interface CityVenueSelectorProps {
   cityId: string;
