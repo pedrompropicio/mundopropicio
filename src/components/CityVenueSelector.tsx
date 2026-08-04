@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
-import { countryIsoToName, formatCityLabel } from "@/lib/country";
+import { countryIsoToName, formatCityLabel, KNOWN_COUNTRY_NAMES } from "@/lib/country";
 
 interface CityVenueSelectorProps {
   cityId: string;
@@ -16,20 +16,27 @@ interface CityVenueSelectorProps {
 export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange, compact }: CityVenueSelectorProps) {
   const [showNewCity, setShowNewCity] = useState(false);
   const [showNewVenue, setShowNewVenue] = useState(false);
+  const [showForeign, setShowForeign] = useState(false);
   const [newCityName, setNewCityName] = useState("");
   const [newCityState, setNewCityState] = useState("");
+  const [newCityCountry, setNewCityCountry] = useState("");
   const [newVenueName, setNewVenueName] = useState("");
   const queryClient = useQueryClient();
 
   const { company } = useCompany();
-  const countryName = countryIsoToName(company?.country); // 'Portugal' | 'Brasil' | null
-  const isBR = countryName === "Brasil";
+  const countryName = countryIsoToName(company?.country); // 'Portugal' | 'Brasil' | 'Espanha' | null
+
+  // País da nova cidade: com toggle ativo é escolhido; sem toggle é o da empresa.
+  const effectiveNewCountry = showForeign
+    ? (newCityCountry || countryName || "Portugal")
+    : (countryName ?? "Portugal");
+  const isBR = effectiveNewCountry === "Brasil";
 
   const { data: cities = [] } = useQuery({
-    queryKey: ["cities", countryName ?? "all"],
+    queryKey: ["cities", showForeign ? "all" : (countryName ?? "all")],
     queryFn: async () => {
       let q = supabase.from("cities" as any).select("*").order("name");
-      if (countryName) q = q.eq("country", countryName);
+      if (countryName && !showForeign) q = q.eq("country", countryName);
       const { data, error } = await q;
       if (error) throw error;
       return data as any[];
@@ -49,12 +56,18 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
     enabled: !!cityId,
   });
 
+  const cityOptionLabel = (c: any) => {
+    const base = formatCityLabel(c.name, c.state);
+    if (showForeign && c.country && c.country !== countryName) return `${base} · ${c.country}`;
+    return base;
+  };
+
   const handleCreateCity = async () => {
     const name = newCityName.trim();
     if (!name) return;
     if (isBR && newCityState.trim().length !== 2) return; // UF obrigatória no BR
     const state = isBR ? newCityState.trim().toUpperCase() : null;
-    const country = countryName ?? "Portugal";
+    const country = effectiveNewCountry;
 
     const payload: any = { name, country };
     if (state) payload.state = state;
@@ -75,8 +88,10 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
     queryClient.invalidateQueries({ queryKey: ["cities_map"] });
     setNewCityName("");
     setNewCityState("");
+    setNewCityCountry("");
     setShowNewCity(false);
   };
+
 
   const handleCreateVenue = async () => {
     if (!newVenueName.trim() || !cityId) return;
@@ -117,6 +132,17 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCreateCity())}
             />
+            {showForeign && (
+              <select
+                value={effectiveNewCountry}
+                onChange={(e) => setNewCityCountry(e.target.value)}
+                className={`${inputClass} !w-32 shrink-0`}
+              >
+                {KNOWN_COUNTRY_NAMES.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            )}
             {isBR && (
               <input
                 value={newCityState}
@@ -130,7 +156,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             <button type="button" onClick={handleCreateCity} className="rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               OK
             </button>
-            <button type="button" onClick={() => { setShowNewCity(false); setNewCityState(""); }} className="text-xs text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => { setShowNewCity(false); setNewCityState(""); setNewCityCountry(""); }} className="text-xs text-muted-foreground hover:text-foreground">
               ✕
             </button>
           </div>
@@ -143,7 +169,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             >
               <option value="">Selecionar cidade…</option>
               {cities.map((c: any) => (
-                <option key={c.id} value={c.id}>{formatCityLabel(c.name, c.state)}</option>
+                <option key={c.id} value={c.id}>{cityOptionLabel(c)}</option>
               ))}
             </select>
             <button
@@ -156,7 +182,19 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             </button>
           </div>
         )}
+        {countryName && (
+          <label className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showForeign}
+              onChange={(e) => setShowForeign(e.target.checked)}
+              className="h-3 w-3 accent-primary"
+            />
+            Mostrar cidades de outros países
+          </label>
+        )}
       </div>
+
 
       {/* Venue */}
       <div>

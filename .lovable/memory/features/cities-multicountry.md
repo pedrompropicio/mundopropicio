@@ -13,25 +13,28 @@ type: feature
 ## Valores guardados em `cities.country`
 - `'Portugal'` (existente, 31 cidades).
 - `'Brasil'` (semeado: 25 capitais + Campinas, Ribeirão Preto, Uberlândia).
-- **Convenção: nome completo em português** — NÃO usar ISO (`'PT'`/`'BR'`) nem `'Brazil'`.
+- `'Espanha'` (semeado 2026-08: só **Madrid**, state NULL — tour Mágicos Henry e Klaus da Mundo Propício PT).
+- **Convenção: nome completo em português** — NÃO usar ISO (`'PT'`/`'BR'`/`'ES'`) nem `'Brazil'`/`'Spain'`.
 
 ## Mapa ISO → nome (`src/lib/country.ts`)
-`companies.country` guarda ISO (`'PT'`, `'BR'`). `cities.country` guarda nome. Helper único:
-- `countryIsoToName('PT')` → `'Portugal'`
-- `countryIsoToName('BR')` → `'Brasil'`
+`companies.country` guarda ISO (`'PT'`, `'BR'`, `'ES'`). `cities.country` guarda nome. Helper único:
+- `countryIsoToName('PT'|'BR'|'ES')` → `'Portugal'|'Brasil'|'Espanha'`
 - Qualquer outro → `null` (fallback: mostrar todas as cidades, não partir o seletor).
+- `KNOWN_COUNTRY_NAMES` = `['Portugal','Brasil','Espanha']` — usado no select de país ao criar cidade estrangeira.
 - `formatCityLabel(name, state)` → `"Fortaleza - CE"` se há state, senão `"Fortaleza"`.
 
 ## Filtro por país (`src/components/CityVenueSelector.tsx`)
-- Lê empresa ativa via `useCompany()`, mapeia ISO→nome, filtra `cities` por `country = nome`.
-- Empresa PT só vê cidades PT; empresa BR só vê cidades BR. Sem empresa/ISO desconhecido → mostra todas.
-- Dropdown renderiza com `formatCityLabel` (UF visível só para BR).
+- Por defeito: lê empresa ativa via `useCompany()`, mapeia ISO→nome, filtra `cities` por `country = nome`.
+- Empresa PT só vê cidades PT; empresa BR só vê BR. Sem empresa/ISO desconhecido → mostra todas.
+- **Toggle "Mostrar cidades de outros países"** (checkbox discreto abaixo do select, só visível se há país da empresa): quando ativo remove o filtro e etiqueta as cidades estrangeiras como `"Madrid · Espanha"` (as nacionais ficam sem sufixo).
+- Eventos em cidades estrangeiras são suportados: `events.city_id` aceita qualquer cidade. **Isto é só o seletor de local** — nada fiscal/IVA/moeda muda; invariante D1 (país do dinheiro = país da empresa) mantém-se. Não confundir com a Fase 8 multi-país (quarentena).
 
 ## Fix `handleCreateCity`
 - Bug anterior: insert sem `country` → caía no DEFAULT `'Portugal'` mesmo em BR.
-- Agora: insere `country = countryIsoToName(company.country) ?? 'Portugal'`.
-- Em BR é mostrado um input extra de UF (2 letras, obrigatório); grava em `state`. Em PT mantém-se o fluxo original (sem UF).
-- Após criar, a cidade respeita o filtro de país (aparece para a empresa que a criou).
+- Sem toggle: insere `country = countryIsoToName(company.country) ?? 'Portugal'` (comportamento intacto).
+- Com toggle ativo: aparece um select de país (`KNOWN_COUNTRY_NAMES`) e a cidade é criada nesse país.
+- Se o país efetivo for `'Brasil'` é mostrado input extra de UF (2 letras, obrigatório) → grava em `state`. Outros países: `state` NULL.
+
 
 ## Sítios que usam `formatCityLabel` para mostrar UF
 - `src/pages/Events.tsx` (citiesMap em cards de evento)
