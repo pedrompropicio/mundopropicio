@@ -4,7 +4,12 @@
 export const COUNTRY_ISO_TO_NAME: Record<string, string> = {
   PT: "Portugal",
   BR: "Brasil",
+  ES: "Espanha",
 };
+
+/** Países conhecidos (nomes) para seletores de criação de cidade. */
+export const KNOWN_COUNTRY_NAMES = ["Portugal", "Brasil", "Espanha"];
+
 
 /** Devolve o nome de país a usar em cities.country, ou null se não mapear
  *  (nesse caso o seletor mostra todas as cidades como fallback). */
