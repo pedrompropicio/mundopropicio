@@ -264,7 +264,14 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       setReverseRelease(false);
       setReverseReason("");
     },
-    onError: (e: any) => toast({ title: "Erro ao estornar", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      console.error("[PaymentTimeline] erro no estorno", e);
+      toast({
+        title: "Erro ao estornar",
+        description: e?.message ?? e?.details ?? "Erro desconhecido — ver consola.",
+        variant: "destructive",
+      });
+    },
   });
 
 
