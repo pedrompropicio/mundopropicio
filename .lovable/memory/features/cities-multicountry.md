@@ -24,10 +24,12 @@ type: feature
 - `formatCityLabel(name, state)` → `"Fortaleza - CE"` se há state, senão `"Fortaleza"`.
 
 ## Filtro por país (`src/components/CityVenueSelector.tsx`)
-- Por defeito: lê empresa ativa via `useCompany()`, mapeia ISO→nome, filtra `cities` por `country = nome`.
-- Empresa PT só vê cidades PT; empresa BR só vê BR. Sem empresa/ISO desconhecido → mostra todas.
-- **Toggle "Mostrar cidades de outros países"** (checkbox discreto abaixo do select, só visível se há país da empresa): quando ativo remove o filtro e etiqueta as cidades estrangeiras como `"Madrid · Espanha"` (as nacionais ficam sem sufixo).
+- A query busca **sempre todas as cidades** (queryKey fixa `["cities","all"]`) e o filtro por país é **client-side** — evita depender de refetch por mudança de queryKey (causa do bug de Madrid não aparecer com o toggle ativo).
+- Por defeito: lê empresa ativa via `useCompany()`, mapeia ISO→nome, mostra só `country = nome` (+ a cidade já selecionada, mesmo estrangeira). Sem empresa/ISO desconhecido → mostra todas.
+- **Toggle "Mostrar cidades de outros países"**: remove o filtro; cidades de país diferente da empresa aparecem sempre etiquetadas `"Madrid · Espanha"`.
+- Cidade e Sala/Local usam `SearchableSelect` (combobox com pesquisa tolerante a acentos), não `<select>` nativo.
 - Eventos em cidades estrangeiras são suportados: `events.city_id` aceita qualquer cidade. **Isto é só o seletor de local** — nada fiscal/IVA/moeda muda; invariante D1 (país do dinheiro = país da empresa) mantém-se. Não confundir com a Fase 8 multi-país (quarentena).
+
 
 ## Fix `handleCreateCity`
 - Bug anterior: insert sem `country` → caía no DEFAULT `'Portugal'` mesmo em BR.
