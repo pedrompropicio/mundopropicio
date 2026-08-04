@@ -132,6 +132,17 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCreateCity())}
             />
+            {showForeign && (
+              <select
+                value={effectiveNewCountry}
+                onChange={(e) => setNewCityCountry(e.target.value)}
+                className={`${inputClass} !w-32 shrink-0`}
+              >
+                {KNOWN_COUNTRY_NAMES.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            )}
             {isBR && (
               <input
                 value={newCityState}
@@ -145,7 +156,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             <button type="button" onClick={handleCreateCity} className="rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               OK
             </button>
-            <button type="button" onClick={() => { setShowNewCity(false); setNewCityState(""); }} className="text-xs text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => { setShowNewCity(false); setNewCityState(""); setNewCityCountry(""); }} className="text-xs text-muted-foreground hover:text-foreground">
               ✕
             </button>
           </div>
@@ -158,7 +169,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             >
               <option value="">Selecionar cidade…</option>
               {cities.map((c: any) => (
-                <option key={c.id} value={c.id}>{formatCityLabel(c.name, c.state)}</option>
+                <option key={c.id} value={c.id}>{cityOptionLabel(c)}</option>
               ))}
             </select>
             <button
@@ -171,7 +182,19 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             </button>
           </div>
         )}
+        {countryName && (
+          <label className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showForeign}
+              onChange={(e) => setShowForeign(e.target.checked)}
+              className="h-3 w-3 accent-primary"
+            />
+            Mostrar cidades de outros países
+          </label>
+        )}
       </div>
+
 
       {/* Venue */}
       <div>
