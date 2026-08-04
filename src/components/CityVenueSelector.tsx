@@ -16,20 +16,27 @@ interface CityVenueSelectorProps {
 export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange, compact }: CityVenueSelectorProps) {
   const [showNewCity, setShowNewCity] = useState(false);
   const [showNewVenue, setShowNewVenue] = useState(false);
+  const [showForeign, setShowForeign] = useState(false);
   const [newCityName, setNewCityName] = useState("");
   const [newCityState, setNewCityState] = useState("");
+  const [newCityCountry, setNewCityCountry] = useState("");
   const [newVenueName, setNewVenueName] = useState("");
   const queryClient = useQueryClient();
 
   const { company } = useCompany();
-  const countryName = countryIsoToName(company?.country); // 'Portugal' | 'Brasil' | null
-  const isBR = countryName === "Brasil";
+  const countryName = countryIsoToName(company?.country); // 'Portugal' | 'Brasil' | 'Espanha' | null
+
+  // País da nova cidade: com toggle ativo é escolhido; sem toggle é o da empresa.
+  const effectiveNewCountry = showForeign
+    ? (newCityCountry || countryName || "Portugal")
+    : (countryName ?? "Portugal");
+  const isBR = effectiveNewCountry === "Brasil";
 
   const { data: cities = [] } = useQuery({
-    queryKey: ["cities", countryName ?? "all"],
+    queryKey: ["cities", showForeign ? "all" : (countryName ?? "all")],
     queryFn: async () => {
       let q = supabase.from("cities" as any).select("*").order("name");
-      if (countryName) q = q.eq("country", countryName);
+      if (countryName && !showForeign) q = q.eq("country", countryName);
       const { data, error } = await q;
       if (error) throw error;
       return data as any[];
@@ -49,12 +56,18 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
     enabled: !!cityId,
   });
 
+  const cityOptionLabel = (c: any) => {
+    const base = formatCityLabel(c.name, c.state);
+    if (showForeign && c.country && c.country !== countryName) return `${base} · ${c.country}`;
+    return base;
+  };
+
   const handleCreateCity = async () => {
     const name = newCityName.trim();
     if (!name) return;
     if (isBR && newCityState.trim().length !== 2) return; // UF obrigatória no BR
     const state = isBR ? newCityState.trim().toUpperCase() : null;
-    const country = countryName ?? "Portugal";
+    const country = effectiveNewCountry;
 
     const payload: any = { name, country };
     if (state) payload.state = state;
@@ -75,8 +88,10 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
     queryClient.invalidateQueries({ queryKey: ["cities_map"] });
     setNewCityName("");
     setNewCityState("");
+    setNewCityCountry("");
     setShowNewCity(false);
   };
+
 
   const handleCreateVenue = async () => {
     if (!newVenueName.trim() || !cityId) return;
