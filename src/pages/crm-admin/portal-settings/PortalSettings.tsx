@@ -408,6 +408,7 @@ function NewSettingDialog({
                 <SelectItem value="social">Redes sociais</SelectItem>
                 <SelectItem value="stats">Estatísticas</SelectItem>
                 <SelectItem value="home">Quem Somos (homepage)</SelectItem>
+                <SelectItem value="early_bird">Early Bird</SelectItem>
                 <SelectItem value="tracking">Tracking &amp; Marketing</SelectItem>
                 <SelectItem value="general">Geral</SelectItem>
               </SelectContent>
