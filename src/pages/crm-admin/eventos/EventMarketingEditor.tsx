@@ -20,7 +20,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MultiImageUploader } from "../components/MultiImageUploader";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
@@ -36,9 +36,9 @@ type FormState = Omit<
   "created_at" | "updated_at" | "created_by" | "updated_by"
 >;
 
-const emptyForm = (eventId: string): FormState => ({
+const emptyForm = (eventId: string, companyId: string): FormState => ({
   event_id: eventId,
-  company_id: MP_COMPANY_ID,
+  company_id: companyId,
   status: "draft",
   published_at: null,
   hook_pt: null,
@@ -74,6 +74,7 @@ export default function EventMarketingEditor() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { companyId } = useCompany();
 
   const eventQuery = useQuery({
     queryKey: ["crm-event", eventId],
@@ -135,9 +136,9 @@ export default function EventMarketingEditor() {
       const { created_at, updated_at, created_by, updated_by, ...rest } = mkQuery.data;
       setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [] });
     } else {
-      setForm(emptyForm(eventId));
+      setForm(emptyForm(eventId, (eventQuery.data as any)?.company_id ?? companyId ?? ""));
     }
-  }, [mkQuery.data, eventId]);
+  }, [mkQuery.data, eventId, companyId, eventQuery.data]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -212,7 +213,7 @@ export default function EventMarketingEditor() {
   }
 
   const ev = eventQuery.data as any;
-  const isForeign = ev && ev.company_id !== MP_COMPANY_ID;
+  const isForeign = ev && !!companyId && ev.company_id !== companyId;
   const isPartnerManaged = ev && ev.management_type === "partner_managed";
 
   return (
@@ -715,6 +716,7 @@ function GestaoTab({
   ev: any;
   disabled: boolean;
 }) {
+  const { companyId } = useCompany();
   const qc = useQueryClient();
   const [mgmt, setMgmt] = useState<string>(ev?.management_type ?? "own");
   const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");
@@ -840,7 +842,7 @@ function GestaoTab({
       <MetaAudienceCard
         eventId={eventId}
         eventName={ev?.name ?? ""}
-        companyId={ev?.company_id ?? MP_COMPANY_ID}
+        companyId={ev?.company_id ?? companyId ?? ""}
         metaPixelId={ev?.meta_pixel_id ?? null}
         metaAudienceId={ev?.meta_audience_id ?? null}
         metaAudienceName={ev?.meta_audience_name ?? null}
@@ -849,7 +851,7 @@ function GestaoTab({
 
       <PurchaseAudienceCard
         eventId={eventId}
-        companyId={ev?.company_id ?? MP_COMPANY_ID}
+        companyId={ev?.company_id ?? companyId ?? ""}
         metaPixelId={ev?.meta_pixel_id ?? null}
         variant="card"
       />

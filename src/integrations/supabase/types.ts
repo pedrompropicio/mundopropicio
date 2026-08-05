@@ -10171,6 +10171,7 @@ export type Database = {
     Views: {
       blog_posts_public: {
         Row: {
+          company_id: string | null
           content_en: string | null
           content_pt: string | null
           cover_image: string | null
@@ -10185,6 +10186,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          company_id?: string | null
           content_en?: string | null
           content_pt?: string | null
           cover_image?: string | null
@@ -10199,6 +10201,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          company_id?: string | null
           content_en?: string | null
           content_pt?: string | null
           cover_image?: string | null
@@ -10428,6 +10431,7 @@ export type Database = {
       }
       static_pages_public: {
         Row: {
+          company_id: string | null
           content_md: string | null
           locale: string | null
           meta_description: string | null
@@ -10439,6 +10443,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          company_id?: string | null
           content_md?: string | null
           locale?: string | null
           meta_description?: string | null
@@ -10450,6 +10455,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          company_id?: string | null
           content_md?: string | null
           locale?: string | null
           meta_description?: string | null

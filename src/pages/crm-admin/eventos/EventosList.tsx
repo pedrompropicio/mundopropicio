@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import type { EventRow, EventMarketingRow } from "../types";
 
 const ACTIVE_ONLY_KEY = "crm.eventos.activeOnly";
@@ -51,6 +52,7 @@ type EndorsementRow = {
 };
 
 export default function EventosList() {
+  const { companyId } = useCompany();
   const navigate = useNavigate();
 
   return (
@@ -91,6 +93,7 @@ export default function EventosList() {
 // ─── Tab Próprios ──────────────────────────────────────────────────────
 
 function PropriosTab() {
+  const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeOnly, setActiveOnly] = useState<boolean>(() => {
@@ -106,12 +109,13 @@ function PropriosTab() {
   }, [activeOnly]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-eventos-list", MP_COMPANY_ID],
+    queryKey: ["crm-eventos-list", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<EventWithMk[]> => {
       const { data: events, error: eErr } = await (supabase as any)
         .from("events")
         .select("id, name, slug, status, date, company_id, management_type, partner_name")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("date", { ascending: false, nullsFirst: false })
         .limit(500);
       if (eErr) throw eErr;

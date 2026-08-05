@@ -17,13 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import { toSlug } from "../lib/slug";
 
 type Mgmt = "own" | "partner_managed";
 type Status = "planning" | "active" | "confirmed" | "completed" | "cancelled" | "archived";
 
 export default function NewEventoPage() {
+  const { companyId } = useCompany();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -42,9 +43,10 @@ export default function NewEventoPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Nome é obrigatório.");
+      if (!companyId) throw new Error("Empresa ativa não resolvida.");
       if (!date) throw new Error("Data é obrigatória.");
       const payload: any = {
-        company_id: MP_COMPANY_ID,
+        company_id: companyId,
         name: name.trim(),
         date,
         status,

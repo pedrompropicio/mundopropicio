@@ -14,7 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
-import { MP_COMPANY_ID, PORTAL_PREVIEW_BASE } from "../constants";
+import { PORTAL_PREVIEW_BASE } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import { toSlug } from "../lib/slug";
 import type { BlogPostRow } from "../types";
 
@@ -24,8 +25,8 @@ type FormState = Omit<BlogPostRow, "id" | "created_at" | "updated_at" | "author_
   id?: string;
 };
 
-const emptyForm = (): FormState => ({
-  company_id: MP_COMPANY_ID,
+const emptyForm = (companyId: string): FormState => ({
+  company_id: companyId,
   slug: "",
   title_pt: "",
   title_en: "",
@@ -48,6 +49,7 @@ export default function BlogEditor({ mode }: Props) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { companyId } = useCompany();
 
   const postQuery = useQuery({
     queryKey: ["crm-blog-post", id],
@@ -67,15 +69,15 @@ export default function BlogEditor({ mode }: Props) {
   const [slugTouched, setSlugTouched] = useState(false);
 
   useEffect(() => {
-    if (mode === "new") {
-      setForm(emptyForm());
+    if (mode === "new" && companyId) {
+      setForm(emptyForm(companyId));
       setSlugTouched(false);
     } else if (postQuery.data) {
       const { author_id, created_at, updated_at, ...rest } = postQuery.data;
       setForm(rest);
       setSlugTouched(true);
     }
-  }, [mode, postQuery.data]);
+  }, [mode, postQuery.data, companyId]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));

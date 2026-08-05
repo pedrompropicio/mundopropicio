@@ -2,22 +2,25 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { previewCount } from "./audienceSnapshot";
 import type { Criterion } from "./audienceCriterion";
+import { useCompany } from "@/hooks/useCompany";
 
 interface Props {
   criterion: Criterion;
 }
 
 export default function AudiencePreviewCount({ criterion }: Props) {
+  const { companyId } = useCompany();
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handle = setTimeout(async () => {
+      if (!companyId) return;
       setLoading(true);
       setError(null);
       try {
-        const n = await previewCount(criterion);
+        const n = await previewCount(criterion, companyId);
         setCount(n);
       } catch (e: any) {
         setError(e?.message ?? "erro");
@@ -26,7 +29,7 @@ export default function AudiencePreviewCount({ criterion }: Props) {
       }
     }, 500);
     return () => clearTimeout(handle);
-  }, [JSON.stringify(criterion)]);
+  }, [JSON.stringify(criterion), companyId]);
 
   return (
     <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-emerald-500/10 border-emerald-500/30 text-emerald-700">

@@ -22,11 +22,13 @@ import AudiencePreviewCount from "./AudiencePreviewCount";
 import { previewCount, createSnapshot, exportSnapshotCSV } from "./audienceSnapshot";
 import { EMPTY_CRITERION, type Criterion } from "./audienceCriterion";
 import { formatDateTime, relativeFromNow } from "../lib/relativeTime";
+import { useCompany } from "@/hooks/useCompany";
 
 export default function AudienceEditor() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { companyId } = useCompany();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -96,7 +98,7 @@ export default function AudienceEditor() {
   });
 
   const captureMut = useMutation({
-    mutationFn: async () => createSnapshot(id!, criterion),
+    mutationFn: async () => createSnapshot(id!, criterion, companyId!),
     onSuccess: (r) => {
       toast.success(`Snapshot capturada (${r.member_count} contactos)`);
       qc.invalidateQueries({ queryKey: ["crm-audience-snapshots", id] });
@@ -136,7 +138,7 @@ export default function AudienceEditor() {
     setCaptureOpen(true);
     setCaptureCount(null);
     try {
-      const n = await previewCount(criterion);
+      const n = await previewCount(criterion, companyId!);
       setCaptureCount(n);
     } catch (e: any) {
       toast.error(e.message);

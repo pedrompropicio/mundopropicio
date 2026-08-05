@@ -14,21 +14,23 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import { relativeFromNow } from "../lib/relativeTime";
 
 export default function AudiencesList() {
+  const { companyId } = useCompany();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["crm-audiences-list", MP_COMPANY_ID],
+    queryKey: ["crm-audiences-list", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("audiences")
         .select("id, name, description, last_preview_count, last_previewed_at, updated_at")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data ?? [];

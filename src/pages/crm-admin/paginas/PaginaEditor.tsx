@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
-import { MP_COMPANY_ID, PORTAL_PREVIEW_BASE } from "../constants";
+import { PORTAL_PREVIEW_BASE } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import type { StaticPageRow, StaticPageStatus } from "../types";
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -59,23 +60,24 @@ function fromRow(r: StaticPageRow): LocaleForm {
 }
 
 export default function PaginaEditor() {
+  const { companyId } = useCompany();
   const { slug = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: ["crm-pagina", slug],
+    queryKey: ["crm-pagina", slug, companyId],
     queryFn: async (): Promise<StaticPageRow[]> => {
       const { data, error } = await (supabase as any)
         .from("static_pages")
         .select("*")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .eq("slug", slug);
       if (error) throw error;
       return (data ?? []) as StaticPageRow[];
     },
-    enabled: !!slug,
+    enabled: !!slug && !!companyId,
   });
 
   const initial = useMemo(() => {
@@ -106,7 +108,7 @@ export default function PaginaEditor() {
         const publishedAt =
           becomingPublished && !f.published_at ? new Date().toISOString() : f.published_at;
         return {
-          company_id: MP_COMPANY_ID,
+          company_id: companyId,
           slug,
           locale,
           title: f.title || null,
@@ -142,7 +144,7 @@ export default function PaginaEditor() {
       const { error } = await (supabase as any)
         .from("static_pages")
         .delete()
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .eq("slug", slug);
       if (error) throw error;
     },

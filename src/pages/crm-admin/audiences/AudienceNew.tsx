@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import AudienceBuilder from "./AudienceBuilder";
 import AudiencePreviewCount from "./AudiencePreviewCount";
 import { EMPTY_CRITERION, type Criterion } from "./audienceCriterion";
 
 export default function AudienceNew() {
+  const { companyId } = useCompany();
   const nav = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -22,12 +23,13 @@ export default function AudienceNew() {
   const mut = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Nome obrigatório");
+      if (!companyId) throw new Error("Empresa ativa não resolvida.");
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData?.user?.id;
       const { data, error } = await (supabase as any)
         .from("audiences")
         .insert({
-          company_id: MP_COMPANY_ID,
+          company_id: companyId,
           name: name.trim(),
           description: description.trim() || null,
           criterion,
