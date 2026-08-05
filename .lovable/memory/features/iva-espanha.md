@@ -17,18 +17,23 @@ Taxas pelo **país da cidade do evento** (`events.city_id → cities.country`).
 - Portugal: `[0, 6, 13, 23]` (normal 23%)
 - Espanha: `[0, 4, 10, 21]` (normal 21%)
 - Sub-eventos usam a **própria** cidade.
-- Evento sem cidade, ou transação sem evento (overhead) → **Portugal**.
+- **Master de turnê sem cidade** (`city_id` NULL): resolve pelos países das
+  cidades dos sub-eventos (`parent_event_id`). Um só país → esse país; países
+  mistos → **união ordenada** das taxas (ex.: 0/4/6/10/13/21/23) com default 23.
+- Evento sem cidade e sem sub-eventos, ou transação sem evento (overhead) → **Portugal**.
 
 ## SSOT — `src/lib/iva.ts`
 - `IVA_RATES_BY_COUNTRY` (chaves = nomes completos como em `cities.country`)
 - `DEFAULT_IVA_COUNTRY = 'Portugal'`
 - `getIvaRatesForCountry(country)` — fallback PT
+- `getIvaRatesForCountries([...])` / `getDefaultIvaRateForCountries([...])` — turnês multi-país
 - `getDefaultIvaRateForCountry(country)` — taxa normal (23 / 21)
 - `snapToStandardRate(rate, rates?)` — **sem** o 2.º argumento comporta-se
   exatamente como antes (PT). Nunca remover esse default.
 
 ## Resolução do país
-`src/hooks/useEventIvaCountry.ts` → `{ country, rates, defaultRate }`
+`src/hooks/useEventIvaCountry.ts` → `{ country, countries, rates, defaultRate }`
+(inclui sub-eventos quando o evento é master sem cidade)
 (react-query, resolve `events.city_id → cities.country`).
 
 ## Seletor partilhado
