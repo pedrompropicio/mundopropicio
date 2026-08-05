@@ -576,6 +576,63 @@ export default function IvaManagement() {
           </table>
         </div>
       </div>
+
+      {/* IVA suportado no estrangeiro — informativo, FORA do apuramento PT */}
+      {foreignBreakdown.length > 0 && (
+        <div className="glass rounded-xl p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <Globe className="h-4 w-4" /> IVA suportado no estrangeiro
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Eventos realizados fora de Portugal. Não entra no apuramento português — serve para o pedido de
+                reembolso UE ou registo local.
+              </p>
+            </div>
+            <Button onClick={exportForeignXlsx} variant="outline" size="sm" className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" /> Exportar XLSX
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="pb-3 text-left font-medium">País</th>
+                  <th className="pb-3 text-left font-medium">Taxa</th>
+                  <th className="pb-3 text-right font-medium">Base Despesas</th>
+                  <th className="pb-3 text-right font-medium">IVA Suportado</th>
+                  <th className="pb-3 text-right font-medium">Base Receitas</th>
+                  <th className="pb-3 text-right font-medium">IVA Liquidado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {foreignBreakdown.map((r) => (
+                  <tr key={`${r.country}-${r.rate}`}>
+                    <td className="py-3 font-medium">{r.country}</td>
+                    <td className="py-3">
+                      <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-warning/15 text-xs font-bold text-warning">
+                        {r.rate}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-right font-mono">{formatCurrencyDecimal(r.baseExpense)}</td>
+                    <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(r.ivaExpense)}</td>
+                    <td className="py-3 text-right font-mono">{formatCurrencyDecimal(r.baseIncome)}</td>
+                    <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(r.ivaIncome)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-border font-semibold">
+                  <td className="py-3" colSpan={2}>Total (informativo)</td>
+                  <td className="py-3 text-right font-mono">{formatCurrencyDecimal(foreignTotals.baseExpense)}</td>
+                  <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(foreignTotals.ivaExpense)}</td>
+                  <td className="py-3 text-right font-mono">{formatCurrencyDecimal(foreignTotals.baseIncome)}</td>
+                  <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(foreignTotals.ivaIncome)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
