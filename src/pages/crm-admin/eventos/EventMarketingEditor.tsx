@@ -293,22 +293,26 @@ export default function EventMarketingEditor() {
         </Card>
       )}
 
-      <Tabs defaultValue={isForeign ? "hero" : "gestao"}>
+      <Tabs defaultValue={isForeign && !isLean ? "hero" : "gestao"}>
         <TabsList className="flex w-full flex-wrap h-auto">
           <TabsTrigger value="gestao">Gestão</TabsTrigger>
-          <TabsTrigger value="hero">Hero</TabsTrigger>
-          <TabsTrigger value="imagens">Média</TabsTrigger>
-          <TabsTrigger value="experiencias">Experiências</TabsTrigger>
-          <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
-          <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
-          <TabsTrigger value="faq">FAQ</TabsTrigger>
-          <TabsTrigger value="lineup">Line-up</TabsTrigger>
-          <TabsTrigger value="oferta">Oferta</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
+          {!isLean && (
+            <>
+              <TabsTrigger value="hero">Hero</TabsTrigger>
+              <TabsTrigger value="imagens">Média</TabsTrigger>
+              <TabsTrigger value="experiencias">Experiências</TabsTrigger>
+              <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
+              <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
+              <TabsTrigger value="faq">FAQ</TabsTrigger>
+              <TabsTrigger value="lineup">Line-up</TabsTrigger>
+              <TabsTrigger value="oferta">Oferta</TabsTrigger>
+              <TabsTrigger value="seo">SEO</TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <TabsContent value="gestao">
-          <GestaoTab eventId={eventId} ev={ev} disabled={!!isForeign} />
+          <GestaoTab eventId={eventId} ev={ev} disabled={!!isForeign} lean={isLean} />
         </TabsContent>
 
         <TabsContent value="hero">
