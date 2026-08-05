@@ -66,8 +66,6 @@ interface SplitByIvaModalProps {
   eventId?: string | null;
 }
 
-/** Fallback PT; substituído pelas taxas do país do evento quando há eventId. */
-const RATE_OPTIONS_PT: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
@@ -236,7 +234,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
       }
       // Mapeia para linhas
       const mapped: IvaSplitLine[] = breakdown
-        .filter((r) => RATE_OPTIONS.includes(r.rate as IvaRate))
+        .filter((r) => rateOptions.includes(r.rate as IvaRate))
         .map((r) => ({
           base: roundCents(Number(r.base) || 0),
           iva_rate: r.rate as IvaRate,
