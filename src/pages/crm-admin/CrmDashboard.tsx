@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/useCompany";
 
 type GeoPeriod = "all" | "30d";
 
@@ -138,38 +139,51 @@ function RankingList({ rows }: { rows: RankRow[] }) {
 
 export default function CrmDashboard() {
   const [geoPeriod, setGeoPeriod] = useState<GeoPeriod>("all");
+  const { companyId } = useCompany();
 
   const { data: eventsMk } = useQuery({
-    queryKey: ["crm-stats", "event_marketing"],
+    queryKey: ["crm-stats", "event_marketing", companyId],
+    enabled: !!companyId,
     queryFn: () =>
-      safeCount("event_marketing", (q) => q.eq("status", "published")),
+      safeCount("event_marketing", (q) =>
+        q.eq("status", "published").eq("company_id", companyId),
+      ),
     staleTime: 60_000,
     refetchOnMount: "always",
   });
   const { data: contacts } = useQuery({
-    queryKey: ["crm-stats", "contacts"],
-    queryFn: () => safeCount("contacts", (q) => q.eq("is_active", true)),
+    queryKey: ["crm-stats", "contacts", companyId],
+    enabled: !!companyId,
+    queryFn: () =>
+      safeCount("contacts", (q) =>
+        q.eq("is_active", true).eq("company_id", companyId),
+      ),
     staleTime: 60_000,
     refetchOnMount: "always",
   });
   const { data: leads } = useQuery({
-    queryKey: ["crm-stats", "leads-30d"],
+    queryKey: ["crm-stats", "leads-30d", companyId],
+    enabled: !!companyId,
     queryFn: () => {
       const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-      return safeCount("leads", (q) => q.gte("created_at", since));
+      return safeCount("leads", (q) =>
+        q.gte("created_at", since).eq("company_id", companyId),
+      );
     },
     staleTime: 60_000,
     refetchOnMount: "always",
   });
   const { data: audiences } = useQuery({
-    queryKey: ["crm-stats", "audiences"],
-    queryFn: () => safeCount("audiences"),
+    queryKey: ["crm-stats", "audiences", companyId],
+    enabled: !!companyId,
+    queryFn: () => safeCount("audiences", (q) => q.eq("company_id", companyId)),
     staleTime: 60_000,
     refetchOnMount: "always",
   });
 
   const { data: geoStats } = useQuery({
-    queryKey: ["crm-stats", "leads-geo", geoPeriod],
+    queryKey: ["crm-stats", "leads-geo", geoPeriod, companyId],
+    enabled: !!companyId,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
