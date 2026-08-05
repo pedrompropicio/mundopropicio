@@ -7681,6 +7681,7 @@ export type Database = {
           image: string | null
           portal_visible: boolean
           source: string
+          title: string | null
           url: string
         }
         Insert: {
@@ -7693,6 +7694,7 @@ export type Database = {
           image?: string | null
           portal_visible?: boolean
           source: string
+          title?: string | null
           url: string
         }
         Update: {
@@ -7705,6 +7707,7 @@ export type Database = {
           image?: string | null
           portal_visible?: boolean
           source?: string
+          title?: string | null
           url?: string
         }
         Relationships: [
@@ -10378,6 +10381,7 @@ export type Database = {
       }
       press_clippings_public: {
         Row: {
+          company_id: string | null
           created_at: string | null
           display_order: number | null
           event_id: string | null
@@ -10385,9 +10389,11 @@ export type Database = {
           id: string | null
           image: string | null
           source: string | null
+          title: string | null
           url: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           display_order?: number | null
           event_id?: string | null
@@ -10395,9 +10401,11 @@ export type Database = {
           id?: string | null
           image?: string | null
           source?: string | null
+          title?: string | null
           url?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           display_order?: number | null
           event_id?: string | null
@@ -10405,6 +10413,7 @@ export type Database = {
           id?: string | null
           image?: string | null
           source?: string | null
+          title?: string | null
           url?: string | null
         }
         Relationships: [
