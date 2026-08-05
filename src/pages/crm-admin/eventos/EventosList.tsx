@@ -309,7 +309,6 @@ function PropriosTab() {
 function EndossadosTab() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-eventos-endorsements", MP_COMPANY_ID],
-    enabled: !!MP_COMPANY_ID,
     queryFn: async (): Promise<EndorsementRow[]> => {
       const { data: endorsements, error: eErr } = await (supabase as any)
         .from("event_portal_endorsements")
@@ -326,15 +325,15 @@ function EndossadosTab() {
         .in("id", ids);
       const eventMap = new Map<string, any>((events ?? []).map((e: any) => [e.id, e]));
 
-      const MP_COMPANY_IDs = Array.from(
+      const companyIds = Array.from(
         new Set((events ?? []).map((e: any) => e.company_id).filter(Boolean))
       );
       let companyMap = new Map<string, any>();
-      if (MP_COMPANY_IDs.length > 0) {
+      if (companyIds.length > 0) {
         const { data: companies } = await (supabase as any)
           .from("companies")
           .select("id, display_name, legal_name")
-          .in("id", MP_COMPANY_IDs);
+          .in("id", companyIds);
         companyMap = new Map((companies ?? []).map((c: any) => [c.id, c]));
       }
 
