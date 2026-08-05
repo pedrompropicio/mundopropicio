@@ -2581,14 +2581,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     </div>
                   )}
                 </div>
-              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+              <IvaRateSelect
+                eventId={effectiveEventId || null}
+                value={form.iva_rate}
+                onChange={(r) => setForm({ ...form, iva_rate: r as IvaRate })}
                 disabled={!!pendingIvaSplit}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60">
-                <option value={23}>23% - Normal</option>
-                <option value={13}>13% - Intermédia</option>
-                <option value={6}>6% - Reduzida</option>
-                <option value={0}>0% - Isento</option>
-              </select>
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+              />
+
               {pendingIvaSplit && (
                 <div className="mt-1 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">
                   <span>
