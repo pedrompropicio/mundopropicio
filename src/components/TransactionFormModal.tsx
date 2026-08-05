@@ -3,6 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
+import IvaRateSelect from "@/components/IvaRateSelect";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt, Sparkles, Loader2, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
