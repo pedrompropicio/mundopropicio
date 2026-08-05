@@ -5919,6 +5919,7 @@ export type Database = {
       lead_capture: {
         Row: {
           client_event_id: string | null
+          company_id: string | null
           consent_email: boolean
           consent_whatsapp: boolean
           created_at: string
@@ -5946,6 +5947,7 @@ export type Database = {
         }
         Insert: {
           client_event_id?: string | null
+          company_id?: string | null
           consent_email?: boolean
           consent_whatsapp?: boolean
           created_at?: string
@@ -5973,6 +5975,7 @@ export type Database = {
         }
         Update: {
           client_event_id?: string | null
+          company_id?: string | null
           consent_email?: boolean
           consent_whatsapp?: boolean
           created_at?: string
