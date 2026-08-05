@@ -23,6 +23,7 @@ export default function AudienceNew() {
   const mut = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Nome obrigatório");
+      if (!companyId) throw new Error("Empresa ativa não resolvida.");
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData?.user?.id;
       const { data, error } = await (supabase as any)
