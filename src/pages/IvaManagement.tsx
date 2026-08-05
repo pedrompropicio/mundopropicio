@@ -16,6 +16,11 @@ import {
   ivaRateLabels,
   type IvaRate,
 } from "@/lib/mock-data";
+import { DEFAULT_IVA_COUNTRY } from "@/lib/iva";
+import { utils, writeFile } from "xlsx";
+import { applyPTNumberFormat } from "@/lib/excel-format";
+import { Button } from "@/components/ui/button";
+import { FileSpreadsheet, Globe } from "lucide-react";
 
 interface QuarterIva {
   label: string;
@@ -227,7 +232,9 @@ export default function IvaManagement() {
   const { data: events = [] } = useQuery({
     queryKey: ["iva-events"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name");
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, city_id, cities:city_id(country)");
       if (error) throw error;
       return data;
     },
@@ -236,9 +243,26 @@ export default function IvaManagement() {
   // Build lookup maps
   const eventsMap = useMemo(() => {
     const m = new Map<string, string>();
-    events.forEach((e) => m.set(e.id, e.name));
+    events.forEach((e: any) => m.set(e.id, e.name));
     return m;
   }, [events]);
+
+  /**
+   * País fiscal de cada evento (via cidade). Eventos sem cidade → Portugal.
+   * Regra: IVA suportado/liquidado em eventos fora de PT NÃO entra no
+   * apuramento português (não é IVA dedutível cá) — é apresentado numa
+   * secção informativa separada. Ver .lovable/memory/features/iva-espanha.md.
+   */
+  const eventCountryMap = useMemo(() => {
+    const m = new Map<string, string>();
+    events.forEach((e: any) => m.set(e.id, e.cities?.country || DEFAULT_IVA_COUNTRY));
+    return m;
+  }, [events]);
+
+  const countryOfEvent = (eventId: string | null | undefined) =>
+    eventId ? eventCountryMap.get(eventId) ?? DEFAULT_IVA_COUNTRY : DEFAULT_IVA_COUNTRY;
+  const isForeignEvent = (eventId: string | null | undefined) =>
+    countryOfEvent(eventId) !== DEFAULT_IVA_COUNTRY;
 
   const enrichedSales: TicketSaleRow[] = useMemo(() => {
     const lotMap = new Map<string, { iva_rate: number; zone_id: string }>();
@@ -267,15 +291,71 @@ export default function IvaManagement() {
   const yearTxns = useMemo(() => transactions.filter((t) => new Date(t.date).getFullYear() === selectedYear), [transactions, selectedYear]);
   const yearSales = useMemo(() => enrichedSales.filter((s) => new Date(s.sale_date).getFullYear() === selectedYear), [enrichedSales, selectedYear]);
 
-  const quarterly = useMemo(() => computeQuarterlyIva(yearTxns, yearSales), [yearTxns, yearSales]);
-  const eventIva = useMemo(() => computeEventIva(yearTxns, yearSales, eventsMap), [yearTxns, yearSales, eventsMap]);
-  const rateBreakdown = useMemo(() => computeRateBreakdown(yearTxns, yearSales), [yearTxns, yearSales]);
+  // Apuramento PT: só transações/vendas de eventos em Portugal (ou sem evento).
+  const ptTxns = useMemo(() => yearTxns.filter((t) => !isForeignEvent(t.event_id)), [yearTxns, eventCountryMap]);
+  const ptSales = useMemo(() => yearSales.filter((s) => !isForeignEvent(s.event_id)), [yearSales, eventCountryMap]);
+  const foreignTxns = useMemo(() => yearTxns.filter((t) => isForeignEvent(t.event_id)), [yearTxns, eventCountryMap]);
+  const foreignSales = useMemo(() => yearSales.filter((s) => isForeignEvent(s.event_id)), [yearSales, eventCountryMap]);
+
+  /** Agrupamento informativo por país × taxa (fora do apuramento PT). */
+  const foreignBreakdown = useMemo(() => {
+    type Row = { country: string; rate: number; baseExpense: number; ivaExpense: number; baseIncome: number; ivaIncome: number };
+    const map = new Map<string, Row>();
+    const ensure = (country: string, rate: number) => {
+      const k = `${country}|${rate}`;
+      if (!map.has(k)) map.set(k, { country, rate, baseExpense: 0, ivaExpense: 0, baseIncome: 0, ivaIncome: 0 });
+      return map.get(k)!;
+    };
+    foreignTxns.forEach((t) => {
+      const row = ensure(countryOfEvent(t.event_id), t.iva_rate);
+      const iva = calcIvaAmount(t.amount, t.iva_rate as IvaRate);
+      if (t.type === "income") { row.baseIncome += t.amount; row.ivaIncome += iva; }
+      else { row.baseExpense += t.amount; row.ivaExpense += iva; }
+    });
+    foreignSales.forEach((s) => {
+      const row = ensure(countryOfEvent(s.event_id), s.iva_rate);
+      const gross = (s as any).total_value != null ? Number((s as any).total_value) : s.quantity * s.unit_price;
+      row.baseIncome += baseFromGross(gross, s.iva_rate);
+      row.ivaIncome += ivaFromGross(gross, s.iva_rate);
+    });
+    return Array.from(map.values()).sort((a, b) => a.country.localeCompare(b.country) || b.rate - a.rate);
+  }, [foreignTxns, foreignSales, eventCountryMap]);
+
+  const foreignTotals = useMemo(() => foreignBreakdown.reduce(
+    (acc, r) => ({
+      baseExpense: acc.baseExpense + r.baseExpense,
+      ivaExpense: acc.ivaExpense + r.ivaExpense,
+      baseIncome: acc.baseIncome + r.baseIncome,
+      ivaIncome: acc.ivaIncome + r.ivaIncome,
+    }),
+    { baseExpense: 0, ivaExpense: 0, baseIncome: 0, ivaIncome: 0 },
+  ), [foreignBreakdown]);
+
+  const exportForeignXlsx = () => {
+    const rows = foreignBreakdown.map((r) => ({
+      País: r.country,
+      "Taxa (%)": r.rate,
+      "Base despesas (€)": Math.round(r.baseExpense * 100) / 100,
+      "IVA suportado (€)": Math.round(r.ivaExpense * 100) / 100,
+      "Base receitas (€)": Math.round(r.baseIncome * 100) / 100,
+      "IVA liquidado (€)": Math.round(r.ivaIncome * 100) / 100,
+    }));
+    const ws = utils.json_to_sheet(rows);
+    applyPTNumberFormat(ws);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "IVA estrangeiro");
+    writeFile(wb, `iva-estrangeiro-${selectedYear}.xlsx`);
+  };
+
+  const quarterly = useMemo(() => computeQuarterlyIva(ptTxns, ptSales), [ptTxns, ptSales]);
+  const eventIva = useMemo(() => computeEventIva(ptTxns, ptSales, eventsMap), [ptTxns, ptSales, eventsMap]);
+  const rateBreakdown = useMemo(() => computeRateBreakdown(ptTxns, ptSales), [ptTxns, ptSales]);
 
   const totalLiquidado = quarterly.reduce((s, q) => s + q.ivaLiquidado, 0);
   const totalDedutivel = quarterly.reduce((s, q) => s + q.ivaDedutivel, 0);
   const totalSaldo = totalLiquidado - totalDedutivel;
 
-  const pendingIva = yearTxns
+  const pendingIva = ptTxns
     .filter((t) => t.status === "pending")
     .reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0);
 
