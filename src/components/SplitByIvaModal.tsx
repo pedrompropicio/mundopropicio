@@ -179,7 +179,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     // IVA médio (snap): rácio real → taxa PT mais próxima; recalcula base líquida
     // a partir do total c/IVA para garantir que `base × (1 + rate/100) ≈ total`.
     const realRatio = baseSum > 0 ? (ivaSum / baseSum) * 100 : 0;
-    const blendedRate = snapToStandardRate(realRatio);
+    const blendedRate = snapToStandardRate(realRatio, rateOptions);
     const blendedBase = roundCents(grandTotal / (1 + blendedRate / 100));
     const blendedIva = roundCents(grandTotal - blendedBase);
     const blendedDeviation = roundCents(blendedIva - ivaSum);
