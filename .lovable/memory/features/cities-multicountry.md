@@ -23,19 +23,20 @@ type: feature
 - `KNOWN_COUNTRY_NAMES` = `['Portugal','Brasil','Espanha']` — usado no select de país ao criar cidade estrangeira.
 - `formatCityLabel(name, state)` → `"Fortaleza - CE"` se há state, senão `"Fortaleza"`.
 
-## Filtro por país (`src/components/CityVenueSelector.tsx`)
-- A query busca **sempre todas as cidades** (queryKey fixa `["cities","all"]`) e o filtro por país é **client-side** — evita depender de refetch por mudança de queryKey (causa do bug de Madrid não aparecer com o toggle ativo).
-- Por defeito: lê empresa ativa via `useCompany()`, mapeia ISO→nome, mostra só `country = nome` (+ a cidade já selecionada, mesmo estrangeira). Sem empresa/ISO desconhecido → mostra todas.
-- **Toggle "Mostrar cidades de outros países"**: remove o filtro; cidades de país diferente da empresa aparecem sempre etiquetadas `"Madrid · Espanha"`.
-- Cidade e Sala/Local usam `SearchableSelect` (combobox com pesquisa tolerante a acentos), não `<select>` nativo.
-- Eventos em cidades estrangeiras são suportados: `events.city_id` aceita qualquer cidade. **Isto é só o seletor de local** — nada fiscal/IVA/moeda muda; invariante D1 (país do dinheiro = país da empresa) mantém-se. Não confundir com a Fase 8 multi-país (quarentena).
+## Seletor de local (`src/components/CityVenueSelector.tsx`) — redesenho 2026-08
+- **Sem toggle**: o antigo checkbox "Mostrar cidades de outros países" foi REMOVIDO. O combobox pesquisa SEMPRE em todas as cidades (queryKey fixa `["cities","all"]`, filtro/ordenação client-side).
+- Ordem no dropdown: primeiro as cidades do país da empresa ativa (`useCompany` → `countryIsoToName`) sem heading; depois as estrangeiras agrupadas por país (`group` = nome do país) e etiquetadas `"Madrid · Espanha"`.
+- Pesquisa tolerante a acentos sobre nome + estado + país (`searchText`).
+- **Criação dentro do dropdown**: `SearchableSelect` ganhou props `onCreateOption` + `createLabel`; quando o texto pesquisado não bate exatamente com o nome-base de nenhuma opção, aparece no rodapé "➕ Criar cidade '<texto>'…". Clicar abre um pequeno Dialog que pede só o país (`KNOWN_COUNTRY_NAMES`) e a UF se for Brasil. Ao confirmar: insert; se colidir com o índice único, seleciona a existente (nunca duplica).
+- Sala/Local: mesmo padrão — combobox das salas da cidade selecionada + rodapé "➕ Criar sala '<texto>'…" (insert com `city_id`; `company_id` fica pelo default `current_company_id()`).
+- Os formulários paralelos de criação (botão `+` / `showNewCity` / `showNewVenue`) foram REMOVIDOS — eram a causa do utilizador ficar preso no form de criação em vez da lista.
+- Props públicas inalteradas (`cityId`, `venueId`, `onCityChange`, `onVenueChange`, `compact`) — usos em `Events.tsx`, `AddSubEventModal.tsx`, `EventEditModal.tsx` intactos.
+- Eventos em cidades estrangeiras são suportados: `events.city_id` aceita qualquer cidade. **Isto é só o seletor de local** — nada fiscal/IVA/moeda muda; invariante D1 mantém-se. Não confundir com a Fase 8 multi-país (quarentena).
 
-
-## Fix `handleCreateCity`
-- Bug anterior: insert sem `country` → caía no DEFAULT `'Portugal'` mesmo em BR.
-- Sem toggle: insere `country = countryIsoToName(company.country) ?? 'Portugal'` (comportamento intacto).
-- Com toggle ativo: aparece um select de país (`KNOWN_COUNTRY_NAMES`) e a cidade é criada nesse país.
-- Se o país efetivo for `'Brasil'` é mostrado input extra de UF (2 letras, obrigatório) → grava em `state`. Outros países: `state` NULL.
+## Criação de cidade (`handleCreateCity`)
+- O país é sempre explícito no diálogo (default = país da empresa ativa) — nunca cai no DEFAULT `'Portugal'` por omissão.
+- `'Brasil'` exige UF (2 letras) → grava em `state`; outros países `state` NULL.
+- Erro de insert = provável colisão do índice único → procura `country + ilike(name) + state` e seleciona a existente.
 
 
 ## Sítios que usam `formatCityLabel` para mostrar UF
