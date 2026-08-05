@@ -136,9 +136,9 @@ export default function EventMarketingEditor() {
       const { created_at, updated_at, created_by, updated_by, ...rest } = mkQuery.data;
       setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [] });
     } else {
-      setForm(emptyForm(eventId, ev?.company_id ?? companyId ?? ""));
+      setForm(emptyForm(eventId, (eventQuery.data as any)?.company_id ?? companyId ?? ""));
     }
-  }, [mkQuery.data, eventId, companyId, ev?.company_id]);
+  }, [mkQuery.data, eventId, companyId, eventQuery.data]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
