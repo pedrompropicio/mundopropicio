@@ -11,11 +11,49 @@
  * cálculos inline como `amount * rate / 100` — em vez disso importar daqui.
  */
 
-export type IvaRate = 0 | 6 | 13 | 23;
+export type IvaRate = 0 | 4 | 6 | 10 | 13 | 21 | 23;
+
+/** Taxas de Portugal Continental — comportamento padrão (retrocompatível). */
 export const STANDARD_IVA_RATES: IvaRate[] = [0, 6, 13, 23];
+
+/**
+ * Taxas aplicáveis por país (chaves = nomes completos, como em `cities.country`).
+ * As taxas aplicáveis a uma transação/linha de BP são as do país da CIDADE DO
+ * EVENTO — a empresa continua PT e `amount` continua BASE sem IVA em EUR.
+ */
+export const IVA_RATES_BY_COUNTRY: Record<string, IvaRate[]> = {
+  Portugal: [0, 6, 13, 23],
+  Espanha: [0, 4, 10, 21],
+};
+
+export const DEFAULT_IVA_COUNTRY = "Portugal";
+
+/** Taxas do país indicado; fallback Portugal para país desconhecido/nulo. */
+export function getIvaRatesForCountry(countryName: string | null | undefined): IvaRate[] {
+  if (!countryName) return IVA_RATES_BY_COUNTRY[DEFAULT_IVA_COUNTRY];
+  return IVA_RATES_BY_COUNTRY[countryName] ?? IVA_RATES_BY_COUNTRY[DEFAULT_IVA_COUNTRY];
+}
+
+/** Taxa normal do país (a mais alta) — usada como default nos seletores. */
+export function getDefaultIvaRateForCountry(countryName: string | null | undefined): IvaRate {
+  const rates = getIvaRatesForCountry(countryName);
+  return rates.reduce((a, b) => (b > a ? b : a), rates[0]);
+}
+
+/** Etiquetas por taxa (PT + ES). */
+export const IVA_RATE_LABELS: Record<number, string> = {
+  23: "23% - Normal",
+  13: "13% - Intermédia",
+  6: "6% - Reduzida",
+  21: "21% - Normal (ES)",
+  10: "10% - Reduzida (ES)",
+  4: "4% - Super-reduzida (ES)",
+  0: "0% - Isento",
+};
 
 /** Tolerância padrão de arredondamento (1 cêntimo). */
 export const IVA_TOLERANCE = 0.01;
+
 
 /** Arredonda a 2 casas decimais (cêntimo). */
 export function roundCents(value: number): number {
