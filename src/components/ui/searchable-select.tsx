@@ -102,7 +102,12 @@ export function SearchableSelect({
     const q = search.trim();
     if (!q) return false;
     const qn = normalize(q);
-    return !options.some((o) => !o.isHeader && normalize(o.label).startsWith(qn) && normalize(o.label) === qn);
+    // Exact match against the option's core name (label before " · País" / " - UF")
+    return !options.some((o) => {
+      if (o.isHeader) return false;
+      const core = normalize(o.label.split(" · ")[0].split(" - ")[0]);
+      return core === qn || normalize(o.label) === qn;
+    });
   }, [onCreateOption, search, options, normalize]);
 
   // Group options
