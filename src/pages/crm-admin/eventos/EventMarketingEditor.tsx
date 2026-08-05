@@ -848,15 +848,17 @@ function GestaoTab({
 
   return (
     <Card className="space-y-4 p-4">
-      <MetaAudienceCard
-        eventId={eventId}
-        eventName={ev?.name ?? ""}
-        companyId={ev?.company_id ?? companyId ?? ""}
-        metaPixelId={ev?.meta_pixel_id ?? null}
-        metaAudienceId={ev?.meta_audience_id ?? null}
-        metaAudienceName={ev?.meta_audience_name ?? null}
-        disabled={disabled}
-      />
+      {!lean && (
+        <MetaAudienceCard
+          eventId={eventId}
+          eventName={ev?.name ?? ""}
+          companyId={ev?.company_id ?? companyId ?? ""}
+          metaPixelId={ev?.meta_pixel_id ?? null}
+          metaAudienceId={ev?.meta_audience_id ?? null}
+          metaAudienceName={ev?.meta_audience_name ?? null}
+          disabled={disabled}
+        />
+      )}
 
       {!lean && (
         <PurchaseAudienceCard
