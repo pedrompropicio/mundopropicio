@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import LeadDetailsSheet from "./LeadDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
 
@@ -41,6 +41,7 @@ export default function LeadsList() {
   const contactFilter = params.get("contact");
 
   const qc = useQueryClient();
+  const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<string>("all");
   const [eventFilter, setEventFilter] = useState<string>("all");
