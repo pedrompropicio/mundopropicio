@@ -53,10 +53,11 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string }> = {
   stats: { title: "Estatísticas", subtitle: "Números destacados na Home" },
   home: { title: "Quem Somos (homepage)", subtitle: "Texto bilingue da secção \"Quem Somos\" da Home" },
   tracking: { title: "Tracking & Marketing", subtitle: "Pixels e parâmetros de campanhas (site inteiro)" },
+  early_bird: { title: "Early Bird", subtitle: "Estado da venda antecipada, link de compra e preço" },
   general: { title: "Geral", subtitle: "Outras configurações" },
 };
 
-const CATEGORY_ORDER = ["contact", "social", "stats", "home", "tracking", "general"];
+const CATEGORY_ORDER = ["contact", "social", "stats", "home", "early_bird", "tracking", "general"];
 
 // Datas (YYYY-MM-DD) — usar input type=date
 const DATE_KEYS = new Set(["general.vip_coupon_valid_until"]);
