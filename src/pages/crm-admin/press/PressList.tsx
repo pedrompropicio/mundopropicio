@@ -363,6 +363,7 @@ function ClippingFormDialog({
   }, [clipping]);
 
   const urlValid = !url || isValidUrl(url);
+  const { companyId } = useCompany();
 
   const saveMutation = useMutation({
     mutationFn: async () => {

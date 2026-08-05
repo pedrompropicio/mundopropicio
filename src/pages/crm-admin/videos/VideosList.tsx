@@ -358,6 +358,7 @@ function VideoFormDialog({
 
   const youtubeId = parseYoutubeId(youtubeInput);
   const ytValid = YT_ID_RE.test(youtubeId);
+  const { companyId } = useCompany();
 
   const saveMutation = useMutation({
     mutationFn: async () => {

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MP_COMPANY_ID } from "../constants";
 import { useCompany } from "@/hooks/useCompany";
 import type { EventRow, EventMarketingRow } from "../types";
 
@@ -92,6 +93,7 @@ export default function EventosList() {
 // ─── Tab Próprios ──────────────────────────────────────────────────────
 
 function PropriosTab() {
+  const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeOnly, setActiveOnly] = useState<boolean>(() => {
@@ -306,13 +308,13 @@ function PropriosTab() {
 
 function EndossadosTab() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-eventos-endorsements", companyId],
-    enabled: !!companyId,
+    queryKey: ["crm-eventos-endorsements", MP_COMPANY_ID],
+    enabled: !!MP_COMPANY_ID,
     queryFn: async (): Promise<EndorsementRow[]> => {
       const { data: endorsements, error: eErr } = await (supabase as any)
         .from("event_portal_endorsements")
         .select("event_id, partner_label, display_order, featured")
-        .eq("portal_company_id", companyId)
+        .eq("portal_company_id", MP_COMPANY_ID)
         .order("display_order", { ascending: true });
       if (eErr) throw eErr;
       const ids = (endorsements ?? []).map((r: any) => r.event_id);
@@ -324,15 +326,15 @@ function EndossadosTab() {
         .in("id", ids);
       const eventMap = new Map<string, any>((events ?? []).map((e: any) => [e.id, e]));
 
-      const companyIds = Array.from(
+      const MP_COMPANY_IDs = Array.from(
         new Set((events ?? []).map((e: any) => e.company_id).filter(Boolean))
       );
       let companyMap = new Map<string, any>();
-      if (companyIds.length > 0) {
+      if (MP_COMPANY_IDs.length > 0) {
         const { data: companies } = await (supabase as any)
           .from("companies")
           .select("id, display_name, legal_name")
-          .in("id", companyIds);
+          .in("id", MP_COMPANY_IDs);
         companyMap = new Map((companies ?? []).map((c: any) => [c.id, c]));
       }
 
