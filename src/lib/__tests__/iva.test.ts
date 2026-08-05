@@ -7,6 +7,8 @@ import {
   inferIvaRateFromTotal,
   getIvaRatesForCountry,
   getDefaultIvaRateForCountry,
+  getIvaRatesForCountries,
+  getDefaultIvaRateForCountries,
 } from "../iva";
 
 describe("calcIvaAmount", () => {
@@ -103,5 +105,28 @@ describe("IVA Espanha", () => {
   it("checkIvaConsistency funciona com taxas ES", () => {
     expect(checkIvaConsistency(100, 21, 21).ok).toBe(true);
     expect(checkIvaConsistency(100, 21, 23).ok).toBe(false);
+  });
+});
+
+// Turnês: master sem cidade resolve pelos países dos sub-eventos.
+describe("IVA por conjunto de países (turnês)", () => {
+  it("master com 1 sub em Espanha → taxas ES, default 21", () => {
+    expect(getIvaRatesForCountries(["Espanha"])).toEqual([0, 4, 10, 21]);
+    expect(getDefaultIvaRateForCountries(["Espanha"])).toBe(21);
+  });
+
+  it("master sem subs/cidades → PT", () => {
+    expect(getIvaRatesForCountries([])).toEqual([0, 6, 13, 23]);
+    expect(getIvaRatesForCountries([null, undefined])).toEqual([0, 6, 13, 23]);
+    expect(getDefaultIvaRateForCountries([])).toBe(23);
+  });
+
+  it("turnê mista PT+ES → união ordenada, default 23", () => {
+    expect(getIvaRatesForCountries(["Portugal", "Espanha"])).toEqual([0, 4, 6, 10, 13, 21, 23]);
+    expect(getDefaultIvaRateForCountries(["Portugal", "Espanha"])).toBe(23);
+  });
+
+  it("ignora países desconhecidos", () => {
+    expect(getIvaRatesForCountries(["Narnia", "Espanha"])).toEqual([0, 4, 10, 21]);
   });
 });
