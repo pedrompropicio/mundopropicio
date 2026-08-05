@@ -4,15 +4,19 @@ export type TransactionCategory =
   | "bilheteira" | "patrocinios" | "bar_food" | "merchandising" | "outros_receita"
   | "artistas" | "producao" | "logistica" | "marketing" | "staff" | "aluguer" | "seguros" | "outros_despesa";
 
-// Portuguese IVA rates
-export type IvaRate = 23 | 13 | 6 | 0;
+// IVA rates — PT (23/13/6/0) + ES (21/10/4/0). SSOT: src/lib/iva.ts
+export type IvaRate = 23 | 21 | 13 | 10 | 6 | 4 | 0;
 
 export const ivaRateLabels: Record<IvaRate, string> = {
   23: "Taxa Normal (23%)",
+  21: "Taxa Normal ES (21%)",
   13: "Taxa Intermédia (13%)",
+  10: "Taxa Reduzida ES (10%)",
   6: "Taxa Reduzida (6%)",
+  4: "Taxa Super-reduzida ES (4%)",
   0: "Isento (0%)",
 };
+
 
 // Default IVA rate per category (Portugal rules for events)
 export const categoryDefaultIva: Record<TransactionCategory, IvaRate> = {

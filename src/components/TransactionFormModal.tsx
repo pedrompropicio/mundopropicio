@@ -3,6 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
+import IvaRateSelect from "@/components/IvaRateSelect";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt, Sparkles, Loader2, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -330,7 +332,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         body: { fileBase64, fileName: prepared.name, mimeType: prepared.type || "image/jpeg" },
       });
       if (error) throw error;
-      const allowed: IvaRate[] = [0, 6, 13, 23];
+      const allowed: IvaRate[] = eventIva.rates as IvaRate[];
       const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(
         (data as any)?.vat_breakdown,
       )
@@ -484,6 +486,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const hasPLRestriction = hasPL;
   const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
+
+  // Taxas de IVA aplicáveis = país da cidade do evento (PT por defeito).
+  const eventIva = useEventIvaCountry(effectiveEventId || null);
+  useEffect(() => {
+    // Ao mudar para um evento de outro país, ajusta a taxa se a atual não existe lá.
+    if (!eventIva.rates.includes(form.iva_rate as any)) {
+      setForm((f) => ({ ...f, iva_rate: eventIva.defaultRate as IvaRate }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventIva.country]);
+
 
   // Detect if this sub-event's category has a Master BP line (for reinforcement dialog)
   const masterDetection = useMasterCategoryDetection(form.event_id, events as any);
@@ -2581,14 +2594,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     </div>
                   )}
                 </div>
-              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+              <IvaRateSelect
+                eventId={effectiveEventId || null}
+                value={form.iva_rate}
+                onChange={(r) => setForm({ ...form, iva_rate: r as IvaRate })}
                 disabled={!!pendingIvaSplit}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60">
-                <option value={23}>23% - Normal</option>
-                <option value={13}>13% - Intermédia</option>
-                <option value={6}>6% - Reduzida</option>
-                <option value={0}>0% - Isento</option>
-              </select>
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+              />
+
               {pendingIvaSplit && (
                 <div className="mt-1 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">
                   <span>
@@ -3461,6 +3474,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       />
 
       <SplitByIvaModal
+        eventId={effectiveEventId || null}
         open={showSplitByIvaModal}
         onClose={() => {
           setShowSplitByIvaModal(false);

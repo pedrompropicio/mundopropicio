@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Check, X } from "lucide-react";
@@ -13,11 +13,20 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates, defaultRate: defaultIvaRate } = useEventIvaCountry(selectedEventId || null);
+  const [ivaRate, setIvaRate] = useState<string>("23");
+  useEffect(() => {
+    if (!ivaRates.includes(Number(ivaRate) as any)) setIvaRate(String(defaultIvaRate));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ivaRates]);
   const [validUntil, setValidUntil] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const queryClient = useQueryClient();
@@ -104,15 +113,16 @@ export default function Quotations() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     createMutation.mutate({
-      event_id: fd.get("event_id") as string,
+      event_id: selectedEventId,
       supplier_id: fd.get("supplier_id") as string,
       description: fd.get("description") as string,
       amount: parseFloat(fd.get("amount") as string),
-      iva_rate: parseInt(fd.get("iva_rate") as string),
+      iva_rate: parseInt(ivaRate),
       valid_until: validUntil || undefined,
       notes: (fd.get("notes") as string) || undefined,
     });
     setValidUntil("");
+    setSelectedEventId("");
   };
 
   const statusColors: Record<string, string> = {
@@ -146,7 +156,7 @@ export default function Quotations() {
             <form onSubmit={handleSubmit} className="grid gap-4 py-2">
               <div className="grid gap-2">
                 <Label>Evento *</Label>
-                <Select name="event_id" required>
+                <Select name="event_id" required value={selectedEventId} onValueChange={setSelectedEventId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar evento" /></SelectTrigger>
                   <SelectContent>
                     {events.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
@@ -178,13 +188,12 @@ export default function Quotations() {
                 </div>
                 <div className="grid gap-2">
                   <Label>Taxa IVA</Label>
-                  <Select name="iva_rate" defaultValue="23">
+                  <Select name="iva_rate" value={ivaRate} onValueChange={setIvaRate}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="23">23%</SelectItem>
-                      <SelectItem value="13">13%</SelectItem>
-                      <SelectItem value="6">6%</SelectItem>
-                      <SelectItem value="0">Isento</SelectItem>
+                      {ivaRates.map((r) => (
+                        <SelectItem key={r} value={String(r)}>{r === 0 ? "Isento" : `${r}%`}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

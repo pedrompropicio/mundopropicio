@@ -11,6 +11,7 @@ import { calcIvaAmount, calcTotalWithIva, roundCents, snapToStandardRate } from 
 import type { IvaRate } from "@/lib/mock-data";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import { detectNonDeductibleHint } from "@/lib/iva-non-deductible-hint";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 export interface IvaSplitLine {
   /** Base (sem IVA) em EUR */
@@ -61,13 +62,15 @@ interface SplitByIvaModalProps {
    */
   supplierName?: string | null;
   transactionDescription?: string | null;
+  /** Evento associado — define as taxas aplicáveis (PT 23/13/6/0 · ES 21/10/4/0). */
+  eventId?: string | null;
 }
 
-const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel, supplierName, transactionDescription }: SplitByIvaModalProps) {
+export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel, supplierName, transactionDescription, eventId }: SplitByIvaModalProps) {
+  const { rates: rateOptions } = useEventIvaCountry(eventId ?? null);
   const hasAttachment = !!(attachmentFile || attachmentLabel);
   const [attachInvoice, setAttachInvoice] = useState<boolean>(true);
   useEffect(() => {
@@ -174,7 +177,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     // IVA médio (snap): rácio real → taxa PT mais próxima; recalcula base líquida
     // a partir do total c/IVA para garantir que `base × (1 + rate/100) ≈ total`.
     const realRatio = baseSum > 0 ? (ivaSum / baseSum) * 100 : 0;
-    const blendedRate = snapToStandardRate(realRatio);
+    const blendedRate = snapToStandardRate(realRatio, rateOptions);
     const blendedBase = roundCents(grandTotal / (1 + blendedRate / 100));
     const blendedIva = roundCents(grandTotal - blendedBase);
     const blendedDeviation = roundCents(blendedIva - ivaSum);
@@ -231,7 +234,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
       }
       // Mapeia para linhas
       const mapped: IvaSplitLine[] = breakdown
-        .filter((r) => RATE_OPTIONS.includes(r.rate as IvaRate))
+        .filter((r) => rateOptions.includes(r.rate as IvaRate))
         .map((r) => ({
           base: roundCents(Number(r.base) || 0),
           iva_rate: r.rate as IvaRate,
@@ -372,7 +375,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                     }
                     className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {RATE_OPTIONS.map((r) => (
+                    {rateOptions.map((r) => (
                       <option key={r} value={r}>
                         {r}%
                       </option>

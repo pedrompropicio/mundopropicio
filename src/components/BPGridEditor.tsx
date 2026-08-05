@@ -38,6 +38,7 @@ import { recordUndo } from "@/lib/undo";
 import { showUndoToast } from "@/hooks/useUndoToast";
 import { useAuth } from "@/contexts/AuthContext";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 const EUR_FMT = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -131,7 +132,8 @@ function isPendingPristine(p: PendingInsert): boolean {
   );
 }
 
-const IVA_OPTIONS = [0, 6, 13, 23];
+/** Fallback PT; o conjunto real vem do país da cidade do evento (ver useEventIvaCountry). */
+const IVA_OPTIONS_PT = [0, 6, 13, 23];
 const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
   { value: "estimado", label: "Estimado" },
   { value: "negociacao", label: "Negociação" },
@@ -154,11 +156,12 @@ function validateRow(
   effective: { type: string; description: string; category_id: string | null; amount: number; iva_rate: number },
   l3Set: Set<string>,
   categoryTypeById: Map<string, string>,
+  allowedIvaRates: number[] = IVA_OPTIONS_PT,
 ): Partial<Record<EditableField, string>> {
   const errs: Partial<Record<EditableField, string>> = {};
   if (!effective.description || effective.description.trim().length === 0) errs.description = "Obrigatório";
   if (!Number.isFinite(effective.amount) || effective.amount < 0) errs.amount = "Valor inválido";
-  if (![0, 6, 13, 23].includes(effective.iva_rate)) errs.iva_rate = "IVA inválido";
+  if (!allowedIvaRates.includes(effective.iva_rate)) errs.iva_rate = "IVA inválido";
   if (effective.category_id) {
     if (!l3Set.has(effective.category_id)) errs.category_id = "Categoria não é L3";
     else if (categoryTypeById.get(effective.category_id) !== effective.type)
@@ -167,14 +170,14 @@ function validateRow(
   return errs;
 }
 
-const newPending = (type: "income" | "expense"): PendingInsert => ({
+const newPending = (type: "income" | "expense", defaultIvaRate = 23): PendingInsert => ({
   tempId: `tmp_${Math.random().toString(36).slice(2)}`,
   type,
   description: "",
   specification: "",
   category_id: null,
   amount: 0,
-  iva_rate: 23,
+  iva_rate: defaultIvaRate,
   formalidade: "estimado",
   notes: "",
   touched: false,
@@ -189,6 +192,9 @@ export default function BPGridEditor({
 }: BPGridEditorProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaOptions, defaultRate: defaultIvaRate } = useEventIvaCountry(eventId);
 
   const editableRows = useMemo(
     () =>
@@ -309,7 +315,7 @@ export default function BPGridEditor({
   // Focus + scroll-to-top tracking for newly added pending rows
   const [focusTempId, setFocusTempId] = useState<string | null>(null);
   const addPending = useCallback((type: "income" | "expense") => {
-    const p = newPending(type);
+    const p = newPending(type, defaultIvaRate);
     setPendingInserts((prev) => [p, ...prev]);
     setFocusTempId(p.tempId);
   }, []);
@@ -365,7 +371,7 @@ export default function BPGridEditor({
     for (const id of Object.keys(dirty)) {
       const row = editableRows.find((r) => r.id === id);
       if (!row) continue;
-      const errs = validateRow(rowEffective(row), l3Set, categoryTypeById);
+      const errs = validateRow(rowEffective(row), l3Set, categoryTypeById, ivaOptions);
       if (Object.keys(errs).length > 0) m.set(id, errs);
     }
     return m;
@@ -381,11 +387,12 @@ export default function BPGridEditor({
         { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
         l3Set,
         categoryTypeById,
+        ivaOptions,
       );
       if (Object.keys(errs).length > 0) m.set(p.tempId, errs);
     }
     return m;
-  }, [pendingInserts, l3Set, categoryTypeById]);
+  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions]);
 
   // Save-blocking errors: validate ALL pending rows (including pristine empty ones),
   // so saving with a brand-new empty row is still blocked.
@@ -396,11 +403,12 @@ export default function BPGridEditor({
         { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
         l3Set,
         categoryTypeById,
+        ivaOptions,
       );
       if (Object.keys(errs).length > 0) count++;
     }
     return count;
-  }, [pendingInserts, l3Set, categoryTypeById]);
+  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions]);
 
   const totalErrors = rowErrors.size + pendingErrors.size;
   const saveBlockingErrors = rowErrors.size + pendingSaveErrorsCount;
@@ -837,7 +845,7 @@ export default function BPGridEditor({
                     onChange={(e) => updatePending(p.tempId, "iva_rate", parseInt(e.target.value))}
                     className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
                   >
-                    {IVA_OPTIONS.map((v) => (
+                    {ivaOptions.map((v) => (
                       <option key={v} value={v}>
                         {v}%
                       </option>
@@ -1043,7 +1051,7 @@ export default function BPGridEditor({
                       errs.iva_rate ? "border-destructive" : "border-border/60"
                     }`}
                   >
-                    {IVA_OPTIONS.map((v) => (
+                    {ivaOptions.map((v) => (
                       <option key={v} value={v}>
                         {v}%
                       </option>

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
+import IvaRateSelect from "@/components/IvaRateSelect";
 import { X, Building, FileText, Landmark, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -734,14 +735,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             )}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+              <IvaRateSelect
+                eventId={form.event_id || null}
+                value={form.iva_rate}
+                onChange={(r) => setForm({ ...form, iva_rate: r as IvaRate })}
                 disabled={valueLocked}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed">
-                <option value={23}>23% - Normal</option>
-                <option value={13}>13% - Intermédia</option>
-                <option value={6}>6% - Reduzida</option>
-                <option value={0}>0% - Isento</option>
-              </select>
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+
             </div>
             {(() => {
               const base = parseFloat(form.amount) || 0;

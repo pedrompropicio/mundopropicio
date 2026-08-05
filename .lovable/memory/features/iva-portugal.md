@@ -4,6 +4,10 @@ description: Cálculo do IVA por linha com arredondamento ao cêntimo. Single so
 type: feature
 ---
 
+> **Eventos fora de Portugal:** as taxas aplicáveis são as do país da cidade do
+> evento (ES: 0/4/10/21) e esse IVA fica **fora do apuramento PT**.
+> Ver [IVA Espanha](mem://features/iva-espanha).
+
 ## Regra
 - Cálculo **linha a linha** (Art.º 36/37 CIVA): `iva = round(base × taxa/100, 2)`. Total = `base + iva` (cêntimo).
 - DB guarda `amount` (BASE sem IVA) + `iva_rate`. Nunca guardar IVA absoluto.

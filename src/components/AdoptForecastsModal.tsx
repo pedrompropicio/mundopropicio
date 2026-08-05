@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { recordUndo } from "@/lib/undo";
 import { showUndoToast } from "@/hooks/useUndoToast";
 import { getAuditUser } from "@/lib/audit";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 interface Props {
   open: boolean;
@@ -62,6 +63,8 @@ type Item =
     };
 
 export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEventIds, masterForecast, mode, categories = [] }: Props) {
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates } = useEventIvaCountry(masterEventId);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -512,10 +515,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
                 onChange={(e) => setNewIvaRate(e.target.value)}
                 className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
               >
-                <option value="23">23%</option>
-                <option value="13">13%</option>
-                <option value="6">6%</option>
-                <option value="0">0%</option>
+                {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
               </select>
             </div>
           </div>

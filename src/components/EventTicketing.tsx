@@ -26,6 +26,7 @@ import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
 import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
 import { computeZoneAllocations, validateLotAgainstCapacity } from "@/lib/combo-capacity";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 interface Props {
   eventId: string;
@@ -75,6 +76,8 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 }
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates } = useEventIvaCountry(eventId);
   const [forecastImportOpen, setForecastImportOpen] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const queryClient = useQueryClient();
@@ -637,7 +640,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           </td>
           <td className="py-1.5 pr-2">
             <select value={lotForm.iva_rate} onChange={(e) => setLotForm({ ...lotForm, iva_rate: e.target.value })} className={`${inputClass} w-16`}>
-              <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
+              {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
             </select>
           </td>
           <td className="py-1.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(subtotalNet)}</td>

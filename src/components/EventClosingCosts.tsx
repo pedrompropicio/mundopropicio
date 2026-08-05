@@ -14,6 +14,7 @@ import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 interface Props {
   eventId: string;
@@ -28,6 +29,8 @@ interface Props {
  * e em cidades/splits com fatia ÷N como "via Master".
  */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates } = useEventIvaCountry(eventId);
   const queryClient = useQueryClient();
   const { selectedVersionId, isScenarioMode } = useEventScenario();
   const isEventLocked = eventStatus === "completed";
@@ -328,10 +331,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
                 onChange={(e) => setIvaRate(e.target.value)}
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
-                <option value="23">23%</option>
-                <option value="13">13%</option>
-                <option value="6">6%</option>
-                <option value="0">0%</option>
+                {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
               </select>
             </div>
             <div className="space-y-1.5">

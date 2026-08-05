@@ -10,6 +10,7 @@ import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 interface Props {
   forecast: any;
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export function ForecastEditModal({ forecast, categories: externalCategories, onClose }: Props) {
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates } = useEventIvaCountry(forecast?.event_id ?? null);
   const [description, setDescription] = useState(forecast.description || "");
   const [specification, setSpecification] = useState(forecast.specification || "");
   const [categoryId, setCategoryId] = useState(forecast.category_id || "");
@@ -285,10 +288,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
             <select value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className={inputClass}>
-              <option value="23">23%</option>
-              <option value="13">13%</option>
-              <option value="6">6%</option>
-              <option value="0">0%</option>
+              {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
             </select>
           </div>
           {currency !== "EUR" && (
