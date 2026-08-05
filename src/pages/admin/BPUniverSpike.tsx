@@ -45,9 +45,11 @@ import sheetsCorePtBR from "@univerjs/preset-sheets-core/locales/pt-BR";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import { UniverSheetsDataValidationPreset } from "@univerjs/preset-sheets-data-validation";
 import "@univerjs/preset-sheets-data-validation/lib/index.css";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 const DEFAULT_EVENT_ID = "fdfb39fe-45f2-43f5-9ec9-7cb536360ae1"; // Anitta EDA 2026 (fallback sandbox)
-const VALID_IVA = [0, 6, 13, 23] as const;
+/** Fallback PT; o conjunto real vem do país da cidade do evento (ver useEventIvaCountry). */
+const VALID_IVA_PT = [0, 6, 13, 23] as const;
 
 // Formalidade: enum ↔ label
 const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
@@ -550,6 +552,10 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
   const urlEventId = !eventIdProp ? urlParams?.get("event") ?? undefined : undefined;
   const EVENT_ID = eventIdProp ?? urlEventId ?? DEFAULT_EVENT_ID;
   const [eventName, setEventName] = useState<string | null>(null);
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: validIva, defaultRate: defaultIvaRate } = useEventIvaCountry(EVENT_ID || null);
+  const validIvaRef = useRef<number[]>(validIva as number[]);
+  validIvaRef.current = validIva as number[];
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const univerRef = useRef<any>(null);
@@ -1936,7 +1942,8 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!merged.category_id) errs.push("categoria em falta");
       else if (!categoryIds.has(merged.category_id)) errs.push("categoria inválida (não é L3 expense)");
       if (merged.amount == null || isNaN(Number(merged.amount)) || Number(merged.amount) < 0) errs.push("valor inválido (≥ 0)");
-      if (merged.iva_rate == null || !(VALID_IVA as readonly number[]).includes(merged.iva_rate as number)) errs.push("IVA deve ser 0, 6, 13 ou 23");
+      if (merged.iva_rate == null || !validIvaRef.current.includes(merged.iva_rate as number))
+        errs.push(`IVA deve ser ${validIvaRef.current.join(", ")}`);
       if (!merged.formalidade) errs.push("formalidade em falta");
       if (errs.length) problems.push({ row, entryLabel: label, problems: errs });
     }
@@ -1949,7 +1956,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       if (!ins.category_id) errs.push("categoria em falta");
       else if (!categoryIds.has(ins.category_id)) errs.push("categoria inválida");
       if (ins.amount == null || isNaN(Number(ins.amount)) || Number(ins.amount) < 0) errs.push("valor inválido");
-      if (!(VALID_IVA as readonly number[]).includes(ins.iva_rate)) errs.push("IVA inválido");
+      if (!validIvaRef.current.includes(ins.iva_rate)) errs.push("IVA inválido");
       if (!ins.formalidade) errs.push("formalidade em falta");
       if (errs.length) {
         // find visual row for the temp
@@ -2175,7 +2182,7 @@ export default function BPUniverSpike({ eventId: eventIdProp, canEdit, embedded 
       description: "",
       specification: null,
       amount: 0,
-      iva_rate: 23,
+      iva_rate: defaultIvaRate,
       formalidade: "estimado",
     };
     setPendingInserts((prev) => [...prev, insertRow]);
