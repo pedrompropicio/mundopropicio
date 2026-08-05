@@ -53,12 +53,13 @@ export default function LeadsList() {
   const [confirmText, setConfirmText] = useState("");
 
   const { data: events } = useQuery({
-    queryKey: ["crm-leads-events", MP_COMPANY_ID],
+    queryKey: ["crm-leads-events", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("events")
         .select("id, name")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
       return data ?? [];
@@ -66,7 +67,8 @@ export default function LeadsList() {
   });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-leads-list", MP_COMPANY_ID, contactFilter, eventFilter, fromDate, toDate],
+    queryKey: ["crm-leads-list", companyId, contactFilter, eventFilter, fromDate, toDate],
+    enabled: !!companyId,
     queryFn: async () => {
       let q = (supabase as any)
         .from("leads")
@@ -75,7 +77,7 @@ export default function LeadsList() {
           contact:contacts(id, name, email),
           event:events(id, name)
         `)
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false })
         .limit(1000);
       if (contactFilter) q = q.eq("contact_id", contactFilter);
