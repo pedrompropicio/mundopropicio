@@ -858,39 +858,44 @@ function GestaoTab({
         disabled={disabled}
       />
 
-      <PurchaseAudienceCard
-        eventId={eventId}
-        companyId={ev?.company_id ?? companyId ?? ""}
-        metaPixelId={ev?.meta_pixel_id ?? null}
-        variant="card"
-      />
-
-
-      <Field label="Tipo de gestão">
-        <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="own">Própria (MP gere tudo)</SelectItem>
-            <SelectItem value="partner_managed">Parceria (sócio externo gere)</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      {mgmt === "partner_managed" && (
-        <Field label="Nome do parceiro">
-          <Input
-            value={partnerName}
-            onChange={(e) => setPartnerName(e.target.value)}
-            placeholder="ex.: Pulsetto Productions"
-            disabled={disabled}
-          />
-        </Field>
+      {!lean && (
+        <PurchaseAudienceCard
+          eventId={eventId}
+          companyId={ev?.company_id ?? companyId ?? ""}
+          metaPixelId={ev?.meta_pixel_id ?? null}
+          variant="card"
+        />
       )}
 
-      <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-        Mudar para Parceria esconde imediatamente o evento de BP, TX, Operação e Audience.
-        Mudar de Parceria para Própria volta a mostrá-lo nesses módulos.
-      </p>
+      {!lean && (
+        <>
+          <Field label="Tipo de gestão">
+            <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="own">Própria (MP gere tudo)</SelectItem>
+                <SelectItem value="partner_managed">Parceria (sócio externo gere)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {mgmt === "partner_managed" && (
+            <Field label="Nome do parceiro">
+              <Input
+                value={partnerName}
+                onChange={(e) => setPartnerName(e.target.value)}
+                placeholder="ex.: Pulsetto Productions"
+                disabled={disabled}
+              />
+            </Field>
+          )}
+
+          <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+            Mudar para Parceria esconde imediatamente o evento de BP, TX, Operação e Audience.
+            Mudar de Parceria para Própria volta a mostrá-lo nesses módulos.
+          </p>
+        </>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Localização">
@@ -899,35 +904,40 @@ function GestaoTab({
         <Field label="Ticketing URL">
           <Input type="url" value={ticketingUrl} onChange={(e) => setTicketingUrl(e.target.value)} disabled={disabled} />
         </Field>
-        <Field label="Ticketing provider">
-          <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
-        </Field>
-        <Field label="Link de destino do anúncio (portal)">
-          <Input
-            type="url"
-            value={adDestinationUrl}
-            onChange={(e) => setAdDestinationUrl(e.target.value)}
-            disabled={disabled}
-            placeholder="https://www.mundopropicio.com/pt/eventos/<slug>"
-          />
-          <p className="text-xs text-muted-foreground">
-            Para onde o anúncio leva o utilizador (página do portal com o pixel). Se vazio, usa o Ticketing URL.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-2 w-fit"
-            disabled={disabled || !ev?.slug}
-            onClick={() => setAdDestinationUrl(`https://www.mundopropicio.com/pt/eventos/${ev?.slug}`)}
-          >
-            Preencher a partir do slug
-          </Button>
-          {!ev?.slug && (
-            <p className="text-xs text-muted-foreground">Evento sem slug.</p>
-          )}
-        </Field>
+        {!lean && (
+          <Field label="Ticketing provider">
+            <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
+          </Field>
+        )}
+        {!lean && (
+          <Field label="Link de destino do anúncio (portal)">
+            <Input
+              type="url"
+              value={adDestinationUrl}
+              onChange={(e) => setAdDestinationUrl(e.target.value)}
+              disabled={disabled}
+              placeholder="https://www.mundopropicio.com/pt/eventos/<slug>"
+            />
+            <p className="text-xs text-muted-foreground">
+              Para onde o anúncio leva o utilizador (página do portal com o pixel). Se vazio, usa o Ticketing URL.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 w-fit"
+              disabled={disabled || !ev?.slug}
+              onClick={() => setAdDestinationUrl(`https://www.mundopropicio.com/pt/eventos/${ev?.slug}`)}
+            >
+              Preencher a partir do slug
+            </Button>
+            {!ev?.slug && (
+              <p className="text-xs text-muted-foreground">Evento sem slug.</p>
+            )}
+          </Field>
+        )}
       </div>
+
 
       <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
         <div>
