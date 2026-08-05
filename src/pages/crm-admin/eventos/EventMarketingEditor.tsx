@@ -718,10 +718,12 @@ function GestaoTab({
   eventId,
   ev,
   disabled,
+  lean = false,
 }: {
   eventId: string;
   ev: any;
   disabled: boolean;
+  lean?: boolean;
 }) {
   const { companyId } = useCompany();
   const qc = useQueryClient();
