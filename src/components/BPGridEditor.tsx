@@ -170,14 +170,14 @@ function validateRow(
   return errs;
 }
 
-const newPending = (type: "income" | "expense"): PendingInsert => ({
+const newPending = (type: "income" | "expense", defaultIvaRate = 23): PendingInsert => ({
   tempId: `tmp_${Math.random().toString(36).slice(2)}`,
   type,
   description: "",
   specification: "",
   category_id: null,
   amount: 0,
-  iva_rate: 23,
+  iva_rate: defaultIvaRate,
   formalidade: "estimado",
   notes: "",
   touched: false,
@@ -194,7 +194,7 @@ export default function BPGridEditor({
   const { user } = useAuth();
 
   // Taxas de IVA do país da cidade do evento (PT por defeito).
-  const { rates: ivaOptions } = useEventIvaCountry(eventId);
+  const { rates: ivaOptions, defaultRate: defaultIvaRate } = useEventIvaCountry(eventId);
 
   const editableRows = useMemo(
     () =>
@@ -315,7 +315,7 @@ export default function BPGridEditor({
   // Focus + scroll-to-top tracking for newly added pending rows
   const [focusTempId, setFocusTempId] = useState<string | null>(null);
   const addPending = useCallback((type: "income" | "expense") => {
-    const p = newPending(type);
+    const p = newPending(type, defaultIvaRate);
     setPendingInserts((prev) => [p, ...prev]);
     setFocusTempId(p.tempId);
   }, []);
