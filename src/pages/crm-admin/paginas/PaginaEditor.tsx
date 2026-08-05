@@ -67,7 +67,7 @@ export default function PaginaEditor() {
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: ["crm-pagina", slug],
+    queryKey: ["crm-pagina", slug, companyId],
     queryFn: async (): Promise<StaticPageRow[]> => {
       const { data, error } = await (supabase as any)
         .from("static_pages")
@@ -77,7 +77,7 @@ export default function PaginaEditor() {
       if (error) throw error;
       return (data ?? []) as StaticPageRow[];
     },
-    enabled: !!slug,
+    enabled: !!slug && !!companyId,
   });
 
   const initial = useMemo(() => {
