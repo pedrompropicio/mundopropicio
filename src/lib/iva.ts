@@ -77,16 +77,22 @@ export function inferIvaRateFromTotal(baseAmount: number, totalWithIva: number):
   return ((totalWithIva - baseAmount) / baseAmount) * 100;
 }
 
-/** "Snap" para a taxa-padrão portuguesa mais próxima (0/6/13/23%). */
-export function snapToStandardRate(rate: number): IvaRate {
-  let best: IvaRate = STANDARD_IVA_RATES[0];
+/**
+ * "Snap" para a taxa-padrão mais próxima.
+ * Sem `rates`, comporta-se exatamente como antes: taxas PT (0/6/13/23%).
+ * Com `rates` (ex.: taxas do país da cidade do evento), faz snap nesse conjunto.
+ */
+export function snapToStandardRate(rate: number, rates: IvaRate[] = STANDARD_IVA_RATES): IvaRate {
+  const pool = rates.length ? rates : STANDARD_IVA_RATES;
+  let best: IvaRate = pool[0];
   let minDiff = Math.abs(rate - best);
-  for (const r of STANDARD_IVA_RATES) {
+  for (const r of pool) {
     const d = Math.abs(rate - r);
     if (d < minDiff) { minDiff = d; best = r; }
   }
   return best;
 }
+
 
 export interface IvaConsistencyResult {
   ok: boolean;
