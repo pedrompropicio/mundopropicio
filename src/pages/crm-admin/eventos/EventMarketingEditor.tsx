@@ -716,6 +716,7 @@ function GestaoTab({
   ev: any;
   disabled: boolean;
 }) {
+  const { companyId } = useCompany();
   const qc = useQueryClient();
   const [mgmt, setMgmt] = useState<string>(ev?.management_type ?? "own");
   const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");

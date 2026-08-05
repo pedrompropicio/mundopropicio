@@ -350,6 +350,7 @@ function NewSettingDialog({
   nextOrderByCategory: (cat: string) => number;
 }) {
   const qc = useQueryClient();
+  const { companyId } = useCompany();
   const [key, setKey] = useState("");
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState("general");
