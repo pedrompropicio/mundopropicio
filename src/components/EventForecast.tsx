@@ -54,6 +54,7 @@ import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeH
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
 import { CoalaImportWizard } from "@/components/CoalaImportWizard";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -154,6 +155,8 @@ interface Props {
 }
 
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates } = useEventIvaCountry(eventId);
   const navigate = useNavigate();
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
@@ -1848,10 +1851,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })}
             className={`${inputClass} w-20`}
           >
-            <option value="23">23%</option>
-            <option value="13">13%</option>
-            <option value="6">6%</option>
-            <option value="0">0%</option>
+            {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
           </select>
         </td>
         <td className="py-1.5 pr-2">
@@ -2349,7 +2349,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                    <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
-                                      <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
+                                      {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                                     </select>
                                   </td>
                                    <td className="py-1.5 pr-2">
@@ -2578,7 +2578,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
-                                      <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
+                                      {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                                     </select>
                                   </td>
                                    <td className="py-1.5 pr-2">
