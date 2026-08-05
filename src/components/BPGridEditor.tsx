@@ -131,7 +131,8 @@ function isPendingPristine(p: PendingInsert): boolean {
   );
 }
 
-const IVA_OPTIONS = [0, 6, 13, 23];
+/** Fallback PT; o conjunto real vem do país da cidade do evento (ver useEventIvaCountry). */
+const IVA_OPTIONS_PT = [0, 6, 13, 23];
 const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
   { value: "estimado", label: "Estimado" },
   { value: "negociacao", label: "Negociação" },
