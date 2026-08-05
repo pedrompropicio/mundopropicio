@@ -38,6 +38,7 @@ import { recordUndo } from "@/lib/undo";
 import { showUndoToast } from "@/hooks/useUndoToast";
 import { useAuth } from "@/contexts/AuthContext";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 const EUR_FMT = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -386,11 +387,12 @@ export default function BPGridEditor({
         { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
         l3Set,
         categoryTypeById,
+        ivaOptions,
       );
       if (Object.keys(errs).length > 0) m.set(p.tempId, errs);
     }
     return m;
-  }, [pendingInserts, l3Set, categoryTypeById]);
+  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions]);
 
   // Save-blocking errors: validate ALL pending rows (including pristine empty ones),
   // so saving with a brand-new empty row is still blocked.
@@ -401,11 +403,12 @@ export default function BPGridEditor({
         { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
         l3Set,
         categoryTypeById,
+        ivaOptions,
       );
       if (Object.keys(errs).length > 0) count++;
     }
     return count;
-  }, [pendingInserts, l3Set, categoryTypeById]);
+  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions]);
 
   const totalErrors = rowErrors.size + pendingErrors.size;
   const saveBlockingErrors = rowErrors.size + pendingSaveErrorsCount;
