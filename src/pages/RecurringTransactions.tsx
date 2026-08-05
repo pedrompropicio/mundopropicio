@@ -39,7 +39,8 @@ import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
-const IVA_RATES = [0, 6, 13, 23];
+/** Fallback PT; o conjunto real vem do país da cidade do evento. */
+const IVA_RATES_PT = [0, 6, 13, 23];
 const FREQUENCIES = [
   { value: "monthly", label: "Mensal" },
   { value: "quarterly", label: "Trimestral" },
@@ -498,7 +499,7 @@ export default function RecurringTransactions() {
                 <Select value={String(form.iva_rate)} onValueChange={(v) => setForm({ ...form, iva_rate: Number(v) })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {IVA_RATES.map((r) => (
+                    {ivaRates.map((r) => (
                       <SelectItem key={r} value={String(r)}>{r}%</SelectItem>
                     ))}
                   </SelectContent>

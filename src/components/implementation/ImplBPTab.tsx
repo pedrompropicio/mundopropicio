@@ -17,6 +17,7 @@ import CategoryFormModal from "@/components/CategoryFormModal";
 import { useAuth } from "@/contexts/AuthContext";
 import * as XLSX from "xlsx";
 import { formatDatePT } from "@/lib/utils";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 interface Props {
   implementation: any;
@@ -111,6 +112,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaRates } = useEventIvaCountry(selectedEventId || null);
   const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
@@ -2093,10 +2096,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             >
                               <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="0">0%</SelectItem>
-                                <SelectItem value="6">6%</SelectItem>
-                                <SelectItem value="13">13%</SelectItem>
-                                <SelectItem value="23">23%</SelectItem>
+                                {ivaRates.map((r) => (<SelectItem key={r} value={String(r)}>{r}%</SelectItem>))}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -2333,10 +2333,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               <Select value={editSourceValues.ivaRate} onValueChange={(v) => setEditSourceValues({ ...editSourceValues, ivaRate: v })}>
                                 <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="0">0%</SelectItem>
-                                  <SelectItem value="6">6%</SelectItem>
-                                  <SelectItem value="13">13%</SelectItem>
-                                  <SelectItem value="23">23%</SelectItem>
+                                  {ivaRates.map((r) => (<SelectItem key={r} value={String(r)}>{r}%</SelectItem>))}
                                 </SelectContent>
                               </Select>
                             ) : `${line.source.ivaRate}%`
@@ -2400,10 +2397,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               <Select value={String(editValues.iva_rate)} onValueChange={(v) => setEditValues({ ...editValues, iva_rate: Number(v) })}>
                                 <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="0">0%</SelectItem>
-                                  <SelectItem value="6">6%</SelectItem>
-                                  <SelectItem value="13">13%</SelectItem>
-                                  <SelectItem value="23">23%</SelectItem>
+                                  {ivaRates.map((r) => (<SelectItem key={r} value={String(r)}>{r}%</SelectItem>))}
                                 </SelectContent>
                               </Select>
                             ) : `${line.match.iva_rate}%`
@@ -2717,10 +2711,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             <Select value={String(editValues.iva_rate)} onValueChange={(v) => setEditValues({ ...editValues, iva_rate: Number(v) })}>
                               <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="0">0%</SelectItem>
-                                <SelectItem value="6">6%</SelectItem>
-                                <SelectItem value="13">13%</SelectItem>
-                                <SelectItem value="23">23%</SelectItem>
+                                {ivaRates.map((r) => (<SelectItem key={r} value={String(r)}>{r}%</SelectItem>))}
                               </SelectContent>
                             </Select>
                           ) : <span className="text-xs">{f.iva_rate}%</span>}
