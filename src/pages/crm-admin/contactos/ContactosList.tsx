@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import ContactDetailsSheet from "./ContactDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
 
@@ -42,6 +42,7 @@ type TriState = "all" | "yes" | "no";
 
 export default function ContactosList() {
   const qc = useQueryClient();
+  const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [emailConsent, setEmailConsent] = useState<TriState>("all");
   const [waConsent, setWaConsent] = useState<TriState>("all");
@@ -53,12 +54,13 @@ export default function ContactosList() {
   const [confirmText, setConfirmText] = useState("");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-contactos-list", MP_COMPANY_ID],
+    queryKey: ["crm-contactos-list", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("contacts")
         .select("id, name, email, phone_e164, source, consent_email, consent_whatsapp, is_active, last_activity_at")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("last_activity_at", { ascending: false })
         .limit(1000);
       if (error) throw error;
