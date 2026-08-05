@@ -435,7 +435,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       }
       setRawSheetData(rawData);
 
-      const sheets = parseXlsxPL(buffer);
+      const sheets = parseXlsxPL(buffer, ivaRates);
       setParsedSheets(sheets);
 
       // Build auto-mappings if multiple sheets

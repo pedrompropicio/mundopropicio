@@ -52,10 +52,10 @@ function roundMoney(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
-function snapIvaRate(calculated: number): number {
-  let closest = STANDARD_IVA_RATES[0];
+function snapIvaRate(calculated: number, rates: readonly number[] = STANDARD_IVA_RATES): number {
+  let closest = rates[0];
   let minDiff = Math.abs(calculated - closest);
-  for (const rate of STANDARD_IVA_RATES) {
+  for (const rate of rates) {
     const diff = Math.abs(calculated - rate);
     if (diff < minDiff) { minDiff = diff; closest = rate; }
   }
@@ -212,7 +212,11 @@ function extractHyperlinksByRow(ws: XLSX.WorkSheet): Map<number, string[]> {
   return map;
 }
 
-export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
+/**
+ * `allowedIvaRates` — taxas do país do evento de DESTINO do import
+ * (ES 21/10/4/0). Sem parâmetro, comporta-se como antes (PT).
+ */
+export function parseXlsxPL(buffer: ArrayBuffer, allowedIvaRates: readonly number[] = STANDARD_IVA_RATES): ParsedSheet[] {
   const wb = XLSX.read(buffer, { type: "array", cellHTML: false });
   const sheets: ParsedSheet[] = [];
 
@@ -284,7 +288,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       }
 
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
-      const ivaRate = snapIvaRate(calculatedRate);
+      const ivaRate = snapIvaRate(calculatedRate, allowedIvaRates);
 
       // Validação CIVA: o IVA do ficheiro deve bater com base × taxa (±0,01€).
       // Se divergir, registamos warning e usamos o valor matematicamente correto.
