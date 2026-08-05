@@ -27,6 +27,7 @@ import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+import { MP_COMPANY_ID } from "../constants";
 import { CopyTourContentDialog } from "./CopyTourContentDialog";
 import { TourCreativesAudit } from "./TourCreativesAudit";
 
