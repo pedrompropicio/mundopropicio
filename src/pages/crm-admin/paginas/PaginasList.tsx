@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import { toSlug } from "../lib/slug";
 import type { StaticPageRow } from "../types";
 
@@ -37,6 +37,7 @@ type Group = {
 };
 
 export default function PaginasList() {
+  const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [newSlug, setNewSlug] = useState("");
@@ -45,12 +46,13 @@ export default function PaginasList() {
   const { user } = useAuth();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-paginas-list", MP_COMPANY_ID],
+    queryKey: ["crm-paginas-list", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<StaticPageRow[]> => {
       const { data, error } = await (supabase as any)
         .from("static_pages")
         .select("*")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as StaticPageRow[];
@@ -91,7 +93,7 @@ export default function PaginasList() {
       if (!cleanSlug) throw new Error("Slug inválido.");
       const rows = [
         {
-          company_id: MP_COMPANY_ID,
+          company_id: companyId,
           slug: cleanSlug,
           locale: "pt",
           title: "",
@@ -100,7 +102,7 @@ export default function PaginasList() {
           updated_by: user?.id ?? null,
         },
         {
-          company_id: MP_COMPANY_ID,
+          company_id: companyId,
           slug: cleanSlug,
           locale: "en",
           title: "",

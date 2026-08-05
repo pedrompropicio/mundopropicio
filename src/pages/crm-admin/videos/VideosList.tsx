@@ -57,7 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 
 interface HomeVideoRow {
   id: string;
@@ -91,6 +91,7 @@ function parseYoutubeId(input: string): string {
 }
 
 export default function VideosList() {
+  const { companyId } = useCompany();
   const qc = useQueryClient();
   const { user } = useAuth();
   const [editing, setEditing] = useState<HomeVideoRow | null>(null);
@@ -98,12 +99,13 @@ export default function VideosList() {
   const [toDelete, setToDelete] = useState<HomeVideoRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-home-videos", MP_COMPANY_ID],
+    queryKey: ["crm-home-videos", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<HomeVideoRow[]> => {
       const { data, error } = await (supabase as any)
         .from("home_videos")
         .select("*")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("display_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -112,12 +114,13 @@ export default function VideosList() {
   });
 
   const { data: events } = useQuery({
-    queryKey: ["crm-events-for-videos", MP_COMPANY_ID],
+    queryKey: ["crm-events-for-videos", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<EventOption[]> => {
       const { data, error } = await (supabase as any)
         .from("events")
         .select("id, name, date")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("date", { ascending: false, nullsFirst: false })
         .limit(500);
       if (error) throw error;
@@ -165,7 +168,7 @@ export default function VideosList() {
     const newIdx = videos.findIndex((v) => v.id === over.id);
     if (oldIdx < 0 || newIdx < 0) return;
     const next = arrayMove(videos, oldIdx, newIdx);
-    qc.setQueryData(["crm-home-videos", MP_COMPANY_ID], next);
+    qc.setQueryData(["crm-home-videos", companyId], next);
     reorderMutation.mutate(next.map((v) => v.id));
   };
 
@@ -361,7 +364,7 @@ function VideoFormDialog({
       if (!titlePt.trim()) throw new Error("Título (PT) obrigatório.");
       if (!ytValid) throw new Error("ID do YouTube inválido.");
       const payload = {
-        company_id: MP_COMPANY_ID,
+        company_id: companyId,
         title_pt: titlePt.trim(),
         title_en: titleEn.trim() || null,
         youtube_id: youtubeId,

@@ -58,7 +58,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import { ImageUploader } from "../components/ImageUploader";
 
 interface PressClippingRow {
@@ -80,6 +80,7 @@ interface EventOption {
 }
 
 export default function PressList() {
+  const { companyId } = useCompany();
   const qc = useQueryClient();
   const { user } = useAuth();
   const [editing, setEditing] = useState<PressClippingRow | null>(null);
@@ -87,12 +88,13 @@ export default function PressList() {
   const [toDelete, setToDelete] = useState<PressClippingRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-press-clippings", MP_COMPANY_ID],
+    queryKey: ["crm-press-clippings", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<PressClippingRow[]> => {
       const { data, error } = await (supabase as any)
         .from("press_clippings")
         .select("id, company_id, event_id, source, event_name, url, image, display_order, portal_visible")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("display_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as PressClippingRow[];
@@ -100,12 +102,13 @@ export default function PressList() {
   });
 
   const { data: events } = useQuery({
-    queryKey: ["crm-events-for-press", MP_COMPANY_ID],
+    queryKey: ["crm-events-for-press", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<EventOption[]> => {
       const { data, error } = await (supabase as any)
         .from("events")
         .select("id, name, date")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("date", { ascending: false, nullsFirst: false })
         .limit(500);
       if (error) throw error;
@@ -153,7 +156,7 @@ export default function PressList() {
     const newIdx = clippings.findIndex((c) => c.id === over.id);
     if (oldIdx < 0 || newIdx < 0) return;
     const next = arrayMove(clippings, oldIdx, newIdx);
-    qc.setQueryData(["crm-press-clippings", MP_COMPANY_ID], next);
+    qc.setQueryData(["crm-press-clippings", companyId], next);
     reorderMutation.mutate(next.map((c) => c.id));
   };
 
@@ -366,7 +369,7 @@ function ClippingFormDialog({
       if (!source.trim()) throw new Error("Fonte (source) obrigatória.");
       if (url && !isValidUrl(url)) throw new Error("URL da matéria inválido.");
       const payload = {
-        company_id: MP_COMPANY_ID,
+        company_id: companyId,
         source: source.trim(),
         event_name: eventName.trim() || null,
         event_id: eventId === "none" ? null : eventId,

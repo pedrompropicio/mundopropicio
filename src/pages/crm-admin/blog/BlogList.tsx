@@ -21,22 +21,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import type { BlogPostRow } from "../types";
 
 export default function BlogList() {
+  const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-blog-list", MP_COMPANY_ID],
+    queryKey: ["crm-blog-list", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<BlogPostRow[]> => {
       const { data, error } = await (supabase as any)
         .from("blog_posts")
         .select(
           "id, company_id, slug, title_pt, title_en, content_pt, content_en, excerpt_pt, excerpt_en, cover_image, published, portal_visible, author_id, published_at, created_at, updated_at",
         )
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as BlogPostRow[];

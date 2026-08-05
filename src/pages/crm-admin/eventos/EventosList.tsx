@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 import type { EventRow, EventMarketingRow } from "../types";
 
 const ACTIVE_ONLY_KEY = "crm.eventos.activeOnly";
@@ -51,6 +51,7 @@ type EndorsementRow = {
 };
 
 export default function EventosList() {
+  const { companyId } = useCompany();
   const navigate = useNavigate();
 
   return (
@@ -106,12 +107,13 @@ function PropriosTab() {
   }, [activeOnly]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-eventos-list", MP_COMPANY_ID],
+    queryKey: ["crm-eventos-list", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<EventWithMk[]> => {
       const { data: events, error: eErr } = await (supabase as any)
         .from("events")
         .select("id, name, slug, status, date, company_id, management_type, partner_name")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("date", { ascending: false, nullsFirst: false })
         .limit(500);
       if (eErr) throw eErr;
@@ -304,12 +306,13 @@ function PropriosTab() {
 
 function EndossadosTab() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-eventos-endorsements", MP_COMPANY_ID],
+    queryKey: ["crm-eventos-endorsements", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<EndorsementRow[]> => {
       const { data: endorsements, error: eErr } = await (supabase as any)
         .from("event_portal_endorsements")
         .select("event_id, partner_label, display_order, featured")
-        .eq("portal_company_id", MP_COMPANY_ID)
+        .eq("portal_company_id", companyId)
         .order("display_order", { ascending: true });
       if (eErr) throw eErr;
       const ids = (endorsements ?? []).map((r: any) => r.event_id);

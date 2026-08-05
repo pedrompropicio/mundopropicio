@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { MP_COMPANY_ID } from "../constants";
+import { useCompany } from "@/hooks/useCompany";
 
 interface SettingRow {
   id: string;
@@ -74,6 +74,7 @@ function toInputString(v: any): string {
 }
 
 export default function PortalSettings() {
+  const { companyId } = useCompany();
   const qc = useQueryClient();
   const { user } = useAuth();
   const [creating, setCreating] = useState(false);
@@ -82,12 +83,13 @@ export default function PortalSettings() {
   const [dirty, setDirty] = useState<Record<string, string>>({});
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-portal-settings", MP_COMPANY_ID],
+    queryKey: ["crm-portal-settings", companyId],
+    enabled: !!companyId,
     queryFn: async (): Promise<SettingRow[]> => {
       const { data, error } = await (supabase as any)
         .from("portal_settings")
         .select("*")
-        .eq("company_id", MP_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("category", { ascending: true })
         .order("display_order", { ascending: true });
       if (error) throw error;
@@ -360,7 +362,7 @@ function NewSettingDialog({
       if (!k) throw new Error("Chave obrigatória.");
       if (existingKeys.includes(k)) throw new Error("Já existe um setting com essa chave.");
       const { error } = await (supabase as any).from("portal_settings").insert({
-        company_id: MP_COMPANY_ID,
+        company_id: companyId,
         key: k,
         value: value,
         category,
