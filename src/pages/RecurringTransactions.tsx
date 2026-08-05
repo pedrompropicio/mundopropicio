@@ -95,6 +95,7 @@ export default function RecurringTransactions() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<RecurringForm>(emptyForm);
+  const { rates: ivaRates } = useEventIvaCountry(form.event_id || null);
   const canManageRecurring = isAdmin || isManager || hasPermission("manage_recurring");
   const canDeleteRecurring = isAdmin || isManager;
 
