@@ -155,11 +155,12 @@ function validateRow(
   effective: { type: string; description: string; category_id: string | null; amount: number; iva_rate: number },
   l3Set: Set<string>,
   categoryTypeById: Map<string, string>,
+  allowedIvaRates: number[] = IVA_OPTIONS_PT,
 ): Partial<Record<EditableField, string>> {
   const errs: Partial<Record<EditableField, string>> = {};
   if (!effective.description || effective.description.trim().length === 0) errs.description = "Obrigatório";
   if (!Number.isFinite(effective.amount) || effective.amount < 0) errs.amount = "Valor inválido";
-  if (![0, 6, 13, 23].includes(effective.iva_rate)) errs.iva_rate = "IVA inválido";
+  if (!allowedIvaRates.includes(effective.iva_rate)) errs.iva_rate = "IVA inválido";
   if (effective.category_id) {
     if (!l3Set.has(effective.category_id)) errs.category_id = "Categoria não é L3";
     else if (categoryTypeById.get(effective.category_id) !== effective.type)
@@ -190,6 +191,9 @@ export default function BPGridEditor({
 }: BPGridEditorProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+  const { rates: ivaOptions } = useEventIvaCountry(eventId);
 
   const editableRows = useMemo(
     () =>
@@ -366,7 +370,7 @@ export default function BPGridEditor({
     for (const id of Object.keys(dirty)) {
       const row = editableRows.find((r) => r.id === id);
       if (!row) continue;
-      const errs = validateRow(rowEffective(row), l3Set, categoryTypeById);
+      const errs = validateRow(rowEffective(row), l3Set, categoryTypeById, ivaOptions);
       if (Object.keys(errs).length > 0) m.set(id, errs);
     }
     return m;
@@ -838,7 +842,7 @@ export default function BPGridEditor({
                     onChange={(e) => updatePending(p.tempId, "iva_rate", parseInt(e.target.value))}
                     className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
                   >
-                    {IVA_OPTIONS.map((v) => (
+                    {ivaOptions.map((v) => (
                       <option key={v} value={v}>
                         {v}%
                       </option>
@@ -1044,7 +1048,7 @@ export default function BPGridEditor({
                       errs.iva_rate ? "border-destructive" : "border-border/60"
                     }`}
                   >
-                    {IVA_OPTIONS.map((v) => (
+                    {ivaOptions.map((v) => (
                       <option key={v} value={v}>
                         {v}%
                       </option>
