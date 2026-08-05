@@ -332,7 +332,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         body: { fileBase64, fileName: prepared.name, mimeType: prepared.type || "image/jpeg" },
       });
       if (error) throw error;
-      const allowed: IvaRate[] = [0, 6, 13, 23];
+      const allowed: IvaRate[] = eventIva.rates as IvaRate[];
       const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(
         (data as any)?.vat_breakdown,
       )
