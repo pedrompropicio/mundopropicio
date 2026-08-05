@@ -3474,6 +3474,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       />
 
       <SplitByIvaModal
+        eventId={effectiveEventId || null}
         open={showSplitByIvaModal}
         onClose={() => {
           setShowSplitByIvaModal(false);
