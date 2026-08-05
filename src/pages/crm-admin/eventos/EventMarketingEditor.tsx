@@ -27,6 +27,7 @@ import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+import { MP_COMPANY_ID } from "../constants";
 import { CopyTourContentDialog } from "./CopyTourContentDialog";
 import { TourCreativesAudit } from "./TourCreativesAudit";
 
@@ -214,6 +215,8 @@ export default function EventMarketingEditor() {
 
   const ev = eventQuery.data as any;
   const isForeign = ev && !!companyId && ev.company_id !== companyId;
+  // Modo enxuto: eventos de empresas que não a MP não usam o modelo de página do portal MP
+  const isLean = !!ev && ev.company_id !== MP_COMPANY_ID;
   const isPartnerManaged = ev && ev.management_type === "partner_managed";
 
   return (
@@ -290,22 +293,26 @@ export default function EventMarketingEditor() {
         </Card>
       )}
 
-      <Tabs defaultValue={isForeign ? "hero" : "gestao"}>
+      <Tabs defaultValue={isForeign && !isLean ? "hero" : "gestao"}>
         <TabsList className="flex w-full flex-wrap h-auto">
           <TabsTrigger value="gestao">Gestão</TabsTrigger>
-          <TabsTrigger value="hero">Hero</TabsTrigger>
-          <TabsTrigger value="imagens">Média</TabsTrigger>
-          <TabsTrigger value="experiencias">Experiências</TabsTrigger>
-          <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
-          <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
-          <TabsTrigger value="faq">FAQ</TabsTrigger>
-          <TabsTrigger value="lineup">Line-up</TabsTrigger>
-          <TabsTrigger value="oferta">Oferta</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
+          {!isLean && (
+            <>
+              <TabsTrigger value="hero">Hero</TabsTrigger>
+              <TabsTrigger value="imagens">Média</TabsTrigger>
+              <TabsTrigger value="experiencias">Experiências</TabsTrigger>
+              <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
+              <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
+              <TabsTrigger value="faq">FAQ</TabsTrigger>
+              <TabsTrigger value="lineup">Line-up</TabsTrigger>
+              <TabsTrigger value="oferta">Oferta</TabsTrigger>
+              <TabsTrigger value="seo">SEO</TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <TabsContent value="gestao">
-          <GestaoTab eventId={eventId} ev={ev} disabled={!!isForeign} />
+          <GestaoTab eventId={eventId} ev={ev} disabled={!!isForeign} lean={isLean} />
         </TabsContent>
 
         <TabsContent value="hero">
@@ -711,10 +718,12 @@ function GestaoTab({
   eventId,
   ev,
   disabled,
+  lean = false,
 }: {
   eventId: string;
   ev: any;
   disabled: boolean;
+  lean?: boolean;
 }) {
   const { companyId } = useCompany();
   const qc = useQueryClient();
@@ -839,49 +848,56 @@ function GestaoTab({
 
   return (
     <Card className="space-y-4 p-4">
-      <MetaAudienceCard
-        eventId={eventId}
-        eventName={ev?.name ?? ""}
-        companyId={ev?.company_id ?? companyId ?? ""}
-        metaPixelId={ev?.meta_pixel_id ?? null}
-        metaAudienceId={ev?.meta_audience_id ?? null}
-        metaAudienceName={ev?.meta_audience_name ?? null}
-        disabled={disabled}
-      />
-
-      <PurchaseAudienceCard
-        eventId={eventId}
-        companyId={ev?.company_id ?? companyId ?? ""}
-        metaPixelId={ev?.meta_pixel_id ?? null}
-        variant="card"
-      />
-
-
-      <Field label="Tipo de gestão">
-        <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="own">Própria (MP gere tudo)</SelectItem>
-            <SelectItem value="partner_managed">Parceria (sócio externo gere)</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      {mgmt === "partner_managed" && (
-        <Field label="Nome do parceiro">
-          <Input
-            value={partnerName}
-            onChange={(e) => setPartnerName(e.target.value)}
-            placeholder="ex.: Pulsetto Productions"
-            disabled={disabled}
-          />
-        </Field>
+      {!lean && (
+        <MetaAudienceCard
+          eventId={eventId}
+          eventName={ev?.name ?? ""}
+          companyId={ev?.company_id ?? companyId ?? ""}
+          metaPixelId={ev?.meta_pixel_id ?? null}
+          metaAudienceId={ev?.meta_audience_id ?? null}
+          metaAudienceName={ev?.meta_audience_name ?? null}
+          disabled={disabled}
+        />
       )}
 
-      <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-        Mudar para Parceria esconde imediatamente o evento de BP, TX, Operação e Audience.
-        Mudar de Parceria para Própria volta a mostrá-lo nesses módulos.
-      </p>
+      {!lean && (
+        <PurchaseAudienceCard
+          eventId={eventId}
+          companyId={ev?.company_id ?? companyId ?? ""}
+          metaPixelId={ev?.meta_pixel_id ?? null}
+          variant="card"
+        />
+      )}
+
+      {!lean && (
+        <>
+          <Field label="Tipo de gestão">
+            <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="own">Própria (MP gere tudo)</SelectItem>
+                <SelectItem value="partner_managed">Parceria (sócio externo gere)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {mgmt === "partner_managed" && (
+            <Field label="Nome do parceiro">
+              <Input
+                value={partnerName}
+                onChange={(e) => setPartnerName(e.target.value)}
+                placeholder="ex.: Pulsetto Productions"
+                disabled={disabled}
+              />
+            </Field>
+          )}
+
+          <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+            Mudar para Parceria esconde imediatamente o evento de BP, TX, Operação e Audience.
+            Mudar de Parceria para Própria volta a mostrá-lo nesses módulos.
+          </p>
+        </>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Localização">
@@ -890,35 +906,40 @@ function GestaoTab({
         <Field label="Ticketing URL">
           <Input type="url" value={ticketingUrl} onChange={(e) => setTicketingUrl(e.target.value)} disabled={disabled} />
         </Field>
-        <Field label="Ticketing provider">
-          <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
-        </Field>
-        <Field label="Link de destino do anúncio (portal)">
-          <Input
-            type="url"
-            value={adDestinationUrl}
-            onChange={(e) => setAdDestinationUrl(e.target.value)}
-            disabled={disabled}
-            placeholder="https://www.mundopropicio.com/pt/eventos/<slug>"
-          />
-          <p className="text-xs text-muted-foreground">
-            Para onde o anúncio leva o utilizador (página do portal com o pixel). Se vazio, usa o Ticketing URL.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-2 w-fit"
-            disabled={disabled || !ev?.slug}
-            onClick={() => setAdDestinationUrl(`https://www.mundopropicio.com/pt/eventos/${ev?.slug}`)}
-          >
-            Preencher a partir do slug
-          </Button>
-          {!ev?.slug && (
-            <p className="text-xs text-muted-foreground">Evento sem slug.</p>
-          )}
-        </Field>
+        {!lean && (
+          <Field label="Ticketing provider">
+            <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
+          </Field>
+        )}
+        {!lean && (
+          <Field label="Link de destino do anúncio (portal)">
+            <Input
+              type="url"
+              value={adDestinationUrl}
+              onChange={(e) => setAdDestinationUrl(e.target.value)}
+              disabled={disabled}
+              placeholder="https://www.mundopropicio.com/pt/eventos/<slug>"
+            />
+            <p className="text-xs text-muted-foreground">
+              Para onde o anúncio leva o utilizador (página do portal com o pixel). Se vazio, usa o Ticketing URL.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 w-fit"
+              disabled={disabled || !ev?.slug}
+              onClick={() => setAdDestinationUrl(`https://www.mundopropicio.com/pt/eventos/${ev?.slug}`)}
+            >
+              Preencher a partir do slug
+            </Button>
+            {!ev?.slug && (
+              <p className="text-xs text-muted-foreground">Evento sem slug.</p>
+            )}
+          </Field>
+        )}
       </div>
+
 
       <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
         <div>
