@@ -49,7 +49,6 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 const DEFAULT_EVENT_ID = "fdfb39fe-45f2-43f5-9ec9-7cb536360ae1"; // Anitta EDA 2026 (fallback sandbox)
 /** Fallback PT; o conjunto real vem do país da cidade do evento (ver useEventIvaCountry). */
-const VALID_IVA_PT = [0, 6, 13, 23] as const;
 
 // Formalidade: enum ↔ label
 const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
