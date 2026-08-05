@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, Search, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -34,6 +34,10 @@ interface SearchableSelectProps {
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
+  /** If provided, shows a "create" footer option when the search text has no exact match. */
+  onCreateOption?: (text: string) => void;
+  /** Label builder for the create footer. */
+  createLabel?: (text: string) => string;
 }
 
 export function SearchableSelect({
@@ -46,6 +50,8 @@ export function SearchableSelect({
   className,
   triggerClassName,
   disabled,
+  onCreateOption,
+  createLabel,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -90,6 +96,19 @@ export function SearchableSelect({
     }
     return result;
   }, [options, search, normalize]);
+
+  const canCreate = React.useMemo(() => {
+    if (!onCreateOption) return false;
+    const q = search.trim();
+    if (!q) return false;
+    const qn = normalize(q);
+    // Exact match against the option's core name (label before " · País" / " - UF")
+    return !options.some((o) => {
+      if (o.isHeader) return false;
+      const core = normalize(o.label.split(" · ")[0].split(" - ")[0]);
+      return core === qn || normalize(o.label) === qn;
+    });
+  }, [onCreateOption, search, options, normalize]);
 
   // Group options
   const groups: { group: string | null; items: SearchableSelectOption[] }[] = [];
@@ -219,8 +238,24 @@ export function SearchableSelect({
               })}
             </React.Fragment>
           ))}
-          {filtered.length === 0 && (
+          {filtered.length === 0 && !canCreate && (
             <p className="px-2 py-4 text-center text-sm text-muted-foreground">{emptyMessage}</p>
+          )}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateOption?.(search.trim());
+                setOpen(false);
+                setSearch("");
+              }}
+              className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-2 text-sm text-primary hover:bg-accent"
+            >
+              <Plus className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {createLabel ? createLabel(search.trim()) : `Criar "${search.trim()}"…`}
+              </span>
+            </button>
           )}
         </div>
       </PopoverContent>
