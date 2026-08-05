@@ -215,6 +215,8 @@ export default function EventMarketingEditor() {
 
   const ev = eventQuery.data as any;
   const isForeign = ev && !!companyId && ev.company_id !== companyId;
+  // Modo enxuto: eventos de empresas que não a MP não usam o modelo de página do portal MP
+  const isLean = !!ev && ev.company_id !== MP_COMPANY_ID;
   const isPartnerManaged = ev && ev.management_type === "partner_managed";
 
   return (
