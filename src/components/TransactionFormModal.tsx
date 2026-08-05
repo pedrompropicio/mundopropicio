@@ -487,6 +487,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
 
+  // Taxas de IVA aplicáveis = país da cidade do evento (PT por defeito).
+  const eventIva = useEventIvaCountry(effectiveEventId || null);
+  useEffect(() => {
+    // Ao mudar para um evento de outro país, ajusta a taxa se a atual não existe lá.
+    if (!eventIva.rates.includes(form.iva_rate as any)) {
+      setForm((f) => ({ ...f, iva_rate: eventIva.defaultRate as IvaRate }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventIva.country]);
+
+
   // Detect if this sub-event's category has a Master BP line (for reinforcement dialog)
   const masterDetection = useMasterCategoryDetection(form.event_id, events as any);
 
