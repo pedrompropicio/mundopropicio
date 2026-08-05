@@ -40,6 +40,32 @@ export function getDefaultIvaRateForCountry(countryName: string | null | undefin
   return rates.reduce((a, b) => (b > a ? b : a), rates[0]);
 }
 
+/**
+ * Conjunto de taxas para um ou mais países (caso de turnês multi-país: o master
+ * não tem cidade própria e os sub-eventos podem estar em países diferentes).
+ * - 0 países conhecidos → PT
+ * - 1 país → taxas desse país
+ * - >1 país → UNIÃO ordenada crescente das taxas envolvidas
+ */
+export function getIvaRatesForCountries(countries: (string | null | undefined)[]): IvaRate[] {
+  const known = Array.from(new Set(countries.filter((c): c is string => !!c && !!IVA_RATES_BY_COUNTRY[c])));
+  if (known.length === 0) return getIvaRatesForCountry(null);
+  if (known.length === 1) return getIvaRatesForCountry(known[0]);
+  const union = new Set<IvaRate>();
+  for (const c of known) for (const r of getIvaRatesForCountry(c)) union.add(r);
+  return Array.from(union).sort((a, b) => a - b);
+}
+
+/**
+ * Default para um conjunto de países: um só país → taxa normal desse país;
+ * vários países → 23 (PT), por convenção (a empresa é PT).
+ */
+export function getDefaultIvaRateForCountries(countries: (string | null | undefined)[]): IvaRate {
+  const known = Array.from(new Set(countries.filter((c): c is string => !!c && !!IVA_RATES_BY_COUNTRY[c])));
+  if (known.length === 1) return getDefaultIvaRateForCountry(known[0]);
+  return getDefaultIvaRateForCountry(DEFAULT_IVA_COUNTRY);
+}
+
 /** Etiquetas por taxa (PT + ES). */
 export const IVA_RATE_LABELS: Record<number, string> = {
   23: "23% - Normal",
