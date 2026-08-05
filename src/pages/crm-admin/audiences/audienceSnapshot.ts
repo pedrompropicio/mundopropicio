@@ -1,12 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import { MP_COMPANY_ID } from "../constants";
 import { applyCriterion, type Criterion } from "./audienceCriterion";
 
-export async function previewCount(criterion: Criterion): Promise<number> {
+export async function previewCount(criterion: Criterion, companyId: string): Promise<number> {
   let q = (supabase as any)
     .from("contacts")
     .select("*", { count: "exact", head: true })
-    .eq("company_id", MP_COMPANY_ID);
+    .eq("company_id", companyId);
   q = applyCriterion(q, criterion);
   const { count, error } = await q;
   if (error) throw error;
@@ -16,12 +15,13 @@ export async function previewCount(criterion: Criterion): Promise<number> {
 export async function createSnapshot(
   audienceId: string,
   criterion: Criterion,
+  companyId: string,
 ): Promise<{ snapshot_id: string; member_count: number }> {
   // 1. Fetch matching contact ids
   let q = (supabase as any)
     .from("contacts")
     .select("id, company_id")
-    .eq("company_id", MP_COMPANY_ID)
+    .eq("company_id", companyId)
     .limit(50000);
   q = applyCriterion(q, criterion);
   const { data: contacts, error: cErr } = await q;
@@ -33,7 +33,7 @@ export async function createSnapshot(
     .from("audience_snapshots")
     .insert({
       audience_id: audienceId,
-      company_id: MP_COMPANY_ID,
+      company_id: companyId,
       member_count: list.length,
     })
     .select("id")
@@ -46,7 +46,7 @@ export async function createSnapshot(
     const rows = list.map((c) => ({
       snapshot_id: snapshotId,
       contact_id: c.id,
-      company_id: MP_COMPANY_ID,
+      company_id: companyId,
     }));
     for (let i = 0; i < rows.length; i += 500) {
       const chunk = rows.slice(i, i + 500);
