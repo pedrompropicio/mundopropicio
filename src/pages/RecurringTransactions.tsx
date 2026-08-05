@@ -38,6 +38,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 
 /** Fallback PT; o conjunto real vem do país da cidade do evento. */
 const IVA_RATES_PT = [0, 6, 13, 23];
@@ -87,6 +88,8 @@ const emptyForm: RecurringForm = {
 };
 
 export default function RecurringTransactions() {
+  // Taxas de IVA do país da cidade do evento (PT por defeito).
+
   const { isAdmin, isManager, hasPermission, user } = useAuth();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
