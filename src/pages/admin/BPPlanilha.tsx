@@ -103,12 +103,12 @@ interface DiffResult {
   deletes: string[];
 }
 
-interface BPPlanilhaV2Props {
+interface BPPlanilhaProps {
   eventId: string;
   canEdit?: boolean;
 }
 
-export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Props) {
+export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps) {
   const { role } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = role === "admin" || role === "platform_admin";
