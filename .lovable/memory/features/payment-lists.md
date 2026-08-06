@@ -27,8 +27,12 @@ Regra: uma lista **ainda não aprovada** pode ser editada pelo autor.
 - **Remover**: soft remove reutilizando `removed_at` / `removed_by` / `removed_reason`
   (motivo curto opcional via prompt). O item continua visível marcado "Removida da lista"
   para auditoria e é ignorado nos totais/liquidação. Reversível por "Restaurar".
-- **Alterar**: ação "Editar transação" abre o `TransactionEditModal` normal (permissões,
-  validações e taxas de IVA por país do evento normais). Ao fechar faz refetch da lista.
+- **Alterar**: ação "Editar transação" **só para admin** (abre o `TransactionEditModal` normal,
+  com as regras habituais de campos bloqueados pós-aprovação/liquidação — sem bypass).
+  O editor/criador não-admin **compõe** a lista (incluir/excluir/restaurar) mas nunca edita
+  a transação em si, porque transações aprovadas têm campos (ex.: valor) bloqueados para ele.
+  Ao fechar faz refetch da lista.
+
 
 ## Rasto de alterações após envio
 Se a lista está `pending_approval` e é alterada, o estado **mantém-se** `pending_approval`,
