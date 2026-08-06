@@ -1590,7 +1590,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
-                      {canEditItems && !isRemoved && tx && (
+                      {/* Editar a transação em si é exclusivo de admin: transações
+                          aprovadas têm campos bloqueados para o editor e o atalho
+                          na lista confundia essa regra. Editor só compõe a lista. */}
+                      {isAdmin && canEditItems && !isRemoved && tx && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditingTx(tx); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60 transition-colors"
