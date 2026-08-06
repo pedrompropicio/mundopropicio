@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
+
 
 /**
  * Small attachments button used in the payment-list item rows.
