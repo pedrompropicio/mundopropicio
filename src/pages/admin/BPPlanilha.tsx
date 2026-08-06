@@ -139,6 +139,27 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const { theme } = useTheme();
   const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
 
+  /* ── Pilha própria de Desfazer (ordem cronológica entre células e estrutura) ──
+   * Edições de célula são delegadas ao undo nativo do Handsontable; as ações de
+   * estrutura (inserir/apagar linha) vivem aqui. A pilha registra a sequência
+   * para o botão "Desfazer" reverter sempre a última ação, seja de que mundo for. */
+  type UndoEntry =
+    | { kind: "cell"; ts: number }
+    | { kind: "insert"; ts: number; tempId: string }
+    | { kind: "delete"; ts: number; id: string };
+  const undoStackRef = useRef<UndoEntry[]>([]);
+  const [undoDepth, setUndoDepth] = useState(0);
+  const pushUndo = useCallback((e: UndoEntry) => {
+    undoStackRef.current = [...undoStackRef.current, e];
+    setUndoDepth(undoStackRef.current.length);
+  }, []);
+
+  // Dialog "Adicionar rubrica"
+  const [rubricOpen, setRubricOpen] = useState(false);
+  const [rubricFilterL2, setRubricFilterL2] = useState<string | null>(null);
+  const [rubricValue, setRubricValue] = useState("");
+
+
   // Sair do ecrã inteiro com Esc
   useEffect(() => {
     if (!fullscreen) return;
