@@ -1,0 +1,597 @@
+/**
+ * SPIKE — Planilha v2 (Handsontable)
+ * ==================================
+ * Avaliação lado a lado com a Planilha atual (BPUniverSpike.tsx / Univer 0.25).
+ * NADA nesta vista é partilhado com o Univer: a lógica de normalização PT, poda
+ * de no-ops e diff de gravação foi COPIADA de propósito (decisão do spike —
+ * extrair/partilhar só depois de escolher a superfície definitiva).
+ *
+ * LICENÇA: usamos `licenseKey: "non-commercial-and-evaluation"`, válida apenas
+ * para avaliação. A compra da licença comercial do Handsontable decide-se
+ * DEPOIS do spike — não colocar esta vista em produção antes disso.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HotTable } from "@handsontable/react-wrapper";
+import { registerAllModules } from "handsontable/registry";
+import { HyperFormula } from "hyperformula";
+import "handsontable/styles/handsontable.min.css";
+import "handsontable/styles/ht-theme-main.min.css";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Loader2, Save, Plus, Trash2, RefreshCw } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { compareHierarchicalCodes } from "@/lib/utils";
+
+registerAllModules();
+
+/* ─────────────────────────── constantes / helpers ─────────────────────────── */
+
+const FORMALIDADE_OPTIONS: { value: string; label: string }[] = [
+  { value: "estimado", label: "Estimado" },
+  { value: "negociacao", label: "Em Negociação" },
+  { value: "fechado", label: "Fechado" },
+  { value: "pago_parcial", label: "Pago Parcial" },
+  { value: "pago_total", label: "Pago Total" },
+];
+const FORMALIDADE_LABELS = FORMALIDADE_OPTIONS.map((o) => o.label);
+const enumToLabel = (v: string | null | undefined) =>
+  FORMALIDADE_OPTIONS.find((o) => o.value === v)?.label ?? "";
+const labelToEnum = (l: string | null | undefined) => {
+  const raw = l == null ? "" : String(l).trim();
+  if (!raw) return null;
+  return FORMALIDADE_OPTIONS.find((o) => o.label === raw || o.value === raw)?.value ?? null;
+};
+
+/** Input PT: "1.064,42 €" → 1064.42 (copiado do Univer). */
+const parseAmountPT = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v).trim().replace(/[\s€%]/g, "");
+  if (!s) return null;
+  const normalized = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+};
+
+const txt = (v: unknown) => String(v ?? "").trim();
+const sameTxt = (a: unknown, b: unknown) => txt(a) === txt(b);
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+interface Entry {
+  id: string;
+  category_id: string | null;
+  description: string | null;
+  specification: string | null;
+  amount: number;
+  iva_rate: number;
+  formalidade: string | null;
+  status?: string;
+}
+interface Category {
+  id: string;
+  name: string;
+  code: string | null;
+  parent_id: string | null;
+  type: string | null;
+}
+type RowMeta =
+  | { kind: "group"; level: 1 | 2 | 3; categoryId: string | null }
+  | { kind: "entry"; id: string; categoryId: string | null; categoryLabel: string }
+  | { kind: "entry"; tempId: string; categoryId: string | null; categoryLabel: string };
+
+const COL = { CATEGORY: 0, DESCRIPTION: 1, SPEC: 2, AMOUNT: 3, IVA: 4, TOTAL: 5, FORMALIDADE: 6 };
+
+interface DiffResult {
+  edits: { id: string; fields: Record<string, unknown>; label: string }[];
+  inserts: {
+    category_id: string | null;
+    description: string;
+    specification: string | null;
+    amount: number;
+    iva_rate: number;
+    formalidade: string;
+  }[];
+  deletes: string[];
+}
+
+interface BPPlanilhaV2Props {
+  eventId: string;
+  canEdit?: boolean;
+}
+
+export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Props) {
+  const { role } = useAuth();
+  const queryClient = useQueryClient();
+  const isAdmin = role === "admin" || role === "platform_admin";
+  const allowed = isAdmin && canEdit;
+
+  const { rates: validIva, defaultRate } = useEventIvaCountry(eventId || null);
+
+  const hotRef = useRef<any>(null);
+  const metaRef = useRef<RowMeta[]>([]);
+  const originalsRef = useRef<Map<string, Entry>>(new Map());
+  const programmaticRef = useRef(false);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+  const [tempRows, setTempRows] = useState<
+    { tempId: string; categoryId: string | null; afterId: string | null }[]
+  >([]);
+  const [counts, setCounts] = useState({ edits: 0, inserts: 0, deletes: 0 });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
+
+  /* ───────────────────────────── carregamento ───────────────────────────── */
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const eRes = await supabase.from("events").select("name, company_id").eq("id", eventId).maybeSingle();
+      if (eRes.error) throw eRes.error;
+      const eventCompanyId = (eRes.data as any)?.company_id ?? null;
+      const catQuery = supabase.from("account_categories").select("id, name, code, parent_id, type, company_id");
+      const [fRes, cRes] = await Promise.all([
+        supabase
+          .from("event_forecasts")
+          .select("id, category_id, description, specification, amount, iva_rate, formalidade, status")
+          .eq("event_id", eventId)
+          .is("version_id", null)
+          .in("status", ["approved", "draft"])
+          .eq("type", "expense"),
+        eventCompanyId ? catQuery.eq("company_id", eventCompanyId) : catQuery,
+      ]);
+      if (fRes.error) throw fRes.error;
+      if (cRes.error) throw cRes.error;
+      const list = (fRes.data ?? []) as Entry[];
+      setEntries(list);
+      setCategories((cRes.data ?? []) as Category[]);
+      const map = new Map<string, Entry>();
+      for (const e of list) map.set(e.id, e);
+      originalsRef.current = map;
+      setPendingDeletes([]);
+      setTempRows([]);
+      setCounts({ edits: 0, inserts: 0, deletes: 0 });
+      setDataVersion((v) => v + 1);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const catById = useMemo(() => {
+    const m = new Map<string, Category>();
+    for (const c of categories) m.set(c.id, c);
+    return m;
+  }, [categories]);
+
+  const catLabel = useCallback(
+    (id: string | null | undefined) => {
+      if (!id) return "(sem categoria)";
+      const c = catById.get(id);
+      return c ? `${c.code ?? ""} ${c.name}`.trim() : "(categoria desconhecida)";
+    },
+    [catById],
+  );
+
+  /* ─────────────────── construção da grelha (L1 > L2 > L3) ─────────────────── */
+
+  const { tableData, rowMeta } = useMemo(() => {
+    const data: any[][] = [];
+    const meta: RowMeta[] = [];
+    const pushFormulaRow = (m: RowMeta, cells: any[]) => {
+      const sheetRow = data.length + 1;
+      if (m.kind === "entry") {
+        cells[COL.TOTAL] = `=D${sheetRow}*(1+E${sheetRow}/100)`;
+      }
+      data.push(cells);
+      meta.push(m);
+    };
+
+    // agrupar entries (incluindo linhas novas) por categoria L3
+    const byCat = new Map<string, { id?: string; tempId?: string; entry?: Entry; categoryId: string | null }[]>();
+    const visible = entries.filter((e) => !pendingDeletes.includes(e.id));
+    for (const e of visible) {
+      const key = e.category_id ?? "__none__";
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push({ id: e.id, entry: e, categoryId: e.category_id });
+    }
+    for (const t of tempRows) {
+      const key = t.categoryId ?? "__none__";
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push({ tempId: t.tempId, categoryId: t.categoryId });
+    }
+
+    const ancestors = (id: string | null): Category[] => {
+      const chain: Category[] = [];
+      let cur = id ? catById.get(id) : undefined;
+      while (cur) {
+        chain.unshift(cur);
+        cur = cur.parent_id ? catById.get(cur.parent_id) : undefined;
+      }
+      return chain;
+    };
+
+    const keys = Array.from(byCat.keys()).sort((a, b) =>
+      compareHierarchicalCodes(catById.get(a)?.code ?? "zz", catById.get(b)?.code ?? "zz"),
+    );
+
+    const shown = new Set<string>();
+    for (const key of keys) {
+      const catId = key === "__none__" ? null : key;
+      const chain = ancestors(catId);
+      chain.forEach((c, idx) => {
+        const level = (idx + 1) as 1 | 2 | 3;
+        if (level > 3 || shown.has(c.id)) return;
+        shown.add(c.id);
+        const indent = "    ".repeat(level - 1);
+        const cells = new Array(7).fill("");
+        cells[COL.CATEGORY] = `${indent}${c.code ?? ""} ${c.name}`.trim();
+        cells[COL.AMOUNT] = null;
+        cells[COL.IVA] = null;
+        data.push(cells);
+        meta.push({ kind: "group", level, categoryId: c.id });
+      });
+      if (!chain.length) {
+        const cells = new Array(7).fill("");
+        cells[COL.CATEGORY] = "(sem categoria)";
+        data.push(cells);
+        meta.push({ kind: "group", level: 3, categoryId: null });
+      }
+
+      for (const row of byCat.get(key)!) {
+        const label = catLabel(catId);
+        if (row.entry) {
+          pushFormulaRow({ kind: "entry", id: row.entry.id, categoryId: catId, categoryLabel: label }, [
+            label,
+            row.entry.description ?? "",
+            row.entry.specification ?? "",
+            Number(row.entry.amount ?? 0),
+            Number(row.entry.iva_rate ?? 0),
+            "",
+            enumToLabel(row.entry.formalidade),
+          ]);
+        } else {
+          pushFormulaRow({ kind: "entry", tempId: row.tempId!, categoryId: catId, categoryLabel: label }, [
+            label,
+            "",
+            "",
+            0,
+            Number(defaultRate),
+            "",
+            enumToLabel("estimado"),
+          ]);
+        }
+      }
+    }
+    return { tableData: data, rowMeta: meta };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, pendingDeletes, tempRows, catById, catLabel, defaultRate, dataVersion]);
+
+  useEffect(() => {
+    metaRef.current = rowMeta;
+  }, [rowMeta]);
+
+  /* ────────────────────────────── diff / contagem ────────────────────────────── */
+
+  const buildDiff = useCallback((): DiffResult => {
+    const hot = hotRef.current?.hotInstance;
+    const meta = metaRef.current;
+    const res: DiffResult = { edits: [], inserts: [], deletes: [...pendingDeletes] };
+    if (!hot) return res;
+
+    meta.forEach((m, r) => {
+      if (m.kind !== "entry") return;
+      const description = txt(hot.getDataAtCell(r, COL.DESCRIPTION));
+      const specification = txt(hot.getDataAtCell(r, COL.SPEC));
+      const amount = round2(parseAmountPT(hot.getDataAtCell(r, COL.AMOUNT)) ?? 0);
+      const iva_rate = parseAmountPT(hot.getDataAtCell(r, COL.IVA)) ?? 0;
+      const formalidade = labelToEnum(hot.getDataAtCell(r, COL.FORMALIDADE)) ?? "estimado";
+
+      if ("tempId" in m) {
+        res.inserts.push({
+          category_id: m.categoryId,
+          description,
+          specification: specification || null,
+          amount,
+          iva_rate,
+          formalidade,
+        });
+        return;
+      }
+      const orig = originalsRef.current.get(m.id);
+      if (!orig) return;
+      const fields: Record<string, unknown> = {};
+      if (!sameTxt(orig.description, description)) fields.description = description || null;
+      if (!sameTxt(orig.specification, specification)) fields.specification = specification || null;
+      if (round2(Number(orig.amount ?? 0)) !== amount) fields.amount = amount;
+      if (Number(orig.iva_rate ?? 0) !== iva_rate) fields.iva_rate = iva_rate;
+      if ((orig.formalidade ?? "estimado") !== formalidade) fields.formalidade = formalidade;
+      // poda de no-ops: só entra no diff se sobrou pelo menos um campo real
+      if (Object.keys(fields).length) {
+        res.edits.push({ id: m.id, fields, label: description || orig.description || m.id });
+      }
+    });
+    return res;
+  }, [pendingDeletes]);
+
+  const recount = useCallback(() => {
+    const d = buildDiff();
+    setCounts({ edits: d.edits.length, inserts: d.inserts.length, deletes: d.deletes.length });
+  }, [buildDiff]);
+
+  useEffect(() => {
+    // recontar quando a estrutura muda (inserir/apagar linha)
+    const t = setTimeout(recount, 0);
+    return () => clearTimeout(t);
+  }, [tempRows, pendingDeletes, recount]);
+
+  const totalChanges = counts.edits + counts.inserts + counts.deletes;
+
+  /* ───────────────────────────── ações estruturais ───────────────────────────── */
+
+  const selectedRow = () => {
+    const hot = hotRef.current?.hotInstance;
+    const sel = hot?.getSelectedLast?.();
+    return sel ? sel[0] : -1;
+  };
+
+  const insertRow = () => {
+    const r = selectedRow();
+    const m = metaRef.current[r];
+    if (!m) {
+      toast.info("Seleciona uma linha dentro do grupo onde queres inserir.");
+      return;
+    }
+    const categoryId = m.kind === "group" ? m.categoryId : m.categoryId;
+    if (m.kind === "group" && m.level !== 3) {
+      toast.info("Escolhe uma rubrica de nível 3 (ou uma linha dela) para inserir.");
+      return;
+    }
+    setTempRows((prev) => [
+      ...prev,
+      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId: null },
+    ]);
+    setDataVersion((v) => v + 1);
+  };
+
+  const deleteRow = () => {
+    const r = selectedRow();
+    const m = metaRef.current[r];
+    if (!m || m.kind !== "entry") {
+      toast.info("Seleciona uma linha de despesa para apagar.");
+      return;
+    }
+    if ("tempId" in m) {
+      setTempRows((prev) => prev.filter((t) => t.tempId !== m.tempId));
+    } else {
+      setPendingDeletes((prev) => (prev.includes(m.id) ? prev : [...prev, m.id]));
+    }
+    setDataVersion((v) => v + 1);
+  };
+
+  /* ──────────────────────────────── gravação ──────────────────────────────── */
+
+  const handleSave = async () => {
+    if (saving) return;
+    const diff = buildDiff();
+    if (!diff.edits.length && !diff.inserts.length && !diff.deletes.length) {
+      toast.info("Sem alterações para gravar.");
+      return;
+    }
+    const badInsert = diff.inserts.find((i) => !i.description || !i.category_id);
+    if (badInsert) {
+      toast.error("Linhas novas precisam de rubrica (descrição) e categoria.");
+      return;
+    }
+    const invalidIva = [...diff.edits.map((e) => e.fields.iva_rate), ...diff.inserts.map((i) => i.iva_rate)]
+      .filter((v) => v !== undefined)
+      .find((v) => !(validIva as number[]).includes(Number(v)));
+    if (invalidIva !== undefined) {
+      toast.error(`Taxa de IVA inválida para este evento: ${invalidIva}%`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (diff.edits.length) {
+        const editsArr = diff.edits.map((e) => ({ id: e.id, ...e.fields }));
+        const { data, error } = await supabase.rpc("batch_update_event_forecasts" as any, {
+          _event_id: eventId,
+          _version_id: null,
+          _edits: editsArr as any,
+        } as any);
+        if (error) throw error;
+        const updated = Number((data as any)?.updated ?? 0);
+        if (updated !== editsArr.length) {
+          throw new Error(`A base confirmou ${updated}/${editsArr.length} edição(ões). Tente gravar novamente.`);
+        }
+      }
+      if (diff.inserts.length) {
+        const { error } = await supabase.rpc("batch_insert_event_forecasts" as any, {
+          _event_id: eventId,
+          _version_id: null,
+          _inserts: diff.inserts.map((p) => ({ type: "expense", ...p })) as any,
+        } as any);
+        if (error) throw error;
+      }
+      if (diff.deletes.length) {
+        const { error } = await supabase.from("event_forecasts").delete().in("id", diff.deletes);
+        if (error) throw error;
+      }
+      toast.success(
+        `${diff.edits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["event-forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["forecasts", eventId] });
+      await fetchData();
+    } catch (e: any) {
+      toast.error(e?.message ?? String(e));
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
+  };
+
+  /* ───────────────────────────────── render ───────────────────────────────── */
+
+  const ivaSource = useMemo(() => (validIva as number[]).map((r) => String(r)), [validIva]);
+
+  const columns = useMemo(
+    () => [
+      { data: COL.CATEGORY, readOnly: true, width: 300 },
+      { data: COL.DESCRIPTION, type: "text", width: 300 },
+      { data: COL.SPEC, type: "text", width: 220 },
+      { data: COL.AMOUNT, type: "numeric", width: 130, numericFormat: { pattern: "0.00" } },
+      { data: COL.IVA, type: "dropdown", source: ivaSource, allowInvalid: false, width: 90 },
+      { data: COL.TOTAL, readOnly: true, type: "numeric", width: 130, numericFormat: { pattern: "0.00" } },
+      { data: COL.FORMALIDADE, type: "dropdown", source: FORMALIDADE_LABELS, allowInvalid: false, width: 150 },
+    ],
+    [ivaSource],
+  );
+
+  if (!allowed) {
+    return (
+      <div className="glass rounded-xl p-6 text-sm text-muted-foreground">
+        A Planilha v2 (beta) está limitada a administradores durante a avaliação.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
+            Spike · Handsontable (avaliação)
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {totalChanges > 0
+              ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
+              : "Sem alterações pendentes"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={insertRow}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
+          </Button>
+          <Button size="sm" variant="outline" onClick={deleteRow}>
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => void fetchData()} disabled={loading || saving}>
+            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Recarregar
+          </Button>
+          <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={saving || totalChanges === 0}>
+            {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
+            Gravar
+          </Button>
+        </div>
+      </div>
+
+      {err && <p className="text-sm text-destructive">{err}</p>}
+
+      {loading ? (
+        <p className="py-8 text-center text-muted-foreground">A carregar dados…</p>
+      ) : (
+        <div className="ht-theme-main-dark-auto overflow-hidden rounded-xl border border-border">
+          <HotTable
+            ref={hotRef}
+            data={tableData}
+            columns={columns as any}
+            colHeaders={[
+              "Categoria",
+              "Descrição",
+              "Especificação",
+              "Valor s/IVA",
+              "Taxa IVA",
+              "Total c/IVA",
+              "Formalidade",
+            ]}
+            rowHeaders
+            height={620}
+            width="100%"
+            stretchH="last"
+            undo
+            manualColumnResize
+            contextMenu={false}
+            // HyperFormula alimenta a coluna "Total c/IVA" (=D*(1+E/100)).
+            formulas={{ engine: HyperFormula, licenseKey: "internal-use-in-handsontable" }}
+            licenseKey="non-commercial-and-evaluation"
+            cells={(row) => {
+              const m = metaRef.current[row];
+              if (!m) return {};
+              if (m.kind === "group") {
+                return {
+                  readOnly: true,
+                  className: m.level === 3 ? "bpv2-l3" : "bpv2-group",
+                };
+              }
+              return {};
+            }}
+            beforeChange={(changes, source) => {
+              if (!changes) return;
+              if (source === "loadData") return;
+              for (const change of changes) {
+                if (!change) continue;
+                const [, prop, , newVal] = change as [number, number, any, any];
+                if (prop === COL.AMOUNT) {
+                  const n = parseAmountPT(newVal);
+                  change[3] = n === null ? null : round2(n);
+                } else if (prop === COL.IVA) {
+                  const n = parseAmountPT(newVal);
+                  change[3] = n === null ? null : String(n);
+                }
+              }
+            }}
+            afterChange={(changes, source) => {
+              if (!changes) return;
+              if (source === "loadData" || programmaticRef.current) return;
+              recount();
+            }}
+            afterUndo={() => recount()}
+            afterRedo={() => recount()}
+          />
+        </div>
+      )}
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar gravação</DialogTitle>
+            <DialogDescription>
+              {counts.edits} linha(s) editada(s) · {counts.inserts} inserida(s) (entram como rascunho) ·{" "}
+              {counts.deletes} removida(s).
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleSave()} disabled={saving}>
+              {saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />} Gravar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
