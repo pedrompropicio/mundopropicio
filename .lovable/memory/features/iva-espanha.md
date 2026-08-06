@@ -40,7 +40,7 @@ Taxas pelo **país da cidade do evento** (`events.city_id → cities.country`).
 `src/components/IvaRateSelect.tsx` — usar em qualquer sítio novo onde o
 utilizador escolha `iva_rate`. Pontos já convertidos: transações (criar/editar,
 incl. taxas permitidas do OCR), BP (`EventForecast`, `ForecastEditModal`,
-`BPGridEditor`, `BPUniverSpike` data validation), `AdoptForecastsModal`,
+`BPGridEditor`, `BPPlanilha` (Handsontable) data validation), `AdoptForecastsModal`,
 `SplitByIvaModal` (IVA médio faz snap ao conjunto do país), bilheteira
 (`EventTicketing`, `ImplTicketsTab`), `EventClosingCosts`, recorrentes,
 cotações, `ImplBPTab`.
