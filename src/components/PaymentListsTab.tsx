@@ -12,12 +12,15 @@ import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip, Pencil,
 } from "lucide-react";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
+
 
 /**
  * Small attachments button used in the payment-list item rows.
@@ -490,21 +493,16 @@ export default function PaymentListsTab() {
   );
 }
 
-/* ─── Create Payment List Modal ─── */
-function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { user } = useAuth();
-  const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [submitting, setSubmitting] = useState(false);
-
-  // Filter state
-  const [dateType, setDateType] = useState<"date" | "due_date">("date");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [eventFilter, setEventFilter] = useState<string>("all");
-
-  const { data: approvedTx = [], isLoading } = useQuery({
+/**
+ * Transações elegíveis para entrar numa lista de pagamento.
+ * Mesmos critérios usados na criação da lista (reutilizado pelo picker de
+ * "Adicionar transações" no detalhe de listas editáveis):
+ *  - status "approved", type "expense"
+ *  - reembolsos excluídos (só via Nota de Reembolso)
+ *  - filhos de rateio escondidos excluídos
+ */
+function useEligibleTransactionsForList() {
+  return useQuery({
     queryKey: ["approved-transactions-for-list"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -533,6 +531,45 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
       return rows.filter((tx: any) => !isHiddenSplitChild(tx));
     },
   });
+}
+
+/**
+ * Appenda uma linha de auditoria a `payment_lists.revision_notes` quando uma
+ * lista já enviada para aprovação é alterada (itens incluídos/removidos).
+ * O aprovador vê assim que a lista mudou desde o envio.
+ */
+export async function appendPaymentListRevisionNote(
+  listId: string,
+  action: string,
+  actor: string,
+) {
+  const { data: current } = await supabase
+    .from("payment_lists")
+    .select("revision_notes")
+    .eq("id", listId)
+    .maybeSingle();
+  const stamp = new Date().toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const line = `${stamp} ${actor}: ${action}`;
+  const next = current?.revision_notes ? `${current.revision_notes}\n${line}` : line;
+  await supabase.from("payment_lists").update({ revision_notes: next }).eq("id", listId);
+}
+
+/* ─── Create Payment List Modal ─── */
+function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user } = useAuth();
+  const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  // Filter state
+  const [dateType, setDateType] = useState<"date" | "due_date">("date");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+
+  const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
+
 
   const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
 
@@ -804,6 +841,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
+  const [showAddTx, setShowAddTx] = useState(false);
+  const [editingTx, setEditingTx] = useState<any | null>(null);
+
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragging = useRef(false);
@@ -879,7 +919,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
       return;
     }
+    if (list?.status === "pending_approval") {
+      await appendPaymentListRevisionNote(listId, "−1 transação removida", user?.email ?? "sistema");
+    }
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
     queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
     queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
@@ -895,11 +939,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       toast({ title: "Erro ao restaurar", description: error.message, variant: "destructive" });
       return;
     }
+    if (list?.status === "pending_approval") {
+      await appendPaymentListRevisionNote(listId, "+1 transação restaurada", user?.email ?? "sistema");
+    }
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
     queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
     toast({ title: "Item restaurado à lista" });
   };
+
 
   const { data: list } = useQuery({
     queryKey: ["payment-list", listId],
@@ -1010,6 +1059,34 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
 
   const isApproved = list?.status === "approved" || list?.status === "partially_approved";
+
+  // Edição de itens: só em estados anteriores à aprovação, e só para o criador
+  // da lista ou um admin. Em approved/partially_approved a lista é read-only.
+  const isEditableStatus = list?.status === "draft" || list?.status === "pending_approval" || list?.status === "rejected" || list?.status === "revision";
+  const isOwner = !!list?.created_by && !!user?.email && list.created_by === user.email;
+  const canEditItems = !!list && isEditableStatus && (isOwner || isAdmin);
+
+  const existingTxIds = useMemo(
+    () => new Set(items.map((i: any) => i.transactions?.id).filter(Boolean) as string[]),
+    [items],
+  );
+
+  const handleAddedTransactions = async (count: number) => {
+    setShowAddTx(false);
+    if (list?.status === "pending_approval") {
+      await appendPaymentListRevisionNote(
+        listId,
+        `+${count} transaç${count === 1 ? "ão" : "ões"} adicionada${count === 1 ? "" : "s"}`,
+        user?.email ?? "sistema",
+      );
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    await refreshBadgeFromDB();
+    toast({ title: `${count} transação(ões) adicionada(s) à lista.` });
+  };
+
 
   const unpaidItems = items.filter((item: any) => {
     const tx = item.transactions;
@@ -1291,7 +1368,32 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               </Button>
             </div>
           )}
+          {canEditItems && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                title="Adicionar transações aprovadas a esta lista"
+              >
+                <Plus className="h-4 w-4" /> Adicionar transações
+              </button>
+            </div>
+          )}
         </div>
+
+        {canEditItems && (
+          <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            Lista em edição ({statusMap[list!.status as ListStatus]?.label ?? list!.status}) — pode incluir, alterar e remover transações.
+            {list?.status === "pending_approval" && " As alterações ficam registadas nas notas de revisão para o aprovador."}
+          </div>
+        )}
+
+        {list?.revision_notes && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+            <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+            <div className="min-w-0 whitespace-pre-line">{list.revision_notes}</div>
+          </div>
+        )}
 
         {list?.approved_by && (
           <p className="text-sm text-muted-foreground mb-3">
@@ -1299,6 +1401,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             {list.approved_at && ` em ${formatDate(list.approved_at)}`}
           </p>
         )}
+
 
         {/* Bulk payment bar */}
         {isApproved && unpaidItems.length > 0 && (
@@ -1487,7 +1590,17 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
-                      {!isPaid && !isRemoved && (isAdmin || isManager) && (
+                      {canEditItems && !isRemoved && tx && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingTx(tx); }}
+                          className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60 transition-colors"
+                          title="Editar a transação (validações e permissões normais)"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar transação
+                        </button>
+                      )}
+                      {!isPaid && !isRemoved && (isAdmin || isManager || canEditItems) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeItemFromList(item.id, tx?.description ?? "item"); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/15 transition-colors"
@@ -1497,7 +1610,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Remover da lista
                         </button>
                       )}
-                      {isRemoved && (isAdmin || isManager) && (
+                      {isRemoved && (isAdmin || isManager || canEditItems) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); restoreItemToList(item.id); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
@@ -1507,6 +1620,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Restaurar
                         </button>
                       )}
+
 
                     </div>
                   </div>
@@ -1574,10 +1688,53 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           );
         })()}
 
-        <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
+        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-border/50">
+          {canEditItems && (list?.status === "rejected" || list?.status === "revision") && (
+            <button
+              onClick={async () => {
+                const { error } = await supabase
+                  .from("payment_lists")
+                  .update({ status: "pending_approval" })
+                  .eq("id", listId);
+                if (error) {
+                  toast({ title: "Erro ao reenviar", description: error.message, variant: "destructive" });
+                  return;
+                }
+                await appendPaymentListRevisionNote(listId, "reenviada para aprovação", user?.email ?? "sistema");
+                queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
+                queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+                await refreshBadgeFromDB();
+                toast({ title: "Lista reenviada para aprovação!" });
+              }}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Send className="h-4 w-4" /> Reenviar para aprovação
+            </button>
+          )}
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
         </div>
       </div>
+
+      {showAddTx && (
+        <AddTransactionsToList
+          listId={listId}
+          existingTxIds={existingTxIds}
+          onClose={() => setShowAddTx(false)}
+          onAdded={handleAddedTransactions}
+        />
+      )}
+
+      {editingTx && (
+        <TransactionEditModal
+          transaction={editingTx}
+          isAdmin={isAdmin}
+          onClose={() => {
+            setEditingTx(null);
+            queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+            queryClient.invalidateQueries({ queryKey: ["transactions"] });
+          }}
+        />
+      )}
 
       {docsTx && (
         <TransactionDocumentsModal
@@ -1589,6 +1746,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           }}
         />
       )}
+
     </div>
   );
 }
@@ -1889,6 +2047,200 @@ function ApproveModal({
             >
               <ShieldCheck className="h-4 w-4" />
               {selectedIds.size < items.length && selectedIds.size > 0 ? "Aprovar Selecionadas" : "Aprovar Todas"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+/* ─── Adicionar transações a uma lista editável ─── */
+function AddTransactionsToList({
+  listId,
+  existingTxIds,
+  onClose,
+  onAdded,
+}: {
+  listId: string;
+  existingTxIds: Set<string>;
+  onClose: () => void;
+  onAdded: (count: number) => void;
+}) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [dateType, setDateType] = useState<"date" | "due_date">("date");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+
+  const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
+
+  // Excluir as que já estão nesta lista (itens ativos ou removidos — o removido
+  // restaura-se pelo botão "Restaurar", não por duplicação).
+  const available = useMemo(
+    () => approvedTx.filter((t: any) => !existingTxIds.has(t.id)),
+    [approvedTx, existingTxIds],
+  );
+
+  const eventOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    available.forEach((t: any) => {
+      if (t.event_id && t.events?.name) map.set(t.event_id, t.events.name);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [available]);
+
+  const filteredTx = useMemo(() => {
+    return available.filter((t: any) => {
+      if (eventFilter !== "all" && t.event_id !== eventFilter) return false;
+      const dateValue = dateType === "due_date" ? t.due_date : t.date;
+      if (!dateValue && (dateFrom || dateTo)) return false;
+      if (dateFrom && dateValue < dateFrom) return false;
+      if (dateTo && dateValue > dateTo) return false;
+      return true;
+    });
+  }, [available, dateType, dateFrom, dateTo, eventFilter]);
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
+  };
+
+  const handleAdd = async () => {
+    if (selectedIds.size === 0) return;
+    setSubmitting(true);
+    try {
+      const items = [...selectedIds].map((txId) => ({ payment_list_id: listId, transaction_id: txId }));
+      const { error } = await supabase.from("payment_list_items").insert(items);
+      if (error) throw error;
+      onAdded(selectedIds.size);
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar transações", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const backdrop = useBackdropClose(onClose);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="glass w-full max-w-4xl lg:max-w-[min(95vw,1400px)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-1">Adicionar transações à lista</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Mesmos critérios da criação da lista: transações aprovadas, de despesa, sem reembolsos.
+        </p>
+
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 mb-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filtros</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Filtrar por</label>
+              <select
+                value={dateType}
+                onChange={(e) => setDateType(e.target.value as "date" | "due_date")}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="date">Data de Lançamento</option>
+                <option value="due_date">Data de Vencimento</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">De</label>
+              <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="De…" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Até</label>
+              <DatePicker value={dateTo} onChange={setDateTo} placeholder="Até…" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Evento</label>
+              <select
+                value={eventFilter}
+                onChange={(e) => setEventFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="all">Todos os eventos</option>
+                {eventOptions.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
+          Disponíveis ({filteredTx.length} de {available.length})
+        </h3>
+
+        {isLoading ? (
+          <p className="py-4 text-center text-muted-foreground">A carregar…</p>
+        ) : filteredTx.length === 0 ? (
+          <p className="py-4 text-center text-muted-foreground">
+            {available.length === 0 ? "Nenhuma transação elegível fora desta lista." : "Nenhuma transação corresponde aos filtros."}
+          </p>
+        ) : (
+          <div className="overflow-x-auto max-h-[45vh] overflow-y-auto border border-border/50 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted">
+                <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="p-2 text-center w-8">
+                    <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
+                  </th>
+                  <th className="p-2 text-left font-medium">Descrição</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
+                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                  <th className="p-2 text-left font-medium hidden lg:table-cell">Vencimento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {filteredTx.map((t: any) => {
+                  const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
+                  return (
+                    <tr
+                      key={t.id}
+                      className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                      onClick={() => toggleId(t.id)}
+                    >
+                      <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                      <td className="p-2">
+                        <span className="font-medium">{t.description}</span>
+                        {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
+                      </td>
+                      <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
+                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                      <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between mt-4 pt-4 border-t border-border/50 gap-2">
+          <span className="text-sm text-muted-foreground">{selectedIds.size} selecionada(s)</span>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Cancelar</button>
+            <button
+              onClick={handleAdd}
+              disabled={submitting || selectedIds.size === 0}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              {submitting ? "A adicionar…" : `Adicionar (${selectedIds.size})`}
             </button>
           </div>
         </div>
