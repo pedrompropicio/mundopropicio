@@ -1930,3 +1930,197 @@ function ApproveModal({
     </div>
   );
 }
+/* ─── Adicionar transações a uma lista editável ─── */
+function AddTransactionsToList({
+  listId,
+  existingTxIds,
+  onClose,
+  onAdded,
+}: {
+  listId: string;
+  existingTxIds: Set<string>;
+  onClose: () => void;
+  onAdded: (count: number) => void;
+}) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [dateType, setDateType] = useState<"date" | "due_date">("date");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+
+  const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
+
+  // Excluir as que já estão nesta lista (itens ativos ou removidos — o removido
+  // restaura-se pelo botão "Restaurar", não por duplicação).
+  const available = useMemo(
+    () => approvedTx.filter((t: any) => !existingTxIds.has(t.id)),
+    [approvedTx, existingTxIds],
+  );
+
+  const eventOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    available.forEach((t: any) => {
+      if (t.event_id && t.events?.name) map.set(t.event_id, t.events.name);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [available]);
+
+  const filteredTx = useMemo(() => {
+    return available.filter((t: any) => {
+      if (eventFilter !== "all" && t.event_id !== eventFilter) return false;
+      const dateValue = dateType === "due_date" ? t.due_date : t.date;
+      if (!dateValue && (dateFrom || dateTo)) return false;
+      if (dateFrom && dateValue < dateFrom) return false;
+      if (dateTo && dateValue > dateTo) return false;
+      return true;
+    });
+  }, [available, dateType, dateFrom, dateTo, eventFilter]);
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
+  };
+
+  const handleAdd = async () => {
+    if (selectedIds.size === 0) return;
+    setSubmitting(true);
+    try {
+      const items = [...selectedIds].map((txId) => ({ payment_list_id: listId, transaction_id: txId }));
+      const { error } = await supabase.from("payment_list_items").insert(items);
+      if (error) throw error;
+      onAdded(selectedIds.size);
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar transações", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const backdrop = useBackdropClose(onClose);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="glass w-full max-w-4xl lg:max-w-[min(95vw,1400px)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-1">Adicionar transações à lista</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Mesmos critérios da criação da lista: transações aprovadas, de despesa, sem reembolsos.
+        </p>
+
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 mb-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filtros</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Filtrar por</label>
+              <select
+                value={dateType}
+                onChange={(e) => setDateType(e.target.value as "date" | "due_date")}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="date">Data de Lançamento</option>
+                <option value="due_date">Data de Vencimento</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">De</label>
+              <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="De…" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Até</label>
+              <DatePicker value={dateTo} onChange={setDateTo} placeholder="Até…" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Evento</label>
+              <select
+                value={eventFilter}
+                onChange={(e) => setEventFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="all">Todos os eventos</option>
+                {eventOptions.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
+          Disponíveis ({filteredTx.length} de {available.length})
+        </h3>
+
+        {isLoading ? (
+          <p className="py-4 text-center text-muted-foreground">A carregar…</p>
+        ) : filteredTx.length === 0 ? (
+          <p className="py-4 text-center text-muted-foreground">
+            {available.length === 0 ? "Nenhuma transação elegível fora desta lista." : "Nenhuma transação corresponde aos filtros."}
+          </p>
+        ) : (
+          <div className="overflow-x-auto max-h-[45vh] overflow-y-auto border border-border/50 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted">
+                <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="p-2 text-center w-8">
+                    <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
+                  </th>
+                  <th className="p-2 text-left font-medium">Descrição</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
+                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                  <th className="p-2 text-left font-medium hidden lg:table-cell">Vencimento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {filteredTx.map((t: any) => {
+                  const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
+                  return (
+                    <tr
+                      key={t.id}
+                      className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                      onClick={() => toggleId(t.id)}
+                    >
+                      <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                      <td className="p-2">
+                        <span className="font-medium">{t.description}</span>
+                        {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
+                      </td>
+                      <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
+                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                      <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between mt-4 pt-4 border-t border-border/50 gap-2">
+          <span className="text-sm text-muted-foreground">{selectedIds.size} selecionada(s)</span>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Cancelar</button>
+            <button
+              onClick={handleAdd}
+              disabled={submitting || selectedIds.size === 0}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              {submitting ? "A adicionar…" : `Adicionar (${selectedIds.size})`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
