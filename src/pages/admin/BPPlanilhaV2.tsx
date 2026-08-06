@@ -124,6 +124,7 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const metaRef = useRef<RowMeta[]>([]);
   const originalsRef = useRef<Map<string, Entry>>(new Map());
   const programmaticRef = useRef(false);
+  const lastRowRef = useRef<number>(-1);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -239,7 +240,11 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     for (const t of tempRows) {
       const key = t.categoryId ?? "__none__";
       if (!byCat.has(key)) byCat.set(key, []);
-      byCat.get(key)!.push({ tempId: t.tempId, categoryId: t.categoryId });
+      const arr = byCat.get(key)!;
+      const at = t.afterId ? arr.findIndex((x) => x.id === t.afterId) : -1;
+      const newRow = { tempId: t.tempId, categoryId: t.categoryId };
+      if (at >= 0) arr.splice(at + 1, 0, newRow);
+      else arr.push(newRow);
     }
 
     const ancestors = (id: string | null): Category[] => {
@@ -370,36 +375,45 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
 
   /* ───────────────────────────── ações estruturais ───────────────────────────── */
 
+  /** Última linha selecionada (fallback: a grelha perde a seleção ao clicar na toolbar). */
   const selectedRow = () => {
     const hot = hotRef.current?.hotInstance;
     const sel = hot?.getSelectedLast?.();
-    return sel ? sel[0] : -1;
+    const r = sel ? sel[0] : -1;
+    if (typeof r === "number" && r >= 0) return r;
+    return lastRowRef.current;
   };
 
   const insertRow = () => {
     const r = selectedRow();
-    const m = metaRef.current[r];
+    const m = r >= 0 ? metaRef.current[r] : undefined;
     if (!m) {
-      toast.info("Seleciona uma linha dentro do grupo onde queres inserir.");
+      toast.info("Seleciona uma linha primeiro (uma rubrica L3 ou uma linha dela).");
       return;
     }
-    const categoryId = m.kind === "group" ? m.categoryId : m.categoryId;
     if (m.kind === "group" && m.level !== 3) {
       toast.info("Escolhe uma rubrica de nível 3 (ou uma linha dela) para inserir.");
       return;
     }
+    const categoryId = m.categoryId;
+    const afterId = m.kind === "entry" && "id" in m ? m.id : null;
     setTempRows((prev) => [
       ...prev,
-      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId: null },
+      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId },
     ]);
     setDataVersion((v) => v + 1);
+    toast.success("Linha inserida — preenche a descrição e o valor.");
   };
 
   const deleteRow = () => {
     const r = selectedRow();
-    const m = metaRef.current[r];
-    if (!m || m.kind !== "entry") {
-      toast.info("Seleciona uma linha de despesa para apagar.");
+    const m = r >= 0 ? metaRef.current[r] : undefined;
+    if (!m) {
+      toast.info("Seleciona uma linha primeiro.");
+      return;
+    }
+    if (m.kind !== "entry") {
+      toast.info("Só é possível apagar linhas de despesa (não cabeçalhos de grupo).");
       return;
     }
     if ("tempId" in m) {
@@ -407,8 +421,11 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     } else {
       setPendingDeletes((prev) => (prev.includes(m.id) ? prev : [...prev, m.id]));
     }
+    lastRowRef.current = -1;
     setDataVersion((v) => v + 1);
+    toast.success("Linha marcada para remoção.");
   };
+
 
   /* ──────────────────────────────── gravação ──────────────────────────────── */
 
@@ -519,9 +536,32 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     [],
   );
 
+  /** Indentação hierárquica na coluna Categoria (mesmo padrão visual da v1). */
+  const categoryRenderer = useCallback(
+    (_inst: any, td: HTMLElement, r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = cellProps?.className ?? "";
+      const m = metaRef.current[r];
+      const text = String(value ?? "").trim();
+      td.textContent = text;
+      td.style.fontWeight = "";
+      td.style.color = "";
+      td.style.paddingLeft = "";
+      if (!m) return;
+      if (m.kind === "group") {
+        td.style.paddingLeft = `${4 + (m.level - 1) * 16}px`;
+        td.style.fontWeight = m.level === 1 ? "700" : m.level === 2 ? "600" : "600";
+        if (m.level === 3) td.style.color = "hsl(var(--foreground))";
+      } else {
+        td.style.paddingLeft = "48px";
+        td.style.color = "hsl(var(--muted-foreground))";
+      }
+    },
+    [],
+  );
+
   const columns = useMemo(
     () => [
-      { data: COL.CATEGORY, readOnly: true, width: 300 },
+      { data: COL.CATEGORY, readOnly: true, width: 300, renderer: categoryRenderer as any },
       { data: COL.DESCRIPTION, type: "text", width: 300 },
       { data: COL.SPEC, type: "text", width: 220 },
       { data: COL.AMOUNT, type: "numeric", width: 140, renderer: moneyRenderer as any },
@@ -536,8 +576,9 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
       { data: COL.TOTAL, readOnly: true, type: "numeric", width: 150, renderer: moneyRenderer as any },
       { data: COL.FORMALIDADE, type: "dropdown", source: FORMALIDADE_LABELS, allowInvalid: false, width: 150 },
     ],
-    [ivaSource, moneyRenderer, ivaRenderer],
+    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer],
   );
+
 
 
   if (!allowed) {
@@ -595,6 +636,12 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
 
       {err && <p className="text-sm text-destructive">{err}</p>}
 
+      <style>{`
+        .handsontable td.bpv2-group { background: hsl(var(--muted)) !important; }
+        .handsontable td.bpv2-l3 { background: hsl(var(--secondary)) !important; }
+      `}</style>
+
+
       {fullscreen && (
         <style>{`
           /* Dropdowns/editores do Handsontable montam em containers no body */
@@ -644,6 +691,10 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
             undo
             manualColumnResize
             contextMenu={false}
+            outsideClickDeselects={false}
+            afterSelectionEnd={(r: number) => {
+              if (typeof r === "number" && r >= 0) lastRowRef.current = r;
+            }}
             // HyperFormula alimenta a coluna "Total c/IVA" (=D*(1+E/100)).
             formulas={{ engine: HyperFormula, licenseKey: "internal-use-in-handsontable" }}
             licenseKey="non-commercial-and-evaluation"
