@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { formatCurrencyDecimal } from "@/lib/mock-data";
 
 registerAllModules();
 
