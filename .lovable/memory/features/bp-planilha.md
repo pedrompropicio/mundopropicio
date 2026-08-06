@@ -32,6 +32,14 @@ do componente: **em produção comercial é obrigatória licença Handsontable c
 - Input PT: `parseAmountPT` aceita `1.064,42 €` → `1064.42` (também no paste, via `beforeChange`).
 - Poda de no-ops: o diff só inclui campos realmente diferentes do original.
 - Nativo aproveitado: undo/redo (`afterUndo` recalcula o contador), colar do Excel, fill handle, teclado.
+- **Botão "Desfazer"** na toolbar: pilha própria cronológica (`undoStackRef`) mistura edições de célula
+  (delegadas a `hot.undo()`) com ações de estrutura (inserir → remove tempRow; apagar → retira de
+  pendingDeletes). Ctrl+Z nativo sincroniza a pilha via `afterUndo`; botão desativado a 0.
+- **Botão "Adicionar rubrica"**: dialog com `SearchableSelect` de todas as L3 de despesa do plano de
+  contas (agrupadas por L2), permitindo criar linha em rubricas SEM despesas — o grupo L1/L2/L3 nasce
+  na posição correta porque a grelha agrupa também os `tempRows`. Selecionar header L2 + "Inserir linha"
+  abre o mesmo dialog pré-filtrado a esse L2; header L3 insere direto.
+
 - Inserir/apagar linha: usa a última seleção (`afterSelectionEnd` + `outsideClickDeselects: false`),
   herda categoria, nunca falha em silêncio (toast), e não apaga headers de grupo.
 
