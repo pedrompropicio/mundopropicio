@@ -19,6 +19,7 @@ import "handsontable/styles/ht-theme-main.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
@@ -137,6 +138,8 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const { theme } = useTheme();
+  const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
 
   // Sair do ecrã inteiro com Esc
   useEffect(() => {
@@ -608,10 +611,11 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
         <p className="py-8 text-center text-muted-foreground">A carregar dados…</p>
       ) : (
         <div
+          key={htThemeClass}
           className={
             fullscreen
-              ? "fixed inset-0 z-[9999] flex flex-col bg-background p-3 ht-theme-main-dark-auto"
-              : "ht-theme-main-dark-auto overflow-hidden rounded-xl border border-border"
+              ? `fixed inset-0 z-[9999] flex flex-col bg-background p-3 ${htThemeClass}`
+              : `${htThemeClass} overflow-hidden rounded-xl border border-border`
           }
         >
           {fullscreen && (
