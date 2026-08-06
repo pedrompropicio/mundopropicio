@@ -138,6 +138,8 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const { theme } = useTheme();
+  const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
 
   // Sair do ecrã inteiro com Esc
   useEffect(() => {
