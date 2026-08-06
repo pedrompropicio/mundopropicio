@@ -2196,8 +2196,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     title="Editor em grelha — edição em massa (Fase A.1)"
                   >
                     <Table2 className="h-3.5 w-3.5" />
-                    Grelha
-                  </button>
                   {!isMobile && (
                     <button
                       type="button"
@@ -2207,25 +2205,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
-                      title="Planilha estilo Excel (Univer)"
+                      title="Planilha estilo Excel"
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5" />
                       Planilha
-                    </button>
-                  )}
-                  {!isMobile && rawIsAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setForecastsViewMode("sheet2")}
-                      className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                        forecastsViewMode === "sheet2"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      title="Spike em avaliação: planilha com Handsontable"
-                    >
-                      <FileSpreadsheet className="h-3.5 w-3.5" />
-                      Planilha v2 (beta)
                     </button>
                   )}
                 </div>
@@ -2241,15 +2224,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 />
               ) : forecastsViewMode === "sheet" ? (
                 <Suspense fallback={<p className="py-8 text-center text-muted-foreground">A carregar Planilha…</p>}>
-                  <BPUniverSpike
-                    eventId={eventId}
-                    canEdit={canEditBP}
-                    embedded
-                  />
-                </Suspense>
-              ) : forecastsViewMode === "sheet2" ? (
-                <Suspense fallback={<p className="py-8 text-center text-muted-foreground">A carregar Planilha v2…</p>}>
-                  <BPPlanilhaV2 eventId={eventId} canEdit={canEditBP} />
+                  <BPPlanilha eventId={eventId} canEdit={canEditBP} />
                 </Suspense>
               ) : (
                 <div className="space-y-6">
