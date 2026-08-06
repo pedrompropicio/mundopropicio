@@ -874,6 +874,43 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         </div>
       )}
 
+      <Dialog
+        open={rubricOpen}
+        onOpenChange={(o) => {
+          setRubricOpen(o);
+          if (!o) {
+            setRubricValue("");
+            setRubricFilterL2(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar rubrica</DialogTitle>
+            <DialogDescription>
+              Escolhe a rubrica de nível 3. Se ainda não existir na planilha, o grupo é criado na posição
+              certa com uma linha nova editável (grava como rascunho).
+            </DialogDescription>
+          </DialogHeader>
+          <SearchableSelect
+            options={rubricOptions}
+            value={rubricValue}
+            onValueChange={setRubricValue}
+            placeholder="Selecionar rubrica…"
+            searchPlaceholder="Pesquisar por código ou nome…"
+            emptyMessage="Nenhuma rubrica de despesa encontrada."
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRubricOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmRubric} disabled={!rubricValue}>
+              Adicionar linha
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
