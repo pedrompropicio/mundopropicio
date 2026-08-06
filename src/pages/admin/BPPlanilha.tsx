@@ -845,10 +845,25 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             afterChange={(changes, source) => {
               if (!changes) return;
               if (source === "loadData" || programmaticRef.current) return;
+              if (source !== "UndoRedo.undo" && source !== "UndoRedo.redo") {
+                pushUndo({ kind: "cell", ts: Date.now() });
+              }
               recount();
             }}
-            afterUndo={() => recount()}
-            afterRedo={() => recount()}
+            afterUndo={() => {
+              // Ctrl+Z nativo: remove da pilha a última edição de célula
+              const idx = [...undoStackRef.current].reverse().findIndex((e) => e.kind === "cell");
+              if (idx >= 0) {
+                const at = undoStackRef.current.length - 1 - idx;
+                undoStackRef.current = undoStackRef.current.filter((_, i) => i !== at);
+                setUndoDepth(undoStackRef.current.length);
+              }
+              recount();
+            }}
+            afterRedo={() => {
+              pushUndo({ kind: "cell", ts: Date.now() });
+              recount();
+            }}
           />
         </div>
       )}
