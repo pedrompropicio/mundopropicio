@@ -14,10 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
-// Lazy: Univer é pesado (~10MB). Só carrega quando o utilizador escolhe a vista Planilha.
-const BPUniverSpike = lazy(() => import("@/pages/admin/BPUniverSpike"));
-// SPIKE em avaliação (Handsontable). Vive em paralelo, sem tocar na Planilha atual.
-const BPPlanilhaV2 = lazy(() => import("@/pages/admin/BPPlanilhaV2"));
+// Lazy: a Planilha (Handsontable) só carrega quando o utilizador escolhe a vista.
+const BPPlanilha = lazy(() => import("@/pages/admin/BPPlanilha"));
 import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
 import { StickyNote } from "lucide-react";
