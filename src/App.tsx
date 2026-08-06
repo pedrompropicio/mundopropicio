@@ -83,7 +83,7 @@ import AuditoriaContas from "./pages/AuditoriaContas";
 import FormalidadeAudit from "./pages/FormalidadeAudit";
 import ReconciliacaoBpTx from "./pages/ReconciliacaoBpTx";
 import { lazy, Suspense } from "react";
-const BPUniverSpike = lazy(() => import("./pages/admin/BPUniverSpike"));
+
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
