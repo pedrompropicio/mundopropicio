@@ -1057,6 +1057,34 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
   const isApproved = list?.status === "approved" || list?.status === "partially_approved";
 
+  // Edição de itens: só em estados anteriores à aprovação, e só para o criador
+  // da lista ou um admin. Em approved/partially_approved a lista é read-only.
+  const isEditableStatus = list?.status === "draft" || list?.status === "pending_approval" || list?.status === "rejected" || list?.status === "revision";
+  const isOwner = !!list?.created_by && !!user?.email && list.created_by === user.email;
+  const canEditItems = !!list && isEditableStatus && (isOwner || isAdmin);
+
+  const existingTxIds = useMemo(
+    () => new Set(items.map((i: any) => i.transactions?.id).filter(Boolean) as string[]),
+    [items],
+  );
+
+  const handleAddedTransactions = async (count: number) => {
+    setShowAddTx(false);
+    if (list?.status === "pending_approval") {
+      await appendPaymentListRevisionNote(
+        listId,
+        `+${count} transaç${count === 1 ? "ão" : "ões"} adicionada${count === 1 ? "" : "s"}`,
+        user?.email ?? "sistema",
+      );
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    await refreshBadgeFromDB();
+    toast({ title: `${count} transação(ões) adicionada(s) à lista.` });
+  };
+
+
   const unpaidItems = items.filter((item: any) => {
     const tx = item.transactions;
     if (!tx) return false;
