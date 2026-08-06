@@ -536,9 +536,32 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     [],
   );
 
+  /** Indentação hierárquica na coluna Categoria (mesmo padrão visual da v1). */
+  const categoryRenderer = useCallback(
+    (_inst: any, td: HTMLElement, r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = cellProps?.className ?? "";
+      const m = metaRef.current[r];
+      const text = String(value ?? "").trim();
+      td.textContent = text;
+      td.style.fontWeight = "";
+      td.style.color = "";
+      td.style.paddingLeft = "";
+      if (!m) return;
+      if (m.kind === "group") {
+        td.style.paddingLeft = `${4 + (m.level - 1) * 16}px`;
+        td.style.fontWeight = m.level === 1 ? "700" : m.level === 2 ? "600" : "600";
+        if (m.level === 3) td.style.color = "hsl(var(--foreground))";
+      } else {
+        td.style.paddingLeft = "48px";
+        td.style.color = "hsl(var(--muted-foreground))";
+      }
+    },
+    [],
+  );
+
   const columns = useMemo(
     () => [
-      { data: COL.CATEGORY, readOnly: true, width: 300 },
+      { data: COL.CATEGORY, readOnly: true, width: 300, renderer: categoryRenderer as any },
       { data: COL.DESCRIPTION, type: "text", width: 300 },
       { data: COL.SPEC, type: "text", width: 220 },
       { data: COL.AMOUNT, type: "numeric", width: 140, renderer: moneyRenderer as any },
@@ -553,8 +576,9 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
       { data: COL.TOTAL, readOnly: true, type: "numeric", width: 150, renderer: moneyRenderer as any },
       { data: COL.FORMALIDADE, type: "dropdown", source: FORMALIDADE_LABELS, allowInvalid: false, width: 150 },
     ],
-    [ivaSource, moneyRenderer, ivaRenderer],
+    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer],
   );
+
 
 
   if (!allowed) {
