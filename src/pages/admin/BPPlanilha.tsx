@@ -206,6 +206,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       setPendingDeletes([]);
       setTempRows([]);
       setCounts({ edits: 0, inserts: 0, deletes: 0 });
+      undoStackRef.current = [];
+      setUndoDepth(0);
       setDataVersion((v) => v + 1);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
