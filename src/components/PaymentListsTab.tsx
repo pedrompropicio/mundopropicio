@@ -490,21 +490,16 @@ export default function PaymentListsTab() {
   );
 }
 
-/* ─── Create Payment List Modal ─── */
-function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { user } = useAuth();
-  const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [submitting, setSubmitting] = useState(false);
-
-  // Filter state
-  const [dateType, setDateType] = useState<"date" | "due_date">("date");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [eventFilter, setEventFilter] = useState<string>("all");
-
-  const { data: approvedTx = [], isLoading } = useQuery({
+/**
+ * Transações elegíveis para entrar numa lista de pagamento.
+ * Mesmos critérios usados na criação da lista (reutilizado pelo picker de
+ * "Adicionar transações" no detalhe de listas editáveis):
+ *  - status "approved", type "expense"
+ *  - reembolsos excluídos (só via Nota de Reembolso)
+ *  - filhos de rateio escondidos excluídos
+ */
+function useEligibleTransactionsForList() {
+  return useQuery({
     queryKey: ["approved-transactions-for-list"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -533,6 +528,45 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
       return rows.filter((tx: any) => !isHiddenSplitChild(tx));
     },
   });
+}
+
+/**
+ * Appenda uma linha de auditoria a `payment_lists.revision_notes` quando uma
+ * lista já enviada para aprovação é alterada (itens incluídos/removidos).
+ * O aprovador vê assim que a lista mudou desde o envio.
+ */
+export async function appendPaymentListRevisionNote(
+  listId: string,
+  action: string,
+  actor: string,
+) {
+  const { data: current } = await supabase
+    .from("payment_lists")
+    .select("revision_notes")
+    .eq("id", listId)
+    .maybeSingle();
+  const stamp = new Date().toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const line = `${stamp} ${actor}: ${action}`;
+  const next = current?.revision_notes ? `${current.revision_notes}\n${line}` : line;
+  await supabase.from("payment_lists").update({ revision_notes: next }).eq("id", listId);
+}
+
+/* ─── Create Payment List Modal ─── */
+function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user } = useAuth();
+  const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  // Filter state
+  const [dateType, setDateType] = useState<"date" | "due_date">("date");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+
+  const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
+
 
   const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
 
