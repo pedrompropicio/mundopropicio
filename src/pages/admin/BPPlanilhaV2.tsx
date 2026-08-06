@@ -617,7 +617,7 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
               "Formalidade",
             ]}
             rowHeaders
-            height={620}
+            height={fullscreen ? "calc(100vh - 100px)" : 620}
             width="100%"
             stretchH="last"
             undo
