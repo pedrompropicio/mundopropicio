@@ -18,7 +18,7 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2, Undo2, ListPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { formatCurrencyDecimal } from "@/lib/mock-data";
 
@@ -138,6 +139,28 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const { theme } = useTheme();
   const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
 
+  /* ── Pilha própria de Desfazer (ordem cronológica entre células e estrutura) ──
+   * Edições de célula são delegadas ao undo nativo do Handsontable; as ações de
+   * estrutura (inserir/apagar linha) vivem aqui. A pilha registra a sequência
+   * para o botão "Desfazer" reverter sempre a última ação, seja de que mundo for. */
+  type UndoEntry =
+    | { kind: "cell"; ts: number }
+    | { kind: "insert"; ts: number; tempId: string }
+    | { kind: "delete"; ts: number; id: string };
+  const undoStackRef = useRef<UndoEntry[]>([]);
+  const undoFromButtonRef = useRef(false);
+  const [undoDepth, setUndoDepth] = useState(0);
+  const pushUndo = useCallback((e: UndoEntry) => {
+    undoStackRef.current = [...undoStackRef.current, e];
+    setUndoDepth(undoStackRef.current.length);
+  }, []);
+
+  // Dialog "Adicionar rubrica"
+  const [rubricOpen, setRubricOpen] = useState(false);
+  const [rubricFilterL2, setRubricFilterL2] = useState<string | null>(null);
+  const [rubricValue, setRubricValue] = useState("");
+
+
   // Sair do ecrã inteiro com Esc
   useEffect(() => {
     if (!fullscreen) return;
@@ -184,6 +207,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       setPendingDeletes([]);
       setTempRows([]);
       setCounts({ edits: 0, inserts: 0, deletes: 0 });
+      undoStackRef.current = [];
+      setUndoDepth(0);
       setDataVersion((v) => v + 1);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
@@ -380,6 +405,18 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     return lastRowRef.current;
   };
 
+  /** Cria uma linha nova (draft) na rubrica L3 indicada. */
+  const addTempRow = useCallback(
+    (categoryId: string | null, afterId: string | null) => {
+      const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setTempRows((prev) => [...prev, { tempId, categoryId, afterId }]);
+      pushUndo({ kind: "insert", ts: Date.now(), tempId });
+      setDataVersion((v) => v + 1);
+      toast.success("Linha inserida — preenche a descrição e o valor.");
+    },
+    [pushUndo],
+  );
+
   const insertRow = () => {
     const r = selectedRow();
     const m = r >= 0 ? metaRef.current[r] : undefined;
@@ -388,17 +425,14 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       return;
     }
     if (m.kind === "group" && m.level !== 3) {
-      toast.info("Escolhe uma rubrica de nível 3 (ou uma linha dela) para inserir.");
+      // L2 (ou L1): abre o dialog de rubricas pré-filtrado a esse grupo
+      setRubricFilterL2(m.level === 2 ? m.categoryId : null);
+      setRubricValue("");
+      setRubricOpen(true);
       return;
     }
-    const categoryId = m.categoryId;
     const afterId = m.kind === "entry" && "id" in m ? m.id : null;
-    setTempRows((prev) => [
-      ...prev,
-      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId },
-    ]);
-    setDataVersion((v) => v + 1);
-    toast.success("Linha inserida — preenche a descrição e o valor.");
+    addTempRow(m.categoryId, afterId);
   };
 
   const deleteRow = () => {
@@ -413,14 +447,94 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       return;
     }
     if ("tempId" in m) {
-      setTempRows((prev) => prev.filter((t) => t.tempId !== m.tempId));
+      const tempId = m.tempId;
+      setTempRows((prev) => prev.filter((t) => t.tempId !== tempId));
+      // desfazer uma inserção pendente = anular a própria entrada da pilha
+      undoStackRef.current = undoStackRef.current.filter(
+        (e) => !(e.kind === "insert" && e.tempId === tempId),
+      );
+      setUndoDepth(undoStackRef.current.length);
     } else {
-      setPendingDeletes((prev) => (prev.includes(m.id) ? prev : [...prev, m.id]));
+      const id = m.id;
+      setPendingDeletes((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      pushUndo({ kind: "delete", ts: Date.now(), id });
     }
     lastRowRef.current = -1;
     setDataVersion((v) => v + 1);
     toast.success("Linha marcada para remoção.");
   };
+
+  /** Desfaz a última ação global (célula via undo nativo, estrutura via pilha própria). */
+  const handleUndo = () => {
+    const stack = undoStackRef.current;
+    const last = stack[stack.length - 1];
+    if (!last) {
+      toast.info("Nada para desfazer.");
+      return;
+    }
+    undoStackRef.current = stack.slice(0, -1);
+    setUndoDepth(undoStackRef.current.length);
+
+    if (last.kind === "cell") {
+      undoFromButtonRef.current = true;
+      hotRef.current?.hotInstance?.undo?.();
+      undoFromButtonRef.current = false;
+      // afterUndo faz o recount
+      return;
+    }
+    if (last.kind === "insert") {
+      setTempRows((prev) => prev.filter((t) => t.tempId !== last.tempId));
+      toast.success("Linha inserida removida.");
+    } else {
+      setPendingDeletes((prev) => prev.filter((id) => id !== last.id));
+      toast.success("Linha restaurada.");
+    }
+    setDataVersion((v) => v + 1);
+  };
+
+  /* ─────────────── rubricas L3 de despesa (dialog "Adicionar rubrica") ─────────────── */
+
+  const rubricOptions = useMemo<SearchableSelectOption[]>(() => {
+    const chainOf = (c: Category): Category[] => {
+      const chain: Category[] = [];
+      let cur: Category | undefined = c;
+      while (cur) {
+        chain.unshift(cur);
+        cur = cur.parent_id ? catById.get(cur.parent_id) : undefined;
+      }
+      return chain;
+    };
+    const opts = categories
+      .map((c) => ({ c, chain: chainOf(c) }))
+      .filter(({ c, chain }) => {
+        if (chain.length !== 3) return false;
+        const root = chain[0];
+        const type = c.type ?? chain[1]?.type ?? root.type;
+        if (type && type !== "expense") return false;
+        if (rubricFilterL2 && chain[1]?.id !== rubricFilterL2) return false;
+        return true;
+      })
+      .sort((a, b) => compareHierarchicalCodes(a.c.code ?? "zz", b.c.code ?? "zz"))
+      .map(({ c, chain }) => ({
+        value: c.id,
+        label: `${c.code ?? ""} ${c.name}`.trim(),
+        group: `${chain[1]?.code ?? ""} ${chain[1]?.name ?? ""}`.trim() || "Outros",
+        searchText: `${chain[0]?.name ?? ""} ${chain[1]?.name ?? ""}`,
+      }));
+    return opts;
+  }, [categories, catById, rubricFilterL2]);
+
+  const confirmRubric = () => {
+    if (!rubricValue) {
+      toast.info("Escolhe uma rubrica.");
+      return;
+    }
+    addTempRow(rubricValue, null);
+    setRubricOpen(false);
+    setRubricValue("");
+    setRubricFilterL2(null);
+  };
+
 
 
   /* ──────────────────────────────── gravação ──────────────────────────────── */
@@ -595,8 +709,22 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         </span>
       </div>
       <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={handleUndo} disabled={undoDepth === 0}>
+          <Undo2 className="mr-1 h-3.5 w-3.5" /> Desfazer
+        </Button>
         <Button size="sm" variant="outline" onClick={insertRow}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setRubricFilterL2(null);
+            setRubricValue("");
+            setRubricOpen(true);
+          }}
+        >
+          <ListPlus className="mr-1 h-3.5 w-3.5" /> Adicionar rubrica
         </Button>
         <Button size="sm" variant="outline" onClick={deleteRow}>
           <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
@@ -720,13 +848,68 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             afterChange={(changes, source) => {
               if (!changes) return;
               if (source === "loadData" || programmaticRef.current) return;
+              if (source !== "UndoRedo.undo" && source !== "UndoRedo.redo") {
+                pushUndo({ kind: "cell", ts: Date.now() });
+              }
               recount();
             }}
-            afterUndo={() => recount()}
-            afterRedo={() => recount()}
+            afterUndo={() => {
+              // Ctrl+Z nativo: remove da pilha a última edição de célula
+              // (quando vem do botão, a entrada já foi retirada por handleUndo)
+              if (!undoFromButtonRef.current) {
+                const idx = [...undoStackRef.current].reverse().findIndex((e) => e.kind === "cell");
+                if (idx >= 0) {
+                  const at = undoStackRef.current.length - 1 - idx;
+                  undoStackRef.current = undoStackRef.current.filter((_, i) => i !== at);
+                  setUndoDepth(undoStackRef.current.length);
+                }
+              }
+              recount();
+            }}
+            afterRedo={() => {
+              pushUndo({ kind: "cell", ts: Date.now() });
+              recount();
+            }}
           />
         </div>
       )}
+
+      <Dialog
+        open={rubricOpen}
+        onOpenChange={(o) => {
+          setRubricOpen(o);
+          if (!o) {
+            setRubricValue("");
+            setRubricFilterL2(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar rubrica</DialogTitle>
+            <DialogDescription>
+              Escolhe a rubrica de nível 3. Se ainda não existir na planilha, o grupo é criado na posição
+              certa com uma linha nova editável (grava como rascunho).
+            </DialogDescription>
+          </DialogHeader>
+          <SearchableSelect
+            options={rubricOptions}
+            value={rubricValue}
+            onValueChange={setRubricValue}
+            placeholder="Selecionar rubrica…"
+            searchPlaceholder="Pesquisar por código ou nome…"
+            emptyMessage="Nenhuma rubrica de despesa encontrada."
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRubricOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmRubric} disabled={!rubricValue}>
+              Adicionar linha
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
