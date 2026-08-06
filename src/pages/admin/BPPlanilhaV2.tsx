@@ -636,6 +636,12 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
 
       {err && <p className="text-sm text-destructive">{err}</p>}
 
+      <style>{`
+        .handsontable td.bpv2-group { background: hsl(var(--muted)) !important; }
+        .handsontable td.bpv2-l3 { background: hsl(var(--secondary)) !important; }
+      `}</style>
+
+
       {fullscreen && (
         <style>{`
           /* Dropdowns/editores do Handsontable montam em containers no body */
