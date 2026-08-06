@@ -199,7 +199,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
   // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Univer).
-  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
+  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet" | "sheet2">("grouped");
   const isMobile = useIsMobile();
   // Planilha (Univer) é desktop-only; se o ecrã encolher, volta para Agrupada.
   useEffect(() => {
