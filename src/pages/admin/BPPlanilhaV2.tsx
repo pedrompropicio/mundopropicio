@@ -136,6 +136,23 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const [counts, setCounts] = useState({ edits: 0, inserts: 0, deletes: 0 });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Sair do ecrã inteiro com Esc
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  // Recalcular dimensões da grelha ao alternar ecrã inteiro
+  useEffect(() => {
+    const t = setTimeout(() => hotRef.current?.hotInstance?.render?.(), 60);
+    return () => clearTimeout(t);
+  }, [fullscreen]);
 
   /* ───────────────────────────── carregamento ───────────────────────────── */
 
