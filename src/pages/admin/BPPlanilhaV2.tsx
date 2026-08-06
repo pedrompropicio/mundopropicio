@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
