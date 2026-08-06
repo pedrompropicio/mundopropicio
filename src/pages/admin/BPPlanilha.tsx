@@ -476,7 +476,9 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     setUndoDepth(undoStackRef.current.length);
 
     if (last.kind === "cell") {
+      undoFromButtonRef.current = true;
       hotRef.current?.hotInstance?.undo?.();
+      undoFromButtonRef.current = false;
       // afterUndo faz o recount
       return;
     }
