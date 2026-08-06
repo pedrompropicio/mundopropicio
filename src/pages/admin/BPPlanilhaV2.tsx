@@ -441,9 +441,23 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
       toast.success(
         `${diff.edits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
       );
-      queryClient.invalidateQueries({ queryKey: ["event-forecasts"] });
-      queryClient.invalidateQueries({ queryKey: ["forecasts", eventId] });
+      // Refresh das vistas que leem event_forecasts + cards financeiros do evento
+      for (const key of [
+        ["event_forecasts"],
+        ["event-forecasts"],
+        ["forecasts"],
+        ["bp"],
+        ["partner-bp-realized"],
+        ["scenario-forecasts"],
+        ["adopted_forecasts"],
+        ["parent_event_forecasts"],
+        ["efc-forecasts"],
+        ["efc-tx"],
+      ]) {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
       await fetchData();
+
     } catch (e: any) {
       toast.error(e?.message ?? String(e));
     } finally {
