@@ -519,7 +519,6 @@ function ProtectedLayout() {
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
               <Route path="/admin/reconciliacao-bp-tx" element={<ReconciliacaoBpTx />} />
-              <Route path="/admin/bp-univer-spike" element={<Suspense fallback={<div className="p-6">A carregar Univer…</div>}><BPUniverSpike /></Suspense>} />
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
               
