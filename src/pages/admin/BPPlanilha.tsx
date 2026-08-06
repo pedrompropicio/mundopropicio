@@ -706,8 +706,22 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         </span>
       </div>
       <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={handleUndo} disabled={undoDepth === 0}>
+          <Undo2 className="mr-1 h-3.5 w-3.5" /> Desfazer
+        </Button>
         <Button size="sm" variant="outline" onClick={insertRow}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setRubricFilterL2(null);
+            setRubricValue("");
+            setRubricOpen(true);
+          }}
+        >
+          <ListPlus className="mr-1 h-3.5 w-3.5" /> Adicionar rubrica
         </Button>
         <Button size="sm" variant="outline" onClick={deleteRow}>
           <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
