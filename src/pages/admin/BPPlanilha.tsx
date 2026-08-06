@@ -111,8 +111,8 @@ interface BPPlanilhaProps {
 export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps) {
   const { role } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = role === "admin" || role === "platform_admin";
-  const allowed = isAdmin && canEdit;
+  // Mesma regra da antiga Planilha (Univer): quem pode editar o BP pode usar a Planilha.
+  const allowed = canEdit;
 
   const { rates: validIva, defaultRate } = useEventIvaCountry(eventId || null);
 
