@@ -1,14 +1,10 @@
 /**
- * SPIKE — Planilha v2 (Handsontable)
- * ==================================
- * Avaliação lado a lado com a Planilha atual (BPUniverSpike.tsx / Univer 0.25).
- * NADA nesta vista é partilhado com o Univer: a lógica de normalização PT, poda
- * de no-ops e diff de gravação foi COPIADA de propósito (decisão do spike —
- * extrair/partilhar só depois de escolher a superfície definitiva).
+ * Planilha do BP (Handsontable) — VISTA OFICIAL
+ * ============================================
+ * Aprovada em 06/08/2026 e substituiu a antiga Planilha (Univer 0.25), aposentada.
  *
- * LICENÇA: usamos `licenseKey: "non-commercial-and-evaluation"`, válida apenas
- * para avaliação. A compra da licença comercial do Handsontable decide-se
- * DEPOIS do spike — não colocar esta vista em produção antes disso.
+ * ⚠️ TODO LICENÇA: em produção comercial é obrigatória licença Handsontable —
+ * substituir esta key ("non-commercial-and-evaluation") pela key comprada.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HotTable } from "@handsontable/react-wrapper";
