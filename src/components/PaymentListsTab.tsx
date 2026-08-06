@@ -838,6 +838,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
+  const [showAddTx, setShowAddTx] = useState(false);
+  const [editingTx, setEditingTx] = useState<any | null>(null);
+
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragging = useRef(false);
