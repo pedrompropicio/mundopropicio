@@ -685,6 +685,10 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
             undo
             manualColumnResize
             contextMenu={false}
+            outsideClickDeselects={false}
+            afterSelectionEnd={(r: number) => {
+              if (typeof r === "number" && r >= 0) lastRowRef.current = r;
+            }}
             // HyperFormula alimenta a coluna "Total c/IVA" (=D*(1+E/100)).
             formulas={{ engine: HyperFormula, licenseKey: "internal-use-in-handsontable" }}
             licenseKey="non-commercial-and-evaluation"
