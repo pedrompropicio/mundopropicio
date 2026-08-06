@@ -2196,6 +2196,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     title="Editor em grelha — edição em massa (Fase A.1)"
                   >
                     <Table2 className="h-3.5 w-3.5" />
+                    Grelha
+                  </button>
                   {!isMobile && (
                     <button
                       type="button"
