@@ -855,11 +855,14 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             }}
             afterUndo={() => {
               // Ctrl+Z nativo: remove da pilha a última edição de célula
-              const idx = [...undoStackRef.current].reverse().findIndex((e) => e.kind === "cell");
-              if (idx >= 0) {
-                const at = undoStackRef.current.length - 1 - idx;
-                undoStackRef.current = undoStackRef.current.filter((_, i) => i !== at);
-                setUndoDepth(undoStackRef.current.length);
+              // (quando vem do botão, a entrada já foi retirada por handleUndo)
+              if (!undoFromButtonRef.current) {
+                const idx = [...undoStackRef.current].reverse().findIndex((e) => e.kind === "cell");
+                if (idx >= 0) {
+                  const at = undoStackRef.current.length - 1 - idx;
+                  undoStackRef.current = undoStackRef.current.filter((_, i) => i !== at);
+                  setUndoDepth(undoStackRef.current.length);
+                }
               }
               recount();
             }}
