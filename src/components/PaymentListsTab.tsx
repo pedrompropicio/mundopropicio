@@ -916,7 +916,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
       return;
     }
+    if (list?.status === "pending_approval") {
+      await appendPaymentListRevisionNote(listId, "−1 transação removida", user?.email ?? "sistema");
+    }
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
     queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
     queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
@@ -932,11 +936,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       toast({ title: "Erro ao restaurar", description: error.message, variant: "destructive" });
       return;
     }
+    if (list?.status === "pending_approval") {
+      await appendPaymentListRevisionNote(listId, "+1 transação restaurada", user?.email ?? "sistema");
+    }
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
     queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
     toast({ title: "Item restaurado à lista" });
   };
+
 
   const { data: list } = useQuery({
     queryKey: ["payment-list", listId],
