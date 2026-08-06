@@ -240,7 +240,11 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     for (const t of tempRows) {
       const key = t.categoryId ?? "__none__";
       if (!byCat.has(key)) byCat.set(key, []);
-      byCat.get(key)!.push({ tempId: t.tempId, categoryId: t.categoryId });
+      const arr = byCat.get(key)!;
+      const at = t.afterId ? arr.findIndex((x) => x.id === t.afterId) : -1;
+      const newRow = { tempId: t.tempId, categoryId: t.categoryId };
+      if (at >= 0) arr.splice(at + 1, 0, newRow);
+      else arr.push(newRow);
     }
 
     const ancestors = (id: string | null): Category[] => {
