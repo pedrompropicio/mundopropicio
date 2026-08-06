@@ -1365,7 +1365,32 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               </Button>
             </div>
           )}
+          {canEditItems && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                title="Adicionar transações aprovadas a esta lista"
+              >
+                <Plus className="h-4 w-4" /> Adicionar transações
+              </button>
+            </div>
+          )}
         </div>
+
+        {canEditItems && (
+          <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            Lista em edição ({statusMap[list!.status as ListStatus]?.label ?? list!.status}) — pode incluir, alterar e remover transações.
+            {list?.status === "pending_approval" && " As alterações ficam registadas nas notas de revisão para o aprovador."}
+          </div>
+        )}
+
+        {list?.revision_notes && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+            <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+            <div className="min-w-0 whitespace-pre-line">{list.revision_notes}</div>
+          </div>
+        )}
 
         {list?.approved_by && (
           <p className="text-sm text-muted-foreground mb-3">
@@ -1373,6 +1398,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             {list.approved_at && ` em ${formatDate(list.approved_at)}`}
           </p>
         )}
+
 
         {/* Bulk payment bar */}
         {isApproved && unpaidItems.length > 0 && (
