@@ -124,6 +124,7 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const metaRef = useRef<RowMeta[]>([]);
   const originalsRef = useRef<Map<string, Entry>>(new Map());
   const programmaticRef = useRef(false);
+  const lastRowRef = useRef<number>(-1);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -370,36 +371,45 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
 
   /* ───────────────────────────── ações estruturais ───────────────────────────── */
 
+  /** Última linha selecionada (fallback: a grelha perde a seleção ao clicar na toolbar). */
   const selectedRow = () => {
     const hot = hotRef.current?.hotInstance;
     const sel = hot?.getSelectedLast?.();
-    return sel ? sel[0] : -1;
+    const r = sel ? sel[0] : -1;
+    if (typeof r === "number" && r >= 0) return r;
+    return lastRowRef.current;
   };
 
   const insertRow = () => {
     const r = selectedRow();
-    const m = metaRef.current[r];
+    const m = r >= 0 ? metaRef.current[r] : undefined;
     if (!m) {
-      toast.info("Seleciona uma linha dentro do grupo onde queres inserir.");
+      toast.info("Seleciona uma linha primeiro (uma rubrica L3 ou uma linha dela).");
       return;
     }
-    const categoryId = m.kind === "group" ? m.categoryId : m.categoryId;
     if (m.kind === "group" && m.level !== 3) {
       toast.info("Escolhe uma rubrica de nível 3 (ou uma linha dela) para inserir.");
       return;
     }
+    const categoryId = m.categoryId;
+    const afterId = m.kind === "entry" && "id" in m ? m.id : null;
     setTempRows((prev) => [
       ...prev,
-      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId: null },
+      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId },
     ]);
     setDataVersion((v) => v + 1);
+    toast.success("Linha inserida — preenche a descrição e o valor.");
   };
 
   const deleteRow = () => {
     const r = selectedRow();
-    const m = metaRef.current[r];
-    if (!m || m.kind !== "entry") {
-      toast.info("Seleciona uma linha de despesa para apagar.");
+    const m = r >= 0 ? metaRef.current[r] : undefined;
+    if (!m) {
+      toast.info("Seleciona uma linha primeiro.");
+      return;
+    }
+    if (m.kind !== "entry") {
+      toast.info("Só é possível apagar linhas de despesa (não cabeçalhos de grupo).");
       return;
     }
     if ("tempId" in m) {
@@ -407,8 +417,11 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     } else {
       setPendingDeletes((prev) => (prev.includes(m.id) ? prev : [...prev, m.id]));
     }
+    lastRowRef.current = -1;
     setDataVersion((v) => v + 1);
+    toast.success("Linha marcada para remoção.");
   };
+
 
   /* ──────────────────────────────── gravação ──────────────────────────────── */
 
