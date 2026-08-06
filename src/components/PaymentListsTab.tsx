@@ -1686,10 +1686,53 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           );
         })()}
 
-        <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
+        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-border/50">
+          {canEditItems && (list?.status === "rejected" || list?.status === "revision") && (
+            <button
+              onClick={async () => {
+                const { error } = await supabase
+                  .from("payment_lists")
+                  .update({ status: "pending_approval" })
+                  .eq("id", listId);
+                if (error) {
+                  toast({ title: "Erro ao reenviar", description: error.message, variant: "destructive" });
+                  return;
+                }
+                await appendPaymentListRevisionNote(listId, "reenviada para aprovação", user?.email ?? "sistema");
+                queryClient.invalidateQueries({ queryKey: ["payment-list", listId] });
+                queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+                await refreshBadgeFromDB();
+                toast({ title: "Lista reenviada para aprovação!" });
+              }}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Send className="h-4 w-4" /> Reenviar para aprovação
+            </button>
+          )}
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
         </div>
       </div>
+
+      {showAddTx && (
+        <AddTransactionsToList
+          listId={listId}
+          existingTxIds={existingTxIds}
+          onClose={() => setShowAddTx(false)}
+          onAdded={handleAddedTransactions}
+        />
+      )}
+
+      {editingTx && (
+        <TransactionEditModal
+          transaction={editingTx}
+          isAdmin={isAdmin}
+          onClose={() => {
+            setEditingTx(null);
+            queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+            queryClient.invalidateQueries({ queryKey: ["transactions"] });
+          }}
+        />
+      )}
 
       {docsTx && (
         <TransactionDocumentsModal
@@ -1701,6 +1744,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           }}
         />
       )}
+
     </div>
   );
 }
