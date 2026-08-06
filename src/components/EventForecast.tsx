@@ -14,10 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
-// Lazy: Univer é pesado (~10MB). Só carrega quando o utilizador escolhe a vista Planilha.
-const BPUniverSpike = lazy(() => import("@/pages/admin/BPUniverSpike"));
-// SPIKE em avaliação (Handsontable). Vive em paralelo, sem tocar na Planilha atual.
-const BPPlanilhaV2 = lazy(() => import("@/pages/admin/BPPlanilhaV2"));
+// Lazy: a Planilha (Handsontable) só carrega quando o utilizador escolhe a vista.
+const BPPlanilha = lazy(() => import("@/pages/admin/BPPlanilha"));
 import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
 import { StickyNote } from "lucide-react";
@@ -198,10 +196,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
-  // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Univer).
-  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet" | "sheet2">("grouped");
+  // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Handsontable).
+  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
   const isMobile = useIsMobile();
-  // Planilha (Univer) é desktop-only; se o ecrã encolher, volta para Agrupada.
+  // Planilha é desktop-only; se o ecrã encolher, volta para Agrupada.
   useEffect(() => {
     if (isMobile && forecastsViewMode === "sheet") {
       setForecastsViewMode("grouped");
@@ -2209,25 +2207,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
-                      title="Planilha estilo Excel (Univer)"
+                      title="Planilha estilo Excel"
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5" />
                       Planilha
-                    </button>
-                  )}
-                  {!isMobile && rawIsAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setForecastsViewMode("sheet2")}
-                      className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                        forecastsViewMode === "sheet2"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      title="Spike em avaliação: planilha com Handsontable"
-                    >
-                      <FileSpreadsheet className="h-3.5 w-3.5" />
-                      Planilha v2 (beta)
                     </button>
                   )}
                 </div>
@@ -2243,15 +2226,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 />
               ) : forecastsViewMode === "sheet" ? (
                 <Suspense fallback={<p className="py-8 text-center text-muted-foreground">A carregar Planilha…</p>}>
-                  <BPUniverSpike
-                    eventId={eventId}
-                    canEdit={canEditBP}
-                    embedded
-                  />
-                </Suspense>
-              ) : forecastsViewMode === "sheet2" ? (
-                <Suspense fallback={<p className="py-8 text-center text-muted-foreground">A carregar Planilha v2…</p>}>
-                  <BPPlanilhaV2 eventId={eventId} canEdit={canEditBP} />
+                  <BPPlanilha eventId={eventId} canEdit={canEditBP} />
                 </Suspense>
               ) : (
                 <div className="space-y-6">

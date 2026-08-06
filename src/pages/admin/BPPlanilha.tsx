@@ -1,14 +1,10 @@
 /**
- * SPIKE — Planilha v2 (Handsontable)
- * ==================================
- * Avaliação lado a lado com a Planilha atual (BPUniverSpike.tsx / Univer 0.25).
- * NADA nesta vista é partilhado com o Univer: a lógica de normalização PT, poda
- * de no-ops e diff de gravação foi COPIADA de propósito (decisão do spike —
- * extrair/partilhar só depois de escolher a superfície definitiva).
+ * Planilha do BP (Handsontable) — VISTA OFICIAL
+ * ============================================
+ * Aprovada em 06/08/2026 e substituiu a antiga Planilha (Univer 0.25), aposentada.
  *
- * LICENÇA: usamos `licenseKey: "non-commercial-and-evaluation"`, válida apenas
- * para avaliação. A compra da licença comercial do Handsontable decide-se
- * DEPOIS do spike — não colocar esta vista em produção antes disso.
+ * ⚠️ TODO LICENÇA: em produção comercial é obrigatória licença Handsontable —
+ * substituir esta key ("non-commercial-and-evaluation") pela key comprada.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -107,16 +103,16 @@ interface DiffResult {
   deletes: string[];
 }
 
-interface BPPlanilhaV2Props {
+interface BPPlanilhaProps {
   eventId: string;
   canEdit?: boolean;
 }
 
-export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Props) {
+export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps) {
   const { role } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = role === "admin" || role === "platform_admin";
-  const allowed = isAdmin && canEdit;
+  // Mesma regra da antiga Planilha (Univer): quem pode editar o BP pode usar a Planilha.
+  const allowed = canEdit;
 
   const { rates: validIva, defaultRate } = useEventIvaCountry(eventId || null);
 
@@ -584,7 +580,7 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   if (!allowed) {
     return (
       <div className="glass rounded-xl p-6 text-sm text-muted-foreground">
-        A Planilha v2 (beta) está limitada a administradores durante a avaliação.
+        Não tens permissão para editar o BP deste evento.
       </div>
     );
   }
@@ -592,9 +588,6 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const actionBar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
-        <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
-          Spike · Handsontable (avaliação)
-        </span>
         <span className="text-xs text-muted-foreground">
           {totalChanges > 0
             ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`

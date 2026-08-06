@@ -60,3 +60,6 @@ Compara **planeado do cenário** vs **transações reais (Ativa)**. Útil para "
 - Limite de **4 cenários fixados por evento** (validado client + RPC).
 - Promoção bloqueada se TX já vinculadas (override `_force=true`).
 - `ReportScenarioSelector` esconde-se em multi-evento (`isMultiEvent=true`) ou sem cenários fixados.
+
+## Nota 06/08/2026
+A vista **Planilha** do BP passou a ser Handsontable (`BPPlanilha.tsx`); o Univer foi aposentado.
