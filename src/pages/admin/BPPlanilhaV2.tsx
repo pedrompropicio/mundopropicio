@@ -528,42 +528,81 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     );
   }
 
+  const actionBar = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
+          Spike · Handsontable (avaliação)
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {totalChanges > 0
+            ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
+            : "Sem alterações pendentes"}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={insertRow}>
+          <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
+        </Button>
+        <Button size="sm" variant="outline" onClick={deleteRow}>
+          <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => void fetchData()} disabled={loading || saving}>
+          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Recarregar
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setFullscreen((v) => !v)}>
+          {fullscreen ? (
+            <>
+              <Minimize2 className="mr-1 h-3.5 w-3.5" /> Recolher (Esc)
+            </>
+          ) : (
+            <>
+              <Maximize2 className="mr-1 h-3.5 w-3.5" /> Ecrã inteiro
+            </>
+          )}
+        </Button>
+        <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={saving || totalChanges === 0}>
+          {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
+          Gravar
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
-            Spike · Handsontable (avaliação)
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {totalChanges > 0
-              ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
-              : "Sem alterações pendentes"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={insertRow}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
-          </Button>
-          <Button size="sm" variant="outline" onClick={deleteRow}>
-            <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => void fetchData()} disabled={loading || saving}>
-            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Recarregar
-          </Button>
-          <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={saving || totalChanges === 0}>
-            {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
-            Gravar
-          </Button>
-        </div>
-      </div>
+      {actionBar}
 
       {err && <p className="text-sm text-destructive">{err}</p>}
+
+      {fullscreen && (
+        <style>{`
+          /* Dropdowns/editores do Handsontable montam em containers no body */
+          .handsontable .htDropdownMenu, .handsontable .htContextMenu,
+          .htDropdownMenu, .htContextMenu, .handsontable.listbox,
+          .htAutocompleteArrow, .ht_clone_top, .ht_clone_left { z-index: 10001 !important; }
+          [data-radix-portal], [data-radix-popper-content-wrapper],
+          [role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"] { z-index: 10100 !important; }
+          [data-sonner-toaster] { z-index: 10200 !important; }
+        `}</style>
+      )}
 
       {loading ? (
         <p className="py-8 text-center text-muted-foreground">A carregar dados…</p>
       ) : (
-        <div className="ht-theme-main-dark-auto overflow-hidden rounded-xl border border-border">
+        <div
+          className={
+            fullscreen
+              ? "fixed inset-0 z-[9999] flex flex-col bg-background p-3 ht-theme-main-dark-auto"
+              : "ht-theme-main-dark-auto overflow-hidden rounded-xl border border-border"
+          }
+        >
+          {fullscreen && (
+            <div className="mb-2 shrink-0 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
+              {actionBar}
+            </div>
+          )}
+
           <HotTable
             ref={hotRef}
             data={tableData}
