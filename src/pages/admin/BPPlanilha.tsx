@@ -148,6 +148,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     | { kind: "insert"; ts: number; tempId: string }
     | { kind: "delete"; ts: number; id: string };
   const undoStackRef = useRef<UndoEntry[]>([]);
+  const undoFromButtonRef = useRef(false);
   const [undoDepth, setUndoDepth] = useState(0);
   const pushUndo = useCallback((e: UndoEntry) => {
     undoStackRef.current = [...undoStackRef.current, e];
