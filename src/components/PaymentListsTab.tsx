@@ -1587,7 +1587,17 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
-                      {!isPaid && !isRemoved && (isAdmin || isManager) && (
+                      {canEditItems && !isRemoved && tx && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingTx(tx); }}
+                          className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60 transition-colors"
+                          title="Editar a transação (validações e permissões normais)"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar transação
+                        </button>
+                      )}
+                      {!isPaid && !isRemoved && (isAdmin || isManager || canEditItems) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeItemFromList(item.id, tx?.description ?? "item"); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/15 transition-colors"
@@ -1597,7 +1607,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Remover da lista
                         </button>
                       )}
-                      {isRemoved && (isAdmin || isManager) && (
+                      {isRemoved && (isAdmin || isManager || canEditItems) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); restoreItemToList(item.id); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
@@ -1607,6 +1617,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Restaurar
                         </button>
                       )}
+
 
                     </div>
                   </div>
