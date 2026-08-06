@@ -404,6 +404,18 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     return lastRowRef.current;
   };
 
+  /** Cria uma linha nova (draft) na rubrica L3 indicada. */
+  const addTempRow = useCallback(
+    (categoryId: string | null, afterId: string | null) => {
+      const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setTempRows((prev) => [...prev, { tempId, categoryId, afterId }]);
+      pushUndo({ kind: "insert", ts: Date.now(), tempId });
+      setDataVersion((v) => v + 1);
+      toast.success("Linha inserida — preenche a descrição e o valor.");
+    },
+    [pushUndo],
+  );
+
   const insertRow = () => {
     const r = selectedRow();
     const m = r >= 0 ? metaRef.current[r] : undefined;
@@ -412,17 +424,14 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       return;
     }
     if (m.kind === "group" && m.level !== 3) {
-      toast.info("Escolhe uma rubrica de nível 3 (ou uma linha dela) para inserir.");
+      // L2 (ou L1): abre o dialog de rubricas pré-filtrado a esse grupo
+      setRubricFilterL2(m.level === 2 ? m.categoryId : null);
+      setRubricValue("");
+      setRubricOpen(true);
       return;
     }
-    const categoryId = m.categoryId;
     const afterId = m.kind === "entry" && "id" in m ? m.id : null;
-    setTempRows((prev) => [
-      ...prev,
-      { tempId: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, categoryId, afterId },
-    ]);
-    setDataVersion((v) => v + 1);
-    toast.success("Linha inserida — preenche a descrição e o valor.");
+    addTempRow(m.categoryId, afterId);
   };
 
   const deleteRow = () => {
@@ -437,14 +446,92 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       return;
     }
     if ("tempId" in m) {
-      setTempRows((prev) => prev.filter((t) => t.tempId !== m.tempId));
+      const tempId = m.tempId;
+      setTempRows((prev) => prev.filter((t) => t.tempId !== tempId));
+      // desfazer uma inserção pendente = anular a própria entrada da pilha
+      undoStackRef.current = undoStackRef.current.filter(
+        (e) => !(e.kind === "insert" && e.tempId === tempId),
+      );
+      setUndoDepth(undoStackRef.current.length);
     } else {
-      setPendingDeletes((prev) => (prev.includes(m.id) ? prev : [...prev, m.id]));
+      const id = m.id;
+      setPendingDeletes((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      pushUndo({ kind: "delete", ts: Date.now(), id });
     }
     lastRowRef.current = -1;
     setDataVersion((v) => v + 1);
     toast.success("Linha marcada para remoção.");
   };
+
+  /** Desfaz a última ação global (célula via undo nativo, estrutura via pilha própria). */
+  const handleUndo = () => {
+    const stack = undoStackRef.current;
+    const last = stack[stack.length - 1];
+    if (!last) {
+      toast.info("Nada para desfazer.");
+      return;
+    }
+    undoStackRef.current = stack.slice(0, -1);
+    setUndoDepth(undoStackRef.current.length);
+
+    if (last.kind === "cell") {
+      hotRef.current?.hotInstance?.undo?.();
+      // afterUndo faz o recount
+      return;
+    }
+    if (last.kind === "insert") {
+      setTempRows((prev) => prev.filter((t) => t.tempId !== last.tempId));
+      toast.success("Linha inserida removida.");
+    } else {
+      setPendingDeletes((prev) => prev.filter((id) => id !== last.id));
+      toast.success("Linha restaurada.");
+    }
+    setDataVersion((v) => v + 1);
+  };
+
+  /* ─────────────── rubricas L3 de despesa (dialog "Adicionar rubrica") ─────────────── */
+
+  const rubricOptions = useMemo<SearchableSelectOption[]>(() => {
+    const chainOf = (c: Category): Category[] => {
+      const chain: Category[] = [];
+      let cur: Category | undefined = c;
+      while (cur) {
+        chain.unshift(cur);
+        cur = cur.parent_id ? catById.get(cur.parent_id) : undefined;
+      }
+      return chain;
+    };
+    const opts = categories
+      .map((c) => ({ c, chain: chainOf(c) }))
+      .filter(({ c, chain }) => {
+        if (chain.length !== 3) return false;
+        const root = chain[0];
+        const type = c.type ?? chain[1]?.type ?? root.type;
+        if (type && type !== "expense") return false;
+        if (rubricFilterL2 && chain[1]?.id !== rubricFilterL2) return false;
+        return true;
+      })
+      .sort((a, b) => compareHierarchicalCodes(a.c.code ?? "zz", b.c.code ?? "zz"))
+      .map(({ c, chain }) => ({
+        value: c.id,
+        label: `${c.code ?? ""} ${c.name}`.trim(),
+        group: `${chain[1]?.code ?? ""} ${chain[1]?.name ?? ""}`.trim() || "Outros",
+        searchText: `${chain[0]?.name ?? ""} ${chain[1]?.name ?? ""}`,
+      }));
+    return opts;
+  }, [categories, catById, rubricFilterL2]);
+
+  const confirmRubric = () => {
+    if (!rubricValue) {
+      toast.info("Escolhe uma rubrica.");
+      return;
+    }
+    addTempRow(rubricValue, null);
+    setRubricOpen(false);
+    setRubricValue("");
+    setRubricFilterL2(null);
+  };
+
 
 
   /* ──────────────────────────────── gravação ──────────────────────────────── */
