@@ -470,18 +470,54 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
 
   const ivaSource = useMemo(() => (validIva as number[]).map((r) => String(r)), [validIva]);
 
+  /**
+   * Renderers PT-PT: a formatação é SÓ visual — o valor subjacente continua
+   * numérico e a edição com vírgula (parseAmountPT/beforeChange) fica intacta.
+   */
+  const moneyRenderer = useCallback(
+    (_inst: any, td: HTMLElement, _r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = `htRight${cellProps?.className ? ` ${cellProps.className}` : ""}`;
+      const n = typeof value === "number" ? value : parseAmountPT(value);
+      if (n === null || n === undefined || !Number.isFinite(n)) {
+        td.textContent = "";
+        td.style.color = "";
+        return;
+      }
+      td.textContent = formatCurrencyDecimal(n);
+      td.style.color = n < 0 ? "hsl(var(--destructive))" : "";
+    },
+    [],
+  );
+
+  const ivaRenderer = useCallback(
+    (_inst: any, td: HTMLElement, _r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = `htRight${cellProps?.className ? ` ${cellProps.className}` : ""}`;
+      const n = parseAmountPT(value);
+      td.textContent = n === null ? "" : `${n}%`;
+    },
+    [],
+  );
+
   const columns = useMemo(
     () => [
       { data: COL.CATEGORY, readOnly: true, width: 300 },
       { data: COL.DESCRIPTION, type: "text", width: 300 },
       { data: COL.SPEC, type: "text", width: 220 },
-      { data: COL.AMOUNT, type: "numeric", width: 130, numericFormat: { pattern: "0.00" } },
-      { data: COL.IVA, type: "dropdown", source: ivaSource, allowInvalid: false, width: 90 },
-      { data: COL.TOTAL, readOnly: true, type: "numeric", width: 130, numericFormat: { pattern: "0.00" } },
+      { data: COL.AMOUNT, type: "numeric", width: 140, renderer: moneyRenderer as any },
+      {
+        data: COL.IVA,
+        type: "dropdown",
+        source: ivaSource,
+        allowInvalid: false,
+        width: 90,
+        renderer: ivaRenderer as any,
+      },
+      { data: COL.TOTAL, readOnly: true, type: "numeric", width: 150, renderer: moneyRenderer as any },
       { data: COL.FORMALIDADE, type: "dropdown", source: FORMALIDADE_LABELS, allowInvalid: false, width: 150 },
     ],
-    [ivaSource],
+    [ivaSource, moneyRenderer, ivaRenderer],
   );
+
 
   if (!allowed) {
     return (
