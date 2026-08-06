@@ -18,7 +18,7 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2, Undo2, ListPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { formatCurrencyDecimal } from "@/lib/mock-data";
 
