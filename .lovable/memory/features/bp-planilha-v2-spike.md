@@ -33,8 +33,17 @@ da licença comercial do Handsontable.
 - Nativo aproveitado: undo/redo (Ctrl+Z recalcula o contador via `afterUndo`), colar do Excel,
   fill handle, navegação por teclado.
 
+## Formatação, ecrã inteiro e refresh
+- Colunas Valor s/IVA e Total c/IVA renderizadas com `formatCurrencyDecimal` (PT-PT, "61.800,00 €"),
+  negativos em `hsl(var(--destructive))`; Taxa IVA com sufixo "%". Formatação é **só visual** —
+  o valor subjacente continua numérico e a edição com vírgula PT mantém-se.
+- Botão "Ecrã inteiro" (overlay `fixed inset-0 z-[9999]`) com barra de ações replicada,
+  `<style>` a elevar dropdowns do Handsontable/Radix/Sonner, saída por botão ou Esc.
+- Após GRAVAR invalida `event_forecasts`, `forecasts`, `bp`, `partner-bp-realized`,
+  `scenario-forecasts`, `adopted_forecasts`, `parent_event_forecasts`, `efc-forecasts`, `efc-tx`
+  → vista Agrupada e cards do evento refrescam sem F5.
+
 ## Limitações conhecidas do spike
 - Inserir/apagar linha reconstrói a grelha (limpa o histórico de undo dessas operações;
   edições de valor mantêm undo normal).
-- Valores numéricos mostram-se com ponto decimal (não registámos a cultura `pt-PT` do numbro).
 - Só despesas; receitas continuam na vista Agrupada/Univer.

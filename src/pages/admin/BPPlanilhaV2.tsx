@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Save, Plus, Trash2, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { formatCurrencyDecimal } from "@/lib/mock-data";
 
 registerAllModules();
 
@@ -135,6 +136,23 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
   const [counts, setCounts] = useState({ edits: 0, inserts: 0, deletes: 0 });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Sair do ecrã inteiro com Esc
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  // Recalcular dimensões da grelha ao alternar ecrã inteiro
+  useEffect(() => {
+    const t = setTimeout(() => hotRef.current?.hotInstance?.render?.(), 60);
+    return () => clearTimeout(t);
+  }, [fullscreen]);
 
   /* ───────────────────────────── carregamento ───────────────────────────── */
 
@@ -441,9 +459,23 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
       toast.success(
         `${diff.edits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
       );
-      queryClient.invalidateQueries({ queryKey: ["event-forecasts"] });
-      queryClient.invalidateQueries({ queryKey: ["forecasts", eventId] });
+      // Refresh das vistas que leem event_forecasts + cards financeiros do evento
+      for (const key of [
+        ["event_forecasts"],
+        ["event-forecasts"],
+        ["forecasts"],
+        ["bp"],
+        ["partner-bp-realized"],
+        ["scenario-forecasts"],
+        ["adopted_forecasts"],
+        ["parent_event_forecasts"],
+        ["efc-forecasts"],
+        ["efc-tx"],
+      ]) {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
       await fetchData();
+
     } catch (e: any) {
       toast.error(e?.message ?? String(e));
     } finally {
@@ -456,18 +488,54 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
 
   const ivaSource = useMemo(() => (validIva as number[]).map((r) => String(r)), [validIva]);
 
+  /**
+   * Renderers PT-PT: a formatação é SÓ visual — o valor subjacente continua
+   * numérico e a edição com vírgula (parseAmountPT/beforeChange) fica intacta.
+   */
+  const moneyRenderer = useCallback(
+    (_inst: any, td: HTMLElement, _r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = `htRight${cellProps?.className ? ` ${cellProps.className}` : ""}`;
+      const n = typeof value === "number" ? value : parseAmountPT(value);
+      if (n === null || n === undefined || !Number.isFinite(n)) {
+        td.textContent = "";
+        td.style.color = "";
+        return;
+      }
+      td.textContent = formatCurrencyDecimal(n);
+      td.style.color = n < 0 ? "hsl(var(--destructive))" : "";
+    },
+    [],
+  );
+
+  const ivaRenderer = useCallback(
+    (_inst: any, td: HTMLElement, _r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = `htRight${cellProps?.className ? ` ${cellProps.className}` : ""}`;
+      const n = parseAmountPT(value);
+      td.textContent = n === null ? "" : `${n}%`;
+    },
+    [],
+  );
+
   const columns = useMemo(
     () => [
       { data: COL.CATEGORY, readOnly: true, width: 300 },
       { data: COL.DESCRIPTION, type: "text", width: 300 },
       { data: COL.SPEC, type: "text", width: 220 },
-      { data: COL.AMOUNT, type: "numeric", width: 130, numericFormat: { pattern: "0.00" } },
-      { data: COL.IVA, type: "dropdown", source: ivaSource, allowInvalid: false, width: 90 },
-      { data: COL.TOTAL, readOnly: true, type: "numeric", width: 130, numericFormat: { pattern: "0.00" } },
+      { data: COL.AMOUNT, type: "numeric", width: 140, renderer: moneyRenderer as any },
+      {
+        data: COL.IVA,
+        type: "dropdown",
+        source: ivaSource,
+        allowInvalid: false,
+        width: 90,
+        renderer: ivaRenderer as any,
+      },
+      { data: COL.TOTAL, readOnly: true, type: "numeric", width: 150, renderer: moneyRenderer as any },
       { data: COL.FORMALIDADE, type: "dropdown", source: FORMALIDADE_LABELS, allowInvalid: false, width: 150 },
     ],
-    [ivaSource],
+    [ivaSource, moneyRenderer, ivaRenderer],
   );
+
 
   if (!allowed) {
     return (
@@ -477,42 +545,81 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
     );
   }
 
+  const actionBar = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
+          Spike · Handsontable (avaliação)
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {totalChanges > 0
+            ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
+            : "Sem alterações pendentes"}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={insertRow}>
+          <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
+        </Button>
+        <Button size="sm" variant="outline" onClick={deleteRow}>
+          <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => void fetchData()} disabled={loading || saving}>
+          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Recarregar
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setFullscreen((v) => !v)}>
+          {fullscreen ? (
+            <>
+              <Minimize2 className="mr-1 h-3.5 w-3.5" /> Recolher (Esc)
+            </>
+          ) : (
+            <>
+              <Maximize2 className="mr-1 h-3.5 w-3.5" /> Ecrã inteiro
+            </>
+          )}
+        </Button>
+        <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={saving || totalChanges === 0}>
+          {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
+          Gravar
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
-            Spike · Handsontable (avaliação)
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {totalChanges > 0
-              ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
-              : "Sem alterações pendentes"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={insertRow}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Inserir linha
-          </Button>
-          <Button size="sm" variant="outline" onClick={deleteRow}>
-            <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar linha
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => void fetchData()} disabled={loading || saving}>
-            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Recarregar
-          </Button>
-          <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={saving || totalChanges === 0}>
-            {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
-            Gravar
-          </Button>
-        </div>
-      </div>
+      {actionBar}
 
       {err && <p className="text-sm text-destructive">{err}</p>}
+
+      {fullscreen && (
+        <style>{`
+          /* Dropdowns/editores do Handsontable montam em containers no body */
+          .handsontable .htDropdownMenu, .handsontable .htContextMenu,
+          .htDropdownMenu, .htContextMenu, .handsontable.listbox,
+          .htAutocompleteArrow, .ht_clone_top, .ht_clone_left { z-index: 10001 !important; }
+          [data-radix-portal], [data-radix-popper-content-wrapper],
+          [role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"] { z-index: 10100 !important; }
+          [data-sonner-toaster] { z-index: 10200 !important; }
+        `}</style>
+      )}
 
       {loading ? (
         <p className="py-8 text-center text-muted-foreground">A carregar dados…</p>
       ) : (
-        <div className="ht-theme-main-dark-auto overflow-hidden rounded-xl border border-border">
+        <div
+          className={
+            fullscreen
+              ? "fixed inset-0 z-[9999] flex flex-col bg-background p-3 ht-theme-main-dark-auto"
+              : "ht-theme-main-dark-auto overflow-hidden rounded-xl border border-border"
+          }
+        >
+          {fullscreen && (
+            <div className="mb-2 shrink-0 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
+              {actionBar}
+            </div>
+          )}
+
           <HotTable
             ref={hotRef}
             data={tableData}
@@ -527,7 +634,7 @@ export default function BPPlanilhaV2({ eventId, canEdit = true }: BPPlanilhaV2Pr
               "Formalidade",
             ]}
             rowHeaders
-            height={620}
+            height={fullscreen ? "calc(100vh - 100px)" : 620}
             width="100%"
             stretchH="last"
             undo
