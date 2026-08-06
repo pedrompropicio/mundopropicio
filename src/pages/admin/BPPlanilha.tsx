@@ -580,7 +580,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   if (!allowed) {
     return (
       <div className="glass rounded-xl p-6 text-sm text-muted-foreground">
-        A Planilha v2 (beta) está limitada a administradores durante a avaliação.
+        Não tens permissão para editar o BP deste evento.
       </div>
     );
   }
@@ -588,9 +588,6 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const actionBar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
-        <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
-          Spike · Handsontable (avaliação)
-        </span>
         <span className="text-xs text-muted-foreground">
           {totalChanges > 0
             ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
