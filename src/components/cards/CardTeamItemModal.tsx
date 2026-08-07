@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Camera, Loader2, Paperclip, Sparkles, Trash2 } from "lucide-react";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
@@ -59,6 +59,7 @@ export function CardTeamItemModal({
 }: Props) {
   const { user } = useAuth();
   const cameraRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [supplierName, setSupplierName] = useState("");
   const [description, setDescription] = useState("");
@@ -344,8 +345,15 @@ export function CardTeamItemModal({
         <input
           ref={cameraRef}
           type="file"
-          accept="image/*,application/pdf,image/heic,image/heif,.heic,.heif"
+          accept={`image/*,${HEIC_ACCEPT}`}
           capture="environment"
+          className="hidden"
+          onChange={handlePhoto}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept={`image/*,application/pdf,${HEIC_ACCEPT}`}
           className="hidden"
           onChange={handlePhoto}
         />
@@ -353,44 +361,40 @@ export function CardTeamItemModal({
         <div className="space-y-3">
           {/* Foto */}
           <div className="rounded-lg border border-dashed border-border p-3">
-            {previewUrl ? (
-              <div className="space-y-2">
-                <img
-                  src={previewUrl}
-                  alt="Talão"
-                  className="max-h-56 w-full rounded object-contain"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => cameraRef.current?.click()}
-                  disabled={ocrLoading}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Substituir foto
-                </Button>
-              </div>
-            ) : (
+            {previewUrl && (
+              <img
+                src={previewUrl}
+                alt="Talão"
+                className="mb-2 max-h-56 w-full rounded object-contain"
+              />
+            )}
+            <div className="flex gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                size="sm"
+                className="flex-1"
                 onClick={() => cameraRef.current?.click()}
                 disabled={ocrLoading}
               >
                 {ocrLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> A ler talão…
-                  </>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" /> Tirar / escolher foto
-                  </>
+                  <Camera className="mr-2 h-4 w-4" />
                 )}
+                {ocrLoading ? "A ler talão…" : previewUrl ? "Substituir foto" : "Tirar foto"}
               </Button>
-            )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => fileRef.current?.click()}
+                disabled={ocrLoading}
+              >
+                <Paperclip className="mr-2 h-4 w-4" /> Escolher ficheiro
+              </Button>
+            </div>
             {ocrPayload && (
               <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Sparkles className="h-3 w-3" /> Pré-preenchido pela IA
