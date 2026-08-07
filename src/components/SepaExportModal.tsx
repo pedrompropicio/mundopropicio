@@ -154,7 +154,7 @@ export default function SepaExportModal({
   const total = valid.reduce((s, r) => s + r.amount, 0);
   const selectedAccount = accounts.find((a: any) => normalizeIban(a.iban) === debtorIban);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (valid.length === 0 || !debtorIban) return;
     const out = buildPain001({
       listId,
@@ -173,12 +173,36 @@ export default function SepaExportModal({
       })),
     });
     downloadXml(out.xml, out.fileName);
+
+    // Histórico de exportações — guarda os ids EXATOS que entraram no XML, para
+    // que o comprovativo do lote seja replicado só nessas transações.
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("payment_list_sepa_exports").insert({
+        payment_list_id: listId,
+        exported_by: userData?.user?.email ?? "sistema",
+        file_name: out.fileName,
+        msg_id: out.msgId,
+        total_amount: Number(out.controlSum),
+        n_transactions: out.numberOfTxs,
+        transaction_ids: valid.map((r) => r.transactionId),
+      } as any);
+      if (error) throw error;
+    } catch (err: any) {
+      toast({
+        title: "Ficheiro gerado, registo do histórico falhou",
+        description: err?.message ?? "Não foi possível guardar o registo da exportação.",
+        variant: "destructive",
+      });
+    }
+
     toast({
       title: "Ficheiro gerado",
       description: `${out.numberOfTxs} transferência(s) • soma de controlo ${out.controlSum} € • ${out.fileName}`,
     });
     onClose();
   };
+
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto" onClick={onClose}>
