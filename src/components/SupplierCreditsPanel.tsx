@@ -216,11 +216,17 @@ function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: s
         type="file"
         className="hidden"
         accept=".pdf,.jpg,.jpeg,.png,.webp,image/heic,image/heif,.heic,.heif"
-        onChange={(e) => {
+        onChange={async (e) => {
           const file = e.target.files?.[0];
-          if (file) uploadMutation.mutate(file);
           e.target.value = "";
+          if (!file) return;
+          try {
+            uploadMutation.mutate(await normalizeImageFile(file));
+          } catch (err: any) {
+            toast.error(err.message);
+          }
         }}
+
       />
     </div>
   );
