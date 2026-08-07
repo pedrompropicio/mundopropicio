@@ -15,8 +15,11 @@ interface Props {
   className?: string;
   /** Sessão do item — necessária para o path do anexo (ativa o botão de anexar). */
   sessionId?: string;
+  /** Quando false, esconde o botão de abrir (item ainda sem anexo). */
+  hasAttachment?: boolean;
   onAttached?: () => void;
 }
+
 
 
 async function getFreshAccessToken() {
