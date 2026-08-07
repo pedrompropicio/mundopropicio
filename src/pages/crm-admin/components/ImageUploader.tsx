@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useRef, useState } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";

@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, X, Loader2, ImagePlus } from "lucide-react";
