@@ -7509,6 +7509,54 @@ export type Database = {
           },
         ]
       }
+      payment_list_documents: {
+        Row: {
+          company_id: string
+          doc_type: string
+          file_url: string
+          id: string
+          name: string
+          payment_list_id: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          company_id?: string
+          doc_type?: string
+          file_url: string
+          id?: string
+          name: string
+          payment_list_id: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Update: {
+          company_id?: string
+          doc_type?: string
+          file_url?: string
+          id?: string
+          name?: string
+          payment_list_id?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_list_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_documents_payment_list_id_fkey"
+            columns: ["payment_list_id"]
+            isOneToOne: false
+            referencedRelation: "payment_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_list_items: {
         Row: {
           company_id: string
@@ -7563,6 +7611,60 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_list_sepa_exports: {
+        Row: {
+          company_id: string
+          exported_at: string
+          exported_by: string
+          file_name: string
+          id: string
+          msg_id: string
+          n_transactions: number
+          payment_list_id: string
+          total_amount: number
+          transaction_ids: string[]
+        }
+        Insert: {
+          company_id?: string
+          exported_at?: string
+          exported_by?: string
+          file_name: string
+          id?: string
+          msg_id: string
+          n_transactions?: number
+          payment_list_id: string
+          total_amount?: number
+          transaction_ids?: string[]
+        }
+        Update: {
+          company_id?: string
+          exported_at?: string
+          exported_by?: string
+          file_name?: string
+          id?: string
+          msg_id?: string
+          n_transactions?: number
+          payment_list_id?: string
+          total_amount?: number
+          transaction_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_list_sepa_exports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_sepa_exports_payment_list_id_fkey"
+            columns: ["payment_list_id"]
+            isOneToOne: false
+            referencedRelation: "payment_lists"
             referencedColumns: ["id"]
           },
         ]
