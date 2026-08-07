@@ -80,8 +80,12 @@ export function invalidateCardSessionQueries(
     ["prepaid-cards-list"],
     ["prepaid-cards-tx"],
     ["financial-accounts"],
+    ["financial-accounts-tx-summary"],
+    ["financial-accounts-cash-adjustments"],
+    ["card-account-balance"],
     ["transactions"],
   ];
+
   if (sessionId) {
     keys.push(
       ["card-session", sessionId],
