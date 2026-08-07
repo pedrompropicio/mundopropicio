@@ -139,8 +139,19 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   });
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const original = e.target.files?.[0];
+    if (!original) return;
+
+    let file = original;
+    if (isHeicFile(original)) {
+      try {
+        file = await normalizeImageFile(original);
+      } catch (err: any) {
+        toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
+        e.target.value = "";
+        return;
+      }
+    }
 
     if (file.size > 10 * 1024 * 1024) {
       toast({ title: "Ficheiro demasiado grande", description: "Máximo 10MB", variant: "destructive" });
@@ -150,6 +161,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
+
       const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
         "transaction-documents",
         `${transactionId}/${Date.now()}.${ext}`,
