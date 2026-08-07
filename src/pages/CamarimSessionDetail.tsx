@@ -500,11 +500,31 @@ export default function CamarimSessionDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={generatingPdf}
+            onClick={async () => {
+              if (!id) return;
+              setGeneratingPdf(true);
+              try {
+                await exportCamarimSessionPdf(id, user?.email ?? null);
+              } catch (e: any) {
+                console.error(e);
+                toast({ variant: "destructive", title: "Erro a gerar PDF", description: e?.message });
+              } finally {
+                setGeneratingPdf(false);
+              }
+            }}
+          >
+            <FileDown className="mr-2 h-4 w-4" /> {generatingPdf ? "A gerar…" : "Gerar PDF"}
+          </Button>
           {canManage && session.status !== "integrated" && (
             <Button variant="outline" size="sm" onClick={() => setShowEditSession(true)}>
               <Pencil className="mr-2 h-4 w-4" /> Editar sessão
             </Button>
           )}
+
           {session.status === "open" && canCloseSession && (
             <Button variant="outline" onClick={() => updateSessionStatus("in_review")}>
               <Lock className="mr-2 h-4 w-4" /> Enviar para revisão
