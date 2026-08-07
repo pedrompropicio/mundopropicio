@@ -168,9 +168,12 @@ export default function FinancialAccounts() {
       queryClient.invalidateQueries({ queryKey: ["financial-accounts"] });
       queryClient.invalidateQueries({ queryKey: ["financial-accounts-tx-summary"] });
       queryClient.invalidateQueries({ queryKey: ["financial-accounts-cash-adjustments"] });
+      // Contas de cartão alimentam o módulo Cartões (saldo disponível na sessão)
+      invalidateCardSessionQueries(queryClient);
       toast({ title: editingId ? "Conta atualizada!" : "Conta criada com sucesso!" });
       resetForm();
     },
+
     onError: (err: any) => {
       toast({ title: "Erro ao guardar", description: err.message, variant: "destructive" });
     },
