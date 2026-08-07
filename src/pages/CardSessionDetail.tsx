@@ -310,6 +310,8 @@ export default function CardSessionDetail() {
   const isLocked = status === "closed";
   // Editar/excluir despesas só com a sessão ABERTA (in_review/closed = leitura).
   const canEditExpenses = canManage && status === "open";
+  const canEditOpening = canEditExpenses;
+
 
 
   return (
