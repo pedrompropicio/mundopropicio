@@ -188,10 +188,20 @@ export default function ReportAccountingExport() {
       }
     }
 
+    // Comprovativos de pagamento em lote — separados dos documentos fiscais,
+    // prefixados com "comprovativos/" no nome do ficheiro.
+    for (const r of uniqueReceipts) {
+      const safe = r.name.replace(/[\\/]+/g, "-");
+      await downloadFile(r.url, `comprovativos/${safe}`.replace(/\//g, "_"));
+    }
+
     // Register export
     await registerExport.mutateAsync();
-    toast.success(`Exportação registada: ${withDocs.length} transações, ${totalDocsCount} documentos.`);
+    toast.success(
+      `Exportação registada: ${withDocs.length} transações, ${totalDocsCount} documentos${uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s) de pagamento` : ""}.`,
+    );
   }
+
 
   const canGenerate = dateFrom && dateTo;
 
