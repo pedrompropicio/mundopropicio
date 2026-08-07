@@ -175,6 +175,93 @@ export default function CardSessionDetail() {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  /**
+   * Exclusão de despesa (só com sessão aberta).
+   * - Bloqueia se a transação estiver numa lista de pagamento (FK NO ACTION).
+   * - Apaga ficheiros do storage + transaction_documents (FK CASCADE).
+   * - Item da equipa que gerou a despesa volta a 'submitted' (FK SET NULL deixaria
+   *   um item "aprovado" sem transação).
+   * - transaction_audit_log tem FK CASCADE → o registo vai para system_audit_log.
+   */
+  const deleteExpenseMut = useMutation({
+    mutationFn: async (e: any) => {
+      const { data: inLists } = await supabase
+        .from("payment_list_items")
+        .select("id")
+        .eq("transaction_id", e.id)
+        .limit(1);
+      if (inLists && inLists.length > 0) {
+        throw new Error("Esta despesa está numa lista de pagamento. Remova-a da lista antes de excluir.");
+      }
+
+      const { data: docs } = await supabase
+        .from("transaction_documents")
+        .select("file_url")
+        .eq("transaction_id", e.id);
+      const paths = (docs ?? [])
+        .map((d: any) => d.file_url as string)
+        .filter((p) => p && !p.startsWith("ref://") && !p.startsWith("http"));
+      if (paths.length > 0) {
+        await supabase.storage.from("transaction-documents").remove(paths);
+      }
+
+      const { data: linkedItems } = await supabase
+        .from("card_session_items")
+        .select("id")
+        .eq("transaction_id", e.id);
+
+      const gross = Number(e.paid_amount) || cardItemGross(e);
+      if (e.company_id) {
+        await supabase.from("system_audit_log").insert({
+          entity_type: "card_session_expense",
+          entity_id: e.id,
+          action: "delete",
+          changed_by: user?.email ?? "sistema",
+          company_id: e.company_id,
+          old_data: {
+            description: e.description,
+            amount: e.amount,
+            iva_rate: e.iva_rate,
+            paid_amount: e.paid_amount,
+            total_gross: gross,
+            date: e.date,
+            event_id: e.event_id,
+            category_id: e.category_id,
+            supplier_id: e.supplier_id,
+          },
+          metadata: {
+            card_session_id: id,
+            reverted_item_ids: (linkedItems ?? []).map((i: any) => i.id),
+          },
+        } as any);
+      }
+
+      const { error } = await supabase.from("transactions").delete().eq("id", e.id);
+      if (error) throw error;
+
+      if (linkedItems && linkedItems.length > 0) {
+        await supabase
+          .from("card_session_items")
+          .update({
+            status: "submitted",
+            transaction_id: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            rejection_reason: `Despesa excluída em ${new Date().toLocaleDateString("pt-PT")} — item devolvido à fila de aprovação.`,
+          })
+          .in("id", linkedItems.map((i: any) => i.id));
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Despesa excluída." });
+      invalidateCardSessionQueries(qc, id);
+      setDeleteExpense(null);
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+
+
   if (!session) {
     return <div className="p-6 text-sm text-muted-foreground">A carregar…</div>;
   }
