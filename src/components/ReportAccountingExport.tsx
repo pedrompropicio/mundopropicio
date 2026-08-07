@@ -121,6 +121,18 @@ export default function ReportAccountingExport() {
   const totalAmount = withDocs.reduce((s, l) => s + Number(l.amount), 0);
   const totalDocsCount = withDocs.reduce((s, l) => s + l.accountingDocs, 0);
 
+  // Comprovativos únicos do período (o mesmo ficheiro está replicado em N transações
+  // do lote → descarrega uma só vez). Não contam como documento fiscal.
+  const uniqueReceipts = useMemo(() => {
+    const seen = new Map<string, { url: string; name: string }>();
+    Object.values(receiptMap as Record<string, { url: string; name: string }[]>).forEach((arr) => {
+      arr.forEach((r) => {
+        if (!seen.has(r.url)) seen.set(r.url, r);
+      });
+    });
+    return Array.from(seen.values());
+  }, [receiptMap]);
+
   // Register export in history
   const registerExport = useMutation({
     mutationFn: async () => {
