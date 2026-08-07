@@ -70,6 +70,31 @@ export default function ReportAccountingExport() {
     enabled: generated && txIds.length > 0,
   });
 
+  // Comprovativos de pagamento em lote (SEPA): anexos replicados a partir de uma
+  // lista de pagamentos. NÃO são documento fiscal (is_accounting = false), mas a
+  // contabilidade precisa deles — vão no export identificados como "comprovativos/".
+  const { data: receiptMap = {} } = useQuery({
+    queryKey: ["accounting-export-receipts", txIds],
+    queryFn: async () => {
+      if (txIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id, file_url, name")
+        .in("transaction_id", txIds)
+        .like("file_url", "%/payment-lists/%");
+      if (error) throw error;
+      const map: Record<string, { url: string; name: string }[]> = {};
+      (data ?? []).forEach((d: any) => {
+        if (!map[d.transaction_id]) map[d.transaction_id] = [];
+        map[d.transaction_id].push({ url: d.file_url, name: d.name });
+      });
+      return map;
+    },
+    enabled: generated && txIds.length > 0,
+  });
+
+
+
   // Export history
   const { data: exportHistory = [] } = useQuery({
     queryKey: ["accounting-exports-history"],
@@ -95,6 +120,18 @@ export default function ReportAccountingExport() {
   const withoutDocs = lines.filter((l) => !l.hasDocs);
   const totalAmount = withDocs.reduce((s, l) => s + Number(l.amount), 0);
   const totalDocsCount = withDocs.reduce((s, l) => s + l.accountingDocs, 0);
+
+  // Comprovativos únicos do período (o mesmo ficheiro está replicado em N transações
+  // do lote → descarrega uma só vez). Não contam como documento fiscal.
+  const uniqueReceipts = useMemo(() => {
+    const seen = new Map<string, { url: string; name: string }>();
+    Object.values(receiptMap as Record<string, { url: string; name: string }[]>).forEach((arr) => {
+      arr.forEach((r) => {
+        if (!seen.has(r.url)) seen.set(r.url, r);
+      });
+    });
+    return Array.from(seen.values());
+  }, [receiptMap]);
 
   // Register export in history
   const registerExport = useMutation({
@@ -151,10 +188,20 @@ export default function ReportAccountingExport() {
       }
     }
 
+    // Comprovativos de pagamento em lote — separados dos documentos fiscais,
+    // prefixados com "comprovativos/" no nome do ficheiro.
+    for (const r of uniqueReceipts) {
+      const safe = r.name.replace(/[\\/]+/g, "-");
+      await downloadFile(r.url, `comprovativos_${safe}`);
+    }
+
     // Register export
     await registerExport.mutateAsync();
-    toast.success(`Exportação registada: ${withDocs.length} transações, ${totalDocsCount} documentos.`);
+    toast.success(
+      `Exportação registada: ${withDocs.length} transações, ${totalDocsCount} documentos${uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s) de pagamento` : ""}.`,
+    );
   }
+
 
   const canGenerate = dateFrom && dateTo;
 
@@ -256,6 +303,7 @@ export default function ReportAccountingExport() {
                   <Download className="mr-1.5 h-4 w-4" />
                 )}
                 Exportar {totalDocsCount} documento(s) contábil(eis)
+                {uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s)` : ""}
               </Button>
             </div>
           ) : (

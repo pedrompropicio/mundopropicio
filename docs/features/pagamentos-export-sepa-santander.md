@@ -156,6 +156,36 @@ de storage).
 4. As réplicas aparecem nas transações pelo mecanismo de anexos já existente
    (`TransactionDocumentsModal`) — sem visualização nova.
 
+### Réplicas NÃO são documento fiscal (2026-08)
+
+As réplicas em `transaction_documents` são gravadas com **`is_accounting = false`**:
+o comprovativo do Santander não substitui a fatura e não pode mascarar o
+relatório de **Pendências Documentais** (uma transação só com o comprovativo do
+lote continua a ser acusada como pendente). Réplicas antigas com
+`is_accounting = true` foram corrigidas por DML
+(`file_url LIKE '%/payment-lists/%'`).
+
+Mesmo assim o comprovativo é visível para a contabilidade:
+
+- No modal/lista de anexos da transação, como qualquer outro anexo (inclui role
+  `accountant`).
+- Na **Exportação Contábil** (`ReportAccountingExport`): query própria por
+  `file_url LIKE '%/payment-lists/%'`, deduplicada por `file_url` (o mesmo
+  ficheiro está replicado em N transações do lote → descarrega uma só vez) e
+  descarregada com prefixo **`comprovativos_`** no nome. Não entra nas contagens
+  de documentos fiscais (`totalDocsCount`) nem no registo `accounting_exports`.
+
+### Ligação comprovativo ↔ exportação SEPA (2026-08)
+
+`payment_list_documents.sepa_export_id uuid NULL REFERENCES
+payment_list_sepa_exports(id) ON DELETE SET NULL` guarda a exportação a que o
+comprovativo diz respeito (NULL no fallback sem exportação registada).
+
+Na secção "Comprovativos" do detalhe da lista há a listagem **Exportações SEPA
+desta lista**: cada lote mostra data, nº de transferências, total e um badge
+**"com comprovativo"** (abre o ficheiro) ou **"sem comprovativo"** (âmbar) — para
+se ver de relance que lotes gerados ainda estão sem comprovativo do banco.
+
 ### Ainda pendente da fase 2
 
 - Permissões dedicadas e bloqueios por estado da lista na exportação.

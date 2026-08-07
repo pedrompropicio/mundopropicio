@@ -114,12 +114,15 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
           file_url: path,
           doc_type: "pdf",
           uploaded_by: uploadedBy,
+          sepa_export_id: usingFallback ? null : chosenExport!.id,
         } as any)
         .select("*")
         .single();
       if (dbErr) throw dbErr;
 
       // Réplicas nas transações — mesmo file_url, sem duplicar o ficheiro no storage.
+      // is_accounting = FALSE: o comprovativo do banco NÃO é documento fiscal e não
+      // pode mascarar o relatório de pendências documentais (falta de fatura).
       const { error: repErr } = await supabase.from("transaction_documents").insert(
         targetTxIds.map((txId) => ({
           transaction_id: txId,
@@ -127,12 +130,14 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
           file_url: path,
           doc_type: "pdf",
           uploaded_by: uploadedBy,
-          is_accounting: true,
+          is_accounting: false,
         })) as any,
       );
       if (repErr) throw repErr;
 
+
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
+      queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
       for (const txId of targetTxIds) {
         queryClient.invalidateQueries({ queryKey: ["transaction_documents", txId] });
         queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", txId] });
@@ -181,6 +186,7 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
       await supabase.storage.from("transaction-documents").remove([doc.file_url]);
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
+      queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
       for (const txId of activeTransactionIds) {
         queryClient.invalidateQueries({ queryKey: ["transaction_documents", txId] });
         queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", txId] });
@@ -249,6 +255,39 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
           Replicação para as {targetTxIds.length} transação(ões) da exportação de {formatDate(chosenExport!.exported_at)}.
         </p>
       )}
+
+      {exports.length > 0 && (
+        <div className="mb-3 space-y-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Exportações SEPA desta lista
+          </p>
+          {exports.map((ex: any) => {
+            const receipt = docs.find((d: any) => d.sepa_export_id === ex.id);
+            return (
+              <div key={ex.id} className="flex flex-wrap items-center gap-2 rounded-md bg-background/60 px-2 py-1.5 text-[11px]">
+                <span className="min-w-0 flex-1 truncate">
+                  {formatDate(ex.exported_at)} — {ex.n_transactions} transf. • {formatCurrency(Number(ex.total_amount))}
+                </span>
+                {receipt ? (
+                  <button
+                    onClick={() => handleOpen(receipt)}
+                    className="inline-flex items-center gap-1 rounded bg-success/15 px-1.5 py-0.5 font-medium text-success hover:underline"
+                    title="Abrir comprovativo do banco"
+                  >
+                    <FileText className="h-3 w-3" /> com comprovativo
+                  </button>
+                ) : (
+                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-500">
+                    sem comprovativo
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+
 
       {isLoading ? (
         <p className="text-xs text-muted-foreground">A carregar…</p>

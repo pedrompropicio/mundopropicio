@@ -113,6 +113,12 @@ Listagem tem coluna **Valor** (total da lista, não muda com o estado) alimentad
 total, n_transactions, `transaction_ids[]`) no momento do download do XML.
 `payment_list_documents` guarda os comprovativos da lista; o ficheiro fica **uma
 única vez** em `transaction-documents/<company_id>/payment-lists/<list_id>/`.
+As réplicas em `transaction_documents` têm **`is_accounting = false`** (o comprovativo
+do banco não é documento fiscal e não mascara o relatório de Pendências Documentais),
+mas continuam visíveis nos anexos da transação e na Exportação Contábil (query por
+`file_url LIKE '%/payment-lists/%'`, deduplicada, prefixo `comprovativos_`, fora das
+contagens fiscais). `payment_list_documents.sepa_export_id` liga o comprovativo ao lote
+SEPA; a UI lista as exportações com badge "com/sem comprovativo".
 Ao anexar, replica-se em `transaction_documents` uma linha por transação da
 exportação escolhida (default a mais recente; fallback = itens ativos), todas com
 o mesmo `file_url`. Remover apaga réplicas + registo + ficheiro.

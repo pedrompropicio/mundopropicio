@@ -7517,6 +7517,7 @@ export type Database = {
           id: string
           name: string
           payment_list_id: string
+          sepa_export_id: string | null
           uploaded_at: string
           uploaded_by: string
         }
@@ -7527,6 +7528,7 @@ export type Database = {
           id?: string
           name: string
           payment_list_id: string
+          sepa_export_id?: string | null
           uploaded_at?: string
           uploaded_by?: string
         }
@@ -7537,6 +7539,7 @@ export type Database = {
           id?: string
           name?: string
           payment_list_id?: string
+          sepa_export_id?: string | null
           uploaded_at?: string
           uploaded_by?: string
         }
@@ -7553,6 +7556,13 @@ export type Database = {
             columns: ["payment_list_id"]
             isOneToOne: false
             referencedRelation: "payment_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_documents_sepa_export_id_fkey"
+            columns: ["sepa_export_id"]
+            isOneToOne: false
+            referencedRelation: "payment_list_sepa_exports"
             referencedColumns: ["id"]
           },
         ]
