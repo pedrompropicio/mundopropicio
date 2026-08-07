@@ -343,12 +343,19 @@ export default function CardSessionDetail() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Kpi
+          label="Disponível no cartão"
+          value={cardBalance === undefined ? "—" : formatCurrency(cardBalance)}
+          hint="Saldo real da conta (inclui ajustes)"
+          tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
+        />
         <Kpi label="Entregue" value={formatCurrency(opening + totalLoads)} hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`} />
         <Kpi label="Gasto aprovado" value={formatCurrency(totalApproved)} hint={`${expenses.length} transação(ões)`} />
         <Kpi label="Pendente de aprovação" value={formatCurrency(totalPending)} hint={`${pendingItems.length} item(s)`} tone={pendingItems.length > 0 ? "warn" : undefined} />
-        <Kpi label="Saldo teórico" value={formatCurrency(theoretical)} hint="Entregue − aprovado − pendente" />
+        <Kpi label="Saldo teórico da sessão" value={formatCurrency(theoretical)} hint="Entregue − aprovado − pendente" />
       </div>
+
 
       {/* Breakdown por evento */}
       {Object.keys(expensesByEvent).length > 0 && (
