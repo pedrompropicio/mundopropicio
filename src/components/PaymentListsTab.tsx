@@ -1427,6 +1427,23 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           </p>
         )}
 
+        {/* Totais financeiros (c/IVA) — sempre alinhados com a composição atual */}
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total da lista</p>
+            <p className="font-mono text-base font-bold">{formatCurrency(listTotals.total)}</p>
+          </div>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Aprovado</p>
+            <p className="font-mono text-base font-bold text-amber-500">{formatCurrency(listTotals.approved)}</p>
+          </div>
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Liquidado</p>
+            <p className="font-mono text-base font-bold text-emerald-500">{formatCurrency(listTotals.settled)}</p>
+          </div>
+        </div>
+
+
 
         {/* Bulk payment bar */}
         {isApproved && unpaidItems.length > 0 && (
