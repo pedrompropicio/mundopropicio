@@ -210,7 +210,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
             <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          
           <CardAmountFields
             total={total}
             onTotalChange={setTotal}
