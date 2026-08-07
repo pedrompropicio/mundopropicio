@@ -705,6 +705,10 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             <div className="space-y-1.5">
               <Label htmlFor="supplier">Estabelecimento / fornecedor</Label>
               <Input id="supplier" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Sem fornecedor associado → a aprovação usa “Diversos — Camarim”. O nome do
+                estabelecimento fica guardado no item e visível na transação gerada.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="docnum">Nº talão / fatura</Label>
