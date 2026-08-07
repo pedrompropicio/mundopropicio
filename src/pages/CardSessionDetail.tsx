@@ -113,6 +113,13 @@ export default function CardSessionDetail() {
     },
   });
 
+  const cardAccountId = (session as any)?.financial_accounts?.id ?? (session as any)?.card_account_id ?? null;
+  const { data: cardBalance } = useQuery({
+    queryKey: ["card-account-balance", cardAccountId],
+    enabled: !!cardAccountId,
+    queryFn: () => fetchCardAccountBalance(cardAccountId as string),
+  });
+
   const totalLoads = (loads as any[])
     .filter((l) => l.in_transaction_id)
     .reduce((s, l) => s + Number(l.amount), 0);
@@ -125,6 +132,7 @@ export default function CardSessionDetail() {
   const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
   const opening = Number(session?.opening_balance ?? 0);
   const theoretical = opening + totalLoads - totalApproved - totalPending;
+
 
   const expensesByEvent = useMemo(() => {
     const map: Record<string, { name: string; amount: number }> = {};
