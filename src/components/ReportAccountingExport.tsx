@@ -192,7 +192,7 @@ export default function ReportAccountingExport() {
     // prefixados com "comprovativos/" no nome do ficheiro.
     for (const r of uniqueReceipts) {
       const safe = r.name.replace(/[\\/]+/g, "-");
-      await downloadFile(r.url, `comprovativos/${safe}`.replace(/\//g, "_"));
+      await downloadFile(r.url, `comprovativos_${safe}`);
     }
 
     // Register export
@@ -303,6 +303,7 @@ export default function ReportAccountingExport() {
                   <Download className="mr-1.5 h-4 w-4" />
                 )}
                 Exportar {totalDocsCount} documento(s) contábil(eis)
+                {uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s)` : ""}
               </Button>
             </div>
           ) : (
