@@ -2552,11 +2552,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,image/heic,image/heif,.heic,.heif"
                           className="hidden"
                           disabled={extractingInvoice}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const f = e.target.files?.[0];
-                            if (f) handleExtractInvoice(f);
                             e.target.value = "";
+                            if (!f) return;
+                            try {
+                              handleExtractInvoice(await normalizeImageFile(f));
+                            } catch (err: any) {
+                              toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
+                            }
                           }}
+
                         />
                       </label>
                       {pendingInvoiceFile && !extractingInvoice && (
