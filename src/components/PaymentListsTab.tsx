@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
+import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
+import { useCompany } from "@/hooks/useCompany";
 
 
 /**
