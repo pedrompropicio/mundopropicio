@@ -50,12 +50,24 @@ export async function normalizeImageFile(file: File): Promise<File> {
   let blob: Blob | null = null;
   let firstError: unknown = null;
 
+  // heic-to usa libheif mais recente e suporta variantes HEVC dos iPhone que
+  // o heic2any antigo rejeita com ERR_LIBHEIF "format not supported".
   try {
+    const { heicTo } = await import("heic-to/csp");
+    const converted = await heicTo({ blob: file, type: "image/jpeg", quality: 0.85 });
+    blob = converted instanceof Blob ? converted : null;
+  } catch (err) {
+    firstError = err;
+    console.error("[image-upload] HEIC conversion failed (heic-to)", err);
+  }
+
+  // Compatibilidade com ficheiros que eram aceites pelo pipeline anterior.
+  if (!blob || blob.size === 0) try {
     const { default: heic2any } = await import("heic2any");
     const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
     blob = Array.isArray(converted) ? converted[0] : converted;
   } catch (err) {
-    firstError = err;
+    firstError ??= err;
     console.error("[image-upload] HEIC conversion failed (heic2any)", err);
   }
 
