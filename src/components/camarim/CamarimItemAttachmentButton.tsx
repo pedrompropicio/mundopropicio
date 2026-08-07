@@ -36,10 +36,63 @@ async function getFreshAccessToken() {
 /**
  * Botão que abre numa nova aba a fatura/talão anexo do item de camarim.
  * Vai buscar o primeiro documento associado e gera um signed URL (1h).
- * Se o item não tiver anexo, fica desativado com tooltip.
+ * Quando recebe `sessionId`, mostra também um botão de ANEXAR ficheiro a um
+ * item já existente (HEIC de iPhone é convertido para JPEG antes do upload).
  */
-export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Props) {
+export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessionId, onAttached }: Props) {
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+
+  const attach = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const original = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!original || !sessionId) return;
+    setUploading(true);
+    try {
+      let file = original;
+      if (isHeicFile(original)) {
+        toast({ title: "A converter foto…", description: "HEIC do iPhone → JPEG." });
+        file = await normalizeImageFile(original);
+      }
+      const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const ext = /^[a-z0-9]{2,5}$/.test(rawExt) ? rawExt : "jpg";
+      const { error: upErr, path } = await uploadToCompanyBucket(
+        "camarim-documents",
+        `${sessionId}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`,
+        file,
+        { contentType: file.type || "application/octet-stream", upsert: true },
+      );
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("camarim_item_documents" as any).insert({
+        item_id: itemId,
+        file_path: path,
+        file_name: file.name,
+        mime_type: file.type,
+        file_size: file.size,
+        document_source: "upload",
+        created_by: user?.id ?? null,
+      } as any);
+      if (insErr) {
+        await supabase.storage.from("camarim-documents").remove([path]);
+        throw insErr;
+      }
+      await supabase.from("camarim_items" as any).update({ has_document: true }).eq("id", itemId);
+      toast({ title: "Anexo gravado" });
+      onAttached?.();
+    } catch (err: any) {
+      console.error("[camarim attach] failed", err);
+      toast({
+        variant: "destructive",
+        title: "Anexo não foi gravado",
+        description: err?.message ?? "Falha desconhecida ao anexar o ficheiro.",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
 
   const open = async (e: React.MouseEvent) => {
     e.stopPropagation();
