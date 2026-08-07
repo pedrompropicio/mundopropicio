@@ -255,6 +255,39 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
         </p>
       )}
 
+      {exports.length > 0 && (
+        <div className="mb-3 space-y-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Exportações SEPA desta lista
+          </p>
+          {exports.map((ex: any) => {
+            const receipt = docs.find((d: any) => d.sepa_export_id === ex.id);
+            return (
+              <div key={ex.id} className="flex flex-wrap items-center gap-2 rounded-md bg-background/60 px-2 py-1.5 text-[11px]">
+                <span className="min-w-0 flex-1 truncate">
+                  {formatDate(ex.exported_at)} — {ex.n_transactions} transf. • {formatCurrency(Number(ex.total_amount))}
+                </span>
+                {receipt ? (
+                  <button
+                    onClick={() => handleOpen(receipt)}
+                    className="inline-flex items-center gap-1 rounded bg-success/15 px-1.5 py-0.5 font-medium text-success hover:underline"
+                    title="Abrir comprovativo do banco"
+                  >
+                    <FileText className="h-3 w-3" /> com comprovativo
+                  </button>
+                ) : (
+                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-500">
+                    sem comprovativo
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+
+
       {isLoading ? (
         <p className="text-xs text-muted-foreground">A carregar…</p>
       ) : docs.length === 0 ? (
