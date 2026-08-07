@@ -1617,6 +1617,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           )}
         </div>
 
+        <PaymentListReceipts
+          listId={listId}
+          listTitle={list?.title ?? "Lista de Pagamentos"}
+          activeTransactionIds={activeTxIds}
+        />
+
+
 
 
         {/* Bulk payment bar */}
