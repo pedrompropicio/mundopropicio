@@ -9,8 +9,8 @@ type: feature
 ## Estados
 `draft` → `pending_approval` → `approved` | `partially_approved` | `rejected` | `revision`
 
-- Aprovação (total/parcial) só por **admin**, via `ApproveModal`. Parcial faz DELETE
-  dos itens não selecionados e marca `partially_approved`.
+- Aprovação (total/parcial) só por **admin**, via `ApproveModal`. Parcial faz soft-remove
+  dos itens não selecionados (removed_reason "Não aprovado na aprovação de …") e marca `partially_approved`.
 - `revision` guarda os comentários do aprovador em `revision_notes`.
 
 ## Edição de itens (2026-08)
