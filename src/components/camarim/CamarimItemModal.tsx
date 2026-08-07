@@ -237,6 +237,22 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
     let file = original;
 
+    // Fotos de iPhone (HEIC/HEIF) → converter para JPEG antes de tudo.
+    if (isHeicFile(original)) {
+      setConvertingPhoto(true);
+      try {
+        file = await normalizeImageFile(original);
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Foto HEIC não suportada", description: err.message });
+        setConvertingPhoto(false);
+        if (e.target) e.target.value = "";
+        return;
+      } finally {
+        setConvertingPhoto(false);
+      }
+    }
+
+
     // Se for DNG/RAW, tenta extrair o JPEG embutido. Se falhar, usa o ficheiro
     // original na mesma — o upload e OCR podem não funcionar, mas pelo menos
     // o utilizador consegue avançar e preencher à mão.
