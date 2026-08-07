@@ -12,7 +12,7 @@ import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip, Pencil,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip, Pencil, Landmark,
 } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
+import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
+import { useCompany } from "@/hooks/useCompany";
 
 
 /**
@@ -870,12 +872,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
   const [showAddTx, setShowAddTx] = useState(false);
   const [editingTx, setEditingTx] = useState<any | null>(null);
+  const [showSepa, setShowSepa] = useState(false);
 
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragging = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
   const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+  const { company } = useCompany();
 
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1041,7 +1045,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, email), account_categories(code, name, parent_id))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, email), account_categories(code, name, parent_id))")
         .eq("payment_list_id", listId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -1221,6 +1225,45 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       awaiting: listApproved ? 0 : open,
     };
   }, [items, list?.status]);
+
+  /**
+   * Candidatos para o ficheiro SEPA Santander.
+   * Valor = valor em aberto (líquido a transferir: c/IVA − retenção IRS declarada),
+   * usando exatamente o mesmo cálculo do fluxo de liquidação em lote.
+   * IBAN: iban_override (já preenchido a partir da nota de reembolso, quando aplica)
+   * → suppliers.iban → iban_2 → iban_3.
+   */
+  const sepaCandidates = useMemo<SepaCandidate[]>(() => {
+    const out: SepaCandidate[] = [];
+    for (const item of items as any[]) {
+      const tx = item.transactions;
+      if (!tx || item.removed_at) continue;
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      const np = computeNetPayable({
+        grossWithIva: withIva,
+        declaredWithholding: getDeclaredWithholding(tx),
+        hasInstallments: installmentTxIds.has(tx.id),
+      });
+      const paid = Number(tx.paid_amount ?? 0);
+      const open = Math.max(0, +(np.net - paid).toFixed(2));
+      const sup: any = tx.suppliers ?? {};
+      const iban = tx.iban_override ?? sup.iban ?? sup.iban_2 ?? sup.iban_3 ?? null;
+      const name = formatSupplierFullName(sup.name, sup.trade_name);
+      const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      out.push({
+        transactionId: tx.id,
+        creditorName: name === "-" ? "Beneficiario" : name,
+        iban,
+        amount: open,
+        description: [tx.description, tx.specification].filter(Boolean).join(" - "),
+        isReimbursement: !!tx.is_reimbursement,
+        preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+      });
+    }
+    return out;
+  }, [items, installmentTxIds]);
+
+
 
 
 
@@ -1486,21 +1529,24 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               <p className="text-xs sm:text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
             </div>
           </div>
-          {isApproved && (
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={handleCopyWhatsApp} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                <Copy className="h-4 w-4" /> WhatsApp
-              </button>
-              <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
-                <FileText className="mr-1.5 h-4 w-4" /> PDF
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
-                <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
-              </Button>
-            </div>
-          )}
-          {canEditItems && (
-            <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            {isApproved && (
+              <>
+                <button onClick={handleCopyWhatsApp} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                  <Copy className="h-4 w-4" /> WhatsApp
+                </button>
+                <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
+                  <FileText className="mr-1.5 h-4 w-4" /> PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
+                  <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setShowSepa(true); }} title="Gerar ficheiro SEPA para o NetBanco Santander">
+              <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
+            </Button>
+            {canEditItems && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}
                 className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -1508,9 +1554,21 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               >
                 <Plus className="h-4 w-4" /> Adicionar transações
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {showSepa && list && (
+          <SepaExportModal
+            listId={listId}
+            listTitle={list.title ?? "Lista de Pagamentos"}
+            listStatus={list.status}
+            paymentDate={list.payment_date ?? null}
+            candidates={sepaCandidates}
+            companyName={company?.legal_name ?? company?.display_name ?? "Empresa"}
+            onClose={() => setShowSepa(false)}
+          />
+        )}
 
         {canEditItems && (
           <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
