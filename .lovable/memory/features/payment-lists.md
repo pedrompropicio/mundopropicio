@@ -51,3 +51,10 @@ ver que a lista mudou desde o envio. Em `rejected`/`revision` o detalhe tem tamb
 `payment_list_items`: INSERT/UPDATE já permitidos a `admin`/`manager`/`editor`;
 DELETE só admin/manager — por isso a remoção é **soft**, nunca DELETE.
 `company_id` tem default `current_company_id()`.
+
+## Totais (2026-08)
+Detalhe da lista mostra 3 cards c/IVA calculados no cliente a partir dos itens já
+carregados (ignora `removed_at`): **Total da lista**, **Aprovado** (tx `approved`
+ainda não paga) e **Liquidado** (tx `paid`, `manually_marked_paid` ou pago ≥ total −0,05).
+Listagem tem coluna **Valor** alimentada por uma única query agregada
+`["payment-lists","totals"]` (prefixo partilhado ⇒ invalida com `["payment-lists"]`).

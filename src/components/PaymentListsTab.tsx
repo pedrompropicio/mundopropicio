@@ -258,6 +258,28 @@ export default function PaymentListsTab() {
     },
   });
 
+  // Uma única query agregada com os itens de todas as listas para preencher a
+  // coluna "Valor" da listagem (c/IVA, excluindo itens removidos).
+  const { data: listTotalsMap = {} } = useQuery({
+    queryKey: ["payment-lists", "totals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_list_items")
+        .select("payment_list_id, removed_at, transactions(amount, iva_rate)");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const row of (data ?? []) as any[]) {
+        if (row.removed_at) continue;
+        const tx = row.transactions;
+        if (!tx) continue;
+        map[row.payment_list_id] =
+          (map[row.payment_list_id] ?? 0) + calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      }
+      return map;
+    },
+  });
+
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("payment_lists").delete().eq("id", id);
@@ -402,6 +424,7 @@ export default function PaymentListsTab() {
                   <th className="pb-3 text-left font-medium">Título</th>
                   <th className="pb-3 text-left font-medium">Data Pagamento</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
+                  <th className="pb-3 text-right font-medium">Valor</th>
                   <th className="pb-3 text-left font-medium hidden sm:table-cell">Criado por</th>
                   <th className="pb-3 text-center font-medium">Ações</th>
                 </tr>
@@ -422,6 +445,7 @@ export default function PaymentListsTab() {
                       </td>
                       <td className="py-3">{formatDate(list.payment_date)}</td>
                       <td className="py-3"><Badge variant={st.variant}>{st.label}</Badge></td>
+                      <td className="py-3 text-right font-mono font-medium">{formatCurrency((listTotalsMap as Record<string, number>)[list.id] ?? 0)}</td>
                       <td className="py-3 text-muted-foreground hidden sm:table-cell">{list.created_by}</td>
                       <td className="py-3">
                         <div className="flex items-center justify-center gap-1">
@@ -1097,6 +1121,31 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     return paid < totalWithIva - 0.05 && tx.status !== "paid";
   });
 
+  /**
+   * Totais financeiros da lista (c/IVA), recalculados no cliente a partir dos
+   * itens já carregados — adicionar/remover/restaurar/liquidar reflete de imediato.
+   * Itens com removed_at são ignorados (não fazem parte da composição atual).
+   */
+  const listTotals = useMemo(() => {
+    let total = 0;
+    let approved = 0;
+    let settled = 0;
+    for (const item of items as any[]) {
+      if (item.removed_at) continue;
+      const tx = item.transactions;
+      if (!tx) continue;
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      total += withIva;
+      const paid = Number(tx.paid_amount ?? 0);
+      const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      if (isPaid) settled += withIva;
+      else if (tx.status === "approved") approved += withIva;
+    }
+    return { total, approved, settled };
+  }, [items]);
+
+
+
   const toggleTx = (txId: string) => {
     setSelectedTxIds((prev) => {
       const next = new Set(prev);
@@ -1401,6 +1450,23 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             {list.approved_at && ` em ${formatDate(list.approved_at)}`}
           </p>
         )}
+
+        {/* Totais financeiros (c/IVA) — sempre alinhados com a composição atual */}
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total da lista</p>
+            <p className="font-mono text-base font-bold">{formatCurrency(listTotals.total)}</p>
+          </div>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Aprovado</p>
+            <p className="font-mono text-base font-bold text-amber-500">{formatCurrency(listTotals.approved)}</p>
+          </div>
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Liquidado</p>
+            <p className="font-mono text-base font-bold text-emerald-500">{formatCurrency(listTotals.settled)}</p>
+          </div>
+        </div>
+
 
 
         {/* Bulk payment bar */}
