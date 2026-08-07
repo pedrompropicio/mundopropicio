@@ -9,7 +9,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
-import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { snapToStandardRate } from "@/lib/iva";
 import { cardBaseFromTotal, inferCardRateFromReceipt, invalidateCardSessionQueries } from "@/lib/card-session-helpers";

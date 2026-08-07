@@ -6,7 +6,6 @@ import { toast } from "@/hooks/use-toast";
 import { X, CheckCircle2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
-import IvaRateSelect from "@/components/IvaRateSelect";
 import { cardBaseFromTotal, cardTotalFromBase, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 
