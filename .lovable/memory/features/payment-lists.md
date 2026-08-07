@@ -54,7 +54,20 @@ DELETE só admin/manager — por isso a remoção é **soft**, nunca DELETE.
 
 ## Totais (2026-08)
 Detalhe da lista mostra 3 cards c/IVA calculados no cliente a partir dos itens já
-carregados (ignora `removed_at`): **Total da lista**, **Aprovado** (tx `approved`
-ainda não paga) e **Liquidado** (tx `paid`, `manually_marked_paid` ou pago ≥ total −0,05).
-Listagem tem coluna **Valor** alimentada por uma única query agregada
-`["payment-lists","totals"]` (prefixo partilhado ⇒ invalida com `["payment-lists"]`).
+carregados (ignora `removed_at`): **Total da lista**, o card do meio conforme o
+estado da LISTA, e **Liquidado** (tx `paid`, `manually_marked_paid` ou pago ≥ total −0,05).
+
+Semântica do card do meio — `transactions.status='approved'` é a aprovação do fluxo
+de TRANSAÇÕES (todas entram na lista já assim) e NÃO deve ser usada aqui. Vale
+`payment_lists.status`:
+- `draft`/`pending_approval`/`rejected`/`revision` → **"Aguardando aprovação"** (azul)
+  com o valor ativo não liquidado; "Aprovado" seria 0.
+- `approved`/`partially_approved` → **"Aprovado"** (âmbar) com o valor ativo não liquidado.
+
+A parcialidade não vive em nenhuma coluna dos itens: `ApproveModal` **APAGA** os itens
+não selecionados e marca a lista `partially_approved` — logo os itens que restam numa
+lista aprovada são exatamente os aprovados.
+
+Listagem tem coluna **Valor** (total da lista, não muda com o estado) alimentada por uma
+única query agregada `["payment-lists","totals"]` (prefixo partilhado ⇒ invalida com
+`["payment-lists"]`).
