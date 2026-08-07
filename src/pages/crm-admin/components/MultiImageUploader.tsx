@@ -22,11 +22,21 @@ export function MultiImageUploader({ value, onChange, label, hint }: Props) {
     setUploading(true);
     const next: string[] = [...value];
     try {
-      for (const file of Array.from(files)) {
+      for (const picked of Array.from(files)) {
+        let file = picked;
+        if (isHeicFile(picked)) {
+          try {
+            file = await normalizeImageFile(picked);
+          } catch (err: any) {
+            toast.error(`${picked.name}: ${err.message}`);
+            continue;
+          }
+        }
         if (!file.type.startsWith("image/")) {
           toast.error(`${file.name}: não é imagem.`);
           continue;
         }
+
         if (file.size > 10 * 1024 * 1024) {
           toast.error(`${file.name}: > 10MB.`);
           continue;
