@@ -1,16 +1,23 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Loader2 } from "lucide-react";
+import { Paperclip, Loader2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
+import { uploadToCompanyBucket } from "@/lib/storage";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   itemId: string;
   /** When true, shows just the icon (compact mode for lists). */
   iconOnly?: boolean;
   className?: string;
+  /** Sessão do item — necessária para o path do anexo (ativa o botão de anexar). */
+  sessionId?: string;
+  onAttached?: () => void;
 }
+
 
 async function getFreshAccessToken() {
   let { data: sessionData } = await supabase.auth.getSession();
