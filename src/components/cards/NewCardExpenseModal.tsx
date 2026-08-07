@@ -335,7 +335,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-              <IvaRateSelect value={ivaRate} onChange={(v) => setIvaRate(Number(v) || 0)} rates={rates} />
+              <IvaRateSelect eventId={eventId || null} value={Number(ivaRate) || 0} onChange={setIvaRate} />
             </div>
           </div>
           <div>
