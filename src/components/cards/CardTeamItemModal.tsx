@@ -135,10 +135,21 @@ export function CardTeamItemModal({
   };
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const original = e.target.files?.[0];
-    if (!original) return;
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    let original = picked;
+    if (isHeicFile(picked)) {
+      try {
+        original = await normalizeImageFile(picked);
+      } catch (err: any) {
+        toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
+        e.target.value = "";
+        return;
+      }
+    }
     setPhotoFile(original);
     setPreviewUrl(URL.createObjectURL(original));
+
 
     // Prepare + run OCR
     setOcrLoading(true);
