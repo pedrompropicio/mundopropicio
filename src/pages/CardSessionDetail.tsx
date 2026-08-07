@@ -71,7 +71,8 @@ export default function CardSessionDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, paid_amount, date, payment_date, event_id, category_id, events:event_id(name), account_categories:category_id(name, code)")
+        .select("id, description, amount, iva_rate, paid_amount, date, payment_date, event_id, category_id, supplier_id, company_id, events:event_id(name), account_categories:category_id(name, code)")
+
         .eq("card_session_id", id!)
         .order("date", { ascending: false });
       return data ?? [];
