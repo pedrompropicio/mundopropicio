@@ -64,9 +64,21 @@ de TRANSAÇÕES (todas entram na lista já assim) e NÃO deve ser usada aqui. Va
   com o valor ativo não liquidado; "Aprovado" seria 0.
 - `approved`/`partially_approved` → **"Aprovado"** (âmbar) com o valor ativo não liquidado.
 
-A parcialidade não vive em nenhuma coluna dos itens: `ApproveModal` **APAGA** os itens
-não selecionados e marca a lista `partially_approved` — logo os itens que restam numa
-lista aprovada são exatamente os aprovados.
+### Aprovação parcial = soft-remove (2026-08, substitui o DELETE anterior)
+`ApproveModal` NÃO apaga os itens não selecionados: faz **soft-remove** com
+`removed_at=now`, `removed_by=aprovador` e
+`removed_reason = "Não aprovado na aprovação de DD/MM/AAAA"`
+(constante `NOT_APPROVED_REASON_PREFIX`). A lista fica `partially_approved`.
+Consequências:
+- Itens ativos numa lista aprovada = exatamente os aprovados (totais inalterados).
+- No detalhe aparecem riscados/esbatidos com o motivo; **sem botão "Restaurar"** em
+  `approved`/`partially_approved` (composição read-only) — relançar noutra lista.
+- 4º card **"Não aprovado"** (vermelho) só em listas aprovadas e quando > 0: soma dos
+  itens cujo `removed_reason` começa pelo prefixo acima.
+- `ApproveModal` só carrega itens com `removed_at IS NULL`.
+- Elegibilidade: `useEligibleTransactionsForList()` não filtra por pertença a listas, e
+  as transações não aprovadas continuam `status='approved'` ⇒ voltam a aparecer no picker.
+
 
 Listagem tem coluna **Valor** (total da lista, não muda com o estado) alimentada por uma
 única query agregada `["payment-lists","totals"]` (prefixo partilhado ⇒ invalida com
