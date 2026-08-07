@@ -1097,6 +1097,31 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     return paid < totalWithIva - 0.05 && tx.status !== "paid";
   });
 
+  /**
+   * Totais financeiros da lista (c/IVA), recalculados no cliente a partir dos
+   * itens já carregados — adicionar/remover/restaurar/liquidar reflete de imediato.
+   * Itens com removed_at são ignorados (não fazem parte da composição atual).
+   */
+  const listTotals = useMemo(() => {
+    let total = 0;
+    let approved = 0;
+    let settled = 0;
+    for (const item of items as any[]) {
+      if (item.removed_at) continue;
+      const tx = item.transactions;
+      if (!tx) continue;
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      total += withIva;
+      const paid = Number(tx.paid_amount ?? 0);
+      const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      if (isPaid) settled += withIva;
+      else if (tx.status === "approved") approved += withIva;
+    }
+    return { total, approved, settled };
+  }, [items]);
+
+
+
   const toggleTx = (txId: string) => {
     setSelectedTxIds((prev) => {
       const next = new Set(prev);
