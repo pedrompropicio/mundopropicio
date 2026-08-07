@@ -261,7 +261,7 @@ export default function PaymentListsTab() {
   // Uma única query agregada com os itens de todas as listas para preencher a
   // coluna "Valor" da listagem (c/IVA, excluindo itens removidos).
   const { data: listTotalsMap = {} } = useQuery({
-    queryKey: ["payment-lists-totals"],
+    queryKey: ["payment-lists", "totals"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
@@ -424,6 +424,7 @@ export default function PaymentListsTab() {
                   <th className="pb-3 text-left font-medium">Título</th>
                   <th className="pb-3 text-left font-medium">Data Pagamento</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
+                  <th className="pb-3 text-right font-medium">Valor</th>
                   <th className="pb-3 text-left font-medium hidden sm:table-cell">Criado por</th>
                   <th className="pb-3 text-center font-medium">Ações</th>
                 </tr>
@@ -444,6 +445,7 @@ export default function PaymentListsTab() {
                       </td>
                       <td className="py-3">{formatDate(list.payment_date)}</td>
                       <td className="py-3"><Badge variant={st.variant}>{st.label}</Badge></td>
+                      <td className="py-3 text-right font-mono font-medium">{formatCurrency((listTotalsMap as Record<string, number>)[list.id] ?? 0)}</td>
                       <td className="py-3 text-muted-foreground hidden sm:table-cell">{list.created_by}</td>
                       <td className="py-3">
                         <div className="flex items-center justify-center gap-1">
