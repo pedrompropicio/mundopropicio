@@ -111,3 +111,16 @@ Infra reutilizada: edge fn `extract-camarim-receipt`, `prepareFileForInvoiceOcr`
 Semântica mantida: campo do formulário = **Total c/IVA** (talão); BD grava
 `amount` = base s/IVA (`cardBaseFromTotal`) + `iva_rate`, `paid_amount` = total bruto.
 Preencher à mão sem scan continua possível.
+
+## Layout dos valores + refresh (2026-08-07)
+
+- `CardAmountFields` (src/components/cards/) é o bloco único de valores nos 3
+  formulários (NewCardExpenseModal, CardTeamItemModal, ApproveCardItemModal):
+  ordem **Valor s/IVA → Taxa IVA → Total c/IVA**, os dois campos de valor
+  editáveis com ligação bidirecional (base↔total via taxa). OCR preenche o
+  Total do talão; a base deriva. Gravação inalterada (amount=base,
+  paid_amount=total).
+- `invalidateCardSessionQueries(qc, sessionId)` em `card-session-helpers.ts`
+  invalida TODAS as chaves do módulo (card-session, -loads, -expenses, -items,
+  -expense-doc-counts, card-sessions, prepaid-cards-*, financial-accounts,
+  transactions). Usar em qualquer escrita do módulo — nunca invalidar chaves à mão.

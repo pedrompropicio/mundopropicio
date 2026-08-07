@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { X, Lock } from "lucide-react";
@@ -114,8 +115,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
     },
     onSuccess: () => {
       toast({ title: "Sessão fechada." });
-      qc.invalidateQueries({ queryKey: ["card-session", session.id] });
-      qc.invalidateQueries({ queryKey: ["card-sessions"] });
+      invalidateCardSessionQueries(qc, session.id);
       onOpenChange(false);
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),

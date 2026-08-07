@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { X, Plus } from "lucide-react";
@@ -57,8 +58,7 @@ export function CardLoadModal({ open, onOpenChange, sessionId, cardAccountId, ca
     },
     onSuccess: () => {
       toast({ title: "Recarga registada." });
-      qc.invalidateQueries({ queryKey: ["card-session", sessionId] });
-      qc.invalidateQueries({ queryKey: ["financial-accounts"] });
+      invalidateCardSessionQueries(qc, sessionId);
       onOpenChange(false);
       setAmount(""); setSourceId(""); setNotes("");
     },
