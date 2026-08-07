@@ -1699,7 +1699,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Remover da lista
                         </button>
                       )}
-                      {isRemoved && (isAdmin || isManager || canEditItems) && (
+                      {/* Listas aprovadas são read-only na composição: itens não
+                          aprovados ficam riscados sem opção de restaurar — o editor
+                          relança-os numa lista nova. */}
+                      {isRemoved && !isApproved && (isAdmin || isManager || canEditItems) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); restoreItemToList(item.id); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
