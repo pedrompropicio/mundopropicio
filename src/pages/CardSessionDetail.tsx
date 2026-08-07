@@ -630,17 +630,21 @@ export default function CardSessionDetail() {
   );
 }
 
-function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "warn" }) {
+function Kpi({ label, value, hint, tone, action }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          {action}
+        </div>
         <p className={cn("mt-1 text-xl font-bold", tone === "warn" ? "text-amber-500" : "text-foreground")}>{value}</p>
         {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );
 }
+
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
