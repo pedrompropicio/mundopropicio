@@ -1922,7 +1922,9 @@ function ApproveModal({
       const { data, error } = await supabase
         .from("payment_list_items")
         .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
-        .eq("payment_list_id", listId);
+        .eq("payment_list_id", listId)
+        // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
+        .is("removed_at", null);
       if (error) throw error;
       const rows = data ?? [];
       const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
