@@ -8,6 +8,11 @@ import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2, Papercl
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 import { cn } from "@/lib/utils";
 import {
   CARD_SESSION_STATUS_LABELS,
@@ -43,6 +48,10 @@ export default function CardSessionDetail() {
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
+  const [openingOpen, setOpeningOpen] = useState(false);
+  const [openingValue, setOpeningValue] = useState("");
+  const [openingReason, setOpeningReason] = useState("");
+
 
 
   const { data: session } = useQuery({
@@ -162,6 +171,29 @@ export default function CardSessionDetail() {
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
+
+  const updateOpening = useMutation({
+    mutationFn: async ({ value, reason }: { value: number; reason: string }) => {
+      const current = Number((session as any)?.opening_balance ?? 0);
+      const who = (user as any)?.email ?? "utilizador";
+      const stamp = new Date().toISOString().slice(0, 10);
+      const line = `[${stamp}] Saldo de abertura corrigido de ${formatCurrency(current)} para ${formatCurrency(value)} por ${who}: ${reason}`;
+      const prevNotes = ((session as any)?.notes ?? "").trim();
+      const { error } = await supabase
+        .from("card_sessions")
+        .update({ opening_balance: value, notes: prevNotes ? `${prevNotes}\n${line}` : line })
+        .eq("id", id!)
+        .eq("status", "open");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Saldo de abertura atualizado." });
+      setOpeningOpen(false);
+      invalidateCardSessionQueries(qc, id);
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
 
   const deleteLoad = useMutation({
     mutationFn: async (load: any) => {
@@ -283,6 +315,8 @@ export default function CardSessionDetail() {
   const isLocked = status === "closed";
   // Editar/excluir despesas só com a sessão ABERTA (in_review/closed = leitura).
   const canEditExpenses = canManage && status === "open";
+  const canEditOpening = canEditExpenses;
+
 
 
   return (
@@ -350,11 +384,33 @@ export default function CardSessionDetail() {
           hint="Saldo real da conta (inclui ajustes)"
           tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
         />
-        <Kpi label="Entregue" value={formatCurrency(opening + totalLoads)} hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`} />
+        <Kpi
+          label="Entregue"
+          value={formatCurrency(opening + totalLoads)}
+          hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`}
+          action={
+            canEditOpening ? (
+              <button
+                type="button"
+                aria-label="Editar saldo de abertura"
+                title="Editar saldo de abertura"
+                onClick={() => { setOpeningValue(String(opening)); setOpeningReason(""); setOpeningOpen(true); }}
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            ) : undefined
+          }
+        />
         <Kpi label="Gasto aprovado" value={formatCurrency(totalApproved)} hint={`${expenses.length} transação(ões)`} />
         <Kpi label="Pendente de aprovação" value={formatCurrency(totalPending)} hint={`${pendingItems.length} item(s)`} tone={pendingItems.length > 0 ? "warn" : undefined} />
-        <Kpi label="Saldo teórico da sessão" value={formatCurrency(theoretical)} hint="Entregue − aprovado − pendente" />
+        <Kpi
+          label="Saldo teórico da sessão"
+          value={formatCurrency(theoretical)}
+          hint="Saldo de abertura + recargas − gasto aprovado − pendente. O saldo de abertura é editável enquanto a sessão está aberta."
+        />
       </div>
+
 
 
       {/* Breakdown por evento */}
@@ -596,6 +652,64 @@ export default function CardSessionDetail() {
         </div>
       )}
 
+      <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Corrigir saldo de abertura</DialogTitle>
+            <DialogDescription>
+              Use apenas para corrigir uma abertura lançada errada (ex.: saldo do cartão ajustado depois no módulo Contas).
+              A correção fica registada nas notas da sessão.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="opening-value">Novo saldo de abertura (€)</Label>
+              <Input
+                id="opening-value"
+                type="number"
+                step="0.01"
+                value={openingValue}
+                onChange={(e) => setOpeningValue(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Atual: {formatCurrency(opening)}</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="opening-reason">Motivo (obrigatório)</Label>
+              <Textarea
+                id="opening-reason"
+                rows={2}
+                value={openingReason}
+                onChange={(e) => setOpeningReason(e.target.value)}
+                placeholder="Ex.: saldo do cartão estava lançado errado; ajustado no módulo Contas."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setOpeningOpen(false)}
+              className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={
+                updateOpening.isPending ||
+                !openingReason.trim() ||
+                !Number.isFinite(Number(openingValue)) ||
+                openingValue.trim() === ""
+              }
+              onClick={() => updateOpening.mutate({ value: Number(openingValue), reason: openingReason.trim() })}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {updateOpening.isPending ? "A gravar…" : "Gravar correção"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <ApproveCardItemModal
         open={!!approveItem}
         onOpenChange={(v) => { if (!v) setApproveItem(null); }}
@@ -630,17 +744,21 @@ export default function CardSessionDetail() {
   );
 }
 
-function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "warn" }) {
+function Kpi({ label, value, hint, tone, action }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          {action}
+        </div>
         <p className={cn("mt-1 text-xl font-bold", tone === "warn" ? "text-amber-500" : "text-foreground")}>{value}</p>
         {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );
 }
+
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (

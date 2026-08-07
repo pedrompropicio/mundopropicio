@@ -55,7 +55,10 @@ Transições: open → in_review → closed. Manager/admin podem reabrir de in_r
 ## UI
 
 - `/cartoes` — lista contas prepaid_card com saldo atual + sessão ativa; botão "Entregar cartão" pré-preenche opening_balance com o saldo atual.
-- `/cartoes/:id` — KPIs (Entregue / Aprovado / Pendente / Saldo teórico) + breakdown por evento + 3 abas (Despesas / Fila de aprovação / Recargas) + botões de transição/fecho.
+- `/cartoes/:id` — KPIs (Disponível no cartão / Entregue / Aprovado / Pendente / Saldo teórico) + breakdown por evento + 3 abas (Despesas / Fila de aprovação / Recargas) + botões de transição/fecho.
+- **Editar saldo de abertura** (2026-08-07): lápis no KPI "Entregue", visível só com `canManage && status='open'` (mesmo gate das edições de despesa). Mini-dialog pede novo valor + motivo obrigatório; grava `opening_balance` com `.eq('status','open')` como guarda e appenda em `notes` a linha `[YYYY-MM-DD] Saldo de abertura corrigido de X para Y por <email>: <motivo>`. Invalida via `invalidateCardSessionQueries` → KPI e saldo teórico recalculam sem F5. Sessão fechada/in_review não mostra a ação. Motivo: `opening_balance` é fotografia da abertura e desalinha quando o saldo do cartão é ajustado DEPOIS no módulo Contas (caso real: sessão 77d592f0 abriu 883,14 vs 808,14 correto).
+- Hint do KPI "Saldo teórico da sessão": "Saldo de abertura + recargas − gasto aprovado − pendente. O saldo de abertura é editável enquanto a sessão está aberta."
+
 - Sidebar: ícone `CreditCard` visível com `card_manage` ou admin/manager.
 
 ## Não incluído na Fase 1
