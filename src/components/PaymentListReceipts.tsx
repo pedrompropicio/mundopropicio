@@ -137,6 +137,7 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
 
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
+      queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
       for (const txId of targetTxIds) {
         queryClient.invalidateQueries({ queryKey: ["transaction_documents", txId] });
         queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", txId] });
