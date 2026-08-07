@@ -24,6 +24,13 @@ import {
 } from "@/components/ui/select";
 import { Camera, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
+import IvaRateSelect from "@/components/IvaRateSelect";
+import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import {
+  cardBaseFromTotal,
+  cardTotalFromBase,
+  inferCardRateFromReceipt,
+} from "@/lib/card-session-helpers";
 
 interface Props {
   open: boolean;
@@ -57,8 +64,9 @@ export function CardTeamItemModal({
   const [itemDate, setItemDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [amount, setAmount] = useState("");
-  const [ivaRate, setIvaRate] = useState("");
+  /** Valor C/IVA que o utilizador confere contra o talão (o que saiu do cartão). */
+  const [total, setTotal] = useState("");
+  const [ivaRate, setIvaRate] = useState<number>(0);
   const [eventId, setEventId] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [events, setEvents] = useState<EventOpt[]>([]);
@@ -71,6 +79,9 @@ export function CardTeamItemModal({
   const [ocrPayload, setOcrPayload] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Taxas aplicáveis: país da cidade do evento (PT por defeito).
+  const { rates } = useEventIvaCountry(eventId || null);
 
   useEffect(() => {
     if (!open) return;
@@ -100,8 +111,8 @@ export function CardTeamItemModal({
     setSupplierName("");
     setDescription("");
     setItemDate(new Date().toISOString().slice(0, 10));
-    setAmount("");
-    setIvaRate("");
+    setTotal("");
+    setIvaRate(0);
     setEventId(primaryEventId ?? "");
     setNotes("");
     setPhotoFile(null);
@@ -121,8 +132,9 @@ export function CardTeamItemModal({
     setSupplierName(it.supplier_name ?? "");
     setDescription(it.description ?? "");
     setItemDate(it.item_date ?? new Date().toISOString().slice(0, 10));
-    setAmount(String(it.amount ?? ""));
-    setIvaRate(String(it.iva_rate ?? ""));
+    // BD guarda base s/IVA → mostramos o total c/IVA do talão.
+    setIvaRate(Number(it.iva_rate ?? 0));
+    setTotal(String(cardTotalFromBase(Number(it.amount ?? 0), Number(it.iva_rate ?? 0))));
     setEventId(it.event_id ?? "");
     setOcrPayload(it.ocr_raw_payload);
     setExistingDocPath(it.document_path ?? null);
@@ -174,8 +186,12 @@ export function CardTeamItemModal({
       if (data.service_description && !description)
         setDescription(data.service_description);
       if (data.document_date) setItemDate(data.document_date);
-      if (data.total_amount != null) setAmount(String(data.total_amount));
-      if (data.iva_rate != null) setIvaRate(String(data.iva_rate));
+      if (data.total_amount != null) setTotal(String(data.total_amount));
+      // Taxa: preferir IVA € explícito do talão; senão taxa lida; sempre com snap.
+      if (data.total_amount != null && data.iva_amount != null)
+        setIvaRate(inferCardRateFromReceipt(data.total_amount, data.iva_amount, rates));
+      else if (data.iva_rate != null)
+        setIvaRate(inferCardRateFromReceipt(1 + Number(data.iva_rate) / 100, Number(data.iva_rate) / 100, rates));
       toast({
         title: "Talão lido com IA",
         description:
@@ -205,11 +221,13 @@ export function CardTeamItemModal({
 
   const handleSave = async () => {
     if (!user) return;
-    const amt = parseFloat(amount);
-    if (!amt || isNaN(amt) || amt <= 0) {
-      toast({ variant: "destructive", title: "Valor obrigatório" });
+    const gross = parseFloat(total);
+    if (!gross || isNaN(gross) || gross <= 0) {
+      toast({ variant: "destructive", title: "Total obrigatório" });
       return;
     }
+    const rate = Number(ivaRate) || 0;
+    const amt = cardBaseFromTotal(gross, rate);
     setSaving(true);
     try {
       let workingId = itemId ?? null;
@@ -224,7 +242,7 @@ export function CardTeamItemModal({
             description: description.trim() || null,
             item_date: itemDate,
             amount: amt,
-            iva_rate: parseFloat(ivaRate) || 0,
+            iva_rate: rate,
             event_id: eventId || null,
             ocr_raw_payload: ocrPayload,
             status: "submitted",
@@ -241,7 +259,7 @@ export function CardTeamItemModal({
             description: description.trim() || null,
             item_date: itemDate,
             amount: amt,
-            iva_rate: parseFloat(ivaRate) || 0,
+            iva_rate: rate,
             event_id: eventId || null,
             ocr_raw_payload: ocrPayload,
           })
@@ -401,22 +419,22 @@ export function CardTeamItemModal({
                 type="number"
                 step="0.01"
                 inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder="Igual ao talão (c/IVA)"
               />
             </div>
           </div>
 
           <div>
             <Label className="text-xs">IVA (%)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              value={ivaRate}
-              onChange={(e) => setIvaRate(e.target.value)}
-              placeholder="0, 6, 13, 23…"
-            />
+            <IvaRateSelect eventId={eventId || null} value={Number(ivaRate) || 0} onChange={setIvaRate} />
+            {Number(total) > 0 && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Total do talão {Number(total).toFixed(2)} € = base{" "}
+                {cardBaseFromTotal(total, ivaRate).toFixed(2)} € + IVA {Number(ivaRate) || 0}%
+              </p>
+            )}
           </div>
 
           <div>
