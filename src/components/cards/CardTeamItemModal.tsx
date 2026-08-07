@@ -315,7 +315,7 @@ export function CardTeamItemModal({
         <input
           ref={cameraRef}
           type="file"
-          accept="image/*,application/pdf"
+          accept="image/*,application/pdf,image/heic,image/heif,.heic,.heif"
           capture="environment"
           className="hidden"
           onChange={handlePhoto}

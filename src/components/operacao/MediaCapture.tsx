@@ -128,7 +128,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,video/*,image/heic,image/heif,.heic,.heif"
         capture="environment"
         className="hidden"
         onChange={(e) => upload(e.target.files)}
@@ -136,7 +136,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
       <input
         ref={galleryInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,video/*,image/heic,image/heif,.heic,.heif"
         multiple
         className="hidden"
         onChange={(e) => upload(e.target.files)}

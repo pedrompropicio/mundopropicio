@@ -215,7 +215,7 @@ function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: s
         ref={fileInputRef}
         type="file"
         className="hidden"
-        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        accept=".pdf,.jpg,.jpeg,.png,.webp,image/heic,image/heif,.heic,.heif"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) uploadMutation.mutate(file);
@@ -397,7 +397,7 @@ function CreditForm({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,image/heic,image/heif,.heic,.heif"
             onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
           />
         </div>

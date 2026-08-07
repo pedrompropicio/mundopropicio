@@ -74,7 +74,7 @@ export function ImageUploader({ value, onChange, label, aspectRatio = "16/9", hi
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,image/heic,image/heif,.heic,.heif"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

@@ -1222,7 +1222,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     ) : (
                       <Input
                         type="file"
-                        accept=".pdf,.png,.jpg,.jpeg,.webp"
+                        accept=".pdf,.png,.jpg,.jpeg,.webp,image/heic,image/heif,.heic,.heif"
                         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                         disabled={!canEdit}
                       />

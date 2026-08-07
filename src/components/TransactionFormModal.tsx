@@ -2549,7 +2549,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         {extractingInvoice ? "A ler…" : "Ler fatura (IA)"}
                         <input
                           type="file"
-                          accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+                          accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,image/heic,image/heif,.heic,.heif"
                           className="hidden"
                           disabled={extractingInvoice}
                           onChange={(e) => {
@@ -3355,7 +3355,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 {attachAfterCreateFile ? "Anexado" : "Anexar"}
                 <input
                   type="file"
-                  accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+                  accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,image/heic,image/heif,.heic,.heif"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];

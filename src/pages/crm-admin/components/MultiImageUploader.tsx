@@ -95,7 +95,7 @@ export function MultiImageUploader({ value, onChange, label, hint }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,image/heic,image/heif,.heic,.heif"
         multiple
         className="hidden"
         onChange={(e) => {
