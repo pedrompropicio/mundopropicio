@@ -127,11 +127,11 @@ export default function CartaoEquipa() {
         .not("in_transaction_id", "is", null),
       supabase
         .from("transactions")
-        .select("card_session_id, paid_amount, amount")
+        .select("card_session_id, paid_amount, amount, iva_rate")
         .in("card_session_id", ids),
       supabase
         .from("card_session_items")
-        .select("session_id, amount, status, submitted_by")
+        .select("session_id, amount, iva_rate, status, submitted_by")
         .in("session_id", ids),
     ]);
 
@@ -143,7 +143,7 @@ export default function CartaoEquipa() {
     (exps ?? []).forEach((e: any) =>
       expMap.set(
         e.card_session_id,
-        (expMap.get(e.card_session_id) ?? 0) + Number(e.paid_amount ?? e.amount ?? 0),
+        (expMap.get(e.card_session_id) ?? 0) + (Number(e.paid_amount) || cardItemGross(e)),
       ),
     );
     const pendMap = new Map<string, { total: number; count: number }>();
@@ -152,7 +152,7 @@ export default function CartaoEquipa() {
     (allItems ?? []).forEach((i: any) => {
       if (i.status === "submitted") {
         const cur = pendMap.get(i.session_id) ?? { total: 0, count: 0 };
-        cur.total += Number(i.amount);
+        cur.total += cardItemGross(i);
         cur.count += 1;
         pendMap.set(i.session_id, cur);
       }
@@ -201,7 +201,7 @@ export default function CartaoEquipa() {
     let q = supabase
       .from("card_session_items")
       .select(
-        "id, supplier_name, description, amount, item_date, status, rejection_reason, document_path, submitted_by, event_id, events:event_id(name)",
+        "id, supplier_name, description, amount, iva_rate, item_date, status, rejection_reason, document_path, submitted_by, event_id, events:event_id(name)",
       )
       .eq("session_id", sid)
       .order("created_at", { ascending: false })
@@ -213,7 +213,7 @@ export default function CartaoEquipa() {
         id: r.id,
         supplier_name: r.supplier_name,
         description: r.description,
-        amount: Number(r.amount),
+        amount: cardItemGross(r), // total c/IVA (o que saiu do cartão)
         item_date: r.item_date,
         status: r.status,
         rejection_reason: r.rejection_reason,
