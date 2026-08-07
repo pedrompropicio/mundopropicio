@@ -350,11 +350,33 @@ export default function CardSessionDetail() {
           hint="Saldo real da conta (inclui ajustes)"
           tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
         />
-        <Kpi label="Entregue" value={formatCurrency(opening + totalLoads)} hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`} />
+        <Kpi
+          label="Entregue"
+          value={formatCurrency(opening + totalLoads)}
+          hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`}
+          action={
+            canEditOpening ? (
+              <button
+                type="button"
+                aria-label="Editar saldo de abertura"
+                title="Editar saldo de abertura"
+                onClick={() => { setOpeningValue(String(opening)); setOpeningReason(""); setOpeningOpen(true); }}
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            ) : undefined
+          }
+        />
         <Kpi label="Gasto aprovado" value={formatCurrency(totalApproved)} hint={`${expenses.length} transação(ões)`} />
         <Kpi label="Pendente de aprovação" value={formatCurrency(totalPending)} hint={`${pendingItems.length} item(s)`} tone={pendingItems.length > 0 ? "warn" : undefined} />
-        <Kpi label="Saldo teórico da sessão" value={formatCurrency(theoretical)} hint="Entregue − aprovado − pendente" />
+        <Kpi
+          label="Saldo teórico da sessão"
+          value={formatCurrency(theoretical)}
+          hint="Saldo de abertura + recargas − gasto aprovado − pendente. O saldo de abertura é editável enquanto a sessão está aberta."
+        />
       </div>
+
 
 
       {/* Breakdown por evento */}
