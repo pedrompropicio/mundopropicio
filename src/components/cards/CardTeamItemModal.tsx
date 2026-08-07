@@ -25,6 +25,7 @@ import {
 import { Camera, Loader2, Paperclip, Sparkles, Trash2 } from "lucide-react";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import CardAmountFields from "@/components/cards/CardAmountFields";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { snapToStandardRate } from "@/lib/iva";
 import {
@@ -58,6 +59,7 @@ export function CardTeamItemModal({
   onSaved,
 }: Props) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -291,6 +293,7 @@ export function CardTeamItemModal({
       }
 
       toast({ title: itemId ? "Lançamento atualizado" : "Lançamento submetido" });
+      invalidateCardSessionQueries(qc, sessionId);
       onSaved?.();
       onOpenChange(false);
     } catch (err: any) {
@@ -319,6 +322,7 @@ export function CardTeamItemModal({
         .eq("id", itemId);
       if (error) throw error;
       toast({ title: "Lançamento eliminado" });
+      invalidateCardSessionQueries(qc, sessionId);
       onSaved?.();
       onOpenChange(false);
     } catch (err: any) {
