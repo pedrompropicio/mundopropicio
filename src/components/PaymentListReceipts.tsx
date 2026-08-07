@@ -186,6 +186,7 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
       await supabase.storage.from("transaction-documents").remove([doc.file_url]);
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
+      queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
       for (const txId of activeTransactionIds) {
         queryClient.invalidateQueries({ queryKey: ["transaction_documents", txId] });
         queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", txId] });
