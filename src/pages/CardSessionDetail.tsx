@@ -13,6 +13,7 @@ import {
   CARD_SESSION_STATUS_LABELS,
   CARD_SESSION_STATUS_VARIANTS,
   formatCurrency,
+  cardItemGross,
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
@@ -112,9 +113,10 @@ export default function CardSessionDetail() {
   const totalLoadsPending = (loads as any[])
     .filter((l) => !l.in_transaction_id)
     .reduce((s, l) => s + Number(l.amount), 0);
-  const totalApproved = (expenses as any[]).reduce((s, e) => s + Number(e.paid_amount ?? e.amount ?? 0), 0);
+  const totalApproved = (expenses as any[]).reduce((s, e) => s + (Number(e.paid_amount) || cardItemGross(e)), 0);
   const pendingItems = (items as any[]).filter((i) => i.status === "submitted");
-  const totalPending = pendingItems.reduce((s, i) => s + Number(i.amount), 0);
+  // Cartão gasta SEMPRE o total c/IVA — amount na BD é base s/IVA.
+  const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
   const opening = Number(session?.opening_balance ?? 0);
   const theoretical = opening + totalLoads - totalApproved - totalPending;
 
@@ -124,7 +126,7 @@ export default function CardSessionDetail() {
       const key = e.event_id ?? "none";
       const name = e.events?.name ?? "Sem evento";
       if (!map[key]) map[key] = { name, amount: 0 };
-      map[key].amount += Number(e.paid_amount ?? e.amount ?? 0);
+      map[key].amount += Number(e.paid_amount) || cardItemGross(e);
     }
     return map;
   }, [expenses]);
@@ -303,7 +305,7 @@ export default function CardSessionDetail() {
                         <Paperclip className="h-3.5 w-3.5" />
                         {count > 0 ? count : "Anexar"}
                       </button>
-                      <div className="font-semibold">{formatCurrency(Number(e.paid_amount ?? e.amount))}</div>
+                      <div className="font-semibold">{formatCurrency(Number(e.paid_amount) || cardItemGross(e))}</div>
                     </div>
                   </div>
                 );
@@ -335,7 +337,7 @@ export default function CardSessionDetail() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{formatCurrency(Number(it.amount))}</span>
+                    <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
                     {canManage && it.status === "submitted" && !isLocked && (
                       <button
                         onClick={() => setApproveItem(it)}

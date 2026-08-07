@@ -6,6 +6,8 @@ import { toast } from "@/hooks/use-toast";
 import { X, CheckCircle2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
+import IvaRateSelect from "@/components/IvaRateSelect";
+import { cardBaseFromTotal, cardTotalFromBase } from "@/lib/card-session-helpers";
 
 interface Item {
   id: string;
@@ -31,8 +33,9 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   const { user } = useAuth();
   const qc = useQueryClient();
   const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [ivaRate, setIvaRate] = useState("");
+  /** Valor c/IVA (o que saiu do cartão, igual ao talão). */
+  const [total, setTotal] = useState("");
+  const [ivaRate, setIvaRate] = useState<number>(0);
   const [date, setDate] = useState("");
   const [supplierName, setSupplierName] = useState("");
   const [eventId, setEventId] = useState<string>("");
@@ -43,8 +46,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   useEffect(() => {
     if (item) {
       setDescription(item.description ?? "");
-      setAmount(String(item.amount));
-      setIvaRate(String(item.iva_rate));
+      setIvaRate(Number(item.iva_rate ?? 0));
+      setTotal(String(cardTotalFromBase(Number(item.amount ?? 0), Number(item.iva_rate ?? 0))));
       setDate(item.item_date);
       setSupplierName(item.supplier_name ?? "");
       setEventId(item.event_id ?? "");
@@ -95,8 +98,11 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     mutationFn: async () => {
       if (!item) return;
       if (!categoryId) throw new Error("Categoria obrigatória para aprovar.");
-      const amt = parseFloat(amount);
-      if (isNaN(amt) || amt <= 0) throw new Error("Valor inválido.");
+      const gross = parseFloat(total);
+      if (isNaN(gross) || gross <= 0) throw new Error("Valor inválido.");
+      const rate = Number(ivaRate) || 0;
+      // BD: amount = base s/IVA; paid_amount = total pago no cartão (c/IVA).
+      const amt = cardBaseFromTotal(gross, rate);
 
       const { data: tx, error } = await supabase
         .from("transactions")
@@ -104,13 +110,13 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           description: description.trim() || supplierName || "Despesa cartão",
           type: "expense",
           amount: amt,
-          iva_rate: parseFloat(ivaRate) || 0,
+          iva_rate: rate,
           category_id: categoryId,
           account_id: cardAccountId,
           event_id: eventId || null,
           date,
           status: "paid",
-          paid_amount: amt,
+          paid_amount: gross,
           payment_date: date,
           card_session_id: item.session_id,
         })
@@ -123,7 +129,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
         .update({
           status: "approved",
           amount: amt,
-          iva_rate: parseFloat(ivaRate) || 0,
+          iva_rate: rate,
           item_date: date,
           supplier_name: supplierName || null,
           description: description || null,
@@ -205,14 +211,20 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor (€)</label>
-              <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Total c/IVA (€)</label>
+              <input type="number" step="0.01" value={total} onChange={(e) => setTotal(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">IVA (%)</label>
-              <input type="number" step="0.01" value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <IvaRateSelect eventId={eventId || null} value={Number(ivaRate) || 0} onChange={setIvaRate} />
             </div>
           </div>
+          {Number(total) > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Base s/IVA a registar: {cardBaseFromTotal(total, ivaRate).toFixed(2)} € · pago no cartão:{" "}
+              {Number(total).toFixed(2)} €
+            </p>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
             <DatePicker value={date} onChange={setDate} />
