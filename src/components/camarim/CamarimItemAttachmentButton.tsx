@@ -42,7 +42,7 @@ async function getFreshAccessToken() {
  * Quando recebe `sessionId`, mostra também um botão de ANEXAR ficheiro a um
  * item já existente (HEIC de iPhone é convertido para JPEG antes do upload).
  */
-export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessionId, onAttached }: Props) {
+export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessionId, hasAttachment = true, onAttached }: Props) {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -157,6 +157,7 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessi
 
   return (
     <span className="inline-flex items-center gap-0.5">
+      {hasAttachment && (
       <Button
         type="button"
         size={iconOnly ? "icon" : "sm"}
@@ -170,6 +171,7 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessi
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
         {!iconOnly && <span className="ml-1.5 text-xs">Fatura</span>}
       </Button>
+      )}
       {sessionId && (
         <>
           <Button

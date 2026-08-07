@@ -595,9 +595,13 @@ export default function CamarimSessionDetail() {
                     <span className="text-sm font-semibold tabular-nums">
                       {formatCurrency(it.total_amount, session.currency)}
                     </span>
-                    {it.has_attachment && (
-                      <CamarimItemAttachmentButton itemId={it.id} iconOnly />
-                    )}
+                    <CamarimItemAttachmentButton
+                      itemId={it.id}
+                      iconOnly
+                      hasAttachment={!!it.has_attachment}
+                      sessionId={canManage && session.status !== "integrated" ? id : undefined}
+                      onAttached={load}
+                    />
                     {canManage && session.status !== "integrated" && (
                       <Button
                         size="sm"
@@ -745,9 +749,13 @@ export default function CamarimSessionDetail() {
                           </p>
                         )}
                         <div className="mt-1 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          {it.has_attachment && (
-                            <CamarimItemAttachmentButton itemId={it.id} iconOnly />
-                          )}
+                          <CamarimItemAttachmentButton
+                            itemId={it.id}
+                            iconOnly
+                            hasAttachment={!!it.has_attachment}
+                            sessionId={canManage ? id : undefined}
+                            onAttached={load}
+                          />
                           {canManage && (it.status === "submitted" || it.status === "draft") && (
                             <>
                               <Button
