@@ -153,18 +153,49 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessi
   };
 
   return (
-    <Button
-      type="button"
-      size={iconOnly ? "icon" : "sm"}
-      variant="ghost"
-      onClick={open}
-      disabled={busy}
-      className={cn(iconOnly ? "h-7 w-7" : "h-7 px-2", className)}
-      title="Abrir fatura/talão"
-      aria-label="Abrir fatura/talão"
-    >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-      {!iconOnly && <span className="ml-1.5 text-xs">Fatura</span>}
-    </Button>
+    <span className="inline-flex items-center gap-0.5">
+      <Button
+        type="button"
+        size={iconOnly ? "icon" : "sm"}
+        variant="ghost"
+        onClick={open}
+        disabled={busy}
+        className={cn(iconOnly ? "h-7 w-7" : "h-7 px-2", className)}
+        title="Abrir fatura/talão"
+        aria-label="Abrir fatura/talão"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+        {!iconOnly && <span className="ml-1.5 text-xs">Fatura</span>}
+      </Button>
+      {sessionId && (
+        <>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              fileRef.current?.click();
+            }}
+            disabled={uploading}
+            className="h-7 w-7"
+            title="Anexar fatura/talão"
+            aria-label="Anexar fatura/talão"
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            accept={`image/*,application/pdf,${HEIC_ACCEPT}`}
+            onChange={attach}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </>
+      )}
+    </span>
   );
 }
+
