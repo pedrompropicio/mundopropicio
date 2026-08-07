@@ -18,7 +18,9 @@ import {
 
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
+import { fetchCardAccountBalance } from "@/lib/card-account-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
+
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
 import { ApproveCardItemModal } from "@/components/cards/ApproveCardItemModal";
 import { CloseCardSessionModal } from "@/components/cards/CloseCardSessionModal";
@@ -113,6 +115,13 @@ export default function CardSessionDetail() {
     },
   });
 
+  const cardAccountId = (session as any)?.financial_accounts?.id ?? (session as any)?.card_account_id ?? null;
+  const { data: cardBalance } = useQuery({
+    queryKey: ["card-account-balance", cardAccountId],
+    enabled: !!cardAccountId,
+    queryFn: () => fetchCardAccountBalance(cardAccountId as string),
+  });
+
   const totalLoads = (loads as any[])
     .filter((l) => l.in_transaction_id)
     .reduce((s, l) => s + Number(l.amount), 0);
@@ -125,6 +134,7 @@ export default function CardSessionDetail() {
   const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
   const opening = Number(session?.opening_balance ?? 0);
   const theoretical = opening + totalLoads - totalApproved - totalPending;
+
 
   const expensesByEvent = useMemo(() => {
     const map: Record<string, { name: string; amount: number }> = {};
@@ -333,12 +343,19 @@ export default function CardSessionDetail() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Kpi
+          label="Disponível no cartão"
+          value={cardBalance === undefined ? "—" : formatCurrency(cardBalance)}
+          hint="Saldo real da conta (inclui ajustes)"
+          tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
+        />
         <Kpi label="Entregue" value={formatCurrency(opening + totalLoads)} hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`} />
         <Kpi label="Gasto aprovado" value={formatCurrency(totalApproved)} hint={`${expenses.length} transação(ões)`} />
         <Kpi label="Pendente de aprovação" value={formatCurrency(totalPending)} hint={`${pendingItems.length} item(s)`} tone={pendingItems.length > 0 ? "warn" : undefined} />
-        <Kpi label="Saldo teórico" value={formatCurrency(theoretical)} hint="Entregue − aprovado − pendente" />
+        <Kpi label="Saldo teórico da sessão" value={formatCurrency(theoretical)} hint="Entregue − aprovado − pendente" />
       </div>
+
 
       {/* Breakdown por evento */}
       {Object.keys(expensesByEvent).length > 0 && (

@@ -16,25 +16,62 @@ export function isHeicFile(file: File): boolean {
 export const HEIC_ACCEPT = "image/heic,image/heif,.heic,.heif";
 
 /**
+ * Fallback: alguns HEIC do iPhone (variantes que o heic2any não lê) são
+ * decodificáveis pelo próprio browser (Safari/iOS decodifica HEIC nativamente).
+ * Nesse caso desenhamos num canvas e exportamos JPEG.
+ */
+async function heicViaBrowserDecode(file: File): Promise<Blob | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+    return await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Devolve sempre um File utilizável: HEIC/HEIF → JPEG (qualidade ~0.85),
  * restantes formatos devolvidos sem alteração.
- * Lança erro descritivo se a conversão falhar (caller mostra toast).
+ * Lança erro descritivo (com a mensagem real da falha) se a conversão falhar,
+ * para o caller poder mostrar no toast e diagnosticarmos.
  */
 export async function normalizeImageFile(file: File): Promise<File> {
   if (!isHeicFile(file)) return file;
 
-  const { default: heic2any } = await import("heic2any");
-  let converted: Blob | Blob[];
+  let blob: Blob | null = null;
+  let firstError: unknown = null;
+
   try {
-    converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const { default: heic2any } = await import("heic2any");
+    const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    blob = Array.isArray(converted) ? converted[0] : converted;
   } catch (err) {
-    console.error("[image-upload] HEIC conversion failed", err);
-    throw new Error("Não foi possível converter a foto (HEIC). Tenta exportar como JPEG.");
+    firstError = err;
+    console.error("[image-upload] HEIC conversion failed (heic2any)", err);
   }
-  const blob = Array.isArray(converted) ? converted[0] : converted;
+
   if (!blob || blob.size === 0) {
-    throw new Error("Não foi possível converter a foto (HEIC). Tenta exportar como JPEG.");
+    blob = await heicViaBrowserDecode(file);
   }
+
+  if (!blob || blob.size === 0) {
+    const detail =
+      (firstError as any)?.message ??
+      (typeof firstError === "string" ? firstError : null) ??
+      "o browser também não conseguiu descodificar o ficheiro";
+    throw new Error(`Não foi possível converter a foto (HEIC): ${detail}. Tenta exportar como JPEG.`);
+  }
+
   const baseName = file.name.replace(/\.[^.]+$/, "") || "foto";
   return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: file.lastModified });
 }
+

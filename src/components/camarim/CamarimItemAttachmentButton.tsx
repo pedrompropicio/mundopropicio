@@ -1,16 +1,26 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Loader2 } from "lucide-react";
+import { Paperclip, Loader2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
+import { uploadToCompanyBucket } from "@/lib/storage";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   itemId: string;
   /** When true, shows just the icon (compact mode for lists). */
   iconOnly?: boolean;
   className?: string;
+  /** Sessão do item — necessária para o path do anexo (ativa o botão de anexar). */
+  sessionId?: string;
+  /** Quando false, esconde o botão de abrir (item ainda sem anexo). */
+  hasAttachment?: boolean;
+  onAttached?: () => void;
 }
+
+
 
 async function getFreshAccessToken() {
   let { data: sessionData } = await supabase.auth.getSession();
@@ -29,10 +39,63 @@ async function getFreshAccessToken() {
 /**
  * Botão que abre numa nova aba a fatura/talão anexo do item de camarim.
  * Vai buscar o primeiro documento associado e gera um signed URL (1h).
- * Se o item não tiver anexo, fica desativado com tooltip.
+ * Quando recebe `sessionId`, mostra também um botão de ANEXAR ficheiro a um
+ * item já existente (HEIC de iPhone é convertido para JPEG antes do upload).
  */
-export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Props) {
+export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessionId, hasAttachment = true, onAttached }: Props) {
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+
+  const attach = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const original = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!original || !sessionId) return;
+    setUploading(true);
+    try {
+      let file = original;
+      if (isHeicFile(original)) {
+        toast({ title: "A converter foto…", description: "HEIC do iPhone → JPEG." });
+        file = await normalizeImageFile(original);
+      }
+      const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const ext = /^[a-z0-9]{2,5}$/.test(rawExt) ? rawExt : "jpg";
+      const { error: upErr, path } = await uploadToCompanyBucket(
+        "camarim-documents",
+        `${sessionId}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`,
+        file,
+        { contentType: file.type || "application/octet-stream", upsert: true },
+      );
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("camarim_item_documents" as any).insert({
+        item_id: itemId,
+        file_path: path,
+        file_name: file.name,
+        mime_type: file.type,
+        file_size: file.size,
+        document_source: "upload",
+        created_by: user?.id ?? null,
+      } as any);
+      if (insErr) {
+        await supabase.storage.from("camarim-documents").remove([path]);
+        throw insErr;
+      }
+      await supabase.from("camarim_items" as any).update({ has_document: true }).eq("id", itemId);
+      toast({ title: "Anexo gravado" });
+      onAttached?.();
+    } catch (err: any) {
+      console.error("[camarim attach] failed", err);
+      toast({
+        variant: "destructive",
+        title: "Anexo não foi gravado",
+        description: err?.message ?? "Falha desconhecida ao anexar o ficheiro.",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
 
   const open = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -93,18 +156,51 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
   };
 
   return (
-    <Button
-      type="button"
-      size={iconOnly ? "icon" : "sm"}
-      variant="ghost"
-      onClick={open}
-      disabled={busy}
-      className={cn(iconOnly ? "h-7 w-7" : "h-7 px-2", className)}
-      title="Abrir fatura/talão"
-      aria-label="Abrir fatura/talão"
-    >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-      {!iconOnly && <span className="ml-1.5 text-xs">Fatura</span>}
-    </Button>
+    <span className="inline-flex items-center gap-0.5">
+      {hasAttachment && (
+      <Button
+        type="button"
+        size={iconOnly ? "icon" : "sm"}
+        variant="ghost"
+        onClick={open}
+        disabled={busy}
+        className={cn(iconOnly ? "h-7 w-7" : "h-7 px-2", className)}
+        title="Abrir fatura/talão"
+        aria-label="Abrir fatura/talão"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+        {!iconOnly && <span className="ml-1.5 text-xs">Fatura</span>}
+      </Button>
+      )}
+      {sessionId && (
+        <>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              fileRef.current?.click();
+            }}
+            disabled={uploading}
+            className="h-7 w-7"
+            title="Anexar fatura/talão"
+            aria-label="Anexar fatura/talão"
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            accept={`image/*,application/pdf,${HEIC_ACCEPT}`}
+            onChange={attach}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </>
+      )}
+    </span>
   );
 }
+

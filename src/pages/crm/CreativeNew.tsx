@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { useCompany } from "@/hooks/useCompany";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Upload, X, Loader2, Image as ImageIcon, Video } from "lucide-react";
 
-const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime";
+const ACCEPT = `image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,${HEIC_ACCEPT}`;
 const MAX_BYTES = 50 * 1024 * 1024;
 
 const CTA_OPTIONS = [
@@ -353,7 +354,15 @@ export default function CrmCreativeNew() {
                 hidden
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) handleFileChosen(f);
+                  if (f) {
+                    if (isHeicFile(f)) {
+                      normalizeImageFile(f)
+                        .then(handleFileChosen)
+                        .catch((err) => toast.error("Foto HEIC não suportada", { description: err?.message }));
+                    } else {
+                      handleFileChosen(f);
+                    }
+                  }
                   e.target.value = "";
                 }}
               />
