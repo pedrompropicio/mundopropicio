@@ -79,6 +79,9 @@ import { useBackdropClose } from "@/lib/backdropClose";
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
+/** Prefixo de `removed_reason` usado quando o aprovador não aprova o item. */
+const NOT_APPROVED_REASON_PREFIX = "Não aprovado na aprovação";
+
 const buildHiddenSplitChildChecker = (transactions: any[]) => {
   const byId = new Map<string, any>();
   transactions.forEach((tx: any) => {
