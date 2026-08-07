@@ -3363,14 +3363,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   type="file"
                   accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,image/heic,image/heif,.heic,.heif"
                   className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
+                  onChange={async (e) => {
+                    const picked = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!picked) return;
+                    try {
+                      const f = await normalizeImageFile(picked);
                       setAttachAfterCreateFile(f);
                       toast({ title: "Anexo selecionado", description: `${f.name} será anexado ao criar.` });
+                    } catch (err: any) {
+                      toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
                     }
-                    e.target.value = "";
                   }}
+
                 />
               </label>
               {attachAfterCreateFile && (
