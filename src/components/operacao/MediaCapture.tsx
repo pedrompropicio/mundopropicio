@@ -92,7 +92,6 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
         const path = `${companyId}/${eventId}/${registroId}/${id}.${ext}`;
         const { error: upErr } = await supabase.storage
 
-        const { error: upErr } = await supabase.storage
           .from("operacao-media")
           .upload(path, file, { contentType: file.type, upsert: false });
         if (upErr) {
