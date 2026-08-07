@@ -129,6 +129,8 @@ export default function CamarimSessionDetail() {
   const [deletingSession, setDeletingSession] = useState(false);
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
   const [confirmIntegration, setConfirmIntegration] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
 
   useEffect(() => {
     if (!id) return;
