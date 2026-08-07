@@ -114,12 +114,15 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
           file_url: path,
           doc_type: "pdf",
           uploaded_by: uploadedBy,
+          sepa_export_id: usingFallback ? null : chosenExport!.id,
         } as any)
         .select("*")
         .single();
       if (dbErr) throw dbErr;
 
       // Réplicas nas transações — mesmo file_url, sem duplicar o ficheiro no storage.
+      // is_accounting = FALSE: o comprovativo do banco NÃO é documento fiscal e não
+      // pode mascarar o relatório de pendências documentais (falta de fatura).
       const { error: repErr } = await supabase.from("transaction_documents").insert(
         targetTxIds.map((txId) => ({
           transaction_id: txId,
@@ -127,10 +130,11 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
           file_url: path,
           doc_type: "pdf",
           uploaded_by: uploadedBy,
-          is_accounting: true,
+          is_accounting: false,
         })) as any,
       );
       if (repErr) throw repErr;
+
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
       for (const txId of targetTxIds) {
