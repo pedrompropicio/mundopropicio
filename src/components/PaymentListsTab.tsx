@@ -1125,10 +1125,20 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
    * Totais financeiros da lista (c/IVA), recalculados no cliente a partir dos
    * itens já carregados — adicionar/remover/restaurar/liquidar reflete de imediato.
    * Itens com removed_at são ignorados (não fazem parte da composição atual).
+   *
+   * SEMÂNTICA (importante): `transactions.status='approved'` é a aprovação do fluxo
+   * de TRANSAÇÕES — todas entram na lista já assim. A aprovação que conta aqui é a
+   * da LISTA (`payment_lists.status`). A aprovação parcial APAGA os itens não
+   * selecionados, logo os itens que restam numa lista approved/partially_approved
+   * são exatamente os que passaram na aprovação.
+   *   • draft/pending_approval/rejected/revision → nada aprovado: o valor não
+   *     liquidado conta como "Aguardando aprovação".
+   *   • approved/partially_approved → não liquidado = "Aprovado".
    */
   const listTotals = useMemo(() => {
+    const listApproved = list?.status === "approved" || list?.status === "partially_approved";
     let total = 0;
-    let approved = 0;
+    let open = 0;
     let settled = 0;
     for (const item of items as any[]) {
       if (item.removed_at) continue;
@@ -1139,10 +1149,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const paid = Number(tx.paid_amount ?? 0);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
       if (isPaid) settled += withIva;
-      else if (tx.status === "approved") approved += withIva;
+      else open += withIva;
     }
-    return { total, approved, settled };
-  }, [items]);
+    return {
+      total,
+      settled,
+      listApproved,
+      approved: listApproved ? open : 0,
+      awaiting: listApproved ? 0 : open,
+    };
+  }, [items, list?.status]);
 
 
 
