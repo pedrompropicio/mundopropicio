@@ -192,8 +192,18 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
   const addLine = () => setLines((prev) => [...prev, blankLine(prev.some((l) => l.iva_rate === 23) ? 6 : 23)]);
   const removeLine = (idx: number) => setLines((prev) => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== idx)));
 
-  const handleFile = async (file: File) => {
-    if (!file) return;
+  const handleFile = async (original: File) => {
+    if (!original) return;
+    let file = original;
+    if (isHeicFile(original)) {
+      try {
+        file = await normalizeImageFile(original);
+      } catch (err: any) {
+        toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
+        return;
+      }
+    }
+
     if (file.size > 50 * 1024 * 1024) {
       toast({ title: "Ficheiro grande", description: "Limite 50MB.", variant: "destructive" });
       return;
