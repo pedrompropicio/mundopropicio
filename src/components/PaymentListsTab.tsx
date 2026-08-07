@@ -1473,9 +1473,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total da lista</p>
             <p className="font-mono text-base font-bold">{formatCurrency(listTotals.total)}</p>
           </div>
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Aprovado</p>
-            <p className="font-mono text-base font-bold text-amber-500">{formatCurrency(listTotals.approved)}</p>
+          <div className={`rounded-lg border px-3 py-2 ${listTotals.listApproved ? "border-amber-500/30 bg-amber-500/5" : "border-sky-500/30 bg-sky-500/5"}`}>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {listTotals.listApproved ? "Aprovado" : "Aguardando aprovação"}
+            </p>
+            <p className={`font-mono text-base font-bold ${listTotals.listApproved ? "text-amber-500" : "text-sky-500"}`}>
+              {formatCurrency(listTotals.listApproved ? listTotals.approved : listTotals.awaiting)}
+            </p>
           </div>
           <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Liquidado</p>
