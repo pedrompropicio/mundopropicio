@@ -70,6 +70,31 @@ export default function ReportAccountingExport() {
     enabled: generated && txIds.length > 0,
   });
 
+  // Comprovativos de pagamento em lote (SEPA): anexos replicados a partir de uma
+  // lista de pagamentos. NÃO são documento fiscal (is_accounting = false), mas a
+  // contabilidade precisa deles — vão no export identificados como "comprovativos/".
+  const { data: receiptMap = {} } = useQuery({
+    queryKey: ["accounting-export-receipts", txIds],
+    queryFn: async () => {
+      if (txIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id, file_url, name")
+        .in("transaction_id", txIds)
+        .like("file_url", "%/payment-lists/%");
+      if (error) throw error;
+      const map: Record<string, { url: string; name: string }[]> = {};
+      (data ?? []).forEach((d: any) => {
+        if (!map[d.transaction_id]) map[d.transaction_id] = [];
+        map[d.transaction_id].push({ url: d.file_url, name: d.name });
+      });
+      return map;
+    },
+    enabled: generated && txIds.length > 0,
+  });
+
+
+
   // Export history
   const { data: exportHistory = [] } = useQuery({
     queryKey: ["accounting-exports-history"],
