@@ -18,6 +18,7 @@ import {
   CARD_SESSION_STATUS_LABELS,
   CARD_SESSION_STATUS_VARIANTS,
   formatCurrency,
+  cardItemGross,
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { CardTeamItemModal } from "@/components/cards/CardTeamItemModal";
