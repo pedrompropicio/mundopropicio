@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { useCompany } from "@/hooks/useCompany";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -375,7 +376,16 @@ function EditCompanyDialog({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleLogoUpload = async (file: File) => {
+  const handleLogoUpload = async (original: File) => {
+    let file = original;
+    if (isHeicFile(original)) {
+      try {
+        file = await normalizeImageFile(original);
+      } catch (err: any) {
+        toast({ title: "Foto HEIC não suportada", description: err?.message, variant: "destructive" });
+        return;
+      }
+    }
     if (!file.type.startsWith("image/")) {
       toast({ title: "Ficheiro inválido", description: "Envia uma imagem (PNG, JPG ou SVG).", variant: "destructive" });
       return;
@@ -539,7 +549,7 @@ function EditCompanyDialog({
                 <label className="cursor-pointer">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept={`image/*,${HEIC_ACCEPT}`}
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];

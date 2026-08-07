@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -729,7 +730,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   }
 
   // ───────── Upload "Carregar novo criativo" — dentro do Estúdio
-  const UPLOAD_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime";
+  const UPLOAD_ACCEPT = `image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,${HEIC_ACCEPT}`;
   const UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
 
   async function readUploadMediaMeta(file: File): Promise<{ width: number; height: number; duration: number | null; type: "image" | "video" }> {
@@ -776,9 +777,18 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     setUploadStatus({ state: "idle" });
   }
 
-  async function handleUploadFileChosen(f: File) {
+  async function handleUploadFileChosen(original: File) {
+    let f = original;
+    if (isHeicFile(original)) {
+      try {
+        f = await normalizeImageFile(original);
+      } catch (e: any) {
+        toast.error("Foto HEIC não suportada", { description: e?.message });
+        return;
+      }
+    }
     if (f.size > UPLOAD_MAX_BYTES) { toast.error("Ficheiro demasiado grande (máx 50MB)"); return; }
-    if (!UPLOAD_ACCEPT.split(",").includes(f.type)) { toast.error(`Tipo não suportado: ${f.type}`); return; }
+    if (!UPLOAD_ACCEPT.split(",").includes(f.type) && !f.type.startsWith("video/")) { toast.error(`Tipo não suportado: ${f.type}`); return; }
     try {
       const m = await readUploadMediaMeta(f);
       if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
