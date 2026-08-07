@@ -60,6 +60,7 @@
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
     "handsontable": "^18.0.0",
+    "heic-to": "^1.5.2",
     "heic2any": "^0.0.4",
     "html2canvas": "^1.4.1",
     "hyperformula": "^3.3.0",
