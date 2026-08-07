@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, X, Loader2, ImagePlus } from "lucide-react";
@@ -75,12 +76,22 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
     onBusyChange?.(true);
     const next: CapturedMedia[] = [...value];
     try {
-      for (const file of Array.from(files)) {
+      for (const picked of Array.from(files)) {
+        let file = picked;
+        if (isHeicFile(picked)) {
+          try {
+            file = await normalizeImageFile(picked);
+          } catch (err: any) {
+            toast.error(err.message);
+            continue;
+          }
+        }
         const isVideo = file.type.startsWith("video/");
         const ext = file.name.split(".").pop()?.toLowerCase() || (isVideo ? "mp4" : "jpg");
         const id = crypto.randomUUID();
         const path = `${companyId}/${eventId}/${registroId}/${id}.${ext}`;
         const { error: upErr } = await supabase.storage
+
           .from("operacao-media")
           .upload(path, file, { contentType: file.type, upsert: false });
         if (upErr) {
@@ -127,7 +138,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,video/*,image/heic,image/heif,.heic,.heif"
         capture="environment"
         className="hidden"
         onChange={(e) => upload(e.target.files)}
@@ -135,7 +146,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
       <input
         ref={galleryInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,video/*,image/heic,image/heif,.heic,.heif"
         multiple
         className="hidden"
         onChange={(e) => upload(e.target.files)}

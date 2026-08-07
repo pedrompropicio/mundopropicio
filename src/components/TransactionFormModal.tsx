@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2548,14 +2549,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         {extractingInvoice ? "A ler…" : "Ler fatura (IA)"}
                         <input
                           type="file"
-                          accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+                          accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,image/heic,image/heif,.heic,.heif"
                           className="hidden"
                           disabled={extractingInvoice}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const f = e.target.files?.[0];
-                            if (f) handleExtractInvoice(f);
                             e.target.value = "";
+                            if (!f) return;
+                            try {
+                              handleExtractInvoice(await normalizeImageFile(f));
+                            } catch (err: any) {
+                              toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
+                            }
                           }}
+
                         />
                       </label>
                       {pendingInvoiceFile && !extractingInvoice && (
@@ -3354,16 +3361,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 {attachAfterCreateFile ? "Anexado" : "Anexar"}
                 <input
                   type="file"
-                  accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+                  accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,image/heic,image/heif,.heic,.heif"
                   className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
+                  onChange={async (e) => {
+                    const picked = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!picked) return;
+                    try {
+                      const f = await normalizeImageFile(picked);
                       setAttachAfterCreateFile(f);
                       toast({ title: "Anexo selecionado", description: `${f.name} será anexado ao criar.` });
+                    } catch (err: any) {
+                      toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
                     }
-                    e.target.value = "";
                   }}
+
                 />
               </label>
               {attachAfterCreateFile && (

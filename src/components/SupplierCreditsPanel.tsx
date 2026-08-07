@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -214,12 +215,18 @@ function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: s
         ref={fileInputRef}
         type="file"
         className="hidden"
-        accept=".pdf,.jpg,.jpeg,.png,.webp"
-        onChange={(e) => {
+        accept=".pdf,.jpg,.jpeg,.png,.webp,image/heic,image/heif,.heic,.heif"
+        onChange={async (e) => {
           const file = e.target.files?.[0];
-          if (file) uploadMutation.mutate(file);
           e.target.value = "";
+          if (!file) return;
+          try {
+            uploadMutation.mutate(await normalizeImageFile(file));
+          } catch (err: any) {
+            toast.error(err.message);
+          }
         }}
+
       />
     </div>
   );
@@ -396,8 +403,18 @@ function CreditForm({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept=".pdf,.jpg,.jpeg,.png,.webp"
-            onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
+            accept=".pdf,.jpg,.jpeg,.png,.webp,image/heic,image/heif,.heic,.heif"
+            onChange={async (e) => {
+              const picked = e.target.files?.[0] ?? null;
+              e.target.value = "";
+              if (!picked) { setFile(null); return; }
+              try {
+                setFile(await normalizeImageFile(picked));
+              } catch (err: any) {
+                toast.error(err.message);
+              }
+            }}
+
           />
         </div>
       </div>

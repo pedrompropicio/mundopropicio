@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useRef, useState } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,11 +19,25 @@ export function ImageUploader({ value, onChange, label, aspectRatio = "16/9", hi
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  const handleFile = async (file: File) => {
+  const handleFile = async (picked: File) => {
+    let file = picked;
+    if (isHeicFile(picked)) {
+      setUploading(true);
+      try {
+        file = await normalizeImageFile(picked);
+      } catch (err: any) {
+        toast.error(err.message);
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
     if (!file.type.startsWith("image/")) {
       toast.error("Ficheiro inválido — só imagens.");
       return;
     }
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error("Imagem demasiado grande (máx. 10MB).");
       return;
@@ -73,7 +88,7 @@ export function ImageUploader({ value, onChange, label, aspectRatio = "16/9", hi
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,image/heic,image/heif,.heic,.heif"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

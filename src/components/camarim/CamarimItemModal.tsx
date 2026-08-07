@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -61,6 +62,9 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [convertingPhoto, setConvertingPhoto] = useState(false);
+
+
 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
@@ -236,6 +240,22 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     if (!original) return;
 
     let file = original;
+
+    // Fotos de iPhone (HEIC/HEIF) → converter para JPEG antes de tudo.
+    if (isHeicFile(original)) {
+      setConvertingPhoto(true);
+      try {
+        file = await normalizeImageFile(original);
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Foto HEIC não suportada", description: err.message });
+        setConvertingPhoto(false);
+        if (e.target) e.target.value = "";
+        return;
+      } finally {
+        setConvertingPhoto(false);
+      }
+    }
+
 
     // Se for DNG/RAW, tenta extrair o JPEG embutido. Se falhar, usa o ficheiro
     // original na mesma — o upload e OCR podem não funcionar, mas pelo menos
@@ -635,11 +655,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                   <span className="text-sm font-medium">Adicionar foto / ficheiro do talão</span>
                   <span className="text-xs">A IA preenche os campos automaticamente</span>
                 </div>
+                {convertingPhoto && (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> A converter foto…
+                  </p>
+                )}
                 <div className="flex w-full flex-col gap-2 sm:flex-row">
                   <Button
                     type="button"
                     variant="default"
                     className="flex-1"
+                    disabled={convertingPhoto}
                     onClick={() => cameraRef.current?.click()}
                   >
                     <Camera className="mr-2 h-4 w-4" /> Tirar foto
@@ -648,6 +674,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                     type="button"
                     variant="outline"
                     className="flex-1"
+                    disabled={convertingPhoto}
                     onClick={() => fileRef.current?.click()}
                   >
                     <Upload className="mr-2 h-4 w-4" /> Escolher ficheiro
@@ -658,7 +685,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             <input
               ref={cameraRef}
               type="file"
-              accept="image/*"
+              accept={`image/*,${HEIC_ACCEPT}`}
               capture="environment"
               className="hidden"
               onChange={handlePhotoSelect}
@@ -666,10 +693,11 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             <input
               ref={fileRef}
               type="file"
-              accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+              accept={`image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,${HEIC_ACCEPT}`}
               className="hidden"
               onChange={handlePhotoSelect}
             />
+
           </div>
 
           {/* Campos */}

@@ -1,3 +1,4 @@
+import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -1221,8 +1222,18 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     ) : (
                       <Input
                         type="file"
-                        accept=".pdf,.png,.jpg,.jpeg,.webp"
-                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                        accept=".pdf,.png,.jpg,.jpeg,.webp,image/heic,image/heif,.heic,.heif"
+                        onChange={async (e) => {
+                          const picked = e.target.files?.[0] ?? null;
+                          if (!picked) { setFile(null); return; }
+                          try {
+                            setFile(await normalizeImageFile(picked));
+                          } catch (err: any) {
+                            toast.error(err.message);
+                            e.target.value = "";
+                          }
+                        }}
+
                         disabled={!canEdit}
                       />
                     )}
