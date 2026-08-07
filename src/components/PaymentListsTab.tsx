@@ -1222,6 +1222,45 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     };
   }, [items, list?.status]);
 
+  /**
+   * Candidatos para o ficheiro SEPA Santander.
+   * Valor = valor em aberto (líquido a transferir: c/IVA − retenção IRS declarada),
+   * usando exatamente o mesmo cálculo do fluxo de liquidação em lote.
+   * IBAN: iban_override (já preenchido a partir da nota de reembolso, quando aplica)
+   * → suppliers.iban → iban_2 → iban_3.
+   */
+  const sepaCandidates = useMemo<SepaCandidate[]>(() => {
+    const out: SepaCandidate[] = [];
+    for (const item of items as any[]) {
+      const tx = item.transactions;
+      if (!tx || item.removed_at) continue;
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      const np = computeNetPayable({
+        grossWithIva: withIva,
+        declaredWithholding: getDeclaredWithholding(tx),
+        hasInstallments: installmentTxIds.has(tx.id),
+      });
+      const paid = Number(tx.paid_amount ?? 0);
+      const open = Math.max(0, +(np.net - paid).toFixed(2));
+      const sup: any = tx.suppliers ?? {};
+      const iban = tx.iban_override ?? sup.iban ?? sup.iban_2 ?? sup.iban_3 ?? null;
+      const name = formatSupplierFullName(sup.name, sup.trade_name);
+      const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      out.push({
+        transactionId: tx.id,
+        creditorName: name === "-" ? "Beneficiario" : name,
+        iban,
+        amount: open,
+        description: [tx.description, tx.specification].filter(Boolean).join(" - "),
+        isReimbursement: !!tx.is_reimbursement,
+        preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+      });
+    }
+    return out;
+  }, [items, installmentTxIds]);
+
+
+
 
 
   const toggleTx = (txId: string) => {
