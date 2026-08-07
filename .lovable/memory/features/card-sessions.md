@@ -96,3 +96,18 @@ Regra agora:
 - **Todos os totais do módulo são c/IVA**: gasto aprovado, pendente, saldo
   teórico e breakdown por evento em `/cartoes/:id` e `/cartao-equipa` usam
   `paid_amount` ou `cardItemGross()` — nunca `amount` seco.
+
+## Scan do documento (OCR) na criação de despesa
+
+Ambos os pontos de criação têm scan opcional (mesmo padrão do camarim):
+- **Membro da equipa** (`CardTeamItemModal`): "Tirar foto" / "Escolher ficheiro"; documento
+  fica em `card-documents` e o payload da IA em `card_session_items.ocr_raw_payload`.
+- **Admin, na sessão** (`NewCardExpenseModal`): mesma zona de destaque no topo; cria a
+  transação directamente e anexa o documento via `transaction-documents` +
+  `transaction_documents` (a transação não tem coluna de OCR, o payload só pré-preenche).
+
+Infra reutilizada: edge fn `extract-camarim-receipt`, `prepareFileForInvoiceOcr`,
+`normalizeImageFile` (HEIC→JPEG) e `IvaRateSelect`/`useEventIvaCountry`.
+Semântica mantida: campo do formulário = **Total c/IVA** (talão); BD grava
+`amount` = base s/IVA (`cardBaseFromTotal`) + `iva_rate`, `paid_amount` = total bruto.
+Preencher à mão sem scan continua possível.
