@@ -228,6 +228,26 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     setOcrPayload(null);
   };
 
+  const attachDoc = async (txId: string) => {
+    if (!docFile) return;
+    const ext = docFile.name.split(".").pop()?.toLowerCase() || "jpg";
+    const { error: upErr, path } = await uploadToCompanyBucket(
+      "transaction-documents",
+      `${txId}/${Date.now()}.${ext}`,
+      docFile,
+    );
+    if (upErr) throw upErr;
+    const { error: docErr } = await supabase.from("transaction_documents").insert({
+      transaction_id: txId,
+      name: docFile.name,
+      file_url: path,
+      doc_type: getDocType(docFile.name),
+      uploaded_by: user?.email ?? "sistema",
+      is_accounting: true,
+    } as any);
+    if (docErr) throw docErr;
+  };
+
   const mut = useMutation({
     mutationFn: async () => {
       const gross = parseFloat(total);
@@ -237,6 +257,51 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       const rate = Number(ivaRate) || 0;
       // BD guarda base s/IVA + taxa; o cartão pagou o total c/IVA.
       const base = cardBaseFromTotal(gross, rate);
+
+      if (expense) {
+        const patch = {
+          description: description.trim(),
+          amount: base,
+          iva_rate: rate,
+          category_id: categoryId,
+          supplier_id: supplierId || null,
+          event_id: eventId || null,
+          date,
+          paid_amount: gross,
+          payment_date: date,
+        };
+        const { error } = await supabase.from("transactions").update(patch).eq("id", expense.id);
+        if (error) throw error;
+
+        // Auditoria: uma linha por campo alterado.
+        const before: Record<string, unknown> = {
+          description: expense.description ?? null,
+          amount: Number(expense.amount ?? 0),
+          iva_rate: Number(expense.iva_rate ?? 0),
+          category_id: expense.category_id ?? null,
+          supplier_id: expense.supplier_id ?? null,
+          event_id: expense.event_id ?? null,
+          date: expense.date,
+          paid_amount: Number(expense.paid_amount ?? 0),
+          payment_date: expense.date,
+        };
+        const rows = Object.entries(patch)
+          .filter(([k, v]) => String(before[k] ?? "") !== String(v ?? ""))
+          .map(([field_name, v]) => ({
+            transaction_id: expense.id,
+            company_id: expense.company_id,
+            changed_by: user?.email ?? "sistema",
+            field_name,
+            old_value: before[field_name] == null ? null : String(before[field_name]),
+            new_value: v == null ? null : String(v),
+          }));
+        if (rows.length > 0 && expense.company_id) {
+          await supabase.from("transaction_audit_log").insert(rows as any);
+        }
+
+        await attachDoc(expense.id);
+        return;
+      }
 
       const { data: inserted, error } = await supabase
         .from("transactions")
@@ -259,33 +324,17 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         .single();
       if (error) throw error;
 
-      if (docFile) {
-        const ext = docFile.name.split(".").pop()?.toLowerCase() || "jpg";
-        const { error: upErr, path } = await uploadToCompanyBucket(
-          "transaction-documents",
-          `${inserted.id}/${Date.now()}.${ext}`,
-          docFile,
-        );
-        if (upErr) throw upErr;
-        const { error: docErr } = await supabase.from("transaction_documents").insert({
-          transaction_id: inserted.id,
-          name: docFile.name,
-          file_url: path,
-          doc_type: getDocType(docFile.name),
-          uploaded_by: user?.email ?? "sistema",
-          is_accounting: true,
-        } as any);
-        if (docErr) throw docErr;
-      }
+      await attachDoc(inserted.id);
     },
     onSuccess: () => {
-      toast({ title: "Despesa registada." });
+      toast({ title: isEdit ? "Despesa atualizada." : "Despesa registada." });
       invalidateCardSessionQueries(qc, sessionId);
       onOpenChange(false);
       reset();
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
+
 
   if (!open) return null;
 
