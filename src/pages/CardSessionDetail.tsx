@@ -271,6 +271,9 @@ export default function CardSessionDetail() {
   const status = session.status as CardSessionStatus;
   const cardName = (session as any).financial_accounts?.name ?? "Cartão";
   const isLocked = status === "closed";
+  // Editar/excluir despesas só com a sessão ABERTA (in_review/closed = leitura).
+  const canEditExpenses = canManage && status === "open";
+
 
   return (
     <div className="space-y-6">
