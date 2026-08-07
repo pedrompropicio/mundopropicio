@@ -37,3 +37,13 @@ type: feature
 - Fundos: tipos advance/reinforcement/refund/adjustment. Caixa em mão = adiantamentos − devoluções − itens com `payment_origin=advance`.
 - Documentos: bucket `camarim-documents` (privado), path `${sessionId}/${itemId}/${ts}.${ext}`.
 - Schema events: campo é `date` (não `start_date`).
+
+## Relatório PDF da sessão
+- Botão "Gerar PDF" no header de `/camarim/:id`, visível em qualquer estado (também integrada/fechada). Só leitura.
+- Helper `src/lib/export-camarim-session-pdf.ts` (jspdf + jspdf-autotable, A4 landscape, pt-PT):
+  cabeçalho (empresa, evento(s), sessão/modo, responsável, período abertura→fecho ou "aberta", estado),
+  tabela Resumo (orçamento, fundos entregues, devoluções, total c/IVA, base, IVA, nº itens, caixa em mão),
+  tabela de itens ordenada por `document_date` (itens `split` excluídos) com totais no footer,
+  marca `(sem doc.)` em itens `approved_without_document`/`has_document=false` + nota de rodapé,
+  rodapé "Gerado em … por [email]" + pág. X/Y.
+- Ficheiro: `camarim-[evento]-[YYYY-MM-DD].pdf`.

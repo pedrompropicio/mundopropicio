@@ -20,8 +20,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { exportCamarimSessionPdf } from "@/lib/export-camarim-session-pdf";
+
 import {
   SESSION_STATUS_LABELS,
   SESSION_STATUS_VARIANTS,
@@ -98,8 +100,9 @@ interface FinAccount {
 export default function CamarimSessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, isManager, hasPermission } = useAuth();
+  const { isAdmin, isManager, hasPermission, user } = useAuth();
   const canManage = isAdmin || isManager || hasPermission("camarim_manage");
+
   // Fecho da sessão (revisão, fechar, integrar) é restrito a admin/manager.
   const canCloseSession = isAdmin || isManager;
   // Lock total após integração — nem admin pode editar pela UI normal.
@@ -126,6 +129,8 @@ export default function CamarimSessionDetail() {
   const [deletingSession, setDeletingSession] = useState(false);
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
   const [confirmIntegration, setConfirmIntegration] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
 
   useEffect(() => {
     if (!id) return;
@@ -500,11 +505,31 @@ export default function CamarimSessionDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={generatingPdf}
+            onClick={async () => {
+              if (!id) return;
+              setGeneratingPdf(true);
+              try {
+                await exportCamarimSessionPdf(id, user?.email ?? null);
+              } catch (e: any) {
+                console.error(e);
+                toast({ variant: "destructive", title: "Erro a gerar PDF", description: e?.message });
+              } finally {
+                setGeneratingPdf(false);
+              }
+            }}
+          >
+            <FileDown className="mr-2 h-4 w-4" /> {generatingPdf ? "A gerar…" : "Gerar PDF"}
+          </Button>
           {canManage && session.status !== "integrated" && (
             <Button variant="outline" size="sm" onClick={() => setShowEditSession(true)}>
               <Pencil className="mr-2 h-4 w-4" /> Editar sessão
             </Button>
           )}
+
           {session.status === "open" && canCloseSession && (
             <Button variant="outline" onClick={() => updateSessionStatus("in_review")}>
               <Lock className="mr-2 h-4 w-4" /> Enviar para revisão
