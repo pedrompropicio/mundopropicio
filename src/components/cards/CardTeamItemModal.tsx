@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Camera, Loader2, Paperclip, Sparkles, Trash2 } from "lucide-react";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
@@ -59,6 +59,7 @@ export function CardTeamItemModal({
 }: Props) {
   const { user } = useAuth();
   const cameraRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [supplierName, setSupplierName] = useState("");
   const [description, setDescription] = useState("");
