@@ -1223,7 +1223,17 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       <Input
                         type="file"
                         accept=".pdf,.png,.jpg,.jpeg,.webp,image/heic,image/heif,.heic,.heif"
-                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                        onChange={async (e) => {
+                          const picked = e.target.files?.[0] ?? null;
+                          if (!picked) { setFile(null); return; }
+                          try {
+                            setFile(await normalizeImageFile(picked));
+                          } catch (err: any) {
+                            toast.error(err.message);
+                            e.target.value = "";
+                          }
+                        }}
+
                         disabled={!canEdit}
                       />
                     )}
