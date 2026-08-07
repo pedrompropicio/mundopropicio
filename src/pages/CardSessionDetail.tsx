@@ -167,6 +167,29 @@ export default function CardSessionDetail() {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  const updateOpening = useMutation({
+    mutationFn: async ({ value, reason }: { value: number; reason: string }) => {
+      const current = Number((session as any)?.opening_balance ?? 0);
+      const who = (user as any)?.email ?? "utilizador";
+      const stamp = new Date().toISOString().slice(0, 10);
+      const line = `[${stamp}] Saldo de abertura corrigido de ${formatCurrency(current)} para ${formatCurrency(value)} por ${who}: ${reason}`;
+      const prevNotes = ((session as any)?.notes ?? "").trim();
+      const { error } = await supabase
+        .from("card_sessions")
+        .update({ opening_balance: value, notes: prevNotes ? `${prevNotes}\n${line}` : line })
+        .eq("id", id!)
+        .eq("status", "open");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Saldo de abertura atualizado." });
+      setOpeningOpen(false);
+      invalidateCardSessionQueries(qc, id);
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+
   const deleteLoad = useMutation({
     mutationFn: async (load: any) => {
       if (load.in_transaction_id) {
