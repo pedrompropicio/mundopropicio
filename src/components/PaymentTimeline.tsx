@@ -13,7 +13,7 @@ import {
   Loader2,
   Pencil,
   Check,
-  X as XIcon,, Repeat } from "lucide-react";
+  X as XIcon, Repeat } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { toast } from "@/hooks/use-toast";
