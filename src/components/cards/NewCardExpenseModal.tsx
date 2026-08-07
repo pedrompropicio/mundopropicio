@@ -12,7 +12,8 @@ import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepar
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { snapToStandardRate } from "@/lib/iva";
-import { cardBaseFromTotal, inferCardRateFromReceipt } from "@/lib/card-session-helpers";
+import { cardBaseFromTotal, inferCardRateFromReceipt, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
+import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
 
 interface Props {
@@ -231,8 +232,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     },
     onSuccess: () => {
       toast({ title: "Despesa registada." });
-      qc.invalidateQueries({ queryKey: ["card-session", sessionId] });
-      qc.invalidateQueries({ queryKey: ["financial-accounts"] });
+      invalidateCardSessionQueries(qc, sessionId);
       onOpenChange(false);
       reset();
     },

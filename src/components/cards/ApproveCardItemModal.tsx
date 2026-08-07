@@ -7,7 +7,8 @@ import { X, CheckCircle2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import IvaRateSelect from "@/components/IvaRateSelect";
-import { cardBaseFromTotal, cardTotalFromBase } from "@/lib/card-session-helpers";
+import { cardBaseFromTotal, cardTotalFromBase, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
+import CardAmountFields from "@/components/cards/CardAmountFields";
 
 interface Item {
   id: string;
@@ -144,7 +145,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     },
     onSuccess: () => {
       toast({ title: "Item aprovado." });
-      qc.invalidateQueries({ queryKey: ["card-session", item?.session_id] });
+      invalidateCardSessionQueries(qc, item?.session_id);
       onOpenChange(false);
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -168,7 +169,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     },
     onSuccess: () => {
       toast({ title: "Item rejeitado." });
-      qc.invalidateQueries({ queryKey: ["card-session", item?.session_id] });
+      invalidateCardSessionQueries(qc, item?.session_id);
       onOpenChange(false);
     },
     onError: (e: any) => {
