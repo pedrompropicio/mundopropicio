@@ -106,3 +106,14 @@ Consequências:
 Listagem tem coluna **Valor** (total da lista, não muda com o estado) alimentada por uma
 única query agregada `["payment-lists","totals"]` (prefixo partilhado ⇒ invalida com
 `["payment-lists"]`).
+
+## Comprovativo de pagamento em lote (SEPA) — 2026-08
+
+`payment_list_sepa_exports` guarda cada exportação SEPA (file_name, msg_id,
+total, n_transactions, `transaction_ids[]`) no momento do download do XML.
+`payment_list_documents` guarda os comprovativos da lista; o ficheiro fica **uma
+única vez** em `transaction-documents/<company_id>/payment-lists/<list_id>/`.
+Ao anexar, replica-se em `transaction_documents` uma linha por transação da
+exportação escolhida (default a mais recente; fallback = itens ativos), todas com
+o mesmo `file_url`. Remover apaga réplicas + registo + ficheiro.
+Ver `docs/features/pagamentos-export-sepa-santander.md`.
