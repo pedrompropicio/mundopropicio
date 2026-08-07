@@ -100,8 +100,9 @@ interface FinAccount {
 export default function CamarimSessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, isManager, hasPermission } = useAuth();
+  const { isAdmin, isManager, hasPermission, user } = useAuth();
   const canManage = isAdmin || isManager || hasPermission("camarim_manage");
+
   // Fecho da sessão (revisão, fechar, integrar) é restrito a admin/manager.
   const canCloseSession = isAdmin || isManager;
   // Lock total após integração — nem admin pode editar pela UI normal.
