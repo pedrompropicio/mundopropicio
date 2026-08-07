@@ -65,3 +65,31 @@ export function inferCardRateFromReceipt(
   if (!iva || base <= 0) return snapToStandardRate(0, rates);
   return snapToStandardRate((iva / base) * 100, rates);
 }
+
+/**
+ * Invalida TODAS as queries do módulo Cartões afetadas por uma escrita
+ * (despesa, aprovação, recarga, fecho). As chaves são as usadas por
+ * CardSessionDetail / CardSessions.
+ */
+export function invalidateCardSessionQueries(
+  qc: { invalidateQueries: (f: { queryKey: unknown[] }) => unknown },
+  sessionId?: string | null,
+) {
+  const keys: unknown[][] = [
+    ["card-sessions"],
+    ["prepaid-cards-list"],
+    ["prepaid-cards-tx"],
+    ["financial-accounts"],
+    ["transactions"],
+  ];
+  if (sessionId) {
+    keys.push(
+      ["card-session", sessionId],
+      ["card-session-loads", sessionId],
+      ["card-session-expenses", sessionId],
+      ["card-session-items", sessionId],
+      ["card-session-expense-doc-counts", sessionId],
+    );
+  }
+  keys.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
+}
