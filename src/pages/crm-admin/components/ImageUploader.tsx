@@ -19,11 +19,25 @@ export function ImageUploader({ value, onChange, label, aspectRatio = "16/9", hi
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  const handleFile = async (file: File) => {
+  const handleFile = async (picked: File) => {
+    let file = picked;
+    if (isHeicFile(picked)) {
+      setUploading(true);
+      try {
+        file = await normalizeImageFile(picked);
+      } catch (err: any) {
+        toast.error(err.message);
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
     if (!file.type.startsWith("image/")) {
       toast.error("Ficheiro inválido — só imagens.");
       return;
     }
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error("Imagem demasiado grande (máx. 10MB).");
       return;
