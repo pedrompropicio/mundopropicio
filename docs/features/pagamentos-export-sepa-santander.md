@@ -106,3 +106,58 @@ terminações de linha **CRLF**.
   (Liquidar em massa ou marcar item pago).
 - Feriados nacionais não são considerados na data de execução.
 - Só EUR/SEPA; IBANs não-SEPA (ex.: BR) ficam de fora e pagam-se por outra via.
+
+---
+
+## Fase 2 (parcial) — histórico de exportações + comprovativo do lote
+
+### Histórico de exportações
+
+Tabela `payment_list_sepa_exports` (migration tracked): `payment_list_id`,
+`company_id`, `exported_by`, `exported_at`, `file_name`, `msg_id`,
+`total_amount`, `n_transactions`, `transaction_ids uuid[]`.
+
+O registo é criado no momento do download do XML (`SepaExportModal`), com os ids
+**exatos** das transações que entraram no ficheiro. Se o insert falhar, o
+download já aconteceu e o utilizador é avisado (toast destrutivo) — a exportação
+nunca é bloqueada pelo histórico.
+
+RLS no padrão multi-tenant: SELECT a authenticated + RESTRICTIVE
+`company_isolation_payment_list_sepa_exports` (`company_id = current_company_id()`),
+INSERT admin/manager/editor, UPDATE/DELETE admin/manager.
+
+### Anexos da lista (comprovativo do lote)
+
+Tabela `payment_list_documents`: `payment_list_id`, `company_id`, `name`,
+`file_url`, `doc_type`, `uploaded_by`, `uploaded_at`. Mesmo padrão RLS.
+
+O ficheiro é guardado **uma única vez** no bucket `transaction-documents`, em
+`<company_id>/payment-lists/<payment_list_id>/<timestamp>.<ext>` (via
+`uploadToCompanyBucket`, que aplica o prefixo da empresa exigido pelas policies
+de storage).
+
+### UI — secção "Comprovativos" no detalhe da lista
+
+`src/components/PaymentListReceipts.tsx`, montado em `ViewPaymentList`
+(`PaymentListsTab.tsx`) abaixo dos totais.
+
+1. "Anexar comprovativo do lote" → upload → registo em `payment_list_documents`
+   → **replicação** em `transaction_documents`: uma linha por transação, todas
+   com o **mesmo `file_url`** (sem duplicar o ficheiro no storage), `doc_type`
+   `pdf`, `name` `"Comprovativo lote — <título da lista>.<ext>"`,
+   `uploaded_by` = utilizador atual, `is_accounting = true`.
+2. Âmbito da replicação: `transaction_ids` da exportação SEPA escolhida (default
+   a mais recente; seletor quando há mais do que uma). Sem exportações
+   registadas → fallback para todos os itens ativos (`removed_at IS NULL`), com
+   aviso âmbar visível.
+3. Remover o comprovativo apaga as réplicas (`DELETE ... eq("file_url", path)`),
+   o registo da lista e o ficheiro do storage — com diálogo de confirmação a
+   explicar o alcance.
+4. As réplicas aparecem nas transações pelo mecanismo de anexos já existente
+   (`TransactionDocumentsModal`) — sem visualização nova.
+
+### Ainda pendente da fase 2
+
+- Permissões dedicadas e bloqueios por estado da lista na exportação.
+- Liquidação pós-banco (continua manual).
+- Feriados nacionais na data de execução.
