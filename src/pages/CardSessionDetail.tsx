@@ -398,7 +398,26 @@ export default function CardSessionDetail() {
                         <Paperclip className="h-3.5 w-3.5" />
                         {count > 0 ? count : "Anexar"}
                       </button>
+                      {canEditExpenses && (
+                        <>
+                          <button
+                            onClick={() => setEditExpense(e)}
+                            title="Editar despesa"
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteExpense(e)}
+                            title="Excluir despesa"
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                       <div className="font-semibold">{formatCurrency(Number(e.paid_amount) || cardItemGross(e))}</div>
+
                     </div>
                   </div>
                 );
