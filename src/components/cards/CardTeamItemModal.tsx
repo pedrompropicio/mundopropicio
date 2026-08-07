@@ -412,34 +412,21 @@ export function CardTeamItemModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Data</Label>
-              <Input type="date" value={itemDate} onChange={(e) => setItemDate(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">Total (€) *</Label>
-              <Input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                placeholder="Igual ao talão (c/IVA)"
-              />
-            </div>
+          <div>
+            <Label className="text-xs">Data</Label>
+            <Input type="date" value={itemDate} onChange={(e) => setItemDate(e.target.value)} />
           </div>
 
-          <div>
-            <Label className="text-xs">IVA (%)</Label>
-            <IvaRateSelect eventId={eventId || null} value={Number(ivaRate) || 0} onChange={setIvaRate} />
-            {Number(total) > 0 && (
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Total do talão {Number(total).toFixed(2)} € = base{" "}
-                {cardBaseFromTotal(total, ivaRate).toFixed(2)} € + IVA {Number(ivaRate) || 0}%
-              </p>
-            )}
-          </div>
+          <CardAmountFields
+            total={total}
+            onTotalChange={setTotal}
+            ivaRate={Number(ivaRate) || 0}
+            onIvaRateChange={setIvaRate}
+            eventId={eventId || null}
+            required
+            labelClassName="mb-1 block text-xs font-medium"
+            inputClassName="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
 
           <div>
             <Label className="text-xs">Evento</Label>
