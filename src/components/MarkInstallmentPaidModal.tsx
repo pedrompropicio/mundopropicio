@@ -154,6 +154,7 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
               <SelectContent>
                 <SelectItem value="transfer">Transferência</SelectItem>
                 <SelectItem value="service_payment">Pag. Serviços</SelectItem>
+                <SelectItem value="direct_debit">Débito Direto</SelectItem>
                 <SelectItem value="state_payment">Pag. Estado</SelectItem>
               </SelectContent>
             </Select>

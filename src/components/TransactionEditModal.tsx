@@ -5,7 +5,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
-import { X, Building, FileText, Landmark, AlertTriangle } from "lucide-react";
+import { X, Building, FileText, Landmark, AlertTriangle, Repeat } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment";
+type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
 interface Props {
   transaction: any;
@@ -1211,12 +1211,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             const methods = [
               { value: "transfer" as const, label: "Transferência", icon: Building },
               { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
               ...(isStateCat ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
             ];
             return (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-                <div className={cn("grid gap-1.5", isStateCat ? "grid-cols-3" : "grid-cols-2")}>
+                <div className={cn("grid gap-1.5", isStateCat ? "grid-cols-2" : "grid-cols-3")}>
                   {methods.map((m) => (
                     <button
                       key={m.value}

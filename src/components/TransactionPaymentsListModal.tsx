@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { calcWithIva, isFullyPaid, formatDatePT } from "@/lib/utils";
-import { X, Pencil, Trash2, Check, XCircle, CalendarIcon, Building, FileText, Landmark } from "lucide-react";
+import { X, Pencil, Trash2, Check, XCircle, CalendarIcon, Building, FileText, Landmark, Repeat } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { format } from "date-fns";
@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useBackdropClose } from "@/lib/backdropClose";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment";
+type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
 interface Props {
   transaction: any;
@@ -25,6 +25,7 @@ interface Props {
 const methodLabels: Record<string, string> = {
   transfer: "Transferência",
   service_payment: "Pag. Serviços",
+  direct_debit: "Débito Direto",
   state_payment: "Pag. Estado",
 };
 
@@ -448,10 +449,11 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
 
                     <div>
                       <label className="text-xs text-muted-foreground">Método</label>
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="grid grid-cols-3 gap-1">
                         {([
                           { value: "transfer", label: "Transferência", icon: Building },
                           { value: "service_payment", label: "Pag. Serviços", icon: FileText },
+                          { value: "direct_debit", label: "Débito Direto", icon: Repeat },
                         ] as const).map((m) => (
                           <button key={m.value} type="button"
                             onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
