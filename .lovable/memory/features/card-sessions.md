@@ -147,3 +147,20 @@ Preencher à mão sem scan continua possível.
      **volta a `submitted`** com nota em `rejection_reason` — decisão: nunca deixar
      item "aprovado" sem transação; assim a financeira pode reprocessar.
 - Refresh via `invalidateCardSessionQueries` (saldo/KPIs/lista imediatos).
+
+## Saldo disponível vs saldo da sessão (2026-08-07)
+
+Dois conceitos distintos, ambos visíveis nos KPIs de `/cartoes/:id`:
+- **Disponível no cartão** — saldo REAL da conta (`financial_accounts.initial_balance`
+  + Σ `paid_amount` dos movimentos da conta, income soma / expense subtrai, +
+  ajustes não-monetários de `fetchAccountCashAdjustments`). Fórmula idêntica ao
+  `computeBalance` do módulo Contas; implementada em
+  `src/lib/card-account-balance.ts` (`fetchCardAccountBalance`). É aqui que se
+  reflete o "ajuste de saldo" feito em Contas (que persiste em `initial_balance`).
+- **Saldo teórico da sessão** — entregue (opening + cargas) − aprovado − pendente.
+  Continua a servir o fecho da sessão; não é o dinheiro disponível.
+
+Refresh: `saveMutation` de `FinancialAccounts` chama `invalidateCardSessionQueries`,
+e o helper invalida também `["card-account-balance"]`,
+`["financial-accounts-tx-summary"]` e `["financial-accounts-cash-adjustments"]` —
+ajustar a conta reflete na sessão aberta sem F5.
