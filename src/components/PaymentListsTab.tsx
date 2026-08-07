@@ -1041,7 +1041,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, email), account_categories(code, name, parent_id))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, email), account_categories(code, name, parent_id))")
         .eq("payment_list_id", listId)
         .order("created_at", { ascending: true });
       if (error) throw error;
