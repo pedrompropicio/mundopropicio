@@ -306,10 +306,16 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       if (paymentMethod !== "transfer") {
-        const methodLabel = paymentMethod === "service_payment" ? "Pag. Serviços" : "Pag. Estado";
+        const methodLabel = paymentMethod === "service_payment"
+          ? "Pag. Serviços"
+          : paymentMethod === "direct_debit"
+            ? "Débito Direto"
+            : "Pag. Estado";
         const refInfo = paymentMethod === "service_payment"
           ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
-          : `Ref: ${paymentReference.trim()}`;
+          : paymentMethod === "direct_debit"
+            ? "Débito direto na conta"
+            : `Ref: ${paymentReference.trim()}`;
         auditEntries.push({
           transaction_id: transaction.id,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
