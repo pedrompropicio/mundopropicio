@@ -18,7 +18,9 @@ import {
 
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
+import { fetchCardAccountBalance } from "@/lib/card-account-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
+
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
 import { ApproveCardItemModal } from "@/components/cards/ApproveCardItemModal";
 import { CloseCardSessionModal } from "@/components/cards/CloseCardSessionModal";
