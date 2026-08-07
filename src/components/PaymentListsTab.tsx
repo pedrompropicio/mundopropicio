@@ -1290,7 +1290,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       }
 
       queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      // Notas de reembolso: a tx→nota é feita por trigger na BD; aqui só refrescamos a UI.
+      queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
       setSelectedTxIds(new Set());
       toast({ title: `${selectedTxIds.size} pagamento(s) processado(s) com sucesso!` });
     } catch (err: any) {
