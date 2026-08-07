@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -63,6 +63,7 @@ export default function SepaExportModal({
   companyName: string;
   onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   const isTest = !(listStatus === "approved" || listStatus === "partially_approved");
   const executionDate = useMemo(() => resolveExecutionDate(paymentDate), [paymentDate]);
   const executionShifted = !!paymentDate && executionDate !== paymentDate;
@@ -188,6 +189,7 @@ export default function SepaExportModal({
         transaction_ids: valid.map((r) => r.transactionId),
       } as any);
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
     } catch (err: any) {
       toast({
         title: "Ficheiro gerado, registo do histórico falhou",
