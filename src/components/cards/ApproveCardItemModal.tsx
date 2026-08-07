@@ -211,21 +211,13 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
             <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Total c/IVA (€)</label>
-              <input type="number" step="0.01" value={total} onChange={(e) => setTotal(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">IVA (%)</label>
-              <IvaRateSelect eventId={eventId || null} value={Number(ivaRate) || 0} onChange={setIvaRate} />
-            </div>
-          </div>
-          {Number(total) > 0 && (
-            <p className="text-[11px] text-muted-foreground">
-              Base s/IVA a registar: {cardBaseFromTotal(total, ivaRate).toFixed(2)} € · pago no cartão:{" "}
-              {Number(total).toFixed(2)} €
-            </p>
-          )}
+          <CardAmountFields
+            total={total}
+            onTotalChange={setTotal}
+            ivaRate={Number(ivaRate) || 0}
+            onIvaRateChange={setIvaRate}
+            eventId={eventId || null}
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
             <DatePicker value={date} onChange={setDate} />
