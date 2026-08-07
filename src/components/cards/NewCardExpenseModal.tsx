@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,9 +11,28 @@ import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload"
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { snapToStandardRate } from "@/lib/iva";
-import { cardBaseFromTotal, inferCardRateFromReceipt, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
+import {
+  cardBaseFromTotal,
+  cardItemGross,
+  inferCardRateFromReceipt,
+  invalidateCardSessionQueries,
+} from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
+
+/** Despesa existente (transação da sessão) quando o modal está em modo edição. */
+export interface CardExpenseRow {
+  id: string;
+  description: string | null;
+  amount: number | string | null;
+  iva_rate: number | string | null;
+  paid_amount: number | string | null;
+  date: string;
+  event_id: string | null;
+  category_id: string | null;
+  supplier_id?: string | null;
+  company_id?: string | null;
+}
 
 interface Props {
   open: boolean;
@@ -21,6 +40,8 @@ interface Props {
   sessionId: string;
   cardAccountId: string;
   defaultEventId?: string | null;
+  /** Quando presente, o modal edita esta despesa em vez de criar uma nova. */
+  expense?: CardExpenseRow | null;
 }
 
 function getDocType(filename: string): string {
@@ -30,11 +51,12 @@ function getDocType(filename: string): string {
   return "outro";
 }
 
-export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccountId, defaultEventId }: Props) {
+export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccountId, defaultEventId, expense }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const isEdit = !!expense;
 
   const [description, setDescription] = useState("");
   /** Total c/IVA — igual ao talão (é o que sai do cartão). */
@@ -49,6 +71,33 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
+
+  // Pré-preenche em modo edição (e limpa ao voltar a modo criação).
+  useEffect(() => {
+    if (!open) return;
+    if (expense) {
+      setDescription(expense.description ?? "");
+      const gross = Number(expense.paid_amount) || cardItemGross(expense);
+      setTotal(gross ? String(gross) : "");
+      setIvaRate(Number(expense.iva_rate) || 0);
+      setDate(expense.date);
+      setEventId(expense.event_id ?? "");
+      setCategoryId(expense.category_id ?? "");
+      setSupplierId(expense.supplier_id ?? "");
+    } else {
+      setDescription("");
+      setTotal("");
+      setIvaRate(23);
+      setDate(new Date().toISOString().split("T")[0]);
+      setEventId(defaultEventId ?? "");
+      setCategoryId("");
+      setSupplierId("");
+    }
+    setDocFile(null);
+    setPreviewUrl(null);
+    setOcrPayload(null);
+  }, [open, expense?.id]);
+
 
   const { rates } = useEventIvaCountry(eventId || null);
 
@@ -179,6 +228,26 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     setOcrPayload(null);
   };
 
+  const attachDoc = async (txId: string) => {
+    if (!docFile) return;
+    const ext = docFile.name.split(".").pop()?.toLowerCase() || "jpg";
+    const { error: upErr, path } = await uploadToCompanyBucket(
+      "transaction-documents",
+      `${txId}/${Date.now()}.${ext}`,
+      docFile,
+    );
+    if (upErr) throw upErr;
+    const { error: docErr } = await supabase.from("transaction_documents").insert({
+      transaction_id: txId,
+      name: docFile.name,
+      file_url: path,
+      doc_type: getDocType(docFile.name),
+      uploaded_by: user?.email ?? "sistema",
+      is_accounting: true,
+    } as any);
+    if (docErr) throw docErr;
+  };
+
   const mut = useMutation({
     mutationFn: async () => {
       const gross = parseFloat(total);
@@ -188,6 +257,51 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       const rate = Number(ivaRate) || 0;
       // BD guarda base s/IVA + taxa; o cartão pagou o total c/IVA.
       const base = cardBaseFromTotal(gross, rate);
+
+      if (expense) {
+        const patch = {
+          description: description.trim(),
+          amount: base,
+          iva_rate: rate,
+          category_id: categoryId,
+          supplier_id: supplierId || null,
+          event_id: eventId || null,
+          date,
+          paid_amount: gross,
+          payment_date: date,
+        };
+        const { error } = await supabase.from("transactions").update(patch).eq("id", expense.id);
+        if (error) throw error;
+
+        // Auditoria: uma linha por campo alterado.
+        const before: Record<string, unknown> = {
+          description: expense.description ?? null,
+          amount: Number(expense.amount ?? 0),
+          iva_rate: Number(expense.iva_rate ?? 0),
+          category_id: expense.category_id ?? null,
+          supplier_id: expense.supplier_id ?? null,
+          event_id: expense.event_id ?? null,
+          date: expense.date,
+          paid_amount: Number(expense.paid_amount ?? 0),
+          payment_date: expense.date,
+        };
+        const rows = Object.entries(patch)
+          .filter(([k, v]) => String(before[k] ?? "") !== String(v ?? ""))
+          .map(([field_name, v]) => ({
+            transaction_id: expense.id,
+            company_id: expense.company_id,
+            changed_by: user?.email ?? "sistema",
+            field_name,
+            old_value: before[field_name] == null ? null : String(before[field_name]),
+            new_value: v == null ? null : String(v),
+          }));
+        if (rows.length > 0 && expense.company_id) {
+          await supabase.from("transaction_audit_log").insert(rows as any);
+        }
+
+        await attachDoc(expense.id);
+        return;
+      }
 
       const { data: inserted, error } = await supabase
         .from("transactions")
@@ -210,33 +324,17 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         .single();
       if (error) throw error;
 
-      if (docFile) {
-        const ext = docFile.name.split(".").pop()?.toLowerCase() || "jpg";
-        const { error: upErr, path } = await uploadToCompanyBucket(
-          "transaction-documents",
-          `${inserted.id}/${Date.now()}.${ext}`,
-          docFile,
-        );
-        if (upErr) throw upErr;
-        const { error: docErr } = await supabase.from("transaction_documents").insert({
-          transaction_id: inserted.id,
-          name: docFile.name,
-          file_url: path,
-          doc_type: getDocType(docFile.name),
-          uploaded_by: user?.email ?? "sistema",
-          is_accounting: true,
-        } as any);
-        if (docErr) throw docErr;
-      }
+      await attachDoc(inserted.id);
     },
     onSuccess: () => {
-      toast({ title: "Despesa registada." });
+      toast({ title: isEdit ? "Despesa atualizada." : "Despesa registada." });
       invalidateCardSessionQueries(qc, sessionId);
       onOpenChange(false);
       reset();
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
+
 
   if (!open) return null;
 
@@ -249,7 +347,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Nova despesa (cartão)</h2>
+            <h2 className="text-lg font-semibold">{isEdit ? "Editar despesa (cartão)" : "Nova despesa (cartão)"}</h2>
           </div>
           <button onClick={() => onOpenChange(false)} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -362,7 +460,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
             <button type="submit" disabled={mut.isPending || ocrLoading} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {mut.isPending ? "A registar…" : "Registar despesa"}
+              {mut.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
             </button>
           </div>
         </form>

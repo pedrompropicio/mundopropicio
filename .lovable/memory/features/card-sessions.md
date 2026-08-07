@@ -124,3 +124,26 @@ Preencher à mão sem scan continua possível.
   invalida TODAS as chaves do módulo (card-session, -loads, -expenses, -items,
   -expense-doc-counts, card-sessions, prepaid-cards-*, financial-accounts,
   transactions). Usar em qualquer escrita do módulo — nunca invalidar chaves à mão.
+
+## Editar / excluir despesas (2026-08-07)
+
+- **Gate de estado**: acções só existem com `card_sessions.status = 'open'`
+  (`canEditExpenses = canManage && status === 'open'`). `in_review` e `closed`
+  ficam só leitura, como antes. Permissão = a mesma de criar despesa
+  (admin/manager/`card_manage`).
+- **Editar**: `NewCardExpenseModal` é parametrizado por `expense?: CardExpenseRow`
+  — mesmo formulário (scan incluído, o documento novo é ADICIONADO, não substitui).
+  Grava na transação existente: `description`, `amount` (base), `iva_rate`,
+  `paid_amount` (total c/IVA), `date`/`payment_date`, `category_id`, `event_id`,
+  `supplier_id`. Auditoria: 1 linha por campo alterado em `transaction_audit_log`.
+- **Excluir**: dialog de confirmação com descrição + total. Ordem:
+  1. bloqueia se existir `payment_list_items` (FK NO ACTION);
+  2. remove ficheiros do bucket `transaction-documents` (linhas caem por CASCADE);
+  3. `transaction_audit_log` tem FK **CASCADE** → o registo da exclusão vai para
+     `system_audit_log` (`entity_type='card_session_expense'`, `action='delete'`,
+     snapshot em `old_data`) ANTES do delete;
+  4. apaga a transação;
+  5. item da equipa que a originou (`card_session_items.transaction_id`, FK SET NULL)
+     **volta a `submitted`** com nota em `rejection_reason` — decisão: nunca deixar
+     item "aprovado" sem transação; assim a financeira pode reprocessar.
+- Refresh via `invalidateCardSessionQueries` (saldo/KPIs/lista imediatos).

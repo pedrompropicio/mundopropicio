@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2, Paperclip } from "lucide-react";
+import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2, Paperclip, Pencil } from "lucide-react";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import {
   CARD_SESSION_STATUS_VARIANTS,
   formatCurrency,
   cardItemGross,
+  invalidateCardSessionQueries,
+
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
@@ -34,9 +36,12 @@ export default function CardSessionDetail() {
   const [tab, setTab] = useState<Tab>("expenses");
   const [loadOpen, setLoadOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [editExpense, setEditExpense] = useState<any | null>(null);
+  const [deleteExpense, setDeleteExpense] = useState<any | null>(null);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
+
 
   const { data: session } = useQuery({
     queryKey: ["card-session", id],
@@ -71,7 +76,8 @@ export default function CardSessionDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, paid_amount, date, payment_date, event_id, category_id, events:event_id(name), account_categories:category_id(name, code)")
+        .select("id, description, amount, iva_rate, paid_amount, date, payment_date, event_id, category_id, supplier_id, company_id, events:event_id(name), account_categories:category_id(name, code)")
+
         .eq("card_session_id", id!)
         .order("date", { ascending: false });
       return data ?? [];
@@ -171,6 +177,93 @@ export default function CardSessionDetail() {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  /**
+   * Exclusão de despesa (só com sessão aberta).
+   * - Bloqueia se a transação estiver numa lista de pagamento (FK NO ACTION).
+   * - Apaga ficheiros do storage + transaction_documents (FK CASCADE).
+   * - Item da equipa que gerou a despesa volta a 'submitted' (FK SET NULL deixaria
+   *   um item "aprovado" sem transação).
+   * - transaction_audit_log tem FK CASCADE → o registo vai para system_audit_log.
+   */
+  const deleteExpenseMut = useMutation({
+    mutationFn: async (e: any) => {
+      const { data: inLists } = await supabase
+        .from("payment_list_items")
+        .select("id")
+        .eq("transaction_id", e.id)
+        .limit(1);
+      if (inLists && inLists.length > 0) {
+        throw new Error("Esta despesa está numa lista de pagamento. Remova-a da lista antes de excluir.");
+      }
+
+      const { data: docs } = await supabase
+        .from("transaction_documents")
+        .select("file_url")
+        .eq("transaction_id", e.id);
+      const paths = (docs ?? [])
+        .map((d: any) => d.file_url as string)
+        .filter((p) => p && !p.startsWith("ref://") && !p.startsWith("http"));
+      if (paths.length > 0) {
+        await supabase.storage.from("transaction-documents").remove(paths);
+      }
+
+      const { data: linkedItems } = await supabase
+        .from("card_session_items")
+        .select("id")
+        .eq("transaction_id", e.id);
+
+      const gross = Number(e.paid_amount) || cardItemGross(e);
+      if (e.company_id) {
+        await supabase.from("system_audit_log").insert({
+          entity_type: "card_session_expense",
+          entity_id: e.id,
+          action: "delete",
+          changed_by: user?.email ?? "sistema",
+          company_id: e.company_id,
+          old_data: {
+            description: e.description,
+            amount: e.amount,
+            iva_rate: e.iva_rate,
+            paid_amount: e.paid_amount,
+            total_gross: gross,
+            date: e.date,
+            event_id: e.event_id,
+            category_id: e.category_id,
+            supplier_id: e.supplier_id,
+          },
+          metadata: {
+            card_session_id: id,
+            reverted_item_ids: (linkedItems ?? []).map((i: any) => i.id),
+          },
+        } as any);
+      }
+
+      const { error } = await supabase.from("transactions").delete().eq("id", e.id);
+      if (error) throw error;
+
+      if (linkedItems && linkedItems.length > 0) {
+        await supabase
+          .from("card_session_items")
+          .update({
+            status: "submitted",
+            transaction_id: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            rejection_reason: `Despesa excluída em ${new Date().toLocaleDateString("pt-PT")} — item devolvido à fila de aprovação.`,
+          })
+          .in("id", linkedItems.map((i: any) => i.id));
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Despesa excluída." });
+      invalidateCardSessionQueries(qc, id);
+      setDeleteExpense(null);
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+
+
   if (!session) {
     return <div className="p-6 text-sm text-muted-foreground">A carregar…</div>;
   }
@@ -178,6 +271,9 @@ export default function CardSessionDetail() {
   const status = session.status as CardSessionStatus;
   const cardName = (session as any).financial_accounts?.name ?? "Cartão";
   const isLocked = status === "closed";
+  // Editar/excluir despesas só com a sessão ABERTA (in_review/closed = leitura).
+  const canEditExpenses = canManage && status === "open";
+
 
   return (
     <div className="space-y-6">
@@ -305,7 +401,26 @@ export default function CardSessionDetail() {
                         <Paperclip className="h-3.5 w-3.5" />
                         {count > 0 ? count : "Anexar"}
                       </button>
+                      {canEditExpenses && (
+                        <>
+                          <button
+                            onClick={() => setEditExpense(e)}
+                            title="Editar despesa"
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteExpense(e)}
+                            title="Excluir despesa"
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                       <div className="font-semibold">{formatCurrency(Number(e.paid_amount) || cardItemGross(e))}</div>
+
                     </div>
                   </div>
                 );
@@ -425,6 +540,45 @@ export default function CardSessionDetail() {
         cardAccountId={session.card_account_id}
         defaultEventId={session.primary_event_id}
       />
+      <NewCardExpenseModal
+        open={!!editExpense}
+        onOpenChange={(v) => { if (!v) setEditExpense(null); }}
+        sessionId={id!}
+        cardAccountId={session.card_account_id}
+        defaultEventId={session.primary_event_id}
+        expense={editExpense}
+      />
+      {deleteExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass w-full max-w-md rounded-xl p-6">
+            <h2 className="mb-2 text-lg font-semibold">Excluir despesa?</h2>
+            <p className="text-sm text-muted-foreground">
+              {deleteExpense.description} — <span className="font-semibold text-foreground">
+                {formatCurrency(Number(deleteExpense.paid_amount) || cardItemGross(deleteExpense))}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              A transação e os anexos são eliminados definitivamente e o valor volta ao saldo da sessão.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setDeleteExpense(null)}
+                className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteExpenseMut.mutate(deleteExpense)}
+                disabled={deleteExpenseMut.isPending}
+                className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleteExpenseMut.isPending ? "A excluir…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ApproveCardItemModal
         open={!!approveItem}
         onOpenChange={(v) => { if (!v) setApproveItem(null); }}
