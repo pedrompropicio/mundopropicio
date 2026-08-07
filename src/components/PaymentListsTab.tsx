@@ -1131,23 +1131,31 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
    *
    * SEMÂNTICA (importante): `transactions.status='approved'` é a aprovação do fluxo
    * de TRANSAÇÕES — todas entram na lista já assim. A aprovação que conta aqui é a
-   * da LISTA (`payment_lists.status`). A aprovação parcial APAGA os itens não
-   * selecionados, logo os itens que restam numa lista approved/partially_approved
-   * são exatamente os que passaram na aprovação.
+   * da LISTA (`payment_lists.status`). A aprovação parcial faz SOFT-REMOVE dos itens
+   * não selecionados (removed_reason com prefixo "Não aprovado na aprovação"), logo os
+   * itens ativos numa lista approved/partially_approved são exatamente os aprovados.
    *   • draft/pending_approval/rejected/revision → nada aprovado: o valor não
    *     liquidado conta como "Aguardando aprovação".
    *   • approved/partially_approved → não liquidado = "Aprovado".
+   *   • "Não aprovado" = soma dos itens soft-removidos pela aprovação (só visível
+   *     em listas aprovadas e quando > 0).
    */
   const listTotals = useMemo(() => {
     const listApproved = list?.status === "approved" || list?.status === "partially_approved";
     let total = 0;
     let open = 0;
     let settled = 0;
+    let notApproved = 0;
     for (const item of items as any[]) {
-      if (item.removed_at) continue;
       const tx = item.transactions;
       if (!tx) continue;
       const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      if (item.removed_at) {
+        if (String(item.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) {
+          notApproved += withIva;
+        }
+        continue;
+      }
       total += withIva;
       const paid = Number(tx.paid_amount ?? 0);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
@@ -1158,6 +1166,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       total,
       settled,
       listApproved,
+      notApproved,
       approved: listApproved ? open : 0,
       awaiting: listApproved ? 0 : open,
     };
