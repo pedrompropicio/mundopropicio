@@ -76,11 +76,22 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
     onBusyChange?.(true);
     const next: CapturedMedia[] = [...value];
     try {
-      for (const file of Array.from(files)) {
+      for (const picked of Array.from(files)) {
+        let file = picked;
+        if (isHeicFile(picked)) {
+          try {
+            file = await normalizeImageFile(picked);
+          } catch (err: any) {
+            toast.error(err.message);
+            continue;
+          }
+        }
         const isVideo = file.type.startsWith("video/");
         const ext = file.name.split(".").pop()?.toLowerCase() || (isVideo ? "mp4" : "jpg");
         const id = crypto.randomUUID();
         const path = `${companyId}/${eventId}/${registroId}/${id}.${ext}`;
+        const { error: upErr } = await supabase.storage
+
         const { error: upErr } = await supabase.storage
           .from("operacao-media")
           .upload(path, file, { contentType: file.type, upsert: false });
