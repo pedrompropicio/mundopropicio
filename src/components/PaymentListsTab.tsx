@@ -1529,21 +1529,24 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               <p className="text-xs sm:text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
             </div>
           </div>
-          {isApproved && (
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={handleCopyWhatsApp} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                <Copy className="h-4 w-4" /> WhatsApp
-              </button>
-              <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
-                <FileText className="mr-1.5 h-4 w-4" /> PDF
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
-                <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
-              </Button>
-            </div>
-          )}
-          {canEditItems && (
-            <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            {isApproved && (
+              <>
+                <button onClick={handleCopyWhatsApp} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                  <Copy className="h-4 w-4" /> WhatsApp
+                </button>
+                <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
+                  <FileText className="mr-1.5 h-4 w-4" /> PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
+                  <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setShowSepa(true); }} title="Gerar ficheiro SEPA para o NetBanco Santander">
+              <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
+            </Button>
+            {canEditItems && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}
                 className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -1551,9 +1554,21 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               >
                 <Plus className="h-4 w-4" /> Adicionar transações
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {showSepa && list && (
+          <SepaExportModal
+            listId={listId}
+            listTitle={list.title ?? "Lista de Pagamentos"}
+            listStatus={list.status}
+            paymentDate={list.payment_date ?? null}
+            candidates={sepaCandidates}
+            companyName={company?.legal_name ?? company?.display_name ?? "Empresa"}
+            onClose={() => setShowSepa(false)}
+          />
+        )}
 
         {canEditItems && (
           <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
