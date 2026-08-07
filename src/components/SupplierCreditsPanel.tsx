@@ -404,7 +404,17 @@ function CreditForm({
             type="file"
             className="hidden"
             accept=".pdf,.jpg,.jpeg,.png,.webp,image/heic,image/heif,.heic,.heif"
-            onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
+            onChange={async (e) => {
+              const picked = e.target.files?.[0] ?? null;
+              e.target.value = "";
+              if (!picked) { setFile(null); return; }
+              try {
+                setFile(await normalizeImageFile(picked));
+              } catch (err: any) {
+                toast.error(err.message);
+              }
+            }}
+
           />
         </div>
       </div>
