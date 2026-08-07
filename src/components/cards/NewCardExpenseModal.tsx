@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,9 +11,28 @@ import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload"
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { snapToStandardRate } from "@/lib/iva";
-import { cardBaseFromTotal, inferCardRateFromReceipt, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
+import {
+  cardBaseFromTotal,
+  cardItemGross,
+  inferCardRateFromReceipt,
+  invalidateCardSessionQueries,
+} from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
+
+/** Despesa existente (transação da sessão) quando o modal está em modo edição. */
+export interface CardExpenseRow {
+  id: string;
+  description: string | null;
+  amount: number | string | null;
+  iva_rate: number | string | null;
+  paid_amount: number | string | null;
+  date: string;
+  event_id: string | null;
+  category_id: string | null;
+  supplier_id?: string | null;
+  company_id?: string | null;
+}
 
 interface Props {
   open: boolean;
@@ -21,6 +40,8 @@ interface Props {
   sessionId: string;
   cardAccountId: string;
   defaultEventId?: string | null;
+  /** Quando presente, o modal edita esta despesa em vez de criar uma nova. */
+  expense?: CardExpenseRow | null;
 }
 
 function getDocType(filename: string): string {
@@ -30,11 +51,12 @@ function getDocType(filename: string): string {
   return "outro";
 }
 
-export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccountId, defaultEventId }: Props) {
+export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccountId, defaultEventId, expense }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const isEdit = !!expense;
 
   const [description, setDescription] = useState("");
   /** Total c/IVA — igual ao talão (é o que sai do cartão). */
@@ -49,6 +71,33 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
+
+  // Pré-preenche em modo edição (e limpa ao voltar a modo criação).
+  useEffect(() => {
+    if (!open) return;
+    if (expense) {
+      setDescription(expense.description ?? "");
+      const gross = Number(expense.paid_amount) || cardItemGross(expense);
+      setTotal(gross ? String(gross) : "");
+      setIvaRate(Number(expense.iva_rate) || 0);
+      setDate(expense.date);
+      setEventId(expense.event_id ?? "");
+      setCategoryId(expense.category_id ?? "");
+      setSupplierId(expense.supplier_id ?? "");
+    } else {
+      setDescription("");
+      setTotal("");
+      setIvaRate(23);
+      setDate(new Date().toISOString().split("T")[0]);
+      setEventId(defaultEventId ?? "");
+      setCategoryId("");
+      setSupplierId("");
+    }
+    setDocFile(null);
+    setPreviewUrl(null);
+    setOcrPayload(null);
+  }, [open, expense?.id]);
+
 
   const { rates } = useEventIvaCountry(eventId || null);
 
