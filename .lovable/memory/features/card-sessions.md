@@ -74,3 +74,25 @@ Transições: open → in_review → closed. Manager/admin podem reabrir de in_r
 - **Edição/eliminação do produtor**: só os SEUS items ainda `submitted`, só com sessão `open`. RLS garante (policies `card_session_items_holder_insert|update|delete`).
 - **Bucket `card-documents`** (privado): 4 policies em `storage.objects` — SELECT/INSERT/UPDATE/DELETE gated por `can_manage_cards()` OU (holder da sessão do 1º segmento do path com sessão `open`).
 - **Fila de aprovação em `/cartoes/:id`**: agora mostra thumbnail do talão (signed URL 1h, `CardItemThumb`) ao lado de cada item pendente; `ApproveCardItemModal` mostra a foto acima dos campos com link para abrir em nova aba.
+
+## Semântica de IVA (2026-08-07) — talão = total c/IVA
+
+Bug corrigido: o scan gravava o total do talão em `card_session_items.amount`, que
+por convenção do sistema é BASE s/IVA.
+
+Regra agora:
+- **Formulários** (`CardTeamItemModal` do produtor e `ApproveCardItemModal` da
+  financeira) pedem **"Total (€)" c/IVA**, igual ao talão — é o que o utilizador
+  confere de relance e é o que saiu do cartão.
+- **BD** mantém a convenção: `card_session_items.amount` = base s/IVA +
+  `iva_rate`; a transação gerada na aprovação recebe `amount` = base e
+  `paid_amount` = **total c/IVA**.
+- Conversão em `src/lib/card-session-helpers.ts`: `cardBaseFromTotal`,
+  `cardTotalFromBase`, `cardItemGross`, `inferCardRateFromReceipt`.
+- **Taxa**: se o OCR devolve `iva_amount` €, infere-se `iva/(total−iva)×100` com
+  **snap** ao conjunto de taxas do país da cidade do evento (`IvaRateSelect` +
+  `useEventIvaCountry`; PT quando não há evento — ES respeita 0/4/10/21). Mesmo
+  padrão do camarim (ver `camarim-iva-snap`).
+- **Todos os totais do módulo são c/IVA**: gasto aprovado, pendente, saldo
+  teórico e breakdown por evento em `/cartoes/:id` e `/cartao-equipa` usam
+  `paid_amount` ou `cardItemGross()` — nunca `amount` seco.
