@@ -347,7 +347,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Nova despesa (cartão)</h2>
+            <h2 className="text-lg font-semibold">{isEdit ? "Editar despesa (cartão)" : "Nova despesa (cartão)"}</h2>
           </div>
           <button onClick={() => onOpenChange(false)} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
