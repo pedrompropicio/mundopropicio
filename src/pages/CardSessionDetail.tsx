@@ -647,6 +647,64 @@ export default function CardSessionDetail() {
         </div>
       )}
 
+      <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Corrigir saldo de abertura</DialogTitle>
+            <DialogDescription>
+              Use apenas para corrigir uma abertura lançada errada (ex.: saldo do cartão ajustado depois no módulo Contas).
+              A correção fica registada nas notas da sessão.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="opening-value">Novo saldo de abertura (€)</Label>
+              <Input
+                id="opening-value"
+                type="number"
+                step="0.01"
+                value={openingValue}
+                onChange={(e) => setOpeningValue(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Atual: {formatCurrency(opening)}</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="opening-reason">Motivo (obrigatório)</Label>
+              <Textarea
+                id="opening-reason"
+                rows={2}
+                value={openingReason}
+                onChange={(e) => setOpeningReason(e.target.value)}
+                placeholder="Ex.: saldo do cartão estava lançado errado; ajustado no módulo Contas."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setOpeningOpen(false)}
+              className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={
+                updateOpening.isPending ||
+                !openingReason.trim() ||
+                !Number.isFinite(Number(openingValue)) ||
+                openingValue.trim() === ""
+              }
+              onClick={() => updateOpening.mutate({ value: Number(openingValue), reason: openingReason.trim() })}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {updateOpening.isPending ? "A gravar…" : "Gravar correção"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <ApproveCardItemModal
         open={!!approveItem}
         onOpenChange={(v) => { if (!v) setApproveItem(null); }}
