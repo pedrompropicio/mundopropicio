@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
+import PaymentListReceipts from "@/components/PaymentListReceipts";
 import { useCompany } from "@/hooks/useCompany";
 
 
@@ -1233,6 +1234,15 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
    * IBAN: iban_override (já preenchido a partir da nota de reembolso, quando aplica)
    * → suppliers.iban → iban_2 → iban_3.
    */
+  /** ids das transações dos itens ativos (fallback da replicação do comprovativo) */
+  const activeTxIds = useMemo<string[]>(
+    () =>
+      (items as any[])
+        .filter((i) => !i.removed_at && i.transactions?.id)
+        .map((i) => i.transactions.id as string),
+    [items],
+  );
+
   const sepaCandidates = useMemo<SepaCandidate[]>(() => {
     const out: SepaCandidate[] = [];
     for (const item of items as any[]) {
@@ -1616,6 +1626,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             </div>
           )}
         </div>
+
+        <PaymentListReceipts
+          listId={listId}
+          listTitle={list?.title ?? "Lista de Pagamentos"}
+          activeTransactionIds={activeTxIds}
+        />
+
 
 
 
