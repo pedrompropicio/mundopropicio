@@ -8,6 +8,11 @@ import { ArrowLeft, CreditCard, Plus, Lock, RotateCcw, FileDown, Trash2, Papercl
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 import { cn } from "@/lib/utils";
 import {
   CARD_SESSION_STATUS_LABELS,
