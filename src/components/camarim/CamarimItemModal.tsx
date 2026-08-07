@@ -62,6 +62,9 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [convertingPhoto, setConvertingPhoto] = useState(false);
+
+
 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
