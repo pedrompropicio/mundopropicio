@@ -26,6 +26,7 @@ import { Camera, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { snapToStandardRate } from "@/lib/iva";
 import {
   cardBaseFromTotal,
   cardTotalFromBase,
@@ -190,8 +191,7 @@ export function CardTeamItemModal({
       // Taxa: preferir IVA € explícito do talão; senão taxa lida; sempre com snap.
       if (data.total_amount != null && data.iva_amount != null)
         setIvaRate(inferCardRateFromReceipt(data.total_amount, data.iva_amount, rates));
-      else if (data.iva_rate != null)
-        setIvaRate(inferCardRateFromReceipt(1 + Number(data.iva_rate) / 100, Number(data.iva_rate) / 100, rates));
+      else if (data.iva_rate != null) setIvaRate(snapToStandardRate(Number(data.iva_rate), rates));
       toast({
         title: "Talão lido com IA",
         description:
