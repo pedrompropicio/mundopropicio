@@ -20,8 +20,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { exportCamarimSessionPdf } from "@/lib/export-camarim-session-pdf";
+
 import {
   SESSION_STATUS_LABELS,
   SESSION_STATUS_VARIANTS,
