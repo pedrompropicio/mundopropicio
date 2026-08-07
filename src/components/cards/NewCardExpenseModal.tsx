@@ -319,25 +319,15 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} required className={inputCls} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Total c/IVA (€) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                required
-                className={inputCls}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">Igual ao talão — é o que sai do cartão.</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-              <IvaRateSelect eventId={eventId || null} value={Number(ivaRate) || 0} onChange={setIvaRate} />
-            </div>
-          </div>
+          <CardAmountFields
+            total={total}
+            onTotalChange={setTotal}
+            ivaRate={Number(ivaRate) || 0}
+            onIvaRateChange={setIvaRate}
+            eventId={eventId || null}
+            required
+            inputClassName={inputCls}
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
             <DatePicker value={date} onChange={setDate} />
