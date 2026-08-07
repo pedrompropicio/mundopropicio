@@ -655,11 +655,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                   <span className="text-sm font-medium">Adicionar foto / ficheiro do talão</span>
                   <span className="text-xs">A IA preenche os campos automaticamente</span>
                 </div>
+                {convertingPhoto && (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> A converter foto…
+                  </p>
+                )}
                 <div className="flex w-full flex-col gap-2 sm:flex-row">
                   <Button
                     type="button"
                     variant="default"
                     className="flex-1"
+                    disabled={convertingPhoto}
                     onClick={() => cameraRef.current?.click()}
                   >
                     <Camera className="mr-2 h-4 w-4" /> Tirar foto
@@ -668,6 +674,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                     type="button"
                     variant="outline"
                     className="flex-1"
+                    disabled={convertingPhoto}
                     onClick={() => fileRef.current?.click()}
                   >
                     <Upload className="mr-2 h-4 w-4" /> Escolher ficheiro
@@ -678,7 +685,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             <input
               ref={cameraRef}
               type="file"
-              accept="image/*"
+              accept={`image/*,${HEIC_ACCEPT}`}
               capture="environment"
               className="hidden"
               onChange={handlePhotoSelect}
@@ -686,10 +693,11 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             <input
               ref={fileRef}
               type="file"
-              accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+              accept={`image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng,${HEIC_ACCEPT}`}
               className="hidden"
               onChange={handlePhotoSelect}
             />
+
           </div>
 
           {/* Campos */}
