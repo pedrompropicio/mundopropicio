@@ -540,6 +540,45 @@ export default function CardSessionDetail() {
         cardAccountId={session.card_account_id}
         defaultEventId={session.primary_event_id}
       />
+      <NewCardExpenseModal
+        open={!!editExpense}
+        onOpenChange={(v) => { if (!v) setEditExpense(null); }}
+        sessionId={id!}
+        cardAccountId={session.card_account_id}
+        defaultEventId={session.primary_event_id}
+        expense={editExpense}
+      />
+      {deleteExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass w-full max-w-md rounded-xl p-6">
+            <h2 className="mb-2 text-lg font-semibold">Excluir despesa?</h2>
+            <p className="text-sm text-muted-foreground">
+              {deleteExpense.description} — <span className="font-semibold text-foreground">
+                {formatCurrency(Number(deleteExpense.paid_amount) || cardItemGross(deleteExpense))}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              A transação e os anexos são eliminados definitivamente e o valor volta ao saldo da sessão.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setDeleteExpense(null)}
+                className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteExpenseMut.mutate(deleteExpense)}
+                disabled={deleteExpenseMut.isPending}
+                className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleteExpenseMut.isPending ? "A excluir…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ApproveCardItemModal
         open={!!approveItem}
         onOpenChange={(v) => { if (!v) setApproveItem(null); }}
