@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Camera, Loader2, Paperclip, Sparkles, Trash2 } from "lucide-react";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
-import IvaRateSelect from "@/components/IvaRateSelect";
+import CardAmountFields from "@/components/cards/CardAmountFields";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { snapToStandardRate } from "@/lib/iva";
 import {
