@@ -13,8 +13,7 @@ import {
   Loader2,
   Pencil,
   Check,
-  X as XIcon,
-} from "lucide-react";
+  X as XIcon,, Repeat } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { toast } from "@/hooks/use-toast";
@@ -324,6 +323,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   const methodLabels: Record<string, string> = {
     transfer: "Transferência",
     service_payment: "Pag. Serviços",
+  direct_debit: "Débito Direto",
     state_payment: "Pag. Estado",
   };
 

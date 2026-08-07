@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw } from "lucide-react";
+import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw, Repeat } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -16,7 +16,7 @@ import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment";
+type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
 interface Props {
   transaction: any;
@@ -625,10 +625,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           {/* Método de Pagamento */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
+            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-2" : "grid-cols-3")}>
               {([
                 { value: "transfer" as const, label: "Transferência", icon: Building },
                 { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
                 ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
               ]).map((m) => (
                 <button

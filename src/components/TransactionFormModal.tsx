@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt, Sparkles, Loader2, Paperclip } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt, Sparkles, Loader2, Paperclip, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
@@ -31,7 +31,7 @@ import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment";
+type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
 interface TransactionForm {
   description: string;
@@ -3219,12 +3219,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             const methods = [
               { value: "transfer" as const, label: "Transferência", icon: Building },
               { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
               ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
             ];
             return (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-                <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
+                <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-2" : "grid-cols-3")}>
                   {methods.map((m) => (
                     <button
                       key={m.value}
