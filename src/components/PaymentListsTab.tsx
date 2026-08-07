@@ -79,6 +79,9 @@ import { useBackdropClose } from "@/lib/backdropClose";
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
+/** Prefixo de `removed_reason` usado quando o aprovador não aprova o item. */
+const NOT_APPROVED_REASON_PREFIX = "Não aprovado na aprovação";
+
 const buildHiddenSplitChildChecker = (transactions: any[]) => {
   const byId = new Map<string, any>();
   transactions.forEach((tx: any) => {
@@ -1128,23 +1131,31 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
    *
    * SEMÂNTICA (importante): `transactions.status='approved'` é a aprovação do fluxo
    * de TRANSAÇÕES — todas entram na lista já assim. A aprovação que conta aqui é a
-   * da LISTA (`payment_lists.status`). A aprovação parcial APAGA os itens não
-   * selecionados, logo os itens que restam numa lista approved/partially_approved
-   * são exatamente os que passaram na aprovação.
+   * da LISTA (`payment_lists.status`). A aprovação parcial faz SOFT-REMOVE dos itens
+   * não selecionados (removed_reason com prefixo "Não aprovado na aprovação"), logo os
+   * itens ativos numa lista approved/partially_approved são exatamente os aprovados.
    *   • draft/pending_approval/rejected/revision → nada aprovado: o valor não
    *     liquidado conta como "Aguardando aprovação".
    *   • approved/partially_approved → não liquidado = "Aprovado".
+   *   • "Não aprovado" = soma dos itens soft-removidos pela aprovação (só visível
+   *     em listas aprovadas e quando > 0).
    */
   const listTotals = useMemo(() => {
     const listApproved = list?.status === "approved" || list?.status === "partially_approved";
     let total = 0;
     let open = 0;
     let settled = 0;
+    let notApproved = 0;
     for (const item of items as any[]) {
-      if (item.removed_at) continue;
       const tx = item.transactions;
       if (!tx) continue;
       const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      if (item.removed_at) {
+        if (String(item.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) {
+          notApproved += withIva;
+        }
+        continue;
+      }
       total += withIva;
       const paid = Number(tx.paid_amount ?? 0);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
@@ -1155,6 +1166,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       total,
       settled,
       listApproved,
+      notApproved,
       approved: listApproved ? open : 0,
       awaiting: listApproved ? 0 : open,
     };
@@ -1468,7 +1480,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         )}
 
         {/* Totais financeiros (c/IVA) — sempre alinhados com a composição atual */}
-        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className={`mb-3 grid grid-cols-1 gap-2 ${listTotals.listApproved && listTotals.notApproved > 0 ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
           <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total da lista</p>
             <p className="font-mono text-base font-bold">{formatCurrency(listTotals.total)}</p>
@@ -1485,6 +1497,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Liquidado</p>
             <p className="font-mono text-base font-bold text-emerald-500">{formatCurrency(listTotals.settled)}</p>
           </div>
+          {listTotals.listApproved && listTotals.notApproved > 0 && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Não aprovado</p>
+              <p className="font-mono text-base font-bold text-destructive">{formatCurrency(listTotals.notApproved)}</p>
+            </div>
+          )}
         </div>
 
 
@@ -1699,7 +1717,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           Remover da lista
                         </button>
                       )}
-                      {isRemoved && (isAdmin || isManager || canEditItems) && (
+                      {/* Listas aprovadas são read-only na composição: itens não
+                          aprovados ficam riscados sem opção de restaurar — o editor
+                          relança-os numa lista nova. */}
+                      {isRemoved && !isApproved && (isAdmin || isManager || canEditItems) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); restoreItemToList(item.id); }}
                           className="flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
@@ -1916,7 +1937,9 @@ function ApproveModal({
       const { data, error } = await supabase
         .from("payment_list_items")
         .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
-        .eq("payment_list_id", listId);
+        .eq("payment_list_id", listId)
+        // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
+        .is("removed_at", null);
       if (error) throw error;
       const rows = data ?? [];
       const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
@@ -2002,14 +2025,20 @@ function ApproveModal({
       const isPartial = selectedIds.size < items.length;
 
       if (isPartial) {
-        // Remove unselected items from this list
+        // Itens não aprovados ficam na lista como soft-removed (auditoria):
+        // removed_reason com o prefixo NOT_APPROVED_REASON_PREFIX permite
+        // distingui-los de remoções feitas na composição da lista.
         const removeIds = items.filter((i: any) => !selectedIds.has(i.id)).map((i: any) => i.id);
         if (removeIds.length > 0) {
-          const { error: delErr } = await supabase
+          const { error: remErr } = await supabase
             .from("payment_list_items")
-            .delete()
+            .update({
+              removed_at: new Date().toISOString(),
+              removed_by: user?.email ?? null,
+              removed_reason: `${NOT_APPROVED_REASON_PREFIX} de ${new Date().toLocaleDateString("pt-PT")}`,
+            } as any)
             .in("id", removeIds);
-          if (delErr) throw delErr;
+          if (remErr) throw remErr;
         }
       }
 
