@@ -2005,14 +2005,20 @@ function ApproveModal({
       const isPartial = selectedIds.size < items.length;
 
       if (isPartial) {
-        // Remove unselected items from this list
+        // Itens não aprovados ficam na lista como soft-removed (auditoria):
+        // removed_reason com o prefixo NOT_APPROVED_REASON_PREFIX permite
+        // distingui-los de remoções feitas na composição da lista.
         const removeIds = items.filter((i: any) => !selectedIds.has(i.id)).map((i: any) => i.id);
         if (removeIds.length > 0) {
-          const { error: delErr } = await supabase
+          const { error: remErr } = await supabase
             .from("payment_list_items")
-            .delete()
+            .update({
+              removed_at: new Date().toISOString(),
+              removed_by: user?.email ?? null,
+              removed_reason: `${NOT_APPROVED_REASON_PREFIX} de ${new Date().toLocaleDateString("pt-PT")}`,
+            } as any)
             .in("id", removeIds);
-          if (delErr) throw delErr;
+          if (remErr) throw remErr;
         }
       }
 
