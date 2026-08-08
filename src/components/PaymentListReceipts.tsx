@@ -305,13 +305,15 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
                 {formatDate(d.uploaded_at)}
               </Badge>
               <span className="text-muted-foreground">{d.uploaded_by}</span>
-              <button
-                onClick={() => setConfirmDelete(d)}
-                className="rounded p-1 text-destructive hover:bg-destructive/10"
-                title="Remover comprovativo (e réplicas nas transações)"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {canDeleteReceipts && (
+                <button
+                  onClick={() => setConfirmDelete(d)}
+                  className="rounded p-1 text-destructive hover:bg-destructive/10"
+                  title="Remover comprovativo (e réplicas nas transações)"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
