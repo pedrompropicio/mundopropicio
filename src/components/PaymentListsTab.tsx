@@ -265,17 +265,18 @@ export default function PaymentListsTab() {
   });
 
   // Uma única query agregada com os itens de todas as listas para preencher a
-  // coluna "Valor" da listagem (c/IVA, excluindo itens removidos).
+  // coluna "Valor" da listagem (c/IVA). Itens removidos manualmente na composição
+  // ficam de fora; os cortados PELA APROVAÇÃO contam (composição original submetida).
   const { data: listTotalsMap = {} } = useQuery({
     queryKey: ["payment-lists", "totals"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("payment_list_id, removed_at, transactions(amount, iva_rate)");
+        .select("payment_list_id, removed_at, removed_reason, transactions(amount, iva_rate)");
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const row of (data ?? []) as any[]) {
-        if (row.removed_at) continue;
+        if (row.removed_at && !String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) continue;
         const tx = row.transactions;
         if (!tx) continue;
         map[row.payment_list_id] =
@@ -284,6 +285,7 @@ export default function PaymentListsTab() {
       return map;
     },
   });
+
 
 
   const deleteMutation = useMutation({
