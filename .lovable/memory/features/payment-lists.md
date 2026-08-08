@@ -77,8 +77,17 @@ DELETE só admin/manager — por isso a remoção é **soft**, nunca DELETE.
 
 ## Totais (2026-08)
 Detalhe da lista mostra 3 cards c/IVA calculados no cliente a partir dos itens já
-carregados (ignora `removed_at`): **Total da lista**, o card do meio conforme o
-estado da LISTA, e **Liquidado** (tx `paid`, `manually_marked_paid` ou pago ≥ total −0,05).
+carregados: **Total da lista**, o card do meio conforme o estado da LISTA, e
+**Liquidado** (tx `paid`, `manually_marked_paid` ou pago ≥ total −0,05).
+
+Semântica do **Total da lista** = composição ORIGINAL submetida à aprovação:
+entram os itens ativos **+** os soft-removidos PELA APROVAÇÃO
+(`removed_reason` com prefixo `NOT_APPROVED_REASON_PREFIX`). Itens removidos
+manualmente na composição (outros motivos) ficam SEMPRE fora. Garante a identidade
+**Total = Aprovado + Liquidado + Não aprovado** ao cêntimo em listas aprovadas; em
+`draft`/`pending_approval` não existem itens cortados pela aprovação ⇒ total = ativos.
+A coluna **Valor** da listagem usa a mesma regra (query `["payment-lists","totals"]`
+lê também `removed_reason`).
 
 Semântica do card do meio — `transactions.status='approved'` é a aprovação do fluxo
 de TRANSAÇÕES (todas entram na lista já assim) e NÃO deve ser usada aqui. Vale
@@ -86,6 +95,13 @@ de TRANSAÇÕES (todas entram na lista já assim) e NÃO deve ser usada aqui. Va
 - `draft`/`pending_approval`/`rejected`/`revision` → **"Aguardando aprovação"** (azul)
   com o valor ativo não liquidado; "Aprovado" seria 0.
 - `approved`/`partially_approved` → **"Aprovado"** (âmbar) com o valor ativo não liquidado.
+
+### Cards ao vivo no ApproveModal (2026-08)
+O modal de aprovação mostra 3 cards no topo recalculados por `useMemo` sobre os itens
+já carregados (sem query nova), a cada clique nas checkboxes: **Total da lista** (todos
+os itens em aprovação), **A aprovar** (âmbar, selecionados) e **Não aprovado**
+(vermelho, desmarcados = o que será cortado ao confirmar). Aprovação total ⇒ 0.
+
 
 ### Aprovação parcial = soft-remove (2026-08, substitui o DELETE anterior)
 `ApproveModal` NÃO apaga os itens não selecionados: faz **soft-remove** com

@@ -265,17 +265,18 @@ export default function PaymentListsTab() {
   });
 
   // Uma única query agregada com os itens de todas as listas para preencher a
-  // coluna "Valor" da listagem (c/IVA, excluindo itens removidos).
+  // coluna "Valor" da listagem (c/IVA). Itens removidos manualmente na composição
+  // ficam de fora; os cortados PELA APROVAÇÃO contam (composição original submetida).
   const { data: listTotalsMap = {} } = useQuery({
     queryKey: ["payment-lists", "totals"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("payment_list_id, removed_at, transactions(amount, iva_rate)");
+        .select("payment_list_id, removed_at, removed_reason, transactions(amount, iva_rate)");
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const row of (data ?? []) as any[]) {
-        if (row.removed_at) continue;
+        if (row.removed_at && !String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) continue;
         const tx = row.transactions;
         if (!tx) continue;
         map[row.payment_list_id] =
@@ -284,6 +285,7 @@ export default function PaymentListsTab() {
       return map;
     },
   });
+
 
 
   const deleteMutation = useMutation({
@@ -1208,6 +1210,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (item.removed_at) {
         if (String(item.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) {
           notApproved += withIva;
+          // Composição original submetida à aprovação: o "Total da lista" de uma
+          // lista aprovada inclui o que a aprovação cortou (identidade
+          // Total = Aprovado + Liquidado + Não aprovado).
+          total += withIva;
         }
         continue;
       }
@@ -1217,6 +1223,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (isPaid) settled += withIva;
       else open += withIva;
     }
+
     return {
       total,
       settled,
@@ -2144,6 +2151,22 @@ function ApproveModal({
     else setSelectedIds(new Set(items.map((i: any) => i.id)));
   };
 
+  /** Cards ao vivo: recalculados sobre os itens já carregados, sem query nova. */
+  const approveTotals = useMemo(() => {
+    let total = 0;
+    let toApprove = 0;
+    for (const item of items as any[]) {
+      const tx = item.transactions;
+      if (!tx) continue;
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      total += withIva;
+      if (selectedIds.has(item.id)) toApprove += withIva;
+    }
+    return { total, toApprove, notApproved: total - toApprove };
+  }, [items, selectedIds]);
+
+
+
   const handleApprove = async () => {
     if (selectedIds.size === 0) {
       toast({ title: "Selecione pelo menos uma conta.", variant: "destructive" });
@@ -2218,6 +2241,23 @@ function ApproveModal({
         <p className="text-sm text-muted-foreground mb-3">
           Selecione as contas que deseja aprovar. Pode aprovar todas (completa) ou apenas algumas (parcial).
         </p>
+
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Total da lista</p>
+            <p className="font-mono text-base font-bold">{formatCurrency(approveTotals.total)}</p>
+          </div>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">A aprovar</p>
+            <p className="font-mono text-base font-bold text-amber-500">{formatCurrency(approveTotals.toApprove)}</p>
+          </div>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Não aprovado</p>
+            <p className="font-mono text-base font-bold text-destructive">{formatCurrency(approveTotals.notApproved)}</p>
+          </div>
+        </div>
+
+
 
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar itens…</p>
