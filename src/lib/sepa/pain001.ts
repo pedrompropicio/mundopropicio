@@ -230,9 +230,9 @@ export interface SepaFileInput {
   /** BIC do banco ordenante (Santander PT = TOTAPTPL) */
   debtorBic: string;
   executionDate: string;
-  rows: SepaPaymentRow[];
-  now?: Date;
-  /** true quando a lista não está aprovada → sufixo _TESTE no nome */
+  /** payment_date da lista (YYYY-MM-DD) — 1.º bloco da referência do lote */
+  listDate?: string | null;
+
   isTest?: boolean;
 }
 
