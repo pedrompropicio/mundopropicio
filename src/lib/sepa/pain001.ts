@@ -232,9 +232,12 @@ export interface SepaFileInput {
   executionDate: string;
   /** payment_date da lista (YYYY-MM-DD) — 1.º bloco da referência do lote */
   listDate?: string | null;
-
+  rows: SepaPaymentRow[];
+  now?: Date;
+  /** true quando a lista não está aprovada → sufixo _TESTE no nome */
   isTest?: boolean;
 }
+
 
 export interface SepaFileOutput {
   xml: string;
