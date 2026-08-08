@@ -65,6 +65,16 @@ Download por Blob no browser.
 
 Limite rígido **140** chars, alvo **70** (é o que o beneficiário vê no extrato).
 
+**Base do descritivo**: `descrição - especificação` da transação e, quando a
+transação tem `event_id`, acrescenta ` - <nome do evento>`
+(`appendEventToDescription`). Anti-duplicação: se algum token significativo do
+nome do evento (≥3 chars, ignorando anos e palavras genéricas como
+tour/turnê/festival/label) já aparecer na descrição (comparação sem acentos e
+em minúsculas), o evento **não** é acrescentado — ex.: "Portão Staff - (Label
+EDA)" com evento "Anitta - EDA 2026" fica como está. Transações sem evento não
+mudam. Isto acontece antes do pipeline de compactação abaixo.
+
+
 1. **Determinística (síncrona)** — `compactDescriptionDeterministic`:
    trim/colapso de espaços, transliteração ASCII, charset SEPA
    (`a-z A-Z 0-9 / - ? : ( ) . , ' +` e espaço), nunca começa/acaba com `/` nem
