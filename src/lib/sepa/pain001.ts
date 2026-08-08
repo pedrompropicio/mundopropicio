@@ -108,7 +108,7 @@ const EVENT_GENERIC_TOKENS = new Set([
 
 /**
  * Acrescenta o nome do evento ao descritivo, exceto quando a descrição já o
- * refere. Heurística: se algum token significativo do evento (>3 chars, sem
+ * refere. Heurística: se algum token significativo do evento (>=3 chars, sem
  * anos nem palavras genéricas) já aparece na descrição, não acrescenta.
  */
 export function appendEventToDescription(description: string, eventName?: string | null): string {
@@ -121,7 +121,7 @@ export function appendEventToDescription(description: string, eventName?: string
   const tokens = toAscii(ev)
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((t) => t.length > 3 && !/^\d{4}$/.test(t) && !EVENT_GENERIC_TOKENS.has(t));
+    .filter((t) => t.length >= 3 && !/^\d{4}$/.test(t) && !EVENT_GENERIC_TOKENS.has(t));
 
   if (tokens.some((t) => descAscii.includes(t))) return desc;
   return `${desc} - ${ev}`;
