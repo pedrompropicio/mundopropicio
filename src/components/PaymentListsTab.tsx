@@ -1272,7 +1272,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         creditorName: name === "-" ? "Beneficiario" : name,
         iban,
         amount: open,
-        description: [tx.description, tx.specification].filter(Boolean).join(" - "),
+        description: appendEventToDescription(
+          [tx.description, tx.specification].filter(Boolean).join(" - "),
+          tx.event_id ? (tx.events?.name ?? null) : null,
+        ),
+
         isReimbursement: !!tx.is_reimbursement,
         preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
       });
