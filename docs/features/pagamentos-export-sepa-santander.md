@@ -112,17 +112,34 @@ terminações de linha **CRLF**.
 - Nome do beneficiário: ASCII, charset SEPA, máx. 70 chars.
 - **Sem `CdtrAgt`** (IBAN-only). `DbtrAgt/BICFI` = `TOTAPTPL`. `ChrgBr` = `SLEV`.
 
+## Permissões (fluxo listas de pagamento)
+
+Decisão 2026-08: com os lotes SEPA a liquidação é manual **depois** de o banco
+processar o lote, e quem opera isso no dia-a-dia pode ser um **editor**.
+
+| Ação (modal/detalhe da lista) | admin | manager | editor |
+| --- | --- | --- | --- |
+| Anexar comprovativo do lote (+ replicação nas transações) | ✅ | ✅ | ✅ |
+| Remover comprovativo (apaga réplicas + ficheiro) | ✅ | ✅ | ❌ (botão oculto) |
+| Liquidar pagamentos processados (individual e em massa) | ✅ | ✅ | ✅ |
+| **Aprovar** a lista (total/parcial), revisão, rejeição | ✅ | ❌ | ❌ |
+| Exportar SEPA | mantém permissões atuais (quem vê o detalhe) | | |
+
+RLS já suportava tudo isto — `payment_list_documents`/`transaction_documents`
+INSERT permitem editor, DELETE de `payment_list_documents` é admin/manager, e
+`transactions` UPDATE + `transaction_audit_log` INSERT incluem editor. O ajuste
+foi **só de UI**: o botão de remover comprovativo passou a estar oculto para
+editores (antes aparecia e falhava por RLS). Nenhuma policy foi alterada.
+
 ## Limitações / fase 2 pendente
 
-- Não há registo/histórico de exportações (quem exportou, quando, que ficheiro).
-- Sem permissão dedicada: quem vê o detalhe da lista vê o botão.
 - Sem bloqueio por estado (listas não aprovadas exportam, só marcadas `_TESTE`).
 - A exportação **não** liquida nada: a liquidação pós-banco continua manual
   (Liquidar em massa ou marcar item pago).
 - Feriados nacionais não são considerados na data de execução.
 - Só EUR/SEPA; IBANs não-SEPA (ex.: BR) ficam de fora e pagam-se por outra via.
 
----
+
 
 ## Fase 2 (parcial) — histórico de exportações + comprovativo do lote
 
