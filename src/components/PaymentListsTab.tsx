@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
+import { appendEventToDescription } from "@/lib/sepa/pain001";
+
 import PaymentListReceipts from "@/components/PaymentListReceipts";
 import { useCompany } from "@/hooks/useCompany";
 
