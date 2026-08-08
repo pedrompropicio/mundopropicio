@@ -2242,6 +2242,23 @@ function ApproveModal({
           Selecione as contas que deseja aprovar. Pode aprovar todas (completa) ou apenas algumas (parcial).
         </p>
 
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Total da lista</p>
+            <p className="font-mono text-base font-bold">{formatCurrency(approveTotals.total)}</p>
+          </div>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">A aprovar</p>
+            <p className="font-mono text-base font-bold text-amber-500">{formatCurrency(approveTotals.toApprove)}</p>
+          </div>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Não aprovado</p>
+            <p className="font-mono text-base font-bold text-destructive">{formatCurrency(approveTotals.notApproved)}</p>
+          </div>
+        </div>
+
+
+
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar itens…</p>
         ) : (
