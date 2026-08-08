@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
+import { appendEventToDescription } from "@/lib/sepa/pain001";
+
 import PaymentListReceipts from "@/components/PaymentListReceipts";
 import { useCompany } from "@/hooks/useCompany";
 
@@ -1272,7 +1274,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         creditorName: name === "-" ? "Beneficiario" : name,
         iban,
         amount: open,
-        description: [tx.description, tx.specification].filter(Boolean).join(" - "),
+        description: appendEventToDescription(
+          [tx.description, tx.specification].filter(Boolean).join(" - "),
+          tx.event_id ? (tx.events?.name ?? null) : null,
+        ),
+
         isReimbursement: !!tx.is_reimbursement,
         preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
       });

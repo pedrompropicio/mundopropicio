@@ -89,6 +89,45 @@ const MONTHS: Record<string, string> = {
   outubro: "10", novembro: "11", dezembro: "12",
 };
 
+/** palavras genéricas do nome do evento que não servem para detetar duplicação */
+const EVENT_GENERIC_TOKENS = new Set([
+  "tour",
+  "turne",
+  "evento",
+  "eventos",
+  "festival",
+  "show",
+  "shows",
+  "concerto",
+  "concertos",
+  "edicao",
+  "espetaculo",
+  "digital",
+  "label",
+]);
+
+/**
+ * Acrescenta o nome do evento ao descritivo, exceto quando a descrição já o
+ * refere. Heurística: se algum token significativo do evento (>=3 chars, sem
+ * anos nem palavras genéricas) já aparece na descrição, não acrescenta.
+ */
+export function appendEventToDescription(description: string, eventName?: string | null): string {
+  const desc = (description ?? "").trim();
+  const ev = (eventName ?? "").trim();
+  if (!ev) return desc;
+  if (!desc) return ev;
+
+  const descAscii = toAscii(desc).toLowerCase();
+  const tokens = toAscii(ev)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3 && !/^\d{4}$/.test(t) && !EVENT_GENERIC_TOKENS.has(t));
+
+  if (tokens.some((t) => descAscii.includes(t))) return desc;
+  return `${desc} - ${ev}`;
+}
+
+
 /**
  * Compactação determinística (síncrona) do descritivo.
  * Aplica abreviações fixas + charset SEPA. Não trunca abaixo do limite rígido.
