@@ -2151,6 +2151,22 @@ function ApproveModal({
     else setSelectedIds(new Set(items.map((i: any) => i.id)));
   };
 
+  /** Cards ao vivo: recalculados sobre os itens já carregados, sem query nova. */
+  const approveTotals = useMemo(() => {
+    let total = 0;
+    let toApprove = 0;
+    for (const item of items as any[]) {
+      const tx = item.transactions;
+      if (!tx) continue;
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      total += withIva;
+      if (selectedIds.has(item.id)) toApprove += withIva;
+    }
+    return { total, toApprove, notApproved: total - toApprove };
+  }, [items, selectedIds]);
+
+
+
   const handleApprove = async () => {
     if (selectedIds.size === 0) {
       toast({ title: "Selecione pelo menos uma conta.", variant: "destructive" });
