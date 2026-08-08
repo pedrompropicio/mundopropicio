@@ -34,7 +34,12 @@ interface Props {
 
 export default function PaymentListReceipts({ listId, listTitle, activeTransactionIds }: Props) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  // Anexar comprovativo do lote está aberto a admin/manager/editor (as policies de
+  // INSERT em payment_list_documents/transaction_documents já o permitem) — quem
+  // liquida os lotes SEPA no dia-a-dia pode ser editor. A REMOÇÃO fica reservada a
+  // admin/manager, alinhada com a policy de DELETE de payment_list_documents.
+  const { user, isAdmin, isManager } = useAuth();
+  const canDeleteReceipts = isAdmin || isManager;
   const [uploading, setUploading] = useState(false);
   const [selectedExportId, setSelectedExportId] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
