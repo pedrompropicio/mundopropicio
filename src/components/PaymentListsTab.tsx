@@ -1208,6 +1208,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (item.removed_at) {
         if (String(item.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) {
           notApproved += withIva;
+          // Composição original submetida à aprovação: o "Total da lista" de uma
+          // lista aprovada inclui o que a aprovação cortou (identidade
+          // Total = Aprovado + Liquidado + Não aprovado).
+          total += withIva;
         }
         continue;
       }
@@ -1217,6 +1221,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (isPaid) settled += withIva;
       else open += withIva;
     }
+
     return {
       total,
       settled,
