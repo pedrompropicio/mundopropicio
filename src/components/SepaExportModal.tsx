@@ -164,6 +164,8 @@ export default function SepaExportModal({
       debtorIban,
       debtorBic: SANTANDER_PT_BIC,
       executionDate,
+      listDate: paymentDate ?? null,
+
       isTest,
       rows: valid.map((r) => ({
         transactionId: r.transactionId,

@@ -89,8 +89,13 @@ Limite rígido **140** chars, alvo **70** (é o que o beneficiário vê no extra
 XML UTF-8, namespace `urn:iso:std:iso:20022:tech:xsd:pain.001.001.09`,
 terminações de linha **CRLF**.
 
-- `MsgId` = `PL-<8 chars do id da lista>-<yyyymmddHHmmss>` (máx. 35 chars);
-  `PmtInfId` = `<MsgId>-P1`.
+- `MsgId` = `PAGAMENTOS-MP-<DDMMYYYY da payment_date da lista>-<DDMMHHMM do envio>`
+  (ex.: lista de 06/08/2026 exportada a 08/08 às 11:56 → `PAGAMENTOS-MP-06082026-08081156`, 31 chars);
+  `PmtInfId` = `<MsgId>-P1` (34 chars, limite do formato 35). Só maiúsculas, dígitos e hífenes.
+  A hora+minutos do 2.º bloco garante unicidade em re-exportações da mesma lista
+  (o banco rejeita referências duplicadas). `payment_list_sepa_exports.msg_id`
+  guarda esta referência.
+
 - `EndToEndId` único = `PL<seq 3 dígitos>-<8 chars do id da transação>`.
 - `NbOfTxs` e `CtrlSum` batem com a soma real (o banco rejeita se divergirem);
   valores com 2 decimais e ponto decimal.
