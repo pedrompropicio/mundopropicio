@@ -171,6 +171,19 @@ export function timestampId(now = new Date()): string {
   return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
 }
 
+/**
+ * Referência legível do lote: PAGAMENTOS-MP-<DDMMYYYY da lista>-<DDMMHHMM do envio>.
+ * 31 chars; com o sufixo -P1 do PmtInfId fica em 34 (limite do formato = 35).
+ */
+export function buildBatchReference(listDate: string | null | undefined, now = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const d = listDate ? toLocalDate(listDate) : now;
+  const listPart = `${p(d.getDate())}${p(d.getMonth() + 1)}${d.getFullYear()}`;
+  const sentPart = `${p(now.getDate())}${p(now.getMonth() + 1)}${p(now.getHours())}${p(now.getMinutes())}`;
+  return `PAGAMENTOS-MP-${listPart}-${sentPart}`;
+}
+
+
 /** CreDtTm ISO local sem timezone (o banco aceita sem offset). */
 export function creationDateTime(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
