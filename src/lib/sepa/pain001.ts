@@ -252,8 +252,9 @@ export const DEFAULT_DEBTOR_IBAN = "PT50001800034889774802033";
 
 export function buildPain001(input: SepaFileInput): SepaFileOutput {
   const now = input.now ?? new Date();
-  const msgId = `PL-${input.listId.replace(/-/g, "").slice(0, 8)}-${timestampId(now)}`.slice(0, 35);
+  const msgId = buildBatchReference(input.listDate ?? input.executionDate, now).slice(0, 32);
   const pmtInfId = `${msgId}-P1`.slice(0, 35);
+
 
   const rows = input.rows;
   const controlSumCents = rows.reduce((s, r) => s + Math.round((Number(r.amount) || 0) * 100), 0);
