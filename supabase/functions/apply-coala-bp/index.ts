@@ -1552,8 +1552,9 @@ Deno.serve(async (req) => {
           .filter((x: unknown): x is string => typeof x === "string"),
       );
 
-      // Apagar transações (excepto as ligadas a patrocínios)
+      // Apagar transações (excepto as ligadas a patrocínios e as de A&B)
       const txIds = (existingTxs || [])
+        .filter((t: any) => !isAbRow(t))
         .map((t: any) => t.id)
         .filter((id: string) => !protectedTxIds.has(id));
       if (txIds.length > 0) {
@@ -1563,10 +1564,12 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Apagar event_forecasts (excepto os ligados a patrocínios)
+      // Apagar event_forecasts (excepto os ligados a patrocínios e os de A&B)
       const fcIdsToDelete = (existingFcs || [])
+        .filter((f: any) => !isAbRow(f))
         .map((f: any) => f.id)
         .filter((id: string) => !protectedFcIds.has(id));
+
       if (fcIdsToDelete.length > 0) {
         const { error: delFcErr } = await admin
           .from("event_forecasts")
