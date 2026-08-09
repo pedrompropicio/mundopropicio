@@ -38,3 +38,18 @@ Compare pós-rebuild: `missingInBp=0, extraInBp=0, valueMismatches=0, txMissing=
 
 ## Regra confirmada
 Rebuild só via `sync-coala-from-drive` (apply/replace). Drive continua read-only (ver constraint coala-drive-readonly).
+
+## Fecho do Bar 30-31/05/2026 (registado 2026-08)
+Modelo BRUTO (quota cheia como receita + custos à parte), todos os valores LÍQUIDOS com `iva_rate=0` (IVA das vendas apurado no próprio fecho; nota na `specification`), pagos a 2026-06-01 na conta Banco Santander Totta.
+
+Receitas (cat. 1.1.03 F&B): Quota MP vendas bares 98.274,68 · Bonificação Adega Almeirim 2.500,00 · Bonificação Acordo SB 3.252,03 · Ingressos Marco Caldeira 2.520,00 → 106.546,71 €.
+Despesas (cat. 2.9.01 Bebidas): SSH consumos VIP/VVIP/staff+serviços 50.612,40 (fornecedor SSH criado) · Cashless 1.639,50 → 52.251,90 €.
+Resultado líquido do fecho: **54.294,81 €**.
+
+IDs: income c5b2e00f / dfd70d34 / 7dc38798 / 4568ae9c · expense 5acdc2c8 / be5e7783 · supplier SSH 985ed9aa-967b-4a94-affa-ddcbec215320.
+
+### Exclusão A&B SIMÉTRICA no sync (regra nova)
+O parser do XLSX já excluía as linhas A&B. `apply-coala-bp` passou a excluir também do lado do **sistema** tudo o que tenha categoria A&B (códigos `1.1.03*` e `2.9*`), via `abCategoryIds`/`isAbRow`, em três pontos: `bpRows` e `txPool` do compare e as eliminações do reimport/replace. Sem isto o fecho do bar aparecia como `txExtra` em cada dry-run e seria apagado num apply/rebuild.
+
+### Módulo A&B com os valores reais
+`event_ab_zones`: Relvado — Sábado (11.000 pax, per capita 13,63) e Relvado — Domingo (11.000 pax, 13,19); repasse 33,31% em todas as zonas; Tenda VIP e Passe 2 dias com `participants_manual = 0` (o fecho só dá totais por dia — evita duplicar público). KPIs: faturação 295.020,00 € (≈294.993 real) e receita casa 98.271,16 € (≈98.274,68 real) — desvio só do arredondamento a 2 decimais das colunas. Modo mantém-se terceirização; alimentos intocados. Contexto registado em `event_ab_config.notes`.
