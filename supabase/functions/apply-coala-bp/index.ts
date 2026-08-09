@@ -638,7 +638,7 @@ Deno.serve(async (req) => {
       // (protectedTxIds já carregado no topo via spForecastLinks)
 
       // Pool TX consideradas no diff (despesa, não-sponsor)
-      const txPool = ((existingTxs || []) as any[]).filter((t) => !protectedTxIds.has(t.id));
+      const txPool = ((existingTxs || []) as any[]).filter((t) => !protectedTxIds.has(t.id) && !isAbRow(t));
       // Linhas do ficheiro que devem materializar TX (paid + partial>0)
       const fileTxRows = fileRows.filter((r) =>
         r.status === "paid" || (r.status === "partial" && r.paidNet > 0),
