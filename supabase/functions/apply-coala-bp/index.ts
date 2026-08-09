@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
         (spForecastLinks || []).map((r: any) => r.linked_transaction_id).filter((x: any) => typeof x === "string"),
       );
 
-      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense" && !protectedFcIds.has(f.id));
+      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense" && !protectedFcIds.has(f.id) && !isAbRow(f));
       const bpByKey = new Map<string, any>();
       const bpByDesc = new Map<string, any[]>();
       const bpByBase = new Map<string, any[]>();
