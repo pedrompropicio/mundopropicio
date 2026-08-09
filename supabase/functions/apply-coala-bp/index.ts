@@ -167,6 +167,28 @@ Deno.serve(async (req) => {
       .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
       .eq("event_id", eventId);
 
+    // ── EXCLUSÃO A&B SIMÉTRICA ────────────────────────────────────────────────
+    // O parser do XLSX exclui as linhas de A&B (módulo próprio do evento).
+    // Para o diff continuar simétrico, também excluímos do lado do SISTEMA as
+    // transações/forecasts cujas categorias são A&B (F&B / Bares): receitas
+    // 1.1.03 (F&B) e despesas 2.9.* (F&B / Bares).
+    // Sem isto, o fecho do bar (receitas + custos SSH/Cashless) apareceria como
+    // txExtra em cada dry-run e seria apagado num apply.
+    const AB_CATEGORY_CODE_PREFIXES = ["1.1.03", "2.9"];
+    const { data: abCats } = await admin
+      .from("account_categories")
+      .select("id, code");
+    const abCategoryIds = new Set<string>(
+      (abCats || [])
+        .filter((c: any) =>
+          AB_CATEGORY_CODE_PREFIXES.some((p) => String(c.code ?? "").trim() === p || String(c.code ?? "").trim().startsWith(`${p}.`)),
+        )
+        .map((c: any) => c.id as string),
+    );
+    const isAbRow = (r: any) => !!r?.category_id && abCategoryIds.has(r.category_id);
+
+
+
     const fcKeySet = new Set<string>();
     for (const f of (existingFcs || [])) {
       fcKeySet.add(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
