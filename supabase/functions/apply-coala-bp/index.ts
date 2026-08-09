@@ -167,6 +167,28 @@ Deno.serve(async (req) => {
       .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
       .eq("event_id", eventId);
 
+    // ── EXCLUSÃO A&B SIMÉTRICA ────────────────────────────────────────────────
+    // O parser do XLSX exclui as linhas de A&B (módulo próprio do evento).
+    // Para o diff continuar simétrico, também excluímos do lado do SISTEMA as
+    // transações/forecasts cujas categorias são A&B (F&B / Bares): receitas
+    // 1.1.03 (F&B) e despesas 2.9.* (F&B / Bares).
+    // Sem isto, o fecho do bar (receitas + custos SSH/Cashless) apareceria como
+    // txExtra em cada dry-run e seria apagado num apply.
+    const AB_CATEGORY_CODE_PREFIXES = ["1.1.03", "2.9"];
+    const { data: abCats } = await admin
+      .from("account_categories")
+      .select("id, code");
+    const abCategoryIds = new Set<string>(
+      (abCats || [])
+        .filter((c: any) =>
+          AB_CATEGORY_CODE_PREFIXES.some((p) => String(c.code ?? "").trim() === p || String(c.code ?? "").trim().startsWith(`${p}.`)),
+        )
+        .map((c: any) => c.id as string),
+    );
+    const isAbRow = (r: any) => !!r?.category_id && abCategoryIds.has(r.category_id);
+
+
+
     const fcKeySet = new Set<string>();
     for (const f of (existingFcs || [])) {
       fcKeySet.add(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
@@ -234,7 +256,7 @@ Deno.serve(async (req) => {
         (spForecastLinks || []).map((r: any) => r.linked_transaction_id).filter((x: any) => typeof x === "string"),
       );
 
-      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense" && !protectedFcIds.has(f.id));
+      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense" && !protectedFcIds.has(f.id) && !isAbRow(f));
       const bpByKey = new Map<string, any>();
       const bpByDesc = new Map<string, any[]>();
       const bpByBase = new Map<string, any[]>();
@@ -616,7 +638,7 @@ Deno.serve(async (req) => {
       // (protectedTxIds já carregado no topo via spForecastLinks)
 
       // Pool TX consideradas no diff (despesa, não-sponsor)
-      const txPool = ((existingTxs || []) as any[]).filter((t) => !protectedTxIds.has(t.id));
+      const txPool = ((existingTxs || []) as any[]).filter((t) => !protectedTxIds.has(t.id) && !isAbRow(t));
       // Linhas do ficheiro que devem materializar TX (paid + partial>0)
       const fileTxRows = fileRows.filter((r) =>
         r.status === "paid" || (r.status === "partial" && r.paidNet > 0),
@@ -1530,8 +1552,9 @@ Deno.serve(async (req) => {
           .filter((x: unknown): x is string => typeof x === "string"),
       );
 
-      // Apagar transações (excepto as ligadas a patrocínios)
+      // Apagar transações (excepto as ligadas a patrocínios e as de A&B)
       const txIds = (existingTxs || [])
+        .filter((t: any) => !isAbRow(t))
         .map((t: any) => t.id)
         .filter((id: string) => !protectedTxIds.has(id));
       if (txIds.length > 0) {
@@ -1541,10 +1564,12 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Apagar event_forecasts (excepto os ligados a patrocínios)
+      // Apagar event_forecasts (excepto os ligados a patrocínios e os de A&B)
       const fcIdsToDelete = (existingFcs || [])
+        .filter((f: any) => !isAbRow(f))
         .map((f: any) => f.id)
         .filter((id: string) => !protectedFcIds.has(id));
+
       if (fcIdsToDelete.length > 0) {
         const { error: delFcErr } = await admin
           .from("event_forecasts")
