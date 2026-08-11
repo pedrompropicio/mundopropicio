@@ -18,6 +18,7 @@ import { sortByHierarchicalCode, cn } from "@/lib/utils";
 import { PaymentTimeline } from "@/components/PaymentTimeline";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AccountantReviewBlock } from "@/components/AccountantReviewBadge";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
@@ -696,6 +697,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         )}
 
         <ReimbursementNoteRefBadge transactionId={transaction.id} variant="banner" />
+
+        <AccountantReviewBlock transactionId={transaction.id} />
 
         <Tabs defaultValue="details" className="w-full">
           <TabsList className={cn("grid w-full", hasCamarim ? "grid-cols-3" : "grid-cols-2")}>

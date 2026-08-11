@@ -12,6 +12,7 @@ import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
+import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
 
 import { toast } from "@/hooks/use-toast";
 
@@ -474,6 +475,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 )}
                 {isLocalReinforcement && <LocalReinforcementBadge />}
                 <ReimbursementNoteRefBadge transactionId={t.id} />
+                <AccountantReviewRowBadge transactionId={t.id} />
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>

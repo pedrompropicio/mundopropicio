@@ -115,3 +115,26 @@ type: feature
 
 ### ZIP (`generate-accountant-zip`)
 - Passa a incluir camarim (prefixo `camarim_`) e reembolso (prefixo `reembolso_`) nas mesmas pastas `data_fornecedor_ref`; download pelo bucket resolvido; limites 500 tx / 200 MB inalterados. **Requer Publish.**
+
+## 14. Conferência de documentos (2026-08-11)
+
+**Única exceção ao read-only do portal:** a contabilista escreve apenas em `accountant_transaction_reviews` — nunca em dados financeiros.
+
+### Tabela `accountant_transaction_reviews`
+- `company_id`, `transaction_id` UNIQUE (FK transactions ON DELETE CASCADE), `status` CHECK ('conferido','pendente'), `note` (observação da contabilista), `reviewed_by/at`, `response_note` (financeiro), `responded_by/at`, `created_at/updated_at` (trigger `update_updated_at_column`).
+- RLS: SELECT/INSERT/UPDATE para `accountant` + admin/platform_admin/manager/editor; DELETE só admin/platform_admin. RESTRICTIVE `company_isolation_accountant_transaction_reviews` via `row_belongs_to_current_company(company_id)`.
+- Observação única (não é thread): a contabilista reescreve `note`, o financeiro reescreve `response_note`.
+
+### Portal (`AccountantDocumentsTab`)
+- Coluna **Conferência**: ✓ Conferido (1 clique) / ⚠ Pendente (popover com observação **obrigatória**). Ícone 💬 mostra a resposta do financeiro para re-validar e passar a Conferido.
+- Filtro "Conferência: Todas / Por conferir / Conferidas / Pendentes" + contadores no header (`X conferidas · Y pendentes · Z por conferir`).
+- Estado é por transação → persiste entre sessões e períodos.
+- Helpers em `src/lib/accountant-reviews.ts` (`fetchReviewsForTransactions` chunked 200, `saveAccountantReview` upsert onConflict transaction_id, `respondAccountantReview`).
+
+### ERP
+- Página `/pendencias-contabilista` (`src/pages/AccountantPendencies.tsx`, admin/manager/`manage_transactions`): lista com observação, autora, data, valor, link `/transacoes?highlight=<id>` e campo "Responder".
+- Sidebar: item "Contabilista" com badge = nº de pendentes (`useAccountantPendenciesCount`).
+- `src/components/AccountantReviewBadge.tsx`: `AccountantReviewRowBadge` na linha de Transações (query única partilhada `accountant-reviews-map`, não 1 por linha) + `AccountantReviewBlock` no `TransactionEditModal` (observação + resposta editável).
+
+### Invalidações
+- Ao gravar (qualquer lado): `accountant-reviews`, `accountant-reviews-map`, `accountant-review`, `accountant-pendencies`, `accountant-pendencies-count` + `invalidateTransactionQueries` no lado ERP.

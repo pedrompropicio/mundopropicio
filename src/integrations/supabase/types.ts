@@ -71,6 +71,59 @@ export type Database = {
           },
         ]
       }
+      accountant_transaction_reviews: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          note: string | null
+          responded_at: string | null
+          responded_by: string | null
+          response_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accountant_transaction_reviews_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_exports: {
         Row: {
           company_id: string
