@@ -164,3 +164,7 @@ acelera o download e reduz ruído no parser.
 - v2 (2026-05-25): substitui o import sintético "Ticketline (Total)" por
   zonas/lotes reais parseados da secção 2 do `sale_summary.xlsx`.
   `ticket_zone.xlsx` deixa de ser usado.
+
+- v2.4 (2026-08-11): fallback de importação pela secção 1 para layouts sem
+  header `ZONA`; runs com vendas detetadas mas 0 linhas importadas passam a
+  `status='warning'` em vez de `success`; `import_audit.dataSource`.
