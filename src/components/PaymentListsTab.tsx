@@ -777,6 +777,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 
   // Faturas agrupadas (invoice_group_id) selecionam-se como unidade.
   const pickerRows = useMemo(() => buildPickerRows(filteredTx), [filteredTx]);
+  // Estado consolidado de cada fatura agrupada (inclui itens já pagos fora do picker).
+  const { data: groupProgress = {} } = useInvoiceGroupProgress(
+    useMemo(() => pickerRows.filter((r) => r.kind === "group").map((r: any) => r.groupId), [pickerRows]),
+  );
+
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const toggleExpandedGroup = (gid: string) => {
     setExpandedGroups((prev) => {
