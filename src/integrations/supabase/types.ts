@@ -11286,26 +11286,16 @@ export type Database = {
         Args: { _trash_id: string }
         Returns: Json
       }
-      reverse_payment:
-        | {
-            Args: {
-              p_kind: string
-              p_payment_id: string
-              p_reason: string
-              p_valid_until?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_amount?: number
-              p_kind: string
-              p_payment_id: string
-              p_reason: string
-              p_valid_until?: string
-            }
-            Returns: Json
-          }
+      reverse_payment: {
+        Args: {
+          p_amount?: number
+          p_kind: string
+          p_payment_id: string
+          p_reason: string
+          p_valid_until?: string
+        }
+        Returns: Json
+      }
       reverse_transaction:
         | {
             Args: {

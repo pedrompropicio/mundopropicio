@@ -25,6 +25,7 @@ import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invo
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
+import { TransactionInstallmentGroupEditor } from "@/components/TransactionInstallmentGroupEditor";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
@@ -715,6 +716,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               Transação aprovada — valor e IVA não podem ser alterados.
             </div>
           )}
+          <TransactionInstallmentGroupEditor transaction={transaction} isAdmin={isAdmin} />
+
           {!paidLocked && isApproved && !isAdmin && isBpLinked && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
               Transação vinculada ao BP — valor editável até à liquidação.

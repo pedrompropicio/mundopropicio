@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.reverse_payment(uuid, text, text, date);
