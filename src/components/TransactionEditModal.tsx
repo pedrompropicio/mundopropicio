@@ -25,7 +25,7 @@ import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invo
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
-import { TransactionInstallmentGroupEditor } from "@/components/TransactionInstallmentGroupEditor";
+import { TransactionInstallmentGroupEditor, useInstallmentGroup } from "@/components/TransactionInstallmentGroupEditor";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
@@ -328,6 +328,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const [revertIsPartial, setRevertIsPartial] = useState(false);
   const [revertPartialAmount, setRevertPartialAmount] = useState("");
 
+  const { data: installmentGroupRows = [] } = useInstallmentGroup(transaction);
+  const isInstallmentGroup = installmentGroupRows.length >= 2;
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
@@ -346,9 +349,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_reimbursement: "Reembolso",
         reimbursement_to: "Colaborador (reembolso)",
       };
-      const allowedFields = paidLocked
+      const allowedFields = (paidLocked
         ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
-        : Object.keys(fieldLabels);
+        : Object.keys(fieldLabels)
+      ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
@@ -406,6 +410,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         } : {}),
       };
 
+      // TX parcelada (grupo "(n/N)"): valores só via editor de parcelas.
+      if (isInstallmentGroup) {
+        delete (updates as any).amount;
+        delete (updates as any).iva_rate;
+      }
 
       if (!paidLocked && currency !== "EUR") {
         const orig = parseFloat(originalAmount) || 0;
@@ -587,7 +596,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   const isExpense = transaction.type === "expense";
   const isApproved = transaction.status === "approved";
-  const valueLocked = paidLocked;
+  const valueLocked = paidLocked || isInstallmentGroup;
   const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
 
   const getRootFlags = (categoryId: string) => {
@@ -711,9 +720,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!paidLocked && valueLocked && (
+          {!paidLocked && valueLocked && !isInstallmentGroup && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
               Transação aprovada — valor e IVA não podem ser alterados.
+            </div>
+          )}
+          {isInstallmentGroup && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
+              Transação parcelada — altera os valores em <strong>Editar parcelas</strong>.
             </div>
           )}
           <TransactionInstallmentGroupEditor transaction={transaction} isAdmin={isAdmin} />
