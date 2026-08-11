@@ -8,6 +8,8 @@ import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, fo
 import { calcWithIva } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
+import { useInvoiceGroupProgress, type InvoiceGroupProgress } from "@/hooks/useInvoiceGroupProgress";
+
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
