@@ -91,10 +91,33 @@ re-tenta. Erros classificados por `phase` (`login_csrf`, `login_post`,
 `xlsx_*`, `parse_failed`, `import_failed`, `account_missing`,
 `session_expired`).
 
+## Layouts sem secção "ZONA" — fallback pela secção 1 (v2.4)
+
+Alguns relatórios (ex.: evento "Deive Leonardo - Braga", código 66606) vêm
+sem o marcador "Operações por dia" e sem o header `ZONA`, logo sem secção 2.
+Nesse caso o import usa os **totais diários da secção 1**:
+
+- 1 linha de `ticket_sales` por dia com vendas (`vendasQty`/`vendasValue`;
+  se ambos zero mas `geralQty/Value` ≠ 0, usa o geral).
+- Destino: a **única zona/lote existente** do evento se só houver uma;
+  senão cria/reutiliza zona `Geral` + lote `Lote 1`.
+- Quantidades negativas (devoluções) são importadas com o sinal.
+- `import_audit.dataSource = 'section1_daily'` (vs `'section2'`) e um
+  warning explícito. Idempotência é a mesma (delete por evento+conta+source
+  antes de inserir o novo `import_batch_id`).
+
+## Fim do sucesso silencioso (v2.4)
+
+Se o parser encontrou vendas na secção 1 mas `rowsImported = 0`, a run é
+gravada com `status='warning'` (nunca `success`), `error_message` explícito
+e `import_audit.silentEmpty = true`. Os `totals` do audit refletem sempre a
+fonte usada (secção 1 quando é ela a origem).
+
 ## Validação automática
 
 O parser soma a secção 2 por dia e compara com a secção 1 (TOTAL VENDAS).
 Divergência → entra como `warning` no `import_audit` mas não falha o run.
+
 
 ## Janela de datas e `sales_start_date`
 
