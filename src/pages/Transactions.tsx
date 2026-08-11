@@ -741,6 +741,9 @@ export default function Transactions() {
       } else {
         inPeriod.push(t);
       }
+    });
+
+
 
 
     return {
