@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, Calendar as CalendarIcon, X } from "lucide-react";
+import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, Calendar as CalendarIcon, X, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -28,6 +30,8 @@ type Cfg = {
   last_run_at: string | null;
   last_run_status: string | null;
 };
+const SHARED_SECRET = "ticketline_master";
+
 type Run = {
   id: string;
   config_id: string;
@@ -53,6 +57,7 @@ export default function TicketlineSync() {
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [credsModal, setCredsModal] = useState<Cfg | null>(null);
   const [credsForm, setCredsForm] = useState({ email: "", password: "" });
+  const [addOpen, setAddOpen] = useState(false);
 
   const cfgQ = useQuery({
     queryKey: ["ticketline-sync-config"],
@@ -135,16 +140,21 @@ export default function TicketlineSync() {
 
   return (
     <div className="container py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Sync Ticketline</h1>
-        <p className="text-muted-foreground mt-1">Importação automática diária da curva de vendas Ticketline (login Devise + sale_summary.xlsx).</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Sync Ticketline</h1>
+          <p className="text-muted-foreground mt-1">Importação automática diária da curva de vendas Ticketline (login Devise + sale_summary.xlsx).</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" /> Adicionar evento
+        </Button>
       </div>
 
       {cfgQ.isLoading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
       ) : cfgs.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
-          Sem configurações. Cria um registo em <code>ticketline_sync_config</code> com <code>event_id</code>, <code>ticketline_event_id</code> e <code>vault_secret_name</code>.
+          Sem configurações. Usa <b>Adicionar evento</b> para ligar um evento do ERP ao sync — as credenciais usam por defeito a conta partilhada <code>{SHARED_SECRET}</code>.
         </CardContent></Card>
       ) : (
         cfgs.map((cfg) => (
@@ -267,7 +277,140 @@ export default function TicketlineSync() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AddConfigModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        existingEventIds={cfgs.map((c) => c.event_id)}
+        onCreated={() => {
+          setAddOpen(false);
+          qc.invalidateQueries({ queryKey: ["ticketline-sync-config"] });
+        }}
+      />
     </div>
+  );
+}
+
+function AddConfigModal({
+  open, onClose, existingEventIds, onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  existingEventIds: string[];
+  onCreated: () => void;
+}) {
+  const { company } = useCompany();
+  const [eventId, setEventId] = useState("");
+  const [tlEventId, setTlEventId] = useState("");
+  const [salesStart, setSalesStart] = useState("");
+  const [otherAccount, setOtherAccount] = useState(false);
+  const [creds, setCreds] = useState({ email: "", password: "" });
+
+  const eventsQ = useQuery({
+    queryKey: ["ticketline-events-picker", company?.id],
+    enabled: open && !!company?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, start_date")
+        .eq("company_id", company!.id)
+        .order("start_date", { ascending: false })
+        .limit(300);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const createMut = useMutation({
+    mutationFn: async () => {
+      if (!company?.id) throw new Error("empresa não resolvida");
+      const secretName = otherAccount ? `ticketline_${eventId}` : SHARED_SECRET;
+      const { data, error } = await supabase.from("ticketline_sync_config" as any).insert({
+        company_id: company.id,
+        event_id: eventId,
+        ticketline_event_id: tlEventId.trim(),
+        vault_secret_name: secretName,
+        organization_name: "Ticketline",
+        enabled: true,
+        sales_start_date: salesStart || null,
+      }).select("id").single();
+      if (error) throw error;
+      if (otherAccount) {
+        const { error: cErr } = await supabase.functions.invoke("update-ticketline-credentials", {
+          body: { configId: (data as any).id, email: creds.email, password: creds.password },
+        });
+        if (cErr) throw cErr;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Evento ligado ao sync Ticketline.");
+      setEventId(""); setTlEventId(""); setSalesStart(""); setOtherAccount(false); setCreds({ email: "", password: "" });
+      onCreated();
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro a criar configuração"),
+  });
+
+  const available = (eventsQ.data || []).filter((e: any) => !existingEventIds.includes(e.id));
+  const credsOk = !otherAccount || (!!creds.email && !!creds.password);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Adicionar evento ao sync Ticketline</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Evento do ERP</Label>
+            <Select value={eventId} onValueChange={setEventId}>
+              <SelectTrigger><SelectValue placeholder={eventsQ.isLoading ? "A carregar…" : "Selecionar evento"} /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                {available.map((e: any) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.name}{e.start_date ? ` — ${e.start_date}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Código do evento na Ticketline</Label>
+            <Input value={tlEventId} onChange={(e) => setTlEventId(e.target.value)} placeholder="ex: 63653" className="font-mono" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Data de início de vendas (opcional)</Label>
+            <Input type="date" value={salesStart} onChange={(e) => setSalesStart(e.target.value)} />
+            <p className="text-[11px] text-muted-foreground">Vazio = fallback 01-01-2025.</p>
+          </div>
+          <div className="rounded border p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">Credenciais</div>
+                <div className="text-xs text-muted-foreground">
+                  {otherAccount
+                    ? "Vai guardar credenciais próprias no Vault para este evento."
+                    : <>Usa a conta partilhada <code>{SHARED_SECRET}</code> — não é preciso email/password.</>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Label className="text-xs">Usar outra conta</Label>
+                <Switch checked={otherAccount} onCheckedChange={setOtherAccount} />
+              </div>
+            </div>
+            {otherAccount && (
+              <div className="space-y-2 pt-1">
+                <Input value={creds.email} onChange={(e) => setCreds((s) => ({ ...s, email: e.target.value }))} placeholder="manager@empresa.pt" />
+                <Input type="password" value={creds.password} onChange={(e) => setCreds((s) => ({ ...s, password: e.target.value }))} placeholder="Password" />
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button disabled={!eventId || !tlEventId.trim() || !credsOk || createMut.isPending} onClick={() => createMut.mutate()}>
+            {createMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Adicionar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
