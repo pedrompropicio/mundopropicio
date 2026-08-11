@@ -317,15 +317,37 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   return buf;
 }
 
+// Cache de sessão por vault_secret_name. Com credencial única (ticketline_master)
+// partilhada por todos os configs, uma corrida do cron faz 1 login Devise em vez
+// de 13. O self-heal continua a existir: se o download falhar com session_expired
+// (retriable), refaz login, actualiza o cache e repete uma vez.
+type SessionCache = Map<string, Jar>;
+
+async function getJar(
+  sessions: SessionCache,
+  secretName: string,
+  creds: { email: string; password: string },
+  force = false,
+): Promise<Jar> {
+  if (!force) {
+    const cached = sessions.get(secretName);
+    if (cached) return cached;
+  }
+  const { jar } = await loginDevise(creds.email, creds.password);
+  sessions.set(secretName, jar);
+  console.log(`[ticketline] login Devise (${force ? "re-login" : "novo"}) para secret=${secretName}`);
+  return jar;
+}
+
 async function downloadSummary(
   creds: { email: string; password: string },
+  secretName: string,
+  sessions: SessionCache,
   ticketlineEventId: string,
   filterStartDDMMYYYY: string,
   filterEndDDMMYYYY: string,
 ) {
-  let jar: Jar;
-  const { jar: j0 } = await loginDevise(creds.email, creds.password);
-  jar = j0;
+  const jar = await getJar(sessions, secretName, creds);
   const qs = new URLSearchParams();
   qs.set("utf8", "✓");
   qs.set("granularity", "2");
@@ -340,13 +362,13 @@ async function downloadSummary(
   } catch (e: any) {
     if (e?.retriable) {
       console.log(`[ticketline] self-heal re-login (sale_summary)`);
-      const { jar: j2 } = await loginDevise(creds.email, creds.password);
-      jar = j2;
-      return await downloadXlsx(jar, url, "sale_summary");
+      const jar2 = await getJar(sessions, secretName, creds, true);
+      return await downloadXlsx(jar2, url, "sale_summary");
     }
     throw e;
   }
 }
+
 
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
