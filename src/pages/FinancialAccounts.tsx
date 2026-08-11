@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FinancialOperationsTab from "@/components/FinancialOperationsTab";
+import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { fetchAccountCashAdjustments } from "@/lib/account-balance";
@@ -268,7 +269,7 @@ export default function FinancialAccounts() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contas Ativas</p>
           <p className="mt-1 text-2xl font-bold">{activeAccounts.length}</p>
@@ -288,6 +289,7 @@ export default function FinancialAccounts() {
             ))}
           </div>
         </div>
+        <SupplierCreditsSummaryCard />
       </div>
 
       {/* Form modal */}

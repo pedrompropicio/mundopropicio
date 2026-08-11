@@ -10728,6 +10728,15 @@ export type Database = {
         Args: { _payload: Json }
         Returns: number
       }
+      apply_supplier_credit: {
+        Args: {
+          p_amount: number
+          p_credit_id: string
+          p_payment_id?: string
+          p_transaction_id: string
+        }
+        Returns: Json
+      }
       archive_bp_version: {
         Args: {
           _performed_by?: string
@@ -10972,6 +10981,7 @@ export type Database = {
         }
         Returns: string
       }
+      expire_supplier_credits: { Args: never; Returns: number }
       find_admin_absorbing_events: {
         Args: { p_company_id: string; p_date: string }
         Returns: {
@@ -11276,15 +11286,26 @@ export type Database = {
         Args: { _trash_id: string }
         Returns: Json
       }
-      reverse_payment: {
-        Args: {
-          p_kind: string
-          p_payment_id: string
-          p_reason: string
-          p_valid_until?: string
-        }
-        Returns: Json
-      }
+      reverse_payment:
+        | {
+            Args: {
+              p_kind: string
+              p_payment_id: string
+              p_reason: string
+              p_valid_until?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_amount?: number
+              p_kind: string
+              p_payment_id: string
+              p_reason: string
+              p_valid_until?: string
+            }
+            Returns: Json
+          }
       reverse_transaction:
         | {
             Args: {
