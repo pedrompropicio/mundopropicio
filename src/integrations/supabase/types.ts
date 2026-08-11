@@ -4104,6 +4104,7 @@ export type Database = {
       }
       event_marketing: {
         Row: {
+          age_rating: string | null
           company_id: string
           created_at: string
           created_by: string | null
@@ -4140,6 +4141,7 @@ export type Database = {
           urgency_message_pt: string | null
         }
         Insert: {
+          age_rating?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
@@ -4176,6 +4178,7 @@ export type Database = {
           urgency_message_pt?: string | null
         }
         Update: {
+          age_rating?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
@@ -10430,6 +10433,7 @@ export type Database = {
       }
       events_public: {
         Row: {
+          age_rating: string | null
           city_id: string | null
           city_name: string | null
           cta_primary_label_en: string | null

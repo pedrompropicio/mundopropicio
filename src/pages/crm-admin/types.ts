@@ -42,6 +42,8 @@ export interface EventMarketingRow {
   hero_video_url: string | null;
   music_embed_url: string | null;
   ticket_experiences: TicketExperience[] | null;
+  age_rating: string | null;
+
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
