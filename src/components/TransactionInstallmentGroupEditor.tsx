@@ -169,6 +169,10 @@ export function TransactionInstallmentGroupEditor({
     onSuccess: (n) => {
       queryClient.invalidateQueries({ queryKey: ["installment-group"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      // Badge azul da proforma/fatura na lista (agrupamento por invoice_ref + fornecedor)
+      queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
+      queryClient.invalidateQueries({ queryKey: ["invoice-group-progress"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-audit-log"] });
       toast({ title: `${n} parcela(s) atualizada(s)` });
     },
     onError: (e: any) =>
