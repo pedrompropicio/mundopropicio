@@ -56,6 +56,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [showPayConfirm, setShowPayConfirm] = useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = useState(false);
+
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
   const [editTx, setEditTx] = useState<any | null>(null);
 
