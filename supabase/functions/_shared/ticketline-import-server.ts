@@ -177,7 +177,7 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
   // 5. Resolver / criar lotes
   // chave de lote = lot + ( | ticketType) — mantém a separação Mob.Reduzida etc.
   const lotIdByRowKey = new Map<string, string>(); // `${zone}::${lotName}` → lotId
-  for (const r of parseResult.rows) {
+  for (const r of rows) {
     const zoneId = zoneIdByName.get(r.zone)!;
     const lotName = r.ticketType ? `${r.lot} | ${r.ticketType}` : r.lot;
     const rowKey = `${r.zone}::${lotName}`;
@@ -230,7 +230,7 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
   }
 
   // 8. Inserir ticket_sales (1 linha por row TOTAL VENDAS ≠ 0)
-  const payload = parseResult.rows
+  const payload = rows
     .filter(r => r.totalVendasQty !== 0 || r.totalVendasValue !== 0)
     .map(r => {
       const lotName = r.ticketType ? `${r.lot} | ${r.ticketType}` : r.lot;
