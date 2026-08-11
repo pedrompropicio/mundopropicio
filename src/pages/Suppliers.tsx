@@ -297,6 +297,11 @@ export default function Suppliers() {
           </div>
         </div>
       )}
+      </>
+      )}
+
+      {tab === "credits" && <SupplierCreditsTab />}
     </div>
+
   );
 }
