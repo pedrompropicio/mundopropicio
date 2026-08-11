@@ -14,6 +14,9 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { SupplierCreditBanner, resolveCreditSelection, type CreditSelection } from "@/components/supplier-credits/SupplierCreditBanner";
+import { applySupplierCredit } from "@/lib/supplier-credits";
+import { useAvailableSupplierCredits } from "@/hooks/useAvailableSupplierCredits";
 
 type Props = {
   open: boolean;
@@ -48,6 +51,7 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
   const [method, setMethod] = useState<string>(installment?.payment_method || "transfer");
   const [withholding, setWithholding] = useState<string>("0");
   const [credit, setCredit] = useState<string>("0");
+  const [creditSel, setCreditSel] = useState<CreditSelection>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const { data: accounts = [] } = useQuery({
@@ -64,9 +68,26 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
     },
   });
 
+  const { data: tx } = useQuery({
+    queryKey: ["mark-paid-tx", transactionId],
+    enabled: open && !!transactionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, supplier_id")
+        .eq("id", transactionId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: availableCredits = [] } = useAvailableSupplierCredits(tx?.supplier_id, open);
+
   const mut = useMutation({
     mutationFn: async () => {
       if (!installment) return;
+      const creditToApply = resolveCreditSelection(creditSel, availableCredits, Number(installment.amount));
       if (!accountId) throw new Error("Escolhe uma conta financeira.");
       const { error } = await supabase
         .from("transaction_payments" as any)
@@ -81,10 +102,23 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
         } as any)
         .eq("id", installment.id);
       if (error) throw error;
+
+      // Abate do crédito de fornecedor (transacional, só depois de confirmado).
+      if (creditToApply) {
+        await applySupplierCredit({
+          creditId: creditToApply.creditId,
+          transactionId,
+          amount: creditToApply.amount,
+          paymentId: installment.id,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-timeline", transactionId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits-available"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits-all"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits-summary"] });
       toast({ title: "Parcela marcada como paga" });
       onOpenChange(false);
     },
@@ -109,6 +143,14 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
         </DialogHeader>
 
         <div className="space-y-3">
+          <SupplierCreditBanner
+            supplierId={tx?.supplier_id}
+            maxAmount={Number(installment.amount)}
+            value={creditSel}
+            onChange={setCreditSel}
+            disabled={mut.isPending}
+          />
+
           <div className="space-y-1.5">
             <Label className="text-xs">Data efetiva</Label>
             <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
