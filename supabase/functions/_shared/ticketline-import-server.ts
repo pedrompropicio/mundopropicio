@@ -39,6 +39,8 @@ export interface TicketlineImportAudit {
   lotsReused: number;
   importLogId: string | null;
   warnings: string[];
+  /** 'section2' = layout normal (ZONA); 'section1_daily' = fallback pelos totais diários. */
+  dataSource: "section2" | "section1_daily" | "none";
   totals: {
     qtyVendas: number; valueVendas: number;
     qtyGeral: number; valueGeral: number;
@@ -48,6 +50,7 @@ export interface TicketlineImportAudit {
   section2DailyTotals: any[];
   zoneLotMap: Array<{ zone: string; lot: string; zoneId: string; lotId: string }>;
 }
+
 
 function normalizeName(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
