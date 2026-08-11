@@ -2100,14 +2100,18 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               {groups.map((group) => {
                 const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
                 const groupItems = group.items.map((gi: any) => gi._item).filter(Boolean);
+                const gid = (group.items?.[0] as any)?.invoice_group_id as string | null;
+                const gProgress = gid ? (groupProgress as Record<string, InvoiceGroupProgress>)[gid] : undefined;
                 return (
                   <div key={`group-${group.supplier_id}-${group.invoice_ref}`} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
                       <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">📎 Fatura Agrupada</Badge>
                       <span className="font-semibold">{formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}</span>
                       <span className="text-muted-foreground">—</span>
                       <span className="font-mono text-xs">{group.invoice_ref}</span>
+                      <InvoiceGroupProgressBadge visibleCount={group.items.length} progress={gProgress} />
                     </div>
+
                     {Number((group as any).group_total_count ?? 0) > group.items.length && (
                       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                         ⚠️ Fatura {group.invoice_ref} tem {(group as any).group_total_count} itens; só {group.items.length} nesta lista.
