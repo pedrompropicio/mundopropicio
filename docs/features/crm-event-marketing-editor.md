@@ -44,3 +44,9 @@ UI: repetidor com adicionar, remover, reordenar (↑ / ↓). Validação: nenhum
 ## Exposição pública
 
 As 3 colunas estão expostas em `public.events_public` (view) e são consumidas pelo portal `mundopropicio.com`.
+
+## Classificação etária (tab "Oferta")
+
+| Campo UI | Coluna BD | Tipo | Notas |
+| --- | --- | --- | --- |
+| Classificação etária | `age_rating` | `text` | Texto livre curto (ex.: "M/16", "M/12", "Para todos os públicos"). Opcional. Exposto em `public.events_public`. |
