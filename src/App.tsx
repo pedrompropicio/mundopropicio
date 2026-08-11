@@ -88,6 +88,7 @@ import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
+import AccountantPendencies from "./pages/AccountantPendencies";
 import EventImplementations from "./pages/EventImplementations";
 import EventImplementationDetail from "./pages/EventImplementationDetail";
 import UserActivityLog from "./pages/UserActivityLog";
@@ -444,6 +445,7 @@ function ProtectedLayout() {
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/reembolsos" element={<Reimbursements />} />
+              <Route path="/pendencias-contabilista" element={<AccountantPendencies />} />
               <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/camarim" element={<Camarim />} />
               <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
