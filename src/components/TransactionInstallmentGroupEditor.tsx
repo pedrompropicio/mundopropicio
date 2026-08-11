@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { distributeEvenly } from "@/components/ScheduleInstallmentsModal";
+import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+
 
 /**
  * Editor do parcelamento ANTIGO (issue #39): N transações irmãs "(n/N)" ligadas
