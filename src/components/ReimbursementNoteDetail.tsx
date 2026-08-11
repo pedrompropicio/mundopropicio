@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download, Paperclip, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download, Paperclip, Pencil, RotateCcw } from "lucide-react";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
@@ -15,6 +15,19 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { format } from "date-fns";
+import { logAudit, getAuditUser } from "@/lib/audit";
+import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 interface Props {
   noteId: string;
@@ -43,6 +56,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [showPayConfirm, setShowPayConfirm] = useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = useState(false);
+
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
   const [editTx, setEditTx] = useState<any | null>(null);
 
@@ -270,6 +285,72 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     onError: (err: any) => toast({ title: "Erro ao gerar transação", description: err.message, variant: "destructive" }),
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: async () => {
+      const payTxId = (note as any)?.payment_transaction_id as string | null;
+
+      if (payTxId) {
+        const { data: payTx, error: fetchErr } = await supabase
+          .from("transactions")
+          .select("id, status, paid_amount")
+          .eq("id", payTxId)
+          .maybeSingle();
+        if (fetchErr) throw fetchErr;
+
+        if (payTx) {
+          const { count: paymentsCount } = await supabase
+            .from("transaction_payments")
+            .select("id", { count: "exact", head: true })
+            .eq("transaction_id", payTxId);
+
+          const hasPayment =
+            payTx.status === "paid" || Number(payTx.paid_amount || 0) > 0 || (paymentsCount || 0) > 0;
+
+          if (hasPayment) {
+            throw new Error("Já existe pagamento registado — estorna o pagamento primeiro.");
+          }
+
+          const { error: delErr } = await supabase.from("transactions").delete().eq("id", payTxId);
+          if (delErr) throw delErr;
+        }
+      }
+
+      const { error } = await supabase
+        .from("reimbursement_notes")
+        .update({
+          status: "draft",
+          payment_transaction_id: null,
+          paid_at: null,
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq("id", noteId);
+      if (error) throw error;
+
+      await logAudit({
+        entity_type: "reimbursement_note",
+        entity_id: noteId,
+        action: "reopen",
+        changed_by: getAuditUser(user),
+        old_data: { status: "pending_payment", payment_transaction_id: payTxId },
+        new_data: { status: "draft", payment_transaction_id: null },
+        metadata: { code: (note as any)?.code ?? null, deleted_payment_transaction_id: payTxId },
+      });
+    },
+    onSuccess: () => {
+      invalidateAll();
+      invalidateTransactionQueries(queryClient);
+      setShowReopenConfirm(false);
+      toast({
+        title: "Lista reaberta",
+        description: "A nota voltou a Rascunho e a transação de pagamento foi eliminada.",
+      });
+    },
+    onError: (err: any) =>
+      toast({ title: "Não foi possível reabrir", description: err.message, variant: "destructive" }),
+  });
+
+
   async function recalcTotal() {
     const { data: currentItems } = await supabase
       .from("reimbursement_note_items")
@@ -293,6 +374,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const canEditDraft = isDraft && (isAdmin || isManager || isEditor);
   const canApprove = isDraft && items.length > 0 && allHaveDocs && (isAdmin || isManager);
   const canPay = isApproved && (isAdmin || isManager || isEditor);
+  const canReopen = note.status === "pending_payment" && isAdmin;
+
   const grossOf = (tx: any) =>
     Number(tx?.amount || 0) * (1 + Number(tx?.iva_rate || 0) / 100);
   const grossTotal = items.reduce((s: number, i: any) => s + grossOf(i.transactions), 0);
@@ -430,7 +513,47 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
             <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Gerar Transação para Pagamento
           </Button>
         )}
+        {canReopen && (
+          <Button size="sm" variant="outline" onClick={() => setShowReopenConfirm(true)}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reabrir lista
+          </Button>
+        )}
       </div>
+
+      <AlertDialog open={showReopenConfirm} onOpenChange={setShowReopenConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir a nota {note.code}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Esta ação reverte o fecho da nota:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>A nota volta a <strong>Rascunho</strong> e fica editável (adicionar/remover despesas).</li>
+                  <li>A aprovação é limpa — será necessário aprovar de novo.</li>
+                  <li>A transação de pagamento gerada ({formatCurrency(grossTotal)}) é <strong>eliminada</strong>.</li>
+                  <li>As despesas-filhas mantêm-se como estão (aprovadas).</li>
+                </ul>
+                <p className="text-warning">
+                  Se já existir qualquer pagamento registado nessa transação, a reabertura é bloqueada — estorna o pagamento primeiro.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                reopenMutation.mutate();
+              }}
+              disabled={reopenMutation.isPending}
+            >
+              {reopenMutation.isPending ? "A reabrir…" : "Reabrir lista"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Add item panel */}
       {showAddItem && isDraft && (
