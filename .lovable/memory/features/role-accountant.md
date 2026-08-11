@@ -108,5 +108,10 @@ type: feature
 - Policy `"Camarim documents viewable by accountant"` (SELECT em `storage.objects`): `bucket_id='camarim-documents' AND has_role(uid,'accountant') AND row_belongs_to_current_company(split_part(name,'/',1)::uuid)`. Só leitura — nenhum acesso de escrita novo.
 - `transaction-documents` já cobria o accountant.
 
+### RLS reembolsos (2026-08-11)
+- As policies SELECT `"Reimbursement notes viewable by privileged roles"` e `"Reimbursement note items viewable by privileged roles"` passam a incluir `has_role(auth.uid(),'accountant')` (além de admin/manager/editor). Sem esta leitura, `accountant-tx-docs.ts` devolvia 0 anexos para TXs-mãe de reembolso (o camarim funcionava porque as suas tabelas são viewable by authenticated).
+- Só SELECT — INSERT/UPDATE/DELETE continuam sem accountant. Isolamento mantido pelas RESTRICTIVE `company_isolation_reimbursement_note*`.
+- Validado com R-014/2026 (`payment_transaction_id cf500fcf-d73f-48f5-9c7e-203ff7061671`): 4 despesas de origem, 9 comprovativos.
+
 ### ZIP (`generate-accountant-zip`)
 - Passa a incluir camarim (prefixo `camarim_`) e reembolso (prefixo `reembolso_`) nas mesmas pastas `data_fornecedor_ref`; download pelo bucket resolvido; limites 500 tx / 200 MB inalterados. **Requer Publish.**
