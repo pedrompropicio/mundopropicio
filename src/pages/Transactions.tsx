@@ -354,12 +354,18 @@ export default function Transactions() {
     !!t.parent_transaction_id && masterSplitParentIds.has(t.parent_transaction_id);
 
 
+  // Filtro de evento COMPOSTO (AND estrito com os restantes filtros):
+  //  (a) transações do próprio evento (e sub-eventos, quando se escolhe um Master de turnê);
+  //  (b) transações Master cujo rateio inclui o evento selecionado (têm filhas com
+  //      parent_transaction_id → Master e event_id = evento selecionado).
+  // Qualquer outra transação de evento alheio fica de fora.
   const matchesEventFilter = (transaction: any) => {
     if (selectedEventIds.size === 0) return true;
     if (transaction.event_id && selectedEventScopeIds.has(transaction.event_id)) return true;
 
-    return !transaction.event_id && !transaction.parent_transaction_id && visibleParentSplitIds.has(transaction.id);
+    return !transaction.parent_transaction_id && visibleParentSplitIds.has(transaction.id);
   };
+
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -706,20 +712,7 @@ export default function Transactions() {
     };
 
     baseFiltered.forEach((t) => {
-      // When "Aprovação" filter is active, show ALL pending regardless of period
-      if (onlyPending) {
-        if (!t.due_date) {
-          noDate.push(t);
-        } else {
-          const due = new Date(t.due_date);
-          if (due < today) {
-            overdue.push(t);
-          } else {
-            inPeriod.push(t);
-          }
-        }
-        return;
-      }
+
 
       const dateVal = getDateValue(t);
       if (!dateVal) {
@@ -731,14 +724,20 @@ export default function Transactions() {
       const amount = Number(t.amount);
       const isPaid = t.status === "paid" || paidAmount >= amount - 0.01;
 
-      // Overdue only makes sense for due_date
+      // FILTRO DE DATA ESTRITO: nada entra na lista fora do período selecionado,
+      // incluindo a secção "Vencidas". Só depois de estar dentro do período é que
+      // se decide se a linha é "vencida" (due_date passado) ou "do período".
+      if (dateObj < periodStart || dateObj > periodEnd) return;
+
       if (periodDateField === "due_date" && !isPaid && dateObj < today) {
         overdue.push(t);
-      } else if (dateObj >= periodStart && dateObj <= periodEnd) {
+      } else {
         inPeriod.push(t);
       }
-      // else: outside period — excluded
     });
+
+
+
 
     return {
       overdueGroup: sortByDueDate(overdue),
