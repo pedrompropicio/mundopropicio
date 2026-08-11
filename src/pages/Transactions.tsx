@@ -354,12 +354,18 @@ export default function Transactions() {
     !!t.parent_transaction_id && masterSplitParentIds.has(t.parent_transaction_id);
 
 
+  // Filtro de evento COMPOSTO (AND estrito com os restantes filtros):
+  //  (a) transações do próprio evento (e sub-eventos, quando se escolhe um Master de turnê);
+  //  (b) transações Master cujo rateio inclui o evento selecionado (têm filhas com
+  //      parent_transaction_id → Master e event_id = evento selecionado).
+  // Qualquer outra transação de evento alheio fica de fora.
   const matchesEventFilter = (transaction: any) => {
     if (selectedEventIds.size === 0) return true;
     if (transaction.event_id && selectedEventScopeIds.has(transaction.event_id)) return true;
 
-    return !transaction.event_id && !transaction.parent_transaction_id && visibleParentSplitIds.has(transaction.id);
+    return !transaction.parent_transaction_id && visibleParentSplitIds.has(transaction.id);
   };
+
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
