@@ -732,10 +732,30 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   };
 
+  // Faturas agrupadas (invoice_group_id) selecionam-se como unidade.
+  const pickerRows = useMemo(() => buildPickerRows(filteredTx), [filteredTx]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleExpandedGroup = (gid: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  };
+  const toggleGroup = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      for (const id of ids) { if (allSelected) next.delete(id); else next.add(id); }
+      return next;
+    });
+  };
+
   const toggleAll = () => {
     if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
     else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
   };
+
 
   const handleSubmit = async (asDraft: boolean) => {
     if (selectedIds.size === 0) {
