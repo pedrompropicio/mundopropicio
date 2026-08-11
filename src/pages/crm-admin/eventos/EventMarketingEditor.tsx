@@ -68,6 +68,8 @@ const emptyForm = (eventId: string, companyId: string): FormState => ({
   hero_video_url: null,
   music_embed_url: null,
   ticket_experiences: [],
+  age_rating: null,
+
 });
 
 export default function EventMarketingEditor() {
@@ -569,6 +571,14 @@ export default function EventMarketingEditor() {
                   </SelectContent>
                 </Select>
               </Field>
+              <Field label="Classificação etária">
+                <Input
+                  value={form!.age_rating ?? ""}
+                  onChange={(e) => set("age_rating", e.target.value || null)}
+                  placeholder={ph(inherited?.age_rating, "Ex.: M/16, M/12, Para todos os públicos")}
+                />
+              </Field>
+
             </div>
           </Card>
         </TabsContent>
