@@ -92,3 +92,21 @@ type: feature
 - URLs externas antigas de `transaction-documents` — bucket já privado há tempo, sem impacto.
 - Timeout 25s pode falhar com ZIP muito grande — mitigado por limites 500 tx + 200 MB.
 - Componentes Report* assumem RLS por `current_company_id()`; trocar empresa no CompanySwitcher invalida query cache e re-fetch corre limpo.
+
+## 13. Agregação Camarim + Reembolso na aba Documentos (2026-08-11)
+- `src/lib/accountant-tx-docs.ts` agrega 3 fontes por transação:
+  1. `transaction_documents` diretos — `file_url` pode ser `camarim://<company>/…` (criado no fecho do camarim) → resolvido para bucket `camarim-documents` via `resolveDocBucket()`; caso contrário `transaction-documents`.
+  2. **Camarim (fallback real)**: `camarim_items.transaction_id = tx` → `camarim_item_documents` (bucket `camarim-documents`, `file_path` já inclui `company_id`). Necessário porque as refs `camarim://` em `transaction_documents` apontam sobretudo para o dossier consolidado, não para cada talão.
+  3. **Reembolso**: TX é `reimbursement_notes.payment_transaction_id` → `transaction_documents` das TXs de origem (`reimbursement_note_items.transaction_id`).
+- De-duplicação por chave `bucket:path` (contagens em lote e detalhe), evitando contar 2× o mesmo ficheiro.
+- Badges no popover: **Camarim** / **Reembolso**; `source_label` mostra a descrição do item/despesa.
+- **Decisão sobre duplicação nos reembolsos**: os comprovativos aparecem na TX-mãe (pagamento consolidado — a linha que a contabilista procura) e continuam a aparecer nas TXs de origem se estiverem no período. No ZIP, de-dup por caminho dentro de cada pasta de transação.
+- Downloads usam bucket correto + `record_document_download` com `resource_type='camarim_document'` para talões de camarim.
+
+### Storage / migration
+- `document_download_audit_resource_type_check` estendido com `'camarim_document'`.
+- Policy `"Camarim documents viewable by accountant"` (SELECT em `storage.objects`): `bucket_id='camarim-documents' AND has_role(uid,'accountant') AND row_belongs_to_current_company(split_part(name,'/',1)::uuid)`. Só leitura — nenhum acesso de escrita novo.
+- `transaction-documents` já cobria o accountant.
+
+### ZIP (`generate-accountant-zip`)
+- Passa a incluir camarim (prefixo `camarim_`) e reembolso (prefixo `reembolso_`) nas mesmas pastas `data_fornecedor_ref`; download pelo bucket resolvido; limites 500 tx / 200 MB inalterados. **Requer Publish.**

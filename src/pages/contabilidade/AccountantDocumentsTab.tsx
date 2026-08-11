@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Period } from "./PeriodSelector";
-import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch } from "@/lib/accountant-tx-docs";
+import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch, type AccountantDoc } from "@/lib/accountant-tx-docs";
 
 interface Tx {
   id: string;
@@ -117,17 +117,17 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     mutationFn: async (tx: Tx) => {
       const docs = await fetchAccountantTxDocs(tx.id);
       if (!docs.length) throw new Error("Sem anexos");
-      // Abre cada anexo (próprio + despesas-filhas do reembolso) numa aba nova
+      // Abre cada anexo (próprio + camarim + despesas-filhas do reembolso) numa aba nova
       for (const d of docs) {
         const { data: signed, error } = await supabase.storage
-          .from("transaction-documents")
-          .createSignedUrl(d.file_url, 60 * 60, { download: true });
+          .from(d.bucket)
+          .createSignedUrl(d.path, 60 * 60, { download: true });
         if (error || !signed) continue;
         await supabase.rpc("record_document_download" as any, {
-          p_resource_type: "transaction_document",
+          p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
           p_resource_id: d.source_tx_id,
-          p_bucket: "transaction-documents",
-          p_file_path: d.file_url,
+          p_bucket: d.bucket,
+          p_file_path: d.path,
           p_file_name: d.name,
         } as any);
         window.open(signed.signedUrl, "_blank");
@@ -135,6 +135,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
+
 
   async function downloadAll() {
     setZipLoading(true);
@@ -271,17 +272,17 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
     queryFn: () => fetchAccountantTxDocs(txId),
   });
 
-  async function openDoc(d: { id: string; name: string; file_url: string; source_tx_id: string }) {
+  async function openDoc(d: AccountantDoc) {
     try {
       const { data: signed, error } = await supabase.storage
-        .from("transaction-documents")
-        .createSignedUrl(d.file_url, 60 * 60);
+        .from(d.bucket)
+        .createSignedUrl(d.path, 60 * 60);
       if (error || !signed) throw error ?? new Error("signed url falhou");
       await supabase.rpc("record_document_download" as any, {
-        p_resource_type: "transaction_document",
+        p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
         p_resource_id: d.source_tx_id,
-        p_bucket: "transaction-documents",
-        p_file_path: d.file_url,
+        p_bucket: d.bucket,
+        p_file_path: d.path,
         p_file_name: d.name,
       } as any);
       window.open(signed.signedUrl, "_blank");
@@ -307,12 +308,20 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
           <div className="space-y-1">
             {data.map((d) => (
               <button
-                key={d.id}
+                key={`${d.bucket}:${d.id}`}
                 onClick={() => openDoc(d)}
                 className="flex w-full items-start justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="truncate">{d.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    {d.origin === "camarim" && (
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">Camarim</Badge>
+                    )}
+                    {d.origin === "reimbursement" && (
+                      <Badge variant="outline" className="h-4 px-1 text-[9px]">Reembolso</Badge>
+                    )}
+                    <span className="truncate">{d.name}</span>
+                  </div>
                   {d.source_label && (
                     <div className="truncate text-[10px] text-muted-foreground">{d.source_label}</div>
                   )}
@@ -326,3 +335,4 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
     </Popover>
   );
 }
+
