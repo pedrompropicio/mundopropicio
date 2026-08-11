@@ -8,6 +8,8 @@ import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, fo
 import { calcWithIva } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
+import { useInvoiceGroupProgress, type InvoiceGroupProgress } from "@/hooks/useInvoiceGroupProgress";
+
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -626,6 +628,46 @@ function groupWithIvaTotal(txs: any[]): number {
   return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
 }
 
+/**
+ * Badge de progresso de liquidação de uma fatura agrupada.
+ * 0 pagos → só "N itens" (sem ruído). Parcial → âmbar "X/N pagos" + valor em
+ * aberto. Tudo pago → verde "N/N pagos".
+ */
+function InvoiceGroupProgressBadge({
+  visibleCount,
+  progress,
+}: {
+  visibleCount: number;
+  progress?: InvoiceGroupProgress;
+}) {
+  const total = progress?.total ?? visibleCount;
+  const paid = progress?.paidCount ?? 0;
+  if (!progress || paid === 0) {
+    return (
+      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+        {visibleCount} itens
+      </span>
+    );
+  }
+  if (paid >= total) {
+    return (
+      <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-500">
+        {paid}/{total} pagos
+      </span>
+    );
+  }
+  return (
+    <>
+      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-500">
+        {paid}/{total} pagos
+      </span>
+      <span className="text-[11px] text-muted-foreground">
+        em aberto: {formatCurrency(progress.openWithIva)}
+      </span>
+    </>
+  );
+}
+
 /** Cabeçalho do cartão de fatura agrupada dentro das tabelas dos pickers. */
 function InvoiceGroupHeaderRow({
   txs,
@@ -635,6 +677,7 @@ function InvoiceGroupHeaderRow({
   onToggle,
   expanded,
   onToggleExpanded,
+  progress,
 }: {
   txs: any[];
   labelColSpan: number;
@@ -643,6 +686,7 @@ function InvoiceGroupHeaderRow({
   onToggle: () => void;
   expanded: boolean;
   onToggleExpanded: () => void;
+  progress?: InvoiceGroupProgress;
 }) {
   const first = txs[0];
   const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
@@ -653,7 +697,7 @@ function InvoiceGroupHeaderRow({
         <Checkbox checked={checked} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />
       </td>
       <td className="p-2" colSpan={labelColSpan}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleExpanded(); }}
@@ -665,9 +709,7 @@ function InvoiceGroupHeaderRow({
           <span className="font-semibold">🧾 Fatura Agrupada</span>
           {supplier && <span className="text-muted-foreground">— {supplier}</span>}
           {ref && <span className="text-muted-foreground">— {ref}</span>}
-          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-            {txs.length} itens
-          </span>
+          <InvoiceGroupProgressBadge visibleCount={txs.length} progress={progress} />
         </div>
       </td>
       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
@@ -675,6 +717,7 @@ function InvoiceGroupHeaderRow({
     </tr>
   );
 }
+
 
 /* ─── Create Payment List Modal ─── */
 
@@ -734,6 +777,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 
   // Faturas agrupadas (invoice_group_id) selecionam-se como unidade.
   const pickerRows = useMemo(() => buildPickerRows(filteredTx), [filteredTx]);
+  // Estado consolidado de cada fatura agrupada (inclui itens já pagos fora do picker).
+  const { data: groupProgress = {} } = useInvoiceGroupProgress(
+    useMemo(() => pickerRows.filter((r) => r.kind === "group").map((r: any) => r.groupId), [pickerRows]),
+  );
+
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const toggleExpandedGroup = (gid: string) => {
     setExpandedGroups((prev) => {
@@ -949,6 +997,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         onToggle={() => toggleGroup(ids)}
                         expanded={expanded}
                         onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                        progress={(groupProgress as Record<string, InvoiceGroupProgress>)[row.groupId]}
+
                       />
                       {expanded && row.txs.map((t: any) => renderTx(t, true))}
                     </Fragment>
@@ -1296,6 +1346,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       return counts;
     },
   });
+
+  // Progresso de liquidação consolidado da fatura (todos os itens do grupo na BD).
+  const { data: groupProgress = {} } = useInvoiceGroupProgress(invoiceGroupIds);
+
 
   // BP forecast check for view
   const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
@@ -2046,14 +2100,18 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               {groups.map((group) => {
                 const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
                 const groupItems = group.items.map((gi: any) => gi._item).filter(Boolean);
+                const gid = (group.items?.[0] as any)?.invoice_group_id as string | null;
+                const gProgress = gid ? (groupProgress as Record<string, InvoiceGroupProgress>)[gid] : undefined;
                 return (
                   <div key={`group-${group.supplier_id}-${group.invoice_ref}`} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
                       <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">📎 Fatura Agrupada</Badge>
                       <span className="font-semibold">{formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}</span>
                       <span className="text-muted-foreground">—</span>
                       <span className="font-mono text-xs">{group.invoice_ref}</span>
+                      <InvoiceGroupProgressBadge visibleCount={group.items.length} progress={gProgress} />
                     </div>
+
                     {Number((group as any).group_total_count ?? 0) > group.items.length && (
                       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                         ⚠️ Fatura {group.invoice_ref} tem {(group as any).group_total_count} itens; só {group.items.length} nesta lista.
@@ -2569,6 +2627,10 @@ function AddTransactionsToList({
 
   // Faturas agrupadas (invoice_group_id) selecionam-se como unidade.
   const pickerRows = useMemo(() => buildPickerRows(filteredTx), [filteredTx]);
+  const { data: groupProgress = {} } = useInvoiceGroupProgress(
+    useMemo(() => pickerRows.filter((r) => r.kind === "group").map((r: any) => r.groupId), [pickerRows]),
+  );
+
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const toggleExpandedGroup = (gid: string) => {
     setExpandedGroups((prev) => {
@@ -2719,6 +2781,8 @@ function AddTransactionsToList({
                         onToggle={() => toggleGroup(ids)}
                         expanded={expanded}
                         onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                        progress={(groupProgress as Record<string, InvoiceGroupProgress>)[row.groupId]}
+
                       />
                       {expanded && row.txs.map((t: any) => renderTx(t, true))}
                     </Fragment>
