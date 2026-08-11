@@ -588,7 +588,96 @@ export async function appendPaymentListRevisionNote(
   await supabase.from("payment_lists").update({ revision_notes: next }).eq("id", listId);
 }
 
+/* ─── Agrupamento por fatura nos pickers de transações ───
+ * Transações que partilham `invoice_group_id` (fatura única → N rubricas do BP)
+ * aparecem como UMA unidade selecionável, mantendo a ordem atual (a posição do
+ * grupo é a do seu primeiro item). Itens sem grupo ficam individuais.
+ */
+type PickerRow =
+  | { kind: "single"; key: string; tx: any }
+  | { kind: "group"; key: string; groupId: string; txs: any[] };
+
+function buildPickerRows(txs: any[]): PickerRow[] {
+  const rows: PickerRow[] = [];
+  const groupIndex = new Map<string, number>();
+  for (const tx of txs) {
+    const gid = tx?.invoice_group_id as string | null | undefined;
+    if (!gid) {
+      rows.push({ kind: "single", key: tx.id, tx });
+      continue;
+    }
+    const at = groupIndex.get(gid);
+    if (at === undefined) {
+      groupIndex.set(gid, rows.length);
+      rows.push({ kind: "group", key: `grp::${gid}`, groupId: gid, txs: [tx] });
+    } else {
+      (rows[at] as { txs: any[] }).txs.push(tx);
+    }
+  }
+  // Grupo com um único item elegível não vale como cartão de grupo.
+  return rows.map((r) =>
+    r.kind === "group" && r.txs.length === 1
+      ? { kind: "single" as const, key: r.txs[0].id, tx: r.txs[0] }
+      : r,
+  );
+}
+
+function groupWithIvaTotal(txs: any[]): number {
+  return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
+}
+
+/** Cabeçalho do cartão de fatura agrupada dentro das tabelas dos pickers. */
+function InvoiceGroupHeaderRow({
+  txs,
+  labelColSpan,
+  tailColSpan,
+  checked,
+  onToggle,
+  expanded,
+  onToggleExpanded,
+}: {
+  txs: any[];
+  labelColSpan: number;
+  tailColSpan: number;
+  checked: boolean | "indeterminate";
+  onToggle: () => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  const first = txs[0];
+  const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
+  const ref = (first?.invoice_ref ?? "").toString().trim();
+  return (
+    <tr className="bg-primary/5 cursor-pointer hover:bg-primary/10" onClick={onToggle}>
+      <td className="p-2 text-center">
+        <Checkbox checked={checked} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />
+      </td>
+      <td className="p-2" colSpan={labelColSpan}>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleExpanded(); }}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={expanded ? "Fechar itens" : "Ver itens"}
+          >
+            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+          <span className="font-semibold">🧾 Fatura Agrupada</span>
+          {supplier && <span className="text-muted-foreground">— {supplier}</span>}
+          {ref && <span className="text-muted-foreground">— {ref}</span>}
+          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+            {txs.length} itens
+          </span>
+        </div>
+      </td>
+      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
+      {tailColSpan > 0 && <td colSpan={tailColSpan} />}
+    </tr>
+  );
+}
+
 /* ─── Create Payment List Modal ─── */
+
 function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
   const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
