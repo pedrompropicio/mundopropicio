@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.6_2026_08_11_cron_auth_jwt";
+const VERSION = "v2.7_2026_08_11_session_cache";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -317,15 +317,37 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   return buf;
 }
 
+// Cache de sessão por vault_secret_name. Com credencial única (ticketline_master)
+// partilhada por todos os configs, uma corrida do cron faz 1 login Devise em vez
+// de 13. O self-heal continua a existir: se o download falhar com session_expired
+// (retriable), refaz login, actualiza o cache e repete uma vez.
+type SessionCache = Map<string, Jar>;
+
+async function getJar(
+  sessions: SessionCache,
+  secretName: string,
+  creds: { email: string; password: string },
+  force = false,
+): Promise<Jar> {
+  if (!force) {
+    const cached = sessions.get(secretName);
+    if (cached) return cached;
+  }
+  const { jar } = await loginDevise(creds.email, creds.password);
+  sessions.set(secretName, jar);
+  console.log(`[ticketline] login Devise (${force ? "re-login" : "novo"}) para secret=${secretName}`);
+  return jar;
+}
+
 async function downloadSummary(
   creds: { email: string; password: string },
+  secretName: string,
+  sessions: SessionCache,
   ticketlineEventId: string,
   filterStartDDMMYYYY: string,
   filterEndDDMMYYYY: string,
 ) {
-  let jar: Jar;
-  const { jar: j0 } = await loginDevise(creds.email, creds.password);
-  jar = j0;
+  const jar = await getJar(sessions, secretName, creds);
   const qs = new URLSearchParams();
   qs.set("utf8", "✓");
   qs.set("granularity", "2");
@@ -340,13 +362,13 @@ async function downloadSummary(
   } catch (e: any) {
     if (e?.retriable) {
       console.log(`[ticketline] self-heal re-login (sale_summary)`);
-      const { jar: j2 } = await loginDevise(creds.email, creds.password);
-      jar = j2;
-      return await downloadXlsx(jar, url, "sale_summary");
+      const jar2 = await getJar(sessions, secretName, creds, true);
+      return await downloadXlsx(jar2, url, "sale_summary");
     }
     throw e;
   }
 }
+
 
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
@@ -356,7 +378,7 @@ async function updateConfig(admin: any, configId: string, patch: Record<string, 
   await admin.from("ticketline_sync_config").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", configId);
 }
 
-async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: string | null) {
+async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: string | null, sessions: SessionCache) {
   const { data: run, error: runErr } = await admin.from("ticketline_sync_runs").insert({
     config_id: cfg.id, company_id: cfg.company_id, status: "started",
     mode, triggered_by: triggeredBy,
@@ -382,7 +404,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.filter_end_date = filterEnd;
     debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
 
-    const summary = await downloadSummary(creds, cfg.ticketline_event_id, filterStart, filterEnd);
+    const summary = await downloadSummary(creds, cfg.vault_secret_name, sessions, cfg.ticketline_event_id, filterStart, filterEnd);
     const filesAudit = [
       { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
     ];
@@ -509,12 +531,14 @@ Deno.serve(async (req) => {
   if (cfgs.length === 0) return json(200, { ok: true, skipped: true, reason: "no configs" });
 
   const results: any[] = [];
+  // 1 login por vault_secret_name em toda a corrida (credencial única partilhada).
+  const sessions: SessionCache = new Map();
   for (const cfg of cfgs) {
     if (!cfg.enabled && configId) {
       results.push({ configId: cfg.id, ok: false, skipped: true, reason: "disabled" });
       continue;
     }
-    const r = await runOneConfig(admin, cfg, mode, triggeredBy);
+    const r = await runOneConfig(admin, cfg, mode, triggeredBy, sessions);
     results.push({ configId: cfg.id, ...r });
   }
   const allOk = results.every(r => r.ok);
