@@ -26,9 +26,27 @@ function useReview(transactionId: string) {
   });
 }
 
+/** Mapa único (uma query partilhada) de todas as conferências — evita 1 query por linha. */
+function useReviewsMap() {
+  return useQuery({
+    queryKey: ["accountant-reviews-map"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, AccountantReview>> => {
+      const { data, error } = await (supabase as any)
+        .from("accountant_transaction_reviews")
+        .select("*");
+      if (error) throw error;
+      const map: Record<string, AccountantReview> = {};
+      for (const r of data ?? []) map[r.transaction_id] = r as AccountantReview;
+      return map;
+    },
+  });
+}
+
 /** Indicador discreto na linha da lista de Transações. */
 export function AccountantReviewRowBadge({ transactionId }: { transactionId: string }) {
-  const { data } = useReview(transactionId);
+  const { data: map } = useReviewsMap();
+  const data = map?.[transactionId] ?? null;
   if (!data) return null;
   if (data.status === "conferido") {
     return (
