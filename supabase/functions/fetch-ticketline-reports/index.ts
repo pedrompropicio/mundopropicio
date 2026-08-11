@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.5_2026_08_11_discover_html_diag";
+const VERSION = "v2.6_2026_08_11_cron_auth_jwt";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -33,6 +33,21 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+// Helper jwtRole — mesmo padrão da sync-coala-from-drive: decodifica o payload
+// do JWT sem verificação de assinatura e lê o claim "role". Permite aceitar o
+// service role JWT do Vault (email_queue_service_role_key) que o cron envia,
+// em vez da igualdade estrita `token === SERVICE_ROLE` (env) que nunca bate.
+const jwtRole = (authHeader: string | null): string | null => {
+  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
+  } catch {
+    return null;
+  }
+};
 
 const BASE = "https://manager.ticketline.pt";
 
@@ -449,7 +464,10 @@ Deno.serve(async (req) => {
   if (!token) return json(401, { error: "missing authorization" });
 
   let authorized = false;
-  if (token === SERVICE_ROLE) {
+  // Caminho cron: service role. Aceita igualdade estrita (env) OU JWT cujo
+  // payload tenha role "service_role" — mesmo padrão da sync-coala-from-drive,
+  // que é o que destrava o cron diário (Bearer + service role do Vault).
+  if (token === SERVICE_ROLE || jwtRole(authHeader) === "service_role") {
     authorized = true;
   } else {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
