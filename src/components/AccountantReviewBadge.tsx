@@ -102,6 +102,7 @@ export function AccountantReviewBlock({ transactionId }: { transactionId: string
       toast({ title: "Resposta registada" });
       setDraft(null);
       queryClient.invalidateQueries({ queryKey: ["accountant-review", transactionId] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
       queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
       queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
     },

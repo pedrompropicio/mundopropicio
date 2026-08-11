@@ -88,6 +88,7 @@ export default function AccountantPendencies() {
       queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
       queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
       queryClient.invalidateQueries({ queryKey: ["accountant-review"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
       invalidateTransactionQueries(queryClient);
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
