@@ -111,28 +111,97 @@ Deno.serve(async (req) => {
     }
 
     const txIds = (txs ?? []).map((t: any) => t.id);
-    let docs: any[] = [];
+
+    type ZDoc = { id: string; name: string; bucket: string; path: string; label?: string };
+    const resolveBucket = (fileUrl: string): { bucket: string; path: string } =>
+      fileUrl?.startsWith("camarim://")
+        ? { bucket: "camarim-documents", path: fileUrl.slice("camarim://".length) }
+        : { bucket: "transaction-documents", path: fileUrl };
+
+    const docsByTx = new Map<string, ZDoc[]>();
+    const seenByTx = new Map<string, Set<string>>();
+    const addDoc = (txId: string, d: ZDoc) => {
+      if (!seenByTx.has(txId)) seenByTx.set(txId, new Set());
+      const key = `${d.bucket}:${d.path}`;
+      if (seenByTx.get(txId)!.has(key)) return;
+      seenByTx.get(txId)!.add(key);
+      if (!docsByTx.has(txId)) docsByTx.set(txId, []);
+      docsByTx.get(txId)!.push(d);
+    };
+
     if (txIds.length) {
+      // 1) Anexos diretos (inclui refs camarim://)
       const { data: dd, error: dErr } = await admin
         .from("transaction_documents")
         .select("id, transaction_id, name, file_url")
         .in("transaction_id", txIds);
       if (dErr) throw dErr;
-      docs = dd ?? [];
+      for (const d of dd ?? []) {
+        const { bucket, path } = resolveBucket(d.file_url);
+        addDoc(d.transaction_id, { id: d.id, name: d.name, bucket, path });
+      }
+
+      // 2) Talões de camarim ligados às TXs
+      const { data: camItems } = await admin
+        .from("camarim_items")
+        .select("id, transaction_id")
+        .in("transaction_id", txIds);
+      const camItemToTx = new Map<string, string>();
+      for (const i of camItems ?? []) if (i.transaction_id) camItemToTx.set(i.id, i.transaction_id);
+      if (camItemToTx.size) {
+        const { data: camDocs } = await admin
+          .from("camarim_item_documents")
+          .select("id, item_id, file_name, file_path, company_id")
+          .in("item_id", Array.from(camItemToTx.keys()));
+        for (const d of camDocs ?? []) {
+          const tx = camItemToTx.get(d.item_id);
+          if (!tx) continue;
+          const path = !d.company_id || String(d.file_path).startsWith(`${d.company_id}/`)
+            ? d.file_path
+            : `${d.company_id}/${d.file_path}`;
+          addDoc(tx, { id: d.id, name: `camarim_${d.file_name}`, bucket: "camarim-documents", path, label: "camarim" });
+        }
+      }
+
+      // 3) Notas de reembolso: comprovativos das TXs de origem, anexados à TX-mãe
+      const { data: notes } = await admin
+        .from("reimbursement_notes")
+        .select("id, payment_transaction_id")
+        .in("payment_transaction_id", txIds);
+      const noteToPayTx = new Map<string, string>();
+      for (const n of notes ?? []) if (n.payment_transaction_id) noteToPayTx.set(n.id, n.payment_transaction_id);
+      if (noteToPayTx.size) {
+        const { data: items } = await admin
+          .from("reimbursement_note_items")
+          .select("reimbursement_note_id, transaction_id")
+          .in("reimbursement_note_id", Array.from(noteToPayTx.keys()));
+        const childToPayTx = new Map<string, string>();
+        for (const i of items ?? []) {
+          const payTx = noteToPayTx.get(i.reimbursement_note_id);
+          if (payTx && i.transaction_id) childToPayTx.set(i.transaction_id, payTx);
+        }
+        if (childToPayTx.size) {
+          const { data: childDocs } = await admin
+            .from("transaction_documents")
+            .select("id, transaction_id, name, file_url")
+            .in("transaction_id", Array.from(childToPayTx.keys()));
+          for (const d of childDocs ?? []) {
+            const payTx = childToPayTx.get(d.transaction_id);
+            if (!payTx) continue;
+            const { bucket, path } = resolveBucket(d.file_url);
+            addDoc(payTx, { id: d.id, name: `reembolso_${d.name}`, bucket, path, label: "reembolso" });
+          }
+        }
+      }
     }
 
-    // has_attachments filter
-    const docsByTx = new Map<string, any[]>();
-    for (const d of docs) {
-      if (!docsByTx.has(d.transaction_id)) docsByTx.set(d.transaction_id, []);
-      docsByTx.get(d.transaction_id)!.push(d);
-    }
     let txList = txs ?? [];
     if (filters.has_attachments === "with") {
       txList = txList.filter((t: any) => (docsByTx.get(t.id)?.length ?? 0) > 0);
     } else if (filters.has_attachments === "without") {
       txList = txList.filter((t: any) => (docsByTx.get(t.id)?.length ?? 0) === 0);
     }
+
 
     const zip = new JSZip();
     const csvRows: string[] = [
