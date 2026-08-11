@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { signedCompanyUrl } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
@@ -88,7 +89,7 @@ export function SupplierCreditsTab() {
     .reduce((s, c) => s + creditRemaining(c), 0);
 
   const openFile = async (path: string) => {
-    const { data } = await supabase.storage.from("supplier-credit-documents").createSignedUrl(path, 3600);
+    const { data } = await signedCompanyUrl("supplier-credit-documents", path, 3600);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
     else toast.error("Erro ao abrir anexo");
   };

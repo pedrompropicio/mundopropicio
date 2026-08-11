@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye } from "lucide-react";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { SupplierCreditsPanel } from "@/components/SupplierCreditsPanel";
+import { SupplierCreditsTab } from "@/components/supplier-credits/SupplierCreditsTab";
 import { Input } from "@/components/ui/input";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ type SortField = "name" | "trade_name";
 type SortDir = "asc" | "desc";
 
 export default function Suppliers() {
+  const [tab, setTab] = useState<"suppliers" | "credits">("suppliers");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
