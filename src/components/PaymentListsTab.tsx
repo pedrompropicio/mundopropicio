@@ -870,49 +870,72 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filteredTx.map((t: any) => {
-                  const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
-                  const paid = Number(t.paid_amount ?? 0);
-                  const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
-                  const saldo = withIva - paidWithIva;
-                  const hasPartial = paid > 0;
-                  const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
-                  const np = computeNetPayable({
-                    grossWithIva: saldo,
-                    declaredWithholding: getDeclaredWithholding(t),
-                    hasInstallments: installmentTxIds.has(t.id),
-                  });
+                {pickerRows.map((row) => {
+                  const renderTx = (t: any, inGroup: boolean) => {
+                    const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
+                    const paid = Number(t.paid_amount ?? 0);
+                    const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
+                    const saldo = withIva - paidWithIva;
+                    const hasPartial = paid > 0;
+                    const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
+                    const np = computeNetPayable({
+                      grossWithIva: saldo,
+                      declaredWithholding: getDeclaredWithholding(t),
+                      hasInstallments: installmentTxIds.has(t.id),
+                    });
+                    return (
+                      <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
+                        <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                        <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
+                          <span className="font-medium">{t.description}</span>
+                          {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
+                          {bpCheck.exceeds && (
+                            <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
+                          )}
+                        </td>
+                        <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
+                        <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
+                        <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                        <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
+                        <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
+                        <td className="p-2 text-right font-mono">
+                          {np.applied ? (
+                            <>
+                              <span className="font-semibold text-warning">{formatCurrency(np.net)}</span>
+                              <p className="text-[10px] text-warning/70">Ret. IRS −{formatCurrency(np.withholding)}</p>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
+                      </tr>
+                    );
+                  };
+
+                  if (row.kind === "single") return renderTx(row.tx, false);
+
+                  const ids = row.txs.map((t: any) => t.id);
+                  const sel = ids.filter((id) => selectedIds.has(id)).length;
+                  const expanded = expandedGroups.has(row.groupId);
                   return (
-                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
-                      <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
-                      <td className="p-2">
-                        <span className="font-medium">{t.description}</span>
-                        {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
-                        {bpCheck.exceeds && (
-                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
-                      <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
-                      <td className="p-2 text-right font-mono">
-                        {np.applied ? (
-                          <>
-                            <span className="font-semibold text-warning">{formatCurrency(np.net)}</span>
-                            <p className="text-[10px] text-warning/70">Ret. IRS −{formatCurrency(np.withholding)}</p>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                      <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
-                    </tr>
+                    <Fragment key={row.key}>
+                      <InvoiceGroupHeaderRow
+                        txs={row.txs}
+                        labelColSpan={4}
+                        tailColSpan={4}
+                        checked={sel === ids.length ? true : sel > 0 ? "indeterminate" : false}
+                        onToggle={() => toggleGroup(ids)}
+                        expanded={expanded}
+                        onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                      />
+                      {expanded && row.txs.map((t: any) => renderTx(t, true))}
+                    </Fragment>
                   );
                 })}
               </tbody>
+
             </table>
           </div>
         )}
