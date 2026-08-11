@@ -2769,6 +2769,8 @@ function AddTransactionsToList({
                         onToggle={() => toggleGroup(ids)}
                         expanded={expanded}
                         onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                        progress={(groupProgress as Record<string, InvoiceGroupProgress>)[row.groupId]}
+
                       />
                       {expanded && row.txs.map((t: any) => renderTx(t, true))}
                     </Fragment>
