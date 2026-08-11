@@ -513,7 +513,47 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
             <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Gerar Transação para Pagamento
           </Button>
         )}
+        {canReopen && (
+          <Button size="sm" variant="outline" onClick={() => setShowReopenConfirm(true)}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reabrir lista
+          </Button>
+        )}
       </div>
+
+      <AlertDialog open={showReopenConfirm} onOpenChange={setShowReopenConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir a nota {note.code}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Esta ação reverte o fecho da nota:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>A nota volta a <strong>Rascunho</strong> e fica editável (adicionar/remover despesas).</li>
+                  <li>A aprovação é limpa — será necessário aprovar de novo.</li>
+                  <li>A transação de pagamento gerada ({formatCurrency(grossTotal)}) é <strong>eliminada</strong>.</li>
+                  <li>As despesas-filhas mantêm-se como estão (aprovadas).</li>
+                </ul>
+                <p className="text-warning">
+                  Se já existir qualquer pagamento registado nessa transação, a reabertura é bloqueada — estorna o pagamento primeiro.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                reopenMutation.mutate();
+              }}
+              disabled={reopenMutation.isPending}
+            >
+              {reopenMutation.isPending ? "A reabrir…" : "Reabrir lista"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Add item panel */}
       {showAddItem && isDraft && (
