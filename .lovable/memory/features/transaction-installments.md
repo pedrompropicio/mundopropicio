@@ -132,3 +132,49 @@ Query agora carrega `status, scheduled_date`. Linhas separadas por `status`:
 | 8 | INSERT excesso (>gross) | EXCEPTION check_violation |
 
 TX-modelo para reset: `1abb9b9a-09f5-44c7-bf0c-7821f71baba0` (`[SEED] Software SaaS Fev 2026`, amount=120 net, iva=23 → gross=147.60).
+
+---
+
+# Parcelamento ANTIGO — grupos de TXs "(n/N)" (issue #39)
+
+Modelo distinto do Modelo B: **N transações irmãs** ligadas por
+`parent_transaction_id`, cada uma com o seu `amount` e `due_date`
+(descrições "… (1/2)", "… (2/2)"). Ex.: fatura IMOBIMACUS 4.851,50 € em 2×.
+
+## Como distinguir de um split de rateio
+
+| | Parcela antiga | Split de rateio Master→evento |
+|---|---|---|
+| `parent_transaction_id` | preenchido | preenchido |
+| `split_percentage` | **NULL** | preenchido |
+| `event_id` | igual ao pai | evento diferente |
+
+Regra: filha com `parent_transaction_id NOT NULL` **e** `split_percentage IS NULL`
+é parcela, não split.
+
+## Fluxo de edição (2026-08)
+
+`src/components/TransactionInstallmentGroupEditor.tsx` (+ hook `useInstallmentGroup`)
+renderiza no `TransactionEditModal` sempre que a TX aberta (pai OU filha)
+pertence a um grupo com ≥ 2 linhas:
+
+- Badge **"Parcelado em N×"** + **valor total da fatura** (soma das parcelas) —
+  substitui a leitura errada como split de rateio.
+- Botão "Editar parcelas" abre editor inline com todas as parcelas do grupo:
+  vencimento + valor por linha.
+- Parcelas **pagas** (`status='paid'` ou `paid_amount > 0.01`) ficam travadas;
+  só **admin** as destranca ("Destravar pagas").
+- **Distribuir igualmente** espalha `novo total − parcelas travadas` apenas
+  pelas parcelas por pagar (`distributeEvenly` de `ScheduleInstallmentsModal`).
+- Validação **bloqueante**: soma das parcelas = novo total (tolerância 0,01 €).
+- Ao gravar: `UPDATE` por TX alterada + 1 linha em `transaction_audit_log`
+  por campo (`Valor (parcelamento)` / `Data Vencimento (parcelamento)`) com
+  old/new.
+- Permissão: admin ou manager. Editar diretamente uma **filha-parcela** já não
+  está bloqueado — abre o mesmo editor com a linha dela editável e o total à vista.
+
+## Migração associada (issue #40)
+
+`DROP FUNCTION public.reverse_payment(uuid, text, text, date)` — sobrecarga
+antiga de 4 args removida; fica só a versão com `p_amount`. Todos os callers
+(`PaymentTimeline.tsx`) passam `p_amount`. Elimina PGRST203 (ambiguidade).
