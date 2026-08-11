@@ -119,8 +119,24 @@ export default function Suppliers() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-border/50">
+        {([["suppliers", "Fornecedores"], ["credits", "Créditos"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-3 py-2 text-sm font-medium transition-colors ${tab === key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "suppliers" && (
+      <>
       {/* Search + Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Pesquisar por nome, NIF ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
