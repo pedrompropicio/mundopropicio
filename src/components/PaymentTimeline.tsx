@@ -211,6 +211,36 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     },
   });
 
+  // Admin: estornar UMA parcela (reembolso em caixa ou crédito no fornecedor,
+  // total ou parcial — caso típico: fatura paga renegociada).
+  const [revPaymentId, setRevPaymentId] = useState<string | null>(null);
+  const [revKind, setRevKind] = useState<"cash_refund" | "supplier_credit">("supplier_credit");
+  const [revAmount, setRevAmount] = useState("");
+  const [revReason, setRevReason] = useState("");
+
+  const reversePaymentMutation = useMutation({
+    mutationFn: async ({ paymentId, kind, amount, reason }: { paymentId: string; kind: string; amount: number | null; reason: string }) => {
+      const { error } = await (supabase as any).rpc("reverse_payment", {
+        p_payment_id: paymentId,
+        p_kind: kind,
+        p_reason: reason || "Estorno de parcela",
+        p_amount: amount,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits-all"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits-available"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits-summary"] });
+      setRevPaymentId(null);
+      setRevReason("");
+      toast({ title: "Parcela estornada" });
+    },
+    onError: (e: any) => toast({ title: "Erro ao estornar parcela", description: e.message, variant: "destructive" }),
+  });
+
   const cancelInstallmentMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -544,10 +574,94 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
                     </>
                   )}
                 </div>
-                <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                  {isAdmin && !p.reversal_kind && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRevPaymentId(p.id);
+                        setRevKind("supplier_credit");
+                        setRevAmount(Number(p.amount).toFixed(2));
+                        setRevReason("");
+                      }}
+                      className="rounded px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10"
+                      title="Estornar esta parcela"
+                    >
+                      Estornar
+                    </button>
+                  )}
+                  {p.reversal_kind && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {p.reversal_kind === "supplier_credit" ? "Estornada (crédito)" : "Estornada"}
+                    </span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
+
+          {revPaymentId && (
+            <div className="mt-2 space-y-2 rounded-md border border-destructive/40 bg-background p-3 text-xs">
+              <p className="font-semibold">Estornar parcela</p>
+              <div className="flex flex-wrap gap-3">
+                <label className="flex items-center gap-1.5">
+                  <input type="radio" checked={revKind === "supplier_credit"} onChange={() => setRevKind("supplier_credit")} />
+                  Crédito no fornecedor
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="radio" checked={revKind === "cash_refund"} onChange={() => setRevKind("cash_refund")} />
+                  Reembolso em caixa
+                </label>
+              </div>
+              {revKind === "supplier_credit" && (
+                <div>
+                  <label className="text-[10px] text-muted-foreground">
+                    Valor do crédito (€) — editável para menos (ex.: fatura renegociada)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={revAmount}
+                    onChange={(e) => setRevAmount(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-right font-mono"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-[10px] text-muted-foreground">Motivo</label>
+                <input
+                  type="text"
+                  value={revReason}
+                  onChange={(e) => setRevReason(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5"
+                  placeholder="Ex.: fatura renegociada, crédito da diferença"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" size="sm" variant="outline" disabled={reversePaymentMutation.isPending} onClick={() => setRevPaymentId(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={reversePaymentMutation.isPending}
+                  onClick={() =>
+                    reversePaymentMutation.mutate({
+                      paymentId: revPaymentId,
+                      kind: revKind,
+                      amount: revKind === "supplier_credit" ? Math.round((parseFloat(revAmount) || 0) * 100) / 100 : null,
+                      reason: revReason,
+                    })
+                  }
+                >
+                  {reversePaymentMutation.isPending ? "A estornar…" : "Confirmar estorno"}
+                </Button>
+              </div>
+            </div>
+          )}
         </Section>
       )}
 
