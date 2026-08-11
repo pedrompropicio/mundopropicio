@@ -1141,6 +1141,30 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     },
   });
 
+  // Contagem real de itens por grupo de fatura na BD, para detetar grupos PARCIAIS
+  // (a lista só traz M dos N itens da mesma fatura).
+  const invoiceGroupIds = useMemo(
+    () => [...new Set(items.map((i: any) => i.transactions?.invoice_group_id).filter(Boolean))] as string[],
+    [items],
+  );
+  const { data: invoiceGroupCounts = {} } = useQuery({
+    queryKey: ["invoice-group-counts", [...invoiceGroupIds].sort().join(",")],
+    enabled: invoiceGroupIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("invoice_group_id")
+        .in("invoice_group_id", invoiceGroupIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const row of data ?? []) {
+        const g = (row as any).invoice_group_id as string;
+        if (g) counts[g] = (counts[g] ?? 0) + 1;
+      }
+      return counts;
+    },
+  });
+
   // BP forecast check for view
   const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
 
@@ -1432,6 +1456,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         payment_entity: tx?.payment_entity,
         payment_reference: tx?.payment_reference,
         invoice_ref: tx?.invoice_ref ?? null,
+        invoice_group_id: tx?.invoice_group_id ?? null,
         is_reimbursement: !!tx?.is_reimbursement,
         declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
         has_installments: installmentTxIds.has(tx?.id),
@@ -1705,6 +1730,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               payment_entity: tx?.payment_entity,
               payment_reference: tx?.payment_reference,
               invoice_ref: tx?.invoice_ref ?? null,
+              invoice_group_id: tx?.invoice_group_id ?? null,
+              group_total_count: tx?.invoice_group_id ? (invoiceGroupCounts[tx.invoice_group_id] ?? 0) : 0,
               declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
               has_installments: installmentTxIds.has(tx?.id),
             };
@@ -1895,6 +1922,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <span className="text-muted-foreground">—</span>
                       <span className="font-mono text-xs">{group.invoice_ref}</span>
                     </div>
+                    {Number((group as any).group_total_count ?? 0) > group.items.length && (
+                      <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                        ⚠️ Fatura {group.invoice_ref} tem {(group as any).group_total_count} itens; só {group.items.length} nesta lista.
+                      </div>
+                    )}
+
                     <div className="pl-2 space-y-1 text-xs text-muted-foreground">
                       {isRefPayment ? (
                         <>

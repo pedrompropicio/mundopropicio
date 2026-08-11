@@ -21,6 +21,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
+import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
+import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 
@@ -264,6 +266,19 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   // Quando existe, "Reverter" = eliminar irmã + apagar partner_advance_expenses dela; a principal
   // já está NORMAL pelo total.
   const invoiceGroupId = transaction.invoice_group_id ?? null;
+
+  // Deteção por Nº fatura/ATCUD: irmãs do mesmo fornecedor com o mesmo nº.
+  const detectedInvoiceRef = (transaction.invoice_ref ?? "").trim() || null;
+  const detectedSupplierId = (transaction as any).supplier_id ?? null;
+  const { data: invoiceRefSiblings, refetch: refetchInvoiceSiblings } = useQuery({
+    queryKey: ["invoice-ref-siblings", detectedSupplierId, detectedInvoiceRef],
+    enabled: !!detectedInvoiceRef && !!detectedSupplierId,
+    queryFn: () => fetchInvoiceSiblings(detectedSupplierId!, detectedInvoiceRef!),
+  });
+  const needsInvoiceGrouping =
+    (invoiceRefSiblings?.length ?? 0) > 1 &&
+    (invoiceRefSiblings ?? []).every((s) => !s.invoice_group_id);
+
   const { data: extraSibling } = useQuery({
     queryKey: ["partner-extra-sibling", transaction.id, invoiceGroupId],
     queryFn: async () => {
@@ -436,6 +451,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
         if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
       }
+
+      // Auto-agrupamento por Nº fatura/ATCUD (conservador: mesmo fornecedor).
+      {
+        const auto = await autoGroupInvoiceForTransaction(transaction.id);
+        if (auto) {
+          toast({
+            title: "Fatura agrupada",
+            description: `Agrupada à fatura ${auto.invoiceRef} (${auto.total} itens).`,
+          });
+        }
+      }
+
 
       // Sync partner_paid_expenses.paid_date if it changed
       if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
@@ -920,6 +947,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               placeholder="Ex: FT 002/5944"
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
+            {invoiceGroupId && (
+              <p className="mt-1 text-[10px] font-medium text-primary">
+                📎 Grupo de fatura ativo — paga com transferência única na Lista de Pagamento.
+              </p>
+            )}
+            {!invoiceGroupId && needsInvoiceGrouping && (
+              <div className="mt-2 space-y-1">
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                  {invoiceRefSiblings!.length} transações partilham este nº de fatura mas não formam grupo.
+                </p>
+                <InvoiceGroupAction
+                  supplierId={detectedSupplierId}
+                  invoiceRef={detectedInvoiceRef}
+                  siblings={invoiceRefSiblings ?? []}
+                  onGrouped={() => void refetchInvoiceSiblings()}
+                />
+              </div>
+            )}
+
           </div>
 
           {/* Pago por Sócio — bloco informativo + edição de data */}

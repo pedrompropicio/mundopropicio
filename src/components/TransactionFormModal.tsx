@@ -1527,6 +1527,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         setAttachAfterCreateFile(null);
         setPendingInvoiceFile(null);
       }
+      // Auto-agrupamento por Nº fatura/ATCUD: se já existirem transações do MESMO
+      // fornecedor com o mesmo nº e sem grupo, cria/junta ao grupo de fatura.
+      if (newTxId) {
+        const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
+        const auto = await autoGroupInvoiceForTransaction(newTxId);
+
+        if (auto) {
+          queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
+          toast({
+            title: "Fatura agrupada",
+            description: `Agrupada à fatura ${auto.invoiceRef} (${auto.total} itens).`,
+          });
+        }
+      }
       if (newTxId) onCreated?.(newTxId);
       onClose();
       toast({
@@ -1536,6 +1550,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             ? `${installmentRows.length} parcelas criadas com sucesso!`
             : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!"),
       });
+
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });

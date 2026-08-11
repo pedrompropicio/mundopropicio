@@ -69,3 +69,105 @@ export function newInvoiceGroupId(): string {
     return v.toString(16);
   });
 }
+
+/* ------------------------------------------------------------------ *
+ * Deteção por Nº de fatura / ATCUD  →  grupo de fatura formal
+ * ------------------------------------------------------------------ */
+
+/** Normaliza o nº de fatura/ATCUD para comparação (maiúsculas, sem espaços extra). */
+export function normalizeInvoiceRef(ref?: string | null): string {
+  return (ref ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+/**
+ * Só agrupamos automaticamente referências que identificam um documento
+ * concreto. "proforma", "fatura", "recibo" (sem número) são demasiado
+ * genéricos e agrupariam transações não relacionadas.
+ */
+export function isGroupableInvoiceRef(ref?: string | null): boolean {
+  const n = normalizeInvoiceRef(ref);
+  if (n.length < 4) return false;
+  if (!/\d/.test(n)) return false; // sem qualquer número → genérico
+  // Proformas não são fatura definitiva: nunca auto-agrupar.
+  if (/PRO\s?-?\s?FORMA|PROFORMA|PRÓ-?FORMA/.test(n)) return false;
+  return true;
+}
+
+export interface InvoiceSibling {
+  id: string;
+  description: string | null;
+  amount: number;
+  iva_rate: number | null;
+  supplier_id: string | null;
+  invoice_ref: string | null;
+  invoice_group_id: string | null;
+  status: string | null;
+}
+
+/** Todas as transações do MESMO fornecedor com o MESMO nº de fatura/ATCUD. */
+export async function fetchInvoiceSiblings(
+  supplierId: string,
+  invoiceRef: string,
+): Promise<InvoiceSibling[]> {
+  const { data } = await (supabase as any)
+    .from("transactions")
+    .select("id, description, amount, iva_rate, supplier_id, invoice_ref, invoice_group_id, status")
+    .eq("supplier_id", supplierId)
+    .eq("invoice_ref", invoiceRef)
+    .order("description");
+  return (data ?? []) as InvoiceSibling[];
+}
+
+/**
+ * Cria (ou reutiliza) o grupo de fatura para todas as transações do mesmo
+ * fornecedor + mesmo nº de fatura/ATCUD. Nunca agrupa fornecedores diferentes.
+ * Devolve o grupo e quantas linhas passaram a ter grupo.
+ */
+export async function ensureInvoiceGroup(
+  supplierId: string,
+  invoiceRef: string,
+): Promise<{ groupId: string | null; total: number; updated: number }> {
+  if (!supplierId || !invoiceRef) return { groupId: null, total: 0, updated: 0 };
+  const siblings = await fetchInvoiceSiblings(supplierId, invoiceRef);
+  if (siblings.length < 2) return { groupId: null, total: siblings.length, updated: 0 };
+
+  const existing = [...new Set(siblings.map((s) => s.invoice_group_id).filter(Boolean))] as string[];
+  // Ambíguo: já existem 2+ grupos distintos nesta fatura → não mexer.
+  if (existing.length > 1) return { groupId: null, total: siblings.length, updated: 0 };
+
+  const groupId = existing[0] ?? newInvoiceGroupId();
+  const toUpdate = siblings.filter((s) => s.invoice_group_id !== groupId).map((s) => s.id);
+  if (toUpdate.length) {
+    const { error } = await (supabase as any)
+      .from("transactions")
+      .update({ invoice_group_id: groupId })
+      .in("id", toUpdate);
+    if (error) throw error;
+  }
+  return { groupId, total: siblings.length, updated: toUpdate.length };
+}
+
+/**
+ * Auto-agrupamento conservador após criar/editar uma transação: se tiver
+ * fornecedor + nº de fatura inequívoco e existirem irmãs sem grupo, agrupa.
+ * Devolve info para toast, ou null quando não há nada a fazer.
+ */
+export async function autoGroupInvoiceForTransaction(
+  transactionId: string,
+): Promise<{ invoiceRef: string; total: number; updated: number } | null> {
+  try {
+    const { data: tx } = await (supabase as any)
+      .from("transactions")
+      .select("supplier_id, invoice_ref, invoice_group_id")
+      .eq("id", transactionId)
+      .maybeSingle();
+    const supplierId = tx?.supplier_id;
+    const invoiceRef = tx?.invoice_ref;
+    if (!supplierId || !isGroupableInvoiceRef(invoiceRef)) return null;
+    const res = await ensureInvoiceGroup(supplierId, invoiceRef);
+    if (!res.groupId || res.updated === 0) return null;
+    return { invoiceRef, total: res.total, updated: res.updated };
+  } catch {
+    return null; // auto-agrupamento nunca deve quebrar o fluxo principal
+  }
+}
