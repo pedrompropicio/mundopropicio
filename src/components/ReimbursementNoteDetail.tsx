@@ -15,6 +15,19 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { format } from "date-fns";
+import { logAudit, getAuditUser } from "@/lib/audit";
+import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 interface Props {
   noteId: string;
