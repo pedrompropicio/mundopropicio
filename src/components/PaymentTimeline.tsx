@@ -77,7 +77,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       ] = await Promise.all([
         supabase
           .from("transaction_payments" as any)
-          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, financial_accounts:account_id(name)")
+          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, reversal_kind, credit_amount, financial_accounts:account_id(name)")
           .eq("transaction_id", txId)
           .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("payment_date", { ascending: true }),
