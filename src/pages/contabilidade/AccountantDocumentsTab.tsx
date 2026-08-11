@@ -117,17 +117,17 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     mutationFn: async (tx: Tx) => {
       const docs = await fetchAccountantTxDocs(tx.id);
       if (!docs.length) throw new Error("Sem anexos");
-      // Abre cada anexo (próprio + despesas-filhas do reembolso) numa aba nova
+      // Abre cada anexo (próprio + camarim + despesas-filhas do reembolso) numa aba nova
       for (const d of docs) {
         const { data: signed, error } = await supabase.storage
-          .from("transaction-documents")
-          .createSignedUrl(d.file_url, 60 * 60, { download: true });
+          .from(d.bucket)
+          .createSignedUrl(d.path, 60 * 60, { download: true });
         if (error || !signed) continue;
         await supabase.rpc("record_document_download" as any, {
-          p_resource_type: "transaction_document",
+          p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
           p_resource_id: d.source_tx_id,
-          p_bucket: "transaction-documents",
-          p_file_path: d.file_url,
+          p_bucket: d.bucket,
+          p_file_path: d.path,
           p_file_name: d.name,
         } as any);
         window.open(signed.signedUrl, "_blank");
@@ -135,6 +135,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
+
 
   async function downloadAll() {
     setZipLoading(true);
