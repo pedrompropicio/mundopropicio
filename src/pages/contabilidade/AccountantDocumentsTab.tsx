@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Period } from "./PeriodSelector";
-import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch } from "@/lib/accountant-tx-docs";
+import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch, type AccountantDoc } from "@/lib/accountant-tx-docs";
 
 interface Tx {
   id: string;
