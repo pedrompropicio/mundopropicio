@@ -626,6 +626,46 @@ function groupWithIvaTotal(txs: any[]): number {
   return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
 }
 
+/**
+ * Badge de progresso de liquidação de uma fatura agrupada.
+ * 0 pagos → só "N itens" (sem ruído). Parcial → âmbar "X/N pagos" + valor em
+ * aberto. Tudo pago → verde "N/N pagos".
+ */
+function InvoiceGroupProgressBadge({
+  visibleCount,
+  progress,
+}: {
+  visibleCount: number;
+  progress?: InvoiceGroupProgress;
+}) {
+  const total = progress?.total ?? visibleCount;
+  const paid = progress?.paidCount ?? 0;
+  if (!progress || paid === 0) {
+    return (
+      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+        {visibleCount} itens
+      </span>
+    );
+  }
+  if (paid >= total) {
+    return (
+      <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-500">
+        {paid}/{total} pagos
+      </span>
+    );
+  }
+  return (
+    <>
+      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-500">
+        {paid}/{total} pagos
+      </span>
+      <span className="text-[11px] text-muted-foreground">
+        em aberto: {formatCurrency(progress.openWithIva)}
+      </span>
+    </>
+  );
+}
+
 /** Cabeçalho do cartão de fatura agrupada dentro das tabelas dos pickers. */
 function InvoiceGroupHeaderRow({
   txs,
@@ -635,6 +675,7 @@ function InvoiceGroupHeaderRow({
   onToggle,
   expanded,
   onToggleExpanded,
+  progress,
 }: {
   txs: any[];
   labelColSpan: number;
@@ -643,6 +684,7 @@ function InvoiceGroupHeaderRow({
   onToggle: () => void;
   expanded: boolean;
   onToggleExpanded: () => void;
+  progress?: InvoiceGroupProgress;
 }) {
   const first = txs[0];
   const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
@@ -653,7 +695,7 @@ function InvoiceGroupHeaderRow({
         <Checkbox checked={checked} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />
       </td>
       <td className="p-2" colSpan={labelColSpan}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleExpanded(); }}
@@ -665,9 +707,7 @@ function InvoiceGroupHeaderRow({
           <span className="font-semibold">🧾 Fatura Agrupada</span>
           {supplier && <span className="text-muted-foreground">— {supplier}</span>}
           {ref && <span className="text-muted-foreground">— {ref}</span>}
-          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-            {txs.length} itens
-          </span>
+          <InvoiceGroupProgressBadge visibleCount={txs.length} progress={progress} />
         </div>
       </td>
       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
@@ -675,6 +715,7 @@ function InvoiceGroupHeaderRow({
     </tr>
   );
 }
+
 
 /* ─── Create Payment List Modal ─── */
 
