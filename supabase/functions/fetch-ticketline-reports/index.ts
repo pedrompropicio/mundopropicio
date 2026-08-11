@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.4_2026_08_11_section1_fallback";
+const VERSION = "v2.5_2026_08_11_discover_html_diag";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -36,7 +36,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; mode?: "manual" | "cron"; triggeredBy?: string }
+interface Body { configId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -153,7 +153,18 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   const ct = resp.headers.get("content-type") || "";
   const buf = new Uint8Array(await resp.arrayBuffer());
   if (ct.includes("text/html") || buf[0] === 0x3c) {
-    throw Object.assign(new Error(`XLSX ${label} devolveu HTML (sessão expirada?)`), { phase: "session_expired", retriable: true });
+    const html = new TextDecoder("utf-8").decode(buf);
+    const { title, snippet, isSignIn } = describeHtml(html);
+    if (isSignIn) {
+      throw Object.assign(
+        new Error(`XLSX ${label}: página de login devolvida (sessão expirada). title="${title}"`),
+        { phase: "session_expired", retriable: true },
+      );
+    }
+    throw Object.assign(
+      new Error(`XLSX ${label}: HTML em vez de XLSX — title="${title}" | trecho: ${snippet}`),
+      { phase: "html_response", retriable: false, htmlTitle: title, htmlSnippet: snippet },
+    );
   }
   if (buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
     throw Object.assign(new Error(`XLSX ${label} inválido (size=${buf.length})`), { phase: `xlsx_${label}_invalid_magic` });
