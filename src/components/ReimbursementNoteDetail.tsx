@@ -270,6 +270,72 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     onError: (err: any) => toast({ title: "Erro ao gerar transação", description: err.message, variant: "destructive" }),
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: async () => {
+      const payTxId = (note as any)?.payment_transaction_id as string | null;
+
+      if (payTxId) {
+        const { data: payTx, error: fetchErr } = await supabase
+          .from("transactions")
+          .select("id, status, paid_amount")
+          .eq("id", payTxId)
+          .maybeSingle();
+        if (fetchErr) throw fetchErr;
+
+        if (payTx) {
+          const { count: paymentsCount } = await supabase
+            .from("transaction_payments")
+            .select("id", { count: "exact", head: true })
+            .eq("transaction_id", payTxId);
+
+          const hasPayment =
+            payTx.status === "paid" || Number(payTx.paid_amount || 0) > 0 || (paymentsCount || 0) > 0;
+
+          if (hasPayment) {
+            throw new Error("Já existe pagamento registado — estorna o pagamento primeiro.");
+          }
+
+          const { error: delErr } = await supabase.from("transactions").delete().eq("id", payTxId);
+          if (delErr) throw delErr;
+        }
+      }
+
+      const { error } = await supabase
+        .from("reimbursement_notes")
+        .update({
+          status: "draft",
+          payment_transaction_id: null,
+          paid_at: null,
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq("id", noteId);
+      if (error) throw error;
+
+      await logAudit({
+        entity_type: "reimbursement_note",
+        entity_id: noteId,
+        action: "reopen",
+        changed_by: getAuditUser(user),
+        old_data: { status: "pending_payment", payment_transaction_id: payTxId },
+        new_data: { status: "draft", payment_transaction_id: null },
+        metadata: { code: (note as any)?.code ?? null, deleted_payment_transaction_id: payTxId },
+      });
+    },
+    onSuccess: () => {
+      invalidateAll();
+      invalidateTransactionQueries(queryClient);
+      setShowReopenConfirm(false);
+      toast({
+        title: "Lista reaberta",
+        description: "A nota voltou a Rascunho e a transação de pagamento foi eliminada.",
+      });
+    },
+    onError: (err: any) =>
+      toast({ title: "Não foi possível reabrir", description: err.message, variant: "destructive" }),
+  });
+
+
   async function recalcTotal() {
     const { data: currentItems } = await supabase
       .from("reimbursement_note_items")
