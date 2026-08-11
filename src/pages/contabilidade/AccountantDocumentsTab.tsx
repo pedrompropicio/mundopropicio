@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,10 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Period } from "./PeriodSelector";
 import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch, type AccountantDoc } from "@/lib/accountant-tx-docs";
+import { fetchReviewsForTransactions, saveAccountantReview, type AccountantReview } from "@/lib/accountant-reviews";
+import { useAuth } from "@/contexts/AuthContext";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
 
 interface Tx {
   id: string;
@@ -46,6 +50,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     k: "payment_date", dir: "desc",
   });
   const [zipLoading, setZipLoading] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<"all" | "todo" | "conferido" | "pendente">("all");
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter],
@@ -89,10 +96,44 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
   });
 
+  const txIds = useMemo(() => (data ?? []).map((t) => t.id), [data]);
+
+  const { data: reviews } = useQuery({
+    queryKey: ["accountant-reviews", companyId, txIds.length, period.from, period.to],
+    enabled: !!companyId && txIds.length > 0,
+    queryFn: () => fetchReviewsForTransactions(txIds),
+  });
+
+  const reviewMap: Record<string, AccountantReview> = reviews ?? {};
+
+  const saveReview = useMutation({
+    mutationFn: async (p: { txId: string; status: "conferido" | "pendente"; note?: string }) => {
+      if (!companyId || !user) throw new Error("Sessão inválida.");
+      if (p.status === "pendente" && !(p.note ?? "").trim()) throw new Error("A observação é obrigatória.");
+      await saveAccountantReview({
+        companyId, transactionId: p.txId, status: p.status, note: p.note ?? null, userId: user.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accountant-reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
   const rows = useMemo(() => {
     let r = data ?? [];
     if (attachmentsFilter === "with") r = r.filter((x) => x.doc_count > 0);
     else if (attachmentsFilter === "without") r = r.filter((x) => x.doc_count === 0);
+    if (reviewFilter !== "all") {
+      r = r.filter((x) => {
+        const st = reviewMap[x.id]?.status;
+        if (reviewFilter === "todo") return !st;
+        return st === reviewFilter;
+      });
+    }
     if (supplierSearch.trim()) {
       const s = supplierSearch.trim().toLowerCase();
       r = r.filter((x) => (x.supplier_name ?? "").toLowerCase().includes(s));
@@ -105,7 +146,19 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       return va > vb ? dir : -dir;
     });
     return r;
-  }, [data, attachmentsFilter, supplierSearch, sortBy]);
+  }, [data, attachmentsFilter, supplierSearch, sortBy, reviewFilter, reviews]);
+
+  const reviewCounts = useMemo(() => {
+    const base = data ?? [];
+    let conferidas = 0, pendentes = 0, porConferir = 0;
+    for (const t of base) {
+      const st = reviewMap[t.id]?.status;
+      if (st === "conferido") conferidas++;
+      else if (st === "pendente") pendentes++;
+      else porConferir++;
+    }
+    return { conferidas, pendentes, porConferir };
+  }, [data, reviews]);
 
   const totals = useMemo(() => ({
     tx: rows.length,
@@ -174,6 +227,11 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           <span className="font-semibold text-foreground">{totals.tx}</span> transações ·{" "}
           <span className="font-semibold text-foreground">{totals.docs}</span> anexos ·{" "}
           <span className="font-semibold text-foreground">{fmtEUR(totals.amount)}</span>
+          <div className="mt-1 text-xs">
+            <span className="text-emerald-500 font-semibold">{reviewCounts.conferidas}</span> conferidas ·{" "}
+            <span className="text-amber-500 font-semibold">{reviewCounts.pendentes}</span> pendentes ·{" "}
+            <span className="font-semibold text-foreground">{reviewCounts.porConferir}</span> por conferir
+          </div>
         </div>
         <Button onClick={downloadAll} disabled={zipLoading || !companyId}>
           {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
@@ -206,6 +264,15 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             <SelectItem value="without">Sem anexos</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={reviewFilter} onValueChange={(v) => setReviewFilter(v as any)}>
+          <SelectTrigger className="w-52 h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Conferência: Todas</SelectItem>
+            <SelectItem value="todo">Por conferir</SelectItem>
+            <SelectItem value="conferido">Conferidas</SelectItem>
+            <SelectItem value="pendente">Pendentes</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-lg border overflow-hidden">
@@ -220,14 +287,15 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                 <th className="p-2 text-right cursor-pointer" onClick={() => toggleSort("amount")}>Valor</th>
                 <th className="p-2">Nº Doc</th>
                 <th className="p-2">Anexos</th>
+                <th className="p-2">Conferência</th>
                 <th className="p-2">Ações</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Sem transações no período.</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Sem transações no período.</td></tr>
               ) : rows.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-muted/30">
                   <td className="p-2 whitespace-nowrap">{t.payment_date ? format(new Date(t.payment_date), "dd/MM/yyyy") : "—"}</td>
@@ -247,6 +315,13 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                     {t.doc_count > 0 ? (
                       <AttachmentsPopover txId={t.id} count={t.doc_count} />
                     ) : "—"}
+                  </td>
+                  <td className="p-2">
+                    <ReviewCell
+                      review={reviewMap[t.id] ?? null}
+                      onSave={(status, note) => saveReview.mutate({ txId: t.id, status, note })}
+                      saving={saveReview.isPending}
+                    />
                   </td>
                   <td className="p-2">
                     {t.doc_count > 0 && (
@@ -336,3 +411,82 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
   );
 }
 
+
+function ReviewCell({
+  review, onSave, saving,
+}: {
+  review: AccountantReview | null;
+  onSave: (status: "conferido" | "pendente", note?: string) => void;
+  saving: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState(review?.note ?? "");
+
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        size="sm"
+        variant={review?.status === "conferido" ? "default" : "ghost"}
+        className="h-7 px-2"
+        title="Marcar como conferido"
+        disabled={saving}
+        onClick={() => onSave("conferido", review?.note ?? null as any)}
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      </Button>
+
+      <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setNote(review?.note ?? ""); }}>
+        <PopoverTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`h-7 px-2 ${review?.status === "pendente" ? "text-amber-500 bg-amber-500/10" : ""}`}
+            title="Marcar como pendente (com observação)"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 space-y-2" align="start">
+          <p className="text-xs font-medium">Observação para o financeiro *</p>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Ex.: falta a fatura original deste pagamento."
+            className="min-h-[70px] text-xs"
+          />
+          <Button
+            size="sm"
+            disabled={!note.trim() || saving}
+            onClick={() => { onSave("pendente", note); setOpen(false); }}
+          >
+            Marcar pendente
+          </Button>
+        </PopoverContent>
+      </Popover>
+
+      {review?.status === "pendente" && (
+        <Badge variant="outline" className="h-5 border-amber-500/40 px-1 text-[10px] text-amber-500">Pendente</Badge>
+      )}
+      {review?.status === "conferido" && (
+        <Badge variant="outline" className="h-5 border-emerald-500/40 px-1 text-[10px] text-emerald-500">Conferido</Badge>
+      )}
+
+      {review?.response_note && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="inline-flex items-center rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary" title="Resposta do financeiro">
+              <MessageSquare className="h-3 w-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 text-xs space-y-1" align="start">
+            <p className="font-medium">Resposta do financeiro</p>
+            <p className="whitespace-pre-wrap">{review.response_note}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {review.responded_at ? format(new Date(review.responded_at), "dd/MM/yyyy HH:mm") : ""}
+            </p>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+}
