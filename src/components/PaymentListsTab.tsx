@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +12,7 @@ import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip, Pencil, Landmark,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip, Pencil, Landmark, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -588,7 +588,96 @@ export async function appendPaymentListRevisionNote(
   await supabase.from("payment_lists").update({ revision_notes: next }).eq("id", listId);
 }
 
+/* ─── Agrupamento por fatura nos pickers de transações ───
+ * Transações que partilham `invoice_group_id` (fatura única → N rubricas do BP)
+ * aparecem como UMA unidade selecionável, mantendo a ordem atual (a posição do
+ * grupo é a do seu primeiro item). Itens sem grupo ficam individuais.
+ */
+type PickerRow =
+  | { kind: "single"; key: string; tx: any }
+  | { kind: "group"; key: string; groupId: string; txs: any[] };
+
+function buildPickerRows(txs: any[]): PickerRow[] {
+  const rows: PickerRow[] = [];
+  const groupIndex = new Map<string, number>();
+  for (const tx of txs) {
+    const gid = tx?.invoice_group_id as string | null | undefined;
+    if (!gid) {
+      rows.push({ kind: "single", key: tx.id, tx });
+      continue;
+    }
+    const at = groupIndex.get(gid);
+    if (at === undefined) {
+      groupIndex.set(gid, rows.length);
+      rows.push({ kind: "group", key: `grp::${gid}`, groupId: gid, txs: [tx] });
+    } else {
+      (rows[at] as { txs: any[] }).txs.push(tx);
+    }
+  }
+  // Grupo com um único item elegível não vale como cartão de grupo.
+  return rows.map((r) =>
+    r.kind === "group" && r.txs.length === 1
+      ? { kind: "single" as const, key: r.txs[0].id, tx: r.txs[0] }
+      : r,
+  );
+}
+
+function groupWithIvaTotal(txs: any[]): number {
+  return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
+}
+
+/** Cabeçalho do cartão de fatura agrupada dentro das tabelas dos pickers. */
+function InvoiceGroupHeaderRow({
+  txs,
+  labelColSpan,
+  tailColSpan,
+  checked,
+  onToggle,
+  expanded,
+  onToggleExpanded,
+}: {
+  txs: any[];
+  labelColSpan: number;
+  tailColSpan: number;
+  checked: boolean | "indeterminate";
+  onToggle: () => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  const first = txs[0];
+  const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
+  const ref = (first?.invoice_ref ?? "").toString().trim();
+  return (
+    <tr className="bg-primary/5 cursor-pointer hover:bg-primary/10" onClick={onToggle}>
+      <td className="p-2 text-center">
+        <Checkbox checked={checked} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />
+      </td>
+      <td className="p-2" colSpan={labelColSpan}>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleExpanded(); }}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={expanded ? "Fechar itens" : "Ver itens"}
+          >
+            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+          <span className="font-semibold">🧾 Fatura Agrupada</span>
+          {supplier && <span className="text-muted-foreground">— {supplier}</span>}
+          {ref && <span className="text-muted-foreground">— {ref}</span>}
+          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+            {txs.length} itens
+          </span>
+        </div>
+      </td>
+      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
+      {tailColSpan > 0 && <td colSpan={tailColSpan} />}
+    </tr>
+  );
+}
+
 /* ─── Create Payment List Modal ─── */
+
 function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
   const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
@@ -643,10 +732,30 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   };
 
+  // Faturas agrupadas (invoice_group_id) selecionam-se como unidade.
+  const pickerRows = useMemo(() => buildPickerRows(filteredTx), [filteredTx]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleExpandedGroup = (gid: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  };
+  const toggleGroup = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      for (const id of ids) { if (allSelected) next.delete(id); else next.add(id); }
+      return next;
+    });
+  };
+
   const toggleAll = () => {
     if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
     else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
   };
+
 
   const handleSubmit = async (asDraft: boolean) => {
     if (selectedIds.size === 0) {
@@ -781,49 +890,72 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filteredTx.map((t: any) => {
-                  const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
-                  const paid = Number(t.paid_amount ?? 0);
-                  const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
-                  const saldo = withIva - paidWithIva;
-                  const hasPartial = paid > 0;
-                  const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
-                  const np = computeNetPayable({
-                    grossWithIva: saldo,
-                    declaredWithholding: getDeclaredWithholding(t),
-                    hasInstallments: installmentTxIds.has(t.id),
-                  });
+                {pickerRows.map((row) => {
+                  const renderTx = (t: any, inGroup: boolean) => {
+                    const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
+                    const paid = Number(t.paid_amount ?? 0);
+                    const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
+                    const saldo = withIva - paidWithIva;
+                    const hasPartial = paid > 0;
+                    const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
+                    const np = computeNetPayable({
+                      grossWithIva: saldo,
+                      declaredWithholding: getDeclaredWithholding(t),
+                      hasInstallments: installmentTxIds.has(t.id),
+                    });
+                    return (
+                      <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
+                        <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                        <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
+                          <span className="font-medium">{t.description}</span>
+                          {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
+                          {bpCheck.exceeds && (
+                            <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
+                          )}
+                        </td>
+                        <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
+                        <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
+                        <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                        <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
+                        <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
+                        <td className="p-2 text-right font-mono">
+                          {np.applied ? (
+                            <>
+                              <span className="font-semibold text-warning">{formatCurrency(np.net)}</span>
+                              <p className="text-[10px] text-warning/70">Ret. IRS −{formatCurrency(np.withholding)}</p>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
+                      </tr>
+                    );
+                  };
+
+                  if (row.kind === "single") return renderTx(row.tx, false);
+
+                  const ids = row.txs.map((t: any) => t.id);
+                  const sel = ids.filter((id) => selectedIds.has(id)).length;
+                  const expanded = expandedGroups.has(row.groupId);
                   return (
-                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
-                      <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
-                      <td className="p-2">
-                        <span className="font-medium">{t.description}</span>
-                        {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
-                        {bpCheck.exceeds && (
-                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
-                      <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
-                      <td className="p-2 text-right font-mono">
-                        {np.applied ? (
-                          <>
-                            <span className="font-semibold text-warning">{formatCurrency(np.net)}</span>
-                            <p className="text-[10px] text-warning/70">Ret. IRS −{formatCurrency(np.withholding)}</p>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                      <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
-                    </tr>
+                    <Fragment key={row.key}>
+                      <InvoiceGroupHeaderRow
+                        txs={row.txs}
+                        labelColSpan={4}
+                        tailColSpan={4}
+                        checked={sel === ids.length ? true : sel > 0 ? "indeterminate" : false}
+                        onToggle={() => toggleGroup(ids)}
+                        expanded={expanded}
+                        onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                      />
+                      {expanded && row.txs.map((t: any) => renderTx(t, true))}
+                    </Fragment>
                   );
                 })}
               </tbody>
+
             </table>
           </div>
         )}
@@ -2435,6 +2567,25 @@ function AddTransactionsToList({
     });
   };
 
+  // Faturas agrupadas (invoice_group_id) selecionam-se como unidade.
+  const pickerRows = useMemo(() => buildPickerRows(filteredTx), [filteredTx]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleExpandedGroup = (gid: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  };
+  const toggleGroup = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      for (const id of ids) { if (allSelected) next.delete(id); else next.add(id); }
+      return next;
+    });
+  };
+
   const toggleAll = () => {
     if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
     else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
@@ -2530,28 +2681,51 @@ function AddTransactionsToList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filteredTx.map((t: any) => {
-                  const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
+                {pickerRows.map((row) => {
+                  const renderTx = (t: any, inGroup: boolean) => {
+                    const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
+                    return (
+                      <tr
+                        key={t.id}
+                        className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                        onClick={() => toggleId(t.id)}
+                      >
+                        <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                        <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
+                          <span className="font-medium">{t.description}</span>
+                          {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
+                        </td>
+                        <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
+                        <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
+                        <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                        <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
+                      </tr>
+                    );
+                  };
+
+                  if (row.kind === "single") return renderTx(row.tx, false);
+
+                  const ids = row.txs.map((t: any) => t.id);
+                  const sel = ids.filter((id) => selectedIds.has(id)).length;
+                  const expanded = expandedGroups.has(row.groupId);
                   return (
-                    <tr
-                      key={t.id}
-                      className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
-                      onClick={() => toggleId(t.id)}
-                    >
-                      <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
-                      <td className="p-2">
-                        <span className="font-medium">{t.description}</span>
-                        {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
-                      </td>
-                      <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
-                    </tr>
+                    <Fragment key={row.key}>
+                      <InvoiceGroupHeaderRow
+                        txs={row.txs}
+                        labelColSpan={4}
+                        tailColSpan={1}
+                        checked={sel === ids.length ? true : sel > 0 ? "indeterminate" : false}
+                        onToggle={() => toggleGroup(ids)}
+                        expanded={expanded}
+                        onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                      />
+                      {expanded && row.txs.map((t: any) => renderTx(t, true))}
+                    </Fragment>
                   );
                 })}
               </tbody>
+
             </table>
           </div>
         )}
