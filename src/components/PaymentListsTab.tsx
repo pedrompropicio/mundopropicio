@@ -1347,6 +1347,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     },
   });
 
+  // Progresso de liquidação consolidado da fatura (todos os itens do grupo na BD).
+  const { data: groupProgress = {} } = useInvoiceGroupProgress(invoiceGroupIds);
+
+
   // BP forecast check for view
   const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
 
