@@ -39,6 +39,8 @@ export interface TicketlineImportAudit {
   lotsReused: number;
   importLogId: string | null;
   warnings: string[];
+  /** 'section2' = layout normal (ZONA); 'section1_daily' = fallback pelos totais diários. */
+  dataSource: "section2" | "section1_daily" | "none";
   totals: {
     qtyVendas: number; valueVendas: number;
     qtyGeral: number; valueGeral: number;
@@ -48,6 +50,7 @@ export interface TicketlineImportAudit {
   section2DailyTotals: any[];
   zoneLotMap: Array<{ zone: string; lot: string; zoneId: string; lotId: string }>;
 }
+
 
 function normalizeName(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -61,6 +64,7 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
     zonesCreated: 0, lotsCreated: 0, zonesReused: 0, lotsReused: 0,
     importLogId: null,
     warnings: [...parseResult.warnings],
+    dataSource: "section2",
     totals: {
       qtyVendas: 0, valueVendas: 0, qtyGeral: 0, valueGeral: 0,
       periodFrom: parseResult.header.period_from,
@@ -70,14 +74,6 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
     section2DailyTotals: parseResult.section2DailyTotals,
     zoneLotMap: [],
   };
-  for (const r of parseResult.rows) {
-    audit.totals.qtyVendas += r.totalVendasQty;
-    audit.totals.valueVendas += r.totalVendasValue;
-    audit.totals.qtyGeral += r.totalGeralQty;
-    audit.totals.valueGeral += r.totalGeralValue;
-  }
-  audit.totals.valueVendas = Math.round(audit.totals.valueVendas * 100) / 100;
-  audit.totals.valueGeral = Math.round(audit.totals.valueGeral * 100) / 100;
 
   // 1. company_id
   const { data: ev, error: evErr } = await supabase
@@ -97,8 +93,55 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
     }
   }
 
+  // 2b. FALLBACK: layouts sem secção 2 (sem header "ZONA") → importar os
+  // totais diários da secção 1 para uma zona/lote default do evento.
+  let rows = parseResult.rows;
+  if (rows.length === 0) {
+    const daily = (parseResult.section1Daily || []).filter(
+      (d: any) => d.vendasQty !== 0 || d.vendasValue !== 0 || d.geralQty !== 0 || d.geralValue !== 0,
+    );
+    if (daily.length > 0) {
+      const zonesList = (existingZones || []) as Array<{ id: string; name: string }>;
+      let zoneName = "Geral";
+      let lotName = "Lote 1";
+      if (zonesList.length === 1) {
+        zoneName = zonesList[0].name;
+        const { data: zLots } = await supabase
+          .from("event_ticket_lots").select("name").eq("zone_id", zonesList[0].id);
+        if ((zLots || []).length === 1) lotName = zLots![0].name;
+      }
+      rows = daily.map((d: any) => ({
+        date: d.date,
+        zone: zoneName,
+        lot: lotName,
+        ticketType: null,
+        rawLabel: `Total diário ${d.date}`,
+        totalGeralQty: d.geralQty,
+        totalGeralValue: d.geralValue,
+        totalVendasQty: d.vendasQty !== 0 ? d.vendasQty : d.geralQty,
+        totalVendasValue: d.vendasValue !== 0 ? d.vendasValue : d.geralValue,
+      }));
+      audit.dataSource = "section1_daily";
+      audit.warnings.push(
+        `Secção 2 (ZONA) ausente no ficheiro — importados ${rows.length} dias a partir dos totais diários da secção 1 para "${zoneName} / ${lotName}".`,
+      );
+    } else {
+      audit.dataSource = "none";
+    }
+  }
+
+  for (const r of rows) {
+    audit.totals.qtyVendas += r.totalVendasQty;
+    audit.totals.valueVendas += r.totalVendasValue;
+    audit.totals.qtyGeral += r.totalGeralQty;
+    audit.totals.valueGeral += r.totalGeralValue;
+  }
+  audit.totals.valueVendas = Math.round(audit.totals.valueVendas * 100) / 100;
+  audit.totals.valueGeral = Math.round(audit.totals.valueGeral * 100) / 100;
+
   // 3. Resolver / criar zonas necessárias
-  const neededZones = Array.from(new Set(parseResult.rows.map(r => r.zone)));
+  const neededZones = Array.from(new Set(rows.map(r => r.zone)));
+
   const zoneIdByName = new Map<string, string>();
   for (const zName of neededZones) {
     const k = normalizeName(zName);
@@ -134,7 +177,7 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
   // 5. Resolver / criar lotes
   // chave de lote = lot + ( | ticketType) — mantém a separação Mob.Reduzida etc.
   const lotIdByRowKey = new Map<string, string>(); // `${zone}::${lotName}` → lotId
-  for (const r of parseResult.rows) {
+  for (const r of rows) {
     const zoneId = zoneIdByName.get(r.zone)!;
     const lotName = r.ticketType ? `${r.lot} | ${r.ticketType}` : r.lot;
     const rowKey = `${r.zone}::${lotName}`;
@@ -187,7 +230,7 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
   }
 
   // 8. Inserir ticket_sales (1 linha por row TOTAL VENDAS ≠ 0)
-  const payload = parseResult.rows
+  const payload = rows
     .filter(r => r.totalVendasQty !== 0 || r.totalVendasValue !== 0)
     .map(r => {
       const lotName = r.ticketType ? `${r.lot} | ${r.ticketType}` : r.lot;
