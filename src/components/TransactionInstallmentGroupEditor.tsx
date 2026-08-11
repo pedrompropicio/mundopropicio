@@ -167,14 +167,12 @@ export function TransactionInstallmentGroupEditor({
       return updated;
     },
     onSuccess: (n) => {
-      queryClient.invalidateQueries({ queryKey: ["installment-group"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      // Badge azul da proforma/fatura na lista (agrupamento por invoice_ref + fornecedor)
-      queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
-      queryClient.invalidateQueries({ queryKey: ["invoice-group-progress"] });
-      queryClient.invalidateQueries({ queryKey: ["transaction-audit-log"] });
+      // Invalida por prefixo/predicate tudo o que alimenta a tela por trás
+      // (lista, badge da fatura, totais "Aberto:", contadores por data).
+      invalidateTransactionQueries(queryClient);
       toast({ title: `${n} parcela(s) atualizada(s)` });
     },
+
     onError: (e: any) =>
       toast({ title: "Erro ao gravar parcelas", description: e.message, variant: "destructive" }),
   });
