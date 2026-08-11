@@ -466,7 +466,17 @@ Deno.serve(async (req) => {
 
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
-  const { configId, mode = "manual", triggeredBy = null } = body;
+  const { configId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "discover") {
+    try {
+      return await runDiscover(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "discover_failed", error: e?.message || String(e) });
+    }
+  }
+
+
 
   let cfgs: any[] = [];
   if (configId) {
