@@ -221,10 +221,10 @@ Deno.serve(async (req) => {
       }
       for (const d of tdocs) {
         const { data: blob, error: dlErr } = await admin.storage
-          .from("transaction-documents")
-          .download(d.file_url);
+          .from(d.bucket)
+          .download(d.path);
         if (dlErr || !blob) {
-          csvRows.push([t.id, t.payment_date ?? "", supName, supNif, t.amount, t.invoice_ref ?? "", d.name ?? d.file_url, "ERROR"].map(csvEscape).join(","));
+          csvRows.push([t.id, t.payment_date ?? "", supName, supNif, t.amount, t.invoice_ref ?? "", d.name ?? d.path, "ERROR"].map(csvEscape).join(","));
           continue;
         }
         const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -234,11 +234,12 @@ Deno.serve(async (req) => {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        const fname = d.name ?? d.file_url.split("/").pop() ?? `${d.id}.bin`;
+        const fname = d.name ?? d.path.split("/").pop() ?? `${d.id}.bin`;
         zip.file(`${folder}/${fname}`, bytes);
         docCount++;
         csvRows.push([t.id, t.payment_date ?? "", supName, supNif, t.amount, t.invoice_ref ?? "", fname, bytes.byteLength].map(csvEscape).join(","));
       }
+
     }
 
     zip.file("index.csv", csvRows.join("\n"));
