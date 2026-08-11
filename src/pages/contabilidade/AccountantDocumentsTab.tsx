@@ -430,7 +430,7 @@ function ReviewCell({
         className="h-7 px-2"
         title="Marcar como conferido"
         disabled={saving}
-        onClick={() => onSave("conferido", review?.note ?? null as any)}
+        onClick={() => onSave("conferido", review?.note ?? undefined)}
       >
         <CheckCircle2 className="h-3.5 w-3.5" />
       </Button>
