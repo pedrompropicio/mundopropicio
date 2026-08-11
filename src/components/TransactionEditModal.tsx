@@ -22,6 +22,8 @@ import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
+import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
@@ -362,7 +364,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
-      if (changes.length === 0 && !wantsNewReimbursementLink) throw new Error("Nenhuma alteração detectada.");
+      // Zero campos alterados = no-op de fecho (não é erro).
+      if (changes.length === 0 && !wantsNewReimbursementLink) {
+        return { data: null, snapshot: null, changesCount: 0, noop: true as const };
+      }
+
 
       const paymentFields = {
         payment_method: form.payment_method,
@@ -520,16 +526,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
       }
 
-      return { data, snapshot, changesCount: changes.length };
+      return { data, snapshot, changesCount: changes.length, noop: false as const };
     },
     onSuccess: async (result) => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      invalidateTransactionQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["partner-paid-link", transaction.id] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-check", transaction.id] });
       onClose();
+      if (result?.noop) {
+        toast({ title: "Sem outras alterações" });
+        return;
+      }
       if (result?.snapshot && user) {
+
         const { recordUndo } = await import("@/lib/undo");
         const { showUndoToast } = await import("@/hooks/useUndoToast");
         const undoRec = await recordUndo({
