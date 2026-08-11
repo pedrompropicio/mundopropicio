@@ -65,3 +65,22 @@ WHERE invoice_group_id IS NULL AND supplier_id IS NOT NULL
 GROUP BY 1,2 HAVING count(*) > 1;
 ```
 Linhas devolvidas devem ser só proformas / referências genéricas.
+
+## Badge de progresso de liquidação (2026-08)
+`src/hooks/useInvoiceGroupProgress.ts` — UMA query agregada
+`.in("invoice_group_id", ids)` (id, status, paid_amount, amount, iva_rate) devolve por
+grupo `{ total, paidCount, openWithIva }`. Necessária porque os pickers só listam
+pendentes: o estado consolidado da fatura tem de vir da BD.
+
+Regra de liquidado (a mesma do módulo de listas): `status='paid'` **ou**
+`paid_amount >= total c/IVA − 0,05`. `manually_marked_paid` já liquida a transação
+(ver payment-lists), pelo que não é preciso duplicar a regra.
+
+`InvoiceGroupProgressBadge` (em `PaymentListsTab.tsx`):
+- 0 pagos → badge neutro "N itens" (comportamento anterior).
+- Parcial → âmbar "X/N pagos" + "em aberto: Y €" (soma c/IVA dos não liquidados).
+- Tudo pago → verde "N/N pagos" (só visível no detalhe; pickers só mostram pendentes).
+
+Aplicado em: picker da Nova Lista, picker "Adicionar transações" e cabeçalho do grupo
+no detalhe da lista. É informação adicional — não altera seleção do grupo, soft-remove
+nem o aviso âmbar de grupo parcial.
