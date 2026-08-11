@@ -264,13 +264,27 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
     }
 
+    // Fim do sucesso silencioso: se o parser viu vendas mas nada foi importado,
+    // a run não pode ficar 'success'.
+    const s1HasSales = (parseRes.section1Daily || []).some(
+      (d: any) => d.vendasQty !== 0 || d.vendasValue !== 0 || d.geralQty !== 0 || d.geralValue !== 0,
+    );
+    const silentEmpty = (audit?.rowsImported || 0) === 0 && s1HasSales;
+    const finalStatus = silentEmpty ? "warning" : "success";
+    const warnMsg = silentEmpty
+      ? "Parser encontrou vendas na secção 1 mas 0 linhas foram importadas — verificar layout do relatório."
+      : null;
+    debug.data_source = audit?.dataSource || null;
+
     await updateRun(admin, runId, {
-      status: "success", finished_at: new Date().toISOString(),
+      status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit,
-      import_audit: { ...audit, debug },
+      error_message: warnMsg,
+      import_audit: { ...audit, debug, silentEmpty },
     });
-    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: "success" });
-    return { ok: true, runId, audit };
+    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
+    return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
+
   } catch (e: any) {
     const phase = e?.phase || "failed";
     const msg = e?.message || String(e);
