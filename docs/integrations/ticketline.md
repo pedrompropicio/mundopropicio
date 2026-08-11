@@ -168,3 +168,18 @@ acelera o download e reduz ruído no parser.
 - v2.4 (2026-08-11): fallback de importação pela secção 1 para layouts sem
   header `ZONA`; runs com vendas detetadas mas 0 linhas importadas passam a
   `status='warning'` em vez de `success`; `import_audit.dataSource`.
+
+## Conta única + cache de sessão (v2.7, 2026-08-11)
+
+- Todos os configs usam o segredo Vault partilhado **`ticketline_master`**
+  (uma só conta Ticketline Manager). Os 5 segredos antigos eram idênticos.
+- A edge function mantém `Map<vault_secret_name, Jar>` por invocação: **1 login
+  Devise por corrida** em vez de um por config. Self-heal mantido (re-login
+  apenas em `session_expired`).
+- UI `/admin/ticketline-sync` → **Adicionar evento**: pede só evento do ERP +
+  `ticketline_event_id` (+ data de início de vendas). Credenciais assumem
+  `ticketline_master`; só se pede email/password com o toggle "Usar outra conta".
+- Cron `ticketline-sync-daily` (22:59 UTC) passou a funcionar na **v2.6** —
+  antes falhava com 403 porque só aceitava o service role por igualdade estrita.
+- Runs com status **`html_response`** = `ticketline_event_id` obsoleto ou conta
+  sem acesso ao evento (NÃO é sessão expirada). Usar `{"action":"discover"}`.
