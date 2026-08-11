@@ -126,6 +126,136 @@ async function loginDevise(email: string, password: string): Promise<LoginResult
   return { jar };
 }
 
+// --- Diagnóstico de respostas HTML ---
+function stripTags(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function describeHtml(html: string): { title: string; snippet: string; isSignIn: boolean } {
+  const tm = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const title = tm ? stripTags(tm[1]).slice(0, 200) : "(sem title)";
+  const body = html.match(/<body[\s\S]*<\/body>/i)?.[0] ?? html;
+  const snippet = stripTags(body).slice(0, 200);
+  const isSignIn = /managers\/sign_in|manager\[password\]|manager_password|Iniciar sess|Entrar/i.test(html);
+  return { title, snippet, isSignIn };
+}
+
+// --- Discover: lista eventos visíveis pela conta ---
+async function fetchEventsPage(jar: Jar, page: number): Promise<string> {
+  const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+  const url = page > 1 ? `${BASE}/managers/events?page=${page}` : `${BASE}/managers/events`;
+  const resp = await fetchWithTimeout(url, {
+    method: "GET", redirect: "manual",
+    headers: { "User-Agent": ua, "Accept": "text/html,application/xhtml+xml", "Cookie": jarToHeader(jar), "Referer": `${BASE}/managers` },
+  });
+  ingestSetCookie(jar, resp);
+  if (resp.status === 302) {
+    const loc = resp.headers.get("location") || "";
+    await resp.text().catch(() => null);
+    throw Object.assign(new Error(`GET /managers/events 302 → ${loc}`), { phase: "discover_redirect" });
+  }
+  if (!resp.ok) {
+    const text = (await resp.text()).slice(0, 300);
+    throw Object.assign(new Error(`GET /managers/events HTTP ${resp.status}: ${text}`), { phase: "discover_http" });
+  }
+  return await resp.text();
+}
+
+function parseEventsFromHtml(html: string): Array<{ ticketline_event_id: string; nome: string; data: string | null }> {
+  const out = new Map<string, { ticketline_event_id: string; nome: string; data: string | null }>();
+  const linkRe = /<a[^>]+href=["'][^"']*\/managers\/events\/(\d+)(?:[/?#][^"']*)?["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(html)) !== null) {
+    const id = m[1];
+    const text = stripTags(m[2]);
+    const prev = out.get(id);
+    if (!prev || (!prev.nome && text) || (text.length > prev.nome.length && text.length < 160)) {
+      out.set(id, { ticketline_event_id: id, nome: text.slice(0, 160), data: prev?.data ?? null });
+    }
+  }
+  // Tenta apanhar uma data na mesma linha/tr do link
+  const rowRe = /<tr[\s\S]*?<\/tr>/gi;
+  let r: RegExpExecArray | null;
+  while ((r = rowRe.exec(html)) !== null) {
+    const row = r[0];
+    const idm = row.match(/\/managers\/events\/(\d+)/);
+    if (!idm) continue;
+    const ent = out.get(idm[1]);
+    if (!ent || ent.data) continue;
+    const dm = stripTags(row).match(/(\d{2}[-/]\d{2}[-/]\d{4})|(\d{4}-\d{2}-\d{2})/);
+    if (dm) ent.data = dm[0];
+  }
+  return Array.from(out.values());
+}
+
+function hasNextPage(html: string, page: number): boolean {
+  return new RegExp(`href=["'][^"']*\\/managers\\/events\\?[^"']*page=${page + 1}\\b`, "i").test(html);
+}
+
+async function runDiscover(admin: any, configId?: string) {
+  let cfgQuery = admin.from("ticketline_sync_config").select("*");
+  cfgQuery = configId ? cfgQuery.eq("id", configId) : cfgQuery.eq("enabled", true);
+  const { data: cfgs, error: cfgErr } = await cfgQuery;
+  if (cfgErr) return json(500, { error: cfgErr.message });
+  const baseCfg = (cfgs || [])[0];
+  if (!baseCfg) return json(200, { ok: false, reason: "no configs" });
+
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: baseCfg.vault_secret_name });
+  const raw = (typeof secRpc === "string" ? secRpc : "").trim();
+  if (!raw) return json(500, { error: `Credenciais em falta no Vault (${baseCfg.vault_secret_name})` });
+  let creds: { email: string; password: string };
+  try { creds = JSON.parse(raw); } catch { return json(500, { error: "Vault secret não é JSON {email,password}" }); }
+
+  const { jar } = await loginDevise(creds.email, creds.password);
+
+  const events: Array<{ ticketline_event_id: string; nome: string; data: string | null }> = [];
+  const seen = new Set<string>();
+  let pagesFetched = 0;
+  for (let page = 1; page <= 10; page++) {
+    const html = await fetchEventsPage(jar, page);
+    pagesFetched++;
+    const found = parseEventsFromHtml(html);
+    for (const e of found) if (!seen.has(e.ticketline_event_id)) { seen.add(e.ticketline_event_id); events.push(e); }
+    if (!hasNextPage(html, page)) break;
+  }
+
+  // Cruzamento com TODOS os configs enabled (independente do configId usado p/ credenciais)
+  const { data: allCfgs } = await admin
+    .from("ticketline_sync_config")
+    .select("id, ticketline_event_id, event_id, enabled, last_run_status, vault_secret_name, events(name)")
+    .eq("enabled", true);
+
+  const configsSemMatch = (allCfgs || [])
+    .filter((c: any) => !seen.has(String(c.ticketline_event_id)))
+    .map((c: any) => ({
+      config_id: c.id,
+      ticketline_event_id: c.ticketline_event_id,
+      event_id: c.event_id,
+      event_name: c.events?.name ?? null,
+      last_run_status: c.last_run_status,
+      vault_secret_name: c.vault_secret_name,
+    }));
+
+  const cfgIds = new Set((allCfgs || []).map((c: any) => String(c.ticketline_event_id)));
+  const eventsSemConfig = events.filter(e => !cfgIds.has(e.ticketline_event_id));
+
+  return json(200, {
+    ok: true,
+    version: VERSION,
+    credentials_from: { config_id: baseCfg.id, vault_secret_name: baseCfg.vault_secret_name },
+    pages_fetched: pagesFetched,
+    events_visible: events,
+    configs_sem_match: configsSemMatch,
+    events_sem_config: eventsSemConfig,
+  });
+}
+
 async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8Array> {
   const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
   const resp = await fetchWithTimeout(url, {
