@@ -104,7 +104,6 @@ export function TransactionInstallmentGroupEditor({
   }, [group.length, originalTotal]);
 
   const canEdit = isAdmin || isManager;
-  if (group.length < 2) return null;
 
   const newTotal = parseFloat(totalInput) || 0;
   const sum = +Object.values(rows).reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2);
@@ -115,31 +114,6 @@ export function TransactionInstallmentGroupEditor({
   const paidSum = +paidRows.reduce((s, r) => s + (rows[r.id]?.amount ?? r.amount), 0).toFixed(2);
 
   const rowLocked = (r: GroupRow) => isPaidRow(r) && !(isAdmin && unlockPaid);
-
-  const distribute = () => {
-    const unpaid = group.filter((r) => !isPaidRow(r) || (isAdmin && unlockPaid));
-    if (unpaid.length === 0) {
-      toast({ title: "Todas as parcelas estão pagas", variant: "destructive" });
-      return;
-    }
-    const lockedSum = +group
-      .filter((r) => !unpaid.includes(r))
-      .reduce((s, r) => s + (rows[r.id]?.amount ?? r.amount), 0)
-      .toFixed(2);
-    const remaining = +(newTotal - lockedSum).toFixed(2);
-    if (remaining < 0) {
-      toast({ title: "Total inferior às parcelas pagas", variant: "destructive" });
-      return;
-    }
-    const amounts = distributeEvenly(remaining, unpaid.length);
-    setRows((prev) => {
-      const next = { ...prev };
-      unpaid.forEach((r, i) => {
-        next[r.id] = { ...next[r.id], amount: amounts[i] };
-      });
-      return next;
-    });
-  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -200,6 +174,34 @@ export function TransactionInstallmentGroupEditor({
     onError: (e: any) =>
       toast({ title: "Erro ao gravar parcelas", description: e.message, variant: "destructive" }),
   });
+
+  if (group.length < 2) return null;
+
+  const distribute = () => {
+    const unpaid = group.filter((r) => !isPaidRow(r) || (isAdmin && unlockPaid));
+    if (unpaid.length === 0) {
+      toast({ title: "Todas as parcelas estão pagas", variant: "destructive" });
+      return;
+    }
+    const lockedSum = +group
+      .filter((r) => !unpaid.includes(r))
+      .reduce((s, r) => s + (rows[r.id]?.amount ?? r.amount), 0)
+      .toFixed(2);
+    const remaining = +(newTotal - lockedSum).toFixed(2);
+    if (remaining < 0) {
+      toast({ title: "Total inferior às parcelas pagas", variant: "destructive" });
+      return;
+    }
+    const amounts = distributeEvenly(remaining, unpaid.length);
+    setRows((prev) => {
+      const next = { ...prev };
+      unpaid.forEach((r, i) => {
+        next[r.id] = { ...next[r.id], amount: amounts[i] };
+      });
+      return next;
+    });
+  };
+
 
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
