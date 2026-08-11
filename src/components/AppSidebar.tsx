@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
+import { useAccountantPendenciesCount } from "@/hooks/useAccountantPendenciesCount";
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
@@ -50,6 +51,9 @@ export function AppSidebar() {
   const activeOpEventId = searchParams.get("event");
 
   const coalaBadgeCount = useCoalaSyncBadge(isAdmin);
+  const accountantPendingCount = useAccountantPendenciesCount(
+    isAdmin || isManager || hasPermission("manage_transactions"),
+  );
   const hasCoala = useHasFeature(FEATURES.SYNC_COALA);
   const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
   const hasHealth = useHasFeature(FEATURES.SYNC_HEALTH);
@@ -94,6 +98,7 @@ export function AppSidebar() {
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") || isAdmin },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
+    { to: "/pendencias-contabilista", icon: ClipboardCheck, label: "Contabilista", show: hasPermission("manage_transactions") || isAdmin || isManager, badge: accountantPendingCount },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/cartoes", icon: CreditCard, label: "Cartões", show: hasPermission("card_manage") || isAdmin || isManager },
     { to: "/operacao", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
