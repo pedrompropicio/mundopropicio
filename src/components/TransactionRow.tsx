@@ -11,6 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
+import InvoiceGroupAction from "@/components/InvoiceGroupAction";
+
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -214,7 +216,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     queryFn: async () => {
       let q = supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type")
+        .select("id, description, amount, iva_rate, type, invoice_group_id")
         .eq("invoice_ref", invoiceRef!)
         .order("description");
       if (invoiceSupplierId) q = q.eq("supplier_id", invoiceSupplierId);
@@ -232,6 +234,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     const iva = base * ((s.iva_rate ?? 23) / 100);
     return sum + base + iva;
   }, 0) ?? 0;
+  // Deteção sem grupo formal → oferece a ação "Agrupar fatura".
+  const invoiceNeedsGrouping =
+    !!invoiceRef &&
+    !!invoiceSupplierId &&
+    invoiceGroupCount > 1 &&
+    (invoiceSiblings ?? []).every((s: any) => !s.invoice_group_id);
+
 
   // Local reinforcement detection: expense in tour sub-event with category in Master BP but not linked
   const isTourSubEvent = !!t.event_id && !!(t.events as any)?.parent_event_id;
@@ -449,6 +458,15 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {invoiceNeedsGrouping && (
+                  <InvoiceGroupAction
+                    compact
+                    supplierId={invoiceSupplierId}
+                    invoiceRef={invoiceRef}
+                    siblings={(invoiceSiblings ?? []) as any}
+                  />
+                )}
+
                 {invoiceRef && invoiceGroupCount <= 1 && (
                   <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                     📄 {invoiceRef}

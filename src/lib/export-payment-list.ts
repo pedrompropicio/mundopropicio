@@ -23,6 +23,10 @@ export interface PaymentItem {
   payment_entity?: string | null;
   payment_reference?: string | null;
   invoice_ref?: string | null;
+  /** Grupo de fatura formal (transactions.invoice_group_id). É a chave canónica de agrupamento. */
+  invoice_group_id?: string | null;
+  /** Nº total de transações que existem nesse grupo de fatura (para detetar grupos parciais). */
+  group_total_count?: number;
   /** Retenção de IRS declarada (valor absoluto sobre o bruto c/ IVA). */
   declared_withholding_amount?: number;
   /** True quando a transação tem parcelas; nesse caso a retenção não aplica neste fluxo. */
@@ -74,6 +78,9 @@ export interface PaymentGroup {
   supplier_trade_name?: string | null;
   supplier_id: string | null;
   invoice_ref: string;
+  invoice_group_id?: string | null;
+  /** Nº total de itens do grupo de fatura na BD (>= items.length quando parcial). */
+  group_total_count?: number;
   iban: string;
   payment_method?: string;
   payment_entity?: string | null;
@@ -95,8 +102,13 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
   for (const item of items) {
     const ref = item.invoice_ref?.trim();
     const sid = item.supplier_id ?? "";
-    if (ref && sid) {
-      const key = `${sid}::${ref}`;
+    // Chave canónica: o grupo de fatura formal. Fallback (legado): fornecedor + nº fatura.
+    const key = item.invoice_group_id
+      ? `grp::${item.invoice_group_id}`
+      : ref && sid
+        ? `${sid}::${ref}`
+        : null;
+    if (key) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     } else {
@@ -114,7 +126,12 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
         supplier_name: first.supplier_name,
         supplier_trade_name: first.supplier_trade_name ?? null,
         supplier_id: first.supplier_id ?? null,
-        invoice_ref: first.invoice_ref!,
+        invoice_ref: first.invoice_ref ?? "—",
+        invoice_group_id: first.invoice_group_id ?? null,
+        group_total_count: Math.max(
+          ...groupItems.map((i) => Number(i.group_total_count ?? 0)),
+          groupItems.length,
+        ),
         iban: first.iban,
         payment_method: first.payment_method,
         payment_entity: first.payment_entity,
