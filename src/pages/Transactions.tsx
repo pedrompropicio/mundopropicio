@@ -731,14 +731,17 @@ export default function Transactions() {
       const amount = Number(t.amount);
       const isPaid = t.status === "paid" || paidAmount >= amount - 0.01;
 
-      // Overdue only makes sense for due_date
+      // FILTRO DE DATA ESTRITO: nada entra na lista fora do período selecionado,
+      // incluindo a secção "Vencidas". Só depois de estar dentro do período é que
+      // se decide se a linha é "vencida" (due_date passado) ou "do período".
+      if (dateObj < periodStart || dateObj > periodEnd) return;
+
       if (periodDateField === "due_date" && !isPaid && dateObj < today) {
         overdue.push(t);
-      } else if (dateObj >= periodStart && dateObj <= periodEnd) {
+      } else {
         inPeriod.push(t);
       }
-      // else: outside period — excluded
-    });
+
 
     return {
       overdueGroup: sortByDueDate(overdue),
