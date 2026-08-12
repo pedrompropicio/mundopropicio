@@ -2621,37 +2621,64 @@ function ApproveModal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {items.map((item: any) => {
-                  const tx = item.transactions;
-                  const txAmount = Number(tx?.amount ?? 0);
-                  const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
-                  const paid = Number(tx?.paid_amount ?? 0);
-                  const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
+                {approveRows.map((row) => {
+                  const renderItem = (item: any, nested: boolean) => {
+                    const tx = item.transactions;
+                    const txAmount = Number(tx?.amount ?? 0);
+                    const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
+                    const paid = Number(tx?.paid_amount ?? 0);
+                    const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`transition-colors ${nested ? "bg-muted/10" : selectedIds.has(item.id) ? "cursor-pointer bg-primary/5" : "cursor-pointer hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
+                        onClick={nested ? undefined : () => toggleId(item.id)}
+                      >
+                        <td className="p-2 text-center">
+                          {nested ? (
+                            <span className="text-muted-foreground/50">↳</span>
+                          ) : (
+                            <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} className="border-emerald-500 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" />
+                          )}
+                        </td>
+                         <td className={`p-2 ${nested ? "pl-6" : ""}`}>
+                           <span className="font-medium">{tx?.description}</span>
+                           {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
+                           {bpCheck.exceeds && (
+                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                           )}
+                         </td>
+                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
+                         <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
+                         <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(tx?.suppliers?.name, (tx?.suppliers as any)?.trade_name)}</td>
+                         <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                         <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
+                      </tr>
+                    );
+                  };
+
+                  if (row.kind === "single") return renderItem(row.item, false);
+
+                  const ids = row.items.map((i: any) => i.id);
+                  const allIn = ids.every((id) => selectedIds.has(id));
+                  const expanded = expandedGroups.has(row.groupId);
                   return (
-                    <tr
-                      key={item.id}
-                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
-                      onClick={() => toggleId(item.id)}
-                    >
-                      <td className="p-2 text-center">
-                        <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} className="border-emerald-500 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" />
-                      </td>
-                       <td className="p-2">
-                         <span className="font-medium">{tx?.description}</span>
-                         {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
-                         {bpCheck.exceeds && (
-                           <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
-                         )}
-                       </td>
-                       <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
-                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
-                       <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(tx?.suppliers?.name, (tx?.suppliers as any)?.trade_name)}</td>
-                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
-                    </tr>
+                    <Fragment key={row.key}>
+                      <InvoiceGroupHeaderRow
+                        txs={row.items.map((i: any) => i.transactions)}
+                        labelColSpan={4}
+                        tailColSpan={1}
+                        checked={allIn}
+                        onToggle={() => toggleGroupItems(ids)}
+                        expanded={expanded}
+                        onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                      />
+                      {expanded && row.items.map((i: any) => renderItem(i, true))}
+                    </Fragment>
                   );
                 })}
               </tbody>
+
             </table>
           </div>
         )}
