@@ -40,7 +40,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_2_2026_08_12";
+const VERSION = "v1_4_2026_08_12";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -290,7 +290,7 @@ Deno.serve(async (req) => {
   const { data: marketing } = ids.length
     ? await admin
         .from("event_marketing")
-        .select("event_id, lots_locked, ticket_lots, offer_price_min, offer_availability")
+        .select("event_id, lots_locked, ticket_lots, offer_price_min, offer_availability, age_rating, doors_time")
         .in("event_id", ids)
     : { data: [] as any[] };
   const mkByEvent = new Map((marketing ?? []).map((m: any) => [m.event_id, m]));
