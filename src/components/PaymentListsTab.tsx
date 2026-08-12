@@ -2439,6 +2439,61 @@ function ApproveModal({
     else setSelectedIds(new Set(items.map((i: any) => i.id)));
   };
 
+  /**
+   * Faturas agrupadas (`invoice_group_id`) aparecem como UM cartão com UMA
+   * checkbox — a aprovação é ATÓMICA: ou o grupo inteiro é aprovado, ou o grupo
+   * inteiro fica não aprovado. Cortar um item da fatura faz-se na edição da lista.
+   */
+  type ApproveRow =
+    | { kind: "single"; key: string; item: any }
+    | { kind: "group"; key: string; groupId: string; items: any[] };
+
+  const approveRows = useMemo<ApproveRow[]>(() => {
+    const rows: ApproveRow[] = [];
+    const at = new Map<string, number>();
+    for (const item of items as any[]) {
+      const gid = item.transactions?.invoice_group_id as string | null | undefined;
+      if (!gid) {
+        rows.push({ kind: "single", key: item.id, item });
+        continue;
+      }
+      const idx = at.get(gid);
+      if (idx === undefined) {
+        at.set(gid, rows.length);
+        rows.push({ kind: "group", key: `grp::${gid}`, groupId: gid, items: [item] });
+      } else {
+        (rows[idx] as { items: any[] }).items.push(item);
+      }
+    }
+    return rows.map((r) =>
+      r.kind === "group" && r.items.length === 1
+        ? { kind: "single" as const, key: r.items[0].id, item: r.items[0] }
+        : r,
+    );
+  }, [items]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleExpandedGroup = (gid: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid);
+      else next.add(gid);
+      return next;
+    });
+
+  /** Seleção atómica do grupo: todos entram ou todos saem. */
+  const toggleGroupItems = (ids: string[]) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allIn = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allIn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+
+
   /** Cards ao vivo: recalculados sobre os itens já carregados, sem query nova. */
   const approveTotals = useMemo(() => {
     let total = 0;
