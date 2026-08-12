@@ -106,8 +106,13 @@ export default function SepaExportModal({
   useEffect(() => {
     const initial: Row[] = candidates.map((c) => {
       if (c.preExcludeReason) {
-        return { ...c, remittance: "", excluded: { reason: "no_open_amount", detail: c.preExcludeReason } };
+        return {
+          ...c,
+          remittance: "",
+          excluded: { reason: c.preExcludeKind ?? "no_open_amount", detail: c.preExcludeReason },
+        };
       }
+
       const check = checkSepaIban(c.iban);
       const remittance = compactDescriptionDeterministic(c.description);
       if (!check.ok) {
