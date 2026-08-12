@@ -2709,6 +2709,7 @@ function ApproveModal({
                         </td>
                          <td className={`p-2 ${nested ? "pl-6" : ""}`}>
                            <span className="font-medium">{tx?.description}</span>
+                           {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
                            {bpCheck.exceeds && (
                              <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
