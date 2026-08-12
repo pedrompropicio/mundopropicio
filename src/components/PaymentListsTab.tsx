@@ -2902,6 +2902,11 @@ function AddTransactionsToList({
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
           Disponíveis ({filteredTx.length} de {available.length})
         </h3>
+        {unbankableCount > 0 && (
+          <p className="mb-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {unbankableCount} transaç{unbankableCount === 1 ? "ão" : "ões"} sem dados bancários — {NO_IBAN_TOOLTIP.toLowerCase()}.
+          </p>
+        )}
 
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar…</p>
@@ -2915,7 +2920,7 @@ function AddTransactionsToList({
               <thead className="sticky top-0 bg-muted">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-center w-8">
-                    <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
+                    <Checkbox checked={selectedIds.size === bankableTx.length && bankableTx.length > 0} onCheckedChange={toggleAll} />
                   </th>
                   <th className="p-2 text-left font-medium">Descrição</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
@@ -2929,15 +2934,24 @@ function AddTransactionsToList({
                 {pickerRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
+                    const bank = checkPaymentBankability(t);
                     return (
                       <tr
                         key={t.id}
-                        className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
-                        onClick={() => toggleId(t.id)}
+                        className={`transition-colors ${bank.ok ? "cursor-pointer" : "opacity-50"} ${selectedIds.has(t.id) ? "bg-primary/5" : bank.ok ? "hover:bg-muted/30" : ""}`}
+                        onClick={bank.ok ? () => toggleId(t.id) : undefined}
+                        title={bank.ok ? undefined : NO_IBAN_TOOLTIP}
                       >
-                        <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                        <td className="p-2 text-center">
+                          <Checkbox
+                            checked={bank.ok && selectedIds.has(t.id)}
+                            disabled={!bank.ok}
+                            onCheckedChange={bank.ok ? () => toggleId(t.id) : undefined}
+                          />
+                        </td>
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
+                          {!bank.ok && <NoIbanBadge className="ml-1.5" />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                         </td>
                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
@@ -2954,6 +2968,7 @@ function AddTransactionsToList({
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = expandedGroups.has(row.groupId);
+                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
@@ -2965,7 +2980,7 @@ function AddTransactionsToList({
                         expanded={expanded}
                         onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
                         progress={(groupProgress as Record<string, InvoiceGroupProgress>)[row.groupId]}
-
+                        disabled={groupBlocked}
                       />
                       {expanded && row.txs.map((t: any) => renderTx(t, true))}
                     </Fragment>
