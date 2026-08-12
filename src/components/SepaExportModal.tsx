@@ -204,7 +204,12 @@ export default function SepaExportModal({
         msg_id: out.msgId,
         total_amount: Number(out.controlSum),
         n_transactions: out.numberOfTxs,
-        transaction_ids: valid.map((r) => r.transactionId),
+        // Faturas agrupadas: uma linha do ficheiro cobre N transações — o
+        // histórico guarda todos os ids para o comprovativo ser replicado a todas.
+        transaction_ids: valid.flatMap((r) =>
+          r.groupTransactionIds?.length ? r.groupTransactionIds : [r.transactionId],
+        ),
+
       } as any);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
