@@ -25,7 +25,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
-import { checkPaymentBankability, isBankable, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import { checkPaymentBankability, isBankable, resolvePaymentIban, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
 
 
