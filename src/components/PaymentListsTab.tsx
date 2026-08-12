@@ -932,6 +932,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
           Transações aprovadas ({filteredTx.length} de {approvedTx.length})
         </h3>
+        {unbankableCount > 0 && (
+          <p className="mb-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {unbankableCount} transaç{unbankableCount === 1 ? "ão" : "ões"} sem dados bancários — {NO_IBAN_TOOLTIP.toLowerCase()}.
+          </p>
+        )}
 
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar…</p>
