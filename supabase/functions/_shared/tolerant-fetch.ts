@@ -125,7 +125,7 @@ async function rawGet(url: string, timeoutMs: number): Promise<TolerantResponse 
       if (k === "location") location = v;
       if (k === "transfer-encoding" && /chunked/i.test(v)) chunked = true;
     }
-    if (chunked) bodyBytes = decodeChunkedBytes(bodyBytes);
+    if (chunked) bodyBytes = decodeChunkedBytes(new Uint8Array(bodyBytes));
     const body = decoder.decode(bodyBytes);
 
     return { ok: status >= 200 && status < 400, status, html: body, url, raw: true, location };
