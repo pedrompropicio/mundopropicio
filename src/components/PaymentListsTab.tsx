@@ -2086,6 +2086,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     </div>
                   )}
                   <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
+                    {tx && !isBankable(tx) && (
+                      <div className="pb-1"><NoIbanBadge /></div>
+                    )}
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
                       <>
