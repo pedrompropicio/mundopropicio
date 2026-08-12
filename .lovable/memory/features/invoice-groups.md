@@ -84,3 +84,26 @@ Regra de liquidado (a mesma do módulo de listas): `status='paid'` **ou**
 Aplicado em: picker da Nova Lista, picker "Adicionar transações" e cabeçalho do grupo
 no detalhe da lista. É informação adicional — não altera seleção do grupo, soft-remove
 nem o aviso âmbar de grupo parcial.
+
+## Aprovação e ficheiro Santander (2026-08-12)
+
+**ApproveModal** (`PaymentListsTab.tsx`) usa o mesmo padrão dos pickers: `approveRows`
+agrupa os `payment_list_items` por `transactions.invoice_group_id` e rende UM
+`InvoiceGroupHeaderRow` com **uma** checkbox. Aprovação de fatura agrupada é **atómica**
+(`toggleGroupItems`: todos entram ou todos saem) — não há seleção parcial dentro do grupo;
+cortar um item faz-se na fase de edição da lista (aviso âmbar de grupo parcial).
+Expandir o cartão só MOSTRA os itens (`↳`, sem checkbox, linha não clicável).
+Os 3 cards (Total / A aprovar / Não aprovado), o contador "X de Y" e o soft-remove com
+`NOT_APPROVED_REASON_PREFIX` continuam a operar sobre **transações reais**.
+
+**Ficheiro SEPA Santander**: até aqui `sepaCandidates` gerava 1 linha por transação.
+Agora agrupa por `invoice_group_id` → **UMA** transferência por fatura:
+- montante = soma dos valores **em aberto** (c/IVA − retenção) dos itens ativos do grupo;
+- descritivo = `Fatura <ref> - <fornecedor>`;
+- IBAN: se divergir entre itens do grupo, a linha é **excluída** com motivo
+  `iban_mismatch` ("IBAN divergente entre itens da fatura") em vez de gerar ficheiro errado;
+- `SepaCandidate.groupTransactionIds` guarda os ids reais ⇒ `payment_list_sepa_exports.transaction_ids`
+  recebe todos e a **replicação do comprovativo** continua a chegar a todas as transações do grupo.
+
+Isto é só na **geração do ficheiro**. A liquidação continua transação a transação
+(`handleBulkPayment` / `toggleManualMark`) — inalterada.
