@@ -157,7 +157,14 @@ function describeChanges(
       `Preço mínimo: ${fmtPrice(changes.offer_price_min.from)} → ${fmtPrice(changes.offer_price_min.to)}`,
     );
   }
+  if (changes.age_rating) {
+    lines.push(`Classificação: ${changes.age_rating.from ?? "—"} → ${changes.age_rating.to ?? "—"}`);
+  }
+  if (changes.doors_time) {
+    lines.push(`Abertura de portas: ${changes.doors_time.from ?? "—"} → ${changes.doors_time.to ?? "—"}`);
+  }
   if (changes.ticket_lots) {
+    const before = lines.length;
     const from: TicketLotItem[] = changes.ticket_lots.from ?? [];
     const to: TicketLotItem[] = changes.ticket_lots.to ?? [];
     const fromByLabel = new Map(from.map((l) => [l.label_pt, l]));
