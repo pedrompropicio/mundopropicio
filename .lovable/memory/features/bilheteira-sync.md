@@ -54,3 +54,20 @@ auditoria da v1 — **sem notificações WhatsApp** (fica para v2).
 `verify_jwt` default do projeto (não listada em `config.toml`); validação em código: service_role
 (env ou JWT do Vault, via `jwtRole()`) ou JWT de utilizador com role admin/platform_admin.
 Aceita `{ eventId?, dryRun?, triggeredBy? }`.
+
+## v1.1 — notificação por e-mail (2026-08-12)
+
+Digest **um e-mail por execução**, template `bilheteira-sync-digest` enviado via
+`send-transactional-email` (infra Lovable/queue, sender `notify.mpgestaoeventos.com`).
+
+- Envia só quando há **mudanças aplicadas** ou **alerta `possible_soldout`** (nunca em scans sem
+  alterações; nunca em `dryRun`).
+- Destinatários por secret: `BILHETEIRA_SYNC_NOTIFY_TO` (gestora de marketing) e
+  `BILHETEIRA_SYNC_NOTIFY_CC` (Pedro). Sem `..._TO` → não envia, só `console.log`. Como o
+  `send-transactional-email` não suporta CC, o CC é um segundo envio do mesmo digest.
+- A sync **nunca falha** por causa do e-mail (try/catch por destinatário).
+- Conteúdo por evento: preço mínimo antigo → novo, transições de lote ("1º Lote esgotou",
+  "2º Lote — Bancada à venda 45 €"), aviso "possível esgotado — confirmar manualmente", e links
+  para o portal (`mundopropicio.com/eventos/<slug>`) e editor CRM (`/crm/eventos/:id`).
+- Os logs dos eventos notificados são inseridos **depois** do envio, com
+  `changes.email_sent: true|false` (+ `email_skip_reason` quando falso).
