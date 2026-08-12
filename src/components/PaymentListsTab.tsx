@@ -1463,7 +1463,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   );
 
   const sepaCandidates = useMemo<SepaCandidate[]>(() => {
-    const out: SepaCandidate[] = [];
+    type Draft = SepaCandidate & { _ibans: string[] };
+    const out: Draft[] = [];
+    const groupAt = new Map<string, number>();
+
     for (const item of items as any[]) {
       const tx = item.transactions;
       if (!tx || item.removed_at) continue;
@@ -1479,22 +1482,76 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const iban = tx.iban_override ?? sup.iban ?? sup.iban_2 ?? sup.iban_3 ?? null;
       const name = formatSupplierFullName(sup.name, sup.trade_name);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      const description = appendEventToDescription(
+        [tx.description, tx.specification].filter(Boolean).join(" - "),
+        tx.event_id ? (tx.events?.name ?? null) : null,
+      );
+      const gid = tx.invoice_group_id as string | null;
+
+      // Fatura agrupada → UMA transferência por grupo (só na geração do ficheiro;
+      // a liquidação continua transação a transação).
+      if (gid) {
+        const at = groupAt.get(gid);
+        if (at !== undefined) {
+          const d = out[at];
+          d.amount = +(d.amount + open).toFixed(2);
+          d.groupTransactionIds!.push(tx.id);
+          d._ibans.push(normalizeIban(iban));
+          if (!isPaid && open > 0) d.preExcludeReason = undefined;
+          continue;
+        }
+        groupAt.set(gid, out.length);
+        const ref = (tx.invoice_ref ?? "").toString().trim();
+        out.push({
+          transactionId: tx.id,
+          creditorName: name === "-" ? "Beneficiario" : name,
+          iban,
+          amount: open,
+          description: [ref ? `Fatura ${ref}` : "Fatura agrupada", name === "-" ? null : name]
+            .filter(Boolean)
+            .join(" - "),
+          isReimbursement: !!tx.is_reimbursement,
+          preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+          groupTransactionIds: [tx.id],
+          groupRef: ref || null,
+          _ibans: [normalizeIban(iban)],
+        });
+        continue;
+      }
+
       out.push({
         transactionId: tx.id,
         creditorName: name === "-" ? "Beneficiario" : name,
         iban,
         amount: open,
-        description: appendEventToDescription(
-          [tx.description, tx.specification].filter(Boolean).join(" - "),
-          tx.event_id ? (tx.events?.name ?? null) : null,
-        ),
-
+        description,
         isReimbursement: !!tx.is_reimbursement,
         preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+        _ibans: [normalizeIban(iban)],
       });
     }
-    return out;
+
+    return out.map(({ _ibans, ...c }) => {
+      if (c.groupTransactionIds && c.groupTransactionIds.length > 1) {
+        const distinct = [...new Set(_ibans.filter(Boolean))];
+        if (distinct.length > 1) {
+          return {
+            ...c,
+            preExcludeReason: `Fatura ${c.groupRef ?? ""} tem IBANs diferentes entre itens (${distinct.join(
+              " / ",
+            )}) — corrija antes de exportar.`.trim(),
+            preExcludeKind: "iban_mismatch" as const,
+          };
+        }
+        // Grupo com todos os itens já liquidados fica excluído (regra normal).
+        if (c.amount <= 0 && !c.preExcludeReason) {
+          return { ...c, preExcludeReason: "Sem valor em aberto" };
+        }
+      }
+      return c;
+    });
   }, [items, installmentTxIds]);
+
 
 
 
