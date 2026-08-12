@@ -682,6 +682,7 @@ function InvoiceGroupHeaderRow({
   expanded,
   onToggleExpanded,
   progress,
+  disabled = false,
 }: {
   txs: any[];
   labelColSpan: number;
@@ -691,14 +692,25 @@ function InvoiceGroupHeaderRow({
   expanded: boolean;
   onToggleExpanded: () => void;
   progress?: InvoiceGroupProgress;
+  /** Algum item do grupo não tem dados bancários resolvíveis → grupo inelegível. */
+  disabled?: boolean;
 }) {
   const first = txs[0];
   const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
   const ref = (first?.invoice_ref ?? "").toString().trim();
   return (
-    <tr className="bg-primary/5 cursor-pointer hover:bg-primary/10" onClick={onToggle}>
+    <tr
+      className={`bg-primary/5 ${disabled ? "opacity-50" : "cursor-pointer hover:bg-primary/10"}`}
+      onClick={disabled ? undefined : onToggle}
+      title={disabled ? NO_IBAN_TOOLTIP : undefined}
+    >
       <td className="p-2 text-center">
-        <Checkbox checked={checked} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />
+        <Checkbox
+          checked={disabled ? false : checked}
+          disabled={disabled}
+          onCheckedChange={disabled ? undefined : onToggle}
+          onClick={(e) => e.stopPropagation()}
+        />
       </td>
       <td className="p-2" colSpan={labelColSpan}>
         <div className="flex items-center gap-2 flex-wrap">
@@ -714,6 +726,7 @@ function InvoiceGroupHeaderRow({
           {supplier && <span className="text-muted-foreground">— {supplier}</span>}
           {ref && <span className="text-muted-foreground">— {ref}</span>}
           <InvoiceGroupProgressBadge visibleCount={txs.length} progress={progress} />
+          {disabled && <NoIbanBadge />}
         </div>
       </td>
       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
