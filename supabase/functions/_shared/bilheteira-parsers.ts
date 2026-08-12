@@ -226,7 +226,13 @@ export function parseBolSectores(html: string, url: string): ParseResult {
 
     const disp = String(info["Disponibilidade:"] ?? "");
     const soldout = /esgotad/i.test(disp);
-    const precos = Array.isArray(info["Preço:"]) ? (info["Preço:"] as Array<Record<string, string>>) : [];
+    // A BOL usa "Preço:" (1 preço) ou "Preços:" (vários) — aceitar ambos.
+    const precos: Array<Record<string, string>> = [];
+    for (const [k, v] of Object.entries(info)) {
+      if (!/^pre[çc]os?:/i.test(k)) continue;
+      if (Array.isArray(v)) precos.push(...(v as Array<Record<string, string>>));
+      else if (typeof v === "string") precos.push({ P: v });
+    }
     const prices = precos.map((p) => parseMoney(String(p?.P ?? ""))).filter((n): n is number => n !== null && n > 0);
     const price = prices.length ? Math.min(...prices) : null;
 
