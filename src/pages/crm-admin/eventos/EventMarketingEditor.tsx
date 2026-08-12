@@ -724,7 +724,45 @@ function TicketExperiencesEditor({
 
 import { Switch } from "@/components/ui/switch";
 
+const PROVIDER_NONE = "__none__";
+
+/** Valores aceites pelo check constraint events_ticketing_provider_check. */
+const TICKETING_PROVIDERS: Array<{ value: string; label: string }> = [
+  { value: "ticketline", label: "Ticketline" },
+  { value: "bol", label: "BOL" },
+  { value: "blueticket", label: "MEO Blueticket" },
+  { value: "see_tickets", label: "See Tickets" },
+  { value: "fnac_tickets", label: "Fnac Tickets" },
+  { value: "eventbrite", label: "Eventbrite" },
+  { value: "ingresse", label: "Ingresse" },
+  { value: "sympla", label: "Sympla" },
+  { value: "other", label: "Outro" },
+];
+
+/** Infere o provider pelo domínio do URL de bilheteira. */
+function detectTicketingProvider(url: string): string | null {
+  const u = (url ?? "").trim().toLowerCase();
+  if (!u) return null;
+  const host = (() => {
+    try {
+      return new URL(u.startsWith("http") ? u : `https://${u}`).hostname;
+    } catch {
+      return u;
+    }
+  })();
+  if (host.includes("ticketline.pt")) return "ticketline";
+  if (host === "bol.pt" || host.endsWith(".bol.pt")) return "bol";
+  if (host.includes("blueticket")) return "blueticket";
+  if (host.includes("seetickets")) return "see_tickets";
+  if (host.includes("fnac")) return "fnac_tickets";
+  if (host.includes("eventbrite")) return "eventbrite";
+  if (host.includes("ingresse.com")) return "ingresse";
+  if (host.includes("sympla")) return "sympla";
+  return null;
+}
+
 function GestaoTab({
+
   eventId,
   ev,
   disabled,
