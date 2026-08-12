@@ -2638,6 +2638,24 @@ function ApproveModal({
           </div>
         </div>
 
+        {noIbanItems.length > 0 && (
+          <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            <p className="font-semibold">
+              {noIbanItems.length} item(ns) sem dados bancários — ficam fora do ficheiro Santander:
+            </p>
+            <ul className="mt-1 list-disc pl-4">
+              {noIbanItems.map((t: any) => (
+                <li key={t.id}>
+                  {t.description}
+                  {t.suppliers?.name ? ` — ${formatSupplierFullName(t.suppliers.name, (t.suppliers as any)?.trade_name)}` : ""}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-destructive/80">Terão de ser pagos manualmente ou corrigidos (fornecedor com IBAN / IBAN manual).</p>
+          </div>
+        )}
+
+
 
 
         {isLoading ? (
