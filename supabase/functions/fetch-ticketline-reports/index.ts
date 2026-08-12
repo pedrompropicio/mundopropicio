@@ -528,6 +528,7 @@ Deno.serve(async (req) => {
     const selfUrl = `${SUPABASE_URL}/functions/v1/fetch-ticketline-reports`;
     const results: any[] = [];
     for (const cfg of list) {
+      console.log(`[fanout] -> ${cfg.id} (${cfg.organization_name})`);
       try {
         const resp = await fetchWithTimeout(selfUrl, {
           method: "POST",
@@ -535,6 +536,8 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ configId: cfg.id, mode, triggeredBy }),
         }, 120000);
         const text = await resp.text();
+        console.log(`[fanout] <- ${cfg.id} http=${resp.status} len=${text.length}`);
+
         let payload: any = null;
         try { payload = JSON.parse(text); } catch { /* não-JSON */ }
         const sub = payload?.results?.[0];
