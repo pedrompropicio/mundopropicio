@@ -537,6 +537,34 @@ Deno.serve(async (req) => {
     pendingLogs.push(logRow);
   }
 
+  // ---- Rotação do destaque da home (v1.5) ----
+  let featured: FeaturedRotation | null = null;
+  if (!body.eventId) {
+    try {
+      featured = await rotateFeatured(admin, today, dryRun);
+      if (featured.lines.length > 0) {
+        const link = featured.promoted?.slug ? `${PORTAL_BASE}/eventos/${featured.promoted.slug}` : null;
+        digest.push({
+          eventId: featured.promoted?.id ?? "featured-rotation",
+          name: "Destaque da home",
+          portalUrl: link,
+          crmUrl: featured.promoted ? `${APP_BASE}/crm/eventos/${featured.promoted.id}` : `${APP_BASE}/crm/eventos`,
+          lines: featured.lines,
+        });
+      }
+    } catch (e) {
+      console.error("[bilheteira-sync] rotação de destaque falhou:", e);
+      featured = {
+        unfeatured: [],
+        promoted: null,
+        lines: [],
+        dry_run: dryRun,
+        // @ts-ignore campo extra só para o log
+        error: e instanceof Error ? e.message : String(e),
+      } as FeaturedRotation;
+    }
+  }
+
   // ---- Notificação: só quando há mudanças aplicadas OU alerta possible_soldout ----
   let email: { sent: boolean; reason?: string; recipients?: string[] } = { sent: false, reason: "no_changes" };
   if (digest.length > 0 && !dryRun) {
@@ -545,9 +573,40 @@ Deno.serve(async (req) => {
     email = { sent: false, reason: "dry_run" };
   }
 
+  // Log da rotação (event_id do promovido quando existe)
+  if (featured && (featured.unfeatured.length > 0 || featured.promoted)) {
+    pendingLogs.push({
+      event_id: featured.promoted?.id ?? null,
+      provider: "featured-rotation",
+      url: null,
+      parse_ok: true,
+      raw_summary: {
+        unfeatured: featured.unfeatured,
+        promoted: featured.promoted,
+      },
+      changes: dryRun
+        ? {
+            dry_run: true,
+            would_unfeature: featured.unfeatured.map((e) => e.name),
+            would_promote: featured.promoted?.name ?? null,
+          }
+        : {
+            applied: true,
+            unfeatured: featured.unfeatured.map((e) => e.name),
+            promoted: featured.promoted?.name ?? null,
+            email_sent: email.sent,
+          },
+    });
+  }
+
   const notifiedIds = new Set(digest.map((d) => d.eventId));
   for (const row of pendingLogs) {
+    if (row.provider === "featured-rotation") {
+      await admin.from("bilheteira_sync_log").insert(row);
+      continue;
+    }
     if (notifiedIds.has(row.event_id as string)) {
+
       row.changes = {
         ...((row.changes as Record<string, unknown>) ?? {}),
         email_sent: email.sent,
