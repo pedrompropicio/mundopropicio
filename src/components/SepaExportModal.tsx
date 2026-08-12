@@ -369,6 +369,7 @@ export default function SepaExportModal({
               {excluded.map((r) => (
                 <li key={r.transactionId} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{r.creditorName}</span>
+                  <span className="text-muted-foreground">{r.description}</span>
                   <span className="font-mono text-muted-foreground">{formatCurrency(r.amount)}</span>
                   <Badge variant="destructive" className="text-[10px]">
                     {REASON_LABEL[r.excluded!.reason] ?? r.excluded!.detail}
