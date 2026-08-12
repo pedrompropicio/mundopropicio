@@ -255,6 +255,9 @@ export function parseBolSectores(html: string, url: string): ParseResult {
 
 // ──────────────────────── ticket_lots + preço mínimo ────────────────────────
 
+/** Máximo de zonas/lotes À VENDA na régua (esgotados entram todos). */
+export const MAX_AVAILABLE_LOTS = 4;
+
 export interface BuildResult {
   ticketLots: TicketLotItem[];
   offerPriceMin: number | null;
