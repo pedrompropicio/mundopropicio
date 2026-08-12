@@ -781,6 +781,21 @@ function GestaoTab({
   const [ticketingUrl, setTicketingUrl] = useState<string>(ev?.ticketing_url ?? "");
   const [adDestinationUrl, setAdDestinationUrl] = useState<string>(ev?.ad_destination_url ?? "");
   const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
+  const [providerAutoDetected, setProviderAutoDetected] = useState(false);
+
+  // Auto-deteção do provider pelo domínio — só preenche quando está vazio,
+  // nunca sobrescreve uma escolha manual.
+  const onTicketingUrlChange = (v: string) => {
+    setTicketingUrl(v);
+    if (!ticketingProvider) {
+      const detected = detectTicketingProvider(v);
+      if (detected) {
+        setTicketingProvider(detected);
+        setProviderAutoDetected(true);
+      }
+    }
+  };
+
   const [portalVisible, setPortalVisible] = useState<boolean>(!!ev?.portal_visible);
   const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
   const [vipCode, setVipCode] = useState<string>(ev?.vip_coupon_code ?? "");
