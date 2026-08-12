@@ -103,3 +103,23 @@ Dry run 2026-08-12 (14 eventos futuros): `parse_ok=true` em todos, 0 `possible_s
   'app.settings.service_role_key')` da migration original devolvia NULL → 401) + `timeout_milliseconds := 30000`.
 - Execução real 2026-08-12 19:47 UTC: 14 eventos, `parse_ok=true` em todos, 0 `possible_soldout`,
   0 erros, digest enviado (`email_sent=true`).
+
+## v1.4 — mobilidade fora da régua + info editorial (2026-08-12)
+
+1. **Mobilidade reduzida TOTALMENTE fora de `ticket_lots`** (nem esgotado, nem à venda) e fora do
+   preço mínimo — bilhetes exclusivos de baixa quantidade não são sinal de escassez.
+   `IGNORE_ZONE_RE` passou a cobrir também `\bmob\.?\b` e `\bpmr\b` (o caso "Arena | Mob.Reduzida"
+   da Ivete escapava). Visibilidade reduzida continua a CONTAR.
+2. **`age_rating` e `doors_time` automáticos** — `parseEventInfo(html)` lê "Classificação: M/06"
+   (normaliza para `M/NN`) e "Abertura de portas: 16h00" (normaliza para `HHhMM`) da página de
+   EVENTO. Quando o `ticketing_url` já é `/sessao/`, segue o link `/evento/` da sessão para ler a
+   info. Só grava com match inequívoco; atualiza quando muda; respeita `lots_locked`; entra no
+   digest ("Classificação: — → M/06"). No ramo `possible_soldout` estes dois campos podem ser
+   gravados (os lotes/preço continuam intactos).
+3. **Bug corrigido**: `sameLots` comparava `JSON.stringify` e o jsonb do Postgres reordena as
+   chaves → todos os eventos apareciam sempre como "alterados" (e-mail a cada corrida). Agora
+   compara tuplas normalizadas `[label_pt,label_en,price,status]`.
+
+Execução real 2026-08-12: réguas regeneradas (Ivete perdeu "Arena | Mob.Reduzida"),
+`age_rating` preenchido em Deive Braga / SM Lisboa / SM Porto (M/06), `doors_time` só na Ivete
+(16h00 — é o único evento com o rótulo na página). Corrida seguinte: 14/14 "sem alterações".
