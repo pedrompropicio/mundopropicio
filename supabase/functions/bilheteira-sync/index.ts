@@ -335,7 +335,6 @@ async function rotateFeatured(
   }
 
   // 3) Linhas para o digest
-  const verb = dryRun ? "would" : "did";
   if (out.unfeatured.length > 0 && out.promoted) {
     out.lines.push(
       `Destaque da home: ${out.unfeatured.map((e) => e.name).join(", ")} (realizado) → ${out.promoted.name}`,
@@ -351,7 +350,6 @@ async function rotateFeatured(
     }
   }
   if (dryRun && out.lines.length > 0) out.lines = out.lines.map((l) => `[simulação] ${l}`);
-  void verb;
 
   return out;
 }
