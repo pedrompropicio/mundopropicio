@@ -138,7 +138,7 @@ export default function EventMarketingEditor() {
     if (mkQuery.data === undefined) return;
     if (mkQuery.data) {
       const { created_at, updated_at, created_by, updated_by, ...rest } = mkQuery.data;
-      setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [] });
+      setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [], ticket_lots: ((rest as any).ticket_lots as TicketLot[] | null) ?? [] });
     } else {
       setForm(emptyForm(eventId, (eventQuery.data as any)?.company_id ?? companyId ?? ""));
     }
