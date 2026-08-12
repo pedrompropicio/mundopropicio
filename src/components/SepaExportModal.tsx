@@ -32,11 +32,20 @@ export interface SepaCandidate {
   isReimbursement: boolean;
   /** motivo de exclusão já detetado a montante (ex.: sem valor em aberto) */
   preExcludeReason?: string;
+  /** classificação do motivo de exclusão a montante */
+  preExcludeKind?: "no_open_amount" | "iban_mismatch";
+  /**
+   * Fatura agrupada (`transactions.invoice_group_id`): UMA transferência no
+   * ficheiro cobre N transações. Guardamos os ids reais para o histórico da
+   * exportação e a replicação do comprovativo.
+   */
+  groupTransactionIds?: string[];
+  groupRef?: string | null;
 }
 
 interface Row extends SepaCandidate {
   remittance: string;
-  excluded?: { reason: IbanRejectReason | "no_open_amount"; detail: string };
+  excluded?: { reason: IbanRejectReason | "no_open_amount" | "iban_mismatch"; detail: string };
 }
 
 const REASON_LABEL: Record<string, string> = {
@@ -44,7 +53,9 @@ const REASON_LABEL: Record<string, string> = {
   invalid: "IBAN inválido",
   non_sepa: "IBAN fora da zona SEPA",
   no_open_amount: "Sem valor em aberto",
+  iban_mismatch: "IBAN divergente entre itens da fatura",
 };
+
 
 export default function SepaExportModal({
   listId,
@@ -95,8 +106,13 @@ export default function SepaExportModal({
   useEffect(() => {
     const initial: Row[] = candidates.map((c) => {
       if (c.preExcludeReason) {
-        return { ...c, remittance: "", excluded: { reason: "no_open_amount", detail: c.preExcludeReason } };
+        return {
+          ...c,
+          remittance: "",
+          excluded: { reason: c.preExcludeKind ?? "no_open_amount", detail: c.preExcludeReason },
+        };
       }
+
       const check = checkSepaIban(c.iban);
       const remittance = compactDescriptionDeterministic(c.description);
       if (!check.ok) {
@@ -188,7 +204,12 @@ export default function SepaExportModal({
         msg_id: out.msgId,
         total_amount: Number(out.controlSum),
         n_transactions: out.numberOfTxs,
-        transaction_ids: valid.map((r) => r.transactionId),
+        // Faturas agrupadas: uma linha do ficheiro cobre N transações — o
+        // histórico guarda todos os ids para o comprovativo ser replicado a todas.
+        transaction_ids: valid.flatMap((r) =>
+          r.groupTransactionIds?.length ? r.groupTransactionIds : [r.transactionId],
+        ),
+
       } as any);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
@@ -300,6 +321,12 @@ export default function SepaExportModal({
                         Reembolso
                       </Badge>
                     )}
+                    {!!r.groupTransactionIds?.length && (
+                      <Badge variant="outline" className="ml-1.5 text-[10px] border-primary/40 text-primary">
+                        🧾 Fatura agrupada ({r.groupTransactionIds.length})
+                      </Badge>
+                    )}
+
                   </td>
                   <td className="p-2 font-mono text-[11px]">{formatIban(r.iban!)}</td>
                   <td className="p-2 text-right font-mono">{formatCurrency(r.amount)}</td>

@@ -24,6 +24,8 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
+import { normalizeIban } from "@/lib/iban";
+
 
 import PaymentListReceipts from "@/components/PaymentListReceipts";
 import { useCompany } from "@/hooks/useCompany";
@@ -1463,7 +1465,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   );
 
   const sepaCandidates = useMemo<SepaCandidate[]>(() => {
-    const out: SepaCandidate[] = [];
+    type Draft = SepaCandidate & { _ibans: string[] };
+    const out: Draft[] = [];
+    const groupAt = new Map<string, number>();
+
     for (const item of items as any[]) {
       const tx = item.transactions;
       if (!tx || item.removed_at) continue;
@@ -1479,22 +1484,76 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const iban = tx.iban_override ?? sup.iban ?? sup.iban_2 ?? sup.iban_3 ?? null;
       const name = formatSupplierFullName(sup.name, sup.trade_name);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      const description = appendEventToDescription(
+        [tx.description, tx.specification].filter(Boolean).join(" - "),
+        tx.event_id ? (tx.events?.name ?? null) : null,
+      );
+      const gid = tx.invoice_group_id as string | null;
+
+      // Fatura agrupada → UMA transferência por grupo (só na geração do ficheiro;
+      // a liquidação continua transação a transação).
+      if (gid) {
+        const at = groupAt.get(gid);
+        if (at !== undefined) {
+          const d = out[at];
+          d.amount = +(d.amount + open).toFixed(2);
+          d.groupTransactionIds!.push(tx.id);
+          d._ibans.push(normalizeIban(iban));
+          if (!isPaid && open > 0) d.preExcludeReason = undefined;
+          continue;
+        }
+        groupAt.set(gid, out.length);
+        const ref = (tx.invoice_ref ?? "").toString().trim();
+        out.push({
+          transactionId: tx.id,
+          creditorName: name === "-" ? "Beneficiario" : name,
+          iban,
+          amount: open,
+          description: [ref ? `Fatura ${ref}` : "Fatura agrupada", name === "-" ? null : name]
+            .filter(Boolean)
+            .join(" - "),
+          isReimbursement: !!tx.is_reimbursement,
+          preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+          groupTransactionIds: [tx.id],
+          groupRef: ref || null,
+          _ibans: [normalizeIban(iban)],
+        });
+        continue;
+      }
+
       out.push({
         transactionId: tx.id,
         creditorName: name === "-" ? "Beneficiario" : name,
         iban,
         amount: open,
-        description: appendEventToDescription(
-          [tx.description, tx.specification].filter(Boolean).join(" - "),
-          tx.event_id ? (tx.events?.name ?? null) : null,
-        ),
-
+        description,
         isReimbursement: !!tx.is_reimbursement,
         preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+        _ibans: [normalizeIban(iban)],
       });
     }
-    return out;
+
+    return out.map(({ _ibans, ...c }) => {
+      if (c.groupTransactionIds && c.groupTransactionIds.length > 1) {
+        const distinct = [...new Set(_ibans.filter(Boolean))];
+        if (distinct.length > 1) {
+          return {
+            ...c,
+            preExcludeReason: `Fatura ${c.groupRef ?? ""} tem IBANs diferentes entre itens (${distinct.join(
+              " / ",
+            )}) — corrija antes de exportar.`.trim(),
+            preExcludeKind: "iban_mismatch" as const,
+          };
+        }
+        // Grupo com todos os itens já liquidados fica excluído (regra normal).
+        if (c.amount <= 0 && !c.preExcludeReason) {
+          return { ...c, preExcludeReason: "Sem valor em aberto" };
+        }
+      }
+      return c;
+    });
   }, [items, installmentTxIds]);
+
 
 
 
@@ -2380,6 +2439,61 @@ function ApproveModal({
     else setSelectedIds(new Set(items.map((i: any) => i.id)));
   };
 
+  /**
+   * Faturas agrupadas (`invoice_group_id`) aparecem como UM cartão com UMA
+   * checkbox — a aprovação é ATÓMICA: ou o grupo inteiro é aprovado, ou o grupo
+   * inteiro fica não aprovado. Cortar um item da fatura faz-se na edição da lista.
+   */
+  type ApproveRow =
+    | { kind: "single"; key: string; item: any }
+    | { kind: "group"; key: string; groupId: string; items: any[] };
+
+  const approveRows = useMemo<ApproveRow[]>(() => {
+    const rows: ApproveRow[] = [];
+    const at = new Map<string, number>();
+    for (const item of items as any[]) {
+      const gid = item.transactions?.invoice_group_id as string | null | undefined;
+      if (!gid) {
+        rows.push({ kind: "single", key: item.id, item });
+        continue;
+      }
+      const idx = at.get(gid);
+      if (idx === undefined) {
+        at.set(gid, rows.length);
+        rows.push({ kind: "group", key: `grp::${gid}`, groupId: gid, items: [item] });
+      } else {
+        (rows[idx] as { items: any[] }).items.push(item);
+      }
+    }
+    return rows.map((r) =>
+      r.kind === "group" && r.items.length === 1
+        ? { kind: "single" as const, key: r.items[0].id, item: r.items[0] }
+        : r,
+    );
+  }, [items]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleExpandedGroup = (gid: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid);
+      else next.add(gid);
+      return next;
+    });
+
+  /** Seleção atómica do grupo: todos entram ou todos saem. */
+  const toggleGroupItems = (ids: string[]) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allIn = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allIn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+
+
   /** Cards ao vivo: recalculados sobre os itens já carregados, sem query nova. */
   const approveTotals = useMemo(() => {
     let total = 0;
@@ -2507,37 +2621,64 @@ function ApproveModal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {items.map((item: any) => {
-                  const tx = item.transactions;
-                  const txAmount = Number(tx?.amount ?? 0);
-                  const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
-                  const paid = Number(tx?.paid_amount ?? 0);
-                  const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
+                {approveRows.map((row) => {
+                  const renderItem = (item: any, nested: boolean) => {
+                    const tx = item.transactions;
+                    const txAmount = Number(tx?.amount ?? 0);
+                    const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
+                    const paid = Number(tx?.paid_amount ?? 0);
+                    const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`transition-colors ${nested ? "bg-muted/10" : selectedIds.has(item.id) ? "cursor-pointer bg-primary/5" : "cursor-pointer hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
+                        onClick={nested ? undefined : () => toggleId(item.id)}
+                      >
+                        <td className="p-2 text-center">
+                          {nested ? (
+                            <span className="text-muted-foreground/50">↳</span>
+                          ) : (
+                            <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} className="border-emerald-500 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" />
+                          )}
+                        </td>
+                         <td className={`p-2 ${nested ? "pl-6" : ""}`}>
+                           <span className="font-medium">{tx?.description}</span>
+                           {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
+                           {bpCheck.exceeds && (
+                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                           )}
+                         </td>
+                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
+                         <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
+                         <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(tx?.suppliers?.name, (tx?.suppliers as any)?.trade_name)}</td>
+                         <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                         <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
+                      </tr>
+                    );
+                  };
+
+                  if (row.kind === "single") return renderItem(row.item, false);
+
+                  const ids = row.items.map((i: any) => i.id);
+                  const allIn = ids.every((id) => selectedIds.has(id));
+                  const expanded = expandedGroups.has(row.groupId);
                   return (
-                    <tr
-                      key={item.id}
-                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
-                      onClick={() => toggleId(item.id)}
-                    >
-                      <td className="p-2 text-center">
-                        <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} className="border-emerald-500 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" />
-                      </td>
-                       <td className="p-2">
-                         <span className="font-medium">{tx?.description}</span>
-                         {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
-                         {bpCheck.exceeds && (
-                           <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
-                         )}
-                       </td>
-                       <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
-                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
-                       <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(tx?.suppliers?.name, (tx?.suppliers as any)?.trade_name)}</td>
-                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
-                    </tr>
+                    <Fragment key={row.key}>
+                      <InvoiceGroupHeaderRow
+                        txs={row.items.map((i: any) => i.transactions)}
+                        labelColSpan={4}
+                        tailColSpan={1}
+                        checked={allIn}
+                        onToggle={() => toggleGroupItems(ids)}
+                        expanded={expanded}
+                        onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
+                      />
+                      {expanded && row.items.map((i: any) => renderItem(i, true))}
+                    </Fragment>
                   );
                 })}
               </tbody>
+
             </table>
           </div>
         )}
