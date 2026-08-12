@@ -1,0 +1,1 @@
+- [Bilheteira sync](mem://features/bilheteira-sync) — Varredura diária Ticketline/BOL que atualiza ticket_lots + offer_price_min do portal; lots_locked trava; nunca marca esgotado automaticamente
