@@ -109,7 +109,7 @@ async function rawGet(url: string, timeoutMs: number): Promise<TolerantResponse 
       }
     }
     const head = decoder.decode(sep < 0 ? bytes : bytes.slice(0, sep));
-    let bodyBytes = sep < 0 ? new Uint8Array() : bytes.slice(sep + 4);
+    let bodyBytes: Uint8Array<ArrayBufferLike> = sep < 0 ? new Uint8Array() : bytes.slice(sep + 4);
 
     const lines = head.split("\r\n");
     const status = Number(lines[0]?.match(/HTTP\/[\d.]+\s+(\d{3})/)?.[1] ?? 0);
