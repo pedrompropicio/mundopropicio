@@ -19,11 +19,13 @@ import {
   findTicketlineSessionUrl,
   parseTicketlineSession,
   parseBolSectores,
+  findBolSectoresUrl,
   buildTicketLots,
   looksSane,
   type ParseResult,
   type TicketLotItem,
 } from "../_shared/bilheteira-parsers.ts";
+import { tolerantFetch } from "../_shared/tolerant-fetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,7 +38,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_1_2026_08_12";
+const VERSION = "v1_2_2026_08_12";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -54,13 +56,9 @@ const jwtRole = (authHeader: string | null): string | null => {
   }
 };
 
-async function fetchHtml(url: string): Promise<{ ok: boolean; status: number; html: string }> {
-  const r = await fetch(url, {
-    redirect: "follow",
-    headers: { "User-Agent": UA, "Accept-Language": "pt-PT,pt;q=0.9" },
-  });
-  const html = await r.text();
-  return { ok: r.ok, status: r.status, html };
+async function fetchHtml(url: string): Promise<{ ok: boolean; status: number; html: string; url: string }> {
+  const r = await tolerantFetch(url);
+  return { ok: r.ok, status: r.status, html: r.html, url: r.url };
 }
 
 type Provider = "ticketline" | "bol";
@@ -80,21 +78,32 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
     if (!/\/sessao\//i.test(target)) {
       const page = await fetchHtml(target);
       if (!page.ok) throw new Error(`HTTP ${page.status} na página do evento`);
-      const sess = findTicketlineSessionUrl(page.html, target);
+      const sess = findTicketlineSessionUrl(page.html, page.url);
       if (!sess) throw new Error("Não foi possível encontrar o link da sessão ('Escolha de lugares')");
       target = sess;
     }
     const res = await fetchHtml(target);
     if (!res.ok) throw new Error(`HTTP ${res.status} na página da sessão`);
-    const parsed = parseTicketlineSession(res.html, target);
+    const parsed = parseTicketlineSession(res.html, res.url);
     if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhuma zona encontrada");
     return parsed;
   }
 
-  // BOL
-  const res = await fetchHtml(ticketingUrl);
+  // BOL — o ticketing_url pode ser a página de Sectores, de Sessões ou do evento.
+  let target = ticketingUrl;
+  for (let hop = 0; hop < 3 && !/\/Sectores\b/i.test(target); hop++) {
+    const page = await fetchHtml(target);
+    if (!page.ok) throw new Error(`HTTP ${page.status} em ${page.url}`);
+    const next = findBolSectoresUrl(page.html, page.url);
+    if (!next) throw new Error("Não foi possível encontrar o link de Sectores na página BOL");
+    target = next.url;
+    if (!next.needsSessoes) break;
+  }
+  if (!/\/Sectores\b/i.test(target)) throw new Error("Não foi possível chegar à página de Sectores da BOL");
+
+  const res = await fetchHtml(target);
   if (!res.ok) throw new Error(`HTTP ${res.status} na página BOL`);
-  const parsed = parseBolSectores(res.html, ticketingUrl);
+  const parsed = parseBolSectores(res.html, res.url);
   if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhum sector encontrado");
   return parsed;
 }
