@@ -32,11 +32,20 @@ export interface SepaCandidate {
   isReimbursement: boolean;
   /** motivo de exclusão já detetado a montante (ex.: sem valor em aberto) */
   preExcludeReason?: string;
+  /** classificação do motivo de exclusão a montante */
+  preExcludeKind?: "no_open_amount" | "iban_mismatch";
+  /**
+   * Fatura agrupada (`transactions.invoice_group_id`): UMA transferência no
+   * ficheiro cobre N transações. Guardamos os ids reais para o histórico da
+   * exportação e a replicação do comprovativo.
+   */
+  groupTransactionIds?: string[];
+  groupRef?: string | null;
 }
 
 interface Row extends SepaCandidate {
   remittance: string;
-  excluded?: { reason: IbanRejectReason | "no_open_amount"; detail: string };
+  excluded?: { reason: IbanRejectReason | "no_open_amount" | "iban_mismatch"; detail: string };
 }
 
 const REASON_LABEL: Record<string, string> = {
@@ -44,7 +53,9 @@ const REASON_LABEL: Record<string, string> = {
   invalid: "IBAN inválido",
   non_sepa: "IBAN fora da zona SEPA",
   no_open_amount: "Sem valor em aberto",
+  iban_mismatch: "IBAN divergente entre itens da fatura",
 };
+
 
 export default function SepaExportModal({
   listId,
