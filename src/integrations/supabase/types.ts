@@ -4135,6 +4135,7 @@ export type Database = {
           published_at: string | null
           status: string
           ticket_experiences: Json | null
+          ticket_lots: Json
           updated_at: string
           updated_by: string | null
           urgency_message_en: string | null
@@ -4172,6 +4173,7 @@ export type Database = {
           published_at?: string | null
           status?: string
           ticket_experiences?: Json | null
+          ticket_lots?: Json
           updated_at?: string
           updated_by?: string | null
           urgency_message_en?: string | null
@@ -4209,6 +4211,7 @@ export type Database = {
           published_at?: string | null
           status?: string
           ticket_experiences?: Json | null
+          ticket_lots?: Json
           updated_at?: string
           updated_by?: string | null
           urgency_message_en?: string | null
@@ -10478,6 +10481,7 @@ export type Database = {
           press_quote_source: string | null
           slug: string | null
           ticket_experiences: Json | null
+          ticket_lots: Json | null
           ticketing_url: string | null
           title_en: string | null
           title_pt: string | null
