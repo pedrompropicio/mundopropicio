@@ -100,7 +100,22 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<Scraped
     if (!res.ok) throw new Error(`HTTP ${res.status} na página da sessão`);
     const parsed = parseTicketlineSession(res.html, res.url);
     if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhuma zona encontrada");
-    return { ...parsed, info: mergeInfo(info, parseEventInfo(res.html)) };
+    info = mergeInfo(info, parseEventInfo(res.html));
+    // Quando o ticketing_url já é a sessão, a info editorial vive na página do
+    // evento — segue o link /evento/ da sessão para a ler.
+    if (!info.ageRating && !info.doorsTime) {
+      const evLink = res.html.match(/href="([^"]*\/evento\/[^"]+)"/i);
+      if (evLink) {
+        try {
+          const evAbs = new URL(evLink[1], res.url).toString();
+          const evPage = await fetchHtml(evAbs);
+          if (evPage.ok) info = mergeInfo(info, parseEventInfo(evPage.html));
+        } catch {
+          /* info é best-effort */
+        }
+      }
+    }
+    return { ...parsed, info };
   }
 
   // BOL — o ticketing_url pode ser a página de Sectores, de Sessões ou do evento.
