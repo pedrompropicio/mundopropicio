@@ -348,28 +348,49 @@ Deno.serve(async (req) => {
 
       const built = buildTicketLots(parsed.zones);
 
+      const changes: Record<string, unknown> = {};
+      const payload: Record<string, unknown> = { event_id: ev.id };
+
+      // Info editorial (v1.4): classificação etária e abertura de portas.
+      if (parsed.info.ageRating && (mk?.age_rating ?? null) !== parsed.info.ageRating) {
+        changes.age_rating = { from: mk?.age_rating ?? null, to: parsed.info.ageRating };
+        payload.age_rating = parsed.info.ageRating;
+      }
+      if (parsed.info.doorsTime && (mk?.doors_time ?? null) !== parsed.info.doorsTime) {
+        changes.doors_time = { from: mk?.doors_time ?? null, to: parsed.info.doorsTime };
+        payload.doors_time = parsed.info.doorsTime;
+      }
+
       if (built.possibleSoldOut) {
-        // REGRA CRÍTICA: nunca marcar esgotado automaticamente.
-        logRow.changes = { possible_soldout: true, applied: false };
-        results.push({ event: ev.name, status: "possible_soldout", applied: false });
+        // REGRA CRÍTICA: nunca marcar esgotado automaticamente (lotes/preço intactos).
+        if (!dryRun && Object.keys(payload).length > 1) {
+          payload.updated_at = new Date().toISOString();
+          const { error: upErr } = mk
+            ? await admin.from("event_marketing").update(payload).eq("event_id", ev.id)
+            : await admin.from("event_marketing").insert(payload);
+          if (upErr) throw new Error(`Falha ao gravar: ${upErr.message}`);
+        }
+        logRow.changes = { possible_soldout: true, applied: false, dry_run: dryRun, ...changes };
+        results.push({ event: ev.name, status: "possible_soldout", applied: false, changes });
         digest.push({
           eventId: ev.id,
           name: ev.name,
           portalUrl: ev.slug ? `${PORTAL_BASE}/eventos/${ev.slug}` : null,
           crmUrl: `${APP_BASE}/crm/eventos/${ev.id}`,
-          lines: [],
+          lines: describeChanges(changes),
           possibleSoldOut: true,
         });
         pendingLogs.push(logRow);
         continue;
       }
 
-      const changes: Record<string, unknown> = {};
       if (!sameLots(mk?.ticket_lots ?? null, built.ticketLots)) {
         changes.ticket_lots = { from: mk?.ticket_lots ?? null, to: built.ticketLots };
+        payload.ticket_lots = built.ticketLots;
       }
       if (built.offerPriceMin !== null && Number(mk?.offer_price_min ?? NaN) !== built.offerPriceMin) {
         changes.offer_price_min = { from: mk?.offer_price_min ?? null, to: built.offerPriceMin };
+        payload.offer_price_min = built.offerPriceMin;
       }
 
       if (Object.keys(changes).length === 0) {
@@ -380,12 +401,7 @@ Deno.serve(async (req) => {
       }
 
       if (!dryRun) {
-        const payload: Record<string, unknown> = {
-          event_id: ev.id,
-          ticket_lots: built.ticketLots,
-          offer_price_min: built.offerPriceMin,
-          updated_at: new Date().toISOString(),
-        };
+        payload.updated_at = new Date().toISOString();
         const { error: upErr } = mk
           ? await admin.from("event_marketing").update(payload).eq("event_id", ev.id)
           : await admin.from("event_marketing").insert(payload);
