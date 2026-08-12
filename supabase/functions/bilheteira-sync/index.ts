@@ -72,12 +72,24 @@ function detectProvider(url: string, stored: string | null): Provider | null {
   return null;
 }
 
-async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseResult> {
+type Scraped = ParseResult & { info: ParsedEventInfo };
+
+const EMPTY_INFO: ParsedEventInfo = { ageRating: null, doorsTime: null };
+/** Info da 1ª página lida (evento) tem prioridade; a da sessão serve de fallback. */
+const mergeInfo = (a: ParsedEventInfo, b: ParsedEventInfo): ParsedEventInfo => ({
+  ageRating: a.ageRating ?? b.ageRating,
+  doorsTime: a.doorsTime ?? b.doorsTime,
+});
+
+async function scrape(provider: Provider, ticketingUrl: string): Promise<Scraped> {
+  let info = EMPTY_INFO;
+
   if (provider === "ticketline") {
     let target = ticketingUrl;
     if (!/\/sessao\//i.test(target)) {
       const page = await fetchHtml(target);
       if (!page.ok) throw new Error(`HTTP ${page.status} na página do evento`);
+      info = parseEventInfo(page.html);
       const sess = findTicketlineSessionUrl(page.html, page.url);
       if (!sess) throw new Error("Não foi possível encontrar o link da sessão ('Escolha de lugares')");
       target = sess;
@@ -86,7 +98,7 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
     if (!res.ok) throw new Error(`HTTP ${res.status} na página da sessão`);
     const parsed = parseTicketlineSession(res.html, res.url);
     if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhuma zona encontrada");
-    return parsed;
+    return { ...parsed, info: mergeInfo(info, parseEventInfo(res.html)) };
   }
 
   // BOL — o ticketing_url pode ser a página de Sectores, de Sessões ou do evento.
@@ -94,6 +106,7 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
   for (let hop = 0; hop < 3 && !/\/Sectores\b/i.test(target); hop++) {
     const page = await fetchHtml(target);
     if (!page.ok) throw new Error(`HTTP ${page.status} em ${page.url}`);
+    info = mergeInfo(info, parseEventInfo(page.html));
     const next = findBolSectoresUrl(page.html, page.url);
     if (!next) throw new Error("Não foi possível encontrar o link de Sectores na página BOL");
     target = next.url;
@@ -105,7 +118,7 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
   if (!res.ok) throw new Error(`HTTP ${res.status} na página BOL`);
   const parsed = parseBolSectores(res.html, res.url);
   if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhum sector encontrado");
-  return parsed;
+  return { ...parsed, info: mergeInfo(info, parseEventInfo(res.html)) };
 }
 
 const sameLots = (a: TicketLotItem[] | null, b: TicketLotItem[]) =>
