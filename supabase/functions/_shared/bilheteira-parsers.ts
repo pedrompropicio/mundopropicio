@@ -32,9 +32,12 @@ export interface TicketLotItem {
 }
 
 // Ignorar APENAS bilhetes condicionais de mobilidade (cadeira de rodas/acompanhante).
+// Ficam TOTALMENTE fora da régua (nem esgotado, nem à venda) e fora do preço mínimo:
+// são bilhetes exclusivos de baixa quantidade, não sinal de escassez.
 // Zonas de VISIBILIDADE reduzida são bilhetes públicos normais e CONTAM para o
 // preço mínimo e para a régua de lotes.
-const IGNORE_ZONE_RE = /mobilidade|condicionad|cadeira\s*de\s*rodas|acompanhante/i;
+const IGNORE_ZONE_RE =
+  /mobilidade|\bmob\.?\b|condicionad|cadeira\s*de\s*rodas|acompanhante|\bpmr\b/i;
 
 const decodeEntities = (s: string): string =>
   s
