@@ -163,39 +163,47 @@ export function parseTicketlineSession(html: string, url: string): ParseResult {
 
 // ─────────────────────────────── BOL ───────────────────────────────
 
-/** Página de Sectores da BOL (…/Comprar/Bilhetes/<id>/<sessao>/Sectores) */
+/**
+ * Página de Sectores da BOL (…/Comprar/Bilhetes/<id>/<sessao>/Sectores).
+ * A BOL expõe cada sector em `data-sector='{"Sector:":" 1ª Plateia",
+ * "Preço:":[{"P":"209,00€",...}]}'` ou, quando esgotado,
+ * `{"Sector:":" X","Disponibilidade:":"Lotacão Esgotada"}`.
+ */
 export function parseBolSectores(html: string, url: string): ParseResult {
   const zones: ParsedZone[] = [];
+  const seen = new Set<string>();
 
-  // Cada sector aparece num bloco (li/tr/div) com nome, preço e possivelmente "Esgotado".
-  const blockRe = /<(li|tr|div)[^>]*class="[^"]*(sector|sectores|zona|zone|price-table-row)[^"]*"[^>]*>([\s\S]*?)<\/\1>/gi;
-  let b: RegExpExecArray | null;
-  while ((b = blockRe.exec(html))) {
-    const body = b[3] || "";
-    const text = stripTags(body);
-    if (!text) continue;
-    const priceM = text.match(/(\d+(?:[.,]\d{1,2})?)\s*€/);
-    if (!priceM) continue;
-    // nome = texto antes do preço, limpo de rótulos
-    let name = text.slice(0, text.indexOf(priceM[0]))
-      .replace(/esgotado|sem disponibilidade|sold\s*out/gi, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!name) continue;
-    if (name.length > 60) name = name.slice(0, 60).trim();
-    const soldout = /esgotado|sem disponibilidade|sold\s*out/i.test(text);
-    const price = parseMoney(priceM[1]);
+  const secRe = /data-sector=['"]([\s\S]*?)['"]\s*(?:\/?>|style=)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = secRe.exec(html))) {
+    let info: Record<string, unknown>;
+    try {
+      info = JSON.parse(decodeEntities(m[1]));
+    } catch {
+      continue;
+    }
+    const name = String(info["Sector:"] ?? "").replace(/\s+/g, " ").trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+
+    const disp = String(info["Disponibilidade:"] ?? "");
+    const soldout = /esgotad/i.test(disp);
+    const precos = Array.isArray(info["Preço:"]) ? (info["Preço:"] as Array<Record<string, string>>) : [];
+    const prices = precos.map((p) => parseMoney(String(p?.P ?? ""))).filter((n): n is number => n !== null && n > 0);
+    const price = prices.length ? Math.min(...prices) : null;
+
     const { zone, lot } = splitLot(name);
     zones.push({
       name,
       zone,
       lot,
-      basePrice: price && price > 0 ? price : null,
-      available: !soldout,
+      basePrice: price,
+      available: !soldout && price !== null,
       seatsAvailable: null,
       ignored: IGNORE_ZONE_RE.test(name),
     });
   }
+
 
   const title = html.match(/<title>([\s\S]*?)<\/title>/i);
   return { zones, url, eventTitle: title ? stripTags(title[1]) : null };
