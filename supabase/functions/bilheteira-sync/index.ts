@@ -606,7 +606,6 @@ Deno.serve(async (req) => {
       continue;
     }
     if (notifiedIds.has(row.event_id as string)) {
-
       row.changes = {
         ...((row.changes as Record<string, unknown>) ?? {}),
         email_sent: email.sent,
@@ -623,6 +622,15 @@ Deno.serve(async (req) => {
     scanned: (events ?? []).length,
     email_sent: email.sent,
     email_reason: email.sent ? undefined : email.reason,
+    featured_rotation: featured
+      ? {
+          unfeatured: featured.unfeatured.map((e) => `${e.name} (${e.date})`),
+          promoted: featured.promoted ? `${featured.promoted.name} (${featured.promoted.date})` : null,
+          mode: dryRun ? "would" : "applied",
+        }
+      : null,
     results,
+  });
+
   });
 });
