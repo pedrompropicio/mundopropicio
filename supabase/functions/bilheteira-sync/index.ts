@@ -22,7 +22,9 @@ import {
   findBolSectoresUrl,
   buildTicketLots,
   looksSane,
+  parseEventInfo,
   type ParseResult,
+  type ParsedEventInfo,
   type TicketLotItem,
 } from "../_shared/bilheteira-parsers.ts";
 import { tolerantFetch } from "../_shared/tolerant-fetch.ts";
