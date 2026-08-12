@@ -31,7 +31,10 @@ export interface TicketLotItem {
   status: "esgotado" | "a_venda" | "brevemente";
 }
 
-const IGNORE_ZONE_RE = /mobilidade|reduzida|condicionad|cadeira\s*de\s*rodas|acompanhante/i;
+// Ignorar APENAS bilhetes condicionais de mobilidade (cadeira de rodas/acompanhante).
+// Zonas de VISIBILIDADE reduzida são bilhetes públicos normais e CONTAM para o
+// preço mínimo e para a régua de lotes.
+const IGNORE_ZONE_RE = /mobilidade|condicionad|cadeira\s*de\s*rodas|acompanhante/i;
 
 const decodeEntities = (s: string): string =>
   s
@@ -169,6 +172,41 @@ export function parseTicketlineSession(html: string, url: string): ParseResult {
  * "Preço:":[{"P":"209,00€",...}]}'` ou, quando esgotado,
  * `{"Sector:":" X","Disponibilidade:":"Lotacão Esgotada"}`.
  */
+/**
+ * A partir de uma página BOL de EVENTO, encontra o URL da página de Sectores.
+ * Devolve `{ url, needsSessoes }`: quando só existe o link `/Sessoes`, é preciso
+ * um segundo salto (buscar aí o `/Sectores`).
+ */
+export function findBolSectoresUrl(
+  html: string,
+  baseUrl: string,
+): { url: string; needsSessoes: boolean } | null {
+  const abs = (href: string) => {
+    try {
+      return new URL(href, baseUrl).toString();
+    } catch {
+      return null;
+    }
+  };
+  const sect = html.match(/href="([^"]*\/Sectores[^"]*)"/i);
+  if (sect) {
+    const u = abs(sect[1]);
+    if (u) return { url: u, needsSessoes: false };
+  }
+  // /Sessoes do próprio evento (mesmo id numérico do baseUrl quando existir)
+  const idM = baseUrl.match(/Bilhetes\/(\d+)/i);
+  const re = /href="([^"]*\/Sessoes[^"]*)"/gi;
+  let m: RegExpExecArray | null;
+  let fallback: string | null = null;
+  while ((m = re.exec(html))) {
+    const u = abs(m[1]);
+    if (!u) continue;
+    if (idM && u.includes(`/${idM[1]}`)) return { url: u, needsSessoes: true };
+    fallback ??= u;
+  }
+  return fallback ? { url: fallback, needsSessoes: true } : null;
+}
+
 export function parseBolSectores(html: string, url: string): ParseResult {
   const zones: ParsedZone[] = [];
   const seen = new Set<string>();
