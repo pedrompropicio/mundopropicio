@@ -185,7 +185,7 @@ function describeChanges(
     for (const l of from) {
       if (!toByLabel.has(l.label_pt)) lines.push(`Removido: ${l.label_pt}`);
     }
-    if (lines.length === 0) lines.push("Régua de lotes atualizada");
+    if (lines.length === before) lines.push("Régua de lotes atualizada");
   }
   return lines;
 }
