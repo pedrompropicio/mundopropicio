@@ -160,7 +160,11 @@ function describeChanges(
 }
 
 async function sendDigest(
-  admin: { functions: { invoke: (name: string, opts: { body: unknown }) => Promise<{ error: unknown }> } },
+  admin: {
+    functions: {
+      invoke: (name: string, opts: { body: Record<string, unknown> }) => Promise<{ error: unknown }>;
+    };
+  },
   events: DigestEvent[],
 ): Promise<{ sent: boolean; reason?: string; recipients?: string[] }> {
   const to = (Deno.env.get("BILHETEIRA_SYNC_NOTIFY_TO") ?? "").trim();
