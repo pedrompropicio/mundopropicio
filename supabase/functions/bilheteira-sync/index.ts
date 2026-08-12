@@ -123,8 +123,12 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<Scraped
   return { ...parsed, info: mergeInfo(info, parseEventInfo(res.html)) };
 }
 
-const sameLots = (a: TicketLotItem[] | null, b: TicketLotItem[]) =>
-  JSON.stringify(a ?? []) === JSON.stringify(b);
+// Comparação estável (o jsonb do Postgres reordena as chaves).
+const normLots = (l: TicketLotItem[] | null) =>
+  JSON.stringify(
+    (l ?? []).map((x) => [x.label_pt, x.label_en, x.price ?? null, x.status]),
+  );
+const sameLots = (a: TicketLotItem[] | null, b: TicketLotItem[]) => normLots(a) === normLots(b);
 
 // ---------------------------------------------------------------------------
 // Notificação (v1.1) — digest por execução. A sync NUNCA falha por causa do e-mail.
