@@ -580,6 +580,13 @@ export default function EventMarketingEditor() {
                   placeholder={ph(inherited?.age_rating, "Ex.: M/16, M/12, Para todos os públicos")}
                 />
               </Field>
+              <Field label="Abertura de portas">
+                <Input
+                  value={form!.doors_time ?? ""}
+                  onChange={(e) => set("doors_time", e.target.value || null)}
+                  placeholder={ph(inherited?.doors_time, "Ex.: 16h00")}
+                />
+              </Field>
 
             </div>
 
