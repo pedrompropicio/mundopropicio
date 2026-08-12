@@ -1,4 +1,4 @@
-// bilheteira-sync v1
+// bilheteira-sync v1.1
 // Varredura diária das páginas públicas das bilheteiras (Ticketline, BOL) para
 // atualizar event_marketing.ticket_lots e offer_price_min do portal.
 //
@@ -36,7 +36,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_2026_08_12";
+const VERSION = "v1_1_2026_08_12";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -102,6 +102,113 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
 const sameLots = (a: TicketLotItem[] | null, b: TicketLotItem[]) =>
   JSON.stringify(a ?? []) === JSON.stringify(b);
 
+// ---------------------------------------------------------------------------
+// Notificação (v1.1) — digest por execução. A sync NUNCA falha por causa do e-mail.
+// ---------------------------------------------------------------------------
+const PORTAL_BASE = "https://www.mundopropicio.com";
+const APP_BASE = Deno.env.get("APP_URL") ?? "https://mpgestaoeventos.com";
+
+interface DigestEvent {
+  eventId: string;
+  name: string;
+  portalUrl: string | null;
+  crmUrl: string;
+  lines: string[];
+  possibleSoldOut?: boolean;
+}
+
+const fmtPrice = (v: unknown) =>
+  v === null || v === undefined || v === "" ? "—" : `${Number(v).toLocaleString("pt-PT")} €`;
+
+const lotLabel = (l: TicketLotItem) =>
+  l.price ? `${l.label_pt} à venda ${fmtPrice(l.price)}` : l.label_pt;
+
+/** Constrói as linhas legíveis das mudanças aplicadas a um evento. */
+function describeChanges(
+  changes: Record<string, any>,
+): string[] {
+  const lines: string[] = [];
+  if (changes.offer_price_min) {
+    lines.push(
+      `Preço mínimo: ${fmtPrice(changes.offer_price_min.from)} → ${fmtPrice(changes.offer_price_min.to)}`,
+    );
+  }
+  if (changes.ticket_lots) {
+    const from: TicketLotItem[] = changes.ticket_lots.from ?? [];
+    const to: TicketLotItem[] = changes.ticket_lots.to ?? [];
+    const fromByLabel = new Map(from.map((l) => [l.label_pt, l]));
+    const toByLabel = new Map(to.map((l) => [l.label_pt, l]));
+
+    for (const l of to) {
+      const prev = fromByLabel.get(l.label_pt);
+      if (!prev) {
+        lines.push(l.status === "esgotado" ? `${l.label_pt} esgotou` : `Novo: ${lotLabel(l)}`);
+      } else if (prev.status !== l.status) {
+        lines.push(
+          l.status === "esgotado" ? `${l.label_pt} esgotou` : `${lotLabel(l)} (antes: ${prev.status})`,
+        );
+      } else if (Number(prev.price ?? 0) !== Number(l.price ?? 0)) {
+        lines.push(`${l.label_pt}: ${fmtPrice(prev.price)} → ${fmtPrice(l.price)}`);
+      }
+    }
+    for (const l of from) {
+      if (!toByLabel.has(l.label_pt)) lines.push(`Removido: ${l.label_pt}`);
+    }
+    if (lines.length === 0) lines.push("Régua de lotes atualizada");
+  }
+  return lines;
+}
+
+async function sendDigest(
+  admin: ReturnType<typeof createClient>,
+  events: DigestEvent[],
+): Promise<{ sent: boolean; reason?: string; recipients?: string[] }> {
+  const to = (Deno.env.get("BILHETEIRA_SYNC_NOTIFY_TO") ?? "").trim();
+  const cc = (Deno.env.get("BILHETEIRA_SYNC_NOTIFY_CC") ?? "").trim();
+  if (!to) {
+    console.log("[bilheteira-sync] BILHETEIRA_SYNC_NOTIFY_TO não configurado — e-mail não enviado");
+    return { sent: false, reason: "no_recipient_secret" };
+  }
+
+  const runAt = new Date().toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" });
+  const templateData = {
+    runAt,
+    updatedCount: events.filter((e) => !e.possibleSoldOut).length,
+    alertCount: events.filter((e) => e.possibleSoldOut).length,
+    events: events.map((e) => ({
+      name: e.name,
+      portalUrl: e.portalUrl,
+      crmUrl: e.crmUrl,
+      lines: e.lines,
+      possibleSoldOut: e.possibleSoldOut === true,
+    })),
+  };
+
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const recipients = cc ? [to, cc] : [to];
+  let sent = false;
+  let reason: string | undefined;
+
+  for (const rcpt of recipients) {
+    try {
+      const { error } = await admin.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "bilheteira-sync-digest",
+          recipientEmail: rcpt,
+          idempotencyKey: `bilheteira-sync-${stamp}-${rcpt}`,
+          templateData,
+        },
+      });
+      if (error) throw error;
+      sent = true;
+    } catch (e) {
+      reason = e instanceof Error ? e.message : String(e);
+      console.error(`[bilheteira-sync] falha ao enviar e-mail para ${rcpt}: ${reason}`);
+    }
+  }
+  return { sent, reason, recipients };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -132,13 +239,13 @@ Deno.serve(async (req) => {
 
   let q = admin
     .from("events")
-    .select("id, name, date, ticketing_url, ticketing_provider, portal_visible")
+    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible")
     .eq("portal_visible", true)
     .not("ticketing_url", "is", null)
     .gte("date", today);
   if (body.eventId) q = admin
     .from("events")
-    .select("id, name, date, ticketing_url, ticketing_provider, portal_visible")
+    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible")
     .eq("id", body.eventId);
 
   const { data: events, error: evErr } = await q;
@@ -154,6 +261,9 @@ Deno.serve(async (req) => {
   const mkByEvent = new Map((marketing ?? []).map((m: any) => [m.event_id, m]));
 
   const results: unknown[] = [];
+  const digest: DigestEvent[] = [];
+  // Logs adiados: só são inseridos depois de sabermos se o e-mail seguiu.
+  const pendingLogs: Record<string, unknown>[] = [];
 
   for (const ev of events ?? []) {
     const mk = mkByEvent.get(ev.id);
@@ -207,7 +317,15 @@ Deno.serve(async (req) => {
         // REGRA CRÍTICA: nunca marcar esgotado automaticamente.
         logRow.changes = { possible_soldout: true, applied: false };
         results.push({ event: ev.name, status: "possible_soldout", applied: false });
-        await admin.from("bilheteira_sync_log").insert(logRow);
+        digest.push({
+          eventId: ev.id,
+          name: ev.name,
+          portalUrl: ev.slug ? `${PORTAL_BASE}/eventos/${ev.slug}` : null,
+          crmUrl: `${APP_BASE}/crm/eventos/${ev.id}`,
+          lines: [],
+          possibleSoldOut: true,
+        });
+        pendingLogs.push(logRow);
         continue;
       }
 
@@ -241,12 +359,39 @@ Deno.serve(async (req) => {
 
       logRow.changes = { applied: !dryRun, dry_run: dryRun, ...changes };
       results.push({ event: ev.name, status: dryRun ? "would_update" : "updated", changes });
+      digest.push({
+        eventId: ev.id,
+        name: ev.name,
+        portalUrl: ev.slug ? `${PORTAL_BASE}/eventos/${ev.slug}` : null,
+        crmUrl: `${APP_BASE}/crm/eventos/${ev.id}`,
+        lines: describeChanges(changes),
+      });
     } catch (e) {
       logRow.error = e instanceof Error ? e.message : String(e);
       results.push({ event: ev.name, status: "error", error: logRow.error });
     }
 
-    await admin.from("bilheteira_sync_log").insert(logRow);
+    pendingLogs.push(logRow);
+  }
+
+  // ---- Notificação: só quando há mudanças aplicadas OU alerta possible_soldout ----
+  let email: { sent: boolean; reason?: string; recipients?: string[] } = { sent: false, reason: "no_changes" };
+  if (digest.length > 0 && !dryRun) {
+    email = await sendDigest(admin, digest);
+  } else if (dryRun && digest.length > 0) {
+    email = { sent: false, reason: "dry_run" };
+  }
+
+  const notifiedIds = new Set(digest.map((d) => d.eventId));
+  for (const row of pendingLogs) {
+    if (notifiedIds.has(row.event_id as string)) {
+      row.changes = {
+        ...((row.changes as Record<string, unknown>) ?? {}),
+        email_sent: email.sent,
+        ...(email.sent ? {} : { email_skip_reason: email.reason ?? null }),
+      };
+    }
+    await admin.from("bilheteira_sync_log").insert(row);
   }
 
   return json({
@@ -254,6 +399,8 @@ Deno.serve(async (req) => {
     triggered_by: body.triggeredBy ?? "manual",
     dry_run: dryRun,
     scanned: (events ?? []).length,
+    email_sent: email.sent,
+    email_reason: email.sent ? undefined : email.reason,
     results,
   });
 });
