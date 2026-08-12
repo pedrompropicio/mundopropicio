@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MultiImageUploader } from "../components/MultiImageUploader";
 import { useCompany } from "@/hooks/useCompany";
-import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
+import type { EventMarketingRow, EventRow, TicketExperience, TicketLot, TicketLotStatus } from "../types";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
@@ -69,6 +69,7 @@ const emptyForm = (eventId: string, companyId: string): FormState => ({
   music_embed_url: null,
   ticket_experiences: [],
   age_rating: null,
+  ticket_lots: [],
 
 });
 
@@ -137,7 +138,7 @@ export default function EventMarketingEditor() {
     if (mkQuery.data === undefined) return;
     if (mkQuery.data) {
       const { created_at, updated_at, created_by, updated_by, ...rest } = mkQuery.data;
-      setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [] });
+      setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [], ticket_lots: ((rest as any).ticket_lots as TicketLot[] | null) ?? [] });
     } else {
       setForm(emptyForm(eventId, (eventQuery.data as any)?.company_id ?? companyId ?? ""));
     }
@@ -580,6 +581,19 @@ export default function EventMarketingEditor() {
               </Field>
 
             </div>
+
+            <div className="space-y-3 border-t border-border pt-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold">Lotes de bilhete</h3>
+                <p className="text-xs text-muted-foreground">
+                  Régua editorial de lotes exibida no portal. Mantém VERDADEIRO — lote esgotado exibido tem de estar mesmo esgotado. Sem herança do tour: preencher por cidade.
+                </p>
+              </div>
+              <TicketLotsEditor
+                value={form!.ticket_lots ?? []}
+                onChange={(v) => set("ticket_lots", v)}
+              />
+            </div>
           </Card>
         </TabsContent>
 
@@ -717,6 +731,92 @@ function TicketExperiencesEditor({
       ))}
       <Button type="button" variant="outline" size="sm" onClick={add}>
         <Plus className="h-4 w-4" /> Adicionar experiência
+      </Button>
+    </div>
+  );
+}
+
+function TicketLotsEditor({
+  value,
+  onChange,
+}: {
+  value: TicketLot[];
+  onChange: (next: TicketLot[]) => void;
+}) {
+  const update = (idx: number, patch: Partial<TicketLot>) => {
+    onChange(value.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  };
+  const remove = (idx: number) => onChange(value.filter((_, i) => i !== idx));
+  const move = (idx: number, dir: -1 | 1) => {
+    const j = idx + dir;
+    if (j < 0 || j >= value.length) return;
+    const next = value.slice();
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange(next);
+  };
+  const add = () =>
+    onChange([...value, { label_pt: "", label_en: "", price: null, status: "a_venda" }]);
+
+  return (
+    <div className="space-y-3">
+      {value.length === 0 && (
+        <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          Sem lotes. Adiciona o primeiro abaixo.
+        </p>
+      )}
+      {value.map((it, idx) => (
+        <div key={idx} className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Mover para cima">
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => move(idx, 1)} disabled={idx === value.length - 1} aria-label="Mover para baixo">
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)} aria-label="Remover">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Nome (PT)">
+              <Input value={it.label_pt} onChange={(e) => update(idx, { label_pt: e.target.value })} placeholder="ex.: 2º Lote" />
+            </Field>
+            <Field label="Name (EN)">
+              <Input value={it.label_en} onChange={(e) => update(idx, { label_en: e.target.value })} placeholder="e.g.: 2nd Batch" />
+            </Field>
+            <Field label="Preço €" hint="opcional">
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={it.price ?? ""}
+                onChange={(e) =>
+                  update(idx, { price: e.target.value === "" ? null : Number(e.target.value) })
+                }
+                placeholder="ex.: 45"
+              />
+            </Field>
+            <Field label="Estado">
+              <Select
+                value={it.status}
+                onValueChange={(v) => update(idx, { status: v as TicketLotStatus })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="esgotado">Esgotado</SelectItem>
+                  <SelectItem value="a_venda">À venda</SelectItem>
+                  <SelectItem value="brevemente">Brevemente</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" onClick={add}>
+        <Plus className="h-4 w-4" /> Adicionar lote
       </Button>
     </div>
   );
