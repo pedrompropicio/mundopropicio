@@ -123,3 +123,22 @@ Dry run 2026-08-12 (14 eventos futuros): `parse_ok=true` em todos, 0 `possible_s
 Execução real 2026-08-12: réguas regeneradas (Ivete perdeu "Arena | Mob.Reduzida"),
 `age_rating` preenchido em Deive Braga / SM Lisboa / SM Porto (M/06), `doors_time` só na Ivete
 (16h00 — é o único evento com o rótulo na página). Corrida seguinte: 14/14 "sem alterações".
+
+## v1.5 — rotação automática do destaque da home (2026-08-12)
+
+No fim de cada execução (só em corridas completas; `{eventId}` não roda destaque):
+
+1. **Higiene** — `portal_featured=false` em eventos com `date < CURRENT_DATE`.
+2. **Fila nunca vazia** — se não sobrar nenhum evento com `portal_featured=true` +
+   `portal_visible=true` + `date >= CURRENT_DATE`, promove o próximo evento futuro
+   `portal_visible=true` com `parent_event_id IS NULL` (mãe multi-dia pode; cidade-filha de tour
+   não). Empate na mesma data → prefere quem tem `ticketing_url`.
+3. **Digest** — linha "Destaque da home: X (realizado) → Y" ou "Destaque promovido
+   automaticamente: Y (data)"; conta como mudança aplicada para efeito de envio de e-mail.
+4. **dryRun** — só reporta (`would_unfeature` / `would_promote`), não escreve.
+5. **Guardrails** — nunca toca `portal_visible`; idempotente (2ª corrida no mesmo dia não
+   escreve nem loga nada). Log em `bilheteira_sync_log` com `provider='featured-rotation'`.
+
+Teste em Test 2026-08-12: destaque em evento passado (New Gang 2023 + Anitta 18/07) →
+dryRun propôs `would_unfeature` ambos e `would_promote` Ivete Clareou 2026 (05/09); execução real
+aplicou (`applied:true`, `email_sent:true`); 2ª execução não gerou log (idempotente).

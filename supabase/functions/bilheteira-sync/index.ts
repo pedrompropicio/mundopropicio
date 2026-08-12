@@ -40,7 +40,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_4_2026_08_12";
+const VERSION = "v1_5_2026_08_12";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -263,6 +263,99 @@ async function sendDigest(
   return { sent, reason, recipients };
 }
 
+// ---------------------------------------------------------------------------
+// Rotação do destaque da home (v1.5) — corre no fim de cada execução.
+//  - Higiene: eventos passados perdem portal_featured.
+//  - Fila nunca vazia: se não sobrar destaque futuro, promove o próximo evento.
+//  - Nunca toca em portal_visible. Idempotente.
+// ---------------------------------------------------------------------------
+interface FeaturedRotation {
+  unfeatured: Array<{ id: string; name: string; date: string }>;
+  promoted: { id: string; name: string; date: string; slug: string | null } | null;
+  lines: string[];
+  dry_run: boolean;
+}
+
+async function rotateFeatured(
+  admin: any,
+  today: string,
+  dryRun: boolean,
+): Promise<FeaturedRotation> {
+  const out: FeaturedRotation = { unfeatured: [], promoted: null, lines: [], dry_run: dryRun };
+
+  // 1) HIGIENE — destaques com data passada
+  const { data: stale } = await admin
+    .from("events")
+    .select("id, name, date")
+    .eq("portal_featured", true)
+    .lt("date", today);
+
+  const staleRows = (stale ?? []) as Array<{ id: string; name: string; date: string }>;
+  out.unfeatured = staleRows;
+
+  if (staleRows.length > 0 && !dryRun) {
+    await admin
+      .from("events")
+      .update({ portal_featured: false })
+      .in("id", staleRows.map((e) => e.id));
+  }
+
+  // 2) FILA NUNCA VAZIA
+  const { data: current } = await admin
+    .from("events")
+    .select("id, name, date")
+    .eq("portal_featured", true)
+    .eq("portal_visible", true)
+    .gte("date", today)
+    .limit(1);
+
+  const staleIds = new Set(staleRows.map((e) => e.id));
+  const stillFeatured = ((current ?? []) as Array<{ id: string }>).filter((e) => !staleIds.has(e.id));
+
+  if (stillFeatured.length === 0) {
+    const { data: candidates } = await admin
+      .from("events")
+      .select("id, name, date, slug, ticketing_url")
+      .eq("portal_visible", true)
+      .gte("date", today)
+      .is("parent_event_id", null)
+      .order("date", { ascending: true })
+      .limit(20);
+
+    const pool = ((candidates ?? []) as Array<any>).filter((e) => !staleIds.has(e.id));
+    if (pool.length > 0) {
+      const firstDate = pool[0].date;
+      const sameDay = pool.filter((e) => e.date === firstDate);
+      const pick = sameDay.find((e) => !!e.ticketing_url) ?? sameDay[0];
+      out.promoted = { id: pick.id, name: pick.name, date: pick.date, slug: pick.slug ?? null };
+      if (!dryRun) {
+        await admin.from("events").update({ portal_featured: true }).eq("id", pick.id);
+      }
+    }
+  }
+
+  // 3) Linhas para o digest
+  if (out.unfeatured.length > 0 && out.promoted) {
+    out.lines.push(
+      `Destaque da home: ${out.unfeatured.map((e) => e.name).join(", ")} (realizado) → ${out.promoted.name}`,
+    );
+  } else {
+    if (out.unfeatured.length > 0) {
+      out.lines.push(
+        `Destaque removido (evento realizado): ${out.unfeatured.map((e) => e.name).join(", ")}`,
+      );
+    }
+    if (out.promoted) {
+      out.lines.push(`Destaque promovido automaticamente: ${out.promoted.name} (${out.promoted.date})`);
+    }
+  }
+  if (dryRun && out.lines.length > 0) out.lines = out.lines.map((l) => `[simulação] ${l}`);
+
+  return out;
+}
+
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -444,6 +537,34 @@ Deno.serve(async (req) => {
     pendingLogs.push(logRow);
   }
 
+  // ---- Rotação do destaque da home (v1.5) ----
+  let featured: FeaturedRotation | null = null;
+  if (!body.eventId) {
+    try {
+      featured = await rotateFeatured(admin, today, dryRun);
+      if (featured.lines.length > 0) {
+        const link = featured.promoted?.slug ? `${PORTAL_BASE}/eventos/${featured.promoted.slug}` : null;
+        digest.push({
+          eventId: featured.promoted?.id ?? "featured-rotation",
+          name: "Destaque da home",
+          portalUrl: link,
+          crmUrl: featured.promoted ? `${APP_BASE}/crm/eventos/${featured.promoted.id}` : `${APP_BASE}/crm/eventos`,
+          lines: featured.lines,
+        });
+      }
+    } catch (e) {
+      console.error("[bilheteira-sync] rotação de destaque falhou:", e);
+      featured = {
+        unfeatured: [],
+        promoted: null,
+        lines: [],
+        dry_run: dryRun,
+        // @ts-ignore campo extra só para o log
+        error: e instanceof Error ? e.message : String(e),
+      } as FeaturedRotation;
+    }
+  }
+
   // ---- Notificação: só quando há mudanças aplicadas OU alerta possible_soldout ----
   let email: { sent: boolean; reason?: string; recipients?: string[] } = { sent: false, reason: "no_changes" };
   if (digest.length > 0 && !dryRun) {
@@ -452,8 +573,38 @@ Deno.serve(async (req) => {
     email = { sent: false, reason: "dry_run" };
   }
 
+  // Log da rotação (event_id do promovido quando existe)
+  if (featured && (featured.unfeatured.length > 0 || featured.promoted)) {
+    pendingLogs.push({
+      event_id: featured.promoted?.id ?? null,
+      provider: "featured-rotation",
+      url: null,
+      parse_ok: true,
+      raw_summary: {
+        unfeatured: featured.unfeatured,
+        promoted: featured.promoted,
+      },
+      changes: dryRun
+        ? {
+            dry_run: true,
+            would_unfeature: featured.unfeatured.map((e) => e.name),
+            would_promote: featured.promoted?.name ?? null,
+          }
+        : {
+            applied: true,
+            unfeatured: featured.unfeatured.map((e) => e.name),
+            promoted: featured.promoted?.name ?? null,
+            email_sent: email.sent,
+          },
+    });
+  }
+
   const notifiedIds = new Set(digest.map((d) => d.eventId));
   for (const row of pendingLogs) {
+    if (row.provider === "featured-rotation") {
+      await admin.from("bilheteira_sync_log").insert(row);
+      continue;
+    }
     if (notifiedIds.has(row.event_id as string)) {
       row.changes = {
         ...((row.changes as Record<string, unknown>) ?? {}),
@@ -471,6 +622,14 @@ Deno.serve(async (req) => {
     scanned: (events ?? []).length,
     email_sent: email.sent,
     email_reason: email.sent ? undefined : email.reason,
+    featured_rotation: featured
+      ? {
+          unfeatured: featured.unfeatured.map((e) => `${e.name} (${e.date})`),
+          promoted: featured.promoted ? `${featured.promoted.name} (${featured.promoted.date})` : null,
+          mode: dryRun ? "would" : "applied",
+        }
+      : null,
     results,
   });
 });
+
