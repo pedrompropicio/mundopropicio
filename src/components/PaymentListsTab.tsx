@@ -816,9 +816,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   };
 
+  // Só transações com dados bancários resolvíveis podem entrar em lista.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  const unbankableCount = filteredTx.length - bankableTx.length;
+
   const toggleAll = () => {
-    if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
+    if (selectedIds.size === bankableTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(bankableTx.map((t: any) => t.id)));
   };
 
 
