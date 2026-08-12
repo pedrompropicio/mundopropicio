@@ -70,6 +70,7 @@ const emptyForm = (eventId: string, companyId: string): FormState => ({
   ticket_experiences: [],
   age_rating: null,
   ticket_lots: [],
+  doors_time: null,
 
 });
 
