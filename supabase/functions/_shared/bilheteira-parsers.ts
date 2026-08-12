@@ -32,9 +32,12 @@ export interface TicketLotItem {
 }
 
 // Ignorar APENAS bilhetes condicionais de mobilidade (cadeira de rodas/acompanhante).
+// Ficam TOTALMENTE fora da régua (nem esgotado, nem à venda) e fora do preço mínimo:
+// são bilhetes exclusivos de baixa quantidade, não sinal de escassez.
 // Zonas de VISIBILIDADE reduzida são bilhetes públicos normais e CONTAM para o
 // preço mínimo e para a régua de lotes.
-const IGNORE_ZONE_RE = /mobilidade|condicionad|cadeira\s*de\s*rodas|acompanhante/i;
+const IGNORE_ZONE_RE =
+  /mobilidade|\bmob\.?\b|condicionad|cadeira\s*de\s*rodas|acompanhante|\bpmr\b/i;
 
 const decodeEntities = (s: string): string =>
   s
@@ -326,4 +329,43 @@ export function looksSane(zones: ParsedZone[]): boolean {
     if (z.basePrice !== null && (z.basePrice <= 0 || z.basePrice > 5000)) return false;
   }
   return true;
+}
+
+// ─────────────── Info editorial da página de EVENTO (v1.4) ───────────────
+
+export interface ParsedEventInfo {
+  /** Classificação etária normalizada, ex. "M/06" */
+  ageRating: string | null;
+  /** Abertura de portas normalizada, ex. "16h00" */
+  doorsTime: string | null;
+}
+
+/**
+ * Extrai "Classificação: M/06" e "Abertura de portas: 16h00" da página pública
+ * do evento (Ticketline e BOL usam rótulos equivalentes). Só devolve valores
+ * com match inequívoco — em dúvida devolve null e nada é escrito.
+ */
+export function parseEventInfo(html: string): ParsedEventInfo {
+  const text = stripTags(html);
+
+  let ageRating: string | null = null;
+  const age = text.match(/classifica[çc][ãa]o[^A-Za-z0-9]{0,30}?M\s*\/\s*0*(\d{1,2})/i);
+  if (age) {
+    const n = Number(age[1]);
+    if (n >= 0 && n <= 18) ageRating = `M/${String(n).padStart(2, "0")}`;
+  }
+
+  let doorsTime: string | null = null;
+  const doors = text.match(
+    /abertura\s+(?:de\s+|das\s+)?portas[^0-9]{0,30}?(\d{1,2})\s*[hH:]\s*(\d{2})/,
+  );
+  if (doors) {
+    const h = Number(doors[1]);
+    const m = Number(doors[2]);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      doorsTime = `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
+    }
+  }
+
+  return { ageRating, doorsTime };
 }

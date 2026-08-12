@@ -22,7 +22,9 @@ import {
   findBolSectoresUrl,
   buildTicketLots,
   looksSane,
+  parseEventInfo,
   type ParseResult,
+  type ParsedEventInfo,
   type TicketLotItem,
 } from "../_shared/bilheteira-parsers.ts";
 import { tolerantFetch } from "../_shared/tolerant-fetch.ts";
@@ -38,7 +40,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_2_2026_08_12";
+const VERSION = "v1_4_2026_08_12";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -72,12 +74,24 @@ function detectProvider(url: string, stored: string | null): Provider | null {
   return null;
 }
 
-async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseResult> {
+type Scraped = ParseResult & { info: ParsedEventInfo };
+
+const EMPTY_INFO: ParsedEventInfo = { ageRating: null, doorsTime: null };
+/** Info da 1ª página lida (evento) tem prioridade; a da sessão serve de fallback. */
+const mergeInfo = (a: ParsedEventInfo, b: ParsedEventInfo): ParsedEventInfo => ({
+  ageRating: a.ageRating ?? b.ageRating,
+  doorsTime: a.doorsTime ?? b.doorsTime,
+});
+
+async function scrape(provider: Provider, ticketingUrl: string): Promise<Scraped> {
+  let info = EMPTY_INFO;
+
   if (provider === "ticketline") {
     let target = ticketingUrl;
     if (!/\/sessao\//i.test(target)) {
       const page = await fetchHtml(target);
       if (!page.ok) throw new Error(`HTTP ${page.status} na página do evento`);
+      info = parseEventInfo(page.html);
       const sess = findTicketlineSessionUrl(page.html, page.url);
       if (!sess) throw new Error("Não foi possível encontrar o link da sessão ('Escolha de lugares')");
       target = sess;
@@ -86,7 +100,22 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
     if (!res.ok) throw new Error(`HTTP ${res.status} na página da sessão`);
     const parsed = parseTicketlineSession(res.html, res.url);
     if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhuma zona encontrada");
-    return parsed;
+    info = mergeInfo(info, parseEventInfo(res.html));
+    // Quando o ticketing_url já é a sessão, a info editorial vive na página do
+    // evento — segue o link /evento/ da sessão para a ler.
+    if (!info.ageRating && !info.doorsTime) {
+      const evLink = res.html.match(/href="([^"]*\/evento\/[^"]+)"/i);
+      if (evLink) {
+        try {
+          const evAbs = new URL(evLink[1], res.url).toString();
+          const evPage = await fetchHtml(evAbs);
+          if (evPage.ok) info = mergeInfo(info, parseEventInfo(evPage.html));
+        } catch {
+          /* info é best-effort */
+        }
+      }
+    }
+    return { ...parsed, info };
   }
 
   // BOL — o ticketing_url pode ser a página de Sectores, de Sessões ou do evento.
@@ -94,6 +123,7 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
   for (let hop = 0; hop < 3 && !/\/Sectores\b/i.test(target); hop++) {
     const page = await fetchHtml(target);
     if (!page.ok) throw new Error(`HTTP ${page.status} em ${page.url}`);
+    info = mergeInfo(info, parseEventInfo(page.html));
     const next = findBolSectoresUrl(page.html, page.url);
     if (!next) throw new Error("Não foi possível encontrar o link de Sectores na página BOL");
     target = next.url;
@@ -105,11 +135,15 @@ async function scrape(provider: Provider, ticketingUrl: string): Promise<ParseRe
   if (!res.ok) throw new Error(`HTTP ${res.status} na página BOL`);
   const parsed = parseBolSectores(res.html, res.url);
   if (parsed.zones.length === 0) throw new Error("HTML inesperado: nenhum sector encontrado");
-  return parsed;
+  return { ...parsed, info: mergeInfo(info, parseEventInfo(res.html)) };
 }
 
-const sameLots = (a: TicketLotItem[] | null, b: TicketLotItem[]) =>
-  JSON.stringify(a ?? []) === JSON.stringify(b);
+// Comparação estável (o jsonb do Postgres reordena as chaves).
+const normLots = (l: TicketLotItem[] | null) =>
+  JSON.stringify(
+    (l ?? []).map((x) => [x.label_pt, x.label_en, x.price ?? null, x.status]),
+  );
+const sameLots = (a: TicketLotItem[] | null, b: TicketLotItem[]) => normLots(a) === normLots(b);
 
 // ---------------------------------------------------------------------------
 // Notificação (v1.1) — digest por execução. A sync NUNCA falha por causa do e-mail.
@@ -142,7 +176,14 @@ function describeChanges(
       `Preço mínimo: ${fmtPrice(changes.offer_price_min.from)} → ${fmtPrice(changes.offer_price_min.to)}`,
     );
   }
+  if (changes.age_rating) {
+    lines.push(`Classificação: ${changes.age_rating.from ?? "—"} → ${changes.age_rating.to ?? "—"}`);
+  }
+  if (changes.doors_time) {
+    lines.push(`Abertura de portas: ${changes.doors_time.from ?? "—"} → ${changes.doors_time.to ?? "—"}`);
+  }
   if (changes.ticket_lots) {
+    const before = lines.length;
     const from: TicketLotItem[] = changes.ticket_lots.from ?? [];
     const to: TicketLotItem[] = changes.ticket_lots.to ?? [];
     const fromByLabel = new Map(from.map((l) => [l.label_pt, l]));
@@ -163,7 +204,7 @@ function describeChanges(
     for (const l of from) {
       if (!toByLabel.has(l.label_pt)) lines.push(`Removido: ${l.label_pt}`);
     }
-    if (lines.length === 0) lines.push("Régua de lotes atualizada");
+    if (lines.length === before) lines.push("Régua de lotes atualizada");
   }
   return lines;
 }
@@ -268,7 +309,7 @@ Deno.serve(async (req) => {
   const { data: marketing } = ids.length
     ? await admin
         .from("event_marketing")
-        .select("event_id, lots_locked, ticket_lots, offer_price_min, offer_availability")
+        .select("event_id, lots_locked, ticket_lots, offer_price_min, offer_availability, age_rating, doors_time")
         .in("event_id", ids)
     : { data: [] as any[] };
   const mkByEvent = new Map((marketing ?? []).map((m: any) => [m.event_id, m]));
@@ -326,28 +367,49 @@ Deno.serve(async (req) => {
 
       const built = buildTicketLots(parsed.zones);
 
+      const changes: Record<string, unknown> = {};
+      const payload: Record<string, unknown> = { event_id: ev.id };
+
+      // Info editorial (v1.4): classificação etária e abertura de portas.
+      if (parsed.info.ageRating && (mk?.age_rating ?? null) !== parsed.info.ageRating) {
+        changes.age_rating = { from: mk?.age_rating ?? null, to: parsed.info.ageRating };
+        payload.age_rating = parsed.info.ageRating;
+      }
+      if (parsed.info.doorsTime && (mk?.doors_time ?? null) !== parsed.info.doorsTime) {
+        changes.doors_time = { from: mk?.doors_time ?? null, to: parsed.info.doorsTime };
+        payload.doors_time = parsed.info.doorsTime;
+      }
+
       if (built.possibleSoldOut) {
-        // REGRA CRÍTICA: nunca marcar esgotado automaticamente.
-        logRow.changes = { possible_soldout: true, applied: false };
-        results.push({ event: ev.name, status: "possible_soldout", applied: false });
+        // REGRA CRÍTICA: nunca marcar esgotado automaticamente (lotes/preço intactos).
+        if (!dryRun && Object.keys(payload).length > 1) {
+          payload.updated_at = new Date().toISOString();
+          const { error: upErr } = mk
+            ? await admin.from("event_marketing").update(payload).eq("event_id", ev.id)
+            : await admin.from("event_marketing").insert(payload);
+          if (upErr) throw new Error(`Falha ao gravar: ${upErr.message}`);
+        }
+        logRow.changes = { possible_soldout: true, applied: false, dry_run: dryRun, ...changes };
+        results.push({ event: ev.name, status: "possible_soldout", applied: false, changes });
         digest.push({
           eventId: ev.id,
           name: ev.name,
           portalUrl: ev.slug ? `${PORTAL_BASE}/eventos/${ev.slug}` : null,
           crmUrl: `${APP_BASE}/crm/eventos/${ev.id}`,
-          lines: [],
+          lines: describeChanges(changes),
           possibleSoldOut: true,
         });
         pendingLogs.push(logRow);
         continue;
       }
 
-      const changes: Record<string, unknown> = {};
       if (!sameLots(mk?.ticket_lots ?? null, built.ticketLots)) {
         changes.ticket_lots = { from: mk?.ticket_lots ?? null, to: built.ticketLots };
+        payload.ticket_lots = built.ticketLots;
       }
       if (built.offerPriceMin !== null && Number(mk?.offer_price_min ?? NaN) !== built.offerPriceMin) {
         changes.offer_price_min = { from: mk?.offer_price_min ?? null, to: built.offerPriceMin };
+        payload.offer_price_min = built.offerPriceMin;
       }
 
       if (Object.keys(changes).length === 0) {
@@ -358,12 +420,7 @@ Deno.serve(async (req) => {
       }
 
       if (!dryRun) {
-        const payload: Record<string, unknown> = {
-          event_id: ev.id,
-          ticket_lots: built.ticketLots,
-          offer_price_min: built.offerPriceMin,
-          updated_at: new Date().toISOString(),
-        };
+        payload.updated_at = new Date().toISOString();
         const { error: upErr } = mk
           ? await admin.from("event_marketing").update(payload).eq("event_id", ev.id)
           : await admin.from("event_marketing").insert(payload);
