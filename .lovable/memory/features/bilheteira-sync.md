@@ -90,3 +90,16 @@ Digest **um e-mail por execução**, template `bilheteira-sync-digest` enviado v
 5. **Cron**: `net.http_post(..., timeout_milliseconds := 30000)`.
 
 Dry run 2026-08-12 (14 eventos futuros): `parse_ok=true` em todos, 0 `possible_soldout`.
+
+## v1.3 — escrita real ativada (2026-08-12)
+
+- `dryRun` deixa de ser default: a função aplica `offer_price_min` + `ticket_lots`; `{dryRun:true}`
+  continua disponível para testes. Guardrails inalterados.
+- **Régua truncada** (`MAX_AVAILABLE_LOTS = 4` em `_shared/bilheteira-parsers.ts`): entram TODOS os
+  itens `esgotado` (prova social) + apenas as **4 zonas/lotes à venda mais baratas**. Sem item fake
+  "+ outras zonas". `offer_price_min` continua a considerar todas as zonas disponíveis.
+- **Cron corrigido**: `bilheteira-sync-daily` usa o URL do projeto e
+  `vault.decrypted_secrets.name = 'email_queue_service_role_key'` (o `current_setting(
+  'app.settings.service_role_key')` da migration original devolvia NULL → 401) + `timeout_milliseconds := 30000`.
+- Execução real 2026-08-12 19:47 UTC: 14 eventos, `parse_ok=true` em todos, 0 `possible_soldout`,
+  0 erros, digest enviado (`email_sent=true`).
