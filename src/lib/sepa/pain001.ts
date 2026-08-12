@@ -89,22 +89,8 @@ const MONTHS: Record<string, string> = {
   outubro: "10", novembro: "11", dezembro: "12",
 };
 
-/** palavras genéricas do nome do evento que não servem para detetar duplicação */
-const EVENT_GENERIC_TOKENS = new Set([
-  "tour",
-  "turne",
-  "evento",
-  "eventos",
-  "festival",
-  "show",
-  "shows",
-  "concerto",
-  "concertos",
-  "edicao",
-  "espetaculo",
-  "digital",
-  "label",
-]);
+
+
 
 /**
  * Acrescenta " - nome do evento" ao descritivo da transferência (só na geração
