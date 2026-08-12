@@ -799,6 +799,8 @@ function GestaoTab({
     setTicketingUrl(ev?.ticketing_url ?? "");
     setAdDestinationUrl(ev?.ad_destination_url ?? "");
     setTicketingProvider(ev?.ticketing_provider ?? "");
+    setProviderAutoDetected(false);
+
     setPortalVisible(!!ev?.portal_visible);
     setPortalFeatured(!!ev?.portal_featured);
     setVipCode(ev?.vip_coupon_code ?? "");
