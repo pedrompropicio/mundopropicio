@@ -263,6 +263,101 @@ async function sendDigest(
   return { sent, reason, recipients };
 }
 
+// ---------------------------------------------------------------------------
+// Rotação do destaque da home (v1.5) — corre no fim de cada execução.
+//  - Higiene: eventos passados perdem portal_featured.
+//  - Fila nunca vazia: se não sobrar destaque futuro, promove o próximo evento.
+//  - Nunca toca em portal_visible. Idempotente.
+// ---------------------------------------------------------------------------
+interface FeaturedRotation {
+  unfeatured: Array<{ id: string; name: string; date: string }>;
+  promoted: { id: string; name: string; date: string; slug: string | null } | null;
+  lines: string[];
+  dry_run: boolean;
+}
+
+async function rotateFeatured(
+  admin: any,
+  today: string,
+  dryRun: boolean,
+): Promise<FeaturedRotation> {
+  const out: FeaturedRotation = { unfeatured: [], promoted: null, lines: [], dry_run: dryRun };
+
+  // 1) HIGIENE — destaques com data passada
+  const { data: stale } = await admin
+    .from("events")
+    .select("id, name, date")
+    .eq("portal_featured", true)
+    .lt("date", today);
+
+  const staleRows = (stale ?? []) as Array<{ id: string; name: string; date: string }>;
+  out.unfeatured = staleRows;
+
+  if (staleRows.length > 0 && !dryRun) {
+    await admin
+      .from("events")
+      .update({ portal_featured: false })
+      .in("id", staleRows.map((e) => e.id));
+  }
+
+  // 2) FILA NUNCA VAZIA
+  const { data: current } = await admin
+    .from("events")
+    .select("id, name, date")
+    .eq("portal_featured", true)
+    .eq("portal_visible", true)
+    .gte("date", today)
+    .limit(1);
+
+  const staleIds = new Set(staleRows.map((e) => e.id));
+  const stillFeatured = ((current ?? []) as Array<{ id: string }>).filter((e) => !staleIds.has(e.id));
+
+  if (stillFeatured.length === 0) {
+    const { data: candidates } = await admin
+      .from("events")
+      .select("id, name, date, slug, ticketing_url")
+      .eq("portal_visible", true)
+      .gte("date", today)
+      .is("parent_event_id", null)
+      .order("date", { ascending: true })
+      .limit(20);
+
+    const pool = ((candidates ?? []) as Array<any>).filter((e) => !staleIds.has(e.id));
+    if (pool.length > 0) {
+      const firstDate = pool[0].date;
+      const sameDay = pool.filter((e) => e.date === firstDate);
+      const pick = sameDay.find((e) => !!e.ticketing_url) ?? sameDay[0];
+      out.promoted = { id: pick.id, name: pick.name, date: pick.date, slug: pick.slug ?? null };
+      if (!dryRun) {
+        await admin.from("events").update({ portal_featured: true }).eq("id", pick.id);
+      }
+    }
+  }
+
+  // 3) Linhas para o digest
+  const verb = dryRun ? "would" : "did";
+  if (out.unfeatured.length > 0 && out.promoted) {
+    out.lines.push(
+      `Destaque da home: ${out.unfeatured.map((e) => e.name).join(", ")} (realizado) → ${out.promoted.name}`,
+    );
+  } else {
+    if (out.unfeatured.length > 0) {
+      out.lines.push(
+        `Destaque removido (evento realizado): ${out.unfeatured.map((e) => e.name).join(", ")}`,
+      );
+    }
+    if (out.promoted) {
+      out.lines.push(`Destaque promovido automaticamente: ${out.promoted.name} (${out.promoted.date})`);
+    }
+  }
+  if (dryRun && out.lines.length > 0) out.lines = out.lines.map((l) => `[simulação] ${l}`);
+  void verb;
+
+  return out;
+}
+
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
