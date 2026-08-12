@@ -89,43 +89,37 @@ const MONTHS: Record<string, string> = {
   outubro: "10", novembro: "11", dezembro: "12",
 };
 
-/** palavras genéricas do nome do evento que não servem para detetar duplicação */
-const EVENT_GENERIC_TOKENS = new Set([
-  "tour",
-  "turne",
-  "evento",
-  "eventos",
-  "festival",
-  "show",
-  "shows",
-  "concerto",
-  "concertos",
-  "edicao",
-  "espetaculo",
-  "digital",
-  "label",
-]);
+
+
 
 /**
- * Acrescenta o nome do evento ao descritivo, exceto quando a descrição já o
- * refere. Heurística: se algum token significativo do evento (>=3 chars, sem
- * anos nem palavras genéricas) já aparece na descrição, não acrescenta.
+ * Acrescenta " - nome do evento" ao descritivo da transferência (só na geração
+ * do ficheiro; a descrição gravada na transação não é tocada).
+ *
+ * Se o resultado exceder `limit`, preserva o máximo possível: corta primeiro o
+ * FIM do nome do evento; só se a descrição original já não couber é que ela
+ * própria é truncada (e nesse caso o evento não entra).
  */
-export function appendEventToDescription(description: string, eventName?: string | null): string {
+export function appendEventToDescription(
+  description: string,
+  eventName?: string | null,
+  limit = USTRD_HARD_LIMIT,
+): string {
   const desc = (description ?? "").trim();
   const ev = (eventName ?? "").trim();
-  if (!ev) return desc;
-  if (!desc) return ev;
+  if (!ev) return desc.length > limit ? desc.slice(0, limit).trim() : desc;
+  if (!desc) return ev.length > limit ? ev.slice(0, limit).trim() : ev;
 
-  const descAscii = toAscii(desc).toLowerCase();
-  const tokens = toAscii(ev)
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length >= 3 && !/^\d{4}$/.test(t) && !EVENT_GENERIC_TOKENS.has(t));
+  const sep = " - ";
+  const full = `${desc}${sep}${ev}`;
+  if (full.length <= limit) return full;
 
-  if (tokens.some((t) => descAscii.includes(t))) return desc;
-  return `${desc} - ${ev}`;
+  // Espaço restante para o nome do evento depois de desc + separador.
+  const room = limit - desc.length - sep.length;
+  if (room <= 0) return desc.slice(0, limit).trim();
+  return `${desc}${sep}${ev.slice(0, room).trim()}`;
 }
+
 
 
 /**

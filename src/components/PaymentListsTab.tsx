@@ -1503,7 +1503,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   );
 
   const sepaCandidates = useMemo<SepaCandidate[]>(() => {
-    type Draft = SepaCandidate & { _ibans: string[] };
+    type Draft = SepaCandidate & { _ibans: string[]; _events: string[] };
     const out: Draft[] = [];
     const groupAt = new Map<string, number>();
 
@@ -1522,9 +1522,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const iban = resolvePaymentIban(tx);
       const name = formatSupplierFullName(sup.name, sup.trade_name);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
+      const eventName = tx.event_id ? ((tx.events?.name ?? "").toString().trim() || "") : "";
       const description = appendEventToDescription(
         [tx.description, tx.specification].filter(Boolean).join(" - "),
-        tx.event_id ? (tx.events?.name ?? null) : null,
+        eventName || null,
       );
       const gid = tx.invoice_group_id as string | null;
 
@@ -1537,6 +1538,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           d.amount = +(d.amount + open).toFixed(2);
           d.groupTransactionIds!.push(tx.id);
           d._ibans.push(normalizeIban(iban));
+          d._events.push(eventName);
           if (!isPaid && open > 0) d.preExcludeReason = undefined;
           continue;
         }
@@ -1555,6 +1557,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           groupTransactionIds: [tx.id],
           groupRef: ref || null,
           _ibans: [normalizeIban(iban)],
+          _events: [eventName],
         });
         continue;
       }
@@ -1568,11 +1571,20 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         isReimbursement: !!tx.is_reimbursement,
         preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
         _ibans: [normalizeIban(iban)],
+        _events: [eventName],
       });
     }
 
-    return out.map(({ _ibans, ...c }) => {
+    return out.map(({ _ibans, _events, ...c }) => {
       if (c.groupTransactionIds && c.groupTransactionIds.length > 1) {
+        // Evento no descritivo do grupo só quando TODOS os itens são do mesmo evento.
+        const distinctEvents = [...new Set(_events)];
+        const withEvent =
+          distinctEvents.length === 1 && distinctEvents[0]
+            ? appendEventToDescription(c.description, distinctEvents[0])
+            : c.description;
+        c = { ...c, description: withEvent };
+
         const distinct = [...new Set(_ibans.filter(Boolean))];
         if (distinct.length > 1) {
           return {
