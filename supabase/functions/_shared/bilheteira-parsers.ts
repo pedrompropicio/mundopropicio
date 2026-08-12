@@ -287,8 +287,11 @@ export function buildTicketLots(zones: ParsedZone[]): BuildResult {
     });
   }
 
-  // Zonas disponíveis, mais baratas primeiro
-  for (const z of [...available].sort((x, y) => (x.basePrice ?? 0) - (y.basePrice ?? 0))) {
+  // Zonas disponíveis, mais baratas primeiro — truncadas às 4 mais baratas
+  const cheapest = [...available]
+    .sort((x, y) => (x.basePrice ?? 0) - (y.basePrice ?? 0))
+    .slice(0, MAX_AVAILABLE_LOTS);
+  for (const z of cheapest) {
     lots.push({
       label_pt: z.lot ? `${z.lot}º Lote — ${z.zone}` : z.zone,
       label_en: z.lot ? `Lot ${z.lot} — ${z.zone}` : z.zone,
