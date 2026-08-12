@@ -25,6 +25,8 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
+import { checkPaymentBankability, isBankable, resolvePaymentIban, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import NoIbanBadge from "@/components/NoIbanBadge";
 
 
 import PaymentListReceipts from "@/components/PaymentListReceipts";
@@ -680,6 +682,7 @@ function InvoiceGroupHeaderRow({
   expanded,
   onToggleExpanded,
   progress,
+  disabled = false,
 }: {
   txs: any[];
   labelColSpan: number;
@@ -689,14 +692,25 @@ function InvoiceGroupHeaderRow({
   expanded: boolean;
   onToggleExpanded: () => void;
   progress?: InvoiceGroupProgress;
+  /** Algum item do grupo não tem dados bancários resolvíveis → grupo inelegível. */
+  disabled?: boolean;
 }) {
   const first = txs[0];
   const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
   const ref = (first?.invoice_ref ?? "").toString().trim();
   return (
-    <tr className="bg-primary/5 cursor-pointer hover:bg-primary/10" onClick={onToggle}>
+    <tr
+      className={`bg-primary/5 ${disabled ? "opacity-50" : "cursor-pointer hover:bg-primary/10"}`}
+      onClick={disabled ? undefined : onToggle}
+      title={disabled ? NO_IBAN_TOOLTIP : undefined}
+    >
       <td className="p-2 text-center">
-        <Checkbox checked={checked} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />
+        <Checkbox
+          checked={disabled ? false : checked}
+          disabled={disabled}
+          onCheckedChange={disabled ? undefined : onToggle}
+          onClick={(e) => e.stopPropagation()}
+        />
       </td>
       <td className="p-2" colSpan={labelColSpan}>
         <div className="flex items-center gap-2 flex-wrap">
@@ -712,6 +726,7 @@ function InvoiceGroupHeaderRow({
           {supplier && <span className="text-muted-foreground">— {supplier}</span>}
           {ref && <span className="text-muted-foreground">— {ref}</span>}
           <InvoiceGroupProgressBadge visibleCount={txs.length} progress={progress} />
+          {disabled && <NoIbanBadge />}
         </div>
       </td>
       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
@@ -801,9 +816,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   };
 
+  // Só transações com dados bancários resolvíveis podem entrar em lista.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  const unbankableCount = filteredTx.length - bankableTx.length;
+
   const toggleAll = () => {
-    if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
+    if (selectedIds.size === bankableTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(bankableTx.map((t: any) => t.id)));
   };
 
 
@@ -913,6 +932,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
           Transações aprovadas ({filteredTx.length} de {approvedTx.length})
         </h3>
+        {unbankableCount > 0 && (
+          <p className="mb-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {unbankableCount} transaç{unbankableCount === 1 ? "ão" : "ões"} sem dados bancários — {NO_IBAN_TOOLTIP.toLowerCase()}.
+          </p>
+        )}
 
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar…</p>
@@ -926,7 +950,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
               <thead className="sticky top-0 bg-muted">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-center w-8">
-                    <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
+                    <Checkbox checked={selectedIds.size === bankableTx.length && bankableTx.length > 0} onCheckedChange={toggleAll} />
                   </th>
                   <th className="p-2 text-left font-medium">Descrição</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
@@ -948,16 +972,29 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                     const saldo = withIva - paidWithIva;
                     const hasPartial = paid > 0;
                     const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
+                    const bank = checkPaymentBankability(t);
                     const np = computeNetPayable({
                       grossWithIva: saldo,
                       declaredWithholding: getDeclaredWithholding(t),
                       hasInstallments: installmentTxIds.has(t.id),
                     });
                     return (
-                      <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
-                        <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                      <tr
+                        key={t.id}
+                        className={`transition-colors ${bank.ok ? "cursor-pointer" : "opacity-50"} ${selectedIds.has(t.id) ? "bg-primary/5" : bank.ok ? "hover:bg-muted/30" : ""} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
+                        onClick={bank.ok ? () => toggleId(t.id) : undefined}
+                        title={bank.ok ? undefined : NO_IBAN_TOOLTIP}
+                      >
+                        <td className="p-2 text-center">
+                          <Checkbox
+                            checked={bank.ok && selectedIds.has(t.id)}
+                            disabled={!bank.ok}
+                            onCheckedChange={bank.ok ? () => toggleId(t.id) : undefined}
+                          />
+                        </td>
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
+                          {!bank.ok && <NoIbanBadge className="ml-1.5" />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                           {bpCheck.exceeds && (
                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
@@ -989,6 +1026,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = expandedGroups.has(row.groupId);
+                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
@@ -1000,7 +1038,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         expanded={expanded}
                         onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
                         progress={(groupProgress as Record<string, InvoiceGroupProgress>)[row.groupId]}
-
+                        disabled={groupBlocked}
                       />
                       {expanded && row.txs.map((t: any) => renderTx(t, true))}
                     </Fragment>
@@ -1481,7 +1519,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const paid = Number(tx.paid_amount ?? 0);
       const open = Math.max(0, +(np.net - paid).toFixed(2));
       const sup: any = tx.suppliers ?? {};
-      const iban = tx.iban_override ?? sup.iban ?? sup.iban_2 ?? sup.iban_3 ?? null;
+      const iban = resolvePaymentIban(tx);
       const name = formatSupplierFullName(sup.name, sup.trade_name);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
       const description = appendEventToDescription(
@@ -2048,6 +2086,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     </div>
                   )}
                   <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
+                    {tx && !isBankable(tx) && (
+                      <div className="pb-1"><NoIbanBadge /></div>
+                    )}
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
                       <>
@@ -2360,7 +2401,7 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3), account_categories(code, name))")
         .eq("payment_list_id", listId)
         // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
         .is("removed_at", null);
@@ -2508,6 +2549,16 @@ function ApproveModal({
     return { total, toApprove, notApproved: total - toApprove };
   }, [items, selectedIds]);
 
+  /**
+   * Itens herdados sem dados bancários resolvíveis (mesma resolução do ficheiro
+   * SEPA). Não são bloqueados aqui — a lista já existe — mas avisamos que ficam
+   * fora do ficheiro Santander, para nunca haver exclusão silenciosa.
+   */
+  const noIbanItems = useMemo(
+    () => (items as any[]).map((i) => i.transactions).filter((tx) => tx && !isBankable(tx)),
+    [items],
+  );
+
 
 
   const handleApprove = async () => {
@@ -2600,6 +2651,24 @@ function ApproveModal({
           </div>
         </div>
 
+        {noIbanItems.length > 0 && (
+          <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            <p className="font-semibold">
+              {noIbanItems.length} item(ns) sem dados bancários — ficam fora do ficheiro Santander:
+            </p>
+            <ul className="mt-1 list-disc pl-4">
+              {noIbanItems.map((t: any) => (
+                <li key={t.id}>
+                  {t.description}
+                  {t.suppliers?.name ? ` — ${formatSupplierFullName(t.suppliers.name, (t.suppliers as any)?.trade_name)}` : ""}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-destructive/80">Terão de ser pagos manualmente ou corrigidos (fornecedor com IBAN / IBAN manual).</p>
+          </div>
+        )}
+
+
 
 
         {isLoading ? (
@@ -2643,6 +2712,7 @@ function ApproveModal({
                         </td>
                          <td className={`p-2 ${nested ? "pl-6" : ""}`}>
                            <span className="font-medium">{tx?.description}</span>
+                           {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
                            {bpCheck.exceeds && (
                              <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
@@ -2789,9 +2859,13 @@ function AddTransactionsToList({
     });
   };
 
+  // Só transações com dados bancários resolvíveis podem entrar em lista.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  const unbankableCount = filteredTx.length - bankableTx.length;
+
   const toggleAll = () => {
-    if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
+    if (selectedIds.size === bankableTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(bankableTx.map((t: any) => t.id)));
   };
 
   const handleAdd = async () => {
@@ -2860,6 +2934,11 @@ function AddTransactionsToList({
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
           Disponíveis ({filteredTx.length} de {available.length})
         </h3>
+        {unbankableCount > 0 && (
+          <p className="mb-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {unbankableCount} transaç{unbankableCount === 1 ? "ão" : "ões"} sem dados bancários — {NO_IBAN_TOOLTIP.toLowerCase()}.
+          </p>
+        )}
 
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar…</p>
@@ -2873,7 +2952,7 @@ function AddTransactionsToList({
               <thead className="sticky top-0 bg-muted">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-center w-8">
-                    <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
+                    <Checkbox checked={selectedIds.size === bankableTx.length && bankableTx.length > 0} onCheckedChange={toggleAll} />
                   </th>
                   <th className="p-2 text-left font-medium">Descrição</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
@@ -2887,15 +2966,24 @@ function AddTransactionsToList({
                 {pickerRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
+                    const bank = checkPaymentBankability(t);
                     return (
                       <tr
                         key={t.id}
-                        className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
-                        onClick={() => toggleId(t.id)}
+                        className={`transition-colors ${bank.ok ? "cursor-pointer" : "opacity-50"} ${selectedIds.has(t.id) ? "bg-primary/5" : bank.ok ? "hover:bg-muted/30" : ""}`}
+                        onClick={bank.ok ? () => toggleId(t.id) : undefined}
+                        title={bank.ok ? undefined : NO_IBAN_TOOLTIP}
                       >
-                        <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
+                        <td className="p-2 text-center">
+                          <Checkbox
+                            checked={bank.ok && selectedIds.has(t.id)}
+                            disabled={!bank.ok}
+                            onCheckedChange={bank.ok ? () => toggleId(t.id) : undefined}
+                          />
+                        </td>
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
+                          {!bank.ok && <NoIbanBadge className="ml-1.5" />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                         </td>
                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
@@ -2912,6 +3000,7 @@ function AddTransactionsToList({
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = expandedGroups.has(row.groupId);
+                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
@@ -2923,7 +3012,7 @@ function AddTransactionsToList({
                         expanded={expanded}
                         onToggleExpanded={() => toggleExpandedGroup(row.groupId)}
                         progress={(groupProgress as Record<string, InvoiceGroupProgress>)[row.groupId]}
-
+                        disabled={groupBlocked}
                       />
                       {expanded && row.txs.map((t: any) => renderTx(t, true))}
                     </Fragment>
