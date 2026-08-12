@@ -11,6 +11,16 @@ export interface TicketExperience {
   description_en: string;
 }
 
+export type TicketLotStatus = "esgotado" | "a_venda" | "brevemente";
+
+/** Régua editorial de lotes exibida no portal (curada, não derivada de event_ticket_lots). */
+export interface TicketLot {
+  label_pt: string;
+  label_en: string;
+  price: number | null;
+  status: TicketLotStatus;
+}
+
 export interface EventMarketingRow {
   event_id: string;
   company_id: string;
@@ -43,6 +53,7 @@ export interface EventMarketingRow {
   music_embed_url: string | null;
   ticket_experiences: TicketExperience[] | null;
   age_rating: string | null;
+  ticket_lots: TicketLot[] | null;
 
   created_by: string | null;
   updated_by: string | null;
