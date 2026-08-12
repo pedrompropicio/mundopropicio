@@ -1519,7 +1519,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const paid = Number(tx.paid_amount ?? 0);
       const open = Math.max(0, +(np.net - paid).toFixed(2));
       const sup: any = tx.suppliers ?? {};
-      const iban = tx.iban_override ?? sup.iban ?? sup.iban_2 ?? sup.iban_3 ?? null;
+      const iban = resolvePaymentIban(tx);
       const name = formatSupplierFullName(sup.name, sup.trade_name);
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
       const description = appendEventToDescription(
