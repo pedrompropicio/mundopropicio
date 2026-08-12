@@ -914,13 +914,35 @@ function GestaoTab({
           <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={disabled} />
         </Field>
         <Field label="Ticketing URL">
-          <Input type="url" value={ticketingUrl} onChange={(e) => setTicketingUrl(e.target.value)} disabled={disabled} />
+          <Input type="url" value={ticketingUrl} onChange={(e) => onTicketingUrlChange(e.target.value)} disabled={disabled} />
         </Field>
         {!lean && (
-          <Field label="Ticketing provider">
-            <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
+          <Field label="Ticketing provider" hint={providerAutoDetected ? "Detectado pelo URL" : undefined}>
+            <Select
+              value={ticketingProvider || PROVIDER_NONE}
+              onValueChange={(v) => {
+                setProviderAutoDetected(false);
+                setTicketingProvider(v === PROVIDER_NONE ? "" : v);
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={PROVIDER_NONE}>— Nenhum —</SelectItem>
+                {TICKETING_PROVIDERS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+                {ticketingProvider &&
+                  !TICKETING_PROVIDERS.some((p) => p.value === ticketingProvider) && (
+                    <SelectItem value={ticketingProvider}>
+                      {ticketingProvider} (valor legado)
+                    </SelectItem>
+                  )}
+              </SelectContent>
+            </Select>
           </Field>
         )}
+
         {!lean && (
           <Field label="Link de destino do anúncio (portal)">
             <Input
