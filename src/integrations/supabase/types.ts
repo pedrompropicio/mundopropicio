@@ -317,6 +317,53 @@ export type Database = {
         }
         Relationships: []
       }
+      bilheteira_sync_log: {
+        Row: {
+          changes: Json | null
+          created_at: string
+          error: string | null
+          event_id: string | null
+          id: string
+          parse_ok: boolean | null
+          provider: string | null
+          raw_summary: Json | null
+          run_at: string
+          url: string | null
+        }
+        Insert: {
+          changes?: Json | null
+          created_at?: string
+          error?: string | null
+          event_id?: string | null
+          id?: string
+          parse_ok?: boolean | null
+          provider?: string | null
+          raw_summary?: Json | null
+          run_at?: string
+          url?: string | null
+        }
+        Update: {
+          changes?: Json | null
+          created_at?: string
+          error?: string | null
+          event_id?: string | null
+          id?: string
+          parse_ok?: boolean | null
+          provider?: string | null
+          raw_summary?: Json | null
+          run_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bilheteira_sync_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author_id: string | null
@@ -4118,6 +4165,7 @@ export type Database = {
           hero_video_url: string | null
           hook_en: string | null
           hook_pt: string | null
+          lots_locked: boolean
           meta_description_en: string | null
           meta_description_pt: string | null
           music_embed_url: string | null
@@ -4156,6 +4204,7 @@ export type Database = {
           hero_video_url?: string | null
           hook_en?: string | null
           hook_pt?: string | null
+          lots_locked?: boolean
           meta_description_en?: string | null
           meta_description_pt?: string | null
           music_embed_url?: string | null
@@ -4194,6 +4243,7 @@ export type Database = {
           hero_video_url?: string | null
           hook_en?: string | null
           hook_pt?: string | null
+          lots_locked?: boolean
           meta_description_en?: string | null
           meta_description_pt?: string | null
           music_embed_url?: string | null
