@@ -724,7 +724,45 @@ function TicketExperiencesEditor({
 
 import { Switch } from "@/components/ui/switch";
 
+const PROVIDER_NONE = "__none__";
+
+/** Valores aceites pelo check constraint events_ticketing_provider_check. */
+const TICKETING_PROVIDERS: Array<{ value: string; label: string }> = [
+  { value: "ticketline", label: "Ticketline" },
+  { value: "bol", label: "BOL" },
+  { value: "blueticket", label: "MEO Blueticket" },
+  { value: "see_tickets", label: "See Tickets" },
+  { value: "fnac_tickets", label: "Fnac Tickets" },
+  { value: "eventbrite", label: "Eventbrite" },
+  { value: "ingresse", label: "Ingresse" },
+  { value: "sympla", label: "Sympla" },
+  { value: "other", label: "Outro" },
+];
+
+/** Infere o provider pelo domínio do URL de bilheteira. */
+function detectTicketingProvider(url: string): string | null {
+  const u = (url ?? "").trim().toLowerCase();
+  if (!u) return null;
+  const host = (() => {
+    try {
+      return new URL(u.startsWith("http") ? u : `https://${u}`).hostname;
+    } catch {
+      return u;
+    }
+  })();
+  if (host.includes("ticketline.pt")) return "ticketline";
+  if (host === "bol.pt" || host.endsWith(".bol.pt")) return "bol";
+  if (host.includes("blueticket")) return "blueticket";
+  if (host.includes("seetickets")) return "see_tickets";
+  if (host.includes("fnac")) return "fnac_tickets";
+  if (host.includes("eventbrite")) return "eventbrite";
+  if (host.includes("ingresse.com")) return "ingresse";
+  if (host.includes("sympla")) return "sympla";
+  return null;
+}
+
 function GestaoTab({
+
   eventId,
   ev,
   disabled,
@@ -743,6 +781,21 @@ function GestaoTab({
   const [ticketingUrl, setTicketingUrl] = useState<string>(ev?.ticketing_url ?? "");
   const [adDestinationUrl, setAdDestinationUrl] = useState<string>(ev?.ad_destination_url ?? "");
   const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
+  const [providerAutoDetected, setProviderAutoDetected] = useState(false);
+
+  // Auto-deteção do provider pelo domínio — só preenche quando está vazio,
+  // nunca sobrescreve uma escolha manual.
+  const onTicketingUrlChange = (v: string) => {
+    setTicketingUrl(v);
+    if (!ticketingProvider) {
+      const detected = detectTicketingProvider(v);
+      if (detected) {
+        setTicketingProvider(detected);
+        setProviderAutoDetected(true);
+      }
+    }
+  };
+
   const [portalVisible, setPortalVisible] = useState<boolean>(!!ev?.portal_visible);
   const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
   const [vipCode, setVipCode] = useState<string>(ev?.vip_coupon_code ?? "");
@@ -761,6 +814,8 @@ function GestaoTab({
     setTicketingUrl(ev?.ticketing_url ?? "");
     setAdDestinationUrl(ev?.ad_destination_url ?? "");
     setTicketingProvider(ev?.ticketing_provider ?? "");
+    setProviderAutoDetected(false);
+
     setPortalVisible(!!ev?.portal_visible);
     setPortalFeatured(!!ev?.portal_featured);
     setVipCode(ev?.vip_coupon_code ?? "");
@@ -914,13 +969,35 @@ function GestaoTab({
           <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={disabled} />
         </Field>
         <Field label="Ticketing URL">
-          <Input type="url" value={ticketingUrl} onChange={(e) => setTicketingUrl(e.target.value)} disabled={disabled} />
+          <Input type="url" value={ticketingUrl} onChange={(e) => onTicketingUrlChange(e.target.value)} disabled={disabled} />
         </Field>
         {!lean && (
-          <Field label="Ticketing provider">
-            <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
+          <Field label="Ticketing provider" hint={providerAutoDetected ? "Detectado pelo URL" : undefined}>
+            <Select
+              value={ticketingProvider || PROVIDER_NONE}
+              onValueChange={(v) => {
+                setProviderAutoDetected(false);
+                setTicketingProvider(v === PROVIDER_NONE ? "" : v);
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={PROVIDER_NONE}>— Nenhum —</SelectItem>
+                {TICKETING_PROVIDERS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+                {ticketingProvider &&
+                  !TICKETING_PROVIDERS.some((p) => p.value === ticketingProvider) && (
+                    <SelectItem value={ticketingProvider}>
+                      {ticketingProvider} (valor legado)
+                    </SelectItem>
+                  )}
+              </SelectContent>
+            </Select>
           </Field>
         )}
+
         {!lean && (
           <Field label="Link de destino do anúncio (portal)">
             <Input
