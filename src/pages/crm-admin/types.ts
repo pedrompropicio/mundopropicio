@@ -54,6 +54,7 @@ export interface EventMarketingRow {
   ticket_experiences: TicketExperience[] | null;
   age_rating: string | null;
   ticket_lots: TicketLot[] | null;
+  doors_time: string | null;
 
   created_by: string | null;
   updated_by: string | null;

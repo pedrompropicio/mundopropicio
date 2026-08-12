@@ -4159,6 +4159,7 @@ export type Database = {
           cta_primary_label_pt: string | null
           description_long_en: string | null
           description_long_pt: string | null
+          doors_time: string | null
           event_id: string
           gallery_urls: string[] | null
           hero_image_url: string | null
@@ -4198,6 +4199,7 @@ export type Database = {
           cta_primary_label_pt?: string | null
           description_long_en?: string | null
           description_long_pt?: string | null
+          doors_time?: string | null
           event_id: string
           gallery_urls?: string[] | null
           hero_image_url?: string | null
@@ -4237,6 +4239,7 @@ export type Database = {
           cta_primary_label_pt?: string | null
           description_long_en?: string | null
           description_long_pt?: string | null
+          doors_time?: string | null
           event_id?: string
           gallery_urls?: string[] | null
           hero_image_url?: string | null
@@ -10496,6 +10499,7 @@ export type Database = {
           description_long_en: string | null
           description_long_pt: string | null
           description_pt: string | null
+          doors_time: string | null
           endorsement_display_order: number | null
           endorsement_partner_label: string | null
           event_type: string | null
