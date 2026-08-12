@@ -2546,6 +2546,16 @@ function ApproveModal({
     return { total, toApprove, notApproved: total - toApprove };
   }, [items, selectedIds]);
 
+  /**
+   * Itens herdados sem dados bancários resolvíveis (mesma resolução do ficheiro
+   * SEPA). Não são bloqueados aqui — a lista já existe — mas avisamos que ficam
+   * fora do ficheiro Santander, para nunca haver exclusão silenciosa.
+   */
+  const noIbanItems = useMemo(
+    () => (items as any[]).map((i) => i.transactions).filter((tx) => tx && !isBankable(tx)),
+    [items],
+  );
+
 
 
   const handleApprove = async () => {
