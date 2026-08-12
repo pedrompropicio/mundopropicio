@@ -24,6 +24,8 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
+import { normalizeIban } from "@/lib/iban";
+
 
 import PaymentListReceipts from "@/components/PaymentListReceipts";
 import { useCompany } from "@/hooks/useCompany";
