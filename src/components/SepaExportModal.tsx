@@ -321,6 +321,12 @@ export default function SepaExportModal({
                         Reembolso
                       </Badge>
                     )}
+                    {!!r.groupTransactionIds?.length && (
+                      <Badge variant="outline" className="ml-1.5 text-[10px] border-primary/40 text-primary">
+                        🧾 Fatura agrupada ({r.groupTransactionIds.length})
+                      </Badge>
+                    )}
+
                   </td>
                   <td className="p-2 font-mono text-[11px]">{formatIban(r.iban!)}</td>
                   <td className="p-2 text-right font-mono">{formatCurrency(r.amount)}</td>
