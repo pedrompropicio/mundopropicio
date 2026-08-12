@@ -53,18 +53,34 @@ async function readAll(conn: Deno.Conn, timeoutMs: number): Promise<Uint8Array> 
   return out;
 }
 
-function decodeChunked(body: string): string {
-  let out = "";
+function indexOfCRLF(b: Uint8Array, from: number): number {
+  for (let i = from; i + 1 < b.length; i++) if (b[i] === 13 && b[i + 1] === 10) return i;
+  return -1;
+}
+
+/** Descodifica transfer-encoding chunked ao nível dos BYTES (os tamanhos são em bytes). */
+function decodeChunkedBytes(body: Uint8Array): Uint8Array {
+  const parts: Uint8Array[] = [];
   let i = 0;
   while (i < body.length) {
-    const nl = body.indexOf("\r\n", i);
+    const nl = indexOfCRLF(body, i);
     if (nl < 0) break;
-    const size = parseInt(body.slice(i, nl).split(";")[0].trim(), 16);
+    const sizeLine = decoder.decode(body.slice(i, nl)).split(";")[0].trim();
+    const size = parseInt(sizeLine, 16);
     if (!Number.isFinite(size) || size <= 0) break;
-    out += body.slice(nl + 2, nl + 2 + size);
-    i = nl + 2 + size + 2;
+    const start = nl + 2;
+    parts.push(body.slice(start, Math.min(start + size, body.length)));
+    i = start + size + 2;
   }
-  return out || body;
+  if (parts.length === 0) return body;
+  const total = parts.reduce((s, c) => s + c.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of parts) {
+    out.set(c, off);
+    off += c.length;
+  }
+  return out;
 }
 
 /** GET cru sobre TLS, com parsing tolerante de headers. */
@@ -84,10 +100,16 @@ async function rawGet(url: string, timeoutMs: number): Promise<TolerantResponse 
     await conn.write(new TextEncoder().encode(req));
 
     const bytes = await readAll(conn, timeoutMs);
-    const text = decoder.decode(bytes);
-    const sep = text.indexOf("\r\n\r\n");
-    const head = sep < 0 ? text : text.slice(0, sep);
-    let body = sep < 0 ? "" : text.slice(sep + 4);
+    // separador de headers em bytes: \r\n\r\n
+    let sep = -1;
+    for (let i = 0; i + 3 < bytes.length; i++) {
+      if (bytes[i] === 13 && bytes[i + 1] === 10 && bytes[i + 2] === 13 && bytes[i + 3] === 10) {
+        sep = i;
+        break;
+      }
+    }
+    const head = decoder.decode(sep < 0 ? bytes : bytes.slice(0, sep));
+    let bodyBytes = sep < 0 ? new Uint8Array() : bytes.slice(sep + 4);
 
     const lines = head.split("\r\n");
     const status = Number(lines[0]?.match(/HTTP\/[\d.]+\s+(\d{3})/)?.[1] ?? 0);
@@ -103,7 +125,8 @@ async function rawGet(url: string, timeoutMs: number): Promise<TolerantResponse 
       if (k === "location") location = v;
       if (k === "transfer-encoding" && /chunked/i.test(v)) chunked = true;
     }
-    if (chunked) body = decodeChunked(body);
+    if (chunked) bodyBytes = decodeChunkedBytes(bodyBytes);
+    const body = decoder.decode(bodyBytes);
 
     return { ok: status >= 200 && status < 400, status, html: body, url, raw: true, location };
   } finally {
