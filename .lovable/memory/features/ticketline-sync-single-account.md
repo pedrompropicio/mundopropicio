@@ -41,3 +41,21 @@ manda o service role JWT do Vault. Corrigido na **v2.6** com o helper
   `<title>` + trecho. Usar `{"action":"discover"}` para listar os IDs reais
   visíveis pela conta e corrigir os configs.
 - `session_expired` — só quando o HTML é a página de `sign_in`; aí sim retriable.
+
+## Fan-out (v2.8, 2026-08-12)
+
+O loop inline sobre todos os configs morria com `WORKER_RESOURCE_LIMIT` (HTTP 546)
+ao 5.º config — o parse de vários `sale_summary.xlsx` no mesmo worker estoura o CPU.
+
+Modelo actual:
+- Chamada **sem `configId`** (cron/all) = **mãe orquestradora**: percorre os configs
+  `enabled` e faz `fetch` à própria função (`SUPABASE_URL + /functions/v1/fetch-ticketline-reports`)
+  com o service role da env e body `{configId, mode, triggeredBy}` — **sequencial**,
+  timeout 120s por sub-invocação. Falha/timeout entra em `results` (`fanout_timeout`
+  / `fanout_failed` / `fanout_bad_response`) e a corrida continua.
+- Cada sub-invocação é um worker novo (limites frescos) e faz o seu login Devise:
+  13 logins/dia espaçados, não simultâneos. O cache de sessão por secret continua
+  válido dentro de cada invocação.
+- Retorno agregado `{ok, version, mode:"fanout", results}` — 1 entrada por config.
+- Validado em produção: 13 runs (10 success, 1 warning, 2 `html_response` dos IDs
+  obsoletos Almada/Santarém), sem `WORKER_RESOURCE_LIMIT`.
