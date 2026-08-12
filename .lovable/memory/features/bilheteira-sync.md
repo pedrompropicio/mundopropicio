@@ -71,3 +71,22 @@ Digest **um e-mail por execução**, template `bilheteira-sync-digest` enviado v
   para o portal (`mundopropicio.com/eventos/<slug>`) e editor CRM (`/crm/eventos/:id`).
 - Os logs dos eventos notificados são inseridos **depois** do envio, com
   `changes.email_sent: true|false` (+ `email_skip_reason` quando falso).
+
+## v1.2 — correções pós dry run real (2026-08-12)
+
+1. **Ticketline: fetch tolerante.** O `fetch` do Deno rejeitava as respostas da Ticketline
+   ("invalid HTTP header parsed", headers `Report-To`/CSP malformados). Novo
+   `_shared/tolerant-fetch.ts`: tenta `fetch` normal e, em falha, cai para cliente HTTP/1.1 em
+   raw TLS (`Deno.connectTls`) com redirects manuais (máx. 5) e User-Agent de browser,
+   `Accept-Encoding: identity`. **Todos os fetchs da sync passam por `tolerantFetch`.**
+2. **BOL: navegação até Sectores.** `findBolSectoresUrl()` segue página de evento → `/Sessoes`
+   → `/Sectores` antes de parsear (antes só entendia URLs já em `/Sectores`).
+3. **BOL: preços.** A BOL usa `"Preço:"` **ou** `"Preços:"` (array). O parser aceita qualquer
+   chave `^Pre[çc]os?:` — antes marcava zonas com `Preços:` como esgotadas por falta de preço.
+4. **REGRA CORRIGIDA — visibilidade reduzida CONTA.** `IGNORE_ZONE_RE` passou a excluir apenas
+   bilhetes condicionais de mobilidade (`mobilidade|condicionad|cadeira de rodas|acompanhante`).
+   Setores de *visibilidade reduzida* são bilhetes públicos normais e entram no preço mínimo e
+   na régua (caso Conferência Plenitude: min correto 79 €, não 109 €).
+5. **Cron**: `net.http_post(..., timeout_milliseconds := 30000)`.
+
+Dry run 2026-08-12 (14 eventos futuros): `parse_ok=true` em todos, 0 `possible_soldout`.
