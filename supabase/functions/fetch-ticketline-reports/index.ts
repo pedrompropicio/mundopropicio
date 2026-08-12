@@ -516,19 +516,56 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ---- Modo cron/all (sem configId): orquestrar via fan-out ----
+  // Processar todos os configs inline estoura o WORKER_RESOURCE_LIMIT (parse de N XLSX
+  // no mesmo worker). A mãe só faz I/O: uma sub-invocação por config, sequencial.
+  if (!configId) {
+    const { data, error } = await admin.from("ticketline_sync_config").select("id, organization_name").eq("enabled", true);
+    if (error) return json(500, { error: error.message });
+    const list = data || [];
+    if (list.length === 0) return json(200, { ok: true, skipped: true, reason: "no configs" });
 
+    const selfUrl = `${SUPABASE_URL}/functions/v1/fetch-ticketline-reports`;
+    const results: any[] = [];
+    for (const cfg of list) {
+      try {
+        const resp = await fetchWithTimeout(selfUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
+          body: JSON.stringify({ configId: cfg.id, mode, triggeredBy }),
+        }, 120000);
+        const text = await resp.text();
+        let payload: any = null;
+        try { payload = JSON.parse(text); } catch { /* não-JSON */ }
+        const sub = payload?.results?.[0];
+        if (sub) {
+          results.push(sub);
+        } else {
+          results.push({
+            configId: cfg.id, ok: false, phase: "fanout_bad_response",
+            httpStatus: resp.status, error: (text || "").slice(0, 300),
+          });
+        }
+      } catch (e: any) {
+        results.push({
+          configId: cfg.id, ok: false,
+          phase: e?.name === "AbortError" ? "fanout_timeout" : "fanout_failed",
+          error: e?.message || String(e),
+        });
+      }
+    }
+    const allOkFan = results.every(r => r.ok);
+    return json(allOkFan ? 200 : 500, { ok: allOkFan, version: VERSION, mode: "fanout", results });
+  }
 
   let cfgs: any[] = [];
-  if (configId) {
+  {
     const { data, error } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
-    if (error) return json(500, { error: error.message });
-    cfgs = data || [];
-  } else {
-    const { data, error } = await admin.from("ticketline_sync_config").select("*").eq("enabled", true);
     if (error) return json(500, { error: error.message });
     cfgs = data || [];
   }
   if (cfgs.length === 0) return json(200, { ok: true, skipped: true, reason: "no configs" });
+
 
   const results: any[] = [];
   // 1 login por vault_secret_name em toda a corrida (credencial única partilhada).
