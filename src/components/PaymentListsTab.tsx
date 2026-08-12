@@ -2398,7 +2398,7 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3), account_categories(code, name))")
         .eq("payment_list_id", listId)
         // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
         .is("removed_at", null);
