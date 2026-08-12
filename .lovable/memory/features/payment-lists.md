@@ -139,3 +139,32 @@ Ao anexar, replica-se em `transaction_documents` uma linha por transação da
 exportação escolhida (default a mais recente; fallback = itens ativos), todas com
 o mesmo `file_url`. Remover apaga réplicas + registo + ficheiro.
 Ver `docs/features/pagamentos-export-sepa-santander.md`.
+
+## Elegibilidade bancária na ENTRADA (2026-08-12)
+
+Regra: uma transação só entra numa lista de pagamento se tiver **dados bancários
+resolvíveis**. Resolução ÚNICA em `src/lib/payment-iban.ts`:
+
+- `resolvePaymentIban(tx)`: `transactions.iban_override` → `suppliers.iban` → `iban_2` → `iban_3`.
+  (Nos **reembolsos** o `iban_override` já vem da nota — `reimbursement_notes.payment_iban`
+  ou IBAN do fornecedor — logo continuam elegíveis como hoje.)
+- `checkPaymentBankability(tx)`: OK se há IBAN **ou** se há `payment_entity`/`payment_reference`
+  (pagamentos ao Estado/serviços por Entidade+Referência — pagos no homebanking, fora do SEPA).
+- `isBankable(tx)` é usado nos pickers, no ApproveModal e no detalhe; `resolvePaymentIban`
+  é o mesmo helper que alimenta `sepaCandidates` ⇒ zero divergência lista ↔ ficheiro.
+
+Superfícies:
+1. **Pickers** (Nova Lista e "Adicionar transações"): item inelegível fica **visível mas
+   desativado** (checkbox disabled, linha esbatida, badge `NoIbanBadge` "Sem IBAN",
+   tooltip `NO_IBAN_TOOLTIP`), contador no topo da secção. `toggleAll` só seleciona
+   elegíveis. **Grupo de fatura**: se UM item do grupo não for elegível, o cartão inteiro
+   fica desativado (aprovação/seleção de fatura é atómica).
+2. **Guard de dados**: trigger `trg_payment_list_items_bankable` (BEFORE INSERT em
+   `payment_list_items`, fn `enforce_payment_list_item_bankable`) replica a regra e rejeita
+   com "Transação sem IBAN resolvível não pode entrar em lista de pagamento".
+   Só valida **INSERT** — soft-remove e updates ficam livres.
+3. **Casos herdados** (ex.: "Bombeiros" na lista 11/08 já aprovada): dados intactos.
+   Badge "Sem IBAN" no item no detalhe + banner vermelho no **ApproveModal** listando
+   "N item(ns) sem dados bancários — ficam fora do ficheiro Santander" com nomes.
+   No `SepaExportModal` continuam na secção "Excluídos" (agora com a descrição além do
+   beneficiário). Nunca exclusão silenciosa.
