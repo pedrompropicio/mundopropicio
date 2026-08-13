@@ -48,11 +48,15 @@ export default function AccountantHome() {
         <Tabs defaultValue="documents" className="w-full">
           <TabsList>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
+            <TabsTrigger value="standalone">Faturas Avulsas</TabsTrigger>
             <TabsTrigger value="reports">Relatórios</TabsTrigger>
             <TabsTrigger value="suppliers">Fornecedores</TabsTrigger>
           </TabsList>
           <TabsContent value="documents" className="mt-4">
             <AccountantDocumentsTab period={period} />
+          </TabsContent>
+          <TabsContent value="standalone" className="mt-4">
+            <AccountantStandaloneInvoicesTab />
           </TabsContent>
           <TabsContent value="reports" className="mt-4">
             <AccountantReportsTab />
