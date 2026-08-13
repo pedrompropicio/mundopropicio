@@ -108,3 +108,24 @@ Evento (multi-select por dropdown), data desde/até. Contadores no header + bot�
 ## Cronograma de parcelas
 
 TX com cronograma (rows em `transaction_payments` com `scheduled_date` ou `status IN ('planned','cancelled')`) continua a ser **1 TX = 1 FK para BP**. A FK `event_forecasts.transaction_id` aponta para a TX-mãe, não para parcelas individuais. Ver `transaction-installments.md`.
+
+## Matching normalizado + bucket "Sem linha específica" (2026-08-13)
+
+SSoT: `src/lib/bp-tx-matching.ts` — `normalizeMatchText` / `scoreDescriptionMatch` /
+`findMatchingTransactionsForForecast` / `findCategoryOrphanTransactions`.
+Consumidores alinhados: `EventForecast.tsx` (ForecastRow + helper exportado),
+`EventRealizedAllocation.tsx` (`raScore`) e `export-event-bp-pdf.ts`.
+
+1. **Normalização**: NFD + remoção de diacríticos + lowercase + tudo o que não é
+   alfanumérico vira espaço. "Diárias", "diarias" e "DIARIAS/Per-Diem" partilham
+   o token `diarias`. Aplica-se às descrições das linhas BP e das transações.
+2. **Regra de ouro**: nenhuma TX com categoria fica invisível na visão agrupada.
+   TX que não é `transaction_id` de nenhuma linha, não ganha o token-match
+   (incluindo empates) ou cuja categoria não tem linha BP aparece numa linha
+   sintética no fim da categoria: **"Sem linha específica"** (componente
+   `OrphanBucketRow`), com contagem, total realizado e expansão para as TXs.
+   Sem previsto, não editável/aprovável, não entra nos totais de previsto —
+   `amount: 0` — e não duplica realizado (as TXs do bucket são, por definição,
+   as que nenhuma linha reclamou). Se não houver órfãs, a linha não aparece.
+3. Caso **uma só linha na categoria** mantém-se: reclama TODAS as TXs da categoria
+   (logo, nunca gera bucket).
