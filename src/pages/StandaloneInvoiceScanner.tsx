@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, Upload, Loader2, Check, ArrowLeft, ScanLine } from "lucide-react";
+import { Camera, Upload, Loader2, Check, ArrowLeft, ScanLine, RefreshCw, X } from "lucide-react";
 import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { fileToBase64, prepareFileForInvoiceOcr } from "@/lib/invoice-ocr-prepare";
 import { uploadToCompanyBucket } from "@/lib/storage";
@@ -25,6 +25,9 @@ export default function StandaloneInvoiceScanner() {
 
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  /** Quando true, o próximo OCR não sobrescreve campos já preenchidos. */
+  const preserveRef = useRef(false);
+
 
   const [file, setFile] = useState<File | null>(null);
   const [scanCandidate, setScanCandidate] = useState<File | null>(null);
@@ -39,26 +42,59 @@ export default function StandaloneInvoiceScanner() {
   const [iva, setIva] = useState("");
   const [notes, setNotes] = useState("");
 
-  const reset = () => {
+  const hasAnyField = () =>
+    [supplierName, supplierNif, invoiceDate, total, iva, notes].some((v) => v.trim() !== "");
+
+  const clearCapture = () => {
     setFile(null);
     setScanCandidate(null);
     setPreviewUrl(null);
+    setSaved(false);
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const reset = () => {
+    clearCapture();
     setSupplierName("");
     setSupplierNif("");
     setInvoiceDate("");
     setTotal("");
     setIva("");
     setNotes("");
-    setSaved(false);
-    if (cameraRef.current) cameraRef.current.value = "";
-    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const dismiss = () => {
+    // Upload só acontece no "Guardar fatura" — não há ficheiro órfão no bucket.
+    if (hasAnyField() && !window.confirm("Descartar esta captura e os dados preenchidos?")) return;
+    reset();
+    toast({ title: "Captura descartada" });
+  };
+
+  /** Repetir: nova captura do mesmo documento, mantendo o que já foi escrito. */
+  const retake = () => {
+    preserveRef.current = true;
+    clearCapture();
+    cameraRef.current?.click();
   };
 
   /** Aceita o ficheiro final (cru ou processado) e corre o OCR. */
   const acceptFile = async (finalFile: File) => {
+    const preserve = preserveRef.current;
+    preserveRef.current = false;
     setScanCandidate(null);
     setFile(finalFile);
     setPreviewUrl(finalFile.type.startsWith("image/") ? URL.createObjectURL(finalFile) : null);
+
+    // Se o utilizador já preencheu os campos principais, não vale a pena re-correr o OCR.
+    if (preserve && [supplierName, supplierNif, invoiceDate, total].every((v) => v.trim() !== "")) {
+      toast({ title: "Imagem substituída", description: "Campos preenchidos mantidos." });
+      return;
+    }
+
+    /** Só escreve se o campo estiver vazio quando estamos a preservar edições. */
+    const put = (setter: (fn: (prev: string) => string) => void, value: string) =>
+      setter((prev) => (preserve && prev.trim() !== "" ? prev : value));
 
     setBusy("ocr");
     try {
@@ -73,11 +109,11 @@ export default function StandaloneInvoiceScanner() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data.supplier_name) setSupplierName(String(data.supplier_name));
-      if (data.supplier_nif) setSupplierNif(String(data.supplier_nif));
-      if (data.document_date) setInvoiceDate(String(data.document_date));
-      if (data.total_amount != null) setTotal(String(data.total_amount));
-      if (data.iva_amount != null) setIva(String(data.iva_amount));
+      if (data.supplier_name) put(setSupplierName, String(data.supplier_name));
+      if (data.supplier_nif) put(setSupplierNif, String(data.supplier_nif));
+      if (data.document_date) put(setInvoiceDate, String(data.document_date));
+      if (data.total_amount != null) put(setTotal, String(data.total_amount));
+      if (data.iva_amount != null) put(setIva, String(data.iva_amount));
       toast({
         title: "Fatura lida com IA",
         description: data.confidence === "low" ? "Confiança baixa — confirma os dados." : undefined,
@@ -119,6 +155,7 @@ export default function StandaloneInvoiceScanner() {
 
     await acceptFile(normalized);
   };
+
 
   const save = async () => {
     if (!file || !companyId) return;
@@ -226,7 +263,7 @@ export default function StandaloneInvoiceScanner() {
           file={scanCandidate}
           onConfirm={(processed) => void acceptFile(processed)}
           onUseOriginal={() => void acceptFile(scanCandidate)}
-          onCancel={reset}
+          onCancel={() => (preserveRef.current ? clearCapture() : reset())}
         />
       ) : (
         <>
@@ -303,10 +340,19 @@ export default function StandaloneInvoiceScanner() {
                   </div>
                 </div>
 
-                <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null}>
-                  {busy === "save" ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
-                  Guardar fatura
-                </Button>
+                <div className="grid gap-2">
+                  <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null}>
+                    {busy === "save" ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
+                    Guardar fatura
+                  </Button>
+                  <Button variant="outline" className="w-full h-12" onClick={retake} disabled={busy !== null}>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Repetir
+                  </Button>
+                  <Button variant="ghost" className="w-full text-muted-foreground" onClick={dismiss} disabled={busy !== null}>
+                    <X className="h-4 w-4 mr-2" /> Dispensar
+                  </Button>
+                </div>
+
               </CardContent>
             </Card>
           )}

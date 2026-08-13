@@ -61,3 +61,11 @@ recente primeiro.
 fallback created_at), badge nova/processada, "Marcar processada" reversível,
 abrir documento via signed URL 1h e "Exportar mês" (ZIP das imagens + XLSX
 resumo: nº, data, fornecedor, NIF, total, IVA, nota, estado, ficheiro).
+
+## Ações na captura (pré-gravação)
+Upload para o bucket só acontece no "Guardar fatura" — não existem ficheiros
+órfãos. Junto ao preview: "Guardar fatura" (primário), "Repetir" (secundário —
+reabre câmera + passo de scan, substitui a imagem e mantém campos digitados;
+OCR só preenche campos vazios e é saltado se fornecedor/NIF/data/total já
+estiverem preenchidos) e "Dispensar" (ghost — limpa preview + campos, confirma
+só se houver algo preenchido).
