@@ -98,7 +98,7 @@ export function AccountantStandaloneInvoicesTab() {
   }, [data]);
 
   const openDoc = async (r: Row) => {
-    const { data, error } = await signedCompanyUrl("standalone-invoices", r.storage_path.replace(/^.*?\//, ""), 3600);
+    const { data, error } = await signedCompanyUrl("standalone-invoices", r.storage_path, 3600);
     if (error || !data?.signedUrl) {
       toast({ title: "Não foi possível abrir", description: error?.message, variant: "destructive" });
       return;
@@ -115,8 +115,7 @@ export function AccountantStandaloneInvoicesTab() {
       const sheetRows: any[] = [];
       for (const r of rows) {
         i += 1;
-        const rel = r.storage_path.replace(/^.*?\//, "");
-        const { data: blob } = await downloadFromCompanyBucket("standalone-invoices", rel);
+        const { data: blob } = await downloadFromCompanyBucket("standalone-invoices", r.storage_path);
         const ext = r.file_name.match(/\.[^.]+$/)?.[0] ?? ".jpg";
         const name = `${String(i).padStart(3, "0")}-${(r.supplier_name ?? "fatura").replace(/[^\w.-]+/g, "_")}${ext}`;
         if (blob) zip.file(name, blob);
