@@ -10,8 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil } from "lucide-react";
-import { signedCompanyUrl, downloadFromCompanyBucket } from "@/lib/storage";
+import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2 } from "lucide-react";
+import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
 
 interface Row {
   id: string;
@@ -51,6 +51,8 @@ export function AccountantStandaloneInvoicesTab() {
 
   const canProcess = isAdmin || isAccountant;
   const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
+  // Apagar: só enquanto "nova", por quem capturou ou admin/platform_admin.
+  const canDelete = (r: Row) => r.status === "new" && (isAdmin || r.created_by === user?.id);
 
   const openEdit = (r: Row) => {
     setEditing(r);
@@ -134,6 +136,25 @@ export function AccountantStandaloneInvoicesTab() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["standalone-invoices"] }),
     onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
+  });
+
+  const removeInvoice = useMutation({
+    mutationFn: async (r: Row) => {
+      const { error } = await (supabase as any)
+        .from("standalone_invoices")
+        .delete()
+        .eq("id", r.id)
+        .eq("status", "new");
+      if (error) throw error;
+      const { error: storageError } = await removeFromCompanyBucket("standalone-invoices", [r.storage_path]);
+      if (storageError) console.warn("[standalone-invoices] ficheiro não removido", storageError);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      toast({ title: "Fatura apagada" });
+    },
+    onError: (e: any) =>
+      toast({ title: "Não foi possível apagar", description: e.message, variant: "destructive" }),
   });
 
   const groups = useMemo(() => {
@@ -269,6 +290,21 @@ export function AccountantStandaloneInvoicesTab() {
                           ) : (
                             <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar processada</>
                           )}
+                        </Button>
+                      )}
+                      {canDelete(r) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={removeInvoice.isPending}
+                          onClick={() => {
+                            if (window.confirm("Apagar esta fatura avulsa? O documento também é removido.")) {
+                              removeInvoice.mutate(r);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1" /> Apagar
                         </Button>
                       )}
                     </div>
