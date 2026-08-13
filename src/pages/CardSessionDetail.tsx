@@ -802,12 +802,15 @@ export default function CardSessionDetail() {
   );
 }
 
-function Kpi({ label, value, hint, tone, action }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode }) {
+function Kpi({ label, value, hint, tone, action, badge }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode; badge?: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {label}
+            {badge}
+          </p>
           {action}
         </div>
         <p className={cn("mt-1 text-xl font-bold", tone === "warn" ? "text-amber-500" : "text-foreground")}>{value}</p>
