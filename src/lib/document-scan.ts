@@ -1,75 +1,18 @@
 /**
- * Lazy loader + helpers para o passo de "scan" de documentos (enquadramento
- * com correção de perspetiva). opencv.js é pesado (~8MB), por isso só é
- * carregado quando o utilizador entra no passo de scan, e sempre via CDN
- * (nunca no bundle). Se falhar, o caller deve seguir com a foto original.
+ * Helpers para o passo de "scan" de documentos (enquadramento + correção de
+ * perspetiva). Desde 2026-08 é 100% código próprio (ver document-detect.ts):
+ * não carrega opencv.js/jscanify do CDN, o que remove ~8MB de download e o
+ * modo de falha "scanner indisponível".
  */
 
-const OPENCV_URL = "https://docs.opencv.org/4.7.0/opencv.js";
-const JSCANIFY_URL = "https://cdn.jsdelivr.net/npm/jscanify@1.4.0/src/jscanify.min.js";
+import { detectDocumentQuad, type Pt, type Quad } from "./document-detect";
 
-export interface Corner { x: number; y: number }
-export interface CornerPoints {
-  topLeftCorner: Corner;
-  topRightCorner: Corner;
-  bottomRightCorner: Corner;
-  bottomLeftCorner: Corner;
-}
+export type Corner = Pt;
+export type CornerPoints = Quad;
 
-let loadPromise: Promise<any> | null = null;
-
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[data-scan-src="${src}"]`);
-    if (existing) {
-      if (existing.dataset.loaded === "1") return resolve();
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error(`Falha ao carregar ${src}`)));
-      return;
-    }
-    const el = document.createElement("script");
-    el.src = src;
-    el.async = true;
-    el.dataset.scanSrc = src;
-    el.onload = () => {
-      el.dataset.loaded = "1";
-      resolve();
-    };
-    el.onerror = () => reject(new Error(`Falha ao carregar ${src}`));
-    document.head.appendChild(el);
-  });
-}
-
-async function waitForCvReady(timeoutMs = 30000): Promise<void> {
-  const start = Date.now();
-  for (;;) {
-    const cv = (window as any).cv;
-    if (cv && typeof cv.imread === "function") return;
-    if (cv && typeof cv.then === "function") {
-      await cv;
-      continue;
-    }
-    if (Date.now() - start > timeoutMs) throw new Error("opencv.js demorou demasiado a carregar");
-    await new Promise((r) => setTimeout(r, 150));
-  }
-}
-
-/** Carrega opencv.js + jscanify e devolve uma instância do scanner. */
+/** Mantido por compatibilidade: já não há libs externas para carregar. */
 export async function loadScanner(): Promise<any> {
-  if (!loadPromise) {
-    loadPromise = (async () => {
-      await loadScript(OPENCV_URL);
-      await waitForCvReady();
-      await loadScript(JSCANIFY_URL);
-      const JScanify = (window as any).jscanify;
-      if (!JScanify) throw new Error("jscanify indisponível");
-      return new JScanify();
-    })().catch((err) => {
-      loadPromise = null;
-      throw err;
-    });
-  }
-  return loadPromise;
+  return {};
 }
 
 export function fileToImage(file: File): Promise<HTMLImageElement> {
@@ -88,7 +31,7 @@ export function fileToImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-/** Desenha a imagem num canvas, limitando o lado maior (poupa memória do opencv). */
+/** Desenha a imagem num canvas, limitando o lado maior. */
 export function imageToCanvas(img: HTMLImageElement, maxSide = 1600): HTMLCanvasElement {
   const srcW = img.naturalWidth || img.width;
   const srcH = img.naturalHeight || img.height;
@@ -111,24 +54,18 @@ export function defaultCorners(w: number, h: number): CornerPoints {
   };
 }
 
-/** Deteção automática dos contornos. Devolve null se não encontrar. */
-export function detectCorners(scanner: any, canvas: HTMLCanvasElement): CornerPoints | null {
-  const cv = (window as any).cv;
-  let img: any = null;
+/** Deteção automática dos contornos. Devolve null se não encontrar/validar. */
+export function detectCorners(_scanner: any, canvas: HTMLCanvasElement): CornerPoints | null {
   try {
-    img = cv.imread(canvas);
-    const contour = scanner.findPaperContour(img);
-    if (!contour) return null;
-    const pts = scanner.getCornerPoints(contour, img);
-    const ok = pts && ["topLeftCorner", "topRightCorner", "bottomRightCorner", "bottomLeftCorner"].every(
-      (k) => pts[k] && Number.isFinite(pts[k].x) && Number.isFinite(pts[k].y),
-    );
-    return ok ? (pts as CornerPoints) : null;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const res = detectDocumentQuad({ width: data.width, height: data.height, data: data.data });
+    if (!res) return null;
+    console.info("[document-scan] deteção", res.strategy, "área", res.areaRatio.toFixed(2));
+    return res.quad;
   } catch (err) {
     console.warn("[document-scan] deteção falhou", err);
     return null;
-  } finally {
-    img?.delete?.();
   }
 }
 
@@ -136,9 +73,94 @@ function distance(a: Corner, b: Corner) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+/** Resolve a homografia destino -> origem (8 incógnitas, h33 = 1). */
+function solveHomography(dst: Pt[], src: Pt[]): number[] {
+  const A: number[][] = [];
+  for (let i = 0; i < 4; i++) {
+    const { x: dx, y: dy } = dst[i];
+    const { x: sx, y: sy } = src[i];
+    A.push([dx, dy, 1, 0, 0, 0, -dx * sx, -dy * sx, sx]);
+    A.push([0, 0, 0, dx, dy, 1, -dx * sy, -dy * sy, sy]);
+  }
+  // eliminação de Gauss com pivot parcial
+  for (let c = 0; c < 8; c++) {
+    let piv = c;
+    for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+    [A[c], A[piv]] = [A[piv], A[c]];
+    const d = A[c][c] || 1e-12;
+    for (let k = c; k <= 8; k++) A[c][k] /= d;
+    for (let r = 0; r < 8; r++) {
+      if (r === c) continue;
+      const f = A[r][c];
+      if (!f) continue;
+      for (let k = c; k <= 8; k++) A[r][k] -= f * A[c][k];
+    }
+  }
+  return A.map((row) => row[8]);
+}
+
+/** Warp de perspetiva com amostragem bilinear. */
+function warpPerspective(
+  src: HTMLCanvasElement,
+  corners: CornerPoints,
+  outW: number,
+  outH: number,
+): HTMLCanvasElement {
+  const sctx = src.getContext("2d", { willReadFrequently: true })!;
+  const sImg = sctx.getImageData(0, 0, src.width, src.height);
+  const out = document.createElement("canvas");
+  out.width = outW;
+  out.height = outH;
+  const octx = out.getContext("2d")!;
+  const oImg = octx.createImageData(outW, outH);
+
+  const h = solveHomography(
+    [
+      { x: 0, y: 0 },
+      { x: outW - 1, y: 0 },
+      { x: outW - 1, y: outH - 1 },
+      { x: 0, y: outH - 1 },
+    ],
+    [corners.topLeftCorner, corners.topRightCorner, corners.bottomRightCorner, corners.bottomLeftCorner],
+  );
+
+  const sw = src.width;
+  const sh = src.height;
+  for (let y = 0; y < outH; y++) {
+    for (let x = 0; x < outW; x++) {
+      const den = h[6] * x + h[7] * y + 1;
+      const sx = (h[0] * x + h[1] * y + h[2]) / den;
+      const sy = (h[3] * x + h[4] * y + h[5]) / den;
+      const o = (y * outW + x) * 4;
+      if (sx < 0 || sy < 0 || sx > sw - 1 || sy > sh - 1) {
+        oImg.data[o] = oImg.data[o + 1] = oImg.data[o + 2] = 255;
+        oImg.data[o + 3] = 255;
+        continue;
+      }
+      const x0 = Math.floor(sx);
+      const y0 = Math.floor(sy);
+      const x1 = Math.min(sw - 1, x0 + 1);
+      const y1 = Math.min(sh - 1, y0 + 1);
+      const fx = sx - x0;
+      const fy = sy - y0;
+      for (let ch = 0; ch < 3; ch++) {
+        const p00 = sImg.data[(y0 * sw + x0) * 4 + ch];
+        const p10 = sImg.data[(y0 * sw + x1) * 4 + ch];
+        const p01 = sImg.data[(y1 * sw + x0) * 4 + ch];
+        const p11 = sImg.data[(y1 * sw + x1) * 4 + ch];
+        oImg.data[o + ch] =
+          p00 * (1 - fx) * (1 - fy) + p10 * fx * (1 - fy) + p01 * (1 - fx) * fy + p11 * fx * fy;
+      }
+      oImg.data[o + 3] = 255;
+    }
+  }
+  octx.putImageData(oImg, 0, 0);
+  return out;
+}
+
 /** Aplica correção de perspetiva + melhoria de contraste e devolve um File JPEG. */
 export async function extractDocument(
-  scanner: any,
+  _scanner: any,
   canvas: HTMLCanvasElement,
   corners: CornerPoints,
   fileName: string,
@@ -156,12 +178,7 @@ export async function extractDocument(
     ),
   );
 
-  const extracted: HTMLCanvasElement = scanner.extractPaper(
-    canvas,
-    Math.max(200, width),
-    Math.max(200, height),
-    corners,
-  );
+  const extracted = warpPerspective(canvas, corners, Math.max(200, width), Math.max(200, height));
 
   // Toque de legibilidade: contraste + brilho leves.
   const out = document.createElement("canvas");
