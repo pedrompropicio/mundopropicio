@@ -167,3 +167,9 @@ Refresh: `saveMutation` de `FinancialAccounts` chama `invalidateCardSessionQueri
 e o helper invalida também `["card-account-balance"]`,
 `["financial-accounts-tx-summary"]` e `["financial-accounts-cash-adjustments"]` —
 ajustar a conta reflete na sessão aberta sem F5.
+
+## Fecho — categoria do ajuste e salvaguarda (2026-08-13)
+
+- Seletor "Categoria do ajuste" lista TODAS as L3 activas coerentes com o tipo do ajuste (`diff > 0` → income, `diff < 0` → expense), pesquisável e agrupado por N2. Antes listava todas as L3 misturadas com o tipo no rótulo.
+- Pré-selecção automática de categoria natural de acertos (nome com "ajuste"/"acerto"/"diversos"); senão fica vazio.
+- Aviso destacado + checkbox obrigatória quando `|diff| > 50%` do gasto aprovado (caso real: saldo de abertura digitado em vez do saldo actual → receita falsa). Botão "Fechar sessão" fica bloqueado até confirmar.
