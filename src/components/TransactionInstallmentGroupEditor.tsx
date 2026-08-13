@@ -266,10 +266,24 @@ export function TransactionInstallmentGroupEditor({
     setRows((prev) => {
       const next = { ...prev };
       unpaid.forEach((r, i) => {
-        next[r.id] = { ...next[r.id], amount: amounts[i] };
+        next[r.id] = {
+          ...next[r.id],
+          amount: amounts[i],
+          pct: newTotal > 0 ? +((amounts[i] / newTotal) * 100).toFixed(2) : 0,
+        };
       });
+      // Garante que as % somam exactamente 100 (resto na última não paga)
+      if (mode === "pct" && newTotal > 0) {
+        const totalPct = group.reduce((s, r) => s + (Number(next[r.id]?.pct) || 0), 0);
+        const last = unpaid[unpaid.length - 1];
+        const delta = +(100 - totalPct).toFixed(2);
+        if (last && Math.abs(delta) > 0 && Math.abs(delta) <= 0.1) {
+          next[last.id] = { ...next[last.id], pct: +((next[last.id].pct || 0) + delta).toFixed(2) };
+        }
+      }
       return next;
     });
+
   };
 
 
