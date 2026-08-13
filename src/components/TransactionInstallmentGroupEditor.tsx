@@ -127,6 +127,62 @@ export function TransactionInstallmentGroupEditor({
 
   const rowLocked = (r: GroupRow) => isPaidRow(r) && !(isAdmin && unlockPaid);
 
+  /** Edição directa em € — sincroniza a % correspondente. */
+  const setAmount = (id: string, amount: number) =>
+    setRows((p) => ({
+      ...p,
+      [id]: {
+        ...p[id],
+        amount,
+        pct: newTotal > 0 ? +((amount / newTotal) * 100).toFixed(2) : 0,
+      },
+    }));
+
+  /** Edição em % — recalcula os € de todas as parcelas não travadas; resto do arredondamento na última. */
+  const setPct = (id: string, pct: number) =>
+    setRows((p) => {
+      const next: Record<string, RowState> = { ...p, [id]: { ...p[id], pct } };
+      const editable = group.filter((r) => !rowLocked(r));
+      editable.forEach((r) => {
+        const rowPct = Number(next[r.id]?.pct) || 0;
+        next[r.id] = { ...next[r.id], amount: +((newTotal * rowPct) / 100).toFixed(2) };
+      });
+      const total = group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0);
+      const delta = +(newTotal - total).toFixed(2);
+      const last = editable[editable.length - 1];
+      if (last && Math.abs(delta) > 0 && Math.abs(delta) <= 0.05) {
+        next[last.id] = { ...next[last.id], amount: +((next[last.id].amount || 0) + delta).toFixed(2) };
+      }
+      return next;
+    });
+
+  /** Alternar modo converte os valores em vez de limpar. */
+  const toggleMode = () =>
+    setMode((m) => {
+      const nextMode = m === "eur" ? "pct" : "eur";
+      setRows((p) => {
+        const next: Record<string, RowState> = { ...p };
+        group.forEach((r) => {
+          const cur = next[r.id];
+          if (!cur) return;
+          if (nextMode === "pct") {
+            next[r.id] = {
+              ...cur,
+              pct: newTotal > 0 ? +(((Number(cur.amount) || 0) / newTotal) * 100).toFixed(2) : 0,
+            };
+          } else {
+            next[r.id] = {
+              ...cur,
+              amount: +(((newTotal * (Number(cur.pct) || 0)) / 100)).toFixed(2),
+            };
+          }
+        });
+        return next;
+      });
+      return nextMode;
+    });
+
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (mismatch) throw new Error("A soma das parcelas tem de igualar o novo total (±0,01 €).");
