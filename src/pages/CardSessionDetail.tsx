@@ -202,11 +202,13 @@ export default function CardSessionDetail() {
   });
 
   const updateOpening = useMutation({
-    mutationFn: async ({ value, reason }: { value: number; reason: string }) => {
-      const current = Number((session as any)?.opening_balance ?? 0);
+    mutationFn: async ({ value, reason }: { value: number | null; reason: string }) => {
       const who = (user as any)?.email ?? "utilizador";
       const stamp = new Date().toISOString().slice(0, 10);
-      const line = `[${stamp}] Saldo de abertura corrigido de ${formatCurrency(current)} para ${formatCurrency(value)} por ${who}: ${reason}`;
+      const line =
+        value === null
+          ? `[${stamp}] Saldo de abertura voltou ao cálculo automático da conta (era ${formatCurrency(opening)}) por ${who}: ${reason}`
+          : `[${stamp}] Saldo de abertura corrigido de ${formatCurrency(opening)} para ${formatCurrency(value)} por ${who}: ${reason}`;
       const prevNotes = ((session as any)?.notes ?? "").trim();
       const { error } = await supabase
         .from("card_sessions")
