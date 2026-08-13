@@ -263,7 +263,7 @@ export default function StandaloneInvoiceScanner() {
           file={scanCandidate}
           onConfirm={(processed) => void acceptFile(processed)}
           onUseOriginal={() => void acceptFile(scanCandidate)}
-          onCancel={reset}
+          onCancel={() => (preserveRef.current ? clearCapture() : reset())}
         />
       ) : (
         <>
