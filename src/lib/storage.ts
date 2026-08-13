@@ -19,6 +19,7 @@ export const ISOLATED_BUCKETS = new Set<string>([
   "partner-extra-documents",
   "supplier-credit-documents",
   "supplier-documents",
+  "standalone-invoices",
   "ticket-office-settlements",
   "transaction-documents",
 ]);
@@ -39,6 +40,7 @@ export type Bucket =
   | "partner-extra-documents"
   | "supplier-credit-documents"
   | "supplier-documents"
+  | "standalone-invoices"
   | "ticket-office-settlements"
   | "transaction-documents"
   | "company-branding"

@@ -10,6 +10,7 @@ const SYSTEM_PROMPT = `Analisa esta foto de talão / recibo / fatura de uma comp
 
 {
   "supplier_name": "Nome do estabelecimento (ex: Pingo Doce, Continente, Café Central)",
+  "supplier_nif": "NIF/contribuinte do fornecedor emitente (só dígitos, se visível)",
   "document_number": "Nº do talão/fatura/recibo (se visível)",
   "document_type": "invoice" | "receipt" | "simplified_invoice" | "other",
   "document_date": "YYYY-MM-DD (data da compra)",
@@ -27,6 +28,7 @@ REGRAS:
 - Em Portugal o IVA do camarim é normalmente 6% (alimentação) ou 23% (outros).
 - Se não conseguires ler um campo, devolve null nesse campo.
 - "confidence" reflecte a qualidade da extracção (high se talão nítido com totais claros).
+- "supplier_nif" é o NIF DO EMITENTE (fornecedor), nunca o NIF do cliente/adquirente. Se só existir o NIF do cliente, devolve null.
 - Não inventes valores. Se incerto, devolve null e usa "low" em confidence.
 - "analytic_tag" classifica o talão para análise interna (NÃO afeta a categoria contabilística):
   · "bebidas": águas, refrigerantes, sumos, álcool, café/chá engarrafado.
