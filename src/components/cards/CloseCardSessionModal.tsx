@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { X, Lock } from "lucide-react";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { formatCurrency } from "@/lib/card-session-helpers";
 
 interface SessionData {
@@ -32,7 +31,6 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
   const [confirmedBalance, setConfirmedBalance] = useState(String(theoretical.toFixed(2)));
   const [note, setNote] = useState("");
   const [createAdjustment, setCreateAdjustment] = useState(false);
-  const [adjCategoryId, setAdjCategoryId] = useState<string>("");
   const [confirmedHighDiff, setConfirmedHighDiff] = useState(false);
 
   const diff = parseFloat(confirmedBalance) - theoretical;
@@ -40,51 +38,12 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
 
   // Salvaguarda: diferença invulgarmente alta (>50% do gasto aprovado) sugere
   // que foi digitado o saldo de abertura em vez do saldo atual do cartão.
+  const noteRequired = Math.abs(diff) > 0.01 && createAdjustment;
+
   const highDiff =
     !isNaN(diff) &&
     session.total_approved_expenses > 0 &&
     Math.abs(diff) > session.total_approved_expenses * 0.5;
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ["l3-categories"],
-    enabled: open,
-    queryFn: async () => {
-      const { data } = await supabase.from("account_categories").select("id, name, code, type, parent_id").eq("is_active", true);
-      return data ?? [];
-    },
-  });
-
-  const l3Options = useMemo(() => {
-    const byId = new Map(categories.map((c: any) => [c.id, c]));
-    const parentOf = (c: any) => byId.get(c.parent_id) as any | undefined;
-    const isL3 = (c: any) => {
-      const p1 = parentOf(c);
-      if (!p1) return false;
-      return !!byId.get(p1.parent_id);
-    };
-    return categories
-      .filter((c: any) => isL3(c) && c.type === adjType)
-      .sort((a: any, b: any) => (a.code || "").localeCompare(b.code || ""))
-      .map((c: any) => {
-        const p1 = parentOf(c);
-        return {
-          value: c.id,
-          label: `${c.code} — ${c.name}`,
-          group: p1 ? `${p1.code} — ${p1.name}` : undefined,
-        };
-      });
-  }, [categories, adjType]);
-
-  // Pré-selecionar uma categoria natural de acertos, se existir.
-  useEffect(() => {
-    if (!createAdjustment) return;
-    const stillValid = l3Options.some((o) => o.value === adjCategoryId);
-    if (stillValid) return;
-    const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const natural = l3Options.find((o) => /ajuste|acerto|divers/.test(norm(o.label)));
-    setAdjCategoryId(natural?.value ?? "");
-  }, [createAdjustment, l3Options, adjCategoryId]);
-
 
   const close = useMutation({
     mutationFn: async () => {
@@ -95,22 +54,30 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
 
       // Ajuste opcional
       if (Math.abs(diff) > 0.01 && createAdjustment) {
-        if (!adjCategoryId) throw new Error("Selecione a categoria do ajuste.");
+        if (!note.trim())
+          throw new Error(
+            "Explica a origem da diferença (ex.: fatura perdida pelo operador do cartão).",
+          );
         const amt = Math.abs(diff);
         const type = adjType; // diff < 0 → despesa não registada; diff > 0 → receita/sobra
         const today = new Date().toISOString().split("T")[0];
+        // Conciliação de saldo da conta do cartão — NÃO é receita/despesa do
+        // evento: sem categoria do plano de contas, sem evento, IVA 0 e
+        // exclude_from_result para nunca entrar em BP / P&L / apuramento IVA.
         const { error } = await supabase.from("transactions").insert({
-          description: `Ajuste fecho sessão cartão — ${session.card_name}`,
+          description: `Acerto de fecho de sessão — cartão ${session.card_name}${note.trim() ? ` (${note.trim()})` : ""}`,
           type,
           amount: amt,
           iva_rate: 0,
-          category_id: adjCategoryId,
+          category_id: null,
           account_id: session.card_account_id,
           date: today,
           status: "paid",
           paid_amount: amt,
           payment_date: today,
+          exclude_from_result: true,
           card_session_id: session.id,
+          notes: note.trim() || null,
         });
         if (error) throw error;
       }
@@ -196,6 +163,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <p className="font-semibold">Diferença invulgarmente alta</p>
                   <p className="mt-1">
                     Confirma que digitaste o saldo <strong>ATUAL</strong> do cartão (não o saldo de abertura).
+                    Uma diferença grande normalmente significa despesa mal registada — investiga antes de ajustar.
                   </p>
                   <label className="mt-2 flex cursor-pointer items-center gap-2 font-medium">
                     <input type="checkbox" checked={confirmedHighDiff} onChange={(e) => setConfirmedHighDiff(e.target.checked)} />
@@ -212,22 +180,24 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   Criar transação de ajuste ({adjType === "expense" ? "despesa" : "receita"})
                 </label>
                 {createAdjustment && (
-                  <div className="mt-2">
-                    <label className="mb-1 block text-xs text-muted-foreground">Categoria do ajuste</label>
-                    <SearchableSelect
-                      options={l3Options}
-                      value={adjCategoryId}
-                      onValueChange={setAdjCategoryId}
-                      placeholder={`Selecionar categoria de ${adjType === "expense" ? "despesa" : "receita"}…`}
-                    />
-                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Conciliação do saldo da conta do cartão — sem categoria do plano de contas e
+                    fora do BP/P&amp;L do evento. A nota abaixo é obrigatória.
+                  </p>
                 )}
               </div>
             )}
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota / justificação</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Nota / justificação {noteRequired && <span className="text-destructive">*</span>}
+              </label>
               <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              {noteRequired && !note.trim() && (
+                <p className="mt-1 text-xs text-destructive">
+                  Explica a origem da diferença (ex.: fatura perdida pelo operador do cartão).
+                </p>
+              )}
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -239,7 +209,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
               <button
                 type="button"
                 onClick={() => close.mutate()}
-                disabled={close.isPending || (highDiff && !confirmedHighDiff)}
+                disabled={close.isPending || (highDiff && !confirmedHighDiff) || (noteRequired && !note.trim())}
                 className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 {close.isPending ? "A fechar…" : "Fechar sessão"}

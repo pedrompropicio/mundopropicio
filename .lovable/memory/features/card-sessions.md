@@ -40,7 +40,14 @@ Fase 2 abrirá `/cartoes-equipa` (mobile PWA) onde o produtor submete com câmar
 `CloseCardSessionModal` (só manager/admin):
 - Bloqueado se houver items 'submitted'.
 - Mostra: opening + Σ loads − Σ despesas aprovadas = saldo teórico.
-- Campo "Saldo real conferido"; se diferença ≠ 0 opção "Criar transação de ajuste" (expense se diff<0, income se diff>0, categoria à escolha, carimbo card_session_id) OU nota justificativa.
+- Campo "Saldo real conferido"; se diferença ≠ 0 opção OPCIONAL "Criar transação de ajuste".
+- **Ajuste = CONCILIAÇÃO DE SALDO da conta do cartão (2026-08-13)**, não receita/despesa do evento:
+  - Sem seletor de categoria (removido). Transação nasce com `category_id = NULL` (coluna é nullable), sem `event_id`, `iva_rate = 0`, `exclude_from_result = true`, `status='paid'`, `account_id` = cartão, carimbo `card_session_id`.
+  - Descrição padrão: `Acerto de fecho de sessão — cartão <nome do cartão> (<nota>)`.
+  - Tipo: `expense` se diff<0, `income` se diff>0 → saldo da conta do cartão passa a igualar o saldo real conferido.
+  - Nunca aparece na visão agrupada do BP (sem categoria/evento) nem no apuramento de IVA (taxa 0) nem no DRE (exclude_from_result).
+- **Nota obrigatória** quando há diferença E o ajuste está marcado: mensagem "Explica a origem da diferença (ex.: fatura perdida pelo operador do cartão)". Gravada em `transactions.notes` e no `closing_summary`. Botão "Fechar sessão" fica desativado sem nota.
+- Aviso de diferença invulgarmente alta (>50% do gasto aprovado) com checkbox de confirmação obrigatória; texto lembra que "diferença grande normalmente significa despesa mal registada — investiga antes de ajustar".
 - Grava `closing_balance_confirmed` + `closing_summary` (opening, loads, aprovadas, teórico, confirmado, diff, breakdown por evento, autor/data).
 - Sem movimento bancário — remanescente fica no cartão para a próxima sessão.
 
