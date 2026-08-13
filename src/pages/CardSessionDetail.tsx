@@ -24,6 +24,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
+import { fetchCardSessionAccountSync, resolveOpening } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
@@ -141,8 +142,36 @@ export default function CardSessionDetail() {
   const pendingItems = (items as any[]).filter((i) => i.status === "submitted");
   // Cartão gasta SEMPRE o total c/IVA — amount na BD é base s/IVA.
   const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
-  const opening = Number(session?.opening_balance ?? 0);
-  const theoretical = opening + totalLoads - totalApproved - totalPending;
+
+  // Sessões FECHADAS não recalculam nada — usam o closing_summary histórico.
+  const isClosedSession = (session as any)?.status === "closed";
+  const loadInIds = (loads as any[]).map((l) => l.in_transaction_id);
+  const { data: accountSync } = useQuery({
+    queryKey: ["card-session-account-sync", id, cardAccountId, loadInIds.filter(Boolean).length],
+    enabled: !!cardAccountId && !!session && !isClosedSession,
+    queryFn: () =>
+      fetchCardSessionAccountSync({
+        accountId: cardAccountId as string,
+        sessionId: id!,
+        openedAt: (session as any).opened_at,
+        loadInTransactionIds: loadInIds,
+      }),
+  });
+
+  const rawOverride =
+    (session as any)?.opening_balance === null || (session as any)?.opening_balance === undefined
+      ? null
+      : Number((session as any).opening_balance);
+  const { opening, isOverride } = isClosedSession
+    ? {
+        opening: Number(
+          (session as any)?.closing_summary?.opening_balance ?? (session as any)?.opening_balance ?? 0,
+        ),
+        isOverride: rawOverride !== null,
+      }
+    : resolveOpening(rawOverride, accountSync?.dynamicOpening ?? 0);
+  const directTotal = isClosedSession ? 0 : accountSync?.directTotal ?? 0;
+  const theoretical = opening + totalLoads - totalApproved - totalPending + directTotal;
 
 
   const expensesByEvent = useMemo(() => {
@@ -173,11 +202,13 @@ export default function CardSessionDetail() {
   });
 
   const updateOpening = useMutation({
-    mutationFn: async ({ value, reason }: { value: number; reason: string }) => {
-      const current = Number((session as any)?.opening_balance ?? 0);
+    mutationFn: async ({ value, reason }: { value: number | null; reason: string }) => {
       const who = (user as any)?.email ?? "utilizador";
       const stamp = new Date().toISOString().slice(0, 10);
-      const line = `[${stamp}] Saldo de abertura corrigido de ${formatCurrency(current)} para ${formatCurrency(value)} por ${who}: ${reason}`;
+      const line =
+        value === null
+          ? `[${stamp}] Saldo de abertura voltou ao cálculo automático da conta (era ${formatCurrency(opening)}) por ${who}: ${reason}`
+          : `[${stamp}] Saldo de abertura corrigido de ${formatCurrency(opening)} para ${formatCurrency(value)} por ${who}: ${reason}`;
       const prevNotes = ((session as any)?.notes ?? "").trim();
       const { error } = await supabase
         .from("card_sessions")
@@ -387,7 +418,30 @@ export default function CardSessionDetail() {
         <Kpi
           label="Entregue"
           value={formatCurrency(opening + totalLoads)}
-          hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`}
+          hint={
+            isOverride
+              ? `Abertura ${formatCurrency(opening)} (override manual) + ${loads.length} recarga(s)`
+              : `Abertura ${formatCurrency(opening)} (calculado da conta) + ${loads.length} recarga(s)`
+          }
+          badge={
+            !isClosedSession ? (
+              <span
+                title={
+                  isOverride
+                    ? `Override manual. Cálculo da conta à data de abertura: ${formatCurrency(accountSync?.dynamicOpening ?? 0)}`
+                    : "Calculado da conta: saldo inicial + movimentos pagos com data anterior à abertura"
+                }
+                className={cn(
+                  "rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                  isOverride
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                    : "border-border bg-muted text-muted-foreground",
+                )}
+              >
+                {isOverride ? "override" : "calculado"}
+              </span>
+            ) : undefined
+          }
           action={
             canEditOpening ? (
               <button
@@ -407,7 +461,11 @@ export default function CardSessionDetail() {
         <Kpi
           label="Saldo teórico da sessão"
           value={formatCurrency(theoretical)}
-          hint="Saldo de abertura + recargas − gasto aprovado − pendente. O saldo de abertura é editável enquanto a sessão está aberta."
+          hint={
+            isClosedSession
+              ? "Saldo de abertura + recargas − gasto aprovado − pendente."
+              : `Abertura + recargas − gasto aprovado − pendente ± movimentos diretos na conta (${formatCurrency(directTotal)}).`
+          }
         />
       </div>
 
@@ -671,7 +729,10 @@ export default function CardSessionDetail() {
                 value={openingValue}
                 onChange={(e) => setOpeningValue(e.target.value)}
               />
-              <p className="text-[11px] text-muted-foreground">Atual: {formatCurrency(opening)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Atual: {formatCurrency(opening)} {isOverride ? "(override manual)" : "(calculado da conta)"} · cálculo
+                da conta à data de abertura: {formatCurrency(accountSync?.dynamicOpening ?? 0)}
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="opening-reason">Motivo (obrigatório)</Label>
@@ -692,6 +753,16 @@ export default function CardSessionDetail() {
             >
               Cancelar
             </button>
+            {isOverride && (
+              <button
+                type="button"
+                disabled={updateOpening.isPending || !openingReason.trim()}
+                onClick={() => updateOpening.mutate({ value: null, reason: openingReason.trim() })}
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              >
+                Voltar ao cálculo automático
+              </button>
+            )}
             <button
               type="button"
               disabled={
@@ -724,10 +795,19 @@ export default function CardSessionDetail() {
           card_account_id: session.card_account_id,
           card_name: cardName,
           opening_balance: opening,
+          opening_is_override: isOverride,
           total_loads: totalLoads,
           total_approved_expenses: totalApproved,
           pending_items: pendingItems.length,
           expenses_by_event: expensesByEvent,
+          direct_total: directTotal,
+          direct_movements: (accountSync?.directMovements ?? []).map((t) => ({
+            id: t.id,
+            description: t.description ?? "(sem descrição)",
+            signed: (t.type === "income" ? 1 : -1) * Number(t.paid_amount ?? 0),
+            date: t.payment_date ?? t.date ?? "",
+          })),
+          account_balance: accountSync?.accountBalance ?? null,
         }}
       />
       {docsTx && (
@@ -744,12 +824,15 @@ export default function CardSessionDetail() {
   );
 }
 
-function Kpi({ label, value, hint, tone, action }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode }) {
+function Kpi({ label, value, hint, tone, action, badge }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode; badge?: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {label}
+            {badge}
+          </p>
           {action}
         </div>
         <p className={cn("mt-1 text-xl font-bold", tone === "warn" ? "text-amber-500" : "text-foreground")}>{value}</p>

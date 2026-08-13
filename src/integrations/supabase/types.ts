@@ -1586,7 +1586,7 @@ export type Database = {
           notes: string | null
           opened_at: string
           opened_by: string | null
-          opening_balance: number
+          opening_balance: number | null
           primary_event_id: string | null
           status: string
           updated_at: string
@@ -1605,7 +1605,7 @@ export type Database = {
           notes?: string | null
           opened_at?: string
           opened_by?: string | null
-          opening_balance?: number
+          opening_balance?: number | null
           primary_event_id?: string | null
           status?: string
           updated_at?: string
@@ -1624,7 +1624,7 @@ export type Database = {
           notes?: string | null
           opened_at?: string
           opened_by?: string | null
-          opening_balance?: number
+          opening_balance?: number | null
           primary_event_id?: string | null
           status?: string
           updated_at?: string

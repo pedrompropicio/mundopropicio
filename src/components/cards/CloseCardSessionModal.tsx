@@ -16,6 +16,12 @@ interface SessionData {
   total_approved_expenses: number;
   pending_items: number;
   expenses_by_event: Record<string, { name: string; amount: number }>;
+  opening_is_override?: boolean;
+  /** Σ assinada dos movimentos diretos na conta durante o período da sessão. */
+  direct_total?: number;
+  direct_movements?: { id: string; description: string; signed: number; date: string }[];
+  /** Saldo calculado da conta (módulo Contas) para verificação interna. */
+  account_balance?: number | null;
 }
 
 interface Props {
@@ -27,7 +33,14 @@ interface Props {
 export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const theoretical = session.opening_balance + session.total_loads - session.total_approved_expenses;
+  const directTotal = Number(session.direct_total ?? 0);
+  const directMovements = session.direct_movements ?? [];
+  const [showDirect, setShowDirect] = useState(false);
+  const theoretical =
+    session.opening_balance + session.total_loads - session.total_approved_expenses + directTotal;
+  // Verificação interna: o teórico deve igualar o saldo calculado no módulo Contas.
+  const accountBalance = session.account_balance ?? null;
+  const contasDrift = accountBalance === null ? 0 : theoretical - accountBalance;
   const [confirmedBalance, setConfirmedBalance] = useState(String(theoretical.toFixed(2)));
   const [note, setNote] = useState("");
   const [createAdjustment, setCreateAdjustment] = useState(false);
@@ -87,6 +100,9 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
         total_loads: session.total_loads,
         total_approved_expenses: session.total_approved_expenses,
         theoretical_balance: theoretical,
+        opening_is_override: !!session.opening_is_override,
+        direct_movements_total: directTotal,
+        account_balance: accountBalance,
         confirmed_balance: parseFloat(confirmedBalance),
         difference: diff,
         adjustment_created: Math.abs(diff) > 0.01 && createAdjustment,
@@ -147,11 +163,53 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
         ) : (
           <div className="space-y-4">
             <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
-              <Row label="Saldo abertura" value={formatCurrency(session.opening_balance)} />
+              <Row
+                label={`Saldo abertura${session.opening_is_override ? " (override)" : " (calculado da conta)"}`}
+                value={formatCurrency(session.opening_balance)}
+              />
               <Row label="Recargas" value={formatCurrency(session.total_loads)} />
               <Row label="Despesas aprovadas" value={`− ${formatCurrency(session.total_approved_expenses)}`} />
+              <div className="flex items-center justify-between gap-2 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowDirect((v) => !v)}
+                  className="text-left text-muted-foreground underline decoration-dotted hover:text-foreground"
+                  title="Transações pagas nesta conta, no período da sessão, que não pertencem à sessão"
+                >
+                  Movimentos diretos na conta (fora da sessão) · {directMovements.length}
+                </button>
+                <span className="font-medium">
+                  {directTotal >= 0 ? "+ " : "− "}
+                  {formatCurrency(Math.abs(directTotal))}
+                </span>
+              </div>
+              {showDirect && directMovements.length > 0 && (
+                <ul className="mb-1 space-y-1 rounded border border-border/60 bg-background/60 p-2 text-xs">
+                  {directMovements.map((m) => (
+                    <li key={m.id} className="flex items-center justify-between gap-2">
+                      <span className="truncate text-muted-foreground">
+                        {m.date ? `${m.date} · ` : ""}
+                        {m.description}
+                      </span>
+                      <span className={m.signed < 0 ? "text-destructive" : "text-emerald-500"}>
+                        {m.signed > 0 ? "+" : ""}
+                        {formatCurrency(m.signed)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {showDirect && directMovements.length === 0 && (
+                <p className="mb-1 text-xs text-muted-foreground">Sem movimentos diretos neste período.</p>
+              )}
               <hr className="my-2 border-border" />
               <Row label="Saldo teórico" value={formatCurrency(theoretical)} bold />
+              {Math.abs(contasDrift) > 0.01 && (
+                <p className="mt-2 text-xs text-amber-600">
+                  O cálculo da sessão difere das Contas em {formatCurrency(contasDrift)} — pode indicar dados
+                  inconsistentes.
+                </p>
+              )}
             </div>
 
             <div>
