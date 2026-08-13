@@ -33,7 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, calcWithIva } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import HelpTooltip from "@/components/HelpTooltip";
