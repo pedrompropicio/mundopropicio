@@ -1691,25 +1691,73 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       groupMap[groupName].items.push(item);
     });
 
-    // Sort items within each group by category code
+    // Sort items within each group by category code.
+    // Buckets sintéticos ("Sem linha específica") ficam sempre no fim da sua categoria.
     groups.forEach((g) => {
       g.items.sort((a, b) => {
         const codeA = catLookup[a.category_id]?.code ?? "Z.Z";
         const codeB = catLookup[b.category_id]?.code ?? "Z.Z";
-        return compareHierarchicalCodes(codeA, codeB);
+        const byCode = compareHierarchicalCodes(codeA, codeB);
+        if (byCode !== 0) return byCode;
+        return (a._orphanBucket ? 1 : 0) - (b._orphanBucket ? 1 : 0);
       });
     });
 
     return groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
   };
 
-  const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
+  // Regra de ouro: nenhuma transação com categoria pode ficar invisível na visão
+  // agrupada. Para cada categoria com transações não reclamadas por nenhuma linha
+  // BP (sem back-link e sem ganhar o token-match, ou categoria sem BP), criamos uma
+  // linha sintética "Sem linha específica" — só realizado, não editável.
+  const buildOrphanBuckets = (type: "income" | "expense") => {
+    const txs = transactions as any[];
+    if (!txs?.length) return [];
+    const catIds = new Set<string>();
+    for (const t of txs) {
+      if (t.type !== type || !t.category_id) continue;
+      if (!(t.event_id === eventId || t.event_id === null)) continue;
+      catIds.add(t.category_id);
+    }
+    const out: any[] = [];
+    for (const categoryId of catIds) {
+      const orphans = findCategoryOrphanTransactions({
+        categoryId,
+        type,
+        eventId,
+        transactions: txs,
+        allForecasts: forecasts as any[],
+      });
+      if (orphans.length === 0) continue;
+      const info = catLookup[categoryId];
+      out.push({
+        id: `orphan-bucket-${type}-${categoryId}`,
+        _orphanBucket: true,
+        _orphanTx: orphans,
+        category_id: categoryId,
+        type,
+        amount: 0,
+        iva_rate: 0,
+        status: "n/a",
+        description: "Sem linha específica",
+        specification: null,
+        event_id: eventId,
+        account_categories: info ? { code: info.code, name: info.name } : null,
+      });
+    }
+    return out;
+  };
+
+  const incomeGroups = useMemo(
+    () => groupForecasts([...incomeForecasts, ...buildOrphanBuckets("income")]),
+    [incomeForecasts, catLookup, transactions, forecasts, eventId],
+  );
   const expenseGroups = useMemo(() => {
     // Merge own expenses with prorated parent expenses into a single list
     const mergedExpenses = [...expenseForecasts, ...filteredProratedParentExpenses.map((f: any) => ({ ...f, _prorated: true }))];
-    const groups = groupForecasts(mergedExpenses);
+    const groups = groupForecasts([...mergedExpenses, ...buildOrphanBuckets("expense")]);
     return groups;
-  }, [expenseForecasts, filteredProratedParentExpenses, catLookup]);
+  }, [expenseForecasts, filteredProratedParentExpenses, catLookup, transactions, forecasts, eventId]);
 
   // IVA somado SEMPRE linha-a-linha com arredondamento ao cêntimo (CIVA Art.º 18)
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
