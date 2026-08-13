@@ -202,7 +202,6 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
   type LinkKind = "direct" | "category";
   // Score normalizado — SSoT em src/lib/bp-tx-matching.ts (sem acentos/caracteres especiais).
   const raScore = scoreDescriptionMatch;
-  };
 
   const forecastByTxId = useMemo(() => {
     const m = new Map<string, { forecast: Forecast; kind: LinkKind }>();
