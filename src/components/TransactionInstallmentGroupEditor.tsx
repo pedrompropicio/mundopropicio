@@ -330,10 +330,33 @@ export function TransactionInstallmentGroupEditor({
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => mode !== "eur" && toggleMode()}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-semibold",
+                    mode === "eur" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                  )}
+                >
+                  €
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mode !== "pct" && toggleMode()}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-semibold border-l border-border",
+                    mode === "pct" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                  )}
+                >
+                  %
+                </button>
+              </div>
               <Button type="button" size="sm" variant="secondary" onClick={distribute}>
                 <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
               </Button>
+
               {isAdmin && paidRows.length > 0 && (
                 <Button
                   type="button"
