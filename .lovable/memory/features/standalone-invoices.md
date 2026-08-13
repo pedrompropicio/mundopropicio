@@ -22,15 +22,28 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
   - INSERT (upload): admin/platform_admin + **manager** + **editor** (tabela e bucket).
   - SELECT: admin/platform_admin, accountant, manager, editor.
   - UPDATE: admin/platform_admin, accountant OU `created_by = auth.uid()`.
-  - DELETE: só admin/platform_admin.
+  - DELETE (2026-08-13): só com `status='new'` E (`created_by = auth.uid()` OU
+    admin/platform_admin). Reforçado por trigger
+    `trg_prevent_delete_processed_standalone_invoice` (levanta exceção se
+    status <> 'new'). Bucket: DELETE para admin/platform_admin/manager/editor.
+    Fatura processada NUNCA se apaga — reverter para 'new' primeiro.
 - Regras de UI: "Marcar processada / Reabrir" só admin + contabilista;
-  editar metadados (fornecedor/NIF/data/total/IVA/nota) só admin ou quem capturou.
+  editar metadados (fornecedor/NIF/data/total/IVA/nota) só admin ou quem capturou;
+  "Apagar" só aparece em faturas 'new' para admin ou quem capturou (confirm simples,
+  apaga linha + ficheiro via removeFromCompanyBucket).
 
 ## Captura (mobile-first)
 - Rota `/scanner-faturas` (`src/pages/StandaloneInvoiceScanner.tsx`), atalho na
   sidebar "Scanner Faturas" para admin, manager e editor.
 - "Tirar foto" (input `capture=environment`) + "Escolher ficheiro"
   (HEIC/JPG/PNG/PDF) → `normalizeImageFile` + `prepareFileForInvoiceOcr`.
+- Passo de SCAN obrigatório para imagens (`src/components/DocumentScanStep.tsx`
+  + `src/lib/document-scan.ts`): deteção automática de contornos, correção de
+  perspetiva e contraste leve. opencv.js + jscanify carregados LAZY por CDN
+  (nunca no bundle) só ao entrar no passo; ajuste manual dos 4 cantos
+  (arrastar) e fallback "Usar foto original" se a lib falhar/demorar.
+  O ficheiro gravado no bucket e o input do OCR são o JPEG processado.
+  PDFs saltam o scan. HEIC passa por `normalizeImageFile` antes.
 - OCR via edge fn `extract-camarim-receipt` (prompt inclui `supplier_nif` =
   NIF do EMITENTE). Todos os campos são OPCIONAIS: grava-se com o que o OCR
   apanhou; vazio → null. Depois de gravar: "Escanear outra".
