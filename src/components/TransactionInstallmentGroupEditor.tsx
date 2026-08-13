@@ -85,10 +85,12 @@ export function TransactionInstallmentGroupEditor({
   const queryClient = useQueryClient();
   const { data: group = [] } = useInstallmentGroup(transaction);
 
-  const [rows, setRows] = useState<Record<string, { amount: number; due_date: string }>>({});
+  type RowState = { amount: number; pct: number; due_date: string };
+  const [rows, setRows] = useState<Record<string, RowState>>({});
   const [totalInput, setTotalInput] = useState<string>("");
   const [unlockPaid, setUnlockPaid] = useState(false);
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"eur" | "pct">("eur");
 
   const originalTotal = useMemo(
     () => +group.reduce((s, r) => s + r.amount, 0).toFixed(2),
@@ -97,12 +99,17 @@ export function TransactionInstallmentGroupEditor({
 
   useEffect(() => {
     if (group.length === 0) return;
-    const init: Record<string, { amount: number; due_date: string }> = {};
+    const init: Record<string, RowState> = {};
     group.forEach((r) => {
-      init[r.id] = { amount: r.amount, due_date: r.due_date ?? r.date };
+      init[r.id] = {
+        amount: r.amount,
+        pct: originalTotal > 0 ? +((r.amount / originalTotal) * 100).toFixed(2) : 0,
+        due_date: r.due_date ?? r.date,
+      };
     });
     setRows(init);
     setTotalInput(originalTotal.toFixed(2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.length, originalTotal]);
 
   const canEdit = isAdmin || isManager;
@@ -110,7 +117,10 @@ export function TransactionInstallmentGroupEditor({
   const newTotal = parseFloat(totalInput) || 0;
   const sum = +Object.values(rows).reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2);
   const diff = +(newTotal - sum).toFixed(2);
-  const mismatch = Math.abs(diff) > 0.01;
+  const pctSum = +group.reduce((s, r) => s + (Number(rows[r.id]?.pct) || 0), 0).toFixed(2);
+  const pctMismatch = mode === "pct" && Math.abs(pctSum - 100) > 0.01;
+  const mismatch = Math.abs(diff) > 0.01 || pctMismatch;
+
 
   const paidRows = group.filter(isPaidRow);
   const paidSum = +paidRows.reduce((s, r) => s + (rows[r.id]?.amount ?? r.amount), 0).toFixed(2);
