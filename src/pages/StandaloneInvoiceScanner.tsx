@@ -39,26 +39,59 @@ export default function StandaloneInvoiceScanner() {
   const [iva, setIva] = useState("");
   const [notes, setNotes] = useState("");
 
-  const reset = () => {
+  const hasAnyField = () =>
+    [supplierName, supplierNif, invoiceDate, total, iva, notes].some((v) => v.trim() !== "");
+
+  const clearCapture = () => {
     setFile(null);
     setScanCandidate(null);
     setPreviewUrl(null);
+    setSaved(false);
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const reset = () => {
+    clearCapture();
     setSupplierName("");
     setSupplierNif("");
     setInvoiceDate("");
     setTotal("");
     setIva("");
     setNotes("");
-    setSaved(false);
-    if (cameraRef.current) cameraRef.current.value = "";
-    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const dismiss = () => {
+    // Upload só acontece no "Guardar fatura" — não há ficheiro órfão no bucket.
+    if (hasAnyField() && !window.confirm("Descartar esta captura e os dados preenchidos?")) return;
+    reset();
+    toast({ title: "Captura descartada" });
+  };
+
+  /** Repetir: nova captura do mesmo documento, mantendo o que já foi escrito. */
+  const retake = () => {
+    preserveRef.current = true;
+    clearCapture();
+    cameraRef.current?.click();
   };
 
   /** Aceita o ficheiro final (cru ou processado) e corre o OCR. */
   const acceptFile = async (finalFile: File) => {
+    const preserve = preserveRef.current;
+    preserveRef.current = false;
     setScanCandidate(null);
     setFile(finalFile);
     setPreviewUrl(finalFile.type.startsWith("image/") ? URL.createObjectURL(finalFile) : null);
+
+    // Se o utilizador já preencheu os campos principais, não vale a pena re-correr o OCR.
+    if (preserve && [supplierName, supplierNif, invoiceDate, total].every((v) => v.trim() !== "")) {
+      toast({ title: "Imagem substituída", description: "Campos preenchidos mantidos." });
+      return;
+    }
+
+    /** Só escreve se o campo estiver vazio quando estamos a preservar edições. */
+    const put = (setter: (fn: (prev: string) => string) => void, value: string) =>
+      setter((prev) => (preserve && prev.trim() !== "" ? prev : value));
 
     setBusy("ocr");
     try {
@@ -73,11 +106,11 @@ export default function StandaloneInvoiceScanner() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data.supplier_name) setSupplierName(String(data.supplier_name));
-      if (data.supplier_nif) setSupplierNif(String(data.supplier_nif));
-      if (data.document_date) setInvoiceDate(String(data.document_date));
-      if (data.total_amount != null) setTotal(String(data.total_amount));
-      if (data.iva_amount != null) setIva(String(data.iva_amount));
+      if (data.supplier_name) put(setSupplierName, String(data.supplier_name));
+      if (data.supplier_nif) put(setSupplierNif, String(data.supplier_nif));
+      if (data.document_date) put(setInvoiceDate, String(data.document_date));
+      if (data.total_amount != null) put(setTotal, String(data.total_amount));
+      if (data.iva_amount != null) put(setIva, String(data.iva_amount));
       toast({
         title: "Fatura lida com IA",
         description: data.confidence === "low" ? "Confiança baixa — confirma os dados." : undefined,
@@ -119,6 +152,7 @@ export default function StandaloneInvoiceScanner() {
 
     await acceptFile(normalized);
   };
+
 
   const save = async () => {
     if (!file || !companyId) return;
