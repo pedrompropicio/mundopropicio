@@ -252,18 +252,25 @@ export function AccountantStandaloneInvoicesTab() {
                       <Button size="sm" variant="ghost" onClick={() => openDoc(r)}>
                         <Download className="h-3.5 w-3.5 mr-1" /> Documento
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleProcessed.mutate(r)}
-                        disabled={toggleProcessed.isPending}
-                      >
-                        {r.status === "processed" ? (
-                          <><Undo2 className="h-3.5 w-3.5 mr-1" /> Reabrir</>
-                        ) : (
-                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar processada</>
-                        )}
-                      </Button>
+                      {canEdit(r) && (
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
+                          <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                        </Button>
+                      )}
+                      {canProcess && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleProcessed.mutate(r)}
+                          disabled={toggleProcessed.isPending}
+                        >
+                          {r.status === "processed" ? (
+                            <><Undo2 className="h-3.5 w-3.5 mr-1" /> Reabrir</>
+                          ) : (
+                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar processada</>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -272,6 +279,50 @@ export function AccountantStandaloneInvoicesTab() {
           </div>
         </section>
       ))}
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar fatura avulsa</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="ed-supplier">Fornecedor</Label>
+              <Input id="ed-supplier" value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="ed-nif">NIF</Label>
+                <Input id="ed-nif" inputMode="numeric" value={form.supplier_nif} onChange={(e) => setForm({ ...form, supplier_nif: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ed-date">Data</Label>
+                <Input id="ed-date" type="date" value={form.invoice_date} onChange={(e) => setForm({ ...form, invoice_date: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="ed-total">Total (€)</Label>
+                <Input id="ed-total" inputMode="decimal" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ed-iva">IVA (€)</Label>
+                <Input id="ed-iva" inputMode="decimal" value={form.iva_amount} onChange={(e) => setForm({ ...form, iva_amount: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ed-notes">Nota</Label>
+              <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
+              {saveEdit.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
