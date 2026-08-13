@@ -32,7 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
-import { scoreDescriptionMatch, findCategoryOrphanTransactions } from "@/lib/bp-tx-matching";
+import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
@@ -3645,7 +3645,7 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
 // Pure helper: returns transactions that match a single BP line.
 // SSoT em src/lib/bp-tx-matching.ts (normalização sem acentos + winner-takes-all).
 // Re-exportado aqui por retrocompatibilidade com imports existentes.
-export { findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
+export { findMatchingTransactionsForForecast };
 
 interface ComparisonRow {
   categoryCode: string;
