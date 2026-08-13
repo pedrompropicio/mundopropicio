@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Crop, ImageOff, RotateCcw } from "lucide-react";
+import { Loader2, Crop, ImageOff, RotateCcw, RefreshCw } from "lucide-react";
 import {
   CornerPoints,
   defaultCorners,
