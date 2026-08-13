@@ -284,6 +284,8 @@ export default function StandaloneInvoiceScanner() {
           )}
         </>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
