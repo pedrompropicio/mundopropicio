@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { scoreDescriptionMatch } from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
 
 interface BPExportInput {
