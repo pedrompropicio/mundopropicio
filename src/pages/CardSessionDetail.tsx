@@ -418,7 +418,30 @@ export default function CardSessionDetail() {
         <Kpi
           label="Entregue"
           value={formatCurrency(opening + totalLoads)}
-          hint={`Abertura ${formatCurrency(opening)} + ${loads.length} recarga(s)`}
+          hint={
+            isOverride
+              ? `Abertura ${formatCurrency(opening)} (override manual) + ${loads.length} recarga(s)`
+              : `Abertura ${formatCurrency(opening)} (calculado da conta) + ${loads.length} recarga(s)`
+          }
+          badge={
+            !isClosedSession ? (
+              <span
+                title={
+                  isOverride
+                    ? `Override manual. Cálculo da conta à data de abertura: ${formatCurrency(accountSync?.dynamicOpening ?? 0)}`
+                    : "Calculado da conta: saldo inicial + movimentos pagos com data anterior à abertura"
+                }
+                className={cn(
+                  "rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                  isOverride
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                    : "border-border bg-muted text-muted-foreground",
+                )}
+              >
+                {isOverride ? "override" : "calculado"}
+              </span>
+            ) : undefined
+          }
           action={
             canEditOpening ? (
               <button
@@ -438,7 +461,11 @@ export default function CardSessionDetail() {
         <Kpi
           label="Saldo teórico da sessão"
           value={formatCurrency(theoretical)}
-          hint="Saldo de abertura + recargas − gasto aprovado − pendente. O saldo de abertura é editável enquanto a sessão está aberta."
+          hint={
+            isClosedSession
+              ? "Saldo de abertura + recargas − gasto aprovado − pendente."
+              : `Abertura + recargas − gasto aprovado − pendente ± movimentos diretos na conta (${formatCurrency(directTotal)}).`
+          }
         />
       </div>
 
