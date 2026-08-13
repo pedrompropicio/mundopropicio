@@ -3692,6 +3692,117 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
   );
 }
 
+/**
+ * Linha sintética por categoria: agrupa as transações que nenhuma linha do BP
+ * reclama (sem back-link e sem ganhar o match de descrição, ou categoria sem BP).
+ * Só tem realizado — não é editável, aprovável nem entra no previsto.
+ */
+function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, eventId }: {
+  item: any;
+  isExpense?: boolean;
+  indented?: boolean;
+  isAdmin?: boolean;
+  queryClient?: any;
+  eventId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [viewingTransaction, setViewingTransaction] = useState<any>(null);
+  const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
+  const txs: any[] = item._orphanTx ?? [];
+  const colCount = isExpense ? 8 : 7;
+  const realized = txs.reduce((s, t) => s + Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100), 0);
+
+  return (
+    <>
+      <tr className="bg-muted/20 hover:bg-muted/30 transition-colors">
+        <td colSpan={colCount - 1} className={`py-2 pr-3 ${indented ? "pl-6" : "pl-2"}`}>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 text-left"
+            title="Transações desta categoria sem linha específica do BP"
+          >
+            {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <div>
+              <p className="text-xs font-medium italic text-muted-foreground">
+                {item.account_categories?.code && <span className="mr-1">{item.account_categories.code}</span>}
+                Sem linha específica
+                <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium not-italic text-muted-foreground">
+                  {txs.length} transação(ões)
+                </span>
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Sem previsto · Realizado <span className="font-mono">{formatCurrency(realized)}</span>
+              </p>
+            </div>
+          </button>
+        </td>
+        <td className="py-2 text-right pr-2">
+          <span className="text-[10px] text-muted-foreground">—</span>
+        </td>
+      </tr>
+      {open && txs.length > 0 && (
+        <tr>
+          <td colSpan={colCount} className="py-0">
+            <div className="my-1 ml-6 space-y-1.5 rounded-r-lg border-l-2 border-muted-foreground/30 bg-muted/20 px-3 py-2 animate-fade-in">
+              {txs.map((tx: any) => {
+                const txTotal = Number(tx.amount) * (1 + Number(tx.iva_rate ?? 0) / 100);
+                const txPaid = Number(tx.paid_amount ?? 0);
+                const isPaid = tx.status === "paid" || txTotal - txPaid < 0.01;
+                return (
+                  <div key={tx.id} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5">
+                    <button type="button" onClick={() => setViewingTransaction(tx)} className="block w-full cursor-pointer text-left">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium">{tx.description}</p>
+                          {tx.specification && <p className="truncate text-[10px] text-muted-foreground">{tx.specification}</p>}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isPaid ? "bg-success/15 text-success" : "bg-blue-500/15 text-blue-400"}`}>
+                            {isPaid ? "Pago" : "A Pagar"}
+                          </span>
+                          <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                        </div>
+                      </div>
+                    </button>
+                    <div className="mt-1 flex items-center justify-end gap-1">
+                      <TransactionAttachmentButton transactionId={tx.id} onClick={() => setDocumentsTransaction(tx)} />
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between border-t border-border/30 pt-1 text-xs">
+                <span className="font-medium text-muted-foreground">Total transações</span>
+                <span className="font-mono font-bold">{formatCurrency(realized)}</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+      {viewingTransaction && (
+        <TransactionEditModal
+          transaction={viewingTransaction}
+          onClose={() => {
+            setViewingTransaction(null);
+            if (queryClient && eventId) {
+              queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+              queryClient.invalidateQueries({ queryKey: ["event-transactions", eventId] });
+            }
+          }}
+          isAdmin={isAdmin}
+        />
+      )}
+      {documentsTransaction && (
+        <TransactionDocumentsModal
+          transactionId={documentsTransaction.id}
+          transactionDescription={documentsTransaction.description}
+          onClose={() => setDocumentsTransaction(null)}
+        />
+      )}
+    </>
+  );
+}
+
 /* ── Comparison ── */
 
 // Pure helper: returns transactions that match a single BP line.
