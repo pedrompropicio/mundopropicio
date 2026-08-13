@@ -182,3 +182,29 @@ ajustar a conta reflete na sessão aberta sem F5.
 - Seletor "Categoria do ajuste" lista TODAS as L3 activas coerentes com o tipo do ajuste (`diff > 0` → income, `diff < 0` → expense), pesquisável e agrupado por N2. Antes listava todas as L3 misturadas com o tipo no rótulo.
 - Pré-selecção automática de categoria natural de acertos (nome com "ajuste"/"acerto"/"diversos"); senão fica vazio.
 - Aviso destacado + checkbox obrigatória quando `|diff| > 50%` do gasto aprovado (caso real: saldo de abertura digitado em vez do saldo actual → receita falsa). Botão "Fechar sessão" fica bloqueado até confirmar.
+
+## Sincronização sessão ↔ conta (2026-08-13)
+
+Helper único: `src/lib/card-session-balance.ts` (`fetchCardSessionAccountSync`,
+`resolveOpening`, `fetchAccountBalanceAsOf`). Reutiliza
+`fetchAccountCashAdjustments` — mesma fórmula do módulo Contas.
+
+- **Saldo de abertura dinâmico**: `card_sessions.opening_balance` passa a ser SÓ o
+  override manual (coluna nullable; `NULL` = dinâmico). O valor mostrado é
+  calculado na leitura: `initial_balance` da conta + ajustes de caixa + Σ
+  movimentos pagos com data efetiva (`payment_date` fallback `date`) ANTERIOR a
+  `opened_at`. Transações retroativas refletem-se sozinhas. Nunca há job a
+  reescrever `opening_balance`.
+- KPI "Entregue" mostra selo `calculado` ou `override`; diálogo de correção tem
+  botão "Voltar ao cálculo automático" (grava `NULL`, com motivo nas notas).
+- **Movimentos diretos**: no fecho, linha expansível "Movimentos diretos na conta
+  (fora da sessão)" = Σ assinada das transações pagas da conta com data ≥ abertura,
+  excluindo `card_session_id` desta sessão **e** as transações IN das recargas
+  (o trigger `card_load_on_out_paid` NÃO carimba `card_session_id`, logo sem esta
+  exclusão haveria dupla contagem com `total_loads`).
+- Teórico = abertura (dinâmica ou override) + recargas − aprovado − pendente ±
+  diretos. Verificação interna: se `|teórico − saldo calculado da conta| > 0,01`,
+  aviso discreto "difere das Contas em X".
+- Abertura de sessão nova pré-preenche com o saldo calculado da conta (não herda o
+  fecho anterior); override manual exige justificação e grava-a nas notas.
+- Sessões **fechadas** não recalculam nada — usam o `closing_summary` histórico.
