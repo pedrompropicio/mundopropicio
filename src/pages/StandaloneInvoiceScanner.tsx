@@ -340,10 +340,19 @@ export default function StandaloneInvoiceScanner() {
                   </div>
                 </div>
 
-                <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null}>
-                  {busy === "save" ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
-                  Guardar fatura
-                </Button>
+                <div className="grid gap-2">
+                  <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null}>
+                    {busy === "save" ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
+                    Guardar fatura
+                  </Button>
+                  <Button variant="outline" className="w-full h-12" onClick={retake} disabled={busy !== null}>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Repetir
+                  </Button>
+                  <Button variant="ghost" className="w-full text-muted-foreground" onClick={dismiss} disabled={busy !== null}>
+                    <X className="h-4 w-4 mr-2" /> Dispensar
+                  </Button>
+                </div>
+
               </CardContent>
             </Card>
           )}
