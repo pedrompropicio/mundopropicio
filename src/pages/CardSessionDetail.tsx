@@ -729,7 +729,10 @@ export default function CardSessionDetail() {
                 value={openingValue}
                 onChange={(e) => setOpeningValue(e.target.value)}
               />
-              <p className="text-[11px] text-muted-foreground">Atual: {formatCurrency(opening)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Atual: {formatCurrency(opening)} {isOverride ? "(override manual)" : "(calculado da conta)"} · cálculo
+                da conta à data de abertura: {formatCurrency(accountSync?.dynamicOpening ?? 0)}
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="opening-reason">Motivo (obrigatório)</Label>
@@ -750,6 +753,16 @@ export default function CardSessionDetail() {
             >
               Cancelar
             </button>
+            {isOverride && (
+              <button
+                type="button"
+                disabled={updateOpening.isPending || !openingReason.trim()}
+                onClick={() => updateOpening.mutate({ value: null, reason: openingReason.trim() })}
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              >
+                Voltar ao cálculo automático
+              </button>
+            )}
             <button
               type="button"
               disabled={
@@ -782,10 +795,19 @@ export default function CardSessionDetail() {
           card_account_id: session.card_account_id,
           card_name: cardName,
           opening_balance: opening,
+          opening_is_override: isOverride,
           total_loads: totalLoads,
           total_approved_expenses: totalApproved,
           pending_items: pendingItems.length,
           expenses_by_event: expensesByEvent,
+          direct_total: directTotal,
+          direct_movements: (accountSync?.directMovements ?? []).map((t) => ({
+            id: t.id,
+            description: t.description ?? "(sem descrição)",
+            signed: (t.type === "income" ? 1 : -1) * Number(t.paid_amount ?? 0),
+            date: t.payment_date ?? t.date ?? "",
+          })),
+          account_balance: accountSync?.accountBalance ?? null,
         }}
       />
       {docsTx && (
