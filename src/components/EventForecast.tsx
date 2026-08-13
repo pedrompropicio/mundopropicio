@@ -2375,7 +2375,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               </tr>
                             )}
                             {group.items.map((f) => (
-                              f.is_overhead ? (
+                              f._orphanBucket ? (
+                                <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
+                              ) : f.is_overhead ? (
                                 <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
