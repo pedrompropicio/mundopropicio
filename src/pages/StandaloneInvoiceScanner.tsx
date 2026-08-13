@@ -12,6 +12,8 @@ import { Camera, Upload, Loader2, Check, ArrowLeft, ScanLine } from "lucide-reac
 import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { fileToBase64, prepareFileForInvoiceOcr } from "@/lib/invoice-ocr-prepare";
 import { uploadToCompanyBucket } from "@/lib/storage";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/AccountantStandaloneInvoicesTab";
 
 const ACCEPT = `image/*,application/pdf,${HEIC_ACCEPT}`;
 
@@ -158,6 +160,16 @@ export default function StandaloneInvoiceScanner() {
         </div>
       </div>
 
+      <Tabs defaultValue="scan">
+        <TabsList className="w-full">
+          <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
+          <TabsTrigger value="list" className="flex-1">Conferência</TabsTrigger>
+        </TabsList>
+        <TabsContent value="list" className="pt-4">
+          <AccountantStandaloneInvoicesTab />
+        </TabsContent>
+        <TabsContent value="scan" className="pt-4 space-y-4">
+
       <input
         ref={cameraRef}
         type="file"
@@ -274,6 +286,8 @@ export default function StandaloneInvoiceScanner() {
           )}
         </>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

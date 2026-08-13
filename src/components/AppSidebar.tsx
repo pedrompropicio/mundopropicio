@@ -46,7 +46,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
+  const { isAdmin, isManager, role, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const activeOpEventId = searchParams.get("event");
@@ -99,7 +99,7 @@ export function AppSidebar() {
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") || isAdmin },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
-    { to: "/scanner-faturas", icon: ScanLine, label: "Scanner Faturas", show: isAdmin },
+    { to: "/scanner-faturas", icon: ScanLine, label: "Scanner Faturas", show: isAdmin || isManager || role === "editor" },
     { to: "/pendencias-contabilista", icon: ClipboardCheck, label: "Contabilista", show: hasPermission("manage_transactions") || isAdmin || isManager, badge: accountantPendingCount },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/cartoes", icon: CreditCard, label: "Cartões", show: hasPermission("card_manage") || isAdmin || isManager },

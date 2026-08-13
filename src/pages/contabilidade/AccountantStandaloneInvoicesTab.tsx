@@ -7,7 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket } from "@/lib/storage";
 
 interface Row {
@@ -39,10 +42,55 @@ const monthLabel = (k: string) => {
 
 export function AccountantStandaloneInvoicesTab() {
   const { companyId } = useCompany();
-  const { user } = useAuth();
+  const { user, isAdmin, isAccountant } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [exporting, setExporting] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_date: "", total_amount: "", iva_amount: "", notes: "" });
+
+  const canProcess = isAdmin || isAccountant;
+  const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
+
+  const openEdit = (r: Row) => {
+    setEditing(r);
+    setForm({
+      supplier_name: r.supplier_name ?? "",
+      supplier_nif: r.supplier_nif ?? "",
+      invoice_date: r.invoice_date ?? "",
+      total_amount: r.total_amount == null ? "" : String(r.total_amount),
+      iva_amount: r.iva_amount == null ? "" : String(r.iva_amount),
+      notes: r.notes ?? "",
+    });
+  };
+
+  const saveEdit = useMutation({
+    mutationFn: async () => {
+      if (!editing) return;
+      const num = (v: string) => {
+        const n = Number(v.replace(",", "."));
+        return v.trim() === "" || Number.isNaN(n) ? null : n;
+      };
+      const { error } = await (supabase as any)
+        .from("standalone_invoices")
+        .update({
+          supplier_name: form.supplier_name.trim() || null,
+          supplier_nif: form.supplier_nif.trim() || null,
+          invoice_date: form.invoice_date || null,
+          total_amount: num(form.total_amount),
+          iva_amount: num(form.iva_amount),
+          notes: form.notes.trim() || null,
+        })
+        .eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditing(null);
+      qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      toast({ title: "Fatura atualizada" });
+    },
+    onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["standalone-invoices", companyId],
@@ -204,18 +252,25 @@ export function AccountantStandaloneInvoicesTab() {
                       <Button size="sm" variant="ghost" onClick={() => openDoc(r)}>
                         <Download className="h-3.5 w-3.5 mr-1" /> Documento
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleProcessed.mutate(r)}
-                        disabled={toggleProcessed.isPending}
-                      >
-                        {r.status === "processed" ? (
-                          <><Undo2 className="h-3.5 w-3.5 mr-1" /> Reabrir</>
-                        ) : (
-                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar processada</>
-                        )}
-                      </Button>
+                      {canEdit(r) && (
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
+                          <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                        </Button>
+                      )}
+                      {canProcess && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleProcessed.mutate(r)}
+                          disabled={toggleProcessed.isPending}
+                        >
+                          {r.status === "processed" ? (
+                            <><Undo2 className="h-3.5 w-3.5 mr-1" /> Reabrir</>
+                          ) : (
+                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar processada</>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -224,6 +279,50 @@ export function AccountantStandaloneInvoicesTab() {
           </div>
         </section>
       ))}
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar fatura avulsa</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="ed-supplier">Fornecedor</Label>
+              <Input id="ed-supplier" value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="ed-nif">NIF</Label>
+                <Input id="ed-nif" inputMode="numeric" value={form.supplier_nif} onChange={(e) => setForm({ ...form, supplier_nif: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ed-date">Data</Label>
+                <Input id="ed-date" type="date" value={form.invoice_date} onChange={(e) => setForm({ ...form, invoice_date: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="ed-total">Total (€)</Label>
+                <Input id="ed-total" inputMode="decimal" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ed-iva">IVA (€)</Label>
+                <Input id="ed-iva" inputMode="decimal" value={form.iva_amount} onChange={(e) => setForm({ ...form, iva_amount: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ed-notes">Nota</Label>
+              <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
+              {saveEdit.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
