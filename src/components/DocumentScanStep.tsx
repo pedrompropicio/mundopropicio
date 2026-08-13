@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Crop, ImageOff, RotateCcw } from "lucide-react";
+import { Loader2, Crop, ImageOff, RotateCcw, RefreshCw } from "lucide-react";
 import {
   CornerPoints,
   defaultCorners,
@@ -22,10 +22,12 @@ interface Props {
   onConfirm: (processed: File) => void;
   /** Seguir com a foto crua, como antes. */
   onUseOriginal: () => void;
+  /** Repetir a captura (reabre câmera), mantendo campos preenchidos. */
+  onRetake: () => void;
   onCancel: () => void;
 }
 
-export function DocumentScanStep({ file, onConfirm, onUseOriginal, onCancel }: Props) {
+export function DocumentScanStep({ file, onConfirm, onUseOriginal, onRetake, onCancel }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const imgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const scannerRef = useRef<any>(null);
@@ -181,16 +183,20 @@ export function DocumentScanStep({ file, onConfirm, onUseOriginal, onCancel }: P
             )}
             Confirmar enquadramento
           </Button>
+          <Button variant="secondary" className="w-full h-12" onClick={onRetake} disabled={state === "processing"}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Repetir foto
+          </Button>
           <Button variant="outline" className="w-full" onClick={onUseOriginal} disabled={state === "processing"}>
             Usar foto original
           </Button>
           <Button
             variant="ghost"
-            className="w-full"
+            size="sm"
+            className="w-full text-muted-foreground"
             onClick={() => imgCanvasRef.current && setCorners(defaultCorners(dims.w, dims.h))}
             disabled={state === "processing"}
           >
-            <RotateCcw className="h-4 w-4 mr-2" /> Reiniciar cantos
+            <RotateCcw className="h-3 w-3 mr-2" /> Reiniciar cantos
           </Button>
         </div>
       </CardContent>
