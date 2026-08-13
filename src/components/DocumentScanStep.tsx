@@ -22,10 +22,12 @@ interface Props {
   onConfirm: (processed: File) => void;
   /** Seguir com a foto crua, como antes. */
   onUseOriginal: () => void;
+  /** Repetir a captura (reabre câmera), mantendo campos preenchidos. */
+  onRetake: () => void;
   onCancel: () => void;
 }
 
-export function DocumentScanStep({ file, onConfirm, onUseOriginal, onCancel }: Props) {
+export function DocumentScanStep({ file, onConfirm, onUseOriginal, onRetake, onCancel }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const imgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const scannerRef = useRef<any>(null);
