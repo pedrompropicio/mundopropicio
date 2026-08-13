@@ -3013,33 +3013,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     // Multiple forecasts share this category — assign each transaction to the
     // forecast with the BEST description match, so a transaction is never shown
     // under more than one BP line.
-    const scoreMatch = (forecastDesc: string, txDesc: string): number => {
-      const f = (forecastDesc ?? "").toLowerCase().trim();
-      const t = (txDesc ?? "").toLowerCase().trim();
-      if (!f && !t) return 0;
-      if (f === t) return 1000; // exact match wins
-      if (!f || !t) return 0;
-      // Token-based scoring: count significant tokens (≥3 chars) shared
-      // between forecast and transaction descriptions. This avoids the
-      // false-positive substring trap where "Camarim" matches both
-      // "Camarim - Catering" and "Camarim compras cartão mp" equally.
-      const tokenize = (s: string) =>
-        s
-          .replace(/[^\p{L}\p{N}\s]/gu, " ")
-          .split(/\s+/)
-          .filter((w) => w.length >= 3);
-      const fTokens = new Set(tokenize(f));
-      const tTokens = new Set(tokenize(t));
-      if (fTokens.size === 0 || tTokens.size === 0) return 0;
-      let shared = 0;
-      for (const tok of tTokens) if (fTokens.has(tok)) shared += 1;
-      if (shared === 0) return 0;
-      // Score = shared tokens, with bonus for higher coverage of forecast
-      // tokens (more specific match wins). Tie-breaker: closer length match.
-      const coverage = shared / fTokens.size;
-      const lengthPenalty = Math.abs(f.length - t.length) / 10000;
-      return shared * 100 + coverage * 10 - lengthPenalty;
-    };
+    // Score normalizado (NFD sem acentos, lowercase, sem caracteres especiais)
+    // — SSoT em src/lib/bp-tx-matching.ts. Empates ou score 0 deixam a TX órfã,
+    // que aparece no bucket "Sem linha específica" da categoria.
+    const scoreMatch = scoreDescriptionMatch;
 
     const matched = sameCat.filter((t: any) => {
       const myScore = scoreMatch(item.description, t.description);
