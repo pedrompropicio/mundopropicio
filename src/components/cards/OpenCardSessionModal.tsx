@@ -7,6 +7,7 @@ import { X, CreditCard } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { performCardLoad } from "./cardLoadHelpers";
+import { fetchCardAccountBalance } from "@/lib/card-account-balance";
 
 interface Props {
   open: boolean;
@@ -30,9 +31,9 @@ export function OpenCardSessionModal({
   const [holderProfileId, setHolderProfileId] = useState<string>("");
   const [holderName, setHolderName] = useState("");
   const [primaryEventId, setPrimaryEventId] = useState<string>("");
-  const [openingBalance, setOpeningBalance] = useState<string>(
-    presetOpeningBalance !== undefined ? String(presetOpeningBalance) : "0",
-  );
+  const [overrideOpening, setOverrideOpening] = useState(false);
+  const [openingBalance, setOpeningBalance] = useState<string>("0");
+  const [openingReason, setOpeningReason] = useState("");
   const [notes, setNotes] = useState("");
   const [loadAmount, setLoadAmount] = useState<string>("");
   const [loadSourceId, setLoadSourceId] = useState<string>("");
@@ -41,9 +42,22 @@ export function OpenCardSessionModal({
   useEffect(() => {
     if (open) {
       setCardAccountId(presetCardAccountId ?? "");
-      setOpeningBalance(presetOpeningBalance !== undefined ? String(presetOpeningBalance) : "0");
+      setOverrideOpening(false);
+      setOpeningReason("");
     }
-  }, [open, presetCardAccountId, presetOpeningBalance]);
+  }, [open, presetCardAccountId]);
+
+  // Saldo de abertura = saldo CALCULADO da conta do cartão neste momento
+  // (initial_balance + ajustes + movimentos pagos), não o fecho anterior.
+  const { data: calcBalance } = useQuery({
+    queryKey: ["card-account-balance", cardAccountId],
+    enabled: open && !!cardAccountId,
+    queryFn: () => fetchCardAccountBalance(cardAccountId),
+  });
+
+  useEffect(() => {
+    if (calcBalance !== undefined && !overrideOpening) setOpeningBalance(String(calcBalance));
+  }, [calcBalance, overrideOpening]);
 
   const { data: cards = [] } = useQuery({
     queryKey: ["prepaid-cards-active"],
@@ -101,6 +115,8 @@ export function OpenCardSessionModal({
     mutationFn: async () => {
       if (!cardAccountId) throw new Error("Selecione o cartão.");
       if (!holderName.trim()) throw new Error("Nome do portador é obrigatório.");
+      if (overrideOpening && !openingReason.trim())
+        throw new Error("Justificação obrigatória para definir o saldo de abertura manualmente.");
       const card = cards.find((c: any) => c.id === cardAccountId);
 
       const { data: session, error } = await supabase
@@ -110,8 +126,12 @@ export function OpenCardSessionModal({
           holder_profile_id: holderProfileId || null,
           holder_name: holderName.trim(),
           primary_event_id: primaryEventId || null,
-          opening_balance: parseFloat(openingBalance) || 0,
-          notes: notes.trim() || null,
+          // NULL = saldo de abertura dinâmico (calculado da conta na leitura).
+          opening_balance: overrideOpening ? parseFloat(openingBalance) || 0 : null,
+          notes:
+            [notes.trim(), overrideOpening ? `Abertura definida manualmente: ${openingReason.trim()}` : ""]
+              .filter(Boolean)
+              .join("\n") || null,
           opened_by: user?.id ?? null,
         })
         .select("id")
@@ -214,14 +234,55 @@ export function OpenCardSessionModal({
           </Field>
 
           <Field label="Saldo do cartão à data da entrega">
-            <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
-              {new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(
-                parseFloat(openingBalance) || 0,
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Snapshot informativo do saldo atual do cartão. Não movimenta contas. Para ajustar o saldo real da conta do cartão, use <strong>Contas de Movimentação</strong> (admin/gestor).
-            </p>
+            {overrideOpening ? (
+              <>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <textarea
+                  value={openingReason}
+                  onChange={(e) => setOpeningReason(e.target.value)}
+                  rows={2}
+                  placeholder="Justificação obrigatória (ex.: saldo real do cartão difere do registado nas Contas)"
+                  className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setOverrideOpening(false); setOpeningReason(""); }}
+                  className="mt-1 text-xs text-primary hover:underline"
+                >
+                  Usar o valor calculado da conta
+                </button>
+              </>
+            ) : (
+              <>
+                <div
+                  className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground"
+                  title="Calculado da conta: saldo inicial + ajustes + movimentos pagos"
+                >
+                  {new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(
+                    parseFloat(openingBalance) || 0,
+                  )}
+                  <span className="ml-2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                    calculado da conta
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Calculado automaticamente da conta do cartão (e recalculado se entrarem transações retroativas).
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setOverrideOpening(true)}
+                  className="mt-1 text-xs text-primary hover:underline"
+                >
+                  Definir manualmente
+                </button>
+              </>
+            )}
           </Field>
 
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
