@@ -25,6 +25,9 @@ export default function StandaloneInvoiceScanner() {
 
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  /** Quando true, o próximo OCR não sobrescreve campos já preenchidos. */
+  const preserveRef = useRef(false);
+
 
   const [file, setFile] = useState<File | null>(null);
   const [scanCandidate, setScanCandidate] = useState<File | null>(null);
