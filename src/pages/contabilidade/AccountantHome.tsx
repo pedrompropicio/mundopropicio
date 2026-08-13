@@ -10,6 +10,7 @@ import { PeriodSelector, PRESETS, type Period } from "./PeriodSelector";
 import { AccountantDocumentsTab } from "./AccountantDocumentsTab";
 import { AccountantReportsTab } from "./AccountantReportsTab";
 import { AccountantSuppliersTab } from "./AccountantSuppliersTab";
+import { AccountantStandaloneInvoicesTab } from "./AccountantStandaloneInvoicesTab";
 import { LogOut } from "lucide-react";
 
 export default function AccountantHome() {
