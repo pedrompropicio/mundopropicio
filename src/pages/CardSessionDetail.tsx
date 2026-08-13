@@ -24,6 +24,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
+import { fetchCardSessionAccountSync, resolveOpening } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
