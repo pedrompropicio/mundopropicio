@@ -85,10 +85,12 @@ export function TransactionInstallmentGroupEditor({
   const queryClient = useQueryClient();
   const { data: group = [] } = useInstallmentGroup(transaction);
 
-  const [rows, setRows] = useState<Record<string, { amount: number; due_date: string }>>({});
+  type RowState = { amount: number; pct: number; due_date: string };
+  const [rows, setRows] = useState<Record<string, RowState>>({});
   const [totalInput, setTotalInput] = useState<string>("");
   const [unlockPaid, setUnlockPaid] = useState(false);
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"eur" | "pct">("eur");
 
   const originalTotal = useMemo(
     () => +group.reduce((s, r) => s + r.amount, 0).toFixed(2),
@@ -97,12 +99,17 @@ export function TransactionInstallmentGroupEditor({
 
   useEffect(() => {
     if (group.length === 0) return;
-    const init: Record<string, { amount: number; due_date: string }> = {};
+    const init: Record<string, RowState> = {};
     group.forEach((r) => {
-      init[r.id] = { amount: r.amount, due_date: r.due_date ?? r.date };
+      init[r.id] = {
+        amount: r.amount,
+        pct: originalTotal > 0 ? +((r.amount / originalTotal) * 100).toFixed(2) : 0,
+        due_date: r.due_date ?? r.date,
+      };
     });
     setRows(init);
     setTotalInput(originalTotal.toFixed(2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.length, originalTotal]);
 
   const canEdit = isAdmin || isManager;
@@ -110,12 +117,71 @@ export function TransactionInstallmentGroupEditor({
   const newTotal = parseFloat(totalInput) || 0;
   const sum = +Object.values(rows).reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2);
   const diff = +(newTotal - sum).toFixed(2);
-  const mismatch = Math.abs(diff) > 0.01;
+  const pctSum = +group.reduce((s, r) => s + (Number(rows[r.id]?.pct) || 0), 0).toFixed(2);
+  const pctMismatch = mode === "pct" && Math.abs(pctSum - 100) > 0.01;
+  const mismatch = Math.abs(diff) > 0.01 || pctMismatch;
+
 
   const paidRows = group.filter(isPaidRow);
   const paidSum = +paidRows.reduce((s, r) => s + (rows[r.id]?.amount ?? r.amount), 0).toFixed(2);
 
   const rowLocked = (r: GroupRow) => isPaidRow(r) && !(isAdmin && unlockPaid);
+
+  /** Edição directa em € — sincroniza a % correspondente. */
+  const setAmount = (id: string, amount: number) =>
+    setRows((p) => ({
+      ...p,
+      [id]: {
+        ...p[id],
+        amount,
+        pct: newTotal > 0 ? +((amount / newTotal) * 100).toFixed(2) : 0,
+      },
+    }));
+
+  /** Edição em % — recalcula os € de todas as parcelas não travadas; resto do arredondamento na última. */
+  const setPct = (id: string, pct: number) =>
+    setRows((p) => {
+      const next: Record<string, RowState> = { ...p, [id]: { ...p[id], pct } };
+      const editable = group.filter((r) => !rowLocked(r));
+      editable.forEach((r) => {
+        const rowPct = Number(next[r.id]?.pct) || 0;
+        next[r.id] = { ...next[r.id], amount: +((newTotal * rowPct) / 100).toFixed(2) };
+      });
+      const total = group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0);
+      const delta = +(newTotal - total).toFixed(2);
+      const last = editable[editable.length - 1];
+      if (last && Math.abs(delta) > 0 && Math.abs(delta) <= 0.05) {
+        next[last.id] = { ...next[last.id], amount: +((next[last.id].amount || 0) + delta).toFixed(2) };
+      }
+      return next;
+    });
+
+  /** Alternar modo converte os valores em vez de limpar. */
+  const toggleMode = () =>
+    setMode((m) => {
+      const nextMode = m === "eur" ? "pct" : "eur";
+      setRows((p) => {
+        const next: Record<string, RowState> = { ...p };
+        group.forEach((r) => {
+          const cur = next[r.id];
+          if (!cur) return;
+          if (nextMode === "pct") {
+            next[r.id] = {
+              ...cur,
+              pct: newTotal > 0 ? +(((Number(cur.amount) || 0) / newTotal) * 100).toFixed(2) : 0,
+            };
+          } else {
+            next[r.id] = {
+              ...cur,
+              amount: +(((newTotal * (Number(cur.pct) || 0)) / 100)).toFixed(2),
+            };
+          }
+        });
+        return next;
+      });
+      return nextMode;
+    });
+
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -200,10 +266,24 @@ export function TransactionInstallmentGroupEditor({
     setRows((prev) => {
       const next = { ...prev };
       unpaid.forEach((r, i) => {
-        next[r.id] = { ...next[r.id], amount: amounts[i] };
+        next[r.id] = {
+          ...next[r.id],
+          amount: amounts[i],
+          pct: newTotal > 0 ? +((amounts[i] / newTotal) * 100).toFixed(2) : 0,
+        };
       });
+      // Garante que as % somam exactamente 100 (resto na última não paga)
+      if (mode === "pct" && newTotal > 0) {
+        const totalPct = group.reduce((s, r) => s + (Number(next[r.id]?.pct) || 0), 0);
+        const last = unpaid[unpaid.length - 1];
+        const delta = +(100 - totalPct).toFixed(2);
+        if (last && Math.abs(delta) > 0 && Math.abs(delta) <= 0.1) {
+          next[last.id] = { ...next[last.id], pct: +((next[last.id].pct || 0) + delta).toFixed(2) };
+        }
+      }
       return next;
     });
+
   };
 
 
@@ -250,10 +330,33 @@ export function TransactionInstallmentGroupEditor({
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => mode !== "eur" && toggleMode()}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-semibold",
+                    mode === "eur" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                  )}
+                >
+                  €
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mode !== "pct" && toggleMode()}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-semibold border-l border-border",
+                    mode === "pct" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                  )}
+                >
+                  %
+                </button>
+              </div>
               <Button type="button" size="sm" variant="secondary" onClick={distribute}>
                 <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
               </Button>
+
               {isAdmin && paidRows.length > 0 && (
                 <Button
                   type="button"
@@ -268,70 +371,76 @@ export function TransactionInstallmentGroupEditor({
             </div>
           </div>
 
-          <div className="rounded-md border border-border overflow-hidden bg-background">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="text-left px-2 py-1.5 font-medium">Parcela</th>
-                  <th className="text-left px-2 py-1.5 font-medium w-32">Vencimento</th>
-                  <th className="text-right px-2 py-1.5 font-medium w-28">Valor (€)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.map((r, i) => {
-                  const locked = rowLocked(r);
-                  const edited = rows[r.id] ?? { amount: r.amount, due_date: r.due_date ?? r.date };
-                  return (
-                    <tr
-                      key={r.id}
-                      className={cn(
-                        "border-t border-border/50",
-                        r.id === transaction.id && "bg-primary/5",
-                      )}
-                    >
-                      <td className="px-2 py-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground">{i + 1}.</span>
-                          <span className="truncate max-w-[220px]">{r.description}</span>
-                          {isPaidRow(r) && (
-                            <span className="rounded bg-success/20 px-1.5 py-0.5 text-[10px] text-success">
-                              paga
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1">
-                        <input
-                          type="date"
-                          value={edited.due_date ?? ""}
-                          disabled={locked}
-                          onChange={(e) =>
-                            setRows((p) => ({ ...p, [r.id]: { ...p[r.id], due_date: e.target.value } }))
-                          }
-                          className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs disabled:opacity-60"
-                        />
-                      </td>
-                      <td className="px-2 py-1">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={edited.amount || ""}
-                          disabled={locked}
-                          onChange={(e) =>
-                            setRows((p) => ({
-                              ...p,
-                              [r.id]: { ...p[r.id], amount: parseFloat(e.target.value) || 0 },
-                            }))
-                          }
-                          className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="rounded-md border border-border bg-background divide-y divide-border/50">
+            <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_9.5rem_8.5rem] gap-2 bg-muted/40 px-2 py-1.5 text-xs font-medium">
+              <span>Parcela</span>
+              <span>Vencimento</span>
+              <span className="text-right">{mode === "pct" ? "% / €" : "Valor (€)"}</span>
+            </div>
+            {group.map((r, i) => {
+              const locked = rowLocked(r);
+              const edited = rows[r.id] ?? { amount: r.amount, pct: 0, due_date: r.due_date ?? r.date };
+              return (
+                <div
+                  key={r.id}
+                  className={cn(
+                    "grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_9.5rem_8.5rem] gap-2 px-2 py-2 text-xs items-center",
+                    r.id === transaction.id && "bg-primary/5",
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                    <span className="truncate">{r.description}</span>
+                    {isPaidRow(r) && (
+                      <span className="shrink-0 rounded bg-success/20 px-1.5 py-0.5 text-[10px] text-success">
+                        paga
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={edited.due_date ?? ""}
+                    disabled={locked}
+                    onChange={(e) =>
+                      setRows((p) => ({ ...p, [r.id]: { ...p[r.id], due_date: e.target.value } }))
+                    }
+                    className="w-full min-w-0 rounded border border-border bg-background px-1.5 py-1 text-xs disabled:opacity-60"
+                  />
+                  {mode === "eur" ? (
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={edited.amount || ""}
+                      disabled={locked}
+                      onChange={(e) => setAmount(r.id, parseFloat(e.target.value) || 0)}
+                      className="w-full min-w-0 rounded border border-border bg-background px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-1 min-w-0">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={edited.pct || ""}
+                        disabled={locked}
+                        onChange={(e) => setPct(r.id, parseFloat(e.target.value) || 0)}
+                        className="w-16 shrink-0 rounded border border-border bg-background px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
+                      />
+                      <span className="text-muted-foreground shrink-0">%</span>
+                      <span className="ml-auto truncate font-mono text-muted-foreground">
+                        {(Number(edited.amount) || 0).toLocaleString("pt-PT", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        €
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
@@ -339,6 +448,11 @@ export function TransactionInstallmentGroupEditor({
               Pagas: <span className="font-mono">{paidSum.toFixed(2)}€</span> · Soma:{" "}
               <span className="font-mono">{sum.toFixed(2)}€</span> · Novo total:{" "}
               <span className="font-mono">{newTotal.toFixed(2)}€</span>
+              {mode === "pct" && (
+                <>
+                  {" "}· Soma %: <span className="font-mono">{pctSum.toFixed(2)}%</span>
+                </>
+              )}
             </span>
             <span
               className={cn(
@@ -346,19 +460,24 @@ export function TransactionInstallmentGroupEditor({
                 mismatch ? "text-destructive" : "text-success",
               )}
             >
-              {mismatch
-                ? `${diff > 0 ? "Falta" : "Excesso"} ${Math.abs(diff).toFixed(2)}€`
-                : "Soma confere"}
+              {pctMismatch
+                ? `Percentagens somam ${pctSum.toFixed(2)}%`
+                : mismatch
+                  ? `${diff > 0 ? "Falta" : "Excesso"} ${Math.abs(diff).toFixed(2)}€`
+                  : "Soma confere"}
             </span>
           </div>
 
           {mismatch && (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive flex items-start gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              A soma das parcelas tem de igualar o novo total (tolerância 0,01 €). Usa{" "}
-              <strong>Distribuir igualmente</strong> ou ajusta manualmente.
+              {pctMismatch
+                ? "As percentagens têm de somar 100% (tolerância 0,01%)."
+                : "A soma das parcelas tem de igualar o novo total (tolerância 0,01 €)."}{" "}
+              Usa <strong>Distribuir igualmente</strong> ou ajusta manualmente.
             </div>
           )}
+
 
           <div className="flex justify-end">
             <Button
