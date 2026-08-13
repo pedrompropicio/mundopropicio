@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
@@ -89,6 +89,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
   const close = useMutation({
     mutationFn: async () => {
       if (session.pending_items > 0) throw new Error("Existem itens pendentes de aprovação.");
+      if (highDiff && !confirmedHighDiff) throw new Error("Confirme a diferença invulgarmente alta antes de fechar.");
       const confirmed = parseFloat(confirmedBalance);
       if (isNaN(confirmed)) throw new Error("Saldo real inválido.");
 
@@ -96,7 +97,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
       if (Math.abs(diff) > 0.01 && createAdjustment) {
         if (!adjCategoryId) throw new Error("Selecione a categoria do ajuste.");
         const amt = Math.abs(diff);
-        const type = diff < 0 ? "expense" : "income"; // se diff < 0 sobra menos no cartão → despesa não registada
+        const type = adjType; // diff < 0 → despesa não registada; diff > 0 → receita/sobra
         const today = new Date().toISOString().split("T")[0];
         const { error } = await supabase.from("transactions").insert({
           description: `Ajuste fecho sessão cartão — ${session.card_name}`,
@@ -190,13 +191,25 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   Diferença: {diff > 0 ? "+" : ""}{formatCurrency(diff)}
                 </p>
               )}
+              {highDiff && (
+                <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-600">
+                  <p className="font-semibold">Diferença invulgarmente alta</p>
+                  <p className="mt-1">
+                    Confirma que digitaste o saldo <strong>ATUAL</strong> do cartão (não o saldo de abertura).
+                  </p>
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 font-medium">
+                    <input type="checkbox" checked={confirmedHighDiff} onChange={(e) => setConfirmedHighDiff(e.target.checked)} />
+                    Confirmo que este é o saldo atual do cartão
+                  </label>
+                </div>
+              )}
             </div>
 
             {Math.abs(diff) > 0.01 && (
               <div className="rounded-lg border border-border/60 p-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input type="checkbox" checked={createAdjustment} onChange={(e) => setCreateAdjustment(e.target.checked)} />
-                  Criar transação de ajuste ({diff < 0 ? "despesa" : "receita"})
+                  Criar transação de ajuste ({adjType === "expense" ? "despesa" : "receita"})
                 </label>
                 {createAdjustment && (
                   <div className="mt-2">
@@ -205,7 +218,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                       options={l3Options}
                       value={adjCategoryId}
                       onValueChange={setAdjCategoryId}
-                      placeholder="Selecionar…"
+                      placeholder={`Selecionar categoria de ${adjType === "expense" ? "despesa" : "receita"}…`}
                     />
                   </div>
                 )}
@@ -226,7 +239,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
               <button
                 type="button"
                 onClick={() => close.mutate()}
-                disabled={close.isPending}
+                disabled={close.isPending || (highDiff && !confirmedHighDiff)}
                 className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 {close.isPending ? "A fechar…" : "Fechar sessão"}
