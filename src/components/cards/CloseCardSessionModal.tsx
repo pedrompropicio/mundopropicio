@@ -96,7 +96,9 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
         closed_at: new Date().toISOString(),
       };
 
-      const { error: updErr } = await supabase
+      // .select().single() garante que 0 linhas afetadas (RLS/estado) dá erro
+      // visível em vez de sucesso falso.
+      const { data: updated, error: updErr } = await supabase
         .from("card_sessions")
         .update({
           status: "closed",
@@ -105,8 +107,15 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
           closing_balance_confirmed: parseFloat(confirmedBalance),
           closing_summary: summary,
         })
-        .eq("id", session.id);
+        .eq("id", session.id)
+        .select("id")
+        .maybeSingle();
       if (updErr) throw updErr;
+      if (!updated)
+        throw new Error(
+          "Nenhuma linha atualizada — sem permissão para fechar esta sessão ou o estado mudou. Recarrega a página e tenta de novo.",
+        );
+
     },
     onSuccess: () => {
       toast({ title: "Sessão fechada." });
