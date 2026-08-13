@@ -42,10 +42,55 @@ const monthLabel = (k: string) => {
 
 export function AccountantStandaloneInvoicesTab() {
   const { companyId } = useCompany();
-  const { user } = useAuth();
+  const { user, isAdmin, isAccountant } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [exporting, setExporting] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_date: "", total_amount: "", iva_amount: "", notes: "" });
+
+  const canProcess = isAdmin || isAccountant;
+  const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
+
+  const openEdit = (r: Row) => {
+    setEditing(r);
+    setForm({
+      supplier_name: r.supplier_name ?? "",
+      supplier_nif: r.supplier_nif ?? "",
+      invoice_date: r.invoice_date ?? "",
+      total_amount: r.total_amount == null ? "" : String(r.total_amount),
+      iva_amount: r.iva_amount == null ? "" : String(r.iva_amount),
+      notes: r.notes ?? "",
+    });
+  };
+
+  const saveEdit = useMutation({
+    mutationFn: async () => {
+      if (!editing) return;
+      const num = (v: string) => {
+        const n = Number(v.replace(",", "."));
+        return v.trim() === "" || Number.isNaN(n) ? null : n;
+      };
+      const { error } = await (supabase as any)
+        .from("standalone_invoices")
+        .update({
+          supplier_name: form.supplier_name.trim() || null,
+          supplier_nif: form.supplier_nif.trim() || null,
+          invoice_date: form.invoice_date || null,
+          total_amount: num(form.total_amount),
+          iva_amount: num(form.iva_amount),
+          notes: form.notes.trim() || null,
+        })
+        .eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditing(null);
+      qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      toast({ title: "Fatura atualizada" });
+    },
+    onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["standalone-invoices", companyId],
