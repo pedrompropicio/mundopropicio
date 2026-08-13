@@ -18,20 +18,32 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
   ('new'|'processed'), created_by, processed_at/by, company_id.
 - Bucket privado `standalone-invoices`, isolado por empresa (prefixo
   `${companyId}/` via `src/lib/storage.ts` → ISOLATED_BUCKETS).
-- RLS: escrita admin/platform_admin; leitura também para `accountant`
-  (read-only) com isolamento de empresa.
+- RLS (2026-08-13), sempre com isolamento de empresa:
+  - INSERT (upload): admin/platform_admin + **manager** + **editor** (tabela e bucket).
+  - SELECT: admin/platform_admin, accountant, manager, editor.
+  - UPDATE: admin/platform_admin, accountant OU `created_by = auth.uid()`.
+  - DELETE: só admin/platform_admin.
+- Regras de UI: "Marcar processada / Reabrir" só admin + contabilista;
+  editar metadados (fornecedor/NIF/data/total/IVA/nota) só admin ou quem capturou.
 
 ## Captura (mobile-first)
 - Rota `/scanner-faturas` (`src/pages/StandaloneInvoiceScanner.tsx`), atalho na
-  sidebar "Scanner Faturas" só para admin.
+  sidebar "Scanner Faturas" para admin, manager e editor.
 - "Tirar foto" (input `capture=environment`) + "Escolher ficheiro"
   (HEIC/JPG/PNG/PDF) → `normalizeImageFile` + `prepareFileForInvoiceOcr`.
 - OCR via edge fn `extract-camarim-receipt` (prompt inclui `supplier_nif` =
   NIF do EMITENTE). Todos os campos são OPCIONAIS: grava-se com o que o OCR
   apanhou; vazio → null. Depois de gravar: "Escanear outra".
 
-## Contabilista
-Aba "Faturas Avulsas" em `AccountantHome` →
+## Visão de conferência (reutilizada)
+Componente único `AccountantStandaloneInvoicesTab.tsx`, usado em dois sítios:
+aba "Faturas Avulsas" em `AccountantHome` (contabilista) e aba "Conferência"
+dentro de `/scanner-faturas` (admin/manager/editor). Nunca duplicar.
+Agrupamento por mês usa `invoice_date` (fallback `created_at`), mês mais
+recente primeiro.
+
+## Detalhe da lista
+→
 `AccountantStandaloneInvoicesTab.tsx`: agrupada por mês (invoice_date com
 fallback created_at), badge nova/processada, "Marcar processada" reversível,
 abrir documento via signed URL 1h e "Exportar mês" (ZIP das imagens + XLSX
