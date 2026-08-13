@@ -77,8 +77,8 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
           payment_date: today,
           exclude_from_result: true,
           card_session_id: session.id,
-          notes: note.trim() || null,
         });
+
         if (error) throw error;
       }
 
@@ -96,7 +96,9 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
         closed_at: new Date().toISOString(),
       };
 
-      const { error: updErr } = await supabase
+      // .select().single() garante que 0 linhas afetadas (RLS/estado) dá erro
+      // visível em vez de sucesso falso.
+      const { data: updated, error: updErr } = await supabase
         .from("card_sessions")
         .update({
           status: "closed",
@@ -105,8 +107,15 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
           closing_balance_confirmed: parseFloat(confirmedBalance),
           closing_summary: summary,
         })
-        .eq("id", session.id);
+        .eq("id", session.id)
+        .select("id")
+        .maybeSingle();
       if (updErr) throw updErr;
+      if (!updated)
+        throw new Error(
+          "Nenhuma linha atualizada — sem permissão para fechar esta sessão ou o estado mudou. Recarrega a página e tenta de novo.",
+        );
+
     },
     onSuccess: () => {
       toast({ title: "Sessão fechada." });
@@ -160,17 +169,20 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
               )}
               {highDiff && (
                 <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-600">
-                  <p className="font-semibold">Diferença invulgarmente alta</p>
+                  <p className="font-semibold">Diferença elevada entre teórico e real</p>
                   <p className="mt-1">
-                    Confirma que digitaste o saldo <strong>ATUAL</strong> do cartão (não o saldo de abertura).
-                    Uma diferença grande normalmente significa despesa mal registada — investiga antes de ajustar.
+                    Causas comuns: (1) o saldo de abertura da sessão foi editado já com despesas
+                    lançadas — nesse caso corrige a abertura em vez de criar ajuste; (2) despesa
+                    registada que não saiu deste cartão, ou movimento no cartão sem registo;
+                    (3) engano na digitação do saldo atual. Vale confirmar antes de fechar.
                   </p>
                   <label className="mt-2 flex cursor-pointer items-center gap-2 font-medium">
                     <input type="checkbox" checked={confirmedHighDiff} onChange={(e) => setConfirmedHighDiff(e.target.checked)} />
-                    Confirmo que este é o saldo atual do cartão
+                    Revi e confirmo o saldo digitado
                   </label>
                 </div>
               )}
+
             </div>
 
             {Math.abs(diff) > 0.01 && (

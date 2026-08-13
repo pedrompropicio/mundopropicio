@@ -47,7 +47,9 @@ Fase 2 abrirá `/cartoes-equipa` (mobile PWA) onde o produtor submete com câmar
   - Tipo: `expense` se diff<0, `income` se diff>0 → saldo da conta do cartão passa a igualar o saldo real conferido.
   - Nunca aparece na visão agrupada do BP (sem categoria/evento) nem no apuramento de IVA (taxa 0) nem no DRE (exclude_from_result).
 - **Nota obrigatória** quando há diferença E o ajuste está marcado: mensagem "Explica a origem da diferença (ex.: fatura perdida pelo operador do cartão)". Gravada em `transactions.notes` e no `closing_summary`. Botão "Fechar sessão" fica desativado sem nota.
-- Aviso de diferença invulgarmente alta (>50% do gasto aprovado) com checkbox de confirmação obrigatória; texto lembra que "diferença grande normalmente significa despesa mal registada — investiga antes de ajustar".
+- Nota gravada só na descrição da transação + `closing_summary` (a tabela `transactions` NÃO tem coluna `notes`).
+- Aviso de diferença elevada (>50% do gasto aprovado) com checkbox obrigatória "Revi e confirmo o saldo digitado". **Tom neutro e informativo** (2026-08-13, feedback do Pedro): lista causas comuns (abertura editada com despesas já lançadas → corrigir abertura em vez de ajustar; despesa que não saiu deste cartão ou movimento sem registo; engano de digitação). Nunca assumir erro do utilizador.
+- Update do fecho usa `.select("id").maybeSingle()` — 0 linhas afetadas dá erro visível em vez de sucesso falso.
 - Grava `closing_balance_confirmed` + `closing_summary` (opening, loads, aprovadas, teórico, confirmado, diff, breakdown por evento, autor/data).
 - Sem movimento bancário — remanescente fica no cartão para a próxima sessão.
 
@@ -57,7 +59,7 @@ Transições: open → in_review → closed. Manager/admin podem reabrir de in_r
 
 - `card_manage` — abrir/editar/aprovar/fechar sessões. Default: admin + manager (seed em migration). Concedível a outros via `user_permissions`.
 - `card_team` — submeter items pela vista mobile (Fase 2). Default: admin + manager.
-- RLS: SELECT aberto a autenticados; writes gated por `can_manage_cards(uuid)` (SECURITY DEFINER) + após `status='closed'` só admin/platform_admin. Isolamento estrito por `row_belongs_to_current_company()` RESTRICTIVE em todas as tabelas novas.
+- RLS: SELECT aberto a autenticados; writes gated por `can_manage_cards(uuid)` (SECURITY DEFINER). O gate de `closed` está só no **USING** (linha antiga): quem gere cartões pode FECHAR (in_review → closed); alterar/reabrir uma sessão já fechada é só admin/platform_admin. O WITH CHECK não pode ter a condição de estado, senão ninguém sem admin conseguia fechar (corrigido 2026-08-13). Isolamento estrito por `row_belongs_to_current_company()` RESTRICTIVE em todas as tabelas novas.
 
 ## UI
 
