@@ -14,6 +14,7 @@ import { fileToBase64, prepareFileForInvoiceOcr } from "@/lib/invoice-ocr-prepar
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/AccountantStandaloneInvoicesTab";
+import { DocumentScanStep } from "@/components/DocumentScanStep";
 
 const ACCEPT = `image/*,application/pdf,${HEIC_ACCEPT}`;
 
@@ -26,6 +27,7 @@ export default function StandaloneInvoiceScanner() {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
+  const [scanCandidate, setScanCandidate] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "convert" | "ocr" | "save">(null);
   const [saved, setSaved] = useState(false);
@@ -39,6 +41,7 @@ export default function StandaloneInvoiceScanner() {
 
   const reset = () => {
     setFile(null);
+    setScanCandidate(null);
     setPreviewUrl(null);
     setSupplierName("");
     setSupplierNif("");
@@ -51,25 +54,15 @@ export default function StandaloneInvoiceScanner() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const handlePicked = async (picked: File) => {
-    setSaved(false);
-    let normalized = picked;
-    if (isHeicFile(picked)) {
-      setBusy("convert");
-      try {
-        normalized = await normalizeImageFile(picked);
-      } catch (err: any) {
-        toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
-        setBusy(null);
-        return;
-      }
-    }
-    setFile(normalized);
-    setPreviewUrl(normalized.type.startsWith("image/") ? URL.createObjectURL(normalized) : null);
+  /** Aceita o ficheiro final (cru ou processado) e corre o OCR. */
+  const acceptFile = async (finalFile: File) => {
+    setScanCandidate(null);
+    setFile(finalFile);
+    setPreviewUrl(finalFile.type.startsWith("image/") ? URL.createObjectURL(finalFile) : null);
 
     setBusy("ocr");
     try {
-      const prep = await prepareFileForInvoiceOcr(normalized);
+      const prep = await prepareFileForInvoiceOcr(finalFile);
       if (!prep.ok) {
         toast({ title: "OCR não disponível para este ficheiro", description: "Preenche os campos à mão (opcional)." });
         return;
@@ -99,6 +92,32 @@ export default function StandaloneInvoiceScanner() {
     } finally {
       setBusy(null);
     }
+  };
+
+  const handlePicked = async (picked: File) => {
+    setSaved(false);
+    let normalized = picked;
+    if (isHeicFile(picked)) {
+      setBusy("convert");
+      try {
+        normalized = await normalizeImageFile(picked);
+      } catch (err: any) {
+        toast({ title: "Foto HEIC não suportada", description: err.message, variant: "destructive" });
+        setBusy(null);
+        return;
+      }
+      setBusy(null);
+    }
+
+    // Imagens passam pelo passo de scan (enquadramento + perspetiva).
+    if (normalized.type.startsWith("image/")) {
+      setFile(null);
+      setPreviewUrl(null);
+      setScanCandidate(normalized);
+      return;
+    }
+
+    await acceptFile(normalized);
   };
 
   const save = async () => {
@@ -202,6 +221,13 @@ export default function StandaloneInvoiceScanner() {
             </Button>
           </CardContent>
         </Card>
+      ) : scanCandidate ? (
+        <DocumentScanStep
+          file={scanCandidate}
+          onConfirm={(processed) => void acceptFile(processed)}
+          onUseOriginal={() => void acceptFile(scanCandidate)}
+          onCancel={reset}
+        />
       ) : (
         <>
           <div className="grid gap-2">
