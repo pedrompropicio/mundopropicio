@@ -33,8 +33,17 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
   const [note, setNote] = useState("");
   const [createAdjustment, setCreateAdjustment] = useState(false);
   const [adjCategoryId, setAdjCategoryId] = useState<string>("");
+  const [confirmedHighDiff, setConfirmedHighDiff] = useState(false);
 
   const diff = parseFloat(confirmedBalance) - theoretical;
+  const adjType: "income" | "expense" = diff < 0 ? "expense" : "income";
+
+  // Salvaguarda: diferença invulgarmente alta (>50% do gasto aprovado) sugere
+  // que foi digitado o saldo de abertura em vez do saldo atual do cartão.
+  const highDiff =
+    !isNaN(diff) &&
+    session.total_approved_expenses > 0 &&
+    Math.abs(diff) > session.total_approved_expenses * 0.5;
 
   const { data: categories = [] } = useQuery({
     queryKey: ["l3-categories"],
@@ -47,17 +56,35 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
 
   const l3Options = useMemo(() => {
     const byId = new Map(categories.map((c: any) => [c.id, c]));
+    const parentOf = (c: any) => byId.get(c.parent_id) as any | undefined;
     const isL3 = (c: any) => {
-      const p1 = byId.get(c.parent_id);
+      const p1 = parentOf(c);
       if (!p1) return false;
-      const p2 = byId.get((p1 as any).parent_id);
-      return !!p2;
+      return !!byId.get(p1.parent_id);
     };
     return categories
-      .filter((c: any) => isL3(c))
+      .filter((c: any) => isL3(c) && c.type === adjType)
       .sort((a: any, b: any) => (a.code || "").localeCompare(b.code || ""))
-      .map((c: any) => ({ value: c.id, label: `${c.code} — ${c.name} (${c.type})` }));
-  }, [categories]);
+      .map((c: any) => {
+        const p1 = parentOf(c);
+        return {
+          value: c.id,
+          label: `${c.code} — ${c.name}`,
+          group: p1 ? `${p1.code} — ${p1.name}` : undefined,
+        };
+      });
+  }, [categories, adjType]);
+
+  // Pré-selecionar uma categoria natural de acertos, se existir.
+  useEffect(() => {
+    if (!createAdjustment) return;
+    const stillValid = l3Options.some((o) => o.value === adjCategoryId);
+    if (stillValid) return;
+    const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const natural = l3Options.find((o) => /ajuste|acerto|divers/.test(norm(o.label)));
+    setAdjCategoryId(natural?.value ?? "");
+  }, [createAdjustment, l3Options, adjCategoryId]);
+
 
   const close = useMutation({
     mutationFn: async () => {
