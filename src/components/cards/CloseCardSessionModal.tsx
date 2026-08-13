@@ -77,8 +77,8 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
           payment_date: today,
           exclude_from_result: true,
           card_session_id: session.id,
-          notes: note.trim() || null,
         });
+
         if (error) throw error;
       }
 
