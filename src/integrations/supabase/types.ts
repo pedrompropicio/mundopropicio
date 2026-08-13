@@ -8662,6 +8662,63 @@ export type Database = {
           },
         ]
       }
+      standalone_invoices: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          file_name: string
+          id: string
+          invoice_date: string | null
+          iva_amount: number | null
+          notes: string | null
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          storage_path: string
+          supplier_name: string | null
+          supplier_nif: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          id?: string
+          invoice_date?: string | null
+          iva_amount?: number | null
+          notes?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          storage_path: string
+          supplier_name?: string | null
+          supplier_nif?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          id?: string
+          invoice_date?: string | null
+          iva_amount?: number | null
+          notes?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          storage_path?: string
+          supplier_name?: string | null
+          supplier_nif?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       static_pages: {
         Row: {
           company_id: string
