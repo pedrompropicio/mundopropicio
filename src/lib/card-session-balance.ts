@@ -43,11 +43,6 @@ export function txSignedAmount(t: { type?: string | null; paid_amount?: number |
 export interface CardSessionAccountSync {
   /** Saldo de abertura calculado da conta (à data/hora de abertura). */
   dynamicOpening: number;
-  /** Override manual gravado em card_sessions.opening_balance (null = dinâmico). */
-  overrideOpening: number | null;
-  /** Valor efetivo a usar: override quando existe, senão o dinâmico. */
-  opening: number;
-  isOverride: boolean;
   /** Movimentos diretos na conta durante o período da sessão (fora da sessão). */
   directMovements: CardAccountTx[];
   /** Σ assinada dos movimentos diretos. */
@@ -108,14 +103,8 @@ export async function fetchCardSessionAccountSync(params: {
 
   directMovements.sort((a, b) => (txEffectiveDate(b) > txEffectiveDate(a) ? 1 : -1));
 
-  const overrideOpening =
-    params && (params as any).overrideOpening !== undefined ? (params as any).overrideOpening : null;
-
   return {
     dynamicOpening,
-    overrideOpening,
-    opening: dynamicOpening,
-    isOverride: false,
     directMovements,
     directTotal,
     accountBalance,
