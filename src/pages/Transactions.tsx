@@ -33,7 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, calcWithIva } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -1031,7 +1031,8 @@ export default function Transactions() {
     const grouped: RefundRenderItem<any>[] = groupTransactionsByRefund(items, {
       getId: (t: any) => t.id,
       getNoteId: (t: any) => refundIndex.byTx.get(t.id) ?? null,
-      getAmount: (t: any) => Number(t.amount ?? 0),
+      // Contexto de pagamento: despesas somam-se sempre c/IVA (igual à coluna "Valor c/IVA").
+      getAmount: (t: any) => calcWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)),
       notes: refundIndex.notes,
       isPaymentTx: (t: any) => refundIndex.paymentTxIds.has(t.id),
       getTotalChildCount: (noteId: string) => refundIndex.totalChildCounts.get(noteId) ?? 0,
