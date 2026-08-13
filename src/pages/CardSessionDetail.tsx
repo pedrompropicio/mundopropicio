@@ -141,8 +141,36 @@ export default function CardSessionDetail() {
   const pendingItems = (items as any[]).filter((i) => i.status === "submitted");
   // Cartão gasta SEMPRE o total c/IVA — amount na BD é base s/IVA.
   const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
-  const opening = Number(session?.opening_balance ?? 0);
-  const theoretical = opening + totalLoads - totalApproved - totalPending;
+
+  // Sessões FECHADAS não recalculam nada — usam o closing_summary histórico.
+  const isClosedSession = (session as any)?.status === "closed";
+  const loadInIds = (loads as any[]).map((l) => l.in_transaction_id);
+  const { data: accountSync } = useQuery({
+    queryKey: ["card-session-account-sync", id, cardAccountId, loadInIds.filter(Boolean).length],
+    enabled: !!cardAccountId && !!session && !isClosedSession,
+    queryFn: () =>
+      fetchCardSessionAccountSync({
+        accountId: cardAccountId as string,
+        sessionId: id!,
+        openedAt: (session as any).opened_at,
+        loadInTransactionIds: loadInIds,
+      }),
+  });
+
+  const rawOverride =
+    (session as any)?.opening_balance === null || (session as any)?.opening_balance === undefined
+      ? null
+      : Number((session as any).opening_balance);
+  const { opening, isOverride } = isClosedSession
+    ? {
+        opening: Number(
+          (session as any)?.closing_summary?.opening_balance ?? (session as any)?.opening_balance ?? 0,
+        ),
+        isOverride: rawOverride !== null,
+      }
+    : resolveOpening(rawOverride, accountSync?.dynamicOpening ?? 0);
+  const directTotal = isClosedSession ? 0 : accountSync?.directTotal ?? 0;
+  const theoretical = opening + totalLoads - totalApproved - totalPending + directTotal;
 
 
   const expensesByEvent = useMemo(() => {
