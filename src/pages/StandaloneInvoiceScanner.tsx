@@ -12,6 +12,8 @@ import { Camera, Upload, Loader2, Check, ArrowLeft, ScanLine } from "lucide-reac
 import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { fileToBase64, prepareFileForInvoiceOcr } from "@/lib/invoice-ocr-prepare";
 import { uploadToCompanyBucket } from "@/lib/storage";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/AccountantStandaloneInvoicesTab";
 
 const ACCEPT = `image/*,application/pdf,${HEIC_ACCEPT}`;
 
