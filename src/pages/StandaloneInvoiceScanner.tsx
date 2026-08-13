@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, Upload, Loader2, Check, ArrowLeft, ScanLine } from "lucide-react";
+import { Camera, Upload, Loader2, Check, ArrowLeft, ScanLine, RefreshCw, X } from "lucide-react";
 import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { fileToBase64, prepareFileForInvoiceOcr } from "@/lib/invoice-ocr-prepare";
 import { uploadToCompanyBucket } from "@/lib/storage";
