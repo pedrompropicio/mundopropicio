@@ -158,6 +158,16 @@ export default function StandaloneInvoiceScanner() {
         </div>
       </div>
 
+      <Tabs defaultValue="scan">
+        <TabsList className="w-full">
+          <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
+          <TabsTrigger value="list" className="flex-1">Conferência</TabsTrigger>
+        </TabsList>
+        <TabsContent value="list" className="pt-4">
+          <AccountantStandaloneInvoicesTab />
+        </TabsContent>
+        <TabsContent value="scan" className="pt-4 space-y-4">
+
       <input
         ref={cameraRef}
         type="file"
