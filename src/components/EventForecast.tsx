@@ -32,6 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
@@ -1690,25 +1691,73 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       groupMap[groupName].items.push(item);
     });
 
-    // Sort items within each group by category code
+    // Sort items within each group by category code.
+    // Buckets sintéticos ("Sem linha específica") ficam sempre no fim da sua categoria.
     groups.forEach((g) => {
       g.items.sort((a, b) => {
         const codeA = catLookup[a.category_id]?.code ?? "Z.Z";
         const codeB = catLookup[b.category_id]?.code ?? "Z.Z";
-        return compareHierarchicalCodes(codeA, codeB);
+        const byCode = compareHierarchicalCodes(codeA, codeB);
+        if (byCode !== 0) return byCode;
+        return (a._orphanBucket ? 1 : 0) - (b._orphanBucket ? 1 : 0);
       });
     });
 
     return groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
   };
 
-  const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
+  // Regra de ouro: nenhuma transação com categoria pode ficar invisível na visão
+  // agrupada. Para cada categoria com transações não reclamadas por nenhuma linha
+  // BP (sem back-link e sem ganhar o token-match, ou categoria sem BP), criamos uma
+  // linha sintética "Sem linha específica" — só realizado, não editável.
+  const buildOrphanBuckets = (type: "income" | "expense") => {
+    const txs = transactions as any[];
+    if (!txs?.length) return [];
+    const catIds = new Set<string>();
+    for (const t of txs) {
+      if (t.type !== type || !t.category_id) continue;
+      if (!(t.event_id === eventId || t.event_id === null)) continue;
+      catIds.add(t.category_id);
+    }
+    const out: any[] = [];
+    for (const categoryId of catIds) {
+      const orphans = findCategoryOrphanTransactions({
+        categoryId,
+        type,
+        eventId,
+        transactions: txs,
+        allForecasts: forecasts as any[],
+      });
+      if (orphans.length === 0) continue;
+      const info = catLookup[categoryId];
+      out.push({
+        id: `orphan-bucket-${type}-${categoryId}`,
+        _orphanBucket: true,
+        _orphanTx: orphans,
+        category_id: categoryId,
+        type,
+        amount: 0,
+        iva_rate: 0,
+        status: "n/a",
+        description: "Sem linha específica",
+        specification: null,
+        event_id: eventId,
+        account_categories: info ? { code: info.code, name: info.name } : null,
+      });
+    }
+    return out;
+  };
+
+  const incomeGroups = useMemo(
+    () => groupForecasts([...incomeForecasts, ...buildOrphanBuckets("income")]),
+    [incomeForecasts, catLookup, transactions, forecasts, eventId],
+  );
   const expenseGroups = useMemo(() => {
     // Merge own expenses with prorated parent expenses into a single list
     const mergedExpenses = [...expenseForecasts, ...filteredProratedParentExpenses.map((f: any) => ({ ...f, _prorated: true }))];
-    const groups = groupForecasts(mergedExpenses);
+    const groups = groupForecasts([...mergedExpenses, ...buildOrphanBuckets("expense")]);
     return groups;
-  }, [expenseForecasts, filteredProratedParentExpenses, catLookup]);
+  }, [expenseForecasts, filteredProratedParentExpenses, catLookup, transactions, forecasts, eventId]);
 
   // IVA somado SEMPRE linha-a-linha com arredondamento ao cêntimo (CIVA Art.º 18)
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
@@ -2326,7 +2375,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               </tr>
                             )}
                             {group.items.map((f) => (
-                              f.is_overhead ? (
+                              f._orphanBucket ? (
+                                <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
+                              ) : f.is_overhead ? (
                                 <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
@@ -2548,7 +2599,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               </tr>
                             )}
                             {group.items.map((f) => (
-                              f._overhead_via_master ? (
+                              f._orphanBucket ? (
+                                <OrphanBucketRow key={f.id} item={f} isExpense indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
+                              ) : f._overhead_via_master ? (
                                 <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : f.is_overhead ? (
                                 <ForecastRow key={`overhead-${f.id}`} item={f} colorClass="text-warning/80" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
@@ -3012,33 +3065,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     // Multiple forecasts share this category — assign each transaction to the
     // forecast with the BEST description match, so a transaction is never shown
     // under more than one BP line.
-    const scoreMatch = (forecastDesc: string, txDesc: string): number => {
-      const f = (forecastDesc ?? "").toLowerCase().trim();
-      const t = (txDesc ?? "").toLowerCase().trim();
-      if (!f && !t) return 0;
-      if (f === t) return 1000; // exact match wins
-      if (!f || !t) return 0;
-      // Token-based scoring: count significant tokens (≥3 chars) shared
-      // between forecast and transaction descriptions. This avoids the
-      // false-positive substring trap where "Camarim" matches both
-      // "Camarim - Catering" and "Camarim compras cartão mp" equally.
-      const tokenize = (s: string) =>
-        s
-          .replace(/[^\p{L}\p{N}\s]/gu, " ")
-          .split(/\s+/)
-          .filter((w) => w.length >= 3);
-      const fTokens = new Set(tokenize(f));
-      const tTokens = new Set(tokenize(t));
-      if (fTokens.size === 0 || tTokens.size === 0) return 0;
-      let shared = 0;
-      for (const tok of tTokens) if (fTokens.has(tok)) shared += 1;
-      if (shared === 0) return 0;
-      // Score = shared tokens, with bonus for higher coverage of forecast
-      // tokens (more specific match wins). Tie-breaker: closer length match.
-      const coverage = shared / fTokens.size;
-      const lengthPenalty = Math.abs(f.length - t.length) / 10000;
-      return shared * 100 + coverage * 10 - lengthPenalty;
-    };
+    // Score normalizado (NFD sem acentos, lowercase, sem caracteres especiais)
+    // — SSoT em src/lib/bp-tx-matching.ts. Empates ou score 0 deixam a TX órfã,
+    // que aparece no bucket "Sem linha específica" da categoria.
+    const scoreMatch = scoreDescriptionMatch;
 
     const matched = sameCat.filter((t: any) => {
       const myScore = scoreMatch(item.description, t.description);
@@ -3662,71 +3692,123 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
   );
 }
 
+/**
+ * Linha sintética por categoria: agrupa as transações que nenhuma linha do BP
+ * reclama (sem back-link e sem ganhar o match de descrição, ou categoria sem BP).
+ * Só tem realizado — não é editável, aprovável nem entra no previsto.
+ */
+function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, eventId }: {
+  item: any;
+  isExpense?: boolean;
+  indented?: boolean;
+  isAdmin?: boolean;
+  queryClient?: any;
+  eventId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [viewingTransaction, setViewingTransaction] = useState<any>(null);
+  const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
+  const txs: any[] = item._orphanTx ?? [];
+  const colCount = isExpense ? 8 : 7;
+  const realized = txs.reduce((s, t) => s + Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100), 0);
+
+  return (
+    <>
+      <tr className="bg-muted/20 hover:bg-muted/30 transition-colors">
+        <td colSpan={colCount - 1} className={`py-2 pr-3 ${indented ? "pl-6" : "pl-2"}`}>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 text-left"
+            title="Transações desta categoria sem linha específica do BP"
+          >
+            {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <div>
+              <p className="text-xs font-medium italic text-muted-foreground">
+                {item.account_categories?.code && <span className="mr-1">{item.account_categories.code}</span>}
+                Sem linha específica
+                <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium not-italic text-muted-foreground">
+                  {txs.length} transação(ões)
+                </span>
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Sem previsto · Realizado <span className="font-mono">{formatCurrency(realized)}</span>
+              </p>
+            </div>
+          </button>
+        </td>
+        <td className="py-2 text-right pr-2">
+          <span className="text-[10px] text-muted-foreground">—</span>
+        </td>
+      </tr>
+      {open && txs.length > 0 && (
+        <tr>
+          <td colSpan={colCount} className="py-0">
+            <div className="my-1 ml-6 space-y-1.5 rounded-r-lg border-l-2 border-muted-foreground/30 bg-muted/20 px-3 py-2 animate-fade-in">
+              {txs.map((tx: any) => {
+                const txTotal = Number(tx.amount) * (1 + Number(tx.iva_rate ?? 0) / 100);
+                const txPaid = Number(tx.paid_amount ?? 0);
+                const isPaid = tx.status === "paid" || txTotal - txPaid < 0.01;
+                return (
+                  <div key={tx.id} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5">
+                    <button type="button" onClick={() => setViewingTransaction(tx)} className="block w-full cursor-pointer text-left">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium">{tx.description}</p>
+                          {tx.specification && <p className="truncate text-[10px] text-muted-foreground">{tx.specification}</p>}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isPaid ? "bg-success/15 text-success" : "bg-blue-500/15 text-blue-400"}`}>
+                            {isPaid ? "Pago" : "A Pagar"}
+                          </span>
+                          <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                        </div>
+                      </div>
+                    </button>
+                    <div className="mt-1 flex items-center justify-end gap-1">
+                      <TransactionAttachmentButton transactionId={tx.id} onClick={() => setDocumentsTransaction(tx)} />
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between border-t border-border/30 pt-1 text-xs">
+                <span className="font-medium text-muted-foreground">Total transações</span>
+                <span className="font-mono font-bold">{formatCurrency(realized)}</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+      {viewingTransaction && (
+        <TransactionEditModal
+          transaction={viewingTransaction}
+          onClose={() => {
+            setViewingTransaction(null);
+            if (queryClient && eventId) {
+              queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+              queryClient.invalidateQueries({ queryKey: ["event-transactions", eventId] });
+            }
+          }}
+          isAdmin={isAdmin}
+        />
+      )}
+      {documentsTransaction && (
+        <TransactionDocumentsModal
+          transactionId={documentsTransaction.id}
+          transactionDescription={documentsTransaction.description}
+          onClose={() => setDocumentsTransaction(null)}
+        />
+      )}
+    </>
+  );
+}
+
 /* ── Comparison ── */
 
 // Pure helper: returns transactions that match a single BP line.
-// Same logic used by ComparisonRowItem hover/expand and by the bulk
-// "Gerar Transações" button to enforce "1 auto-generated tx per BP line".
-export function findMatchingTransactionsForForecast(
-  forecast: any,
-  eventTransactions: any[],
-  allForecasts: any[],
-): any[] {
-  if (!eventTransactions) return [];
-  // Direct back-link (always include)
-  const directTx = forecast.transaction_id
-    ? eventTransactions.filter((t: any) => t.id === forecast.transaction_id)
-    : [];
-
-  const allowedEventIds = new Set([
-    forecast.event_id,
-    null,
-    forecast._master_event_id,
-  ].filter((value) => value !== undefined));
-  const scoped = eventTransactions.filter((t: any) => allowedEventIds.has(t.event_id));
-
-  const mergeWithDirect = (list: any[]) => {
-    if (directTx.length === 0) return list;
-    const ids = new Set(list.map((t: any) => t.id));
-    return [...list, ...directTx.filter((t: any) => !ids.has(t.id))];
-  };
-
-  if (!forecast.category_id) return directTx;
-  const sameCat = scoped.filter(
-    (t: any) => t.category_id === forecast.category_id && t.type === forecast.type,
-  );
-  const sameCatForecasts = (allForecasts ?? []).filter(
-    (f: any) => f.category_id === forecast.category_id && f.type === forecast.type && f.event_id === forecast.event_id,
-  );
-  if (sameCatForecasts.length <= 1) return mergeWithDirect(sameCat);
-  const tokenize = (s: string) =>
-    String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 3);
-  const score = (fd: string, td: string) => {
-    const f = String(fd ?? "").toLowerCase().trim();
-    const t = String(td ?? "").toLowerCase().trim();
-    if (!f && !t) return 0;
-    if (f === t) return 1000;
-    if (!f || !t) return 0;
-    const fT = new Set(tokenize(f));
-    const tT = new Set(tokenize(t));
-    if (fT.size === 0 || tT.size === 0) return 0;
-    let shared = 0;
-    for (const tok of tT) if (fT.has(tok)) shared += 1;
-    if (shared === 0) return 0;
-    return shared * 100 + (shared / fT.size) * 10 - Math.abs(f.length - t.length) / 10000;
-  };
-  const matched = sameCat.filter((t: any) => {
-    const my = score(forecast.description, t.description);
-    if (my <= 0) return false;
-    const bestOther = sameCatForecasts.reduce((max: number, f: any) => {
-      if (f.id === forecast.id) return max;
-      const s = score(f.description, t.description);
-      return s > max ? s : max;
-    }, 0);
-    return my > bestOther;
-  });
-  return mergeWithDirect(matched);
-}
+// SSoT em src/lib/bp-tx-matching.ts (normalização sem acentos + winner-takes-all).
+// Re-exportado aqui por retrocompatibilidade com imports existentes.
+export { findMatchingTransactionsForForecast };
 
 interface ComparisonRow {
   categoryCode: string;

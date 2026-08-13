@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { scoreDescriptionMatch } from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
 
 interface BPExportInput {
@@ -163,29 +164,9 @@ function matchTransactionsForForecast(
   if (fcSameCat.length <= 1) return sameCat;
 
   // Multiple forecasts share this category — assign each transaction to the
-  // forecast with the BEST description match, so a transaction is never shown
-  // under more than one BP line.
-  const scoreMatch = (forecastDesc: string, txDesc: string): number => {
-    const f = (forecastDesc ?? "").toLowerCase().trim();
-    const t = (txDesc ?? "").toLowerCase().trim();
-    if (!f && !t) return 0;
-    if (f === t) return 1000;
-    if (!f || !t) return 0;
-    const tokenize = (s: string) =>
-      s
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
-        .split(/\s+/)
-        .filter((w) => w.length >= 3);
-    const fTokens = new Set(tokenize(f));
-    const tTokens = new Set(tokenize(t));
-    if (fTokens.size === 0 || tTokens.size === 0) return 0;
-    let shared = 0;
-    for (const tok of tTokens) if (fTokens.has(tok)) shared += 1;
-    if (shared === 0) return 0;
-    const coverage = shared / fTokens.size;
-    const lengthPenalty = Math.abs(f.length - t.length) / 10000;
-    return shared * 100 + coverage * 10 - lengthPenalty;
-  };
+  // forecast with the BEST description match (SSoT em src/lib/bp-tx-matching.ts,
+  // normalização sem acentos/caracteres especiais).
+  const scoreMatch = scoreDescriptionMatch;
 
   const matched = sameCat.filter((t) => {
     const myScore = scoreMatch(fc.description, t.description ?? "");

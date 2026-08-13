@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { formatTransactionStatusPT } from "@/lib/transaction-status";
+import { scoreDescriptionMatch } from "@/lib/bp-tx-matching";
 import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag, Wand2, Check, X } from "lucide-react";
 
 interface Props {
@@ -199,22 +200,8 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
   // winner-takes-all por tokens da descrição. Se a ferramenta só olhasse o FK,
   // apareceriam falsos "sem vínculo" (ex.: Anitta 2.5.05 · Bees).
   type LinkKind = "direct" | "category";
-  const raTokenize = (s: string | null | undefined) =>
-    String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 3);
-  const raScore = (fd: string | null | undefined, td: string | null | undefined) => {
-    const f = String(fd ?? "").toLowerCase().trim();
-    const t = String(td ?? "").toLowerCase().trim();
-    if (!f && !t) return 0;
-    if (f === t) return 1000;
-    if (!f || !t) return 0;
-    const fT = new Set(raTokenize(f));
-    const tT = new Set(raTokenize(t));
-    if (fT.size === 0 || tT.size === 0) return 0;
-    let shared = 0;
-    for (const tok of tT) if (fT.has(tok)) shared += 1;
-    if (shared === 0) return 0;
-    return shared * 100 + (shared / fT.size) * 10 - Math.abs(f.length - t.length) / 10000;
-  };
+  // Score normalizado — SSoT em src/lib/bp-tx-matching.ts (sem acentos/caracteres especiais).
+  const raScore = scoreDescriptionMatch;
 
   const forecastByTxId = useMemo(() => {
     const m = new Map<string, { forecast: Forecast; kind: LinkKind }>();
