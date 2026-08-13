@@ -1044,13 +1044,8 @@ export function exportPLToPDF(
       const showAbs = !line.isGrandTotal;
       doc.text(fmtVal(showAbs ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
-      if (!line.subIndent && !line.isSubTotal && !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.indent) {
-        doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
-      } else {
-        doc.text(fmtVal(showAbs ? Math.abs(line.forecastIva) : line.forecastIva), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        doc.text(fmtVal(showAbs ? Math.abs(line.forecastTotal) : line.forecastTotal), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
-      }
+      doc.text(fmtVal(showAbs ? Math.abs(line.forecastIva) : line.forecastIva), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+      doc.text(fmtVal(showAbs ? Math.abs(line.forecastTotal) : line.forecastTotal), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
 
       if (isComparison) {
         doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
