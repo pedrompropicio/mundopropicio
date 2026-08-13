@@ -69,3 +69,15 @@ reabre câmera + passo de scan, substitui a imagem e mantém campos digitados;
 OCR só preenche campos vazios e é saltado se fornecedor/NIF/data/total já
 estiverem preenchidos) e "Dispensar" (ghost — limpa preview + campos, confirma
 só se houver algo preenchido).
+
+## Deteção de contornos (2026-08-13)
+
+- Deteção deixou de usar jscanify/opencv.js (CDN 8MB). Passou a pipeline próprio em
+  `src/lib/document-detect.ts`: downscale 700px → grayscale → gaussian blur →
+  3 estratégias (Sobel+dilate, Otsu, adaptive threshold) → maior componente conexa →
+  convex hull → approxPolyDP → melhor quadrilátero por área.
+- Validação obrigatória: área 15–95% do frame, convexidade, lados mínimos e rejeição de
+  quad ≈ frame inteiro (antes isto passava como "sucesso" e enquadrava a mesa toda).
+- Warp de perspetiva também é próprio (homografia 8x8 + bilinear) em `document-scan.ts`.
+- Harness: `src/lib/__tests__/document-detect.test.ts` gera imagens sintéticas (retângulo
+  branco rodado 6–20° sobre mármore castanho com sombra) e exige erro < 3% do lado maior.
