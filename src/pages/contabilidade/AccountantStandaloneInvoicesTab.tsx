@@ -7,7 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket } from "@/lib/storage";
 
 interface Row {
