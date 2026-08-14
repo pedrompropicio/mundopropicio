@@ -41,9 +41,10 @@ Deno.serve(async (req) => {
   if (!/^[a-z0-9_\-]{3,80}$/i.test(secretName)) return json(400, { error: "secretName inválido" });
   if (!email || !password) return json(400, { error: "email e password são obrigatórios" });
 
-  const { error } = await admin.rpc("create_vault_secret" as any, {
+  const { error } = await admin.rpc("upsert_vault_secret" as any, {
     _name: secretName,
-    _secret: JSON.stringify({ email, password }),
+    _value: JSON.stringify({ email, password }),
+    _description: "BOL credentials (produtores.bol.pt)",
   });
   if (error) return json(500, { error: error.message });
 
