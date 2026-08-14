@@ -2114,6 +2114,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     {tx && !isBankable(tx) && (
                       <div className="pb-1"><NoIbanBadge {...noIbanBadgeProps(tx)} /></div>
                     )}
+                    {tx && isInternalNoIban(tx) && (
+                      <div className="pb-1"><NoIbanBadge variant="neutral" {...internalNoIbanBadgeProps()} /></div>
+                    )}
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
                       <>
