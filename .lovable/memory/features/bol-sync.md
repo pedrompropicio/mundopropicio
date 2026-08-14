@@ -4,6 +4,15 @@ description: Sync diária do mapa M2 "Tipo de Venda" da BOL (MapasProdutor.aspx)
 type: feature
 ---
 
+## Estado em produção (2026-08-14)
+
+Sync 100% funcional em produção — `fetch-bol-reports` v1.5_reportviewer.
+- 3/3 eventos importados e validados:
+  - Deive Leonardo Lisboa — 267 bilhetes / 11.634,00 €
+  - Conferência de Mulheres Plenitude — 436 bilhetes / 64.031,00 €
+  - RG Europarque (Santa Maria da Feira) — 13 bilhetes / 425,00 €
+- Cron `bol-sync-daily` aplicado no Live: `20 23 * * *`, timeout 300.000 ms.
+
 ## Desenho
 
 Espelho do sync Ticketline v2.8:
