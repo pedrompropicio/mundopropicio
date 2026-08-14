@@ -3182,7 +3182,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     />
                   </div>
                   <p className="sm:col-span-2 text-[10px] text-muted-foreground">
-                    Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
+                    {canApprovePartnerPaid
+                      ? "Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio."
+                      : "O vínculo fica pendente de aprovação por administrador/gestor no painel “Despesas Pagas por Sócios” do evento. Até lá a transação mantém o estado normal e não soma no acerto com o sócio."}
                   </p>
                 </div>
               )}
