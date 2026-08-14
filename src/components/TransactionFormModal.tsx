@@ -3281,8 +3281,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           })()}
 
 
+          {/* Guardrails de liquidação na criação */}
+          {autoMarkPaid && !canCreatePaid && (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              A transação será criada <strong>em aberto</strong>. A liquidação faz-se no modal de pagamento após a criação.
+            </p>
+          )}
+          {effectiveAutoMarkPaid && !form.account_id && (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              Uma transação criada como paga exige <strong>conta financeira</strong> associada.
+            </p>
+          )}
 
           {!showProrationConfirm && !showDuplicateConfirm && (
+
             <div className="flex gap-2">
               <label
                 className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-secondary/80 cursor-pointer"
