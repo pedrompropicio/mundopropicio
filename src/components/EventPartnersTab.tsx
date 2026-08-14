@@ -30,6 +30,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [lossPercentage, setLossPercentage] = useState("");
   const [notes, setNotes] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const [editPercentage, setEditPercentage] = useState("");
   const [editLossPercentage, setEditLossPercentage] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -115,14 +116,21 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   });
 
   const updatePartner = useMutation({
-    mutationFn: async ({ id, percentage: pct, loss_percentage: lp, notes: n }: { id: string; percentage: number; loss_percentage: number | null; notes: string }) => {
+    mutationFn: async ({ id, supplier_id, name, percentage: pct, loss_percentage: lp, notes: n, originalName }: { id: string; supplier_id: string; name: string; percentage: number; loss_percentage: number | null; notes: string; originalName: string }) => {
       const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null }).eq("id", id);
       if (error) throw error;
+      const trimmed = name.trim();
+      if (trimmed && trimmed !== originalName) {
+        const { error: nameError } = await supabase.from("suppliers").update({ name: trimmed }).eq("id", supplier_id);
+        if (nameError) throw nameError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event-partners", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       setEditingId(null);
-      toast({ title: "Participação atualizada" });
+      toast({ title: "Sócio atualizado" });
     },
     onError: (err: any) => {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -202,7 +210,23 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 return (
                   <React.Fragment key={p.id}>
                   <TableRow className="[&>td]:py-1 [&>td]:px-2">
-                    <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      {isEditing ? (
+                        <div className="space-y-1">
+                          <Input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="h-7 min-w-[180px]"
+                            placeholder="Nome do sócio"
+                          />
+                          <p className="text-[10px] leading-tight text-muted-foreground">
+                            Altera o nome desta entidade em todo o sistema.
+                          </p>
+                        </div>
+                      ) : (
+                        p.suppliers?.name || "—"
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-mono">
                       {isEditing ? (
                         <Input
@@ -246,8 +270,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           {isEditing ? (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => updatePartner.mutate({ id: p.id, percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes })}
-                                disabled={!editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
+                                onClick={() => updatePartner.mutate({ id: p.id, supplier_id: p.supplier_id, name: editName, originalName: p.suppliers?.name || "", percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes })}
+                                disabled={!editName.trim() || !editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
                               >
                                 <Check className="h-3.5 w-3.5 text-green-600" />
                               </Button>
@@ -258,7 +282,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           ) : (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => { setEditingId(p.id); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); }}
+                                onClick={() => { setEditingId(p.id); setEditName(p.suppliers?.name || ""); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
