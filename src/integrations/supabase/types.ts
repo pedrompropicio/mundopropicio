@@ -421,6 +421,109 @@ export type Database = {
         }
         Relationships: []
       }
+      bol_sync_config: {
+        Row: {
+          bol_event_id: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          event_id: string
+          id: string
+          last_run_at: string | null
+          last_run_status: string | null
+          organization_name: string
+          updated_at: string
+          vault_secret_name: string
+        }
+        Insert: {
+          bol_event_id: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          event_id: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          organization_name?: string
+          updated_at?: string
+          vault_secret_name?: string
+        }
+        Update: {
+          bol_event_id?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          event_id?: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          organization_name?: string
+          updated_at?: string
+          vault_secret_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bol_sync_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bol_sync_runs: {
+        Row: {
+          company_id: string
+          config_id: string | null
+          created_at: string
+          error_message: string | null
+          files_downloaded: Json | null
+          finished_at: string | null
+          id: string
+          import_audit: Json | null
+          mode: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          company_id: string
+          config_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          files_downloaded?: Json | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          config_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          files_downloaded?: Json | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bol_sync_runs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "bol_sync_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bp_orphan_attachments: {
         Row: {
           company_id: string

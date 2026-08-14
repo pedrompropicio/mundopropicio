@@ -110,6 +110,7 @@ export function AppSidebar() {
     { to: "/admin/sync-coala", icon: Cloud, label: "Sync Coala", show: isAdmin && hasCoala, badge: coalaBadgeCount },
     { to: "/admin/fever-sync", icon: Cloud, label: "Sync Fever", show: isAdmin && hasFever },
     { to: "/admin/ticketline-sync", icon: Cloud, label: "Sync Ticketline", show: isAdmin },
+    { to: "/admin/bol-sync", icon: Cloud, label: "Sync BOL", show: isAdmin },
     { to: "/admin", icon: Settings, label: "Admin", show: isAdmin },
     { to: "/ajuda", icon: HelpCircle, label: "Manual", show: true },
   ];

@@ -1,0 +1,30 @@
+-- Cron diário BOL (LIVE)
+-- Aplicar manualmente no SQL Editor do Lovable Cloud (Live) — crons não propagam via Publish.
+-- Schedule: 23:20 UTC (00:20 Portugal no horário de verão).
+-- Corre sem configId → fan-out por todos os bol_sync_config com enabled=true.
+
+select cron.unschedule('bol-sync-daily') where exists (
+  select 1 from cron.job where jobname = 'bol-sync-daily'
+);
+
+select cron.schedule(
+  'bol-sync-daily',
+  '20 23 * * *',
+  $$
+  select net.http_post(
+    url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/fetch-bol-reports',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret from vault.decrypted_secrets
+        where name = 'email_queue_service_role_key' limit 1
+      )
+    ),
+    body := '{"mode":"cron","triggeredBy":"pg_cron"}'::jsonb,
+    timeout_milliseconds := 30000
+  ) as request_id;
+  $$
+);
+
+-- Verificar:
+-- select jobid, schedule, jobname from cron.job where jobname = 'bol-sync-daily';

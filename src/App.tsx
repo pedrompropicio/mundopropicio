@@ -132,6 +132,7 @@ import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
 import TicketlineSync from "./pages/admin/TicketlineSync";
+import BolSync from "./pages/admin/BolSync";
 import SyncHealth from "./pages/admin/SyncHealth";
 import Notifications from "./pages/admin/Notifications";
 import DiagnosisTest from "./pages/admin/DiagnosisTest";
@@ -532,6 +533,7 @@ function ProtectedLayout() {
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/admin/fever-sync" element={<FeverSync />} />
               <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
+              <Route path="/admin/bol-sync" element={<BolSync />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
