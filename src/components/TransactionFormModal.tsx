@@ -2873,7 +2873,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     const next = !form.is_reimbursement;
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", reimbursement_note_id: "", account_id: next ? "" : form.account_id });
                     if (next) {
-                      setIsPaidByPartner(false); setPaidByPartnerId("");
+                      
                       setIsPartnerExtra(false); setPartnerExtraId(""); setPartnerExtraPartialAmount("");
                       setShowNewReimbursementNote(false); setNewReimbursementEmployeeName("");
                     }
@@ -2927,14 +2927,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setIsExcludeFromResult(false);
                       setCautionPayer("__mp__");
                       // limpa estado de "Pago por Sócio" — será reativado se selecionar sócio
-                      setIsPaidByPartner(false);
-                      setPaidByPartnerId("");
+
+
                     } else {
                       setIsTransitory(false);
                       setCautionPayer("");
-                      setIsPaidByPartner(false);
-                      setPaidByPartnerId("");
-                      setPartnerPaidDate("");
+
+
+
                     }
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
@@ -2979,9 +2979,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         reimbursement_to: "",
                         reimbursement_note_id: "",
                       }));
-                      setIsPaidByPartner(false);
-                      setPaidByPartnerId("");
-                      setPartnerPaidDate("");
+
+
+
                       setIsPartnerExtra(false);
                       setPartnerExtraId("");
                       setPartnerExtraPartialAmount("");
