@@ -1145,7 +1145,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const allChildrenApproved = childInserts.every(c => c.status === "approved");
         const parentStatus = partnerPaidSettles ? "paid" : (allChildrenApproved ? "approved" : "pending");
         const parentPaidAmount = partnerPaidSettles ? totalAmount : 0;
-        const parentPaymentDate = partnerPaidSettles ? (partnerPaidDate || data.date) : null;
+        const parentPaymentDate = partnerPaidSettles ? (data.date) : null;
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
@@ -1231,7 +1231,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
         const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
         const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
-        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
+        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (data.date) : (autoMarkPaid ? data.date : null));
 
         // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
         // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
