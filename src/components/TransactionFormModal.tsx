@@ -1201,21 +1201,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
         if (childError) throw childError;
 
-        // 4. If paid by partner, link parent transaction to partner_paid_expenses
-        //    using the tour Master event (splitMasterEventId) where partners exist
-        if (isPaidByPartner && paidByPartnerId && splitMasterEventId) {
-          const { error: ppeErr } = await supabase.from("partner_paid_expenses").insert({
-            event_id: splitMasterEventId,
-            partner_id: paidByPartnerId,
-            transaction_id: parentId,
-            paid_date: partnerPaidDate || data.date,
-            status: canApprovePartnerPaid ? "approved" : "pending_approval",
-            proposed_by: user?.id ?? null,
-            approved_by: canApprovePartnerPaid ? (user?.id ?? null) : null,
-            approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
-          } as any);
-          if (ppeErr) throw ppeErr;
-        }
+        // 4. (removido) Vínculo "Pago por Sócio" já não é criado no lançamento —
+        //    faz-se no modal de pagamento ou no painel do evento.
         // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
         if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
           await supabase.from("partner_advance_expenses").insert({
