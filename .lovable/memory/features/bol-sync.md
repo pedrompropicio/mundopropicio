@@ -103,7 +103,7 @@ Parser `_shared/bol-report-parser.ts` → `parseBolM2(text)`:
 
 `creds_missing` ("Credenciais em falta no Vault (bol_master)"), `creds_invalid`, `login_get`,
 `login_form`, `login_viewstate`, `login_post`, `session_expired` (retriable),
-`event_select_failed`, `map_postback_failed`, `event_mismatch`, `html_response`, `pdf_text_failed`,
+`event_not_in_list`, `event_select_failed`, `map_postback_failed`, `event_mismatch`, `html_response`, `pdf_text_failed`,
 `parse_failed`, `import_failed`, `account_missing`, `fanout_*`.
 
 ## UI e cron
