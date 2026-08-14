@@ -1243,11 +1243,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
         const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
-        // Pago por Sócio: já fica liquidado, sem conta financeira da empresa.
+        // Pago por Sócio: fica liquidado (sem conta financeira da empresa) apenas quando
+        // quem lança pode aprovar; proposta de editor mantém o estado normal da transação.
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
-        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (isPaidByPartner ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
-        const partnerPaidAmount = useInstallments ? 0 : (isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
-        const partnerPaymentDate = useInstallments ? null : (isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
+        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
+        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
+        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
 
         // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
         // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
