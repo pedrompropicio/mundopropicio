@@ -315,30 +315,27 @@ function collectHiddenRaw(html: string): string[] {
 
 const MAX_DISCOVER_BYTES = 80 * 1024;
 function capPayload(payload: any) {
-  let s = JSON.stringify(payload);
-  if (s.length <= MAX_DISCOVER_BYTES) return payload;
-  // trunca progressivamente os campos pesados
-  for (const page of payload.pages || []) {
-    for (const key of ["comboScripts", "comboRegions", "hiddenRaw"]) {
-      if (Array.isArray(page[key])) {
-        page[key] = page[key].map((x: string) => (x.length > 1500 ? x.slice(0, 1500) + "...truncated" : x));
+  const heavy = ["comboScripts", "comboRegions", "hiddenRaw", "links", "mapLinks"];
+  const size = () => JSON.stringify(payload).length;
+  if (size() <= MAX_DISCOVER_BYTES) return payload;
+  for (const limit of [2000, 1200, 800, 400]) {
+    for (const page of payload.pages || []) {
+      for (const key of heavy) {
+        if (!Array.isArray(page[key])) continue;
+        page[key] = page[key].map((x: any) =>
+          typeof x === "string" && x.length > limit ? x.slice(0, limit) + "...truncated" : x,
+        );
       }
     }
-    s = JSON.stringify(payload);
-    if (s.length <= MAX_DISCOVER_BYTES) return payload;
+    if (size() <= MAX_DISCOVER_BYTES) return { ...payload, truncated: true };
   }
-  s = JSON.stringify(payload);
-  if (s.length > MAX_DISCOVER_BYTES) {
-    return { ...payload, truncated: true, pages: JSON.parse(s.slice(0, 0) || "[]").length ? [] : (payload.pages || []).map((p: any) => ({
-      url: p.url, status: p.status, title: p.title,
-      hiddenRaw: (p.hiddenRaw || []).map((x: string) => x.slice(0, 800) + "...truncated"),
-      comboRegions: (p.comboRegions || []).slice(0, 2).map((x: string) => x.slice(0, 800) + "...truncated"),
-      comboItems: (p.comboItems || []).slice(0, 20),
-      selects: p.selects,
-      note: "...truncated",
-    })) };
+  for (const page of payload.pages || []) {
+    page.links = [];
+    page.buttons = (page.buttons || []).slice(0, 10);
+    page.comboScripts = (page.comboScripts || []).slice(0, 2);
+    page.comboRegions = (page.comboRegions || []).slice(0, 3);
   }
-  return payload;
+  return { ...payload, truncated: true };
 }
 
 // --- Página real de mapas (ASP.NET WebForms) ---
