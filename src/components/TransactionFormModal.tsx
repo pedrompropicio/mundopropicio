@@ -114,6 +114,10 @@ interface TransactionFormModalProps {
 
 export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
+  // Só admin/manager podem criar transações já liquidadas (histórico/importações).
+  const canCreatePaid = authIsAdmin || authIsManager;
+  const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
+
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
   // Multi-currency state
   const [currency, setCurrency] = useState<CurrencyCode>("EUR");
@@ -1073,7 +1077,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      // Guardrails de liquidação na criação:
+      //  * papéis abaixo de manager NUNCA criam transação já paga (liquidação
+      //    faz-se no modal de pagamento / listas / fluxos próprios);
+      //  * admin/manager podem criar já paga, mas com conta obrigatória.
+      if (autoMarkPaid && !canCreatePaid) {
+        throw new Error("Não tem permissão para criar transações já liquidadas. Crie em aberto e liquide no modal de pagamento.");
+      }
+      if (effectiveAutoMarkPaid && !data.account_id) {
+        throw new Error("Uma transação criada como paga exige conta financeira associada.");
+      }
       let createdTxId: string | null = null;
+
       // Cauções/Transitórias NUNCA são rateadas entre sub-eventos: ficam sempre
       // como lançamento único no evento Master. (Não compõem resultado, logo o
       // rateio por cidade não tem propósito contabilístico.)
@@ -1229,9 +1244,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Pago por Sócio: fica liquidado (sem conta financeira da empresa) apenas quando
         // quem lança pode aprovar; proposta de editor mantém o estado normal da transação.
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
-        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
-        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
-        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (data.date) : (autoMarkPaid ? data.date : null));
+        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (effectiveAutoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
+        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (effectiveAutoMarkPaid ? parseFloat(data.amount) : 0));
+        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (data.date) : (effectiveAutoMarkPaid ? data.date : null));
 
         // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
         // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
@@ -1325,7 +1340,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             old_value: null,
             new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${parseFloat(data.amount).toFixed(2)} €`,
           });
-          if (autoApproved && !autoMarkPaid) {
+          if (autoApproved && !effectiveAutoMarkPaid) {
             await supabase.from("transaction_audit_log").insert({
               transaction_id: insertedTx.id,
               changed_by: callerName,
@@ -1537,7 +1552,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? "Rateio criado com sucesso!"
           : useInstallments && installmentRows.length >= 2
             ? `${installmentRows.length} parcelas criadas com sucesso!`
-            : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!"),
+            : (effectiveAutoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!"),
       });
 
     },
@@ -1605,7 +1620,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com rateio entre eventos nesta fase.", variant: "destructive" });
         return;
       }
-      if (autoMarkPaid || isPaidByPartner || isPartnerExtra || form.is_reimbursement) {
+      if (effectiveAutoMarkPaid || isPaidByPartner || isPartnerExtra || form.is_reimbursement) {
         toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com este fluxo (auto-liquidada, pago por sócio, extra do sócio ou reembolso).", variant: "destructive" });
         return;
       }
@@ -3225,7 +3240,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           </div>
 
           {/* ===== Parcelamento (Fase 1.5) ===== */}
-          {form.type === "expense" && !isSplit && !autoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {
+          {form.type === "expense" && !isSplit && !effectiveAutoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {
             const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
             return (
               <div className="space-y-2">
@@ -3266,8 +3281,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           })()}
 
 
+          {/* Guardrails de liquidação na criação */}
+          {autoMarkPaid && !canCreatePaid && (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              A transação será criada <strong>em aberto</strong>. A liquidação faz-se no modal de pagamento após a criação.
+            </p>
+          )}
+          {effectiveAutoMarkPaid && !form.account_id && (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              Uma transação criada como paga exige <strong>conta financeira</strong> associada.
+            </p>
+          )}
 
           {!showProrationConfirm && !showDuplicateConfirm && (
+
             <div className="flex gap-2">
               <label
                 className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-secondary/80 cursor-pointer"
