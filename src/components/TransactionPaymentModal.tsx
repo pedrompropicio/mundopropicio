@@ -63,10 +63,6 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   // Admin/manager liquidam na hora; restantes papéis propõem (pending_approval).
   const [partnerMode, setPartnerMode] = useState(false);
   const [partnerId, setPartnerId] = useState("");
-  const [partnerPaidDate, setPartnerPaidDate] = useState<string>(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  });
   const canApprovePartnerPaid = isAdmin || isManager;
   const partnerEventId: string | null = transaction.event_id ?? null;
 
@@ -234,15 +230,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         if (!isExpense) throw new Error("Só despesas podem ser pagas por um sócio.");
         if (!partnerEventId) throw new Error("A transação não está associada a um evento com sócios.");
         if (!partnerId) throw new Error("Selecione o sócio que pagou.");
-        if (!partnerPaidDate) throw new Error("Indique a data do pagamento pelo sócio.");
         if (existingPartnerLink) throw new Error("Esta transação já tem um vínculo a sócio.");
         const callerName = user?.user_metadata?.full_name ?? user?.email ?? "utilizador";
+        const partnerPaidDateStr = format(paymentDate, "yyyy-MM-dd");
         const status = canApprovePartnerPaid ? "approved" : "pending_approval";
         const { error: linkError } = await (supabase as any).from("partner_paid_expenses").insert({
           transaction_id: transaction.id,
           partner_id: partnerId,
           event_id: partnerEventId,
-          paid_date: partnerPaidDate,
+          paid_date: partnerPaidDateStr,
           status,
           proposed_by: user?.id ?? null,
           approved_by: canApprovePartnerPaid ? user?.id ?? null : null,
@@ -256,7 +252,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             .update({
               status: "paid",
               paid_amount: amount,
-              payment_date: partnerPaidDate,
+              payment_date: partnerPaidDateStr,
               account_id: null,
             })
             .eq("id", transaction.id);
@@ -269,8 +265,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           field_name: "Pago pelo Sócio",
           old_value: null,
           new_value: canApprovePartnerPaid
-            ? `Liquidada por sócio em ${partnerPaidDate}`
-            : `Proposta de pagamento por sócio em ${partnerPaidDate} (aguarda aprovação)`,
+            ? `Liquidada por sócio em ${partnerPaidDateStr}`
+            : `Proposta de pagamento por sócio em ${partnerPaidDateStr} (aguarda aprovação)`,
         });
 
         return { partnerPaid: true, approved: canApprovePartnerPaid };
