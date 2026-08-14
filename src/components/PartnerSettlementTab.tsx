@@ -209,6 +209,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         .from("partner_paid_expenses")
         .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, event_id, category_id, account_categories(id, name, code, parent_id))")
         .in("event_id", allEventIds)
+        .eq("status", "approved")
         .order("created_at");
       if (error) throw error;
       return data;

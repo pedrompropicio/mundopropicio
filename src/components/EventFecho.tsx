@@ -168,7 +168,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       const { data, error } = await supabase
         .from("partner_paid_expenses")
         .select("partner_id, transactions(amount, iva_rate)")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId)
+        .eq("status", "approved");
       if (error) throw error;
       return data || [];
     },

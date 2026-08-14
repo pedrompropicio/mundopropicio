@@ -38,7 +38,8 @@ export default function ReportPartnerSettlement() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("partner_id, event_id, transaction_id, transactions(amount, is_transitory, type)");
+        .select("partner_id, event_id, transaction_id, transactions(amount, is_transitory, type)")
+        .eq("status", "approved");
       if (error) throw error;
       return data;
     },

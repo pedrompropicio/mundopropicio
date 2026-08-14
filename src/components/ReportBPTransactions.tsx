@@ -182,7 +182,8 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(supplier_id, suppliers(name))");
+        .select("*, event_partners(supplier_id, suppliers(name))")
+        .eq("status", "approved");
       if (error) throw error;
       return data;
     },
