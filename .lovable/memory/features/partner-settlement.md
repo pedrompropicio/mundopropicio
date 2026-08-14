@@ -98,3 +98,11 @@ Para evitar leitura enganosa do tipo "MP deve pagar X ao sócio" quando parte de
 - Caução 5 000 € paga pela empresa (MP), sem devolução → +5 000 € no acerto da Mundo Propício
 - Devolução transitória de 5 000 € para Sócio A (vinculada como income) → crédito de A = 0
 - Devolução transitória de 5 000 € para conta da empresa (sem vínculo) → abate o crédito da MP, não dos sócios externos
+
+## Onde nasce o vínculo "Pago pelo Sócio" (decisão final)
+
+- **Criação/edição de transação: NÃO existe** opção de sócio (removida do `TransactionFormModal`).
+- **Modal de pagamento (`TransactionPaymentModal`)**: bloco "Pago pelo Sócio" (só despesas, só se o evento tiver sócios e não existir vínculo). Esconde conta/método; usa a Data de Pagamento do modal como `paid_date`.
+  - admin/manager → vínculo `approved` + transação `paid` (`account_id = null`), auditoria em `transaction_audit_log`.
+  - outros papéis → vínculo `pending_approval` (`proposed_by`), transação intocada.
+- **Painel do evento** mantém conferência/aprovação. Unicidade garantida por `UNIQUE(transaction_id)` em `partner_paid_expenses`.
