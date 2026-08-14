@@ -733,7 +733,7 @@ async function runDiscover(admin: any, configId?: string) {
       });
     }
   }
-  return json(200, { ok: true, version: VERSION, action: "discover", cookies: Array.from(jar.keys()), pages });
+  return json(200, capPayload({ ok: true, version: VERSION, action: "discover", cookies: Array.from(jar.keys()), pages }));
 }
 
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
