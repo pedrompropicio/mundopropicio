@@ -490,9 +490,26 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
 
 
-      // Sync partner_paid_expenses.paid_date if it changed
-      if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
-        await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
+      // Vínculo "Pago por Sócio": remoção, troca de sócio ou sync da data.
+      if (isPaidByPartner && partnerPaidLink?.id && canManagePartnerPaidLink) {
+        if (partnerPaidRemove) {
+          const { error: delErr } = await supabase
+            .from("partner_paid_expenses")
+            .delete()
+            .eq("id", partnerPaidLink.id);
+          if (delErr) throw delErr;
+        } else {
+          const linkUpdates: Record<string, any> = {};
+          if (partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) linkUpdates.paid_date = partnerPaidDate;
+          if (partnerPaidPartnerId && partnerPaidPartnerId !== partnerPaidLink.partner_id) linkUpdates.partner_id = partnerPaidPartnerId;
+          if (Object.keys(linkUpdates).length > 0) {
+            const { error: updErr } = await supabase
+              .from("partner_paid_expenses")
+              .update(linkUpdates as any)
+              .eq("id", partnerPaidLink.id);
+            if (updErr) throw updErr;
+          }
+        }
       }
 
       // Vincular à Nota de Reembolso escolhida (se ainda não estava vinculada).
