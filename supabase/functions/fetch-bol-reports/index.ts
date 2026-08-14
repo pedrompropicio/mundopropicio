@@ -663,15 +663,16 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
   try {
     const creds = await loadCreds(admin, cfg.vault_secret_name);
 
+    const expectedName = cleanOrgName(cfg.organization_name);
     let pdf: { bytes: Uint8Array; url: string };
     const jar = await getJar(sessions, cfg.vault_secret_name, creds);
     try {
-      pdf = await downloadM2Pdf(jar, cfg.bol_event_id, debug);
+      pdf = await downloadM2Pdf(jar, cfg.bol_event_id, debug, expectedName);
     } catch (e: any) {
       if (e?.retriable) {
         console.log("[bol] self-heal re-login");
         const jar2 = await getJar(sessions, cfg.vault_secret_name, creds, true);
-        pdf = await downloadM2Pdf(jar2, cfg.bol_event_id, debug);
+        pdf = await downloadM2Pdf(jar2, cfg.bol_event_id, debug, expectedName);
       } else throw e;
     }
 
@@ -693,6 +694,22 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.sectors = parseRes.rows.length;
     debug.parser = parseRes.debug;
     debug.warnings = parseRes.warnings;
+
+    // Dupla verificação: o rodapé do PDF tem de bater com o evento esperado
+    debug.pdf_event_name = parseRes.header.eventName;
+    debug.pdf_venue = parseRes.header.venue;
+    const tokens = foldText(expectedName).split(/[^a-z0-9]+/).filter((t) => t.length >= 4);
+    const pdfHay = foldText(`${parseRes.header.eventName || ""} ${parseRes.header.venue || ""} ${text.slice(0, 4000)}`);
+    if (tokens.length > 0 && !tokens.some((t) => pdfHay.includes(t))) {
+      throw Object.assign(
+        new Error(
+          `Evento do PDF ("${parseRes.header.eventName || "?"}" / "${parseRes.header.venue || "?"}") ` +
+          `não corresponde ao esperado ("${expectedName}") — import abortado.`,
+        ),
+        { phase: "event_mismatch", filesAudit, tried: { expected: expectedName, tokens, pdf_event_name: parseRes.header.eventName, pdf_venue: parseRes.header.venue } },
+      );
+    }
+
 
     if (parseRes.rows.length === 0) {
       throw Object.assign(
