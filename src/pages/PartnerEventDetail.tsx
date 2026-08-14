@@ -432,7 +432,6 @@ export default function PartnerEventDetail() {
         .from("partner_advance_expenses")
         .select("id, event_id, notes, created_at, transactions(description, amount, iva_rate, date)")
         .in("event_id", partnerEventIds)
-        .eq("status", "approved")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
