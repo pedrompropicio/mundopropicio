@@ -111,7 +111,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, isManager, user, hasPermission } = useAuth();
+  const { isAdmin, isManager, user, hasPermission, role } = useAuth();
   const canViewBP = isAdmin || isManager || hasPermission("view_bp");
   const canViewSponsorship = isAdmin || isManager || hasPermission("view_sponsorship");
   const canViewAB = isAdmin || isManager || hasPermission("view_ab");
@@ -1023,7 +1023,7 @@ export default function EventDetail() {
           {canViewSponsorship && <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>}
           {canViewAB && <TabsTrigger value="ab">A&B</TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>}
-          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
+          {(isAdmin || isManager || role === "editor") && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           {canViewBP && <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
@@ -1280,10 +1280,10 @@ export default function EventDetail() {
           />
         </TabsContent>
 
-        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
+        {(isAdmin || isManager || role === "editor") && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partners">
             <div className="space-y-6">
-              <EventPartnersTab eventId={event.id} eventStatus={event.status} />
+              {(isAdmin || isManager) && <EventPartnersTab eventId={event.id} eventStatus={event.status} />}
               <div className="glass rounded-xl p-5">
                 <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas pagas pelos Sócios</h2>
                 <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />

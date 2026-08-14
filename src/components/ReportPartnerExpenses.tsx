@@ -35,6 +35,7 @@ export default function ReportPartnerExpenses() {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
         .select("*, event_partners(suppliers(name), percentage), transactions(description, amount, date, status, iva_rate, specification, account_categories(name, code)), events(name, date)")
+        .eq("status", "approved")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;

@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, UserCheck } from "lucide-react";
+import { Plus, Trash2, UserCheck, Check, X, Clock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -20,8 +21,10 @@ interface Props {
 
 export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
-  const { isAdmin, isManager } = useAuth();
-  const canEdit = (isAdmin || isManager) && eventStatus !== "completed";
+  const { isAdmin, isManager, role, user } = useAuth();
+  const isEditor = role === "editor";
+  const canApprove = (isAdmin || isManager) && eventStatus !== "completed";
+  const canEdit = (isAdmin || isManager || isEditor) && eventStatus !== "completed";
   const [showForm, setShowForm] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
@@ -115,29 +118,42 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       const tx = availableTransactions.find((t: any) => t.id === selectedTransactionId);
       const txEventId = tx?.event_id ?? eventId;
 
-      // 1) Create the link
+      const proposeOnly = !canApprove;
+
+      // 1) Create the link (editor → proposta pendente; admin/manager → aprovado já)
       const { error: linkErr } = await supabase.from("partner_paid_expenses").insert({
         event_id: txEventId,
         partner_id: selectedPartnerId,
         transaction_id: selectedTransactionId,
         paid_date: paidDate,
-      });
+        status: proposeOnly ? "pending_approval" : "approved",
+        proposed_by: user?.id ?? null,
+        approved_by: proposeOnly ? null : user?.id ?? null,
+        approved_at: proposeOnly ? null : new Date().toISOString(),
+      } as any);
       if (linkErr) throw linkErr;
 
-      // 2) Mark transaction as paid on paid_date
-      const { error: txErr } = await supabase
-        .from("transactions")
-        .update({ status: "paid", payment_date: paidDate })
-        .eq("id", selectedTransactionId);
-      if (txErr) throw txErr;
+      // 2) Só o fluxo aprovado toca na transação
+      if (!proposeOnly) {
+        const { error: txErr } = await supabase
+          .from("transactions")
+          .update({ status: "paid", payment_date: paidDate })
+          .eq("id", selectedTransactionId);
+        if (txErr) throw txErr;
+      }
+      return { proposeOnly };
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-available-tx-tree", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       setSelectedTransactionId("");
-      toast({ title: "Despesa vinculada e marcada como paga" });
+      toast({
+        title: res?.proposeOnly
+          ? "Proposta criada — aguarda aprovação"
+          : "Despesa vinculada e marcada como paga",
+      });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -153,6 +169,53 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       toast({ title: "Vinculação removida" });
     },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (pe: any) => {
+      const { error } = await supabase
+        .from("partner_paid_expenses")
+        .update({ status: "approved", approved_by: user?.id ?? null, approved_at: new Date().toISOString() } as any)
+        .eq("id", pe.id);
+      if (error) throw error;
+
+      const tx = pe.transactions;
+      if (tx && tx.status !== "paid") {
+        await supabase.from("transaction_audit_log").insert({
+          transaction_id: pe.transaction_id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
+          field_name: "Liquidação (aprovação de despesa paga por sócio)",
+          old_value: String(tx.status ?? ""),
+          new_value: `paid @ ${pe.paid_date}`,
+        } as any);
+      }
+
+      const { error: txErr } = await supabase
+        .from("transactions")
+        .update({ status: "paid", payment_date: pe.paid_date })
+        .eq("id", pe.transaction_id);
+      if (txErr) throw txErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
+      toast({ title: "Proposta aprovada — despesa marcada como paga" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("partner_paid_expenses").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-available-tx-tree", eventId] });
+      toast({ title: "Proposta rejeitada" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
   if (partners.length === 0) {
@@ -229,12 +292,13 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
                 onClick={() => addMutation.mutate()}
                 disabled={!selectedPartnerId || !selectedTransactionId || !paidDate || addMutation.isPending}
               >
-                Vincular e marcar como paga
+                {canApprove ? "Vincular e marcar como paga" : "Propor vinculação"}
               </Button>
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
             A despesa permanece no evento original e continua a contar no resultado. O sócio é creditado pelo valor no Fecho de Parceiros.
+            {!canApprove && " A tua proposta fica pendente de aprovação por um administrador/gestor e não altera a transação até lá."}
           </p>
         </div>
       )}
@@ -242,15 +306,25 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       {/* Per-partner list */}
       {partners.map((partner: any) => {
         const expenses = byPartner[partner.id] || [];
-        const total = expenses.reduce((s: number, pe: any) => s + Number(pe.transactions?.amount || 0), 0);
+        const total = expenses
+          .filter((pe: any) => pe.status !== "pending_approval")
+          .reduce((s: number, pe: any) => s + Number(pe.transactions?.amount || 0), 0);
+        const pendingCount = expenses.filter((pe: any) => pe.status === "pending_approval").length;
 
         return (
           <div key={partner.id} className="glass rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b border-border/50 flex items-center justify-between bg-muted/30">
               <span className="text-sm font-semibold">{partner.suppliers?.name} ({partner.percentage}%)</span>
-              {expenses.length > 0 && (
-                <span className="text-sm font-mono font-bold">{formatCurrency(total)}</span>
-              )}
+              <div className="flex items-center gap-2">
+                {pendingCount > 0 && (
+                  <Badge variant="outline" className="text-[10px] text-warning border-warning/40">
+                    {pendingCount} a aguardar aprovação
+                  </Badge>
+                )}
+                {expenses.length > 0 && (
+                  <span className="text-sm font-mono font-bold">{formatCurrency(total)}</span>
+                )}
+              </div>
             </div>
             {expenses.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">Nenhuma despesa vinculada</p>
@@ -272,20 +346,53 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
                     const evName = tx?.event_id ? eventNamesMap.get?.(tx.event_id) : undefined;
                     return (
                       <TableRow key={pe.id}>
-                        <TableCell className="text-sm">{tx?.description || "—"}</TableCell>
+                        <TableCell className="text-sm">
+                          {tx?.description || "—"}
+                          {pe.status === "pending_approval" && (
+                            <Badge variant="outline" className="ml-2 text-[10px] text-warning border-warning/40">
+                              <Clock className="mr-1 h-3 w-3" /> Aguarda aprovação
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{evName || "—"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{tx?.account_categories?.name || "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : ""}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
                         {canEdit && (
                           <TableCell>
-                            <button
-                              onClick={() => removeMutation.mutate(pe.id)}
-                              className="p-1 rounded hover:bg-destructive/10 transition-colors"
-                              title="Desvincular"
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              {pe.status === "pending_approval" && canApprove && (
+                                <>
+                                  <button
+                                    onClick={() => approveMutation.mutate(pe)}
+                                    className="p-1 rounded hover:bg-success/10 transition-colors"
+                                    title="Aprovar"
+                                  >
+                                    <Check className="h-3.5 w-3.5 text-success" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm("Rejeitar esta proposta? O vínculo é removido e a transação fica intocada.")) {
+                                        rejectMutation.mutate(pe.id);
+                                      }
+                                    }}
+                                    className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                                    title="Rejeitar"
+                                  >
+                                    <X className="h-3.5 w-3.5 text-destructive" />
+                                  </button>
+                                </>
+                              )}
+                              {(canApprove || (pe.status === "pending_approval" && pe.proposed_by === user?.id)) && (
+                                <button
+                                  onClick={() => removeMutation.mutate(pe.id)}
+                                  className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                                  title="Desvincular"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </button>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>

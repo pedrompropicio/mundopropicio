@@ -153,6 +153,7 @@ export default function Transactions() {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
         .select("transaction_id, event_partners!inner(supplier_id)")
+        .eq("status", "approved")
         .limit(10000);
       if (error) throw error;
       const map = new Map<string, Set<string>>();

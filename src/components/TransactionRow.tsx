@@ -201,6 +201,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         .from("partner_paid_expenses")
         .select("id, event_partners(suppliers(name))")
         .eq("transaction_id", t.id)
+        .eq("status", "approved")
         .maybeSingle();
       if (error) throw error;
       return data;
