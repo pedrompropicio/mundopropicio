@@ -55,8 +55,48 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const isForeign = txCurrency !== "EUR";
   const [paymentFxRate, setPaymentFxRate] = useState<string>(isForeign ? String(transaction.fx_rate ?? "") : "");
   const [loadingFx, setLoadingFx] = useState(false);
-  const { user } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
+
+  // ===== "Pago pelo Sócio" (forma de pagamento alternativa) =====
+  // Não é caixa da empresa: cria o vínculo em partner_paid_expenses.
+  // Admin/manager liquidam na hora; restantes papéis propõem (pending_approval).
+  const [partnerMode, setPartnerMode] = useState(false);
+  const [partnerId, setPartnerId] = useState("");
+  const [partnerPaidDate, setPartnerPaidDate] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const canApprovePartnerPaid = isAdmin || isManager;
+  const partnerEventId: string | null = transaction.event_id ?? null;
+
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["payment-modal-event-partners", partnerEventId],
+    queryFn: async () => {
+      if (!partnerEventId) return [];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers(name)")
+        .eq("event_id", partnerEventId);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!partnerEventId,
+  });
+
+  // Vínculo existente (impede duplicar — a tabela tem UNIQUE(transaction_id))
+  const { data: existingPartnerLink } = useQuery({
+    queryKey: ["payment-modal-partner-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("id, status, partner_id")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: categoryCode } = useQuery({
     queryKey: ["category-code", transaction.category_id],
