@@ -21,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 
-const VERSION = "v1.1_m2_2026_08_15";
+const VERSION = "v1.2_telerik_2026_08_15";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -621,6 +621,8 @@ async function runDiscover(admin: any, configId?: string) {
         : [],
       buttons: html ? (html.match(/<input\b[^>]*type="(?:submit|button|image)"[^>]*>/gi) || []).slice(0, 30) : [],
       m2Button: html ? findM2Button(html) : null,
+      telerikComboInput: html ? findTelerikInputName(html) : null,
+      telerikClientState: html ? readClientState(html) : null,
       mapLinks: links.filter((l) => /mapa|relat|vend|sess/i.test(`${l.href} ${l.text}`)).slice(0, 60),
       links: links.slice(0, 60),
     });
