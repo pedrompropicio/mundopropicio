@@ -1144,11 +1144,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         });
 
         // Parent is approved only if ALL children are approved.
-        // Pago por Sócio: parent fica imediatamente liquidado.
+        // Pago por Sócio: parent fica imediatamente liquidado SÓ se quem lança pode aprovar
+        // (admin/manager). Proposta de editor não altera o estado da transação.
         const allChildrenApproved = childInserts.every(c => c.status === "approved");
-        const parentStatus = isPaidByPartner ? "paid" : (allChildrenApproved ? "approved" : "pending");
-        const parentPaidAmount = isPaidByPartner ? totalAmount : 0;
-        const parentPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : null;
+        const parentStatus = partnerPaidSettles ? "paid" : (allChildrenApproved ? "approved" : "pending");
+        const parentPaidAmount = partnerPaidSettles ? totalAmount : 0;
+        const parentPaymentDate = partnerPaidSettles ? (partnerPaidDate || data.date) : null;
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
