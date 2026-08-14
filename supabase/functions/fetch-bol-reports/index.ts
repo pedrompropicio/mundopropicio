@@ -21,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 
-const VERSION = "v1.2_telerik_2026_08_15";
+const VERSION = "v1.3_discover_deep";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
