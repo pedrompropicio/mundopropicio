@@ -21,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 
-const VERSION = "v1.2_telerik_2026_08_15";
+const VERSION = "v1.3_discover_deep";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -253,6 +253,89 @@ function collectLinks(html: string, base: string) {
     out.push({ href: absUrl(base, href), text: stripTags(m[2]).slice(0, 120) });
   }
   return out.slice(0, 200);
+}
+
+// --- Discover profundo do combo Telerik (v1.3) ---
+function collectComboRegions(html: string): string[] {
+  const out: Array<{ start: number; end: number }> = [];
+  const re = /telerikddlEvento/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const start = Math.max(0, m.index - 1200);
+    const end = Math.min(html.length, m.index + 1200);
+    const last = out[out.length - 1];
+    if (last && start <= last.end) last.end = Math.max(last.end, end);
+    else out.push({ start, end });
+    if (out.length >= 8) break;
+  }
+  return out.slice(0, 8).map((r) => html.slice(r.start, r.end));
+}
+
+function collectComboScripts(html: string): string[] {
+  const out: string[] = [];
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const body = m[1];
+    if (!/telerikddlEvento|RadComboBox/i.test(body)) continue;
+    out.push(body.slice(0, 4000));
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+function collectComboItems(html: string): Array<{ text: string; value?: string; attributes?: string }> {
+  const items: Array<{ text: string; value?: string; attributes?: string }> = [];
+  // 1) itens inline renderizados (ul/li com classes rcb*)
+  const liRe = /<li\b([^>]*class="[^"]*rcb[^"]*"[^>]*)>([\s\S]*?)<\/li>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = liRe.exec(html)) !== null && items.length < 40) {
+    items.push({ text: stripTags(m[2]).slice(0, 200), attributes: m[1].slice(0, 300) });
+  }
+  // 2) arrays de itens em script: {"Text":"...","Value":"..."}
+  const jsonRe = /\{"[^"{}]*?[Tt]ext"\s*:\s*"((?:[^"\\]|\\.)*)"[^{}]*?"[Vv]alue"\s*:\s*"((?:[^"\\]|\\.)*)"[^{}]*\}/g;
+  while ((m = jsonRe.exec(html)) !== null && items.length < 40) {
+    items.push({ text: m[1].slice(0, 200), value: m[2].slice(0, 200) });
+  }
+  return items.slice(0, 40);
+}
+
+function collectHiddenRaw(html: string): string[] {
+  const out: string[] = [];
+  const re = /<input\b[^>]*type="hidden"[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    if (!/name="[^"]*(?:telerik|Evento)[^"]*"|id="[^"]*(?:telerik|Evento)[^"]*"/i.test(tag)) continue;
+    out.push(tag.slice(0, 4000));
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+const MAX_DISCOVER_BYTES = 80 * 1024;
+function capPayload(payload: any) {
+  const heavy = ["comboScripts", "comboRegions", "hiddenRaw", "links", "mapLinks"];
+  const size = () => JSON.stringify(payload).length;
+  if (size() <= MAX_DISCOVER_BYTES) return payload;
+  for (const limit of [2000, 1200, 800, 400]) {
+    for (const page of payload.pages || []) {
+      for (const key of heavy) {
+        if (!Array.isArray(page[key])) continue;
+        page[key] = page[key].map((x: any) =>
+          typeof x === "string" && x.length > limit ? x.slice(0, limit) + "...truncated" : x,
+        );
+      }
+    }
+    if (size() <= MAX_DISCOVER_BYTES) return { ...payload, truncated: true };
+  }
+  for (const page of payload.pages || []) {
+    page.links = [];
+    page.buttons = (page.buttons || []).slice(0, 10);
+    page.comboScripts = (page.comboScripts || []).slice(0, 2);
+    page.comboRegions = (page.comboRegions || []).slice(0, 3);
+  }
+  return { ...payload, truncated: true };
 }
 
 // --- Página real de mapas (ASP.NET WebForms) ---
@@ -601,7 +684,7 @@ async function runDiscover(admin: any, configId?: string) {
   const jar = await loginBol(creds.email, creds.password);
 
   const pages: any[] = [];
-  const toVisit = [MAPS_URL, `${BASE}/Relatorios`, `${BASE}/`];
+  const toVisit = [MAPS_URL, `${BASE}/Relatorios/Estatisticas.aspx`, `${BASE}/Relatorios`, `${BASE}/`];
   const visited = new Set<string>();
   for (const url of toVisit) {
     if (visited.has(url)) continue;
@@ -623,6 +706,10 @@ async function runDiscover(admin: any, configId?: string) {
       m2Button: html ? findM2Button(html) : null,
       telerikComboInput: html ? findTelerikInputName(html) : null,
       telerikClientState: html ? readClientState(html) : null,
+      comboRegions: html ? collectComboRegions(html) : [],
+      comboScripts: html ? collectComboScripts(html) : [],
+      comboItems: html ? collectComboItems(html) : [],
+      hiddenRaw: html ? collectHiddenRaw(html) : [],
       mapLinks: links.filter((l) => /mapa|relat|vend|sess/i.test(`${l.href} ${l.text}`)).slice(0, 60),
       links: links.slice(0, 60),
     });
@@ -643,7 +730,7 @@ async function runDiscover(admin: any, configId?: string) {
       });
     }
   }
-  return json(200, { ok: true, version: VERSION, action: "discover", cookies: Array.from(jar.keys()), pages });
+  return json(200, capPayload({ ok: true, version: VERSION, action: "discover", cookies: Array.from(jar.keys()), pages }));
 }
 
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
