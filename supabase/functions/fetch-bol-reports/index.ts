@@ -367,7 +367,7 @@ const DDL_SESSAO = "ctl00$CPH_Body$ddlSessao";
 const TODAS_EM_VENDA = "0;0;01/01/0001;2";
 const M2_TARGET = "ctl00$CPH_Body$itm_MapaOcupacaoSessaoTipoVenda";
 
-/** input de texto do RadComboBox (o sufixo pode variar). */
+/** input de texto do RadMultiColumnComboBox (normalmente SEM name). */
 function findTelerikInputName(html: string): string | null {
   const re = /name="(ctl00\$CPH_Body\$telerikddlEvento[^_"]*)"/i;
   return html.match(re)?.[1] ?? null;
@@ -378,17 +378,52 @@ function readClientState(html: string): string | null {
   return m ? decodeEntities(m[1]) : null;
 }
 function buildClientState(value: string, text: string): string {
-  return JSON.stringify({
-    logEntries: [], value, text, enabled: true,
-    checkedIndices: [], checkedItemsTextOverflows: false,
-  });
+  return JSON.stringify({ value, text, enabled: true });
 }
+
+/** Excerto do script $create do RadMultiColumnComboBox. */
+function telerikCreateScript(html: string): string | null {
+  const i = html.search(/\$create\(\s*Telerik\.Web\.UI\.RadMultiColumnComboBox/i);
+  if (i < 0) return null;
+  return html.slice(i, i + 4000);
+}
+
+/** value atual do widget: primeiro "value":"<digits>" ANTES de "itemsData". */
+function readWidgetValue(html: string): string | null {
+  const script = telerikCreateScript(html);
+  if (!script) return null;
+  const head = script.split(/"itemsData"/)[0];
+  return head.match(/"value"\s*:\s*"(\d+)"/)?.[1] ?? null;
+}
+
+/** itemsData inline (não é JSON estrito: contém new Date(...)). */
+function readComboItems(html: string): { value: string; text: string }[] {
+  const script = telerikCreateScript(html);
+  if (!script) return [];
+  const idx = script.search(/"itemsData"/);
+  if (idx < 0) return [];
+  const region = script.slice(idx);
+  const out: { value: string; text: string }[] = [];
+  const re = /"text"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"value"\s*:\s*"(\d+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(region)) !== null) {
+    const text = m[1].replace(/\\u0026/gi, "&").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    out.push({ value: m[2], text });
+  }
+  if (out.length === 0) {
+    const re2 = /"value"\s*:\s*"(\d+)"\s*,\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    while ((m = re2.exec(region)) !== null) out.push({ value: m[1], text: m[2] });
+  }
+  return out;
+}
+
 /** Remove prefixo "BOL — " do organization_name. */
 const cleanOrgName = (s: string | null | undefined) =>
   String(s || "").replace(/^\s*BOL\s*[—–-]\s*/i, "").trim();
 
 const foldText = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 
 
 /** select "Datas sessões": preferir a opção "*** TODAS EM VENDA ***". */
