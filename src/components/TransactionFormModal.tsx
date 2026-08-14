@@ -114,6 +114,10 @@ interface TransactionFormModalProps {
 
 export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
+  // Só admin/manager podem criar transações já liquidadas (histórico/importações).
+  const canCreatePaid = authIsAdmin || authIsManager;
+  const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
+
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
   // Multi-currency state
   const [currency, setCurrency] = useState<CurrencyCode>("EUR");
