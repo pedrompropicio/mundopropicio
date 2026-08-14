@@ -3060,50 +3060,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 )}
               </div>
 
-              {/* Selector "Pago por" do shortcut Caução / Transitória */}
+              {/* Atalho Caução / Transitória — o desembolso é sempre da empresa aqui.
+                  Caução paga por um sócio: liquidar depois no modal de pagamento com
+                  a forma "Pago pelo Sócio" (é lá que nasce o vínculo). */}
               {cautionShortcut && (
                 <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
-                  <label className="block text-xs font-medium text-muted-foreground">Pago por *</label>
-                  <SearchableSelect
-                    options={[
-                      { value: "__mp__", label: "Mundo Propício (caixa da empresa)" },
-                      ...((form.event_id || (isSplit && splitMasterEventId))
-                        ? eventPartners.map((p: any) => ({
-                            value: p.id,
-                            label: `${p.suppliers?.name} (${p.percentage}%)`,
-                          }))
-                        : []),
-                    ]}
-                    value={cautionPayer}
-                    onValueChange={(v) => {
-                      setCautionPayer(v);
-                      if (v === "__mp__" || !v) {
-                        setIsPaidByPartner(false);
-                        setPaidByPartnerId("");
-                        setPartnerPaidDate("");
-                      } else {
-                        setIsPaidByPartner(true);
-                        setPaidByPartnerId(v);
-                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
-                        setForm((prev) => ({ ...prev, account_id: "" }));
-                      }
-                    }}
-                    placeholder="Selecionar pagador…"
-                    searchPlaceholder="Pesquisar…"
-                  />
-                  {cautionPayer && cautionPayer !== "__mp__" && (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
-                      <DatePicker
-                        value={partnerPaidDate}
-                        onChange={(v) => setPartnerPaidDate(v)}
-                      />
-                    </div>
-                  )}
+                  <p className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
+                    🛡️ Caução / Transitória — não compõe o resultado do evento
+                  </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {cautionPayer === "__mp__" || !cautionPayer
-                      ? "Caução paga pela empresa — credita automaticamente Mundo Propício no acerto societário."
-                      : "Caução paga pelo sócio — entra no acerto societário a seu favor até ser devolvida."}
+                    Credita automaticamente Mundo Propício no acerto societário. Se a caução foi desembolsada por
+                    um sócio, liquide a despesa no modal de pagamento escolhendo “Pago pelo Sócio”.
                   </p>
                 </div>
               )}
