@@ -1577,7 +1577,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         amount: open,
         description,
         isReimbursement: !!tx.is_reimbursement,
-        preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+        preExcludeReason:
+          open <= 0 || isPaid
+            ? "Sem valor em aberto"
+            : isInternalNoIban(tx)
+              ? SEPA_INTERNAL_NO_IBAN_REASON
+              : undefined,
         _ibans: [normalizeIban(iban)],
         _events: [eventName],
       });
