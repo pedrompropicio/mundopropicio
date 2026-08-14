@@ -235,6 +235,12 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   useEffect(() => {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
   }, [partnerPaidLink?.paid_date]);
+  // Troca / remoção do sócio do vínculo "Pago por Sócio"
+  const [partnerPaidPartnerId, setPartnerPaidPartnerId] = useState<string>("");
+  const [partnerPaidRemove, setPartnerPaidRemove] = useState(false);
+  useEffect(() => {
+    if (partnerPaidLink?.partner_id) setPartnerPaidPartnerId(partnerPaidLink.partner_id);
+  }, [partnerPaidLink?.partner_id]);
 
   // Detect if this transaction is an Extra do Sócio (despesa a abater do sócio no fecho)
   const { data: partnerExtraLink } = useQuery({
