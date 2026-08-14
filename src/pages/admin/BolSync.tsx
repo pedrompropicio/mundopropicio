@@ -170,7 +170,7 @@ export default function BolSync() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sync BOL</h1>
           <p className="text-muted-foreground mt-1">
-            Importação diária do <b>Mapa Diário de Vendas por Sessão</b> do backoffice produtores.bol.pt.
+            Importação diária do mapa <b>M2 - Tipo de Venda (ocupação por setor)</b> do backoffice produtores.bol.pt.
           </p>
         </div>
         <div className="flex gap-2">
@@ -293,7 +293,7 @@ export default function BolSync() {
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader><DialogTitle>Teste de ligação BOL (discover)</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Inventário das páginas autenticadas do backoffice — serve para calibrar o URL/form do Mapa Diário.
+            Inventário das páginas autenticadas do backoffice — serve para calibrar o URL/form do mapa M2.
           </p>
           <pre className="bg-muted rounded p-2 text-xs overflow-auto">{JSON.stringify(discoverResult, null, 2)}</pre>
         </DialogContent>
