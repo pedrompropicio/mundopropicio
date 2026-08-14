@@ -999,6 +999,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                           {bpCheck.exceeds && (
                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
