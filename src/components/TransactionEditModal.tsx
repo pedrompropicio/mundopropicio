@@ -189,7 +189,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("id, partner_id, paid_date, event_partners(suppliers(name), percentage)")
+        .select("id, partner_id, paid_date, status, proposed_by, event_partners(suppliers(name), percentage)")
         .eq("transaction_id", transaction.id)
         .maybeSingle();
       if (error) throw error;
@@ -197,6 +197,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isPaidByPartner = !!partnerPaidLink;
+  const partnerPaidPending = (partnerPaidLink as any)?.status === "pending_approval";
+  // Só vínculos aprovados liquidam a transação via sócio.
+  const partnerPaidSettled = isPaidByPartner && !partnerPaidPending;
 
   // Detect if this transaction is already linked to a reimbursement note
   // (used to block toggling "Reembolso" OFF while it's part of a note).
