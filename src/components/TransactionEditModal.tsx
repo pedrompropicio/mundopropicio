@@ -1028,21 +1028,64 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
           </div>
 
-          {/* Pago por Sócio — bloco informativo + edição de data */}
+          {/* Pago por Sócio — bloco informativo + troca de sócio / data / remoção do vínculo */}
           {isPaidByPartner && (
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400">
                 🤝 Pago por Sócio: {(partnerPaidLink as any)?.event_partners?.suppliers?.name ?? "—"}
                 {(partnerPaidLink as any)?.event_partners?.percentage != null && (
                   <span className="text-xs opacity-70">({(partnerPaidLink as any).event_partners.percentage}%)</span>
                 )}
+                {partnerPaidPending && (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                    Aguarda aprovação
+                  </span>
+                )}
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
-                <DatePicker value={partnerPaidDate} onChange={setPartnerPaidDate} />
-              </div>
+              {canManagePartnerPaidLink && !partnerPaidRemove && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou</label>
+                    <SearchableSelect
+                      options={eventPartnersForExtra.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.suppliers?.name} (${p.percentage}%)`,
+                      }))}
+                      value={partnerPaidPartnerId}
+                      onValueChange={setPartnerPaidPartnerId}
+                      placeholder="Selecionar sócio…"
+                      searchPlaceholder="Pesquisar…"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
+                    <DatePicker value={partnerPaidDate} onChange={setPartnerPaidDate} />
+                  </div>
+                </div>
+              )}
+              {!canManagePartnerPaidLink && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
+                  <DatePicker value={partnerPaidDate} onChange={() => {}} />
+                </div>
+              )}
+              {canManagePartnerPaidLink && (
+                <button
+                  type="button"
+                  onClick={() => setPartnerPaidRemove((v) => !v)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    partnerPaidRemove
+                      ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {partnerPaidRemove ? "Vínculo será removido ao guardar (clique para cancelar)" : "Remover vínculo ao sócio"}
+                </button>
+              )}
               <p className="text-[10px] text-muted-foreground">
-                Despesa liquidada via sócio — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
+                {partnerPaidPending
+                  ? "Proposta pendente: a transação mantém o estado normal e não soma no acerto com o sócio até aprovação no painel “Despesas Pagas por Sócios” do evento."
+                  : "Despesa liquidada via sócio — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio."}
               </p>
             </div>
           )}
