@@ -81,7 +81,7 @@ export function useInstallmentGroup(transaction: any) {
         isRoot,
       });
 
-      const rows = [map(root, true), ...children.map((c: any) => map(c, false))];
+      const rows = [map(root, true), ...kids.map((c: any) => map(c, false))];
       rows.sort((a, b) => (a.due_date ?? a.date).localeCompare(b.due_date ?? b.date));
       return rows;
     },
