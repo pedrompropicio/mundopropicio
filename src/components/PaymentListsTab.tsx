@@ -25,8 +25,9 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
-import { checkPaymentBankability, isBankable, resolvePaymentIban, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import { checkPaymentBankability, isBankable, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
+import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 
 
 import PaymentListReceipts from "@/components/PaymentListReceipts";
@@ -568,7 +569,10 @@ function useEligibleTransactionsForList() {
         parentRows = parents ?? [];
       }
       const isHiddenSplitChild = buildHiddenSplitChildChecker([...rows, ...parentRows]);
-      return rows.filter((tx: any) => !isHiddenSplitChild(tx));
+      const visible = rows.filter((tx: any) => !isHiddenSplitChild(tx));
+      // Cargas de cartão: beneficiário/IBAN vêm da conta de destino
+      await enrichCardLoadDestinations(visible as any[]);
+      return visible;
     },
   });
 }
@@ -726,7 +730,7 @@ function InvoiceGroupHeaderRow({
           {supplier && <span className="text-muted-foreground">— {supplier}</span>}
           {ref && <span className="text-muted-foreground">— {ref}</span>}
           <InvoiceGroupProgressBadge visibleCount={txs.length} progress={progress} />
-          {disabled && <NoIbanBadge />}
+          {disabled && <NoIbanBadge {...noIbanBadgeProps(txs[0])} />}
         </div>
       </td>
       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
@@ -983,7 +987,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         key={t.id}
                         className={`transition-colors ${bank.ok ? "cursor-pointer" : "opacity-50"} ${selectedIds.has(t.id) ? "bg-primary/5" : bank.ok ? "hover:bg-muted/30" : ""} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
                         onClick={bank.ok ? () => toggleId(t.id) : undefined}
-                        title={bank.ok ? undefined : NO_IBAN_TOOLTIP}
+                        title={bank.ok ? undefined : noIbanBadgeProps(t).tooltip}
                       >
                         <td className="p-2 text-center">
                           <Checkbox
@@ -994,7 +998,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         </td>
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
-                          {!bank.ok && <NoIbanBadge className="ml-1.5" />}
+                          {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                           {bpCheck.exceeds && (
                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
@@ -1359,6 +1363,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         }
       }
 
+      // Cargas de cartão: beneficiário/IBAN vêm da conta de destino
+      await enrichCardLoadDestinations(filtered.map((i: any) => i.transactions).filter(Boolean));
+
       return filtered;
     },
   });
@@ -1520,7 +1527,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const open = Math.max(0, +(np.net - paid).toFixed(2));
       const sup: any = tx.suppliers ?? {};
       const iban = resolvePaymentIban(tx);
-      const name = formatSupplierFullName(sup.name, sup.trade_name);
+      const name = resolvePaymentCreditorName(tx, formatSupplierFullName(sup.name, sup.trade_name)) ?? "-";
       const isPaid = tx.status === "paid" || !!item.manually_marked_paid || paid >= withIva - 0.05;
       const eventName = tx.event_id ? ((tx.events?.name ?? "").toString().trim() || "") : "";
       const description = appendEventToDescription(
@@ -2099,7 +2106,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   )}
                   <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
                     {tx && !isBankable(tx) && (
-                      <div className="pb-1"><NoIbanBadge /></div>
+                      <div className="pb-1"><NoIbanBadge {...noIbanBadgeProps(tx)} /></div>
                     )}
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
@@ -2465,6 +2472,8 @@ function ApproveModal({
         }
       }
 
+      await enrichCardLoadDestinations(filtered.map((i: any) => i.transactions).filter(Boolean));
+
       return filtered;
     },
   });
@@ -2724,7 +2733,7 @@ function ApproveModal({
                         </td>
                          <td className={`p-2 ${nested ? "pl-6" : ""}`}>
                            <span className="font-medium">{tx?.description}</span>
-                           {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" />}
+                           {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(tx)} />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
                            {bpCheck.exceeds && (
                              <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
@@ -2984,7 +2993,7 @@ function AddTransactionsToList({
                         key={t.id}
                         className={`transition-colors ${bank.ok ? "cursor-pointer" : "opacity-50"} ${selectedIds.has(t.id) ? "bg-primary/5" : bank.ok ? "hover:bg-muted/30" : ""}`}
                         onClick={bank.ok ? () => toggleId(t.id) : undefined}
-                        title={bank.ok ? undefined : NO_IBAN_TOOLTIP}
+                        title={bank.ok ? undefined : noIbanBadgeProps(t).tooltip}
                       >
                         <td className="p-2 text-center">
                           <Checkbox
@@ -2995,7 +3004,7 @@ function AddTransactionsToList({
                         </td>
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
-                          {!bank.ok && <NoIbanBadge className="ml-1.5" />}
+                          {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                         </td>
                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
