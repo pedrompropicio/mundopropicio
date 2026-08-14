@@ -1364,7 +1364,7 @@ export default function PartnerEventDetail() {
                       const diffColor = (diff: number) => diff >= 0 ? "text-emerald-500" : "text-red-500";
                       return (
                         <>
-                          <div className={`${gridCmp} px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                          <div className={`${gridCmp} px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold`}>
                             <span>Rubrica</span>
                             <span className="text-right tabular-nums">Previsto</span>
                             <span className="text-right tabular-nums">Realizado</span>
@@ -1375,8 +1375,8 @@ export default function PartnerEventDetail() {
                             const l1Diff = l1.total - l1Real;
                             return (
                               <div key={l1.name} className="mb-2">
-                                <div className={`${gridCmp} bg-muted/40 px-4 py-1.5">
-                                  <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
+                                <div className={`${gridCmp} bg-muted/40 px-4 py-1.5`}>
+                                  <span className={`text-[11px] font-bold uppercase tracking-wider text-foreground ${nameCmp}`}>{l1.code} · {l1.name}</span>
                                   <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l1.total)}</span>
                                   <span className="text-[11px] font-bold font-mono text-foreground text-right tabular-nums">{formatCurrency(l1Real)}</span>
                                   <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${diffColor(l1Diff)}`}>{formatCurrency(l1Diff)}</span>
@@ -1386,8 +1386,8 @@ export default function PartnerEventDetail() {
                                   const l2Diff = l2.total - l2Real;
                                   return (
                                     <div key={l2.name}>
-                                      <div className={`${gridCmp} bg-muted/20 px-4 py-1 border-b border-border/40">
-                                        <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
+                                      <div className={`${gridCmp} bg-muted/20 px-4 py-1 border-b border-border/40`}>
+                                        <span className={`text-[11px] font-semibold text-muted-foreground pl-2 sm:pl-4 ${nameCmp}`}>{l2.code} · {l2.name}</span>
                                         <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l2.total)}</span>
                                         <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l2Real)}</span>
                                         <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l2Diff)}`}>{formatCurrency(l2Diff)}</span>
@@ -1396,8 +1396,8 @@ export default function PartnerEventDetail() {
                                         const l3Real = realizedTotals.l3[`${l1.code}/${l2.code}/${l3.code}/${l3.name}`] ?? 0;
                                         const l3Diff = l3.total - l3Real;
                                         return (
-                                          <div key={l3.name} className={`${gridCmp} px-4 py-1 border-b border-border/15 bg-muted/5">
-                                            <span className="text-[11px] font-semibold text-foreground min-w-0 truncate pl-8">{l3.code} · {l3.name}</span>
+                                          <div key={l3.name} className={`${gridCmp} px-4 py-1 border-b border-border/15 bg-muted/5`}>
+                                            <span className={`text-[11px] font-semibold text-foreground pl-4 sm:pl-8 ${nameCmp}`}>{l3.code} · {l3.name}</span>
                                             <span className="text-[11px] font-semibold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(l3.total)}</span>
                                             <span className="text-[11px] font-semibold font-mono text-foreground text-right tabular-nums">{formatCurrency(l3Real)}</span>
                                             <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${diffColor(l3Diff)}`}>{formatCurrency(l3Diff)}</span>
@@ -1415,8 +1415,8 @@ export default function PartnerEventDetail() {
                             const totDiff = bpTotalExpense - bpTotalRealizedExpense;
                             const diffCls = totDiff >= 0 ? "text-emerald-500" : "text-red-500";
                             return (
-                              <div className={`${gridCmp} bg-muted/60 border-t-2 border-border px-4 py-2">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
+                              <div className={`${gridCmp} bg-muted/60 border-t-2 border-border px-4 py-2`}>
+                                <span className={`text-[11px] font-bold uppercase tracking-wider text-foreground ${nameCmp}`}>TOTAL</span>
                                 <span className="text-[11px] font-bold font-mono text-amber-500 text-right tabular-nums">{formatCurrency(bpTotalExpense)}</span>
                                 <span className="text-[11px] font-bold font-mono text-foreground text-right tabular-nums">{formatCurrency(bpTotalRealizedExpense)}</span>
                                 <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${diffCls}`}>{formatCurrency(totDiff)}</span>
@@ -1443,7 +1443,7 @@ export default function PartnerEventDetail() {
                       const nameCell = "col-span-3 sm:col-span-1 min-w-0 break-words sm:truncate";
                       return (
                         <>
-                          <div className={`${gridStyle} px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                          <div className={`${gridStyle} px-4 py-1.5 border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold`}>
                             <span>Rubrica</span>
                             <span className="text-right tabular-nums">Valor</span>
                             {true && <span className="text-right tabular-nums">Previsto</span>}
@@ -1457,8 +1457,8 @@ export default function PartnerEventDetail() {
                             const l1Display = l1.total + l1Excess;
                             return (
                             <div key={l1.name} className="mb-2">
-                              <div className={`${gridStyle} bg-muted/40 px-4 py-1.5">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0 truncate">{l1.code} · {l1.name}</span>
+                              <div className={`${gridStyle} bg-muted/40 px-4 py-1.5`}>
+                                <span className={`text-[11px] font-bold uppercase tracking-wider text-foreground ${nameCell}`}>{l1.code} · {l1.name}</span>
                                 <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${l1Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l1Display)}</span>
                                 {/* Coluna Previsto: só preenchida em rubricas L3 ajustadas
                                     (e nas linhas BP quando a rubrica tem 1 única linha).
@@ -1472,8 +1472,8 @@ export default function PartnerEventDetail() {
                                 const l2Display = l2.total + l2Excess;
                                 return (
                                 <div key={l2.name}>
-                                  <div className={`${gridStyle} bg-muted/20 px-4 py-1 border-b border-border/40">
-                                    <span className="text-[11px] font-semibold text-muted-foreground min-w-0 truncate pl-4">{l2.code} · {l2.name}</span>
+                                  <div className={`${gridStyle} bg-muted/20 px-4 py-1 border-b border-border/40`}>
+                                    <span className={`text-[11px] font-semibold text-muted-foreground pl-2 sm:pl-4 ${nameCell}`}>{l2.code} · {l2.name}</span>
                                     <span className={`text-[11px] font-semibold font-mono text-right tabular-nums ${l2Excess > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(l2Display)}</span>
                                     {true && <span aria-hidden />}
                                     <span aria-hidden />
@@ -1483,8 +1483,8 @@ export default function PartnerEventDetail() {
                                     const overrun = l3.id ? bpL3Overrun[l3.id] : undefined;
                                     return (
                                       <div key={l3.name}>
-                                        <div className={`${gridStyle} px-4 py-1 border-b border-border/20 bg-muted/5">
-                                          <span className="text-[11px] font-semibold text-foreground min-w-0 pl-8 flex items-center gap-2">
+                                        <div className={`${gridStyle} px-4 py-1 border-b border-border/20 bg-muted/5`}>
+                                          <span className={`text-[11px] font-semibold text-foreground pl-4 sm:pl-8 flex items-center gap-2 ${nameCell}`}>
                                             <span className="truncate flex-1">{l3.code} · {l3.name}</span>
                                             {overrun && (
                                               <span
@@ -1550,8 +1550,8 @@ export default function PartnerEventDetail() {
                                           // 2+ linhas: distribuição fica para Fase 2.
                                           const singleOverrun = overrun && l3.items.length === 1;
                                           return (
-                                          <div key={it.id} className={`${gridStyle} px-4 py-1.5 border-b border-border/15">
-                                            <span className="text-xs min-w-0 truncate pl-12">
+                                          <div key={it.id} className={`${gridStyle} px-4 py-1.5 border-b border-border/15`}>
+                                            <span className={`text-xs pl-6 sm:pl-12 ${nameCell}`}>
                                               {it.description}
                                               {it.specification && (
                                                 <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
@@ -1590,8 +1590,8 @@ export default function PartnerEventDetail() {
                             );
                           })}
                           {/* Linha TOTAL — bate ao cêntimo com o card Despesas (já ajustado) */}
-                          <div className={`${gridStyle} bg-muted/60 border-t-2 border-border px-4 py-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-foreground min-w-0">TOTAL</span>
+                          <div className={`${gridStyle} bg-muted/60 border-t-2 border-border px-4 py-2`}>
+                            <span className={`text-[11px] font-bold uppercase tracking-wider text-foreground ${nameCell}`}>TOTAL</span>
                             <span className={`text-[11px] font-bold font-mono text-right tabular-nums ${bpExcessTotal > 0 ? "text-amber-600" : "text-amber-500"}`}>{formatCurrency(bpTotalExpenseAdjusted)}</span>
                             {true && <span aria-hidden />}
                             <span aria-hidden />
