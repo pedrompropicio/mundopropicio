@@ -7561,6 +7561,8 @@ export type Database = {
       }
       partner_paid_expenses: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           company_id: string
           created_at: string
           event_id: string
@@ -7568,9 +7570,13 @@ export type Database = {
           notes: string | null
           paid_date: string | null
           partner_id: string
+          proposed_by: string | null
+          status: string
           transaction_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           company_id?: string
           created_at?: string
           event_id: string
@@ -7578,9 +7584,13 @@ export type Database = {
           notes?: string | null
           paid_date?: string | null
           partner_id: string
+          proposed_by?: string | null
+          status?: string
           transaction_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           company_id?: string
           created_at?: string
           event_id?: string
@@ -7588,6 +7598,8 @@ export type Database = {
           notes?: string | null
           paid_date?: string | null
           partner_id?: string
+          proposed_by?: string | null
+          status?: string
           transaction_id?: string
         }
         Relationships: [
