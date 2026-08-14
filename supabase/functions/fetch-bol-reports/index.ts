@@ -21,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 
-const VERSION = "v1.1_m2_2026_08_15";
+const VERSION = "v1.2_telerik_2026_08_15";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -277,11 +277,36 @@ function parseSelects(html: string): SelectInfo[] {
   return out;
 }
 
-/** select do evento: o que tem uma option com o bol_event_id (ou nome com "Evento"). */
-function findEventSelect(selects: SelectInfo[], bolEventId: string): SelectInfo | null {
-  return selects.find((s) => s.options.some((o) => o.value === bolEventId || o.text.includes(bolEventId)))
-    ?? selects.find((s) => /evento/i.test(s.name)) ?? null;
+// --- Combo Telerik do evento (NÃO é um <select>) ---
+const TELERIK_TARGET = "ctl00$CPH_Body$telerikddlEvento";
+const TELERIK_CLIENTSTATE = "ctl00_CPH_Body_telerikddlEvento_ClientState";
+const DDL_SESSAO = "ctl00$CPH_Body$ddlSessao";
+const TODAS_EM_VENDA = "0;0;01/01/0001;2";
+const M2_TARGET = "ctl00$CPH_Body$itm_MapaOcupacaoSessaoTipoVenda";
+
+/** input de texto do RadComboBox (o sufixo pode variar). */
+function findTelerikInputName(html: string): string | null {
+  const re = /name="(ctl00\$CPH_Body\$telerikddlEvento[^_"]*)"/i;
+  return html.match(re)?.[1] ?? null;
 }
+function readClientState(html: string): string | null {
+  const re = new RegExp(`name="${TELERIK_CLIENTSTATE}"[^>]*value="([^"]*)"`, "i");
+  const m = html.match(re) ?? html.match(/telerikddlEvento_ClientState"[^>]*value="([^"]*)"/i);
+  return m ? decodeEntities(m[1]) : null;
+}
+function buildClientState(value: string, text: string): string {
+  return JSON.stringify({
+    logEntries: [], value, text, enabled: true,
+    checkedIndices: [], checkedItemsTextOverflows: false,
+  });
+}
+/** Remove prefixo "BOL — " do organization_name. */
+const cleanOrgName = (s: string | null | undefined) =>
+  String(s || "").replace(/^\s*BOL\s*[—–-]\s*/i, "").trim();
+
+const foldText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 
 /** select "Datas sessões": preferir a opção "*** TODAS EM VENDA ***". */
 function findSessionsOption(selects: SelectInfo[]): { name: string; value: string } | null {
@@ -384,11 +409,17 @@ async function readAsPdf(jar: Jar, resp: Response, fromUrl: string, tried: any[]
 }
 
 /**
- * Fluxo real: GET MapasProdutor.aspx → postback de seleção do evento
- * (dropdown com AutoPostBack devolve novo __VIEWSTATE) → postback do botão
- * "M2 - TIPO DE VENDA" → PDF (direto ou via redirect).
+ * Fluxo real: GET MapasProdutor.aspx → postback Telerik de seleção do evento
+ * (RadComboBox: __EVENTTARGET + ClientState) com VALIDAÇÃO de que o combo
+ * devolvido reflete o bol_event_id → postback do botão "M2 - TIPO DE VENDA"
+ * (__doPostBack) → PDF direto, via 302 ou via URL embutido no HTML.
  */
-async function downloadM2Pdf(jar: Jar, bolEventId: string, debug: Record<string, any>): Promise<{ bytes: Uint8Array; url: string }> {
+async function downloadM2Pdf(
+  jar: Jar,
+  bolEventId: string,
+  debug: Record<string, any>,
+  eventText = "",
+): Promise<{ bytes: Uint8Array; url: string }> {
   const tried: any[] = [];
 
   const getResp = await getAuthed(jar, MAPS_URL);
@@ -405,86 +436,141 @@ async function downloadM2Pdf(jar: Jar, bolEventId: string, debug: Record<string,
     throw Object.assign(new Error("MapasProdutor.aspx devolveu login (sessão expirada)"), { phase: "session_expired", retriable: true });
   }
 
-  let selects = parseSelects(html);
-  const evSel = findEventSelect(selects, bolEventId);
-  if (!evSel) {
-    debug.maps_selects = selects.map((s) => ({ name: s.name, options: s.options.slice(0, 10) }));
-    throw Object.assign(
-      new Error(`Dropdown de evento não encontrado em MapasProdutor.aspx (bol_event_id=${bolEventId})`),
-      { phase: "html_response", tried: debug.maps_selects },
-    );
-  }
-  const evOption = evSel.options.find((o) => o.value === bolEventId)
-    ?? evSel.options.find((o) => o.text.includes(bolEventId));
-  if (!evOption) {
-    debug.maps_event_options = evSel.options.slice(0, 60);
-    throw Object.assign(
-      new Error(`Evento ${bolEventId} não está no dropdown (conta sem acesso ou evento concluído).`),
-      { phase: "html_response", tried: debug.maps_event_options },
-    );
-  }
-  debug.maps_event_select = evSel.name;
+  const comboInput = findTelerikInputName(html);
+  debug.combo_input_name = comboInput;
+  debug.clientstate_initial = readClientState(html);
 
-  // Passo 1: postback de seleção do evento (AutoPostBack)
-  const selResp = await postForm(jar, MAPS_URL, html, {
-    __EVENTTARGET: evSel.name,
-    __EVENTARGUMENT: "",
-    [evSel.name]: evOption.value,
-  });
-  if (selResp.status === 302) {
-    const loc = selResp.headers.get("location") || "";
-    await selResp.text().catch(() => null);
-    if (/Autenticacao/i.test(loc)) {
-      throw Object.assign(new Error("Sessão BOL expirada na seleção do evento"), { phase: "session_expired", retriable: true });
+  // --- Passo 1: seleção explícita do evento (2 variantes de ClientState) ---
+  const variants = [
+    { label: "value+empty_text", text: "" },
+    { label: "value+event_text", text: eventText },
+  ].filter((v, i, arr) => i === 0 || (v.text && v.text !== arr[0].text));
+
+  let selected = false;
+  const attempts: any[] = [];
+  for (const variant of variants) {
+    const clientState = buildClientState(bolEventId, variant.text);
+    const overrides: Record<string, string> = {
+      __EVENTTARGET: TELERIK_TARGET,
+      __EVENTARGUMENT: "",
+      [TELERIK_CLIENTSTATE]: clientState,
+    };
+    if (comboInput) overrides[comboInput] = variant.text;
+
+    const selResp = await postForm(jar, MAPS_URL, html, overrides);
+    let body: string;
+    if (selResp.status === 302) {
+      const loc = selResp.headers.get("location") || "";
+      await selResp.text().catch(() => null);
+      if (/Autenticacao/i.test(loc)) {
+        throw Object.assign(new Error("Sessão BOL expirada na seleção do evento"), { phase: "session_expired", retriable: true });
+      }
+      const again = await getAuthed(jar, absUrl(MAPS_URL, loc));
+      body = await again.text().catch(() => "");
+    } else {
+      body = await selResp.text().catch(() => "");
     }
-    const again = await getAuthed(jar, absUrl(MAPS_URL, loc));
-    html = await again.text();
-  } else if (selResp.ok) {
-    html = await selResp.text();
-  } else {
-    await selResp.text().catch(() => null);
-    throw Object.assign(new Error(`Postback de seleção do evento: HTTP ${selResp.status}`), { phase: "html_response" });
+
+    const csBack = readClientState(body);
+    const comboBack = comboInput
+      ? body.match(new RegExp(`name="${comboInput.replace(/\$/g, "\\$")}"[^>]*value="([^"]*)"`, "i"))?.[1] ?? null
+      : null;
+    const okById = !!csBack && csBack.includes(bolEventId);
+    const distinct = eventText
+      ? foldText(eventText).split(/\s+/).filter((t) => t.length >= 4)
+      : [];
+    const okByText = distinct.length > 0 &&
+      distinct.some((t) => foldText(`${csBack || ""} ${comboBack || ""}`).includes(t));
+
+    attempts.push({
+      variant: variant.label,
+      status: selResp.status,
+      clientstate_sent: clientState,
+      clientstate_returned: csBack ? csBack.slice(0, 400) : null,
+      combo_input_returned: comboBack,
+      matched: okById || okByText,
+    });
+
+    if (okById || okByText) {
+      html = body;
+      selected = true;
+      break;
+    }
+    debug.event_select_body_excerpt = stripTags(body).slice(0, 800);
   }
+  debug.event_select_attempts = attempts;
 
-  selects = parseSelects(html);
-  const sessionsOpt = findSessionsOption(selects);
-  debug.maps_sessions_option = sessionsOpt;
-
-  const m2 = findM2Button(html);
-  if (!m2) {
-    debug.maps_buttons = (html.match(/<input\b[^>]*type="(?:submit|button|image)"[^>]*>/gi) || []).slice(0, 30);
+  if (!selected) {
     throw Object.assign(
-      new Error("Botão \"M2 - TIPO DE VENDA\" não encontrado em MapasProdutor.aspx."),
-      { phase: "html_response", tried: debug.maps_buttons },
+      new Error(`Seleção do evento ${bolEventId} não foi refletida pelo combo Telerik — mapa não gerado (risco de evento errado).`),
+      { phase: "event_select_failed", tried: attempts },
     );
   }
-  debug.maps_m2_button = m2;
 
-  // Passo 2: postback do botão M2
-  const overrides: Record<string, string> = {
-    __EVENTTARGET: "",
+  // --- Passo 2: postback do botão M2 ---
+  const m2 = findM2Button(html);
+  const m2Target = m2?.name || M2_TARGET;
+  debug.m2_target = m2Target;
+
+  const sessionsOpt = findSessionsOption(parseSelects(html));
+  const sessionField = sessionsOpt?.name || DDL_SESSAO;
+  const sessionValue = sessionsOpt?.value || TODAS_EM_VENDA;
+  debug.maps_sessions_option = { name: sessionField, value: sessionValue };
+
+  const pdfResp = await postForm(jar, MAPS_URL, html, {
+    __EVENTTARGET: m2Target,
     __EVENTARGUMENT: "",
-    [evSel.name]: evOption.value,
-    [m2.name]: m2.value || "M2",
-  };
-  if (sessionsOpt) overrides[sessionsOpt.name] = sessionsOpt.value;
+    [TELERIK_CLIENTSTATE]: buildClientState(bolEventId, eventText),
+    [sessionField]: sessionValue,
+  }, "application/pdf,text/html,*/*");
 
-  const pdfResp = await postForm(jar, MAPS_URL, html, overrides, "application/pdf,*/*");
-  const bytes = await readAsPdf(jar, pdfResp, MAPS_URL, tried);
-  debug.map_tried = tried;
-  if (bytes) {
+  // (a) PDF direto | (b) 302 seguido
+  const ct = pdfResp.headers.get("content-type") || "";
+  if (pdfResp.status === 302) {
+    const bytes302 = await readAsPdf(jar, pdfResp, MAPS_URL, tried);
+    debug.map_tried = tried;
+    if (bytes302) { debug.map_url = MAPS_URL; return { bytes: bytes302, url: MAPS_URL }; }
+    throw Object.assign(
+      new Error("Redirect do M2 não devolveu PDF."),
+      { phase: "map_postback_failed", tried },
+    );
+  }
+  const buf = new Uint8Array(await pdfResp.arrayBuffer());
+  if (ct.includes("pdf") || looksPdf(buf)) {
     debug.map_url = MAPS_URL;
-    return { bytes, url: MAPS_URL };
+    return { bytes: buf, url: MAPS_URL };
   }
 
+  // (c) HTML com URL do PDF embutido (window.open / iframe / redirect JS)
+  const bodyHtml = new TextDecoder("utf-8").decode(buf);
+  if (describeHtml(bodyHtml).isSignIn) {
+    throw Object.assign(new Error("Mapa BOL: login devolvido (sessão expirada)"), { phase: "session_expired", retriable: true });
+  }
+  const urlMatch = bodyHtml.match(/["']([^"'<>\s]*(?:\.pdf|Relatorios\/[^"'<>\s]*\?[^"'<>\s]+))["']/i);
+  if (urlMatch) {
+    const pdfUrl = absUrl(MAPS_URL, urlMatch[1]);
+    const r = await getAuthed(jar, pdfUrl, "application/pdf,*/*");
+    const b2 = new Uint8Array(await r.arrayBuffer());
+    if ((r.headers.get("content-type") || "").includes("pdf") || looksPdf(b2)) {
+      debug.map_url = pdfUrl;
+      return { bytes: b2, url: pdfUrl };
+    }
+    tried.push({ url: pdfUrl, status: r.status, contentType: r.headers.get("content-type") });
+  }
+
+  debug.map_postback = {
+    status: pdfResp.status,
+    contentType: ct,
+    body_excerpt: stripTags(bodyHtml).slice(0, 800),
+    embedded_url: urlMatch?.[1] ?? null,
+  };
+  debug.map_tried = tried;
   throw Object.assign(
-    new Error(
-      "Postback do M2 não devolveu PDF em MapasProdutor.aspx — correr a action \"discover\" " +
-      "para inspecionar a página (selects, botões, hidden fields).",
-    ),
-    { phase: "html_response", tried },
+    new Error(`Postback do M2 não devolveu PDF (HTTP ${pdfResp.status}, content-type="${ct}").`),
+    { phase: "map_postback_failed", tried: [...tried, debug.map_postback] },
   );
 }
+
 
 
 async function loadCreds(admin: any, secretName: string): Promise<{ email: string; password: string }> {
@@ -535,6 +621,8 @@ async function runDiscover(admin: any, configId?: string) {
         : [],
       buttons: html ? (html.match(/<input\b[^>]*type="(?:submit|button|image)"[^>]*>/gi) || []).slice(0, 30) : [],
       m2Button: html ? findM2Button(html) : null,
+      telerikComboInput: html ? findTelerikInputName(html) : null,
+      telerikClientState: html ? readClientState(html) : null,
       mapLinks: links.filter((l) => /mapa|relat|vend|sess/i.test(`${l.href} ${l.text}`)).slice(0, 60),
       links: links.slice(0, 60),
     });
@@ -577,15 +665,16 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
   try {
     const creds = await loadCreds(admin, cfg.vault_secret_name);
 
+    const expectedName = cleanOrgName(cfg.organization_name);
     let pdf: { bytes: Uint8Array; url: string };
     const jar = await getJar(sessions, cfg.vault_secret_name, creds);
     try {
-      pdf = await downloadM2Pdf(jar, cfg.bol_event_id, debug);
+      pdf = await downloadM2Pdf(jar, cfg.bol_event_id, debug, expectedName);
     } catch (e: any) {
       if (e?.retriable) {
         console.log("[bol] self-heal re-login");
         const jar2 = await getJar(sessions, cfg.vault_secret_name, creds, true);
-        pdf = await downloadM2Pdf(jar2, cfg.bol_event_id, debug);
+        pdf = await downloadM2Pdf(jar2, cfg.bol_event_id, debug, expectedName);
       } else throw e;
     }
 
@@ -607,6 +696,22 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.sectors = parseRes.rows.length;
     debug.parser = parseRes.debug;
     debug.warnings = parseRes.warnings;
+
+    // Dupla verificação: o rodapé do PDF tem de bater com o evento esperado
+    debug.pdf_event_name = parseRes.header.eventName;
+    debug.pdf_venue = parseRes.header.venue;
+    const tokens = foldText(expectedName).split(/[^a-z0-9]+/).filter((t) => t.length >= 4);
+    const pdfHay = foldText(`${parseRes.header.eventName || ""} ${parseRes.header.venue || ""} ${text.slice(0, 4000)}`);
+    if (tokens.length > 0 && !tokens.some((t) => pdfHay.includes(t))) {
+      throw Object.assign(
+        new Error(
+          `Evento do PDF ("${parseRes.header.eventName || "?"}" / "${parseRes.header.venue || "?"}") ` +
+          `não corresponde ao esperado ("${expectedName}") — import abortado.`,
+        ),
+        { phase: "event_mismatch", filesAudit, tried: { expected: expectedName, tokens, pdf_event_name: parseRes.header.eventName, pdf_venue: parseRes.header.venue } },
+      );
+    }
+
 
     if (parseRes.rows.length === 0) {
       throw Object.assign(

@@ -41,15 +41,27 @@ dropdown **Datas sessões** (usamos `*** TODAS EM VENDA ***`), radios TODAS / EM
 REALIZADAS e botões de mapas: OCUPAÇÃO (M1 Local de Venda, **M2 Tipo de Venda**, M3 Tipo de Desconto
 e Convite, Diário Vendas) e OUTROS (Acompanhamento de Pontos de Venda).
 
-Fluxo em `fetch-bol-reports` (v1.1):
-1. GET autenticado a `MapasProdutor.aspx` → `parseFormFields` (hidden `__VIEWSTATE`,
-   `__VIEWSTATEGENERATOR`, `__EVENTVALIDATION`) + `parseSelects`.
-2. Postback de **seleção do evento** (`__EVENTTARGET` = nome do select, AutoPostBack) → novo VIEWSTATE.
-3. Postback do **botão M2** (procurado por `value`/`name` com "M2" ou "tipo de venda"), com o select
-   de sessões em "TODAS EM VENDA" → PDF direto ou via 302 (seguido).
-Falha de qualquer passo → `html_response` com `describeHtml` + `import_audit.debug`
-(`maps_selects`, `maps_event_options`, `maps_buttons`, `map_tried`). A action `discover` devolve
-hiddenFields, selects+options, botões e `m2Button` de cada página.
+Fluxo em `fetch-bol-reports` (v1.2 — Telerik):
+O seletor de evento **não é um `<select>`** — é um Telerik RadComboBox.
+1. GET autenticado a `MapasProdutor.aspx` → hidden fields (`__VIEWSTATE`, `__VIEWSTATEGENERATOR`,
+   `__EVENTVALIDATION`, `ctl00_CPH_Body_telerikddlEvento_ClientState`, `ctl00$CPH_Body$hfEventoFoiClear`,
+   `cbxIncluirConcluidos`, `Situacao`, `ddlSessao`).
+2. Postback de **seleção do evento**: `__EVENTTARGET="ctl00$CPH_Body$telerikddlEvento"` +
+   `ClientState` JSON `{logEntries:[],value:"<bol_event_id>",text:"…",enabled:true,checkedIndices:[],checkedItemsTextOverflows:false}`.
+   Variante 1 `text=""`, variante 2 `text=organization_name` sem prefixo "BOL — ". O input de texto do combo
+   é detetado por `name="ctl00$CPH_Body$telerikddlEvento[^_"]*"`.
+   **Validação obrigatória**: o ClientState/input devolvidos têm de refletir o id (ou tokens do nome);
+   senão falha em `event_select_failed` com `clientstate_sent/returned`, `combo_input_returned` e excerto do body.
+3. Postback do **M2**: `__EVENTTARGET="ctl00$CPH_Body$itm_MapaOcupacaoSessaoTipoVenda"`,
+   `ctl00$CPH_Body$ddlSessao="0;0;01/01/0001;2"` (TODAS EM VENDA). Resposta: PDF direto, 302 seguido, ou HTML
+   com URL de PDF embutido (regex `.pdf` / `Relatorios/…?`). Nada disso → `map_postback_failed` com
+   status, content-type e 800 chars.
+4. **Dupla verificação no PDF**: `import_audit.debug.pdf_event_name` / `pdf_venue`; se nenhum token de 4+ letras
+   do `organization_name` aparecer no PDF → `event_mismatch` (nunca importa evento errado).
+
+A action `discover` devolve hiddenFields, selects+options, botões, `m2Button`, `telerikComboInput` e
+`telerikClientState` de cada página.
+
 
 ## Relatório — M2 "Ocupação Sessões — Tipo de Venda"
 
@@ -86,7 +98,7 @@ Parser `_shared/bol-report-parser.ts` → `parseBolM2(text)`:
 
 `creds_missing` ("Credenciais em falta no Vault (bol_master)"), `creds_invalid`, `login_get`,
 `login_form`, `login_viewstate`, `login_post`, `session_expired` (retriable),
-`html_response` (relatório não encontrado nos caminhos conhecidos), `pdf_text_failed`,
+`event_select_failed`, `map_postback_failed`, `event_mismatch`, `html_response`, `pdf_text_failed`,
 `parse_failed`, `import_failed`, `account_missing`, `fanout_*`.
 
 ## UI e cron
