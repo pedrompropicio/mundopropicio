@@ -1073,7 +1073,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      // Guardrails de liquidação na criação:
+      //  * papéis abaixo de manager NUNCA criam transação já paga (liquidação
+      //    faz-se no modal de pagamento / listas / fluxos próprios);
+      //  * admin/manager podem criar já paga, mas com conta obrigatória.
+      if (autoMarkPaid && !canCreatePaid) {
+        throw new Error("Não tem permissão para criar transações já liquidadas. Crie em aberto e liquide no modal de pagamento.");
+      }
+      if (effectiveAutoMarkPaid && !data.account_id) {
+        throw new Error("Uma transação criada como paga exige conta financeira associada.");
+      }
       let createdTxId: string | null = null;
+
       // Cauções/Transitórias NUNCA são rateadas entre sub-eventos: ficam sempre
       // como lançamento único no evento Master. (Não compõem resultado, logo o
       // rateio por cidade não tem propósito contabilístico.)
