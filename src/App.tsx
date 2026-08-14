@@ -533,6 +533,7 @@ function ProtectedLayout() {
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/admin/fever-sync" element={<FeverSync />} />
               <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
+              <Route path="/admin/bol-sync" element={<BolSync />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
