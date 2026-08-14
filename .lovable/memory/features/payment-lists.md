@@ -145,9 +145,22 @@ Ver `docs/features/pagamentos-export-sepa-santander.md`.
 Regra: uma transação só entra numa lista de pagamento se tiver **dados bancários
 resolvíveis**. Resolução ÚNICA em `src/lib/payment-iban.ts`:
 
-- `resolvePaymentIban(tx)`: `transactions.iban_override` → `suppliers.iban` → `iban_2` → `iban_3`.
+- `resolvePaymentIban(tx)`: `transactions.iban_override` → **conta de destino (carga de cartão)**
+  → `suppliers.iban` → `iban_2` → `iban_3`.
   (Nos **reembolsos** o `iban_override` já vem da nota — `reimbursement_notes.payment_iban`
   ou IBAN do fornecedor — logo continuam elegíveis como hoje.)
+
+### Cargas de cartão pré-pago (2026-08)
+Uma carga é transferência interna real (cat. 10.3, sem fornecedor) e **é elegível**:
+o beneficiário é a CONTA DE DESTINO. Modelo:
+`transactions.id → card_session_loads.out_transaction_id → card_sessions.card_account_id
+→ financial_accounts(name, iban)`.
+`enrichCardLoadDestinations()` (`src/lib/card-load-destination.ts`) anexa
+`tx.card_load_destination` nas 3 queries (picker Nova Lista, detalhe, ApproveModal);
+`resolvePaymentCreditorName()` usa o nome da conta no ficheiro SEPA (sem sufixo de
+evento — a carga não tem evento). Sem IBAN no cadastro da conta → badge específico
+**"Conta de destino sem IBAN"** (`noIbanBadgeProps`). O trigger
+`enforce_payment_list_item_bankable` replica o mesmo LEFT JOIN em SQL.
 - `checkPaymentBankability(tx)`: OK se há IBAN **ou** se há `payment_entity`/`payment_reference`
   (pagamentos ao Estado/serviços por Entidade+Referência — pagos no homebanking, fora do SEPA).
 - `isBankable(tx)` é usado nos pickers, no ApproveModal e no detalhe; `resolvePaymentIban`
