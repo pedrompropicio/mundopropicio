@@ -271,7 +271,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
                                 onClick={() => updatePartner.mutate({ id: p.id, supplier_id: p.supplier_id, name: editName, originalName: p.suppliers?.name || "", percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes })}
-                                disabled={!editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
+                                disabled={!editName.trim() || !editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
                               >
                                 <Check className="h-3.5 w-3.5 text-green-600" />
                               </Button>
