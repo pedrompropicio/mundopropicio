@@ -228,7 +228,55 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       if (transaction.is_reimbursement) {
         throw new Error("Esta transação é um reembolso. Liquide-a através da respetiva Nota de Reembolso.");
       }
-      // Snapshot before payment for undo
+
+      // ===== Fluxo "Pago pelo Sócio" =====
+      if (partnerMode) {
+        if (!isExpense) throw new Error("Só despesas podem ser pagas por um sócio.");
+        if (!partnerEventId) throw new Error("A transação não está associada a um evento com sócios.");
+        if (!partnerId) throw new Error("Selecione o sócio que pagou.");
+        if (!partnerPaidDate) throw new Error("Indique a data do pagamento pelo sócio.");
+        if (existingPartnerLink) throw new Error("Esta transação já tem um vínculo a sócio.");
+        const callerName = user?.user_metadata?.full_name ?? user?.email ?? "utilizador";
+        const status = canApprovePartnerPaid ? "approved" : "pending_approval";
+        const { error: linkError } = await (supabase as any).from("partner_paid_expenses").insert({
+          transaction_id: transaction.id,
+          partner_id: partnerId,
+          event_id: partnerEventId,
+          paid_date: partnerPaidDate,
+          status,
+          proposed_by: user?.id ?? null,
+          approved_by: canApprovePartnerPaid ? user?.id ?? null : null,
+          approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
+        });
+        if (linkError) throw linkError;
+
+        if (canApprovePartnerPaid) {
+          const { error: txError } = await supabase
+            .from("transactions")
+            .update({
+              status: "paid",
+              paid_amount: amount,
+              payment_date: partnerPaidDate,
+              account_id: null,
+            })
+            .eq("id", transaction.id);
+          if (txError) throw txError;
+        }
+
+        await supabase.from("transaction_audit_log").insert({
+          transaction_id: transaction.id,
+          changed_by: callerName,
+          field_name: "Pago pelo Sócio",
+          old_value: null,
+          new_value: canApprovePartnerPaid
+            ? `Liquidada por sócio em ${partnerPaidDate}`
+            : `Proposta de pagamento por sócio em ${partnerPaidDate} (aguarda aprovação)`,
+        });
+
+        return { partnerPaid: true, approved: canApprovePartnerPaid };
+      }
+
+
       const undoSnapshot = {
         previousStatus: transaction.status ?? "approved",
         previousPaymentDate: transaction.payment_date ?? null,
