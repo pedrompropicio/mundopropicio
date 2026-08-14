@@ -25,15 +25,24 @@ export type BankabilityCheck = {
   viaReference: boolean;
   /** carga de cartão pré-pago: beneficiário é a conta de destino */
   isCardLoad: boolean;
+  /**
+   * Transferência interna (carga de cartão) sem IBAN na conta de destino:
+   * ELEGÍVEL para lista, mas executada no homebanking — fica fora do SEPA.
+   */
+  internalNoIban: boolean;
   /** motivo da inelegibilidade (só quando ok = false) */
-  reason?: "no_bank_data" | "card_destination_no_iban";
+  reason?: "no_bank_data";
 };
 
 export const NO_IBAN_TOOLTIP =
   "Associa um fornecedor com IBAN ou define IBAN manual na transação para poder incluir em lista";
 
-export const CARD_DEST_NO_IBAN_TOOLTIP =
-  "Preenche o IBAN da conta do cartão de destino no cadastro de Contas para poder incluir em lista";
+export const INTERNAL_NO_IBAN_TOOLTIP =
+  "Transferência entre contas próprias: sem IBAN no cadastro da conta de destino, fica fora do ficheiro Santander e liquida-se no homebanking";
+
+export const SEPA_INTERNAL_NO_IBAN_REASON =
+  "Carga sem IBAN de destino — executar no homebanking";
+
 
 const clean = (v: unknown): string | null => {
   const s = (v ?? "").toString().trim();
