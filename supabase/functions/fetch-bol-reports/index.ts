@@ -255,6 +255,92 @@ function collectLinks(html: string, base: string) {
   return out.slice(0, 200);
 }
 
+// --- Discover profundo do combo Telerik (v1.3) ---
+function collectComboRegions(html: string): string[] {
+  const out: Array<{ start: number; end: number }> = [];
+  const re = /telerikddlEvento/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const start = Math.max(0, m.index - 1200);
+    const end = Math.min(html.length, m.index + 1200);
+    const last = out[out.length - 1];
+    if (last && start <= last.end) last.end = Math.max(last.end, end);
+    else out.push({ start, end });
+    if (out.length >= 8) break;
+  }
+  return out.slice(0, 8).map((r) => html.slice(r.start, r.end));
+}
+
+function collectComboScripts(html: string): string[] {
+  const out: string[] = [];
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const body = m[1];
+    if (!/telerikddlEvento|RadComboBox/i.test(body)) continue;
+    out.push(body.slice(0, 4000));
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+function collectComboItems(html: string): Array<{ text: string; value?: string; attributes?: string }> {
+  const items: Array<{ text: string; value?: string; attributes?: string }> = [];
+  // 1) itens inline renderizados (ul/li com classes rcb*)
+  const liRe = /<li\b([^>]*class="[^"]*rcb[^"]*"[^>]*)>([\s\S]*?)<\/li>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = liRe.exec(html)) !== null && items.length < 40) {
+    items.push({ text: stripTags(m[2]).slice(0, 200), attributes: m[1].slice(0, 300) });
+  }
+  // 2) arrays de itens em script: {"Text":"...","Value":"..."}
+  const jsonRe = /\{"[^"{}]*?[Tt]ext"\s*:\s*"((?:[^"\\]|\\.)*)"[^{}]*?"[Vv]alue"\s*:\s*"((?:[^"\\]|\\.)*)"[^{}]*\}/g;
+  while ((m = jsonRe.exec(html)) !== null && items.length < 40) {
+    items.push({ text: m[1].slice(0, 200), value: m[2].slice(0, 200) });
+  }
+  return items.slice(0, 40);
+}
+
+function collectHiddenRaw(html: string): string[] {
+  const out: string[] = [];
+  const re = /<input\b[^>]*type="hidden"[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    if (!/name="[^"]*(?:telerik|Evento)[^"]*"|id="[^"]*(?:telerik|Evento)[^"]*"/i.test(tag)) continue;
+    out.push(tag.slice(0, 4000));
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+const MAX_DISCOVER_BYTES = 80 * 1024;
+function capPayload(payload: any) {
+  let s = JSON.stringify(payload);
+  if (s.length <= MAX_DISCOVER_BYTES) return payload;
+  // trunca progressivamente os campos pesados
+  for (const page of payload.pages || []) {
+    for (const key of ["comboScripts", "comboRegions", "hiddenRaw"]) {
+      if (Array.isArray(page[key])) {
+        page[key] = page[key].map((x: string) => (x.length > 1500 ? x.slice(0, 1500) + "...truncated" : x));
+      }
+    }
+    s = JSON.stringify(payload);
+    if (s.length <= MAX_DISCOVER_BYTES) return payload;
+  }
+  s = JSON.stringify(payload);
+  if (s.length > MAX_DISCOVER_BYTES) {
+    return { ...payload, truncated: true, pages: JSON.parse(s.slice(0, 0) || "[]").length ? [] : (payload.pages || []).map((p: any) => ({
+      url: p.url, status: p.status, title: p.title,
+      hiddenRaw: (p.hiddenRaw || []).map((x: string) => x.slice(0, 800) + "...truncated"),
+      comboRegions: (p.comboRegions || []).slice(0, 2).map((x: string) => x.slice(0, 800) + "...truncated"),
+      comboItems: (p.comboItems || []).slice(0, 20),
+      selects: p.selects,
+      note: "...truncated",
+    })) };
+  }
+  return payload;
+}
+
 // --- Página real de mapas (ASP.NET WebForms) ---
 const MAPS_PATH = "/Relatorios/MapasProdutor.aspx";
 const MAPS_URL = `${BASE}${MAPS_PATH}`;
