@@ -386,8 +386,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
-        ...(isPaidByPartner ? {} : paymentFields),
-        ...(isPaidByPartner ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
+        ...(partnerPaidSettled ? {} : paymentFields),
+        ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -395,17 +395,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: form.event_id,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
-        account_id: isPaidByPartner ? null : (form.account_id || null),
+        account_id: partnerPaidSettled ? null : (form.account_id || null),
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         date: form.date,
         due_date: form.due_date || null,
-        ...(isPaidByPartner
+        ...(partnerPaidSettled
           ? { payment_date: partnerPaidDate || form.date }
           : (isAdmin && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
-        ...(isPaidByPartner ? {} : paymentFields),
+        ...(partnerPaidSettled ? {} : paymentFields),
         currency,
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
         fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
