@@ -554,28 +554,34 @@ async function downloadM2Pdf(
     throw Object.assign(new Error("MapasProdutor.aspx devolveu login (sessão expirada)"), { phase: "session_expired", retriable: true });
   }
 
-  const comboInput = findTelerikInputName(html);
-  debug.combo_input_name = comboInput;
-  debug.clientstate_initial = readClientState(html);
+  // --- Passo 1: itens e value atual do widget (script $create inline) ---
+  const items = readComboItems(html);
+  const widgetValueInitial = readWidgetValue(html);
+  debug.items_found = items.map((i) => i.value);
+  debug.widget_value_initial = widgetValueInitial;
 
-  // --- Passo 1: seleção explícita do evento (2 variantes de ClientState) ---
-  const variants = [
-    { label: "value+empty_text", text: "" },
-    { label: "value+event_text", text: eventText },
-  ].filter((v, i, arr) => i === 0 || (v.text && v.text !== arr[0].text));
+  const item = items.find((i) => i.value === String(bolEventId));
+  if (items.length > 0 && !item) {
+    throw Object.assign(
+      new Error(
+        `Evento ${bolEventId} não consta da lista do combo BOL (itens: ${debug.items_found.join(", ")}) — provavelmente concluído; seria preciso "Incluir Eventos Concluídos".`,
+      ),
+      { phase: "event_not_in_list", tried: [{ items: debug.items_found }] },
+    );
+  }
+  const comboText = item?.text || eventText || "";
+  const clientState = buildClientState(String(bolEventId), comboText);
+  debug.clientstate_sent = clientState;
 
-  let selected = false;
-  const attempts: any[] = [];
-  for (const variant of variants) {
-    const clientState = buildClientState(bolEventId, variant.text);
-    const overrides: Record<string, string> = {
+  if (widgetValueInitial === String(bolEventId)) {
+    debug.event_select_skipped = true;
+  } else {
+    const selResp = await postForm(jar, MAPS_URL, html, {
       __EVENTTARGET: TELERIK_TARGET,
       __EVENTARGUMENT: "",
       [TELERIK_CLIENTSTATE]: clientState,
-    };
-    if (comboInput) overrides[comboInput] = variant.text;
-
-    const selResp = await postForm(jar, MAPS_URL, html, overrides);
+      "ctl00$CPH_Body$hfEventoFoiClear": "",
+    });
     let body: string;
     if (selResp.status === 302) {
       const loc = selResp.headers.get("location") || "";
@@ -589,41 +595,20 @@ async function downloadM2Pdf(
       body = await selResp.text().catch(() => "");
     }
 
-    const csBack = readClientState(body);
-    const comboBack = comboInput
-      ? body.match(new RegExp(`name="${comboInput.replace(/\$/g, "\\$")}"[^>]*value="([^"]*)"`, "i"))?.[1] ?? null
-      : null;
-    const okById = !!csBack && csBack.includes(bolEventId);
-    const distinct = eventText
-      ? foldText(eventText).split(/\s+/).filter((t) => t.length >= 4)
-      : [];
-    const okByText = distinct.length > 0 &&
-      distinct.some((t) => foldText(`${csBack || ""} ${comboBack || ""}`).includes(t));
+    const widgetValueReturned = readWidgetValue(body);
+    debug.widget_value_returned = widgetValueReturned;
+    debug.event_select_status = selResp.status;
 
-    attempts.push({
-      variant: variant.label,
-      status: selResp.status,
-      clientstate_sent: clientState,
-      clientstate_returned: csBack ? csBack.slice(0, 400) : null,
-      combo_input_returned: comboBack,
-      matched: okById || okByText,
-    });
-
-    if (okById || okByText) {
-      html = body;
-      selected = true;
-      break;
+    if (widgetValueReturned !== String(bolEventId)) {
+      debug.create_script_excerpt = (telerikCreateScript(body) || "").slice(0, 800);
+      throw Object.assign(
+        new Error(`Seleção do evento ${bolEventId} não foi refletida pelo combo Telerik (value devolvido: ${widgetValueReturned ?? "null"}).`),
+        { phase: "event_select_failed", tried: [{ clientstate_sent: clientState, widget_value_returned: widgetValueReturned, create_script: debug.create_script_excerpt }] },
+      );
     }
-    debug.event_select_body_excerpt = stripTags(body).slice(0, 800);
+    html = body;
   }
-  debug.event_select_attempts = attempts;
 
-  if (!selected) {
-    throw Object.assign(
-      new Error(`Seleção do evento ${bolEventId} não foi refletida pelo combo Telerik — mapa não gerado (risco de evento errado).`),
-      { phase: "event_select_failed", tried: attempts },
-    );
-  }
 
   // --- Passo 2: postback do botão M2 ---
   const m2 = findM2Button(html);
