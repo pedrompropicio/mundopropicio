@@ -708,6 +708,71 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             );
           })()}
 
+          {/* Pago pelo Sócio */}
+          {isExpense && (
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold">Pago pelo Sócio</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Sem saída de caixa da empresa — abate no fecho de parceiros.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!partnerEventId || eventPartners.length === 0 || !!existingPartnerLink}
+                  onClick={() => setPartnerMode((v) => !v)}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50",
+                    partnerMode
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                  )}
+                  title={
+                    existingPartnerLink
+                      ? "Esta transação já tem vínculo a sócio"
+                      : !partnerEventId
+                        ? "Transação sem evento associado"
+                        : eventPartners.length === 0
+                          ? "O evento não tem sócios definidos"
+                          : undefined
+                  }
+                >
+                  {partnerMode ? "Ativo" : "Usar"}
+                </button>
+              </div>
+              {existingPartnerLink && (
+                <p className="text-[11px] text-warning">
+                  Já existe vínculo a sócio ({existingPartnerLink.status === "approved" ? "aprovado" : "aguarda aprovação"}).
+                </p>
+              )}
+              {!existingPartnerLink && partnerEventId && eventPartners.length === 0 && (
+                <p className="text-[11px] text-warning">O evento desta transação não tem sócios definidos.</p>
+              )}
+              {partnerMode && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
+                  <SearchableSelect
+                    options={eventPartners.map((p: any) => ({
+                      value: p.id,
+                      label: `${p.suppliers?.name ?? "Sócio"} (${Number(p.percentage ?? 0)}%)`,
+                    }))}
+                    value={partnerId}
+                    onValueChange={setPartnerId}
+                    placeholder="Selecionar sócio…"
+                    searchPlaceholder="Pesquisar sócio…"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {canApprovePartnerPaid
+                      ? "A transação fica Paga com a data de pagamento indicada abaixo."
+                      : "Fica como proposta pendente; a transação só é liquidada após aprovação."}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!partnerMode && (<>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
             <SearchableSelect
@@ -782,6 +847,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 placeholder="Referência AT / SS" />
             </div>
           )}
+          </>)}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>
