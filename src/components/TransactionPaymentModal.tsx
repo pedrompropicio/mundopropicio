@@ -55,8 +55,44 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const isForeign = txCurrency !== "EUR";
   const [paymentFxRate, setPaymentFxRate] = useState<string>(isForeign ? String(transaction.fx_rate ?? "") : "");
   const [loadingFx, setLoadingFx] = useState(false);
-  const { user } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
+
+  // ===== "Pago pelo Sócio" (forma de pagamento alternativa) =====
+  // Não é caixa da empresa: cria o vínculo em partner_paid_expenses.
+  // Admin/manager liquidam na hora; restantes papéis propõem (pending_approval).
+  const [partnerMode, setPartnerMode] = useState(false);
+  const [partnerId, setPartnerId] = useState("");
+  const canApprovePartnerPaid = isAdmin || isManager;
+  const partnerEventId: string | null = transaction.event_id ?? null;
+
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["payment-modal-event-partners", partnerEventId],
+    queryFn: async () => {
+      if (!partnerEventId) return [];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers(name)")
+        .eq("event_id", partnerEventId);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!partnerEventId,
+  });
+
+  // Vínculo existente (impede duplicar — a tabela tem UNIQUE(transaction_id))
+  const { data: existingPartnerLink } = useQuery({
+    queryKey: ["payment-modal-partner-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("id, status, partner_id")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: categoryCode } = useQuery({
     queryKey: ["category-code", transaction.category_id],
@@ -188,7 +224,55 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       if (transaction.is_reimbursement) {
         throw new Error("Esta transação é um reembolso. Liquide-a através da respetiva Nota de Reembolso.");
       }
-      // Snapshot before payment for undo
+
+      // ===== Fluxo "Pago pelo Sócio" =====
+      if (partnerMode) {
+        if (!isExpense) throw new Error("Só despesas podem ser pagas por um sócio.");
+        if (!partnerEventId) throw new Error("A transação não está associada a um evento com sócios.");
+        if (!partnerId) throw new Error("Selecione o sócio que pagou.");
+        if (existingPartnerLink) throw new Error("Esta transação já tem um vínculo a sócio.");
+        const callerName = user?.user_metadata?.full_name ?? user?.email ?? "utilizador";
+        const partnerPaidDateStr = format(paymentDate, "yyyy-MM-dd");
+        const status = canApprovePartnerPaid ? "approved" : "pending_approval";
+        const { error: linkError } = await (supabase as any).from("partner_paid_expenses").insert({
+          transaction_id: transaction.id,
+          partner_id: partnerId,
+          event_id: partnerEventId,
+          paid_date: partnerPaidDateStr,
+          status,
+          proposed_by: user?.id ?? null,
+          approved_by: canApprovePartnerPaid ? user?.id ?? null : null,
+          approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
+        });
+        if (linkError) throw linkError;
+
+        if (canApprovePartnerPaid) {
+          const { error: txError } = await supabase
+            .from("transactions")
+            .update({
+              status: "paid",
+              paid_amount: amount,
+              payment_date: partnerPaidDateStr,
+              account_id: null,
+            })
+            .eq("id", transaction.id);
+          if (txError) throw txError;
+        }
+
+        await supabase.from("transaction_audit_log").insert({
+          transaction_id: transaction.id,
+          changed_by: callerName,
+          field_name: "Pago pelo Sócio",
+          old_value: null,
+          new_value: canApprovePartnerPaid
+            ? `Liquidada por sócio em ${partnerPaidDateStr}`
+            : `Proposta de pagamento por sócio em ${partnerPaidDateStr} (aguarda aprovação)`,
+        });
+
+        return { partnerPaid: true, approved: canApprovePartnerPaid };
+      }
+
+
       const undoSnapshot = {
         previousStatus: transaction.status ?? "approved",
         previousPaymentDate: transaction.payment_date ?? null,
@@ -460,6 +544,19 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
+      if ((result as any)?.partnerPaid) {
+        queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
+        onClose();
+        toast({
+          title: (result as any).approved
+            ? "Despesa liquidada como paga pelo sócio"
+            : "Proposta registada — aguarda aprovação",
+          description: (result as any).approved
+            ? undefined
+            : "A transação mantém-se em aberto até um administrador ou gestor aprovar.",
+        });
+        return;
+      }
       onClose();
       // Record undo for the status change (approve→paid or pending→approved on partial)
       if (result?.undoSnapshot && user) {
@@ -611,6 +708,71 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             );
           })()}
 
+          {/* Pago pelo Sócio */}
+          {isExpense && (
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold">Pago pelo Sócio</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Sem saída de caixa da empresa — abate no fecho de parceiros.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!partnerEventId || eventPartners.length === 0 || !!existingPartnerLink}
+                  onClick={() => setPartnerMode((v) => !v)}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50",
+                    partnerMode
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                  )}
+                  title={
+                    existingPartnerLink
+                      ? "Esta transação já tem vínculo a sócio"
+                      : !partnerEventId
+                        ? "Transação sem evento associado"
+                        : eventPartners.length === 0
+                          ? "O evento não tem sócios definidos"
+                          : undefined
+                  }
+                >
+                  {partnerMode ? "Ativo" : "Usar"}
+                </button>
+              </div>
+              {existingPartnerLink && (
+                <p className="text-[11px] text-warning">
+                  Já existe vínculo a sócio ({existingPartnerLink.status === "approved" ? "aprovado" : "aguarda aprovação"}).
+                </p>
+              )}
+              {!existingPartnerLink && partnerEventId && eventPartners.length === 0 && (
+                <p className="text-[11px] text-warning">O evento desta transação não tem sócios definidos.</p>
+              )}
+              {partnerMode && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
+                  <SearchableSelect
+                    options={eventPartners.map((p: any) => ({
+                      value: p.id,
+                      label: `${p.suppliers?.name ?? "Sócio"} (${Number(p.percentage ?? 0)}%)`,
+                    }))}
+                    value={partnerId}
+                    onValueChange={setPartnerId}
+                    placeholder="Selecionar sócio…"
+                    searchPlaceholder="Pesquisar sócio…"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {canApprovePartnerPaid
+                      ? "A transação fica Paga com a data de pagamento indicada abaixo."
+                      : "Fica como proposta pendente; a transação só é liquidada após aprovação."}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!partnerMode && (<>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
             <SearchableSelect
@@ -685,6 +847,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 placeholder="Referência AT / SS" />
             </div>
           )}
+          </>)}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>

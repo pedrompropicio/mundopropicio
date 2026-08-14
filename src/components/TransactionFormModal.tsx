@@ -143,15 +143,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [splitAutoConfigured, setSplitAutoConfigured] = useState(false);
   const [splitMasterEventId, setSplitMasterEventId] = useState("");
   const [splitExpanded, setSplitExpanded] = useState(false);
-  const [isPaidByPartner, setIsPaidByPartner] = useState(false);
-  const [paidByPartnerId, setPaidByPartnerId] = useState("");
-  const [partnerPaidDate, setPartnerPaidDate] = useState("");
-  // Só admin/manager podem aprovar o vínculo "Pago por Sócio" na hora.
-  // Editor (e outros papéis com acesso ao lançamento) apenas propõe: o vínculo nasce
-  // 'pending_approval' e a transação NÃO é liquidada até aprovação no painel do evento.
-  const canApprovePartnerPaid = authIsAdmin || authIsManager;
-  // Liquidação imediata pelo "Pago por Sócio" só acontece quando quem lança pode aprovar.
-  const partnerPaidSettles = isPaidByPartner && canApprovePartnerPaid;
+  // "Pago por Sócio" NÃO existe no lançamento (decisão de produto): o vínculo a sócio
+  // nasce na liquidação (modal de pagamento) ou no painel "Despesas Pagas por Sócios".
+  // Constantes inertes mantidas para as condições de UI/estado a jusante.
+  const isPaidByPartner = false as boolean;
+  const partnerPaidSettles = false as boolean;
   // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
   const [isPartnerExtra, setIsPartnerExtra] = useState(false);
@@ -1149,7 +1145,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const allChildrenApproved = childInserts.every(c => c.status === "approved");
         const parentStatus = partnerPaidSettles ? "paid" : (allChildrenApproved ? "approved" : "pending");
         const parentPaidAmount = partnerPaidSettles ? totalAmount : 0;
-        const parentPaymentDate = partnerPaidSettles ? (partnerPaidDate || data.date) : null;
+        const parentPaymentDate = partnerPaidSettles ? (data.date) : null;
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
@@ -1201,21 +1197,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
         if (childError) throw childError;
 
-        // 4. If paid by partner, link parent transaction to partner_paid_expenses
-        //    using the tour Master event (splitMasterEventId) where partners exist
-        if (isPaidByPartner && paidByPartnerId && splitMasterEventId) {
-          const { error: ppeErr } = await supabase.from("partner_paid_expenses").insert({
-            event_id: splitMasterEventId,
-            partner_id: paidByPartnerId,
-            transaction_id: parentId,
-            paid_date: partnerPaidDate || data.date,
-            status: canApprovePartnerPaid ? "approved" : "pending_approval",
-            proposed_by: user?.id ?? null,
-            approved_by: canApprovePartnerPaid ? (user?.id ?? null) : null,
-            approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
-          } as any);
-          if (ppeErr) throw ppeErr;
-        }
+        // 4. (removido) Vínculo "Pago por Sócio" já não é criado no lançamento —
+        //    faz-se no modal de pagamento ou no painel do evento.
         // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
         if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
           await supabase.from("partner_advance_expenses").insert({
@@ -1248,7 +1231,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
         const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
         const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
-        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
+        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (data.date) : (autoMarkPaid ? data.date : null));
 
         // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
         // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
@@ -1427,22 +1410,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
-        // Auto-link to partner if paid by partner (com data em que o sócio pagou).
-        // Mesmo fluxo de aprovação do painel "Despesas Pagas por Sócios":
-        // admin/manager → approved; restantes → pending_approval (tx intocada).
-        if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
-          const { error: ppeErr } = await supabase.from("partner_paid_expenses").insert({
-            event_id: data.event_id,
-            partner_id: paidByPartnerId,
-            transaction_id: insertedTx.id,
-            paid_date: partnerPaidDate || data.date,
-            status: canApprovePartnerPaid ? "approved" : "pending_approval",
-            proposed_by: user?.id ?? null,
-            approved_by: canApprovePartnerPaid ? (user?.id ?? null) : null,
-            approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
-          } as any);
-          if (ppeErr) throw ppeErr;
-        }
+        // (removido) Vínculo "Pago por Sócio" já não nasce no lançamento — passa a ser
+        // criado na liquidação (modal de pagamento) ou no painel do evento.
 
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
         if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
@@ -1780,14 +1749,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     if (form.is_reimbursement && showNewReimbursementNote && !newReimbursementEmployeeName.trim()) {
       toast({ title: "Indique o nome do funcionário para a nova nota", variant: "destructive" });
-      return;
-    }
-    if (isPaidByPartner && !paidByPartnerId) {
-      toast({ title: "Selecione o sócio que pagou a despesa", variant: "destructive" });
-      return;
-    }
-    if (isPaidByPartner && !partnerPaidDate) {
-      toast({ title: "Indique a data em que o sócio pagou", variant: "destructive" });
       return;
     }
     if (isPartnerExtra && !partnerExtraId) {
@@ -2904,7 +2865,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     const next = !form.is_reimbursement;
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", reimbursement_note_id: "", account_id: next ? "" : form.account_id });
                     if (next) {
-                      setIsPaidByPartner(false); setPaidByPartnerId("");
+                      
                       setIsPartnerExtra(false); setPartnerExtraId(""); setPartnerExtraPartialAmount("");
                       setShowNewReimbursementNote(false); setNewReimbursementEmployeeName("");
                     }
@@ -2919,38 +2880,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <HelpTooltip text={helpTexts.reimbursementToggle} size={12} />
                 </button>
 
-                {/* Paid by partner toggle — evento (ou Master do rateio) selecionado.
-                    Sem sócios no evento fica desativado com aviso, em vez de desaparecer. */}
-                {(form.event_id || (isSplit && splitMasterEventId)) && !form.is_reimbursement && !isPartnerExtra && (
-                  <button
-                    type="button"
-                    disabled={eventPartners.length === 0}
-                    title={eventPartners.length === 0 ? "Este evento não tem sócios registados — adicione sócios na aba Sócios do evento." : undefined}
-                    onClick={() => {
-                      if (eventPartners.length === 0) {
-                        toast({ title: "Evento sem sócios", description: "Registe os sócios na aba Sócios do evento antes de marcar a despesa como paga por sócio.", variant: "destructive" });
-                        return;
-                      }
-                      const next = !isPaidByPartner;
-                      setIsPaidByPartner(next);
-                      setPaidByPartnerId("");
-                      if (next) {
-                        setForm({ ...form, account_id: "" });
-                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
-                      } else {
-                        setPartnerPaidDate("");
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                      isPaidByPartner
-                        ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
-                        : "bg-secondary text-muted-foreground hover:text-foreground"
-                    } ${eventPartners.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    🤝 Pago por Sócio
-                    <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
-                  </button>
-                )}
+                {/* Toggle "🤝 Pago por Sócio" REMOVIDO da criação (decisão de produto).
+                    O vínculo a sócio faz-se no modal de pagamento (liquidação) ou no
+                    painel "Despesas Pagas por Sócios" do evento. */}
 
                 {/* Extra do Sócio toggle — despesa paga pela empresa que será descontada do sócio no fecho */}
                 {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && !isPaidByPartner && (
@@ -2987,14 +2919,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setIsExcludeFromResult(false);
                       setCautionPayer("__mp__");
                       // limpa estado de "Pago por Sócio" — será reativado se selecionar sócio
-                      setIsPaidByPartner(false);
-                      setPaidByPartnerId("");
+
+
                     } else {
                       setIsTransitory(false);
                       setCautionPayer("");
-                      setIsPaidByPartner(false);
-                      setPaidByPartnerId("");
-                      setPartnerPaidDate("");
+
+
+
                     }
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
@@ -3039,9 +2971,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         reimbursement_to: "",
                         reimbursement_note_id: "",
                       }));
-                      setIsPaidByPartner(false);
-                      setPaidByPartnerId("");
-                      setPartnerPaidDate("");
+
+
+
                       setIsPartnerExtra(false);
                       setPartnerExtraId("");
                       setPartnerExtraPartialAmount("");
@@ -3060,50 +2992,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 )}
               </div>
 
-              {/* Selector "Pago por" do shortcut Caução / Transitória */}
+              {/* Atalho Caução / Transitória — o desembolso é sempre da empresa aqui.
+                  Caução paga por um sócio: liquidar depois no modal de pagamento com
+                  a forma "Pago pelo Sócio" (é lá que nasce o vínculo). */}
               {cautionShortcut && (
                 <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
-                  <label className="block text-xs font-medium text-muted-foreground">Pago por *</label>
-                  <SearchableSelect
-                    options={[
-                      { value: "__mp__", label: "Mundo Propício (caixa da empresa)" },
-                      ...((form.event_id || (isSplit && splitMasterEventId))
-                        ? eventPartners.map((p: any) => ({
-                            value: p.id,
-                            label: `${p.suppliers?.name} (${p.percentage}%)`,
-                          }))
-                        : []),
-                    ]}
-                    value={cautionPayer}
-                    onValueChange={(v) => {
-                      setCautionPayer(v);
-                      if (v === "__mp__" || !v) {
-                        setIsPaidByPartner(false);
-                        setPaidByPartnerId("");
-                        setPartnerPaidDate("");
-                      } else {
-                        setIsPaidByPartner(true);
-                        setPaidByPartnerId(v);
-                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
-                        setForm((prev) => ({ ...prev, account_id: "" }));
-                      }
-                    }}
-                    placeholder="Selecionar pagador…"
-                    searchPlaceholder="Pesquisar…"
-                  />
-                  {cautionPayer && cautionPayer !== "__mp__" && (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
-                      <DatePicker
-                        value={partnerPaidDate}
-                        onChange={(v) => setPartnerPaidDate(v)}
-                      />
-                    </div>
-                  )}
+                  <p className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
+                    🛡️ Caução / Transitória — não compõe o resultado do evento
+                  </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {cautionPayer === "__mp__" || !cautionPayer
-                      ? "Caução paga pela empresa — credita automaticamente Mundo Propício no acerto societário."
-                      : "Caução paga pelo sócio — entra no acerto societário a seu favor até ser devolvida."}
+                    Credita automaticamente Mundo Propício no acerto societário. Se a caução foi desembolsada por
+                    um sócio, liquide a despesa no modal de pagamento escolhendo “Pago pelo Sócio”.
                   </p>
                 </div>
               )}
@@ -3159,35 +3058,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </p>
                 </div>
               )}
-              {isPaidByPartner && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
-                    <SearchableSelect
-                      options={eventPartners.map((p: any) => ({
-                        value: p.id,
-                        label: `${p.suppliers?.name} (${p.percentage}%)`,
-                      }))}
-                      value={paidByPartnerId}
-                      onValueChange={setPaidByPartnerId}
-                      placeholder="Selecionar sócio…"
-                      searchPlaceholder="Pesquisar…"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
-                    <DatePicker
-                      value={partnerPaidDate}
-                      onChange={(v) => setPartnerPaidDate(v)}
-                    />
-                  </div>
-                  <p className="sm:col-span-2 text-[10px] text-muted-foreground">
-                    {canApprovePartnerPaid
-                      ? "Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio."
-                      : "O vínculo fica pendente de aprovação por administrador/gestor no painel “Despesas Pagas por Sócios” do evento. Até lá a transação mantém o estado normal e não soma no acerto com o sócio."}
-                  </p>
-                </div>
-              )}
+              {/* Bloco "Pago por Sócio" removido da criação — o vínculo a sócio faz-se
+                  agora no modal de pagamento (liquidação) ou no painel do evento. */}
               {isPartnerExtra && (() => {
                 const totalAmt = parseFloat(form.amount) || 0;
                 const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
