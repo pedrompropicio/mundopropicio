@@ -548,6 +548,19 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
+      if ((result as any)?.partnerPaid) {
+        queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
+        onClose();
+        toast({
+          title: (result as any).approved
+            ? "Despesa liquidada como paga pelo sócio"
+            : "Proposta registada — aguarda aprovação",
+          description: (result as any).approved
+            ? undefined
+            : "A transação mantém-se em aberto até um administrador ou gestor aprovar.",
+        });
+        return;
+      }
       onClose();
       // Record undo for the status change (approve→paid or pending→approved on partial)
       if (result?.undoSnapshot && user) {
