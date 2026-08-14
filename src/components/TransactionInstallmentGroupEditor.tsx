@@ -32,20 +32,25 @@ type GroupRow = {
 
 const isPaidRow = (r: GroupRow) => r.status === "paid" || Number(r.paid_amount) > 0.01;
 
+/** Padrão "(1/3)" na descrição — marca formal das parcelas antigas. */
+const INSTALLMENT_PATTERN = /\(\s*\d+\s*\/\s*\d+\s*\)/;
+
 export function useInstallmentGroup(transaction: any) {
   const rootId: string = transaction.parent_transaction_id ?? transaction.id;
+  const disabled = !!transaction.is_transitory;
   return useQuery({
     queryKey: ["installment-group", rootId],
+    enabled: !disabled,
     queryFn: async (): Promise<GroupRow[]> => {
       const cols =
-        "id, description, amount, iva_rate, due_date, date, status, paid_amount, split_percentage, parent_transaction_id";
+        "id, description, amount, iva_rate, due_date, date, status, paid_amount, split_percentage, parent_transaction_id, is_transitory";
       const { data: root, error: rootErr } = await supabase
         .from("transactions")
         .select(cols)
         .eq("id", rootId)
         .maybeSingle();
       if (rootErr) throw rootErr;
-      if (!root || (root as any).split_percentage !== null) return [];
+      if (!root || (root as any).split_percentage !== null || (root as any).is_transitory) return [];
 
       const { data: children, error: childErr } = await supabase
         .from("transactions")
@@ -53,7 +58,16 @@ export function useInstallmentGroup(transaction: any) {
         .eq("parent_transaction_id", rootId)
         .is("split_percentage", null);
       if (childErr) throw childErr;
-      if (!children || children.length === 0) return [];
+      const kids = (children ?? []).filter((c: any) => !c.is_transitory);
+      if (kids.length === 0) return [];
+
+      // Exige a marca formal "(n/m)" em pelo menos uma linha do grupo — evita
+      // apanhar pares transitórios/repetições de descrição como parcelamento.
+      const hasPattern = [root, ...kids].some((r: any) =>
+        INSTALLMENT_PATTERN.test(String(r.description ?? "")),
+      );
+      if (!hasPattern) return [];
+
 
       const map = (r: any, isRoot: boolean): GroupRow => ({
         id: r.id,
@@ -67,7 +81,7 @@ export function useInstallmentGroup(transaction: any) {
         isRoot,
       });
 
-      const rows = [map(root, true), ...children.map((c: any) => map(c, false))];
+      const rows = [map(root, true), ...kids.map((c: any) => map(c, false))];
       rows.sort((a, b) => (a.due_date ?? a.date).localeCompare(b.due_date ?? b.date));
       return rows;
     },
