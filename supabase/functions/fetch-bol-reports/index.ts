@@ -21,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 
-const VERSION = "v1.4_mccb";
+const VERSION = "v1.5_reportviewer";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -646,11 +646,30 @@ async function downloadM2Pdf(
     return { bytes: buf, url: MAPS_URL };
   }
 
-  // (c) HTML com URL do PDF embutido (window.open / iframe / redirect JS)
+  // (c) ReportViewer embutido na página → exportar via handler .axd
   const bodyHtml = new TextDecoder("utf-8").decode(buf);
   if (describeHtml(bodyHtml).isSignIn) {
     throw Object.assign(new Error("Mapa BOL: login devolvido (sessão expirada)"), { phase: "session_expired", retriable: true });
   }
+
+  const exportBase = findExportUrlBase(bodyHtml);
+  if (exportBase) {
+    debug.export_url = exportBase.slice(0, 300);
+    const got = await fetchExportPdf(jar, MAPS_URL, exportBase + "PDF", tried);
+    if (got) { debug.map_url = MAPS_URL; return { bytes: got, url: MAPS_URL }; }
+  }
+
+  // (c2) qualquer URL do handler do ReportViewer no body
+  for (const cand of findAxdUrls(bodyHtml)) {
+    const got = await fetchExportPdf(jar, MAPS_URL, cand, tried);
+    if (got) {
+      debug.export_url = cand.slice(0, 300);
+      debug.map_url = MAPS_URL;
+      return { bytes: got, url: MAPS_URL };
+    }
+  }
+
+  // (d) URL de PDF embutido (padrão antigo)
   const urlMatch = bodyHtml.match(/["']([^"'<>\s]*(?:\.pdf|Relatorios\/[^"'<>\s]*\?[^"'<>\s]+))["']/i);
   if (urlMatch) {
     const pdfUrl = absUrl(MAPS_URL, urlMatch[1]);
@@ -670,11 +689,76 @@ async function downloadM2Pdf(
     embedded_url: urlMatch?.[1] ?? null,
   };
   debug.map_tried = tried;
+  debug.viewer_regions = collectViewerRegions(bodyHtml);
   throw Object.assign(
-    new Error(`Postback do M2 não devolveu PDF (HTTP ${pdfResp.status}, content-type="${ct}").`),
-    { phase: "map_postback_failed", tried: [...tried, debug.map_postback] },
+    new Error(`Exportação do ReportViewer do M2 não devolveu PDF (postback HTTP ${pdfResp.status}, content-type="${ct}").`),
+    { phase: "report_export_failed", tried: [...tried, debug.map_postback] },
   );
 }
+
+/** Descodifica escapes \uXXXX, \/ e \& usados nos scripts do ReportViewer. */
+function decodeJsEscapes(s: string): string {
+  return s
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\\//g, "/")
+    .replace(/\\&/g, "&")
+    .replace(/&amp;/g, "&");
+}
+
+/** "ExportUrlBase":"..." do ReportViewer (já descodificado). */
+function findExportUrlBase(html: string): string | null {
+  const m = html.match(/["']?ExportUrlBase["']?\s*[:=]\s*["']([^"']+)["']/i);
+  return m ? decodeJsEscapes(m[1]) : null;
+}
+
+/** URLs do handler Reserved.ReportViewerWebControl.axd presentes no body. */
+function findAxdUrls(html: string): string[] {
+  const out: string[] = [];
+  const re = /[^"'\s<>()]*Reserved\.ReportViewerWebControl\.axd[^"'\s<>()]*/gi;
+  for (const m of html.matchAll(re)) {
+    let u = decodeJsEscapes(m[0]);
+    if (!/OpType=Export/i.test(u)) u += (u.includes("?") ? "&" : "?") + "OpType=Export";
+    if (!/Format=/i.test(u)) u += "&Format=PDF";
+    else u = u.replace(/Format=(?![A-Za-z])/i, "Format=PDF");
+    if (!out.includes(u)) out.push(u);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+/** GET ao export do viewer, com até 3 tentativas se o relatório ainda estiver a processar. */
+async function fetchExportPdf(jar: Jar, base: string, url: string, tried: any[]): Promise<Uint8Array | null> {
+  const full = absUrl(base, url);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const r = await getAuthed(jar, full, "application/pdf,*/*");
+    const ct = r.headers.get("content-type") || "";
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    if (ct.includes("pdf") || looksPdf(bytes)) return bytes;
+    const text = new TextDecoder("utf-8").decode(bytes.slice(0, 4000));
+    tried.push({ url: full.slice(0, 300), status: r.status, contentType: ct, snippet: stripTags(text).slice(0, 200), attempt });
+    const notReady = /ReportProcessing|a processar|processing|aguarde|please wait/i.test(text);
+    if (!notReady || attempt === 3) return null;
+    await new Promise((res) => setTimeout(res, 2000));
+  }
+  return null;
+}
+
+/** Excertos crus à volta de pistas do ReportViewer, para diagnóstico. */
+function collectViewerRegions(html: string): string[] {
+  const out: string[] = [];
+  const needles = ["ExportUrlBase", "axd", "ReportViewer", "ReportBOL"];
+  for (const needle of needles) {
+    const re = new RegExp(needle, "gi");
+    for (const m of html.matchAll(re)) {
+      const i = m.index ?? 0;
+      const snippet = html.slice(Math.max(0, i - 600), i + 600).slice(0, 1200);
+      if (!out.some((s) => s === snippet)) out.push(snippet);
+      if (out.length >= 6) return out;
+    }
+  }
+  return out;
+}
+
 
 
 
