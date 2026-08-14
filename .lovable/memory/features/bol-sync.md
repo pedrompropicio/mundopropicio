@@ -1,6 +1,6 @@
 ---
 name: BOL sync (produtores.bol.pt)
-description: Sync diária do Mapa Diário de Vendas por Sessão da BOL para ticket_sales (zona única "BOL"), no molde da fetch-ticketline-reports v2.8
+description: Sync diária do mapa M2 "Tipo de Venda" da BOL (MapasProdutor.aspx) para ticket_sales com uma zona por setor, no molde da fetch-ticketline-reports v2.8
 type: feature
 ---
 
@@ -33,31 +33,54 @@ campos do form (`__VIEWSTATE`, `__EVENTVALIDATION`, `__VIEWSTATEGENERATOR`, sele
 utilizador/password descobertos por sufixo (`…$UserName` / `…$Password`). Requer `User-Agent` de
 browser (curl "nu" leva 403 do WAF). Sucesso = 302 ou cookie `.ASPXAUTH`/sessão.
 
-## Relatório
+## Página de mapas (URL real)
 
-**Mapa Diário de Vendas por Sessão** (PDF, texto extraível). Formato calibrado com exemplo real de
-**14/08/2026** (Deive Leonardo, Coliseu de Lisboa; TOTAL 267 bilhetes / 11 634,00 €):
-cabeçalho `Data | Bilhetes | Vendas Inteiras (Bilheteira Local, Ponto de Venda, Internet) |
-Vendas Desconto (idem) | TOTAL`; linha por dia com data `DD/MM/YYYY`, quantidade e 7 valores em
-formato pt (`1 184,00 €`); linha final `TOTAL`; rodapé com evento, sala,
-"Todas as sessões (Em Venda)" e www.bol.pt. Pode ter 2+ páginas.
+`https://produtores.bol.pt/Relatorios/MapasProdutor.aspx` (atrás do login). ASP.NET WebForms com
+dropdown **Evento** (value = `bol_event_id`, ex. `178134`), checkbox "INCLUIR EVENTOS CONCLUÍDOS",
+dropdown **Datas sessões** (usamos `*** TODAS EM VENDA ***`), radios TODAS / EM VENDA (default) /
+REALIZADAS e botões de mapas: OCUPAÇÃO (M1 Local de Venda, **M2 Tipo de Venda**, M3 Tipo de Desconto
+e Convite, Diário Vendas) e OUTROS (Acompanhamento de Pontos de Venda).
 
-Parser `_shared/bol-report-parser.ts` é **tolerante por linha**: extrai data + primeiro inteiro
-solto (bilhetes) + todos os valores monetários, sendo o último o TOTAL do dia. Valida a soma das
-linhas contra a linha TOTAL (divergência = warning no `import_audit`, não falha). Texto do PDF via
-`unpdf` (esm.sh).
+Fluxo em `fetch-bol-reports` (v1.1):
+1. GET autenticado a `MapasProdutor.aspx` → `parseFormFields` (hidden `__VIEWSTATE`,
+   `__VIEWSTATEGENERATOR`, `__EVENTVALIDATION`) + `parseSelects`.
+2. Postback de **seleção do evento** (`__EVENTTARGET` = nome do select, AutoPostBack) → novo VIEWSTATE.
+3. Postback do **botão M2** (procurado por `value`/`name` com "M2" ou "tipo de venda"), com o select
+   de sessões em "TODAS EM VENDA" → PDF direto ou via 302 (seguido).
+Falha de qualquer passo → `html_response` com `describeHtml` + `import_audit.debug`
+(`maps_selects`, `maps_event_options`, `maps_buttons`, `map_tried`). A action `discover` devolve
+hiddenFields, selects+options, botões e `m2Button` de cada página.
+
+## Relatório — M2 "Ocupação Sessões — Tipo de Venda"
+
+Fonte escolhida (em vez do Mapa Diário) porque tem repartição por **SETOR**, permitindo importar
+zonas reais como no Ticketline. Colunas (15 valores por linha, calibrado com Deive Leonardo,
+Coliseu de Lisboa, 14/08/2026 — TOTAL 267 bilhetes / 11 634,00 €):
+
+`Sector | Lotação Qt | Disp. Qt | Ocupação Qt | Taxa Ocup. % | Vendas Inteiras (Qt, Valor) |
+Descontos (Qt, Valor) | Total Vendas (Qt, Valor) | Convites Qt | Permutas Qt | Reservas Geral Qt |
+Reservas Produção Qt | Bloqueados Qt`
+
+Parser `_shared/bol-report-parser.ts` → `parseBolM2(text)`:
+- opera sobre o stream de tokens (ordem do unpdf pode variar), ancorado em **blocos de 15 valores**;
+- resolve a ambiguidade dos milhares ("60 3 600,00 €" vs "17 816,00 €") por busca das combinações
+  possíveis, escolhendo a que dá 15 valores com monetários em 5/7/9 e `Total = Inteiras + Descontos`;
+- nomes de setor podem conter números ("Camarotes 1ª Frente Par 6 pax") e vir de várias linhas;
+- `TOTAL` só é reconhecido quando é o último token antes dos números (o cabeçalho tem "Total Vendas");
+- valida soma dos setores vs linha TOTAL (warnings) e o import falha se não bater.
+- Harness: `src/test/bol-m2-parser.test.ts` com o dump real (6 testes).
 
 ## Import (`_shared/bol-import-server.ts`)
 
-- Zona única **"BOL"** por evento (`event_ticket_zones`, `session_id=null`) + lote `Lote 1`
-  (ensure, IVA 6%).
-- Conta financeira `type='ticket_office'` com "BOL" no nome; criada como **"Bilheteira BOL"** se
-  faltar; assignment ao evento com `event_date_id=null`.
-- `ticket_sales` `source='bol'`: **substituição completa por sync** (apaga tudo desse evento +
-  conta + source e reinsere com novo `import_batch_id`). `quantity` = Bilhetes,
-  `total_value` = TOTAL do dia, `unit_price = total/qty` (2 casas).
-- Auditoria em `bol_sync_runs.import_audit` + `ticket_import_logs`.
-- Vendas detetadas mas 0 linhas importadas → run `warning` (nunca sucesso silencioso).
+- **Uma zona por setor** (`event_ticket_zones`, `session_id=null`, `total_capacity` = Lotação Qt,
+  atualizada se mudar) + lote `Lote 1` por zona (IVA 6%, `quantity` = lotação).
+- `quantity` = Total Vendas Qt, `total_value` = Total Vendas Valor, `unit_price` = total/qty.
+- `sale_date` = data de geração do relatório (timestamp `DD|MM|AAAA`) ou hoje — o M2 é cumulativo.
+- Setores sem vendas: zona criada/atualizada, sem linha em `ticket_sales` (critério Ticketline).
+- Conta financeira `ticket_office` com "BOL" no nome (criada como "Bilheteira BOL") + assignment
+  com `event_date_id=null`.
+- Full-replace de `source='bol'` por evento+conta, novo `import_batch_id`.
+- **Bloqueante**: sem linha TOTAL ou divergência > 0,02 € / 1 bilhete → run falha (`import_failed`).
 
 ## Estados de erro
 
@@ -70,15 +93,7 @@ linhas contra a linha TOTAL (divergência = warning no `import_audit`, não falh
 
 - `/admin/bol-sync` (admin): lista configs com último estado, Sincronizar por evento, Adicionar
   evento (evento ERP + `bol_event_id`, credenciais `bol_master` por defeito), botão Credenciais e
-  **Testar ligação** (`action:"discover"` — faz login e inventaria páginas/links/forms/selects e
-  IDs de evento vistos, para calibrar o URL do mapa).
+  **Testar ligação** (`action:"discover"` — faz login e inventaria MapasProdutor.aspx: hidden fields,
+  selects+options, botões e `m2Button`).
 - Cron `bol-sync-daily` às **23:20 UTC** (`scripts/cron-bol-sync-daily-live.txt`), service role do
   Vault `email_queue_service_role_key`, body `{"mode":"cron"}`.
-
-## PENDENTE DE CALIBRAÇÃO
-
-O caminho exato do Mapa Diário é atrás de login, logo não foi confirmável sem credenciais. A função
-sonda candidatos (`/Relatorios/MapaDiarioVendasSessao?evento=…&formato=pdf` e variantes) e, se
-nenhum devolver PDF, falha com `html_response` + lista `import_audit.debug.map_tried`. Assim que o
-Pedro gravar as credenciais: correr **Testar ligação** e usar os `mapLinks` devolvidos para fixar o
-URL/POST real em `mapCandidates()`.
