@@ -25,15 +25,24 @@ export type BankabilityCheck = {
   viaReference: boolean;
   /** carga de cartão pré-pago: beneficiário é a conta de destino */
   isCardLoad: boolean;
+  /**
+   * Transferência interna (carga de cartão) sem IBAN na conta de destino:
+   * ELEGÍVEL para lista, mas executada no homebanking — fica fora do SEPA.
+   */
+  internalNoIban: boolean;
   /** motivo da inelegibilidade (só quando ok = false) */
-  reason?: "no_bank_data" | "card_destination_no_iban";
+  reason?: "no_bank_data";
 };
 
 export const NO_IBAN_TOOLTIP =
   "Associa um fornecedor com IBAN ou define IBAN manual na transação para poder incluir em lista";
 
-export const CARD_DEST_NO_IBAN_TOOLTIP =
-  "Preenche o IBAN da conta do cartão de destino no cadastro de Contas para poder incluir em lista";
+export const INTERNAL_NO_IBAN_TOOLTIP =
+  "Transferência entre contas próprias: sem IBAN no cadastro da conta de destino, fica fora do ficheiro Santander e liquida-se no homebanking";
+
+export const SEPA_INTERNAL_NO_IBAN_REASON =
+  "Carga sem IBAN de destino — executar no homebanking";
+
 
 const clean = (v: unknown): string | null => {
   const s = (v ?? "").toString().trim();
@@ -83,14 +92,20 @@ export function checkPaymentBankability(tx: any): BankabilityCheck {
   const dest = getCardLoadDestination(tx);
   const isCardLoad = !!dest;
   const iban = resolvePaymentIban(tx);
-  if (iban) return { ok: true, iban, viaReference: false, isCardLoad };
-  if (hasPaymentReference(tx)) return { ok: true, iban: null, viaReference: true, isCardLoad };
+  if (iban) return { ok: true, iban, viaReference: false, isCardLoad, internalNoIban: false };
+  if (hasPaymentReference(tx))
+    return { ok: true, iban: null, viaReference: true, isCardLoad, internalNoIban: false };
+  // Transferência interna (carga de cartão): sempre elegível — liquida-se no
+  // homebanking entre contas próprias, com ou sem IBAN no cadastro.
+  if (isCardLoad)
+    return { ok: true, iban: null, viaReference: false, isCardLoad: true, internalNoIban: true };
   return {
     ok: false,
     iban: null,
     viaReference: false,
     isCardLoad,
-    reason: isCardLoad ? "card_destination_no_iban" : "no_bank_data",
+    internalNoIban: false,
+    reason: "no_bank_data",
   };
 }
 
@@ -98,11 +113,21 @@ export function isBankable(tx: any): boolean {
   return checkPaymentBankability(tx).ok;
 }
 
+/** Carga de cartão sem IBAN de destino — elegível, mas fora do ficheiro SEPA. */
+export function isInternalNoIban(tx: any): boolean {
+  return checkPaymentBankability(tx).internalNoIban;
+}
+
 /** Rótulo + tooltip do badge de inelegibilidade. */
 export function noIbanBadgeProps(tx: any): { label: string; tooltip: string } {
-  const check = checkPaymentBankability(tx);
-  if (check.reason === "card_destination_no_iban") {
-    return { label: "Conta de destino sem IBAN", tooltip: CARD_DEST_NO_IBAN_TOOLTIP };
-  }
   return { label: "Sem IBAN", tooltip: NO_IBAN_TOOLTIP };
 }
+
+/** Badge informativo (neutro) da transferência interna sem IBAN. */
+export function internalNoIbanBadgeProps(): { label: string; tooltip: string } {
+  return {
+    label: "Transferência interna — sem IBAN, liquidar no banco",
+    tooltip: INTERNAL_NO_IBAN_TOOLTIP,
+  };
+}
+

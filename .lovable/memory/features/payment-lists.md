@@ -150,17 +150,25 @@ resolvíveis**. Resolução ÚNICA em `src/lib/payment-iban.ts`:
   (Nos **reembolsos** o `iban_override` já vem da nota — `reimbursement_notes.payment_iban`
   ou IBAN do fornecedor — logo continuam elegíveis como hoje.)
 
-### Cargas de cartão pré-pago (2026-08)
-Uma carga é transferência interna real (cat. 10.3, sem fornecedor) e **é elegível**:
-o beneficiário é a CONTA DE DESTINO. Modelo:
+### Cargas de cartão pré-pago (2026-08, revisto 2026-08-14)
+Uma carga é transferência interna real (cat. 10.3, sem fornecedor) e é **SEMPRE elegível**,
+com ou sem IBAN da conta de destino: pode ser executada no homebanking entre contas próprias.
+Modelo:
 `transactions.id → card_session_loads.out_transaction_id → card_sessions.card_account_id
 → financial_accounts(name, iban)`.
 `enrichCardLoadDestinations()` (`src/lib/card-load-destination.ts`) anexa
 `tx.card_load_destination` nas 3 queries (picker Nova Lista, detalhe, ApproveModal);
 `resolvePaymentCreditorName()` usa o nome da conta no ficheiro SEPA (sem sufixo de
-evento — a carga não tem evento). Sem IBAN no cadastro da conta → badge específico
-**"Conta de destino sem IBAN"** (`noIbanBadgeProps`). O trigger
-`enforce_payment_list_item_bankable` replica o mesmo LEFT JOIN em SQL.
+evento — a carga não tem evento).
+- **Com IBAN** → comporta-se como transferência normal e sai no ficheiro Santander.
+- **Sem IBAN** → `checkPaymentBankability` devolve `ok:true` + `internalNoIban:true`;
+  badge **neutro** (cinza, `NoIbanBadge variant="neutral"`) "Transferência interna — sem
+  IBAN, liquidar no banco"; no `SepaExportModal` fica nos **excluídos** com o motivo
+  `SEPA_INTERNAL_NO_IBAN_REASON` = "Carga sem IBAN de destino — executar no homebanking"
+  (nunca silencioso). "Marcar como Pago" liquida a tx e cria o crédito no cartão como sempre.
+O trigger `enforce_payment_list_item_bankable` replica a regra: LEFT JOIN a
+`card_session_loads` e basta `out_transaction_id IS NOT NULL` para passar.
+
 - `checkPaymentBankability(tx)`: OK se há IBAN **ou** se há `payment_entity`/`payment_reference`
   (pagamentos ao Estado/serviços por Entidade+Referência — pagos no homebanking, fora do SEPA).
 - `isBankable(tx)` é usado nos pickers, no ApproveModal e no detalhe; `resolvePaymentIban`

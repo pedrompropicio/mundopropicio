@@ -25,7 +25,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
-import { checkPaymentBankability, isBankable, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import { checkPaymentBankability, isBankable, isInternalNoIban, internalNoIbanBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
 import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 
@@ -999,6 +999,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                           {bpCheck.exceeds && (
                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
@@ -1576,7 +1577,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         amount: open,
         description,
         isReimbursement: !!tx.is_reimbursement,
-        preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
+        preExcludeReason:
+          open <= 0 || isPaid
+            ? "Sem valor em aberto"
+            : isInternalNoIban(tx)
+              ? SEPA_INTERNAL_NO_IBAN_REASON
+              : undefined,
         _ibans: [normalizeIban(iban)],
         _events: [eventName],
       });
@@ -2107,6 +2113,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
                     {tx && !isBankable(tx) && (
                       <div className="pb-1"><NoIbanBadge {...noIbanBadgeProps(tx)} /></div>
+                    )}
+                    {tx && isInternalNoIban(tx) && (
+                      <div className="pb-1"><NoIbanBadge variant="neutral" {...internalNoIbanBadgeProps()} /></div>
                     )}
                     <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                     {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
@@ -2734,6 +2743,7 @@ function ApproveModal({
                          <td className={`p-2 ${nested ? "pl-6" : ""}`}>
                            <span className="font-medium">{tx?.description}</span>
                            {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(tx)} />}
+                           {tx && isInternalNoIban(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
                            {bpCheck.exceeds && (
                              <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
@@ -3005,6 +3015,7 @@ function AddTransactionsToList({
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                         </td>
                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
