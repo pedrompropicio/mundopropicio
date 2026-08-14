@@ -3159,35 +3159,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </p>
                 </div>
               )}
-              {isPaidByPartner && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
-                    <SearchableSelect
-                      options={eventPartners.map((p: any) => ({
-                        value: p.id,
-                        label: `${p.suppliers?.name} (${p.percentage}%)`,
-                      }))}
-                      value={paidByPartnerId}
-                      onValueChange={setPaidByPartnerId}
-                      placeholder="Selecionar sócio…"
-                      searchPlaceholder="Pesquisar…"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
-                    <DatePicker
-                      value={partnerPaidDate}
-                      onChange={(v) => setPartnerPaidDate(v)}
-                    />
-                  </div>
-                  <p className="sm:col-span-2 text-[10px] text-muted-foreground">
-                    {canApprovePartnerPaid
-                      ? "Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio."
-                      : "O vínculo fica pendente de aprovação por administrador/gestor no painel “Despesas Pagas por Sócios” do evento. Até lá a transação mantém o estado normal e não soma no acerto com o sócio."}
-                  </p>
-                </div>
-              )}
+              {/* Bloco "Pago por Sócio" removido da criação — o vínculo a sócio faz-se
+                  agora no modal de pagamento (liquidação) ou no painel do evento. */}
               {isPartnerExtra && (() => {
                 const totalAmt = parseFloat(form.amount) || 0;
                 const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
