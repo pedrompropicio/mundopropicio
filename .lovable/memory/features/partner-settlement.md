@@ -27,6 +27,13 @@ Em turnês/multi-dia (event com `parent_event_id` null e subs):
 - **Todos os agregadores contam SÓ `status='approved'`**: totais por sócio no painel, `PartnerSettlementTab`, `EventFecho`, `PartnerEventDetail` (portal do sócio), `ReportBPTransactions`, `ReportPartnerExpenses`, `ReportPartnerSettlement`, badge "Pago por Sócio" em `/transacoes` e `TransactionRow`.
 - RLS: INSERT admin/manager (qualquer status) + INSERT editor só `pending_approval` com `proposed_by = auth.uid()`; UPDATE só admin/manager; DELETE admin/manager ou editor na própria proposta pendente.
 
+## Fluxo unificado: toggle "🤝 Pago por Sócio" no lançamento/edição
+Os dois caminhos escrevem SEMPRE em `partner_paid_expenses` (UNIQUE em `transaction_id` impede vínculo duplo).
+- **TransactionFormModal** (criação, tx simples e rateio Master): toggle abre sócio (`event_partners` do evento/Master, com herança) + data obrigatória. Insert com `status = admin/manager ? 'approved' : 'pending_approval'`, `proposed_by`, `approved_by/at` só quando aprovado. Só liquida a transação (`paid`, `payment_date = paid_date`, `account_id = null`) quando quem lança pode aprovar (`partnerPaidSettles`); proposta de editor deixa a transação no estado normal (pending/approved conforme BP). Sem sócios no evento o toggle fica desativado com aviso (já não desaparece).
+- **TransactionEditModal**: bloco azul permite trocar o sócio, editar a data e remover o vínculo; admin/manager sempre, restantes papéis só na própria proposta pendente (`canManagePartnerPaidLink`). Overrides de liquidação (`account_id = null`, `payment_date`) só se aplicam a vínculos aprovados (`partnerPaidSettled`).
+- O painel `PartnerPaidExpensesPanel` do evento mantém-se como visão de conferência/aprovação e vinculação de despesas já existentes.
+
+
 ## Status automático ao vincular
 Ao criar `partner_paid_expenses`:
 1. Insert com `paid_date` informada pelo utilizador (default = hoje)
