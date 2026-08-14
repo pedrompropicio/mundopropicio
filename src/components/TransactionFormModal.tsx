@@ -146,6 +146,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
   const [partnerPaidDate, setPartnerPaidDate] = useState("");
+  // Só admin/manager podem aprovar o vínculo "Pago por Sócio" na hora.
+  // Editor (e outros papéis com acesso ao lançamento) apenas propõe: o vínculo nasce
+  // 'pending_approval' e a transação NÃO é liquidada até aprovação no painel do evento.
+  const canApprovePartnerPaid = authIsAdmin || authIsManager;
+  // Liquidação imediata pelo "Pago por Sócio" só acontece quando quem lança pode aprovar.
+  const partnerPaidSettles = isPaidByPartner && canApprovePartnerPaid;
   // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
   const [isPartnerExtra, setIsPartnerExtra] = useState(false);
@@ -1138,11 +1144,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         });
 
         // Parent is approved only if ALL children are approved.
-        // Pago por Sócio: parent fica imediatamente liquidado.
+        // Pago por Sócio: parent fica imediatamente liquidado SÓ se quem lança pode aprovar
+        // (admin/manager). Proposta de editor não altera o estado da transação.
         const allChildrenApproved = childInserts.every(c => c.status === "approved");
-        const parentStatus = isPaidByPartner ? "paid" : (allChildrenApproved ? "approved" : "pending");
-        const parentPaidAmount = isPaidByPartner ? totalAmount : 0;
-        const parentPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : null;
+        const parentStatus = partnerPaidSettles ? "paid" : (allChildrenApproved ? "approved" : "pending");
+        const parentPaidAmount = partnerPaidSettles ? totalAmount : 0;
+        const parentPaymentDate = partnerPaidSettles ? (partnerPaidDate || data.date) : null;
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
@@ -1197,12 +1204,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // 4. If paid by partner, link parent transaction to partner_paid_expenses
         //    using the tour Master event (splitMasterEventId) where partners exist
         if (isPaidByPartner && paidByPartnerId && splitMasterEventId) {
-          await supabase.from("partner_paid_expenses").insert({
+          const { error: ppeErr } = await supabase.from("partner_paid_expenses").insert({
             event_id: splitMasterEventId,
             partner_id: paidByPartnerId,
             transaction_id: parentId,
             paid_date: partnerPaidDate || data.date,
+            status: canApprovePartnerPaid ? "approved" : "pending_approval",
+            proposed_by: user?.id ?? null,
+            approved_by: canApprovePartnerPaid ? (user?.id ?? null) : null,
+            approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
           } as any);
+          if (ppeErr) throw ppeErr;
         }
         // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
         if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
@@ -1231,11 +1243,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
         const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
-        // Pago por Sócio: já fica liquidado, sem conta financeira da empresa.
+        // Pago por Sócio: fica liquidado (sem conta financeira da empresa) apenas quando
+        // quem lança pode aprovar; proposta de editor mantém o estado normal da transação.
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
-        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (isPaidByPartner ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
-        const partnerPaidAmount = useInstallments ? 0 : (isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
-        const partnerPaymentDate = useInstallments ? null : (isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
+        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
+        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
+        const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
 
         // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
         // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
@@ -1414,14 +1427,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
-        // Auto-link to partner if paid by partner (com data em que o sócio pagou)
+        // Auto-link to partner if paid by partner (com data em que o sócio pagou).
+        // Mesmo fluxo de aprovação do painel "Despesas Pagas por Sócios":
+        // admin/manager → approved; restantes → pending_approval (tx intocada).
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
-          await supabase.from("partner_paid_expenses").insert({
+          const { error: ppeErr } = await supabase.from("partner_paid_expenses").insert({
             event_id: data.event_id,
             partner_id: paidByPartnerId,
             transaction_id: insertedTx.id,
             paid_date: partnerPaidDate || data.date,
+            status: canApprovePartnerPaid ? "approved" : "pending_approval",
+            proposed_by: user?.id ?? null,
+            approved_by: canApprovePartnerPaid ? (user?.id ?? null) : null,
+            approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
           } as any);
+          if (ppeErr) throw ppeErr;
         }
 
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
@@ -2899,11 +2919,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <HelpTooltip text={helpTexts.reimbursementToggle} size={12} />
                 </button>
 
-                {/* Paid by partner toggle — when event (or split Master) has partners */}
-                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && !isPartnerExtra && (
+                {/* Paid by partner toggle — evento (ou Master do rateio) selecionado.
+                    Sem sócios no evento fica desativado com aviso, em vez de desaparecer. */}
+                {(form.event_id || (isSplit && splitMasterEventId)) && !form.is_reimbursement && !isPartnerExtra && (
                   <button
                     type="button"
+                    disabled={eventPartners.length === 0}
+                    title={eventPartners.length === 0 ? "Este evento não tem sócios registados — adicione sócios na aba Sócios do evento." : undefined}
                     onClick={() => {
+                      if (eventPartners.length === 0) {
+                        toast({ title: "Evento sem sócios", description: "Registe os sócios na aba Sócios do evento antes de marcar a despesa como paga por sócio.", variant: "destructive" });
+                        return;
+                      }
                       const next = !isPaidByPartner;
                       setIsPaidByPartner(next);
                       setPaidByPartnerId("");
@@ -2918,7 +2945,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       isPaidByPartner
                         ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
                         : "bg-secondary text-muted-foreground hover:text-foreground"
-                    }`}
+                    } ${eventPartners.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     🤝 Pago por Sócio
                     <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
@@ -3155,7 +3182,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     />
                   </div>
                   <p className="sm:col-span-2 text-[10px] text-muted-foreground">
-                    Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
+                    {canApprovePartnerPaid
+                      ? "Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio."
+                      : "O vínculo fica pendente de aprovação por administrador/gestor no painel “Despesas Pagas por Sócios” do evento. Até lá a transação mantém o estado normal e não soma no acerto com o sócio."}
                   </p>
                 </div>
               )}

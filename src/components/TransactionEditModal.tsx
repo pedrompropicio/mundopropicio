@@ -189,7 +189,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("id, partner_id, paid_date, event_partners(suppliers(name), percentage)")
+        .select("id, partner_id, paid_date, status, proposed_by, event_partners(suppliers(name), percentage)")
         .eq("transaction_id", transaction.id)
         .maybeSingle();
       if (error) throw error;
@@ -197,6 +197,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isPaidByPartner = !!partnerPaidLink;
+  const partnerPaidPending = (partnerPaidLink as any)?.status === "pending_approval";
+  // Só vínculos aprovados liquidam a transação via sócio.
+  const partnerPaidSettled = isPaidByPartner && !partnerPaidPending;
 
   // Detect if this transaction is already linked to a reimbursement note
   // (used to block toggling "Reembolso" OFF while it's part of a note).
@@ -232,6 +235,15 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   useEffect(() => {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
   }, [partnerPaidLink?.paid_date]);
+  // Troca / remoção do sócio do vínculo "Pago por Sócio"
+  const [partnerPaidPartnerId, setPartnerPaidPartnerId] = useState<string>("");
+  const [partnerPaidRemove, setPartnerPaidRemove] = useState(false);
+  useEffect(() => {
+    if (partnerPaidLink?.partner_id) setPartnerPaidPartnerId(partnerPaidLink.partner_id);
+  }, [partnerPaidLink?.partner_id]);
+  // Admin/manager mexem sempre; restantes papéis só na própria proposta pendente.
+  const canManagePartnerPaidLink =
+    isAdmin || isManager || (partnerPaidPending && (partnerPaidLink as any)?.proposed_by === user?.id);
 
   // Detect if this transaction is an Extra do Sócio (despesa a abater do sócio no fecho)
   const { data: partnerExtraLink } = useQuery({
@@ -383,8 +395,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
-        ...(isPaidByPartner ? {} : paymentFields),
-        ...(isPaidByPartner ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
+        ...(partnerPaidSettled ? {} : paymentFields),
+        ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -392,17 +404,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: form.event_id,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
-        account_id: isPaidByPartner ? null : (form.account_id || null),
+        account_id: partnerPaidSettled ? null : (form.account_id || null),
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         date: form.date,
         due_date: form.due_date || null,
-        ...(isPaidByPartner
+        ...(partnerPaidSettled
           ? { payment_date: partnerPaidDate || form.date }
           : (isAdmin && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
-        ...(isPaidByPartner ? {} : paymentFields),
+        ...(partnerPaidSettled ? {} : paymentFields),
         currency,
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
         fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
@@ -481,9 +493,26 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
 
 
-      // Sync partner_paid_expenses.paid_date if it changed
-      if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
-        await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
+      // Vínculo "Pago por Sócio": remoção, troca de sócio ou sync da data.
+      if (isPaidByPartner && partnerPaidLink?.id && canManagePartnerPaidLink) {
+        if (partnerPaidRemove) {
+          const { error: delErr } = await supabase
+            .from("partner_paid_expenses")
+            .delete()
+            .eq("id", partnerPaidLink.id);
+          if (delErr) throw delErr;
+        } else {
+          const linkUpdates: Record<string, any> = {};
+          if (partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) linkUpdates.paid_date = partnerPaidDate;
+          if (partnerPaidPartnerId && partnerPaidPartnerId !== partnerPaidLink.partner_id) linkUpdates.partner_id = partnerPaidPartnerId;
+          if (Object.keys(linkUpdates).length > 0) {
+            const { error: updErr } = await supabase
+              .from("partner_paid_expenses")
+              .update(linkUpdates as any)
+              .eq("id", partnerPaidLink.id);
+            if (updErr) throw updErr;
+          }
+        }
       }
 
       // Vincular à Nota de Reembolso escolhida (se ainda não estava vinculada).
@@ -999,21 +1028,64 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
           </div>
 
-          {/* Pago por Sócio — bloco informativo + edição de data */}
+          {/* Pago por Sócio — bloco informativo + troca de sócio / data / remoção do vínculo */}
           {isPaidByPartner && (
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400">
                 🤝 Pago por Sócio: {(partnerPaidLink as any)?.event_partners?.suppliers?.name ?? "—"}
                 {(partnerPaidLink as any)?.event_partners?.percentage != null && (
                   <span className="text-xs opacity-70">({(partnerPaidLink as any).event_partners.percentage}%)</span>
                 )}
+                {partnerPaidPending && (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                    Aguarda aprovação
+                  </span>
+                )}
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
-                <DatePicker value={partnerPaidDate} onChange={setPartnerPaidDate} />
-              </div>
+              {canManagePartnerPaidLink && !partnerPaidRemove && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou</label>
+                    <SearchableSelect
+                      options={eventPartnersForExtra.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.suppliers?.name} (${p.percentage}%)`,
+                      }))}
+                      value={partnerPaidPartnerId}
+                      onValueChange={setPartnerPaidPartnerId}
+                      placeholder="Selecionar sócio…"
+                      searchPlaceholder="Pesquisar…"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
+                    <DatePicker value={partnerPaidDate} onChange={setPartnerPaidDate} />
+                  </div>
+                </div>
+              )}
+              {!canManagePartnerPaidLink && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
+                  <DatePicker value={partnerPaidDate} onChange={() => {}} />
+                </div>
+              )}
+              {canManagePartnerPaidLink && (
+                <button
+                  type="button"
+                  onClick={() => setPartnerPaidRemove((v) => !v)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    partnerPaidRemove
+                      ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {partnerPaidRemove ? "Vínculo será removido ao guardar (clique para cancelar)" : "Remover vínculo ao sócio"}
+                </button>
+              )}
               <p className="text-[10px] text-muted-foreground">
-                Despesa liquidada via sócio — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
+                {partnerPaidPending
+                  ? "Proposta pendente: a transação mantém o estado normal e não soma no acerto com o sócio até aprovação no painel “Despesas Pagas por Sócios” do evento."
+                  : "Despesa liquidada via sócio — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio."}
               </p>
             </div>
           )}
