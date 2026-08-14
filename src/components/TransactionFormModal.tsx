@@ -143,15 +143,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [splitAutoConfigured, setSplitAutoConfigured] = useState(false);
   const [splitMasterEventId, setSplitMasterEventId] = useState("");
   const [splitExpanded, setSplitExpanded] = useState(false);
-  const [isPaidByPartner, setIsPaidByPartner] = useState(false);
-  const [paidByPartnerId, setPaidByPartnerId] = useState("");
-  const [partnerPaidDate, setPartnerPaidDate] = useState("");
-  // Só admin/manager podem aprovar o vínculo "Pago por Sócio" na hora.
-  // Editor (e outros papéis com acesso ao lançamento) apenas propõe: o vínculo nasce
-  // 'pending_approval' e a transação NÃO é liquidada até aprovação no painel do evento.
-  const canApprovePartnerPaid = authIsAdmin || authIsManager;
-  // Liquidação imediata pelo "Pago por Sócio" só acontece quando quem lança pode aprovar.
-  const partnerPaidSettles = isPaidByPartner && canApprovePartnerPaid;
+  // "Pago por Sócio" NÃO existe no lançamento (decisão de produto): o vínculo a sócio
+  // nasce na liquidação (modal de pagamento) ou no painel "Despesas Pagas por Sócios".
+  // Constantes inertes mantidas para as condições de UI/estado a jusante.
+  const isPaidByPartner = false as boolean;
+  const partnerPaidSettles = false as boolean;
   // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
   const [isPartnerExtra, setIsPartnerExtra] = useState(false);
