@@ -25,7 +25,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
-import { checkPaymentBankability, isBankable, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import { checkPaymentBankability, isBankable, isInternalNoIban, internalNoIbanBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
 import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 
