@@ -728,6 +728,9 @@ async function runDiscover(admin: any, configId?: string) {
       m2Button: html ? findM2Button(html) : null,
       telerikComboInput: html ? findTelerikInputName(html) : null,
       telerikClientState: html ? readClientState(html) : null,
+      telerikWidgetValue: html ? readWidgetValue(html) : null,
+      telerikItems: html ? readComboItems(html) : [],
+
       comboRegions: html ? collectComboRegions(html) : [],
       comboScripts: html ? collectComboScripts(html) : [],
       comboItems: html ? collectComboItems(html) : [],
