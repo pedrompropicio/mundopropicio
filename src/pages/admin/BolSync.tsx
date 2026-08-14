@@ -70,7 +70,7 @@ export default function BolSync() {
   const eventsQ = useQuery({
     queryKey: ["bol-sync-config-events"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name, start_date").limit(500);
+      const { data, error } = await supabase.from("events").select("id, name, date").limit(500);
       if (error) throw error;
       return data ?? [];
     },
@@ -409,9 +409,9 @@ function AddConfigModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, start_date")
+        .select("id, name, date")
         .eq("company_id", company!.id)
-        .order("start_date", { ascending: false })
+        .order("date", { ascending: false })
         .limit(300);
       if (error) throw error;
       return data ?? [];
@@ -462,7 +462,7 @@ function AddConfigModal({
               <SelectContent className="max-h-72">
                 {available.map((e: any) => (
                   <SelectItem key={e.id} value={e.id}>
-                    {e.name}{e.start_date ? ` — ${e.start_date}` : ""}
+                    {e.name}{e.date ? ` — ${e.date}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
