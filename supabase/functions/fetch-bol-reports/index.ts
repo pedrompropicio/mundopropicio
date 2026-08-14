@@ -623,9 +623,11 @@ async function downloadM2Pdf(
   const pdfResp = await postForm(jar, MAPS_URL, html, {
     __EVENTTARGET: m2Target,
     __EVENTARGUMENT: "",
-    [TELERIK_CLIENTSTATE]: buildClientState(bolEventId, eventText),
+    [TELERIK_CLIENTSTATE]: clientState,
+    "ctl00$CPH_Body$hfEventoFoiClear": "",
     [sessionField]: sessionValue,
   }, "application/pdf,text/html,*/*");
+
 
   // (a) PDF direto | (b) 302 seguido
   const ct = pdfResp.headers.get("content-type") || "";
