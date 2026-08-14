@@ -116,7 +116,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
   // Só admin/manager podem criar transações já liquidadas (histórico/importações).
   const canCreatePaid = authIsAdmin || authIsManager;
-  const effectiveAutoMarkPaid = !!effectiveAutoMarkPaid && canCreatePaid;
+  const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
 
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
   // Multi-currency state
