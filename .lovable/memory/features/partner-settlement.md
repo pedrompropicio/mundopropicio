@@ -20,6 +20,13 @@ Em turnês/multi-dia (event com `parent_event_id` null e subs):
 - Cada despesa mostra a coluna "Evento" identificando a qual cidade/dia pertence
 - Filtro `partner_paid_expenses.event_id IN (master_id, ...sub_ids)`
 
+## Aprovação de propostas (editora)
+`partner_paid_expenses` tem `status` ('approved' | 'pending_approval', default 'approved'), `proposed_by`, `approved_by`, `approved_at`.
+- **Editor**: vê a aba Sócios (sem `EventPartnersTab` nem gestão de acessos) e pode propor vínculos → nascem `pending_approval`, **sem tocar na transação**; badge "Aguarda aprovação"; pode remover a própria proposta pendente.
+- **Admin/manager**: fluxo instantâneo inalterado (vínculo `approved` + tx `paid` com `payment_date = paid_date`). Nas propostas pendentes tem Aprovar (status→approved, approved_by/at, tx→paid com `paid_date`, registo em `transaction_audit_log`) e Rejeitar (apaga o vínculo, tx intocada).
+- **Todos os agregadores contam SÓ `status='approved'`**: totais por sócio no painel, `PartnerSettlementTab`, `EventFecho`, `PartnerEventDetail` (portal do sócio), `ReportBPTransactions`, `ReportPartnerExpenses`, `ReportPartnerSettlement`, badge "Pago por Sócio" em `/transacoes` e `TransactionRow`.
+- RLS: INSERT admin/manager (qualquer status) + INSERT editor só `pending_approval` com `proposed_by = auth.uid()`; UPDATE só admin/manager; DELETE admin/manager ou editor na própria proposta pendente.
+
 ## Status automático ao vincular
 Ao criar `partner_paid_expenses`:
 1. Insert com `paid_date` informada pelo utilizador (default = hoje)
