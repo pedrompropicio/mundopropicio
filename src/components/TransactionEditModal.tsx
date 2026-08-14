@@ -241,6 +241,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   useEffect(() => {
     if (partnerPaidLink?.partner_id) setPartnerPaidPartnerId(partnerPaidLink.partner_id);
   }, [partnerPaidLink?.partner_id]);
+  // Admin/manager mexem sempre; restantes papéis só na própria proposta pendente.
+  const canManagePartnerPaidLink =
+    isAdmin || isManager || (partnerPaidPending && (partnerPaidLink as any)?.proposed_by === user?.id);
 
   // Detect if this transaction is an Extra do Sócio (despesa a abater do sócio no fecho)
   const { data: partnerExtraLink } = useQuery({
