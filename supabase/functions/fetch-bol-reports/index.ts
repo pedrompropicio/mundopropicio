@@ -277,11 +277,36 @@ function parseSelects(html: string): SelectInfo[] {
   return out;
 }
 
-/** select do evento: o que tem uma option com o bol_event_id (ou nome com "Evento"). */
-function findEventSelect(selects: SelectInfo[], bolEventId: string): SelectInfo | null {
-  return selects.find((s) => s.options.some((o) => o.value === bolEventId || o.text.includes(bolEventId)))
-    ?? selects.find((s) => /evento/i.test(s.name)) ?? null;
+// --- Combo Telerik do evento (NÃO é um <select>) ---
+const TELERIK_TARGET = "ctl00$CPH_Body$telerikddlEvento";
+const TELERIK_CLIENTSTATE = "ctl00_CPH_Body_telerikddlEvento_ClientState";
+const DDL_SESSAO = "ctl00$CPH_Body$ddlSessao";
+const TODAS_EM_VENDA = "0;0;01/01/0001;2";
+const M2_TARGET = "ctl00$CPH_Body$itm_MapaOcupacaoSessaoTipoVenda";
+
+/** input de texto do RadComboBox (o sufixo pode variar). */
+function findTelerikInputName(html: string): string | null {
+  const re = /name="(ctl00\$CPH_Body\$telerikddlEvento[^_"]*)"/i;
+  return html.match(re)?.[1] ?? null;
 }
+function readClientState(html: string): string | null {
+  const re = new RegExp(`name="${TELERIK_CLIENTSTATE}"[^>]*value="([^"]*)"`, "i");
+  const m = html.match(re) ?? html.match(/telerikddlEvento_ClientState"[^>]*value="([^"]*)"/i);
+  return m ? decodeEntities(m[1]) : null;
+}
+function buildClientState(value: string, text: string): string {
+  return JSON.stringify({
+    logEntries: [], value, text, enabled: true,
+    checkedIndices: [], checkedItemsTextOverflows: false,
+  });
+}
+/** Remove prefixo "BOL — " do organization_name. */
+const cleanOrgName = (s: string | null | undefined) =>
+  String(s || "").replace(/^\s*BOL\s*[—–-]\s*/i, "").trim();
+
+const foldText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 
 /** select "Datas sessões": preferir a opção "*** TODAS EM VENDA ***". */
 function findSessionsOption(selects: SelectInfo[]): { name: string; value: string } | null {
