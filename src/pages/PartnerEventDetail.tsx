@@ -1485,7 +1485,7 @@ export default function PartnerEventDetail() {
                                       <div key={l3.name}>
                                         <div className={`${gridStyle} px-4 py-1 border-b border-border/20 bg-muted/5`}>
                                           <span className={`text-[11px] font-semibold text-foreground pl-4 sm:pl-8 flex items-center gap-2 ${nameCell}`}>
-                                            <span className="truncate flex-1">{l3.code} · {l3.name}</span>
+                                            <span className="flex-1 min-w-0 break-words sm:truncate">{l3.code} · {l3.name}</span>
                                             {overrun && (
                                               <span
                                                 className="inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wider text-amber-600 shrink-0"
