@@ -1427,14 +1427,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
-        // Auto-link to partner if paid by partner (com data em que o sócio pagou)
+        // Auto-link to partner if paid by partner (com data em que o sócio pagou).
+        // Mesmo fluxo de aprovação do painel "Despesas Pagas por Sócios":
+        // admin/manager → approved; restantes → pending_approval (tx intocada).
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
-          await supabase.from("partner_paid_expenses").insert({
+          const { error: ppeErr } = await supabase.from("partner_paid_expenses").insert({
             event_id: data.event_id,
             partner_id: paidByPartnerId,
             transaction_id: insertedTx.id,
             paid_date: partnerPaidDate || data.date,
+            status: canApprovePartnerPaid ? "approved" : "pending_approval",
+            proposed_by: user?.id ?? null,
+            approved_by: canApprovePartnerPaid ? (user?.id ?? null) : null,
+            approved_at: canApprovePartnerPaid ? new Date().toISOString() : null,
           } as any);
+          if (ppeErr) throw ppeErr;
         }
 
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
