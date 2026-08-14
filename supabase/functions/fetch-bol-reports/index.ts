@@ -9,17 +9,19 @@
 //   - diagnóstico de HTML (html_response vs session_expired)
 //
 // Fluxo por config: creds {email,password} do Vault → login ASP.NET WebForms
-// em produtores.bol.pt → Mapa Diário de Vendas por Sessão (PDF) do
-// bol_event_id → extrair texto (unpdf) → parser tolerante → import idempotente.
+// em produtores.bol.pt → MapasProdutor.aspx → postback de seleção do evento →
+// postback do botão "M2 - TIPO DE VENDA" (PDF "Ocupação Sessões M2 - Tipo de
+// Venda") → extrair texto (unpdf) → parser tolerante → import por SETOR (zonas reais).
 //
-// NOTA DE CALIBRAÇÃO: a página MAPAS do backoffice é autenticada, pelo que o
-// caminho exato do relatório não é determinável sem credenciais. A action
-// "discover" faz login e lista os links/forms/eventos visíveis, para calibrar.
+// A action "discover" continua disponível: faz login e devolve o inventário de
+// MapasProdutor.aspx (hidden fields, selects/options, botões, links) para
+// depuração caso o postback falhe.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { parseBolDailyMap, extractPdfText } from "../_shared/bol-report-parser.ts";
+import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 
-const VERSION = "v1.0_2026_08_14";
+const VERSION = "v1.1_m2_2026_08_15";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -253,64 +255,237 @@ function collectLinks(html: string, base: string) {
   return out.slice(0, 200);
 }
 
-/**
- * Candidatos ao Mapa Diário de Vendas por Sessão. A BOL usa rotas amigáveis
- * sob /Relatorios; sondamos as variantes conhecidas com o bol_event_id.
- */
-function mapCandidates(bolEventId: string): string[] {
-  const id = encodeURIComponent(bolEventId);
-  return [
-    `${BASE}/Relatorios/MapaDiarioVendasSessao?evento=${id}&formato=pdf`,
-    `${BASE}/Relatorios/MapaDiarioVendasSessao?IdEvento=${id}`,
-    `${BASE}/Relatorios/MapaDiarioVendas?IdEvento=${id}`,
-    `${BASE}/Relatorios/MapaVendas?IdEvento=${id}`,
-    `${BASE}/Relatorios/Mapas?IdEvento=${id}`,
-    `${BASE}/Relatorios?IdEvento=${id}`,
-  ];
+// --- Página real de mapas (ASP.NET WebForms) ---
+const MAPS_PATH = "/Relatorios/MapasProdutor.aspx";
+const MAPS_URL = `${BASE}${MAPS_PATH}`;
+
+interface SelectInfo { name: string; options: Array<{ value: string; text: string }> }
+
+function parseSelects(html: string): SelectInfo[] {
+  const out: SelectInfo[] = [];
+  const selectRe = /<select\b[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = selectRe.exec(html)) !== null) {
+    const options: Array<{ value: string; text: string }> = [];
+    const optRe = /<option\b[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/option>/gi;
+    let o: RegExpExecArray | null;
+    while ((o = optRe.exec(m[2])) !== null) {
+      options.push({ value: decodeEntities(o[1]), text: stripTags(o[2]) });
+    }
+    out.push({ name: m[1], options });
+  }
+  return out;
 }
 
-async function downloadMapPdf(jar: Jar, bolEventId: string, debug: Record<string, any>): Promise<{ bytes: Uint8Array; url: string }> {
-  const tried: any[] = [];
-  for (const url of mapCandidates(bolEventId)) {
-    const resp = await getAuthed(jar, url, "application/pdf,*/*");
-    const ct = resp.headers.get("content-type") || "";
-    if (resp.status === 302) {
-      const loc = resp.headers.get("location") || "";
-      await resp.text().catch(() => null);
-      tried.push({ url, status: 302, location: loc.slice(0, 200) });
-      if (/Autenticacao/i.test(loc)) {
-        throw Object.assign(new Error(`Sessão BOL expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
-      }
-      continue;
-    }
-    if (!resp.ok) {
-      await resp.text().catch(() => null);
-      tried.push({ url, status: resp.status });
-      continue;
-    }
-    const buf = new Uint8Array(await resp.arrayBuffer());
-    const isPdf = ct.includes("pdf") || (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46);
-    if (isPdf) {
-      debug.map_url = url;
-      debug.map_tried = tried;
-      return { bytes: buf, url };
-    }
-    const html = new TextDecoder("utf-8").decode(buf);
-    const d = describeHtml(html);
-    tried.push({ url, status: 200, contentType: ct, title: d.title, snippet: d.snippet.slice(0, 160) });
-    if (d.isSignIn) {
-      throw Object.assign(new Error(`Mapa BOL: página de login devolvida (sessão expirada)`), { phase: "session_expired", retriable: true });
+/** select do evento: o que tem uma option com o bol_event_id (ou nome com "Evento"). */
+function findEventSelect(selects: SelectInfo[], bolEventId: string): SelectInfo | null {
+  return selects.find((s) => s.options.some((o) => o.value === bolEventId || o.text.includes(bolEventId)))
+    ?? selects.find((s) => /evento/i.test(s.name)) ?? null;
+}
+
+/** select "Datas sessões": preferir a opção "*** TODAS EM VENDA ***". */
+function findSessionsOption(selects: SelectInfo[]): { name: string; value: string } | null {
+  for (const s of selects) {
+    const opt = s.options.find((o) => /todas\s+em\s+venda/i.test(o.text));
+    if (opt) return { name: s.name, value: opt.value };
+  }
+  for (const s of selects) {
+    if (!/sess/i.test(s.name)) continue;
+    const opt = s.options.find((o) => /todas/i.test(o.text));
+    if (opt) return { name: s.name, value: opt.value };
+  }
+  return null;
+}
+
+/** Botão "M2 - TIPO DE VENDA". */
+function findM2Button(html: string): { name: string; value: string } | null {
+  const re = /<input\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const type = (tag.match(/\btype="([^"]+)"/i)?.[1] || "").toLowerCase();
+    if (type !== "submit" && type !== "button" && type !== "image") continue;
+    const name = tag.match(/\bname="([^"]+)"/i)?.[1];
+    const value = decodeEntities(tag.match(/\bvalue="([^"]*)"/i)?.[1] ?? "");
+    if (!name) continue;
+    if (/\bM2\b/i.test(value) || /\bM2\b/i.test(name) || /tipo\s*de\s*venda/i.test(value)) {
+      return { name, value };
     }
   }
+  // fallback: <button> com M2 no conteúdo
+  const btnRe = /<button\b[^>]*name="([^"]+)"[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/button>/gi;
+  while ((m = btnRe.exec(html)) !== null) {
+    if (/\bM2\b/i.test(m[2]) || /\bM2\b/i.test(stripTags(m[3])) || /\bM2\b/i.test(m[1])) {
+      return { name: m[1], value: decodeEntities(m[2]) };
+    }
+  }
+  return null;
+}
+
+async function postForm(
+  jar: Jar,
+  pageUrl: string,
+  html: string,
+  overrides: Record<string, string>,
+  accept = "text/html,application/xhtml+xml",
+): Promise<Response> {
+  const fields = parseFormFields(html);
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(fields)) params.set(k, v);
+  for (const [k, v] of Object.entries(overrides)) params.set(k, v);
+  if (!params.has("__EVENTTARGET")) params.set("__EVENTTARGET", "");
+  if (!params.has("__EVENTARGUMENT")) params.set("__EVENTARGUMENT", "");
+
+  const action = findFormAction(html);
+  const postUrl = action ? absUrl(pageUrl, action) : pageUrl;
+  const resp = await fetchWithTimeout(postUrl, {
+    method: "POST", redirect: "manual",
+    headers: {
+      "User-Agent": UA,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Accept": accept,
+      "Cookie": jarToHeader(jar),
+      "Origin": BASE,
+      "Referer": pageUrl,
+    },
+    body: params.toString(),
+  }, 90000);
+  ingestSetCookie(jar, resp);
+  return resp;
+}
+
+const looksPdf = (buf: Uint8Array) => buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
+
+async function readAsPdf(jar: Jar, resp: Response, fromUrl: string, tried: any[]): Promise<Uint8Array | null> {
+  const ct = resp.headers.get("content-type") || "";
+  if (resp.status === 302) {
+    const loc = resp.headers.get("location") || "";
+    await resp.text().catch(() => null);
+    tried.push({ url: fromUrl, status: 302, location: loc.slice(0, 300) });
+    if (/Autenticacao/i.test(loc)) {
+      throw Object.assign(new Error(`Sessão BOL expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    const follow = await getAuthed(jar, absUrl(fromUrl, loc), "application/pdf,*/*");
+    const ct2 = follow.headers.get("content-type") || "";
+    const buf2 = new Uint8Array(await follow.arrayBuffer());
+    if (ct2.includes("pdf") || looksPdf(buf2)) return buf2;
+    const d2 = describeHtml(new TextDecoder("utf-8").decode(buf2));
+    tried.push({ url: absUrl(fromUrl, loc), status: follow.status, contentType: ct2, title: d2.title, snippet: d2.snippet.slice(0, 200) });
+    if (d2.isSignIn) throw Object.assign(new Error("Mapa BOL: login devolvido (sessão expirada)"), { phase: "session_expired", retriable: true });
+    return null;
+  }
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  if (ct.includes("pdf") || looksPdf(buf)) return buf;
+  const html = new TextDecoder("utf-8").decode(buf);
+  const d = describeHtml(html);
+  tried.push({ url: fromUrl, status: resp.status, contentType: ct, title: d.title, snippet: d.snippet.slice(0, 200) });
+  if (d.isSignIn) throw Object.assign(new Error("Mapa BOL: login devolvido (sessão expirada)"), { phase: "session_expired", retriable: true });
+  return null;
+}
+
+/**
+ * Fluxo real: GET MapasProdutor.aspx → postback de seleção do evento
+ * (dropdown com AutoPostBack devolve novo __VIEWSTATE) → postback do botão
+ * "M2 - TIPO DE VENDA" → PDF (direto ou via redirect).
+ */
+async function downloadM2Pdf(jar: Jar, bolEventId: string, debug: Record<string, any>): Promise<{ bytes: Uint8Array; url: string }> {
+  const tried: any[] = [];
+
+  const getResp = await getAuthed(jar, MAPS_URL);
+  if (getResp.status === 302) {
+    const loc = getResp.headers.get("location") || "";
+    await getResp.text().catch(() => null);
+    throw Object.assign(new Error(`MapasProdutor.aspx redirecionou (302 → ${loc})`), {
+      phase: /Autenticacao/i.test(loc) ? "session_expired" : "html_response",
+      retriable: /Autenticacao/i.test(loc),
+    });
+  }
+  let html = await getResp.text();
+  if (describeHtml(html).isSignIn) {
+    throw Object.assign(new Error("MapasProdutor.aspx devolveu login (sessão expirada)"), { phase: "session_expired", retriable: true });
+  }
+
+  let selects = parseSelects(html);
+  const evSel = findEventSelect(selects, bolEventId);
+  if (!evSel) {
+    debug.maps_selects = selects.map((s) => ({ name: s.name, options: s.options.slice(0, 10) }));
+    throw Object.assign(
+      new Error(`Dropdown de evento não encontrado em MapasProdutor.aspx (bol_event_id=${bolEventId})`),
+      { phase: "html_response", tried: debug.maps_selects },
+    );
+  }
+  const evOption = evSel.options.find((o) => o.value === bolEventId)
+    ?? evSel.options.find((o) => o.text.includes(bolEventId));
+  if (!evOption) {
+    debug.maps_event_options = evSel.options.slice(0, 60);
+    throw Object.assign(
+      new Error(`Evento ${bolEventId} não está no dropdown (conta sem acesso ou evento concluído).`),
+      { phase: "html_response", tried: debug.maps_event_options },
+    );
+  }
+  debug.maps_event_select = evSel.name;
+
+  // Passo 1: postback de seleção do evento (AutoPostBack)
+  const selResp = await postForm(jar, MAPS_URL, html, {
+    __EVENTTARGET: evSel.name,
+    __EVENTARGUMENT: "",
+    [evSel.name]: evOption.value,
+  });
+  if (selResp.status === 302) {
+    const loc = selResp.headers.get("location") || "";
+    await selResp.text().catch(() => null);
+    if (/Autenticacao/i.test(loc)) {
+      throw Object.assign(new Error("Sessão BOL expirada na seleção do evento"), { phase: "session_expired", retriable: true });
+    }
+    const again = await getAuthed(jar, absUrl(MAPS_URL, loc));
+    html = await again.text();
+  } else if (selResp.ok) {
+    html = await selResp.text();
+  } else {
+    await selResp.text().catch(() => null);
+    throw Object.assign(new Error(`Postback de seleção do evento: HTTP ${selResp.status}`), { phase: "html_response" });
+  }
+
+  selects = parseSelects(html);
+  const sessionsOpt = findSessionsOption(selects);
+  debug.maps_sessions_option = sessionsOpt;
+
+  const m2 = findM2Button(html);
+  if (!m2) {
+    debug.maps_buttons = (html.match(/<input\b[^>]*type="(?:submit|button|image)"[^>]*>/gi) || []).slice(0, 30);
+    throw Object.assign(
+      new Error("Botão \"M2 - TIPO DE VENDA\" não encontrado em MapasProdutor.aspx."),
+      { phase: "html_response", tried: debug.maps_buttons },
+    );
+  }
+  debug.maps_m2_button = m2;
+
+  // Passo 2: postback do botão M2
+  const overrides: Record<string, string> = {
+    __EVENTTARGET: "",
+    __EVENTARGUMENT: "",
+    [evSel.name]: evOption.value,
+    [m2.name]: m2.value || "M2",
+  };
+  if (sessionsOpt) overrides[sessionsOpt.name] = sessionsOpt.value;
+
+  const pdfResp = await postForm(jar, MAPS_URL, html, overrides, "application/pdf,*/*");
+  const bytes = await readAsPdf(jar, pdfResp, MAPS_URL, tried);
   debug.map_tried = tried;
+  if (bytes) {
+    debug.map_url = MAPS_URL;
+    return { bytes, url: MAPS_URL };
+  }
+
   throw Object.assign(
     new Error(
-      "Mapa Diário de Vendas por Sessão não encontrado nos caminhos conhecidos do backoffice BOL — " +
-      "correr a action \"discover\" com credenciais válidas para calibrar o URL/form do relatório.",
+      "Postback do M2 não devolveu PDF em MapasProdutor.aspx — correr a action \"discover\" " +
+      "para inspecionar a página (selects, botões, hidden fields).",
     ),
     { phase: "html_response", tried },
   );
 }
+
 
 async function loadCreds(admin: any, secretName: string): Promise<{ email: string; password: string }> {
   const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: secretName });
@@ -340,7 +515,7 @@ async function runDiscover(admin: any, configId?: string) {
   const jar = await loginBol(creds.email, creds.password);
 
   const pages: any[] = [];
-  const toVisit = [`${BASE}/`, `${BASE}/Relatorios`, `${BASE}/Eventos`];
+  const toVisit = [MAPS_URL, `${BASE}/Relatorios`, `${BASE}/`];
   const visited = new Set<string>();
   for (const url of toVisit) {
     if (visited.has(url)) continue;
@@ -354,10 +529,16 @@ async function runDiscover(admin: any, configId?: string) {
       url, status, location: loc,
       title: html ? describeHtml(html).title : null,
       forms: html ? (html.match(/<form\b[^>]*>/gi) || []).slice(0, 5) : [],
-      selects: html ? (html.match(/<select\b[^>]*name="[^"]+"/gi) || []).slice(0, 20) : [],
+      hiddenFields: html ? Object.keys(parseFormFields(html)).slice(0, 40) : [],
+      selects: html
+        ? parseSelects(html).map((s) => ({ name: s.name, optionCount: s.options.length, options: s.options.slice(0, 40) }))
+        : [],
+      buttons: html ? (html.match(/<input\b[^>]*type="(?:submit|button|image)"[^>]*>/gi) || []).slice(0, 30) : [],
+      m2Button: html ? findM2Button(html) : null,
       mapLinks: links.filter((l) => /mapa|relat|vend|sess/i.test(`${l.href} ${l.text}`)).slice(0, 60),
       links: links.slice(0, 60),
     });
+
     // segue links de mapas encontrados (1 nível)
     for (const l of links.filter((x) => /mapa/i.test(`${x.href} ${x.text}`)).slice(0, 3)) {
       if (visited.has(l.href)) continue;
@@ -399,16 +580,16 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     let pdf: { bytes: Uint8Array; url: string };
     const jar = await getJar(sessions, cfg.vault_secret_name, creds);
     try {
-      pdf = await downloadMapPdf(jar, cfg.bol_event_id, debug);
+      pdf = await downloadM2Pdf(jar, cfg.bol_event_id, debug);
     } catch (e: any) {
       if (e?.retriable) {
         console.log("[bol] self-heal re-login");
         const jar2 = await getJar(sessions, cfg.vault_secret_name, creds, true);
-        pdf = await downloadMapPdf(jar2, cfg.bol_event_id, debug);
+        pdf = await downloadM2Pdf(jar2, cfg.bol_event_id, debug);
       } else throw e;
     }
 
-    const fileName = `mapa_diario_${cfg.bol_event_id}.pdf`;
+    const fileName = `bol_m2_tipo_venda_${cfg.bol_event_id}.pdf`;
     const filesAudit = [{ name: fileName, size: pdf.bytes.length, url: pdf.url }];
 
     let text: string;
@@ -419,17 +600,17 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.pdf_text_chars = text.length;
 
     let parseRes;
-    try { parseRes = parseBolDailyMap(text); }
+    try { parseRes = parseBolM2(text); }
     catch (e: any) {
       throw Object.assign(new Error(`Parser mapa BOL: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
     }
-    debug.days = parseRes.rows.length;
+    debug.sectors = parseRes.rows.length;
     debug.parser = parseRes.debug;
     debug.warnings = parseRes.warnings;
 
     if (parseRes.rows.length === 0) {
       throw Object.assign(
-        new Error("Mapa BOL sem linhas diárias reconhecidas (layout inesperado)."),
+        new Error("Mapa M2 sem setores reconhecidos (layout inesperado)."),
         { phase: "parse_failed", filesAudit },
       );
     }
