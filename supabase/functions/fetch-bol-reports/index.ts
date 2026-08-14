@@ -709,6 +709,10 @@ async function runDiscover(admin: any, configId?: string) {
       m2Button: html ? findM2Button(html) : null,
       telerikComboInput: html ? findTelerikInputName(html) : null,
       telerikClientState: html ? readClientState(html) : null,
+      comboRegions: html ? collectComboRegions(html) : [],
+      comboScripts: html ? collectComboScripts(html) : [],
+      comboItems: html ? collectComboItems(html) : [],
+      hiddenRaw: html ? collectHiddenRaw(html) : [],
       mapLinks: links.filter((l) => /mapa|relat|vend|sess/i.test(`${l.href} ${l.text}`)).slice(0, 60),
       links: links.slice(0, 60),
     });
