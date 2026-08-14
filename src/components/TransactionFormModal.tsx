@@ -1751,14 +1751,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Indique o nome do funcionário para a nova nota", variant: "destructive" });
       return;
     }
-    if (isPaidByPartner && !paidByPartnerId) {
-      toast({ title: "Selecione o sócio que pagou a despesa", variant: "destructive" });
-      return;
-    }
-    if (isPaidByPartner && !partnerPaidDate) {
-      toast({ title: "Indique a data em que o sócio pagou", variant: "destructive" });
-      return;
-    }
     if (isPartnerExtra && !partnerExtraId) {
       toast({ title: "Selecione o sócio para o Extra", variant: "destructive" });
       return;
