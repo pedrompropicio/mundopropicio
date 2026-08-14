@@ -2919,38 +2919,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <HelpTooltip text={helpTexts.reimbursementToggle} size={12} />
                 </button>
 
-                {/* Paid by partner toggle — evento (ou Master do rateio) selecionado.
-                    Sem sócios no evento fica desativado com aviso, em vez de desaparecer. */}
-                {(form.event_id || (isSplit && splitMasterEventId)) && !form.is_reimbursement && !isPartnerExtra && (
-                  <button
-                    type="button"
-                    disabled={eventPartners.length === 0}
-                    title={eventPartners.length === 0 ? "Este evento não tem sócios registados — adicione sócios na aba Sócios do evento." : undefined}
-                    onClick={() => {
-                      if (eventPartners.length === 0) {
-                        toast({ title: "Evento sem sócios", description: "Registe os sócios na aba Sócios do evento antes de marcar a despesa como paga por sócio.", variant: "destructive" });
-                        return;
-                      }
-                      const next = !isPaidByPartner;
-                      setIsPaidByPartner(next);
-                      setPaidByPartnerId("");
-                      if (next) {
-                        setForm({ ...form, account_id: "" });
-                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
-                      } else {
-                        setPartnerPaidDate("");
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                      isPaidByPartner
-                        ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
-                        : "bg-secondary text-muted-foreground hover:text-foreground"
-                    } ${eventPartners.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    🤝 Pago por Sócio
-                    <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
-                  </button>
-                )}
+                {/* Toggle "🤝 Pago por Sócio" REMOVIDO da criação (decisão de produto).
+                    O vínculo a sócio faz-se no modal de pagamento (liquidação) ou no
+                    painel "Despesas Pagas por Sócios" do evento. */}
 
                 {/* Extra do Sócio toggle — despesa paga pela empresa que será descontada do sócio no fecho */}
                 {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && !isPaidByPartner && (
