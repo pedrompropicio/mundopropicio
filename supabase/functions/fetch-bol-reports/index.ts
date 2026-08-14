@@ -687,7 +687,7 @@ async function runDiscover(admin: any, configId?: string) {
   const jar = await loginBol(creds.email, creds.password);
 
   const pages: any[] = [];
-  const toVisit = [MAPS_URL, `${BASE}/Relatorios`, `${BASE}/`];
+  const toVisit = [MAPS_URL, `${BASE}/Relatorios/Estatisticas.aspx`, `${BASE}/Relatorios`, `${BASE}/`];
   const visited = new Set<string>();
   for (const url of toVisit) {
     if (visited.has(url)) continue;
