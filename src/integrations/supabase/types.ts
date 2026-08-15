@@ -421,6 +421,44 @@ export type Database = {
         }
         Relationships: []
       }
+      bol_daily_sales: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          quantity: number
+          sale_date: string
+          total_value: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          quantity?: number
+          sale_date: string
+          total_value?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          quantity?: number
+          sale_date?: string
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bol_daily_sales_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bol_sync_config: {
         Row: {
           bol_event_id: string
@@ -11345,6 +11383,23 @@ export type Database = {
         Returns: string
       }
       get_partner_bp_realized: { Args: { p_event_id: string }; Returns: Json }
+      get_sales_position: {
+        Args: never
+        Returns: {
+          child_count: number
+          daily_missing: boolean
+          event_date: string
+          event_name: string
+          group_id: string
+          has_bol: boolean
+          last7_qty: number
+          last7_value: number
+          total_qty: number
+          total_value: number
+          yesterday_qty: number
+          yesterday_value: number
+        }[]
+      }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
