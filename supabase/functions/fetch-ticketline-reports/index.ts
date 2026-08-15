@@ -296,6 +296,7 @@ async function probeGet(
   url: string,
   accept: string,
   followMax = 4,
+  extraHeaders: Record<string, string> = {},
 ): Promise<ProbeAttempt & { chain: Array<{ url: string; status: number; location: string | null }>; bytes?: Uint8Array }> {
   const chain: Array<{ url: string; status: number; location: string | null }> = [];
   let current = url;
@@ -305,7 +306,7 @@ async function probeGet(
       resp = await fetchWithTimeout(current, {
         method: "GET",
         redirect: "manual",
-        headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers` },
+        headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers`, ...extraHeaders },
       }, 30000);
     } catch (e: any) {
       return { url: current, status: null, contentType: null, looksXlsx: false, error: e?.message || String(e), chain };
