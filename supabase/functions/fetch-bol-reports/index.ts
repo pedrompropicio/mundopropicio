@@ -467,6 +467,28 @@ function findM2Button(html: string): { name: string; value: string } | null {
   return null;
 }
 
+/** Botão "Diário Vendas" (Mapa Diário de Vendas por Sessão). */
+function findDiarioButton(html: string): { name: string; value: string } | null {
+  const re = /<input\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const type = (tag.match(/\btype="([^"]+)"/i)?.[1] || "").toLowerCase();
+    if (type !== "submit" && type !== "button" && type !== "image") continue;
+    const name = tag.match(/\bname="([^"]+)"/i)?.[1];
+    const value = decodeEntities(tag.match(/\bvalue="([^"]*)"/i)?.[1] ?? "");
+    if (!name) continue;
+    if (/MapaDiario/i.test(name) || /di[áa]ri[oa]/i.test(value)) return { name, value };
+  }
+  const btnRe = /<button\b[^>]*name="([^"]+)"[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/button>/gi;
+  while ((m = btnRe.exec(html)) !== null) {
+    if (/MapaDiario/i.test(m[1]) || /di[áa]ri[oa]/i.test(m[2]) || /di[áa]ri[oa]/i.test(stripTags(m[3]))) {
+      return { name: m[1], value: decodeEntities(m[2]) };
+    }
+  }
+  return null;
+}
+
 async function postForm(
   jar: Jar,
   pageUrl: string,
