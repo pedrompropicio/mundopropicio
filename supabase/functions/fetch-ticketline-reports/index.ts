@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.18_postfilter_2026_08_15";
+const VERSION = "v2.19_postfilter_t90_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -298,6 +298,7 @@ async function probeGet(
   accept: string,
   followMax = 4,
   extraHeaders: Record<string, string> = {},
+  timeoutMs = 30000,
 ): Promise<ProbeAttempt & { chain: Array<{ url: string; status: number; location: string | null }>; bytes?: Uint8Array }> {
   const chain: Array<{ url: string; status: number; location: string | null }> = [];
   let current = url;
@@ -308,7 +309,7 @@ async function probeGet(
         method: "GET",
         redirect: "manual",
         headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers`, ...extraHeaders },
-      }, 30000);
+      }, timeoutMs);
     } catch (e: any) {
       return { url: current, status: null, contentType: null, looksXlsx: false, error: e?.message || String(e), chain };
     }
@@ -1026,7 +1027,7 @@ async function runPostFilter(admin: any, configId?: string, startDD?: string, en
   await postResp.text().catch(() => null);
   const attempts: any[] = [];
   for (const u of [`${BASE}/managers/dashboard/sale_summary.xlsx?granularity=2`, `${BASE}/managers/dashboard/sale_summary.xlsx?granularity=0`]) {
-    const r = await probeGet(jar, u, `${XLSX_ACCEPT},*/*`, 3);
+    const r = await probeGet(jar, u, `${XLSX_ACCEPT},*/*`, 3, {}, 110000);
     const e: any = { url: u, status: r.status, size: r.size, looksXlsx: r.looksXlsx };
     if (r.looksXlsx && r.bytes) {
       const d = dumpXlsx(r.bytes, 30, 12);
