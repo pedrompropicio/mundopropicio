@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.19_postfilter_t90_2026_08_15";
+const VERSION = "v2.20_postfilter_needle_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -988,7 +988,7 @@ async function runTextProbe(admin: any, configId?: string, urls?: string[], offs
 }
 
 /** POST no formulário de filtro do Resumo de Operações global + GET do XLSX. */
-async function runPostFilter(admin: any, configId?: string, startDD?: string, endDD?: string) {
+async function runPostFilter(admin: any, configId?: string, startDD?: string, endDD?: string, needle?: string, span = 70) {
   if (!configId) return json(400, { error: "configId obrigatório" });
   const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
   const cfg = (cfgs || [])[0];
@@ -1026,15 +1026,23 @@ async function runPostFilter(admin: any, configId?: string, startDD?: string, en
   const postInfo = { status: postResp.status, location: postResp.headers.get("location") };
   await postResp.text().catch(() => null);
   const attempts: any[] = [];
-  for (const u of [`${BASE}/managers/dashboard/sale_summary.xlsx?granularity=2`, `${BASE}/managers/dashboard/sale_summary.xlsx?granularity=0`]) {
+  for (const u of [`${BASE}/managers/dashboard/sale_summary.xlsx?granularity=2`]) {
     const r = await probeGet(jar, u, `${XLSX_ACCEPT},*/*`, 3, {}, 110000);
     const e: any = { url: u, status: r.status, size: r.size, looksXlsx: r.looksXlsx };
     if (r.looksXlsx && r.bytes) {
-      const d = dumpXlsx(r.bytes, 30, 12);
+      const d = dumpXlsx(r.bytes, 4000, 8);
+      const all: any[][] = d.sheets[0]?.rows || [];
       e.ref = d.sheets[0]?.ref;
-      e.rows = d.sheets[0]?.rows;
-      const txt = JSON.stringify(d.sheets[0]?.rows || []);
-      e.hasAlmada = txt.includes("ALMADA") || txt.includes("Almada");
+      e.totalRows = all.length;
+      if (needle) {
+        const up = needle.toUpperCase();
+        const idx = all.findIndex((row) => row.some((c) => typeof c === "string" && c.toUpperCase().includes(up)));
+        e.needleRow = idx;
+        e.rows = idx >= 0 ? all.slice(Math.max(0, idx - 3), idx + span) : all.slice(0, 30);
+      } else {
+        e.rows = all.slice(0, 30);
+      }
+      e.eventHeaders = all.filter((row) => row.some((c) => typeof c === "string" && c.startsWith("Evento:"))).map((row) => String(row.find((c) => typeof c === "string" && c.startsWith("Evento:"))).slice(0, 90));
     } else e.snippet = (r.snippet || "").slice(0, 120);
     attempts.push(e);
   }
@@ -1189,7 +1197,7 @@ Deno.serve(async (req) => {
 
   if (action === "postfilter") {
     try {
-      return await runPostFilter(admin, configId, (body as any).startDD, (body as any).endDD);
+      return await runPostFilter(admin, configId, (body as any).startDD, (body as any).endDD, (body as any).needle, (body as any).span || 70);
     } catch (e: any) {
       return json(500, { ok: false, phase: "postfilter_failed", error: e?.message || String(e) });
     }
