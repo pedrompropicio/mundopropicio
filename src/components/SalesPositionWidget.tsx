@@ -100,7 +100,7 @@ export function SalesPositionWidget() {
     { total_qty: 0, total_value: 0, last7_qty: 0, last7_value: 0, yesterday_qty: 0, yesterday_value: 0 },
   );
 
-  const colClass = "w-[92px] shrink-0 text-right sm:w-[150px]";
+  const colClass = "w-[110px] shrink-0 text-right sm:w-[170px]";
 
   return (
     <section>
