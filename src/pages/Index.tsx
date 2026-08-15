@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { makeLastDateResolver } from "@/lib/event-dates";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
+import { SalesPositionWidget } from "@/components/SalesPositionWidget";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
