@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.13_matrix_2026_08_15";
+const VERSION = "v2.14_matrix_urls_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -843,7 +843,7 @@ async function runDump(admin: any, configId?: string, compareConfigId?: string) 
 }
 
 /** Matriz de candidatos para o relatório de operações na área nova. */
-async function runMatrix(admin: any, configId?: string) {
+async function runMatrix(admin: any, configId?: string, customUrls?: string[]) {
   if (!configId) return json(400, { error: "configId obrigatório" });
   const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
   const cfg = (cfgs || [])[0];
@@ -873,12 +873,12 @@ async function runMatrix(admin: any, configId?: string) {
     `${BASE}/managers/events/${id}/internet_sales.xlsx?${g}`,
   ];
   const out: any[] = [];
-  for (const url of urls) {
+  for (const url of (customUrls && customUrls.length ? customUrls : urls)) {
     const r = await probeGet(jar, url, `${XLSX_ACCEPT},*/*`, 3);
     const entry: any = { url, status: r.status, contentType: r.contentType, size: r.size, looksXlsx: r.looksXlsx };
     if (r.looksXlsx && r.bytes) {
       try {
-        const d = dumpXlsx(r.bytes, 22, 12);
+        const d = dumpXlsx(r.bytes, 26, 12);
         entry.sheetNames = d.sheetNames;
         entry.ref = d.sheets[0]?.ref;
         entry.rows = d.sheets[0]?.rows;
@@ -1039,7 +1039,7 @@ Deno.serve(async (req) => {
 
   if (action === "matrix") {
     try {
-      return await runMatrix(admin, configId);
+      return await runMatrix(admin, configId, body.urls);
     } catch (e: any) {
       return json(500, { ok: false, phase: "matrix_failed", error: e?.message || String(e) });
     }
