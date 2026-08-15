@@ -23,13 +23,10 @@ interface SalesPositionRow {
 const NO_SERIES_HINT = "Série diária disponível após o próximo sync";
 
 const nf = new Intl.NumberFormat("pt-PT");
+const nfNoDecimals = new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 0 });
 
-function compactValue(v: number) {
-  const n = Number(v || 0);
-  if (Math.abs(n) >= 1000) {
-    return `${nf.format(Math.round(n / 100) / 10)}k €`;
-  }
-  return `${nf.format(Math.round(n))} €`;
+function formatFullValue(v: number) {
+  return `${nfNoDecimals.format(Math.round(Number(v || 0)))} €`;
 }
 
 /** Par "bilhetes · valor" em desktop. */
@@ -50,29 +47,12 @@ function Cell({ qty, value, missing }: { qty: number; value: number; missing: bo
     <span className="inline-flex items-baseline gap-1 whitespace-nowrap font-mono tabular-nums">
       <span>{nf.format(Number(qty || 0))}</span>
       <span className="text-muted-foreground">·</span>
-      <span className="hidden text-muted-foreground sm:inline">{formatCurrency(Number(value || 0))}</span>
-      <span className="text-muted-foreground sm:hidden">{compactValue(value)}</span>
+      <span className="text-muted-foreground">{formatFullValue(value)}</span>
     </span>
   );
 }
 
-function formatMobileQty(qty: number) {
-  const n = Math.round(Number(qty || 0));
-  return n.toString();
-}
-
-function formatMobileValue(v: number) {
-  const n = Math.abs(Number(v || 0));
-  if (n >= 100000) {
-    return `${Math.round(n / 1000)}k €`;
-  }
-  if (n >= 1000) {
-    return `${nf.format(Math.round(n / 100) / 10)}k €`;
-  }
-  return `${nf.format(Math.round(n))} €`;
-}
-
-/** Par "bilhetes · valor" em mobile — ultra compacto e sem quebras. */
+/** Par "bilhetes · valor" em mobile — sem compactação, valores inteiros. */
 function MobileCell({ qty, value, missing }: { qty: number; value: number; missing: boolean }) {
   if (missing) {
     return (
@@ -87,10 +67,10 @@ function MobileCell({ qty, value, missing }: { qty: number; value: number; missi
     );
   }
   return (
-    <span className="inline-flex items-baseline justify-end gap-0.5 whitespace-nowrap font-mono tabular-nums text-[11px]">
-      <span>{formatMobileQty(qty)}</span>
+    <span className="inline-flex items-baseline justify-end gap-0.5 whitespace-nowrap font-mono tabular-nums text-[10px] sm:text-[11px]">
+      <span>{nf.format(Math.round(Number(qty || 0)))}</span>
       <span className="text-muted-foreground">·</span>
-      <span className="text-muted-foreground">{formatMobileValue(value)}</span>
+      <span className="text-muted-foreground">{formatFullValue(value)}</span>
     </span>
   );
 }
