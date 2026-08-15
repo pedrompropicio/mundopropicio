@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.8_2026_08_12_fanout";
+const VERSION = "v2.9_probe_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -51,7 +51,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" }
+interface Body { configId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -717,6 +717,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "probe") {
+    try {
+      return await runProbe(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "discover") {
     try {
