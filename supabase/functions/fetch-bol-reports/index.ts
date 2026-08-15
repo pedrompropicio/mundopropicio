@@ -20,8 +20,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
+import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";
 
-const VERSION = "v1.5_reportviewer";
+const VERSION = "v1.6_daily_series";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -366,6 +367,8 @@ const TELERIK_CLIENTSTATE = "ctl00_CPH_Body_telerikddlEvento_ClientState";
 const DDL_SESSAO = "ctl00$CPH_Body$ddlSessao";
 const TODAS_EM_VENDA = "0;0;01/01/0001;2";
 const M2_TARGET = "ctl00$CPH_Body$itm_MapaOcupacaoSessaoTipoVenda";
+const DIARIO_TARGET = "ctl00$CPH_Body$itm_MapaDiarioVendasSessao";
+export type BolMapKind = "m2" | "diario";
 
 /** input de texto do RadMultiColumnComboBox (normalmente SEM name). */
 function findTelerikInputName(html: string): string | null {
@@ -465,6 +468,28 @@ function findM2Button(html: string): { name: string; value: string } | null {
   return null;
 }
 
+/** Botão "Diário Vendas" (Mapa Diário de Vendas por Sessão). */
+function findDiarioButton(html: string): { name: string; value: string } | null {
+  const re = /<input\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const type = (tag.match(/\btype="([^"]+)"/i)?.[1] || "").toLowerCase();
+    if (type !== "submit" && type !== "button" && type !== "image") continue;
+    const name = tag.match(/\bname="([^"]+)"/i)?.[1];
+    const value = decodeEntities(tag.match(/\bvalue="([^"]*)"/i)?.[1] ?? "");
+    if (!name) continue;
+    if (/MapaDiario/i.test(name) || /di[áa]ri[oa]/i.test(value)) return { name, value };
+  }
+  const btnRe = /<button\b[^>]*name="([^"]+)"[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/button>/gi;
+  while ((m = btnRe.exec(html)) !== null) {
+    if (/MapaDiario/i.test(m[1]) || /di[áa]ri[oa]/i.test(m[2]) || /di[áa]ri[oa]/i.test(stripTags(m[3]))) {
+      return { name: m[1], value: decodeEntities(m[2]) };
+    }
+  }
+  return null;
+}
+
 async function postForm(
   jar: Jar,
   pageUrl: string,
@@ -537,6 +562,7 @@ async function downloadM2Pdf(
   bolEventId: string,
   debug: Record<string, any>,
   eventText = "",
+  mapKind: BolMapKind = "m2",
 ): Promise<{ bytes: Uint8Array; url: string }> {
   const tried: any[] = [];
 
@@ -610,10 +636,10 @@ async function downloadM2Pdf(
   }
 
 
-  // --- Passo 2: postback do botão M2 ---
-  const m2 = findM2Button(html);
-  const m2Target = m2?.name || M2_TARGET;
-  debug.m2_target = m2Target;
+  // --- Passo 2: postback do botão do mapa (M2 ou Diário Vendas) ---
+  const m2 = mapKind === "diario" ? findDiarioButton(html) : findM2Button(html);
+  const m2Target = m2?.name || (mapKind === "diario" ? DIARIO_TARGET : M2_TARGET);
+  debug[mapKind === "diario" ? "diario_target" : "m2_target"] = m2Target;
 
   const sessionsOpt = findSessionsOption(parseSelects(html));
   const sessionField = sessionsOpt?.name || DDL_SESSAO;
@@ -941,17 +967,59 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
     }
 
+    // --- Série diária (Mapa Diário de Vendas por Sessão) ---
+    // Fonte secundária: o M2 é cumulativo, por isso "ontem"/"últimos 7 dias"
+    // só saem deste mapa. NUNCA falha o run — só regista warning.
+    let dailyAudit: any = null;
+    let dailyWarning: string | null = null;
+    const dailyDebug: Record<string, any> = {};
+    try {
+      const dPdf = await downloadM2Pdf(jar, cfg.bol_event_id, dailyDebug, expectedName, "diario");
+      filesAudit.push({
+        name: `bol_diario_vendas_${cfg.bol_event_id}.pdf`,
+        size: dPdf.bytes.length,
+        url: dPdf.url,
+      });
+      const dText = await extractPdfText(dPdf.bytes);
+      dailyDebug.pdf_text_chars = dText.length;
+      const dParse = parseBolDiario(dText);
+      dailyDebug.parser = dParse.debug;
+      dailyAudit = await importBolDailySeries({
+        supabase: admin,
+        eventId: cfg.event_id,
+        companyId: cfg.company_id,
+        parseResult: dParse,
+      });
+    } catch (e: any) {
+      dailyWarning = `Série diária BOL não importada: ${e?.message || e}`;
+      dailyDebug.error = dailyWarning;
+      console.warn(`[bol ${runId}] ${dailyWarning}`);
+    }
+
     const silentEmpty = (audit?.rowsImported || 0) === 0;
-    const finalStatus = silentEmpty ? "warning" : "success";
-    const warnMsg = silentEmpty ? "Parser leu o mapa mas 0 linhas importadas — verificar layout do relatório." : null;
+    const finalStatus = silentEmpty || dailyWarning ? "warning" : "success";
+    const warnMsg = [
+      silentEmpty ? "Parser leu o mapa mas 0 linhas importadas — verificar layout do relatório." : null,
+      dailyWarning,
+    ].filter(Boolean).join(" | ") || null;
 
     await updateRun(admin, runId, {
       status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit, error_message: warnMsg,
-      import_audit: { ...audit, debug, silentEmpty },
+      import_audit: {
+        ...audit,
+        daily_rows: dailyAudit?.daily_rows ?? 0,
+        daily_total_qty: dailyAudit?.daily_total_qty ?? 0,
+        daily_total_value: dailyAudit?.daily_total_value ?? 0,
+        daily: dailyAudit,
+        daily_debug: dailyDebug,
+        debug,
+        silentEmpty,
+      },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
-    return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
+    return { ok: !silentEmpty, runId, audit, dailyAudit, status: finalStatus, warning: warnMsg };
+
 
   } catch (e: any) {
     const phase = e?.phase || "failed";

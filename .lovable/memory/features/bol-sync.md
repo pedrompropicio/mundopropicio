@@ -123,3 +123,19 @@ Parser `_shared/bol-report-parser.ts` → `parseBolM2(text)`:
   selects+options, botões e `m2Button`).
 - Cron `bol-sync-daily` às **23:20 UTC** (`scripts/cron-bol-sync-daily-live.txt`), service role do
   Vault `email_queue_service_role_key`, body `{"mode":"cron"}`.
+
+## v1.6_daily_series — série diária (2026-08-15)
+- Depois do M2, o mesmo run faz um SEGUNDO postback na mesma sessão ao botão
+  "Diário Vendas" (`ctl00$CPH_Body$itm_MapaDiarioVendasSessao`) e importa o
+  "Mapa Diário de Vendas por Sessão" para `bol_daily_sales` (full-replace por
+  `event_id`, validado contra a linha TOTAL do PDF).
+- Parser recuperado da v1.0 e isolado em `_shared/bol-daily-parser.ts`
+  (`parseBolDiario` + `importBolDailySeries`). O parser M2 não foi tocado.
+- Falha do Diário NÃO falha o run: status fica `warning` e o motivo vai para
+  `error_message`; `import_audit` ganha `daily_rows`, `daily_total_qty`,
+  `daily_total_value`, `daily_debug`.
+- Motivo: o M2 é cumulativo (snapshot), logo "ontem"/"últimos 7 dias" não saem
+  do `ticket_sales` para eventos BOL — saem de `bol_daily_sales`.
+- Consumidor: RPC `get_sales_position()` + widget "Posição de Vendas" no
+  Dashboard (agrega subeventos no evento-mãe; nunca soma ticket_sales com
+  bol_daily_sales na mesma métrica).
