@@ -4,10 +4,11 @@
 // Multi-evento: se body.configId vier, corre só esse; senão corre todos os configs enabled=true.
 // Auth: aceita SERVICE_ROLE (cron) OU JWT de admin/manager/editor/platform_admin (UI).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.10_probe2_2026_08_15";
+const VERSION = "v2.11_probe3_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -296,6 +297,7 @@ async function probeGet(
   url: string,
   accept: string,
   followMax = 4,
+  extraHeaders: Record<string, string> = {},
 ): Promise<ProbeAttempt & { chain: Array<{ url: string; status: number; location: string | null }>; bytes?: Uint8Array }> {
   const chain: Array<{ url: string; status: number; location: string | null }> = [];
   let current = url;
@@ -305,7 +307,7 @@ async function probeGet(
       resp = await fetchWithTimeout(current, {
         method: "GET",
         redirect: "manual",
-        headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers` },
+        headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers`, ...extraHeaders },
       }, 30000);
     } catch (e: any) {
       return { url: current, status: null, contentType: null, looksXlsx: false, error: e?.message || String(e), chain };
@@ -384,6 +386,95 @@ function extractExportUrlStrings(html: string, cap = 30): string[] {
 
 const XLSX_ACCEPT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+// ---------------------------------------------------------------------------
+// v2.11 (probe3) — extração de padrões AJAX/export do JS inline + data-*
+// ---------------------------------------------------------------------------
+/** Strings com pinta de URL/AJAX no HTML cru, com contexto (200 chars). */
+function extractJsUrlPatterns(html: string, cap = 50): Array<{ match: string; context: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ match: string; context: string }> = [];
+  const re = /(\/managers\/[^\s"'`<>]{2,200}|["'`][^"'`\s<>]{0,200}\.(?:json|xlsx)[^"'`\s<>]{0,80}["'`]|export[A-Za-z_]*\s*[:=(][^\n]{0,80}|ajax\s*[:(][^\n]{0,80}|url\s*:\s*["'`][^"'`]{2,200}["'`]|fetch\(\s*["'`][^"'`]{2,200}["'`]|\$\.get\(\s*["'`][^"'`]{2,200}["'`]|\$\.ajax\(\s*\{[^\n]{0,120})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < cap) {
+    const match = m[0].slice(0, 200);
+    const key = match.trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const start = Math.max(0, m.index - 60);
+    out.push({ match, context: html.slice(start, start + 200).replace(/\s+/g, " ") });
+  }
+  return out;
+}
+
+/** ids dos <div> principais (zona de conteúdo). */
+function extractDivIds(html: string, cap = 40): string[] {
+  const out = new Set<string>();
+  const re = /<div\b[^>]*\bid\s*=\s*["']([^"']{2,80})["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.size < cap) out.add(m[1]);
+  return Array.from(out);
+}
+
+/** data-* attributes que apontem para URLs/endpoints. */
+function extractDataAttrUrls(html: string, cap = 30): string[] {
+  const out = new Set<string>();
+  const re = /\bdata-[a-z-]{2,30}\s*=\s*["']([^"']{4,250})["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.size < cap) {
+    const v = m[1];
+    if (/^\/|^https?:\/\/|\.json|\.xlsx|export|ajax/i.test(v)) out.add(v.slice(0, 250));
+  }
+  return Array.from(out);
+}
+
+/** Sequência fixa de sondas AJAX/export da área nova (ponto 2 do pedido). */
+async function probeAjaxSequence(jar: Jar, id: string, query: string, startDD: string, endDD: string): Promise<ProbeAttempt[]> {
+  const XHR = { "X-Requested-With": "XMLHttpRequest" };
+  const targets: Array<{ url: string; headers?: Record<string, string>; accept?: string; label?: string }> = [
+    { url: `${BASE}/managers/events/${id}/sale_summary.xlsx`, headers: XHR, label: "sale_summary.xlsx +XHR" },
+    { url: `${BASE}/managers/events/${id}/sale_summary.xlsx?${query}`, headers: XHR, label: "sale_summary.xlsx?params +XHR" },
+    { url: `${BASE}/managers/events/${id}/sale_summary.json`, accept: "application/json,*/*", label: "sale_summary.json" },
+    { url: `${BASE}/managers/events/${id}/sale_summary.json?${query}`, accept: "application/json,*/*", headers: XHR, label: "sale_summary.json?params +XHR" },
+    { url: `${BASE}/managers/dashboard/sales_per_event.xlsx?event_id=${id}&filter_start_date=${startDD}&filter_end_date=${endDD}`, label: "dashboard sales_per_event.xlsx event_id" },
+    { url: `${BASE}/managers/dashboard/sales_per_event.xlsx?bulk_event_ids=${id}&filter_start_date=${startDD}&filter_end_date=${endDD}`, label: "dashboard sales_per_event.xlsx bulk_event_ids" },
+    { url: `${BASE}/managers/dashboard/sales_per_event.json?event_id=${id}&filter_start_date=${startDD}&filter_end_date=${endDD}`, accept: "application/json,*/*", headers: XHR, label: "dashboard sales_per_event.json event_id" },
+    { url: `${BASE}/managers/dashboard/sales_per_event.json?bulk_event_ids=${id}&filter_start_date=${startDD}&filter_end_date=${endDD}`, accept: "application/json,*/*", headers: XHR, label: "dashboard sales_per_event.json bulk_event_ids" },
+  ];
+  const out: ProbeAttempt[] = [];
+  for (const t of targets) {
+    const r = await probeGet(jar, t.url, t.accept ?? `${XLSX_ACCEPT},*/*`, 3, t.headers ?? {});
+    out.push({
+      url: `${t.url}${t.label ? ` [${t.label}]` : ""}`,
+      status: r.status, contentType: r.contentType, location: r.chain.at(-1)?.location ?? null,
+      looksXlsx: r.looksXlsx, size: r.size,
+      snippet: r.looksXlsx ? undefined : (r.snippet || "").slice(0, 200),
+      error: r.error,
+    });
+  }
+  return out;
+}
+
+/** Baixa e parseia as primeiras 30 linhas do internet_sales.xlsx. */
+async function probeInternetSales(jar: Jar, id: string, query: string) {
+  const url = `${BASE}/managers/events/${id}/internet_sales.xlsx?${query}`;
+  const r = await probeGet(jar, url, `${XLSX_ACCEPT},*/*`, 3);
+  const base = {
+    url, status: r.status, contentType: r.contentType, looksXlsx: r.looksXlsx, size: r.size, error: r.error,
+    snippet: r.looksXlsx ? undefined : (r.snippet || "").slice(0, 200),
+  };
+  if (!r.looksXlsx || !r.bytes) return { ...base, sheets: null, rows: null };
+  try {
+    const wb = XLSX.read(r.bytes, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = (XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, blankrows: false }) as any[][])
+      .slice(0, 30)
+      .map((row) => (row || []).slice(0, 20).map((c) => (c == null ? "" : String(c).slice(0, 60))));
+    return { ...base, sheets: wb.SheetNames, rows };
+  } catch (e: any) {
+    return { ...base, sheets: null, rows: null, parseError: e?.message || String(e) };
+  }
+}
+
 async function probeConfig(admin: any, configId: string) {
   const { data: cfgs, error: cfgErr } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
   if (cfgErr) throw new Error(cfgErr.message);
@@ -455,7 +546,12 @@ async function probeConfig(admin: any, configId: string) {
     exportUrlStrings: extractExportUrlStrings(spHtml),
     scripts: extractScriptSrcs(spHtml, 15),
     bodyText: spHtml ? stripTags(spHtml).slice(0, 1000) : (sp.snippet || "").slice(0, 1000),
+    // v2.11 (probe3): padrões AJAX/export do JS inline + data-* + ids de divs
+    jsUrlPatterns: extractJsUrlPatterns(spHtml),
+    dataAttrUrls: extractDataAttrUrls(spHtml),
+    divIds: extractDivIds(spHtml),
   };
+
 
   // (c) variantes: URLs de export descobertos + variantes diretas
   const fromSummary: string[] = [];
@@ -512,6 +608,10 @@ async function probeConfig(admin: any, configId: string) {
     error: strict.error,
   });
 
+  // v2.11 — sondas AJAX/JSON/dashboard + internet_sales.xlsx como fallback
+  const ajaxProbes = await probeAjaxSequence(jar, id, query, startDD, endDD);
+  const internetSales = await probeInternetSales(jar, id, query);
+
   return {
     config: {
       id: cfg.id,
@@ -527,7 +627,9 @@ async function probeConfig(admin: any, configId: string) {
     eventPage,
     summaryPage,
     variants,
-    hits: variants.filter((v) => v.looksXlsx).map((v) => v.url),
+    ajaxProbes,
+    internetSales,
+    hits: [...variants, ...ajaxProbes].filter((v) => v.looksXlsx).map((v) => v.url),
   };
 }
 
@@ -540,6 +642,15 @@ function shrinkProbe(p: any, hard = false) {
   p.summaryPage.bodyText = (p.summaryPage.bodyText || "").slice(0, hard ? 400 : 1000);
   if (hard) p.summaryPage.exportTags = p.summaryPage.exportTags.slice(0, 15);
   for (const v of p.variants) if (v.snippet) v.snippet = v.snippet.slice(0, hard ? 80 : 150);
+  // v2.11
+  if (p.summaryPage.jsUrlPatterns) {
+    p.summaryPage.jsUrlPatterns = p.summaryPage.jsUrlPatterns
+      .slice(0, hard ? 20 : 50)
+      .map((x: any) => ({ match: x.match, context: hard ? String(x.context).slice(0, 80) : x.context }));
+  }
+  if (p.summaryPage.divIds) p.summaryPage.divIds = p.summaryPage.divIds.slice(0, hard ? 15 : 40);
+  if (p.ajaxProbes) for (const v of p.ajaxProbes) if (v.snippet) v.snippet = v.snippet.slice(0, hard ? 80 : 150);
+  if (p.internetSales?.rows) p.internetSales.rows = p.internetSales.rows.slice(0, hard ? 12 : 30);
   return p;
 }
 
