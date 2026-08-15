@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.15_form_2026_08_15";
+const VERSION = "v2.16_text_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -952,6 +952,38 @@ async function runFormProbe(admin: any, configId?: string, urls?: string[]) {
   return new Response(JSON.stringify({ ok: true, version: VERSION, ticketline_event_id: id, pages: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+/** Devolve o texto (sem tags) e as tabelas de uma página HTML autenticada. */
+async function runTextProbe(admin: any, configId?: string, urls?: string[], offset = 0) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const out: any[] = [];
+  for (const url of urls || []) {
+    const r = await probeGet(jar, url, "text/html,*/*", 3);
+    const html = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+    const tables = Array.from(html.matchAll(/<table\b[\s\S]*?<\/table>/gi)).map((t) => t[0]);
+    const rowsOf = (tbl: string) =>
+      Array.from(tbl.matchAll(/<tr\b[\s\S]*?<\/tr>/gi)).map((tr) =>
+        Array.from(tr[0].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)).map((c) =>
+          c[1].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0, 40)
+        )
+      );
+    out.push({
+      url,
+      status: r.status,
+      size: r.size,
+      tableCount: tables.length,
+      tables: tables.slice(offset, offset + 3).map((t) => ({ rows: rowsOf(t).slice(0, 40) })),
+    });
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, pages: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
   if (error) console.error("updateRun:", error.message);
@@ -1095,6 +1127,14 @@ Deno.serve(async (req) => {
       return await runProbe(admin, configId, compareConfigId);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "text") {
+    try {
+      return await runTextProbe(admin, configId, body.urls, (body as any).offset || 0);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "text_failed", error: e?.message || String(e) });
     }
   }
 
