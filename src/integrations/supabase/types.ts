@@ -11400,6 +11400,19 @@ export type Database = {
           yesterday_value: number
         }[]
       }
+      get_sales_position_by_provider: {
+        Args: never
+        Returns: {
+          last7_qty: number
+          last7_value: number
+          provider: string
+          sort_order: number
+          total_qty: number
+          total_value: number
+          yesterday_qty: number
+          yesterday_value: number
+        }[]
+      }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
