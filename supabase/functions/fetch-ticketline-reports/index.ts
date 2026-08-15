@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.12_spe_dump_2026_08_15";
+const VERSION = "v2.13_matrix_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" }
+interface Body { configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -842,6 +842,55 @@ async function runDump(admin: any, configId?: string, compareConfigId?: string) 
   return new Response(JSON.stringify({ ok: true, version: VERSION, dumps: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+/** Matriz de candidatos para o relatório de operações na área nova. */
+async function runMatrix(admin: any, configId?: string) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const id = String(cfg.ticketline_event_id);
+  const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+  const endDD = fmtDDMMYYYY(new Date());
+  const dates = `filter_start_date=${startDD}&filter_end_date=${endDD}`;
+  const g = `utf8=%E2%9C%93&granularity=2&${dates}&post_render_content=data`;
+  const altIds = ["106160", "127631"]; // códigos internos vistos no sales_per_event (Almada)
+  const urls: string[] = [
+    `${BASE}/managers/dashboard/sale_summary.xlsx?bulk_event_ids=${id}&${g}`,
+    `${BASE}/managers/dashboard/sale_summary.xlsx?event_id=${id}&${g}`,
+    `${BASE}/managers/dashboard/sales_per_event.xlsx?bulk_event_ids=${id}&${g}`,
+    `${BASE}/managers/dashboard/sales_per_session.xlsx?event_id=${id}&${g}`,
+    `${BASE}/managers/dashboard/sales_per_zone.xlsx?event_id=${id}&${g}`,
+    `${BASE}/managers/events/${id}/sale_summary.xlsx?bulk_event_ids=${id}&${g}`,
+    ...altIds.flatMap((a) => [
+      `${BASE}/managers/events/${a}/sale_summary.xlsx?${g}`,
+      `${BASE}/managers/dashboard/sale_summary.xlsx?bulk_event_ids=${a}&${g}`,
+    ]),
+    `${BASE}/managers/events/${id}/ticket_zone.xlsx?${g}`,
+    `${BASE}/managers/events/${id}/internet_sales.xlsx?${g}`,
+  ];
+  const out: any[] = [];
+  for (const url of urls) {
+    const r = await probeGet(jar, url, `${XLSX_ACCEPT},*/*`, 3);
+    const entry: any = { url, status: r.status, contentType: r.contentType, size: r.size, looksXlsx: r.looksXlsx };
+    if (r.looksXlsx && r.bytes) {
+      try {
+        const d = dumpXlsx(r.bytes, 22, 12);
+        entry.sheetNames = d.sheetNames;
+        entry.ref = d.sheets[0]?.ref;
+        entry.rows = d.sheets[0]?.rows;
+      } catch (e: any) { entry.parseError = e?.message || String(e); }
+    } else {
+      entry.snippet = (r.snippet || "").replace(/\s+/g, " ").slice(0, 160);
+    }
+    out.push(entry);
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, ticketline_event_id: id, attempts: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
   if (error) console.error("updateRun:", error.message);
@@ -985,6 +1034,14 @@ Deno.serve(async (req) => {
       return await runProbe(admin, configId, compareConfigId);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "matrix") {
+    try {
+      return await runMatrix(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "matrix_failed", error: e?.message || String(e) });
     }
   }
 
