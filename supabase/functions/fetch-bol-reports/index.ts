@@ -635,10 +635,10 @@ async function downloadM2Pdf(
   }
 
 
-  // --- Passo 2: postback do botão M2 ---
-  const m2 = findM2Button(html);
-  const m2Target = m2?.name || M2_TARGET;
-  debug.m2_target = m2Target;
+  // --- Passo 2: postback do botão do mapa (M2 ou Diário Vendas) ---
+  const m2 = mapKind === "diario" ? findDiarioButton(html) : findM2Button(html);
+  const m2Target = m2?.name || (mapKind === "diario" ? DIARIO_TARGET : M2_TARGET);
+  debug[mapKind === "diario" ? "diario_target" : "m2_target"] = m2Target;
 
   const sessionsOpt = findSessionsOption(parseSelects(html));
   const sessionField = sessionsOpt?.name || DDL_SESSAO;
