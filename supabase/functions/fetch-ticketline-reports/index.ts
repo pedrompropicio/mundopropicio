@@ -627,7 +627,9 @@ async function probeConfig(admin: any, configId: string) {
     eventPage,
     summaryPage,
     variants,
-    hits: variants.filter((v) => v.looksXlsx).map((v) => v.url),
+    ajaxProbes,
+    internetSales,
+    hits: [...variants, ...ajaxProbes].filter((v) => v.looksXlsx).map((v) => v.url),
   };
 }
 
