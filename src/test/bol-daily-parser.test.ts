@@ -9,8 +9,11 @@ import { parseBolDiario } from "../../supabase/functions/_shared/bol-daily-parse
 // só fluxo), datas por ordem decrescente, montantes pt com espaço de milhar,
 // e a palavra "TOTAL" também presente no CABEÇALHO.
 
-const fmt = (n: number) =>
-  n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\u00a0|\u202f/g, " ") + " €";
+/** Formato pt do PDF: espaço nos milhares ("3 600,00 €"). */
+const fmt = (n: number) => {
+  const [int, dec] = n.toFixed(2).split(".");
+  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, " ")},${dec} €`;
+};
 
 function buildDump() {
   const days: { dmy: string; qty: number; value: number }[] = [];

@@ -41,7 +41,7 @@ export interface BolDailyParseResult {
 }
 
 /** " 3 600,00 €" / "1.184,00 €" / "0,00 €" */
-const MONEY_RE = /-?\d{1,3}(?:[ .]\d{3})*,\d{2}\s*€?/;
+const MONEY_RE = /-?\d+(?:[ .]\d{3})*,\d{2}\s*€?/;
 const DATE_RE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 
 /** "1 184,00" / "1.184,00" / "365,00" → number */
@@ -80,7 +80,7 @@ function tokenize(flat: string): Tok[] {
   let rest = flat;
   // Nota: os grupos de milhar são restritos a [ .]\d{3} para o montante NÃO
   // engolir o inteiro dos bilhetes que o antecede ("7 0,00 €" ≠ 70,00 €).
-  const guard = /^(\d{2}\/\d{2}\/\d{4})|^(-?\d{1,3}(?:[ .]\d{3})*,\d{2}\s*€?)|^(\d+)|^(\S+)/;
+  const guard = /^(\d{2}\/\d{2}\/\d{4})|^(-?\d+(?:[ .]\d{3})*,\d{2}\s*€?)|^(\d+)|^(\S+)/;
   while (rest.length > 0) {
     rest = rest.replace(/^\s+/, "");
     if (!rest) break;
