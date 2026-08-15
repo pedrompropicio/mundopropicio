@@ -20,6 +20,17 @@ interface SalesPositionRow {
   daily_missing: boolean;
 }
 
+interface ProviderRow {
+  provider: string;
+  sort_order: number;
+  total_qty: number;
+  total_value: number;
+  last7_qty: number;
+  last7_value: number;
+  yesterday_qty: number;
+  yesterday_value: number;
+}
+
 const NO_SERIES_HINT = "Série diária disponível após o próximo sync";
 
 const nf = new Intl.NumberFormat("pt-PT");
@@ -85,6 +96,16 @@ export function SalesPositionWidget() {
       const { data, error } = await supabase.rpc("get_sales_position");
       if (error) throw error;
       return (data || []) as SalesPositionRow[];
+    },
+  });
+
+  const { data: providers = [] } = useQuery({
+    queryKey: ["sales_position_by_provider", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_sales_position_by_provider");
+      if (error) throw error;
+      return (data || []) as ProviderRow[];
     },
   });
 
@@ -208,6 +229,44 @@ export function SalesPositionWidget() {
               </span>
             </div>
           </div>
+
+          {providers.length > 0 && (
+            <div className="border-t border-border/60">
+              <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Por bilheteira
+              </div>
+              {providers.map((p) => (
+                <div
+                  key={p.provider}
+                  className="border-b border-border/30 px-3 py-1.5 text-xs last:border-0"
+                >
+                  {/* Mobile */}
+                  <div className="flex flex-col gap-0.5 sm:hidden">
+                    <span className="min-w-0 truncate font-medium">{p.provider}</span>
+                    <div className="grid grid-cols-3 gap-1">
+                      <MobileCell qty={p.total_qty} value={p.total_value} missing={false} />
+                      <MobileCell qty={p.last7_qty} value={p.last7_value} missing={false} />
+                      <MobileCell qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
+                    </div>
+                  </div>
+
+                  {/* Desktop */}
+                  <div className="hidden items-center gap-2 text-sm sm:flex">
+                    <span className="min-w-0 flex-1 truncate font-medium">{p.provider}</span>
+                    <span className={colClass}>
+                      <Cell qty={p.total_qty} value={p.total_value} missing={false} />
+                    </span>
+                    <span className={colClass}>
+                      <Cell qty={p.last7_qty} value={p.last7_value} missing={false} />
+                    </span>
+                    <span className={colClass}>
+                      <Cell qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
