@@ -546,7 +546,12 @@ async function probeConfig(admin: any, configId: string) {
     exportUrlStrings: extractExportUrlStrings(spHtml),
     scripts: extractScriptSrcs(spHtml, 15),
     bodyText: spHtml ? stripTags(spHtml).slice(0, 1000) : (sp.snippet || "").slice(0, 1000),
+    // v2.11 (probe3): padrões AJAX/export do JS inline + data-* + ids de divs
+    jsUrlPatterns: extractJsUrlPatterns(spHtml),
+    dataAttrUrls: extractDataAttrUrls(spHtml),
+    divIds: extractDivIds(spHtml),
   };
+
 
   // (c) variantes: URLs de export descobertos + variantes diretas
   const fromSummary: string[] = [];
