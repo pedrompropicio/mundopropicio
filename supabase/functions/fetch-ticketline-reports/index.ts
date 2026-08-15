@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.16_text_2026_08_15";
+const VERSION = "v2.17_raw_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -953,7 +953,7 @@ async function runFormProbe(admin: any, configId?: string, urls?: string[]) {
 }
 
 /** Devolve o texto (sem tags) e as tabelas de uma página HTML autenticada. */
-async function runTextProbe(admin: any, configId?: string, urls?: string[], offset = 0) {
+async function runTextProbe(admin: any, configId?: string, urls?: string[], offset = 0, body_rawFrom = 0, body_rawLen = 0) {
   if (!configId) return json(400, { error: "configId obrigatório" });
   const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
   const cfg = (cfgs || [])[0];
@@ -978,6 +978,8 @@ async function runTextProbe(admin: any, configId?: string, urls?: string[], offs
       status: r.status,
       size: r.size,
       tableCount: tables.length,
+      raw: (body_rawLen > 0 ? html.slice(body_rawFrom, body_rawFrom + body_rawLen) : undefined),
+      hitIndexes: ["ZONA", "Qt.", "TOTAL VENDAS", "sale_summary", "series", "data:", "Lote"].map((k) => ({ k, i: html.indexOf(k) })),
       tables: tables.slice(offset, offset + 3).map((t) => ({ rows: rowsOf(t).slice(0, 40) })),
     });
   }
@@ -1132,7 +1134,7 @@ Deno.serve(async (req) => {
 
   if (action === "text") {
     try {
-      return await runTextProbe(admin, configId, body.urls, (body as any).offset || 0);
+      return await runTextProbe(admin, configId, body.urls, (body as any).offset || 0, (body as any).rawFrom || 0, (body as any).rawLen || 0);
     } catch (e: any) {
       return json(500, { ok: false, phase: "text_failed", error: e?.message || String(e) });
     }
