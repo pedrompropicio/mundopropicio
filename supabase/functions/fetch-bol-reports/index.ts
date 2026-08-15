@@ -366,6 +366,8 @@ const TELERIK_CLIENTSTATE = "ctl00_CPH_Body_telerikddlEvento_ClientState";
 const DDL_SESSAO = "ctl00$CPH_Body$ddlSessao";
 const TODAS_EM_VENDA = "0;0;01/01/0001;2";
 const M2_TARGET = "ctl00$CPH_Body$itm_MapaOcupacaoSessaoTipoVenda";
+const DIARIO_TARGET = "ctl00$CPH_Body$itm_MapaDiarioVendasSessao";
+export type BolMapKind = "m2" | "diario";
 
 /** input de texto do RadMultiColumnComboBox (normalmente SEM name). */
 function findTelerikInputName(html: string): string | null {
