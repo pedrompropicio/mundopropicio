@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.11_probe3_2026_08_15";
+const VERSION = "v2.12_spe_dump_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" }
+interface Body { configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -780,6 +780,68 @@ async function downloadSummary(
 }
 
 
+// ============================================================================
+// Área nova de Promotores — relatório sales_per_event.xlsx
+// Para eventos migrados (68027 Almada, 68026 Santarém) o sale_summary.xlsx
+// devolve HTML; o XLSX válido vive em /managers/dashboard/sales_per_event.xlsx.
+// ============================================================================
+function salesPerEventUrl(id: string, startDD: string, endDD: string): string {
+  const qs = new URLSearchParams();
+  qs.set("event_id", id);
+  qs.set("filter_start_date", startDD);
+  qs.set("filter_end_date", endDD);
+  qs.set("_", String(Date.now()));
+  return `${BASE}/managers/dashboard/sales_per_event.xlsx?${qs.toString()}`;
+}
+
+/** Dump de células de um XLSX para calibrar parsers (action "dump"). */
+function dumpXlsx(bytes: Uint8Array, maxRows = 80, maxCols = 24) {
+  const wb = XLSX.read(bytes, { type: "array" });
+  const sheets = wb.SheetNames.map((name) => {
+    const ws = wb.Sheets[name];
+    const rows = (XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, blankrows: true }) as any[][])
+      .slice(0, maxRows)
+      .map((row) => (row || []).slice(0, maxCols).map((c) => (c == null ? "" : String(c).slice(0, 80))));
+    return { name, ref: ws["!ref"] ?? null, merges: (ws["!merges"] || []).length, rows };
+  });
+  return { sheetNames: wb.SheetNames, sheets };
+}
+
+async function runDump(admin: any, configId?: string, compareConfigId?: string) {
+  const ids = [configId, compareConfigId].filter(Boolean) as string[];
+  if (ids.length === 0) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").in("id", ids);
+  const sessions: SessionCache = new Map();
+  const out: any[] = [];
+  for (const id of ids) {
+    const cfg = (cfgs || []).find((c: any) => c.id === id);
+    if (!cfg) { out.push({ configId: id, error: "config não encontrado" }); continue; }
+    const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+    const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+    const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+    const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+    const endDD = fmtDDMMYYYY(new Date());
+    const entry: any = { configId: id, ticketline_event_id: cfg.ticketline_event_id, startDD, endDD };
+    // sales_per_event (área nova)
+    const spe = await probeGet(jar, salesPerEventUrl(cfg.ticketline_event_id, startDD, endDD), `${XLSX_ACCEPT},*/*`, 3);
+    entry.sales_per_event = { url: spe.url, status: spe.status, contentType: spe.contentType, size: spe.size, looksXlsx: spe.looksXlsx, snippet: spe.snippet };
+    if (spe.looksXlsx && spe.bytes) {
+      try { entry.sales_per_event.dump = dumpXlsx(spe.bytes); }
+      catch (e: any) { entry.sales_per_event.parseError = e?.message || String(e); }
+    }
+    // sale_summary (fluxo antigo) para comparação de layout
+    const qs = new URLSearchParams({ utf8: "✓", granularity: "2", bulk_event_ids: "", filter_start_date: startDD, filter_end_date: endDD, post_render_content: "data" });
+    const ss = await probeGet(jar, `${BASE}/managers/events/${cfg.ticketline_event_id}/sale_summary.xlsx?${qs.toString()}`, `${XLSX_ACCEPT},*/*`, 3);
+    entry.sale_summary = { status: ss.status, contentType: ss.contentType, size: ss.size, looksXlsx: ss.looksXlsx, snippet: ss.snippet };
+    if (ss.looksXlsx && ss.bytes) {
+      try { entry.sale_summary.dump = dumpXlsx(ss.bytes, 40, 20); }
+      catch (e: any) { entry.sale_summary.parseError = e?.message || String(e); }
+    }
+    out.push(entry);
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, dumps: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
   if (error) console.error("updateRun:", error.message);
@@ -923,6 +985,14 @@ Deno.serve(async (req) => {
       return await runProbe(admin, configId, compareConfigId);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "dump") {
+    try {
+      return await runDump(admin, configId, compareConfigId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "dump_failed", error: e?.message || String(e) });
     }
   }
 
