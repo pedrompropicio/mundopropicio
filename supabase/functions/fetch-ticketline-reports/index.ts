@@ -356,19 +356,45 @@ function extractScriptSrcs(html: string, cap = 25): string[] {
   return out;
 }
 
-async function runProbe(admin: any, configId?: string) {
-  if (!configId) return json(400, { error: "probe requer configId" });
+/** Extrai tags cruas (href/data-url/action) relevantes para export. */
+function extractExportTags(html: string, cap = 30): string[] {
+  const out: string[] = [];
+  const kw = /(xlsx|export|download|csv|sale_summary)/i;
+  const tagRe = /<(?:a|form|button|link)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(html)) !== null && out.length < cap) {
+    const tag = m[0];
+    if (/(href|data-url|action|data-href)\s*=/i.test(tag) && kw.test(tag)) out.push(tag.slice(0, 300));
+  }
+  return out;
+}
 
+/** URLs de export em strings soltas do HTML/JS inline. */
+function extractExportUrlStrings(html: string, cap = 30): string[] {
+  const out = new Set<string>();
+  const kw = /(xlsx|export|download|csv|sale_summary)/i;
+  const re = /["'`]([^"'`\s<>]{4,300})["'`]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.size < cap) {
+    const u = m[1];
+    if (kw.test(u) && (/^https?:\/\//i.test(u) || u.startsWith("/") || /\.(xlsx|csv)/i.test(u))) out.add(u);
+  }
+  return Array.from(out);
+}
+
+const XLSX_ACCEPT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+async function probeConfig(admin: any, configId: string) {
   const { data: cfgs, error: cfgErr } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
-  if (cfgErr) return json(500, { error: cfgErr.message });
+  if (cfgErr) throw new Error(cfgErr.message);
   const cfg = (cfgs || [])[0];
-  if (!cfg) return json(404, { error: "config não encontrado" });
+  if (!cfg) throw new Error(`config ${configId} não encontrado`);
 
   const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
   const raw = (typeof secRpc === "string" ? secRpc : "").trim();
-  if (!raw) return json(500, { error: `Credenciais em falta no Vault (${cfg.vault_secret_name})` });
+  if (!raw) throw new Error(`Credenciais em falta no Vault (${cfg.vault_secret_name})`);
   let creds: { email: string; password: string };
-  try { creds = JSON.parse(raw); } catch { return json(500, { error: "Vault secret não é JSON {email,password}" }); }
+  try { creds = JSON.parse(raw); } catch { throw new Error("Vault secret não é JSON {email,password}"); }
 
   const { jar } = await loginDevise(creds.email, creds.password);
 
@@ -386,7 +412,7 @@ async function runProbe(admin: any, configId?: string) {
 
   // (a) MESMO URL do fluxo atual
   const currentUrl = `${BASE}/managers/events/${encodeURIComponent(id)}/sale_summary.xlsx?${query}&_=${Date.now()}`;
-  const a = await probeGet(jar, currentUrl, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*");
+  const a = await probeGet(jar, currentUrl, `${XLSX_ACCEPT},*/*`);
   const currentFlow = {
     url: currentUrl,
     status: a.status,
@@ -414,7 +440,35 @@ async function runProbe(admin: any, configId?: string) {
     snippet: bHtml ? stripTags(bHtml).slice(0, 800) : b.snippet,
   };
 
-  // (c) variantes plausíveis (sugeridas pelo HTML + prefixos da área nova)
+  // (b2) v2.10 — a PÁGINA HTML /sale_summary (sem .xlsx)
+  const summaryPageUrl = `${BASE}/managers/events/${encodeURIComponent(id)}/sale_summary`;
+  const sp = await probeGet(jar, summaryPageUrl, "text/html,application/xhtml+xml");
+  const spHtml = sp.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(sp.bytes) : "";
+  const summaryPage = {
+    url: summaryPageUrl,
+    status: sp.status,
+    finalUrl: sp.url,
+    contentType: sp.contentType,
+    redirectChain: sp.chain,
+    title: spHtml ? describeHtml(spHtml).title : null,
+    exportTags: extractExportTags(spHtml),
+    exportUrlStrings: extractExportUrlStrings(spHtml),
+    scripts: extractScriptSrcs(spHtml, 15),
+    bodyText: spHtml ? stripTags(spHtml).slice(0, 1000) : (sp.snippet || "").slice(0, 1000),
+  };
+
+  // (c) variantes: URLs de export descobertos + variantes diretas
+  const fromSummary: string[] = [];
+  const rawCands = [
+    ...summaryPage.exportUrlStrings,
+    ...summaryPage.exportTags
+      .map((t) => t.match(/(?:href|action|data-url|data-href)\s*=\s*["']([^"']+)["']/i)?.[1] ?? null)
+      .filter((u): u is string => !!u),
+  ];
+  for (const u of rawCands) {
+    try { fromSummary.push(new URL(u.replace(/:id|\{id\}|\$\{id\}/g, id), BASE).toString()); } catch { /* ignora */ }
+  }
+
   const suggested = eventPage.candidateUrls
     .filter((u) => /xlsx|export|sale|resumo|operac|report/i.test(u))
     .map((u) => {
@@ -422,37 +476,43 @@ async function runProbe(admin: any, configId?: string) {
     })
     .filter((u): u is string => !!u);
 
+  const directVariants = [
+    `${BASE}/managers/events/${id}/sale_summary.xlsx`,
+    `${BASE}/managers/events/${id}/sale_summary.xlsx?filter_start_date=${startDD}&filter_end_date=${endDD}`,
+  ];
+
   const patterns = [
     `${BASE}/promoters/events/${id}/sale_summary.xlsx?${query}`,
-    `${BASE}/promotores/events/${id}/sale_summary.xlsx?${query}`,
-    `${BASE}/managers/promoters/events/${id}/sale_summary.xlsx?${query}`,
     `${BASE}/api/managers/events/${id}/sale_summary.xlsx?${query}`,
-    `${BASE}/api/v1/events/${id}/sale_summary.xlsx?${query}`,
     `${BASE}/managers/events/${id}/reports/sale_summary.xlsx?${query}`,
-    `${BASE}/managers/events/${id}/reports/operations.xlsx?${query}`,
-    `${BASE}/managers/events/${id}/operations.xlsx?${query}`,
-    `${BASE}/managers/reports/sale_summary.xlsx?event_id=${id}&${query}`,
     `${BASE}/managers/events/${id}/sale_summary?${query}&format=xlsx`,
-    `${BASE}/managers/events/${id}/sale_summary.xlsx?granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}`,
   ];
 
   const tried = new Set<string>([currentUrl]);
   const variants: ProbeAttempt[] = [];
-  for (const u of [...suggested, ...patterns]) {
-    if (tried.has(u) || variants.length >= 18) continue;
+  for (const u of [...fromSummary, ...directVariants, ...suggested, ...patterns]) {
+    if (tried.has(u) || variants.length >= 20) continue;
     tried.add(u);
-    const r = await probeGet(jar, u, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*", 3);
+    const r = await probeGet(jar, u, `${XLSX_ACCEPT},*/*`, 3);
     variants.push({
       url: u, status: r.status, contentType: r.contentType, location: r.chain.at(-1)?.location ?? null,
       looksXlsx: r.looksXlsx, size: r.size,
-      snippet: r.looksXlsx ? undefined : (r.snippet || "").slice(0, 300),
+      snippet: r.looksXlsx ? undefined : (r.snippet || "").slice(0, 200),
       error: r.error,
     });
   }
 
-  const payload = {
-    ok: true,
-    version: VERSION,
+  // Accept estrito no URL canónico
+  const strict = await probeGet(jar, `${BASE}/managers/events/${id}/sale_summary.xlsx?${query}`, XLSX_ACCEPT, 3);
+  variants.push({
+    url: `${BASE}/managers/events/${id}/sale_summary.xlsx?${query} [Accept estrito]`,
+    status: strict.status, contentType: strict.contentType, location: strict.chain.at(-1)?.location ?? null,
+    looksXlsx: strict.looksXlsx, size: strict.size,
+    snippet: strict.looksXlsx ? undefined : (strict.snippet || "").slice(0, 200),
+    error: strict.error,
+  });
+
+  return {
     config: {
       id: cfg.id,
       event_id: cfg.event_id,
@@ -465,21 +525,50 @@ async function runProbe(admin: any, configId?: string) {
     },
     currentFlow,
     eventPage,
+    summaryPage,
     variants,
     hits: variants.filter((v) => v.looksXlsx).map((v) => v.url),
   };
+}
+
+function shrinkProbe(p: any, hard = false) {
+  if (!p) return p;
+  p.eventPage.scripts = p.eventPage.scripts.slice(0, hard ? 3 : 10);
+  p.eventPage.candidateUrls = p.eventPage.candidateUrls.slice(0, hard ? 10 : 25);
+  p.eventPage.snippet = (p.eventPage.snippet || "").slice(0, hard ? 200 : 400);
+  p.summaryPage.scripts = p.summaryPage.scripts.slice(0, hard ? 3 : 10);
+  p.summaryPage.bodyText = (p.summaryPage.bodyText || "").slice(0, hard ? 400 : 1000);
+  if (hard) p.summaryPage.exportTags = p.summaryPage.exportTags.slice(0, 15);
+  for (const v of p.variants) if (v.snippet) v.snippet = v.snippet.slice(0, hard ? 80 : 150);
+  return p;
+}
+
+async function runProbe(admin: any, configId?: string, compareConfigId?: string) {
+  if (!configId) return json(400, { error: "probe requer configId" });
+
+  const target = await probeConfig(admin, configId);
+  let compare: any = null;
+  if (compareConfigId && compareConfigId !== configId) {
+    try { compare = await probeConfig(admin, compareConfigId); }
+    catch (e: any) { compare = { error: e?.message || String(e) }; }
+  }
+
+  const payload: any = { ok: true, version: VERSION, probe: { target, compare } };
 
   let out = JSON.stringify(payload);
   if (out.length > 60000) {
-    // trunca o que é volumoso (snippets/scripts) mantendo a estrutura
-    payload.eventPage.scripts = payload.eventPage.scripts.slice(0, 10);
-    payload.eventPage.candidateUrls = payload.eventPage.candidateUrls.slice(0, 25);
-    payload.eventPage.snippet = (payload.eventPage.snippet || "").slice(0, 400);
-    for (const v of payload.variants) if (v.snippet) v.snippet = v.snippet.slice(0, 150);
+    shrinkProbe(payload.probe.target);
+    if (payload.probe.compare && !payload.probe.compare.error) shrinkProbe(payload.probe.compare);
+    out = JSON.stringify(payload);
+  }
+  if (out.length > 60000) {
+    shrinkProbe(payload.probe.target, true);
+    if (payload.probe.compare && !payload.probe.compare.error) shrinkProbe(payload.probe.compare, true);
     out = JSON.stringify(payload);
   }
   return new Response(out.slice(0, 60000), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
+
 
 async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8Array> {
   const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
