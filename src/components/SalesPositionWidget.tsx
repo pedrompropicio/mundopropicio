@@ -99,6 +99,16 @@ export function SalesPositionWidget() {
     },
   });
 
+  const { data: providers = [] } = useQuery({
+    queryKey: ["sales_position_by_provider", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_sales_position_by_provider");
+      if (error) throw error;
+      return (data || []) as ProviderRow[];
+    },
+  });
+
   const totals = rows.reduce(
     (acc, r) => ({
       total_qty: acc.total_qty + Number(r.total_qty || 0),
