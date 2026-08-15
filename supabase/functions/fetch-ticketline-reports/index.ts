@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.17_raw_2026_08_15";
+const VERSION = "v2.18_postfilter_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -986,6 +986,60 @@ async function runTextProbe(admin: any, configId?: string, urls?: string[], offs
   return new Response(JSON.stringify({ ok: true, version: VERSION, pages: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+/** POST no formulário de filtro do Resumo de Operações global + GET do XLSX. */
+async function runPostFilter(admin: any, configId?: string, startDD?: string, endDD?: string) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const pageUrl = `${BASE}/managers/dashboard/sale_summary`;
+  const page = await probeGet(jar, pageUrl, "text/html,*/*", 3);
+  const html = page.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(page.bytes) : "";
+  const token = /name="authenticity_token"\s+value="([^"]+)"/.exec(html)?.[1]
+    ?? /<meta name="csrf-token" content="([^"]+)"/.exec(html)?.[1] ?? "";
+  const form = new URLSearchParams({
+    utf8: "✓",
+    authenticity_token: token,
+    period: "5",
+    filter_start_date: startDD || "01-01-2026",
+    filter_end_date: endDD || fmtDDMMYYYY(new Date()),
+  });
+  const postResp = await fetchWithTimeout(pageUrl, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,*/*",
+      Cookie: jarToHeader(jar),
+      Referer: pageUrl,
+      Origin: BASE,
+    },
+    body: form.toString(),
+  }, 60000);
+  ingestSetCookie(jar, postResp);
+  const postInfo = { status: postResp.status, location: postResp.headers.get("location") };
+  await postResp.text().catch(() => null);
+  const attempts: any[] = [];
+  for (const u of [`${BASE}/managers/dashboard/sale_summary.xlsx?granularity=2`, `${BASE}/managers/dashboard/sale_summary.xlsx?granularity=0`]) {
+    const r = await probeGet(jar, u, `${XLSX_ACCEPT},*/*`, 3);
+    const e: any = { url: u, status: r.status, size: r.size, looksXlsx: r.looksXlsx };
+    if (r.looksXlsx && r.bytes) {
+      const d = dumpXlsx(r.bytes, 30, 12);
+      e.ref = d.sheets[0]?.ref;
+      e.rows = d.sheets[0]?.rows;
+      const txt = JSON.stringify(d.sheets[0]?.rows || []);
+      e.hasAlmada = txt.includes("ALMADA") || txt.includes("Almada");
+    } else e.snippet = (r.snippet || "").slice(0, 120);
+    attempts.push(e);
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, tokenFound: !!token, postInfo, attempts }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
   if (error) console.error("updateRun:", error.message);
@@ -1129,6 +1183,14 @@ Deno.serve(async (req) => {
       return await runProbe(admin, configId, compareConfigId);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "postfilter") {
+    try {
+      return await runPostFilter(admin, configId, (body as any).startDD, (body as any).endDD);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "postfilter_failed", error: e?.message || String(e) });
     }
   }
 
