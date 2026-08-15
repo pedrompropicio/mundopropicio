@@ -966,17 +966,59 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
     }
 
+    // --- Série diária (Mapa Diário de Vendas por Sessão) ---
+    // Fonte secundária: o M2 é cumulativo, por isso "ontem"/"últimos 7 dias"
+    // só saem deste mapa. NUNCA falha o run — só regista warning.
+    let dailyAudit: any = null;
+    let dailyWarning: string | null = null;
+    const dailyDebug: Record<string, any> = {};
+    try {
+      const dPdf = await downloadM2Pdf(jar, cfg.bol_event_id, dailyDebug, expectedName, "diario");
+      filesAudit.push({
+        name: `bol_diario_vendas_${cfg.bol_event_id}.pdf`,
+        size: dPdf.bytes.length,
+        url: dPdf.url,
+      });
+      const dText = await extractPdfText(dPdf.bytes);
+      dailyDebug.pdf_text_chars = dText.length;
+      const dParse = parseBolDiario(dText);
+      dailyDebug.parser = dParse.debug;
+      dailyAudit = await importBolDailySeries({
+        supabase: admin,
+        eventId: cfg.event_id,
+        companyId: cfg.company_id,
+        parseResult: dParse,
+      });
+    } catch (e: any) {
+      dailyWarning = `Série diária BOL não importada: ${e?.message || e}`;
+      dailyDebug.error = dailyWarning;
+      console.warn(`[bol ${runId}] ${dailyWarning}`);
+    }
+
     const silentEmpty = (audit?.rowsImported || 0) === 0;
-    const finalStatus = silentEmpty ? "warning" : "success";
-    const warnMsg = silentEmpty ? "Parser leu o mapa mas 0 linhas importadas — verificar layout do relatório." : null;
+    const finalStatus = silentEmpty || dailyWarning ? "warning" : "success";
+    const warnMsg = [
+      silentEmpty ? "Parser leu o mapa mas 0 linhas importadas — verificar layout do relatório." : null,
+      dailyWarning,
+    ].filter(Boolean).join(" | ") || null;
 
     await updateRun(admin, runId, {
       status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit, error_message: warnMsg,
-      import_audit: { ...audit, debug, silentEmpty },
+      import_audit: {
+        ...audit,
+        daily_rows: dailyAudit?.daily_rows ?? 0,
+        daily_total_qty: dailyAudit?.daily_total_qty ?? 0,
+        daily_total_value: dailyAudit?.daily_total_value ?? 0,
+        daily: dailyAudit,
+        daily_debug: dailyDebug,
+        debug,
+        silentEmpty,
+      },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
-    return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
+    return { ok: !silentEmpty, runId, audit, dailyAudit, status: finalStatus, warning: warnMsg };
+
 
   } catch (e: any) {
     const phase = e?.phase || "failed";
