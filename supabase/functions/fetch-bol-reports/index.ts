@@ -20,8 +20,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
+import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";
 
-const VERSION = "v1.5_reportviewer";
+const VERSION = "v1.6_daily_series";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
