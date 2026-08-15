@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.11_probe3_2026_08_15";
+const VERSION = "v2.20_postfilter_needle_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -298,6 +298,7 @@ async function probeGet(
   accept: string,
   followMax = 4,
   extraHeaders: Record<string, string> = {},
+  timeoutMs = 30000,
 ): Promise<ProbeAttempt & { chain: Array<{ url: string; status: number; location: string | null }>; bytes?: Uint8Array }> {
   const chain: Array<{ url: string; status: number; location: string | null }> = [];
   let current = url;
@@ -308,7 +309,7 @@ async function probeGet(
         method: "GET",
         redirect: "manual",
         headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers`, ...extraHeaders },
-      }, 30000);
+      }, timeoutMs);
     } catch (e: any) {
       return { url: current, status: null, contentType: null, looksXlsx: false, error: e?.message || String(e), chain };
     }
@@ -780,6 +781,274 @@ async function downloadSummary(
 }
 
 
+// ============================================================================
+// Área nova de Promotores — relatório sales_per_event.xlsx
+// Para eventos migrados (68027 Almada, 68026 Santarém) o sale_summary.xlsx
+// devolve HTML; o XLSX válido vive em /managers/dashboard/sales_per_event.xlsx.
+// ============================================================================
+function salesPerEventUrl(id: string, startDD: string, endDD: string): string {
+  const qs = new URLSearchParams();
+  qs.set("event_id", id);
+  qs.set("filter_start_date", startDD);
+  qs.set("filter_end_date", endDD);
+  qs.set("_", String(Date.now()));
+  return `${BASE}/managers/dashboard/sales_per_event.xlsx?${qs.toString()}`;
+}
+
+/** Dump de células de um XLSX para calibrar parsers (action "dump"). */
+function dumpXlsx(bytes: Uint8Array, maxRows = 80, maxCols = 24) {
+  const wb = XLSX.read(bytes, { type: "array" });
+  const sheets = wb.SheetNames.map((name) => {
+    const ws = wb.Sheets[name];
+    const rows = (XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, blankrows: true }) as any[][])
+      .slice(0, maxRows)
+      .map((row) => (row || []).slice(0, maxCols).map((c) => (c == null ? "" : String(c).slice(0, 80))));
+    return { name, ref: ws["!ref"] ?? null, merges: (ws["!merges"] || []).length, rows };
+  });
+  return { sheetNames: wb.SheetNames, sheets };
+}
+
+async function runDump(admin: any, configId?: string, compareConfigId?: string) {
+  const ids = [configId, compareConfigId].filter(Boolean) as string[];
+  if (ids.length === 0) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").in("id", ids);
+  const sessions: SessionCache = new Map();
+  const out: any[] = [];
+  for (const id of ids) {
+    const cfg = (cfgs || []).find((c: any) => c.id === id);
+    if (!cfg) { out.push({ configId: id, error: "config não encontrado" }); continue; }
+    const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+    const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+    const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+    const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+    const endDD = fmtDDMMYYYY(new Date());
+    const entry: any = { configId: id, ticketline_event_id: cfg.ticketline_event_id, startDD, endDD };
+    // sales_per_event (área nova)
+    const spe = await probeGet(jar, salesPerEventUrl(cfg.ticketline_event_id, startDD, endDD), `${XLSX_ACCEPT},*/*`, 3);
+    entry.sales_per_event = { url: spe.url, status: spe.status, contentType: spe.contentType, size: spe.size, looksXlsx: spe.looksXlsx, snippet: spe.snippet };
+    if (spe.looksXlsx && spe.bytes) {
+      try { entry.sales_per_event.dump = dumpXlsx(spe.bytes); }
+      catch (e: any) { entry.sales_per_event.parseError = e?.message || String(e); }
+    }
+    // sale_summary (fluxo antigo) para comparação de layout
+    const qs = new URLSearchParams({ utf8: "✓", granularity: "2", bulk_event_ids: "", filter_start_date: startDD, filter_end_date: endDD, post_render_content: "data" });
+    const ss = await probeGet(jar, `${BASE}/managers/events/${cfg.ticketline_event_id}/sale_summary.xlsx?${qs.toString()}`, `${XLSX_ACCEPT},*/*`, 3);
+    entry.sale_summary = { status: ss.status, contentType: ss.contentType, size: ss.size, looksXlsx: ss.looksXlsx, snippet: ss.snippet };
+    if (ss.looksXlsx && ss.bytes) {
+      try { entry.sale_summary.dump = dumpXlsx(ss.bytes, 40, 20); }
+      catch (e: any) { entry.sale_summary.parseError = e?.message || String(e); }
+    }
+    out.push(entry);
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, dumps: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+/** Matriz de candidatos para o relatório de operações na área nova. */
+async function runMatrix(admin: any, configId?: string, customUrls?: string[]) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const id = String(cfg.ticketline_event_id);
+  const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+  const endDD = fmtDDMMYYYY(new Date());
+  const dates = `filter_start_date=${startDD}&filter_end_date=${endDD}`;
+  const g = `utf8=%E2%9C%93&granularity=2&${dates}&post_render_content=data`;
+  const altIds = ["106160", "127631"]; // códigos internos vistos no sales_per_event (Almada)
+  const urls: string[] = [
+    `${BASE}/managers/dashboard/sale_summary.xlsx?bulk_event_ids=${id}&${g}`,
+    `${BASE}/managers/dashboard/sale_summary.xlsx?event_id=${id}&${g}`,
+    `${BASE}/managers/dashboard/sales_per_event.xlsx?bulk_event_ids=${id}&${g}`,
+    `${BASE}/managers/dashboard/sales_per_session.xlsx?event_id=${id}&${g}`,
+    `${BASE}/managers/dashboard/sales_per_zone.xlsx?event_id=${id}&${g}`,
+    `${BASE}/managers/events/${id}/sale_summary.xlsx?bulk_event_ids=${id}&${g}`,
+    ...altIds.flatMap((a) => [
+      `${BASE}/managers/events/${a}/sale_summary.xlsx?${g}`,
+      `${BASE}/managers/dashboard/sale_summary.xlsx?bulk_event_ids=${a}&${g}`,
+    ]),
+    `${BASE}/managers/events/${id}/ticket_zone.xlsx?${g}`,
+    `${BASE}/managers/events/${id}/internet_sales.xlsx?${g}`,
+  ];
+  const out: any[] = [];
+  for (const url of (customUrls && customUrls.length ? customUrls : urls)) {
+    const r = await probeGet(jar, url, `${XLSX_ACCEPT},*/*`, 3);
+    const entry: any = { url, status: r.status, contentType: r.contentType, size: r.size, looksXlsx: r.looksXlsx };
+    if (r.looksXlsx && r.bytes) {
+      try {
+        const d = dumpXlsx(r.bytes, 26, 12);
+        entry.sheetNames = d.sheetNames;
+        entry.ref = d.sheets[0]?.ref;
+        entry.rows = d.sheets[0]?.rows;
+      } catch (e: any) { entry.parseError = e?.message || String(e); }
+    } else {
+      entry.snippet = (r.snippet || "").replace(/\s+/g, " ").slice(0, 160);
+    }
+    out.push(entry);
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, ticketline_event_id: id, attempts: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+/** Extrai formulários (action/method) e campos (name/value/options) do HTML. */
+function extractForms(html: string) {
+  const forms: any[] = [];
+  const formRe = /<form\b([^>]*)>([\s\S]*?)<\/form>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = formRe.exec(html)) !== null && forms.length < 8) {
+    const attrs = m[1];
+    const inner = m[2];
+    const action = /action\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? null;
+    const method = /method\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? "get";
+    const fields: any[] = [];
+    const fieldRe = /<(input|select|textarea)\b([^>]*)>/gi;
+    let f: RegExpExecArray | null;
+    while ((f = fieldRe.exec(inner)) !== null && fields.length < 40) {
+      const a = f[2];
+      const name = /name\s*=\s*["']([^"']*)["']/i.exec(a)?.[1];
+      if (!name) continue;
+      fields.push({
+        tag: f[1],
+        name,
+        type: /type\s*=\s*["']([^"']*)["']/i.exec(a)?.[1] ?? null,
+        value: (/value\s*=\s*["']([^"']*)["']/i.exec(a)?.[1] ?? null)?.slice(0, 60) ?? null,
+      });
+    }
+    const options = Array.from(inner.matchAll(/<option[^>]*value\s*=\s*["']([^"']{1,40})["'][^>]*>([^<]{0,60})/gi))
+      .slice(0, 25).map((o) => ({ value: o[1], label: o[2].trim() }));
+    forms.push({ action, method, fields, options });
+  }
+  return forms;
+}
+
+async function runFormProbe(admin: any, configId?: string, urls?: string[]) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const id = String(cfg.ticketline_event_id);
+  const targets = urls && urls.length
+    ? urls
+    : [`${BASE}/managers/dashboard/sale_summary`, `${BASE}/managers/events/${id}/sale_summary`];
+  const out: any[] = [];
+  for (const url of targets) {
+    const r = await probeGet(jar, url, "text/html,*/*", 3);
+    const html = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+    out.push({
+      url,
+      status: r.status,
+      contentType: r.contentType,
+      size: r.size,
+      title: /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() ?? null,
+      forms: extractForms(html),
+      xlsxLinks: Array.from(new Set(Array.from(html.matchAll(/["'\(]([^"'\)\s]*(?:xlsx|export|\.json)[^"'\)\s]*)["'\)]/gi)).map((x) => x[1]).filter((u) => u.length < 220))).slice(0, 25),
+    });
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, ticketline_event_id: id, pages: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+/** Devolve o texto (sem tags) e as tabelas de uma página HTML autenticada. */
+async function runTextProbe(admin: any, configId?: string, urls?: string[], offset = 0, body_rawFrom = 0, body_rawLen = 0) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const out: any[] = [];
+  for (const url of urls || []) {
+    const r = await probeGet(jar, url, "text/html,*/*", 3);
+    const html = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+    const tables = Array.from(html.matchAll(/<table\b[\s\S]*?<\/table>/gi)).map((t) => t[0]);
+    const rowsOf = (tbl: string) =>
+      Array.from(tbl.matchAll(/<tr\b[\s\S]*?<\/tr>/gi)).map((tr) =>
+        Array.from(tr[0].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)).map((c) =>
+          c[1].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0, 40)
+        )
+      );
+    out.push({
+      url,
+      status: r.status,
+      size: r.size,
+      tableCount: tables.length,
+      raw: (body_rawLen > 0 ? html.slice(body_rawFrom, body_rawFrom + body_rawLen) : undefined),
+      hitIndexes: ["ZONA", "Qt.", "TOTAL VENDAS", "sale_summary", "series", "data:", "Lote"].map((k) => ({ k, i: html.indexOf(k) })),
+      tables: tables.slice(offset, offset + 3).map((t) => ({ rows: rowsOf(t).slice(0, 40) })),
+    });
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, pages: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+/** POST no formulário de filtro do Resumo de Operações global + GET do XLSX. */
+async function runPostFilter(admin: any, configId?: string, startDD?: string, endDD?: string, needle?: string, span = 70) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const pageUrl = `${BASE}/managers/dashboard/sale_summary`;
+  const page = await probeGet(jar, pageUrl, "text/html,*/*", 3);
+  const html = page.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(page.bytes) : "";
+  const token = /name="authenticity_token"\s+value="([^"]+)"/.exec(html)?.[1]
+    ?? /<meta name="csrf-token" content="([^"]+)"/.exec(html)?.[1] ?? "";
+  const form = new URLSearchParams({
+    utf8: "✓",
+    authenticity_token: token,
+    period: "5",
+    filter_start_date: startDD || "01-01-2026",
+    filter_end_date: endDD || fmtDDMMYYYY(new Date()),
+  });
+  const postResp = await fetchWithTimeout(pageUrl, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,*/*",
+      Cookie: jarToHeader(jar),
+      Referer: pageUrl,
+      Origin: BASE,
+    },
+    body: form.toString(),
+  }, 60000);
+  ingestSetCookie(jar, postResp);
+  const postInfo = { status: postResp.status, location: postResp.headers.get("location") };
+  await postResp.text().catch(() => null);
+  const attempts: any[] = [];
+  for (const u of [`${BASE}/managers/dashboard/sale_summary.xlsx?granularity=2`]) {
+    const r = await probeGet(jar, u, `${XLSX_ACCEPT},*/*`, 3, {}, 110000);
+    const e: any = { url: u, status: r.status, size: r.size, looksXlsx: r.looksXlsx };
+    if (r.looksXlsx && r.bytes) {
+      const d = dumpXlsx(r.bytes, 4000, 8);
+      const all: any[][] = d.sheets[0]?.rows || [];
+      e.ref = d.sheets[0]?.ref;
+      e.totalRows = all.length;
+      if (needle) {
+        const up = needle.toUpperCase();
+        const idx = all.findIndex((row) => row.some((c) => typeof c === "string" && c.toUpperCase().includes(up)));
+        e.needleRow = idx;
+        e.rows = idx >= 0 ? all.slice(Math.max(0, idx - 3), idx + span) : all.slice(0, 30);
+      } else {
+        e.rows = all.slice(0, 30);
+      }
+      e.eventHeaders = all.filter((row) => row.some((c) => typeof c === "string" && c.startsWith("Evento:"))).map((row) => String(row.find((c) => typeof c === "string" && c.startsWith("Evento:"))).slice(0, 90));
+    } else e.snippet = (r.snippet || "").slice(0, 120);
+    attempts.push(e);
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, tokenFound: !!token, postInfo, attempts }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
   if (error) console.error("updateRun:", error.message);
@@ -923,6 +1192,46 @@ Deno.serve(async (req) => {
       return await runProbe(admin, configId, compareConfigId);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "postfilter") {
+    try {
+      return await runPostFilter(admin, configId, (body as any).startDD, (body as any).endDD, (body as any).needle, (body as any).span || 70);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "postfilter_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "text") {
+    try {
+      return await runTextProbe(admin, configId, body.urls, (body as any).offset || 0, (body as any).rawFrom || 0, (body as any).rawLen || 0);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "text_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "form") {
+    try {
+      return await runFormProbe(admin, configId, body.urls);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "form_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "matrix") {
+    try {
+      return await runMatrix(admin, configId, body.urls);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "matrix_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "dump") {
+    try {
+      return await runDump(admin, configId, compareConfigId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "dump_failed", error: e?.message || String(e) });
     }
   }
 
