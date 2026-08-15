@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.8_2026_08_12_fanout";
+const VERSION = "v2.9_probe_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -51,7 +51,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { configId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" }
+interface Body { configId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -269,6 +269,216 @@ async function runDiscover(admin: any, configId?: string) {
     configs_sem_match: configsSemMatch,
     events_sem_config: eventsSemConfig,
   });
+}
+
+// ============================================================================
+// PROBE (v2.9) — diagnóstico da "área nova de Promotores".
+// Não altera o fluxo de download. Objetivo: descobrir onde vive o relatório
+// para eventos migrados (ex.: 68027 Almada, 68026 Santarém) que devolvem a
+// landing HTML no endpoint antigo, enquanto os outros 10 respondem em XLSX.
+// ============================================================================
+const UA_PROBE =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+
+interface ProbeAttempt {
+  url: string;
+  status: number | null;
+  contentType: string | null;
+  location?: string | null;
+  looksXlsx: boolean;
+  size?: number;
+  snippet?: string;
+  error?: string;
+}
+
+async function probeGet(
+  jar: Jar,
+  url: string,
+  accept: string,
+  followMax = 4,
+): Promise<ProbeAttempt & { chain: Array<{ url: string; status: number; location: string | null }>; bytes?: Uint8Array }> {
+  const chain: Array<{ url: string; status: number; location: string | null }> = [];
+  let current = url;
+  for (let hop = 0; hop <= followMax; hop++) {
+    let resp: Response;
+    try {
+      resp = await fetchWithTimeout(current, {
+        method: "GET",
+        redirect: "manual",
+        headers: { "User-Agent": UA_PROBE, Accept: accept, Cookie: jarToHeader(jar), Referer: `${BASE}/managers` },
+      }, 30000);
+    } catch (e: any) {
+      return { url: current, status: null, contentType: null, looksXlsx: false, error: e?.message || String(e), chain };
+    }
+    ingestSetCookie(jar, resp);
+    const loc = resp.headers.get("location");
+    chain.push({ url: current, status: resp.status, location: loc });
+    if (resp.status >= 300 && resp.status < 400 && loc && hop < followMax) {
+      await resp.text().catch(() => null);
+      current = new URL(loc, current).toString();
+      continue;
+    }
+    const ct = resp.headers.get("content-type");
+    const bytes = new Uint8Array(await resp.arrayBuffer().catch(() => new ArrayBuffer(0)));
+    const looksXlsx = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+    const snippet = looksXlsx ? undefined : new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, 3000)).slice(0, 800);
+    return { url: current, status: resp.status, contentType: ct, location: loc, looksXlsx, size: bytes.length, snippet, chain, bytes };
+  }
+  return { url: current, status: null, contentType: null, looksXlsx: false, error: "too many redirects", chain };
+}
+
+/** Extrai URLs candidatas de relatório do HTML/JS inline de uma página. */
+function extractReportUrls(html: string, cap = 40): string[] {
+  const out = new Set<string>();
+  const kw = /(api|report|export|xlsx|xls|sales|resumo|operacoes|opera[cç][õo]es|sale_summary|download)/i;
+  const urlRe = /(?:href|src|action|data-url|url)\s*[=:]\s*["'`]([^"'`\s>]{4,300})["'`]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = urlRe.exec(html)) !== null) {
+    const u = m[1];
+    if (kw.test(u)) out.add(u);
+    if (out.size >= cap) return Array.from(out);
+  }
+  // strings soltas em JS (fetch("..."), axios.get('...'), template paths)
+  const strRe = /["'`](\/[a-z0-9_\-/.{}$:%]{3,200})["'`]/gi;
+  while ((m = strRe.exec(html)) !== null) {
+    const u = m[1];
+    if (kw.test(u)) out.add(u);
+    if (out.size >= cap) break;
+  }
+  return Array.from(out).slice(0, cap);
+}
+
+function extractScriptSrcs(html: string, cap = 25): string[] {
+  const out: string[] = [];
+  const re = /<script[^>]+src=["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < cap) out.push(m[1]);
+  return out;
+}
+
+async function runProbe(admin: any, configId?: string) {
+  if (!configId) return json(400, { error: "probe requer configId" });
+
+  const { data: cfgs, error: cfgErr } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  if (cfgErr) return json(500, { error: cfgErr.message });
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const raw = (typeof secRpc === "string" ? secRpc : "").trim();
+  if (!raw) return json(500, { error: `Credenciais em falta no Vault (${cfg.vault_secret_name})` });
+  let creds: { email: string; password: string };
+  try { creds = JSON.parse(raw); } catch { return json(500, { error: "Vault secret não é JSON {email,password}" }); }
+
+  const { jar } = await loginDevise(creds.email, creds.password);
+
+  const id = String(cfg.ticketline_event_id);
+  const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+  const endDD = fmtDDMMYYYY(new Date());
+  const qs = new URLSearchParams();
+  qs.set("utf8", "✓");
+  qs.set("granularity", "2");
+  qs.set("bulk_event_ids", "");
+  qs.set("filter_start_date", startDD);
+  qs.set("filter_end_date", endDD);
+  qs.set("post_render_content", "data");
+  const query = qs.toString();
+
+  // (a) MESMO URL do fluxo atual
+  const currentUrl = `${BASE}/managers/events/${encodeURIComponent(id)}/sale_summary.xlsx?${query}&_=${Date.now()}`;
+  const a = await probeGet(jar, currentUrl, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*");
+  const currentFlow = {
+    url: currentUrl,
+    status: a.status,
+    contentType: a.contentType,
+    redirectChain: a.chain,
+    looksXlsx: a.looksXlsx,
+    size: a.size,
+    snippet: a.snippet,
+    error: a.error,
+  };
+
+  // (b) página do evento
+  const eventPageUrl = `${BASE}/managers/events/${encodeURIComponent(id)}`;
+  const b = await probeGet(jar, eventPageUrl, "text/html,application/xhtml+xml");
+  const bHtml = b.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(b.bytes) : "";
+  const eventPage = {
+    url: eventPageUrl,
+    status: b.status,
+    finalUrl: b.url,
+    contentType: b.contentType,
+    redirectChain: b.chain,
+    title: bHtml ? describeHtml(bHtml).title : null,
+    scripts: extractScriptSrcs(bHtml),
+    candidateUrls: extractReportUrls(bHtml),
+    snippet: bHtml ? stripTags(bHtml).slice(0, 800) : b.snippet,
+  };
+
+  // (c) variantes plausíveis (sugeridas pelo HTML + prefixos da área nova)
+  const suggested = eventPage.candidateUrls
+    .filter((u) => /xlsx|export|sale|resumo|operac|report/i.test(u))
+    .map((u) => {
+      try { return new URL(u.replace(/:id|\{id\}|\$\{id\}/g, id), BASE).toString(); } catch { return null; }
+    })
+    .filter((u): u is string => !!u);
+
+  const patterns = [
+    `${BASE}/promoters/events/${id}/sale_summary.xlsx?${query}`,
+    `${BASE}/promotores/events/${id}/sale_summary.xlsx?${query}`,
+    `${BASE}/managers/promoters/events/${id}/sale_summary.xlsx?${query}`,
+    `${BASE}/api/managers/events/${id}/sale_summary.xlsx?${query}`,
+    `${BASE}/api/v1/events/${id}/sale_summary.xlsx?${query}`,
+    `${BASE}/managers/events/${id}/reports/sale_summary.xlsx?${query}`,
+    `${BASE}/managers/events/${id}/reports/operations.xlsx?${query}`,
+    `${BASE}/managers/events/${id}/operations.xlsx?${query}`,
+    `${BASE}/managers/reports/sale_summary.xlsx?event_id=${id}&${query}`,
+    `${BASE}/managers/events/${id}/sale_summary?${query}&format=xlsx`,
+    `${BASE}/managers/events/${id}/sale_summary.xlsx?granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}`,
+  ];
+
+  const tried = new Set<string>([currentUrl]);
+  const variants: ProbeAttempt[] = [];
+  for (const u of [...suggested, ...patterns]) {
+    if (tried.has(u) || variants.length >= 18) continue;
+    tried.add(u);
+    const r = await probeGet(jar, u, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*", 3);
+    variants.push({
+      url: u, status: r.status, contentType: r.contentType, location: r.chain.at(-1)?.location ?? null,
+      looksXlsx: r.looksXlsx, size: r.size,
+      snippet: r.looksXlsx ? undefined : (r.snippet || "").slice(0, 300),
+      error: r.error,
+    });
+  }
+
+  const payload = {
+    ok: true,
+    version: VERSION,
+    config: {
+      id: cfg.id,
+      event_id: cfg.event_id,
+      ticketline_event_id: id,
+      organization_name: cfg.organization_name,
+      vault_secret_name: cfg.vault_secret_name,
+      sales_start_date: cfg.sales_start_date,
+      filter_start_date: startDD,
+      filter_end_date: endDD,
+    },
+    currentFlow,
+    eventPage,
+    variants,
+    hits: variants.filter((v) => v.looksXlsx).map((v) => v.url),
+  };
+
+  let out = JSON.stringify(payload);
+  if (out.length > 60000) {
+    // trunca o que é volumoso (snippets/scripts) mantendo a estrutura
+    payload.eventPage.scripts = payload.eventPage.scripts.slice(0, 10);
+    payload.eventPage.candidateUrls = payload.eventPage.candidateUrls.slice(0, 25);
+    payload.eventPage.snippet = (payload.eventPage.snippet || "").slice(0, 400);
+    for (const v of payload.variants) if (v.snippet) v.snippet = v.snippet.slice(0, 150);
+    out = JSON.stringify(payload);
+  }
+  return new Response(out.slice(0, 60000), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8Array> {
@@ -507,6 +717,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "probe") {
+    try {
+      return await runProbe(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "discover") {
     try {
