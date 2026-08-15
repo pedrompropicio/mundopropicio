@@ -32,7 +32,7 @@ function compactValue(v: number) {
   return `${nf.format(Math.round(n))} €`;
 }
 
-/** Par "bilhetes · valor" numa célula estreita. Valor completo em desktop, compacto em mobile. */
+/** Par "bilhetes · valor" em desktop. */
 function Cell({ qty, value, missing }: { qty: number; value: number; missing: boolean }) {
   if (missing) {
     return (
@@ -47,11 +47,50 @@ function Cell({ qty, value, missing }: { qty: number; value: number; missing: bo
     );
   }
   return (
-    <span className="inline-flex items-baseline gap-1 font-mono tabular-nums">
+    <span className="inline-flex items-baseline gap-1 whitespace-nowrap font-mono tabular-nums">
       <span>{nf.format(Number(qty || 0))}</span>
       <span className="text-muted-foreground">·</span>
       <span className="hidden text-muted-foreground sm:inline">{formatCurrency(Number(value || 0))}</span>
       <span className="text-muted-foreground sm:hidden">{compactValue(value)}</span>
+    </span>
+  );
+}
+
+function formatMobileQty(qty: number) {
+  const n = Math.round(Number(qty || 0));
+  return n.toString();
+}
+
+function formatMobileValue(v: number) {
+  const n = Math.abs(Number(v || 0));
+  if (n >= 100000) {
+    return `${Math.round(n / 1000)}k €`;
+  }
+  if (n >= 1000) {
+    return `${nf.format(Math.round(n / 100) / 10)}k €`;
+  }
+  return `${nf.format(Math.round(n))} €`;
+}
+
+/** Par "bilhetes · valor" em mobile — ultra compacto e sem quebras. */
+function MobileCell({ qty, value, missing }: { qty: number; value: number; missing: boolean }) {
+  if (missing) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-help text-muted-foreground">—</span>
+          </TooltipTrigger>
+          <TooltipContent>{NO_SERIES_HINT}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+  return (
+    <span className="inline-flex items-baseline justify-end gap-0.5 whitespace-nowrap font-mono tabular-nums text-[11px]">
+      <span>{formatMobileQty(qty)}</span>
+      <span className="text-muted-foreground">·</span>
+      <span className="text-muted-foreground">{formatMobileValue(value)}</span>
     </span>
   );
 }
@@ -98,31 +137,59 @@ export function SalesPositionWidget() {
         <p className="py-2 text-center text-xs text-muted-foreground">Sem vendas de bilheteira para mostrar.</p>
       ) : (
         <div className="glass overflow-hidden rounded-lg">
-          {/* Cabeçalho de colunas */}
-          <div className="flex items-center gap-2 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+          {/* Cabeçalho desktop */}
+          <div className="hidden items-center gap-2 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:flex">
             <span className="min-w-0 flex-1">Evento</span>
             <span className={colClass}>Total</span>
             <span className={colClass}>7 dias</span>
             <span className={colClass}>Ontem</span>
           </div>
 
+          {/* Cabeçalho mobile */}
+          <div className="grid grid-cols-3 gap-1 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:hidden">
+            <span className="text-right">Total</span>
+            <span className="text-right">7 dias</span>
+            <span className="text-right">Ontem</span>
+          </div>
+
           {rows.map((r) => (
             <div
               key={r.group_id}
-              className="flex flex-col gap-0.5 border-b border-border/30 px-3 py-1.5 text-xs last:border-0 sm:flex-row sm:items-center sm:gap-2 sm:text-sm"
+              className="border-b border-border/30 px-3 py-1.5 text-xs last:border-0"
             >
-              <span className="min-w-0 flex-1 truncate font-medium">
-                {r.event_name}
-                {r.child_count > 0 && (
+              {/* Layout mobile */}
+              <div className="flex flex-col gap-0.5 sm:hidden">
+                <span className="min-w-0 truncate font-medium">
+                  {r.event_name}
+                  {r.child_count > 0 && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">
+                      ({r.child_count} cidade{r.child_count > 1 ? "s" : ""})
+                    </span>
+                  )}
                   <span className="ml-1 text-[10px] text-muted-foreground">
-                    ({r.child_count} cidade{r.child_count > 1 ? "s" : ""})
+                    {r.event_date ? formatDate(r.event_date) : "—"}
                   </span>
-                )}
-                <span className="ml-1 text-[10px] text-muted-foreground">
-                  {r.event_date ? formatDate(r.event_date) : "—"}
                 </span>
-              </span>
-              <span className="flex items-center gap-2 sm:contents">
+                <div className="grid grid-cols-3 gap-1">
+                  <MobileCell qty={r.total_qty} value={r.total_value} missing={false} />
+                  <MobileCell qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
+                  <MobileCell qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
+                </div>
+              </div>
+
+              {/* Layout desktop */}
+              <div className="hidden items-center gap-2 text-sm sm:flex">
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {r.event_name}
+                  {r.child_count > 0 && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">
+                      ({r.child_count} cidade{r.child_count > 1 ? "s" : ""})
+                    </span>
+                  )}
+                  <span className="ml-1 text-[10px] text-muted-foreground">
+                    {r.event_date ? formatDate(r.event_date) : "—"}
+                  </span>
+                </span>
                 <span className={colClass}>
                   <Cell qty={r.total_qty} value={r.total_value} missing={false} />
                 </span>
@@ -132,13 +199,24 @@ export function SalesPositionWidget() {
                 <span className={colClass}>
                   <Cell qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
                 </span>
-              </span>
+              </div>
             </div>
           ))}
 
-          <div className="flex flex-col gap-0.5 border-t border-border/60 bg-secondary/30 px-3 py-1.5 text-xs font-bold sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
-            <span className="min-w-0 flex-1 truncate">TOTAL GERAL</span>
-            <span className="flex items-center gap-2 sm:contents">
+          <div className="border-t border-border/60 bg-secondary/30 px-3 py-1.5 text-xs font-bold">
+            {/* Total mobile */}
+            <div className="flex flex-col gap-0.5 sm:hidden">
+              <span className="truncate">TOTAL GERAL</span>
+              <div className="grid grid-cols-3 gap-1">
+                <MobileCell qty={totals.total_qty} value={totals.total_value} missing={false} />
+                <MobileCell qty={totals.last7_qty} value={totals.last7_value} missing={false} />
+                <MobileCell qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
+              </div>
+            </div>
+
+            {/* Total desktop */}
+            <div className="hidden items-center gap-2 text-sm sm:flex">
+              <span className="min-w-0 flex-1 truncate">TOTAL GERAL</span>
               <span className={colClass}>
                 <Cell qty={totals.total_qty} value={totals.total_value} missing={false} />
               </span>
@@ -148,7 +226,7 @@ export function SalesPositionWidget() {
               <span className={colClass}>
                 <Cell qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
               </span>
-            </span>
+            </div>
           </div>
         </div>
       )}
