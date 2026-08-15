@@ -20,6 +20,17 @@ interface SalesPositionRow {
   daily_missing: boolean;
 }
 
+interface ProviderRow {
+  provider: string;
+  sort_order: number;
+  total_qty: number;
+  total_value: number;
+  last7_qty: number;
+  last7_value: number;
+  yesterday_qty: number;
+  yesterday_value: number;
+}
+
 const NO_SERIES_HINT = "Série diária disponível após o próximo sync";
 
 const nf = new Intl.NumberFormat("pt-PT");
