@@ -561,6 +561,7 @@ async function downloadM2Pdf(
   bolEventId: string,
   debug: Record<string, any>,
   eventText = "",
+  mapKind: BolMapKind = "m2",
 ): Promise<{ bytes: Uint8Array; url: string }> {
   const tried: any[] = [];
 
