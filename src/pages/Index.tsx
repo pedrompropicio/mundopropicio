@@ -526,6 +526,9 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground">Visão executiva dos eventos</p>
       </div>
 
+      {/* --- POSIÇÃO DE VENDAS --- */}
+      <SalesPositionWidget />
+
       {/* --- PLANNING --- */}
       <section>
         <div className="flex items-center gap-2 mb-3">
