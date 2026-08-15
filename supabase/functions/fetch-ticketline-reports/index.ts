@@ -608,6 +608,10 @@ async function probeConfig(admin: any, configId: string) {
     error: strict.error,
   });
 
+  // v2.11 — sondas AJAX/JSON/dashboard + internet_sales.xlsx como fallback
+  const ajaxProbes = await probeAjaxSequence(jar, id, query, startDD, endDD);
+  const internetSales = await probeInternetSales(jar, id, query);
+
   return {
     config: {
       id: cfg.id,
