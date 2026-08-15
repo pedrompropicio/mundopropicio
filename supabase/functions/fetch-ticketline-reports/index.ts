@@ -642,6 +642,15 @@ function shrinkProbe(p: any, hard = false) {
   p.summaryPage.bodyText = (p.summaryPage.bodyText || "").slice(0, hard ? 400 : 1000);
   if (hard) p.summaryPage.exportTags = p.summaryPage.exportTags.slice(0, 15);
   for (const v of p.variants) if (v.snippet) v.snippet = v.snippet.slice(0, hard ? 80 : 150);
+  // v2.11
+  if (p.summaryPage.jsUrlPatterns) {
+    p.summaryPage.jsUrlPatterns = p.summaryPage.jsUrlPatterns
+      .slice(0, hard ? 20 : 50)
+      .map((x: any) => ({ match: x.match, context: hard ? String(x.context).slice(0, 80) : x.context }));
+  }
+  if (p.summaryPage.divIds) p.summaryPage.divIds = p.summaryPage.divIds.slice(0, hard ? 15 : 40);
+  if (p.ajaxProbes) for (const v of p.ajaxProbes) if (v.snippet) v.snippet = v.snippet.slice(0, hard ? 80 : 150);
+  if (p.internetSales?.rows) p.internetSales.rows = p.internetSales.rows.slice(0, hard ? 12 : 30);
   return p;
 }
 
