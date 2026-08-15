@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.14_matrix_urls_2026_08_15";
+const VERSION = "v2.15_form_2026_08_15";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -891,6 +891,67 @@ async function runMatrix(admin: any, configId?: string, customUrls?: string[]) {
   return new Response(JSON.stringify({ ok: true, version: VERSION, ticketline_event_id: id, attempts: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+/** Extrai formulários (action/method) e campos (name/value/options) do HTML. */
+function extractForms(html: string) {
+  const forms: any[] = [];
+  const formRe = /<form\b([^>]*)>([\s\S]*?)<\/form>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = formRe.exec(html)) !== null && forms.length < 8) {
+    const attrs = m[1];
+    const inner = m[2];
+    const action = /action\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? null;
+    const method = /method\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? "get";
+    const fields: any[] = [];
+    const fieldRe = /<(input|select|textarea)\b([^>]*)>/gi;
+    let f: RegExpExecArray | null;
+    while ((f = fieldRe.exec(inner)) !== null && fields.length < 40) {
+      const a = f[2];
+      const name = /name\s*=\s*["']([^"']*)["']/i.exec(a)?.[1];
+      if (!name) continue;
+      fields.push({
+        tag: f[1],
+        name,
+        type: /type\s*=\s*["']([^"']*)["']/i.exec(a)?.[1] ?? null,
+        value: (/value\s*=\s*["']([^"']*)["']/i.exec(a)?.[1] ?? null)?.slice(0, 60) ?? null,
+      });
+    }
+    const options = Array.from(inner.matchAll(/<option[^>]*value\s*=\s*["']([^"']{1,40})["'][^>]*>([^<]{0,60})/gi))
+      .slice(0, 25).map((o) => ({ value: o[1], label: o[2].trim() }));
+    forms.push({ action, method, fields, options });
+  }
+  return forms;
+}
+
+async function runFormProbe(admin: any, configId?: string, urls?: string[]) {
+  if (!configId) return json(400, { error: "configId obrigatório" });
+  const { data: cfgs } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) return json(404, { error: "config não encontrado" });
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const creds = JSON.parse((typeof secRpc === "string" ? secRpc : "").trim());
+  const sessions: SessionCache = new Map();
+  const jar = await getJar(sessions, cfg.vault_secret_name, creds);
+  const id = String(cfg.ticketline_event_id);
+  const targets = urls && urls.length
+    ? urls
+    : [`${BASE}/managers/dashboard/sale_summary`, `${BASE}/managers/events/${id}/sale_summary`];
+  const out: any[] = [];
+  for (const url of targets) {
+    const r = await probeGet(jar, url, "text/html,*/*", 3);
+    const html = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+    out.push({
+      url,
+      status: r.status,
+      contentType: r.contentType,
+      size: r.size,
+      title: /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() ?? null,
+      forms: extractForms(html),
+      xlsxLinks: Array.from(new Set(Array.from(html.matchAll(/["'\(]([^"'\)\s]*(?:xlsx|export|\.json)[^"'\)\s]*)["'\)]/gi)).map((x) => x[1]).filter((u) => u.length < 220))).slice(0, 25),
+    });
+  }
+  return new Response(JSON.stringify({ ok: true, version: VERSION, ticketline_event_id: id, pages: out }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
   const { error } = await admin.from("ticketline_sync_runs").update(patch).eq("id", runId);
   if (error) console.error("updateRun:", error.message);
@@ -1034,6 +1095,14 @@ Deno.serve(async (req) => {
       return await runProbe(admin, configId, compareConfigId);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "probe_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "form") {
+    try {
+      return await runFormProbe(admin, configId, body.urls);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: "form_failed", error: e?.message || String(e) });
     }
   }
 
