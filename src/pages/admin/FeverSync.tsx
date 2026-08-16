@@ -336,6 +336,35 @@ export default function FeverSync() {
         </CardContent>
       </Card>
 
+      <details className="group rounded-lg border bg-muted/20">
+        <summary className="flex cursor-pointer items-center justify-between p-4 font-medium text-sm">
+          <span>Métodos antigos (API directa — bloqueada pela Fever)</span>
+          <span className="text-xs text-muted-foreground group-open:hidden">Clique para expandir</span>
+        </summary>
+        <div className="space-y-4 p-4 pt-0">
+          <p className="text-xs text-muted-foreground">
+            A Fever recusa pedidos vindos de IP de datacenter desde 20/06/2026 (issue #48).
+            Estes controlos dependem do login por API e só voltam a servir se a Fever desbloquear.
+          </p>
+          {cfgs.map((cfg) => (
+            <div key={cfg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md border bg-background p-3">
+              <div>
+                <p className="font-medium text-sm">{cfg.organization_name}</p>
+                <p className="text-xs text-muted-foreground font-mono">plan={cfg.plan_id} • venue={cfg.venue_id} • city={cfg.city_id}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
+                  <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
+                  <KeyRound className="h-4 w-4 mr-2" /> Credenciais
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
+
       <Dialog open={!!selectedRun} onOpenChange={(o) => !o && setSelectedRun(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader><DialogTitle>Detalhes da execução</DialogTitle></DialogHeader>
