@@ -24,12 +24,17 @@ type Cfg = {
   plan_id: string;
   venue_id: string;
   city_id: string;
+  partner_id: string;
+  dashboard_id: string;
+  client_version: string | null;
+  ingest_secret: string | null;
   organization_name: string;
   enabled: boolean;
   last_run_at: string | null;
   last_run_status: string | null;
   last_token_refresh_at: string | null;
 };
+
 
 type Run = {
   id: string;
