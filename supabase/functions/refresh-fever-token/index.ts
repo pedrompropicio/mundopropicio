@@ -160,17 +160,18 @@ Deno.serve(async (req) => {
     return json(500, { error: `formato de credenciais inválido: ${e?.message || e}` });
   }
 
-  // 3. Login Fever (com auto-bump de major SÓ em 412)
+  // 3. Login Fever (com auto-bump SÓ em 412: minor, minor, major)
   const startVersion: string = (cfg as any).client_version || FEVER_CLIENT_VERSION;
+  const candidates = [startVersion, ...bumpCandidates(startVersion)];
   const tried: string[] = [];
   let loginRes: Response | null = null;
   let usedVersion = startVersion;
   let last412Raw = "";
 
-  for (let i = 0; i < MAX_BUMP_ATTEMPTS; i++) {
-    const version = i === 0 ? startVersion : bumpMajor(tried[tried.length - 1]);
-    if (i > 0 && version === tried[tried.length - 1]) break; // não conseguiu incrementar
+  for (let i = 0; i < Math.min(MAX_BUMP_ATTEMPTS + 1, candidates.length); i++) {
+    const version = candidates[i];
     tried.push(version);
+
     let attempt: { res: Response; status: number };
     try {
       attempt = await feverLogin(creds, version);
