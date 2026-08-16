@@ -5,8 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseFeverXlsxBuffers, groupFeverLots } from "../_shared/fever-parser.ts";
 import { runFeverImport } from "../_shared/fever-import-server.ts";
 
-// v28_daily_is_source_of_truth_overflow_to_last_lot_2026_05_29
-const VERSION = "v28_daily_is_source_of_truth_overflow_to_last_lot_2026_05_29";
+// v29_client_version_bump_2026_08_16
+const VERSION = "v29_client_version_bump_2026_08_16";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
