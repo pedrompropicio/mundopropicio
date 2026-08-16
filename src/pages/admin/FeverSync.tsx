@@ -96,7 +96,9 @@ export default function FeverSync() {
   const [tokenInput, setTokenInput] = useState("");
   const [tokenInfo, setTokenInfo] = useState<{ exp: number; user_email?: string; hoursRemaining: number } | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [browserModal, setBrowserModal] = useState<Cfg | null>(null);
   const hasFeature = useHasFeature(FEATURES.SYNC_FEVER);
+
 
   function decodeToken(raw: string) {
     setTokenError(null); setTokenInfo(null);
