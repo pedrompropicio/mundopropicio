@@ -2,11 +2,17 @@
 // v24 — fetch() directo à API Fever + Metabase Embedded. Sem Browserless.
 // Fluxo: B2bToken (Vault) → POST /graphs → JWT Metabase → 2× GET xlsx → parser → import.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { parseFeverXlsxBuffers, groupFeverLots } from "../_shared/fever-parser.ts";
-import { runFeverImport } from "../_shared/fever-import-server.ts";
+import {
+  METABASE_PARAMS,
+  FEVER_CLIENT_VERSION_FALLBACK,
+  FEVER_APPLICATION_ID,
+  fetchWithTimeout,
+  downloadFeverXlsx,
+  runFeverPipeline,
+} from "../_shared/fever-metabase.ts";
 
-// v29_client_version_bump_2026_08_16
-const VERSION = "v29_client_version_bump_2026_08_16";
+// v30_datacenter_ip_diagnosis_2026_08_16
+const VERSION = "v30_datacenter_ip_diagnosis_2026_08_16";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,8 +22,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const FEVER_CLIENT_VERSION_FALLBACK = "w.13.0.0";
 
 interface Body { configId: string; mode?: "manual" | "cron"; triggeredBy?: string }
 
@@ -40,21 +44,6 @@ function decodeJwtPayload(jwt: string): any {
   return JSON.parse(atob(p));
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 30000): Promise<Response> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  try { return await fetch(url, { ...init, signal: ctrl.signal }); }
-  finally { clearTimeout(t); }
-}
-
-const METABASE_PARAMS = encodeURIComponent(JSON.stringify({
-  purchase_date: null,
-  event_date: null,
-  granularity: ["Day"],
-  tag: null,
-  ticket_type: ["Exclude add-ons"],
-  purchase_channel: null,
-}));
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -158,9 +147,10 @@ Deno.serve(async (req) => {
       headers: {
         "Authorization": `B2bToken ${b2bToken}`,
         "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "pt-BR",
         "X-Client-Version": version,
+        "X-Application-Id": FEVER_APPLICATION_ID,
       },
       body: JSON.stringify({ plan_id: Number(cfg.plan_id), group_name: "analytics" }),
     });
@@ -195,9 +185,15 @@ Deno.serve(async (req) => {
 
     if (!graphsResp.ok) {
       const text = (await graphsResp.text()).slice(0, 400);
-      const phase = graphsResp.status === 401 ? "graphs_401" : `graphs_http_${graphsResp.status}`;
-      throw Object.assign(new Error(`/graphs ${graphsResp.status}: ${text}`), { phase });
+      if (graphsResp.status === 401) {
+        throw Object.assign(
+          new Error("A Fever rejeita chamadas a partir de IP de servidor (verificado 16/08/2026). Usa a importação via bookmarklet no browser — ver issue #48. Resposta Fever: " + text),
+          { phase: "blocked_datacenter_ip" },
+        );
+      }
+      throw Object.assign(new Error(`/graphs ${graphsResp.status}: ${text}`), { phase: `graphs_http_${graphsResp.status}` });
     }
+
     const graphsJson: any = await graphsResp.json();
     const graphs: any[] = graphsJson?.data?.graphs || graphsJson?.graphs || [];
     debug.graphs_count = graphs.length;
@@ -215,63 +211,10 @@ Deno.serve(async (req) => {
     const metabaseJwt = m[1];
     debug.metabase_jwt_len = metabaseJwt.length;
 
-    // 5. Baixar 2 XLSX
-    const cards = [
-      { dashcard: cfg.card_sales_dashcard, card: cfg.card_sales_card, label: "sales_per_ticket_type", filename: "sales_per_ticket_type_and_ticket_price.xlsx" },
-      { dashcard: cfg.card_tickets_dashcard, card: cfg.card_tickets_card, label: "tickets_per_purchase_date", filename: "tickets_per_ticket_type_and_purchase_date.xlsx" },
-    ];
-    const downloaded: { label: string; filename: string; bytes: Uint8Array }[] = [];
-    for (const c of cards) {
-      const xlsxUrl = `https://feverzone.metabaseapp.com/api/embed/dashboard/${metabaseJwt}/dashcard/${c.dashcard}/card/${c.card}/xlsx?parameters=${METABASE_PARAMS}&format_rows=true&pivot_results=false`;
-      const r = await fetchWithTimeout(xlsxUrl, { headers: { "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } }, 45000);
-      if (!r.ok) {
-        const text = (await r.text()).slice(0, 300);
-        throw Object.assign(new Error(`XLSX ${c.label} ${r.status}: ${text}`), { phase: `xlsx_${c.label}_http_${r.status}` });
-      }
-      const buf = new Uint8Array(await r.arrayBuffer());
-      if (buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
-        throw Object.assign(new Error(`XLSX ${c.label} inválido (size=${buf.length}, magic=${buf[0]?.toString(16)} ${buf[1]?.toString(16)})`), { phase: `xlsx_${c.label}_invalid_magic` });
-      }
-      downloaded.push({ label: c.label, filename: c.filename, bytes: buf });
-      console.log(`[fever-sync] ${c.label} ok size=${buf.length}`);
-    }
+    // 5. Baixar 2 XLSX + 6/7/8. Parser + conta Fever + import (partilhado)
+    const downloaded = await downloadFeverXlsx(cfg, metabaseJwt);
+    const { filesAudit, audit } = await runFeverPipeline({ admin, cfg, downloaded, triggeredBy: triggeredBy || null });
 
-    const salesXlsx = downloaded.find(d => d.label === "tickets_per_purchase_date")!; // qty + datas
-    const pricesXlsx = downloaded.find(d => d.label === "sales_per_ticket_type")!;     // type+price+gross
-    const filesAudit = [
-      { name: salesXlsx.filename, size: salesXlsx.bytes.length, sheet_name: "sales" },
-      { name: pricesXlsx.filename, size: pricesXlsx.bytes.length, sheet_name: "prices" },
-    ];
-
-    // 6. Parser
-    let parseResult: any, grouped: any;
-    try {
-      parseResult = parseFeverXlsxBuffers(salesXlsx.bytes.buffer, pricesXlsx.bytes.buffer);
-      console.log(`[fever-sync] parsed: lots=${parseResult.lots.length} sales=${parseResult.sales.length} period=${parseResult.totals.periodFrom}→${parseResult.totals.periodTo} qty=${parseResult.totals.totalQty} gross=${parseResult.totals.totalGross} warns=${parseResult.warnings.length}`);
-      grouped = groupFeverLots(parseResult.lots);
-    } catch (e: any) {
-      throw Object.assign(new Error(`Parser: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
-    }
-
-    // 7. Conta Fever
-    const { data: feverAcc } = await admin.from("financial_accounts")
-      .select("id, name").eq("type", "ticket_office").eq("company_id", cfg.company_id)
-      .ilike("name", "%fever%").limit(1).maybeSingle();
-    if (!feverAcc) {
-      throw Object.assign(new Error("Conta financeira Fever não encontrada"), { phase: "import_failed", filesAudit });
-    }
-
-    // 8. Import
-    let audit: any;
-    try {
-      audit = await runFeverImport({
-        supabase: admin, eventId: cfg.event_id, feverAccountId: feverAcc.id,
-        parseResult, grouped, filenames: { sales: salesXlsx.filename, prices: pricesXlsx.filename },
-        triggeredBy: triggeredBy || null,
-      });
-    } catch (e: any) {
-      throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
-    }
 
     const finalStatus = (audit?.warnings?.length || 0) > 0 ? "success_with_warning" : "success";
     await updateRun(admin, runId, {

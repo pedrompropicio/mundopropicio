@@ -14,14 +14,30 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const FEVER_LOGIN_URL = "https://services.feverup.com/b2b-iam/1.0/login";
-const FEVER_CLIENT_VERSION = "w.13.0.0";
+const FEVER_CLIENT_VERSION = "w.12.1.0";
+const FEVER_APPLICATION_ID = "84a4434b-d722-47dd-a247-9a073055e023";
 const MAX_BUMP_ATTEMPTS = 3;
 
-/** "w.13.0.0" -> "w.14.0.0" */
+/** "w.12.1.0" -> "w.12.2.0" ; "w.12.9.0" -> "w.12.10.0" (minor primeiro) */
+function bumpMinor(v: string): string {
+  const m = /^([a-zA-Z]+)\.(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
+  if (!m) return v;
+  return `${m[1]}.${m[2]}.${Number(m[3]) + 1}.0`;
+}
+
+/** "w.12.1.0" -> "w.13.0.0" */
 function bumpMajor(v: string): string {
   const m = /^([a-zA-Z]+)\.(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
   if (!m) return v;
   return `${m[1]}.${Number(m[2]) + 1}.0.0`;
+}
+
+/** Candidatos de bump: 2× minor, depois 1× major. */
+function bumpCandidates(base: string): string[] {
+  const a = bumpMinor(base);
+  const b = bumpMinor(a);
+  const c = bumpMajor(base);
+  return [a, b, c].filter((v, i, arr) => v !== base && arr.indexOf(v) === i);
 }
 
 async function feverLogin(creds: { username: string; password: string }, clientVersion: string) {
@@ -29,12 +45,16 @@ async function feverLogin(creds: { username: string; password: string }, clientV
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Accept": "application/json, text/plain, */*",
+      "Accept-Language": "pt-BR",
       "X-Client-Version": clientVersion,
+      "X-Application-Id": FEVER_APPLICATION_ID,
     },
     body: JSON.stringify({ username: creds.username, password: creds.password }),
   });
   return { res, status: res.status };
 }
+
 
 
 const json = (status: number, body: unknown) =>
@@ -140,17 +160,18 @@ Deno.serve(async (req) => {
     return json(500, { error: `formato de credenciais inválido: ${e?.message || e}` });
   }
 
-  // 3. Login Fever (com auto-bump de major SÓ em 412)
+  // 3. Login Fever (com auto-bump SÓ em 412: minor, minor, major)
   const startVersion: string = (cfg as any).client_version || FEVER_CLIENT_VERSION;
+  const candidates = [startVersion, ...bumpCandidates(startVersion)];
   const tried: string[] = [];
   let loginRes: Response | null = null;
   let usedVersion = startVersion;
   let last412Raw = "";
 
-  for (let i = 0; i < MAX_BUMP_ATTEMPTS; i++) {
-    const version = i === 0 ? startVersion : bumpMajor(tried[tried.length - 1]);
-    if (i > 0 && version === tried[tried.length - 1]) break; // não conseguiu incrementar
+  for (let i = 0; i < Math.min(MAX_BUMP_ATTEMPTS + 1, candidates.length); i++) {
+    const version = candidates[i];
     tried.push(version);
+
     let attempt: { res: Response; status: number };
     try {
       attempt = await feverLogin(creds, version);

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, ShieldCheck } from "lucide-react";
+import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, ShieldCheck, Globe, Copy } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -24,12 +24,17 @@ type Cfg = {
   plan_id: string;
   venue_id: string;
   city_id: string;
+  partner_id: string;
+  dashboard_id: string;
+  client_version: string | null;
+  ingest_secret: string | null;
   organization_name: string;
   enabled: boolean;
   last_run_at: string | null;
   last_run_status: string | null;
   last_token_refresh_at: string | null;
 };
+
 
 type Run = {
   id: string;
@@ -51,6 +56,37 @@ const statusVariant = (s: string): "default" | "secondary" | "destructive" | "ou
   return "secondary";
 };
 
+const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fever-ingest-browser`;
+const FEVER_APPLICATION_ID = "84a4434b-d722-47dd-a247-9a073055e023";
+
+function buildBookmarklet(cfg: Cfg): string {
+  const clientVersion = cfg.client_version || "w.12.1.0";
+  const code = `(async function(){
+function show(t,ok){var d=document.getElementById('mpFeverOv');if(!d){d=document.createElement('div');d.id='mpFeverOv';document.body.appendChild(d);}d.style.cssText='position:fixed;z-index:2147483647;top:16px;right:16px;max-width:380px;padding:14px 16px;border-radius:10px;font:13px/1.45 system-ui,sans-serif;color:#fff;white-space:pre-wrap;box-shadow:0 8px 24px rgba(0,0,0,.35);cursor:pointer;background:'+(ok?'#166534':'#991b1b');d.textContent=t;d.onclick=function(){d.remove()};}
+try{
+if(location.hostname!=='partners.feverup.com'){show('Abre primeiro partners.feverup.com com sessao iniciada. A abrir...',false);setTimeout(function(){window.open('https://partners.feverup.com','_blank')},900);return;}
+var tk=localStorage.getItem('token');
+if(!tk){show('Sem token no browser. Entra na organizacao no FeverZone e clica outra vez.',false);return;}
+show('A obter o dashboard do Metabase...',true);
+var g=await fetch('https://services.feverup.com/b2b-partners/1.0/partners/${cfg.partner_id}/graphs',{method:'POST',headers:{'Authorization':'B2bToken '+tk,'Content-Type':'application/json','Accept':'application/json, text/plain, */*','Accept-Language':'pt-BR','X-Client-Version':'${clientVersion}','X-Application-Id':'${FEVER_APPLICATION_ID}'},body:JSON.stringify({plan_id:Number(${cfg.plan_id}),group_name:'analytics'})});
+if(!g.ok){show('Fever /graphs devolveu '+g.status+'. Se for 401, faz logout/login no FeverZone.',false);return;}
+var j=await g.json();
+var arr=(j&&j.data&&j.data.graphs)||j.graphs||[];
+var dash=arr.filter(function(x){return Number(x.external_id)===Number(${cfg.dashboard_id})})[0];
+if(!dash){show('Dashboard ${cfg.dashboard_id} nao encontrado (recebidos: '+arr.map(function(x){return x.external_id}).join(',')+').',false);return;}
+var m=String(dash.url||'').match(/\\/embed\\/dashboard\\/([^#?\\/]+)/);
+if(!m){show('Nao consegui extrair o JWT do Metabase do URL do dashboard.',false);return;}
+show('JWT obtido. A enviar para o ERP...',true);
+var r=await fetch('${SUPABASE_FN_URL}',{method:'POST',headers:{'Content-Type':'application/json','x-ingest-secret':'${cfg.ingest_secret || ""}'},body:JSON.stringify({configId:'${cfg.id}',metabaseJwt:m[1]})});
+var out=null;try{out=await r.json()}catch(e){}
+if(r.ok&&out&&out.ok){show(out.skipped?('Importacao ignorada: '+out.reason):('Importacao Fever concluida. Run '+out.runId),true);}
+else{show('Erro do ERP ('+r.status+'): '+((out&&(out.error||out.phase))||'sem detalhe'),false);}
+}catch(e){show('Erro inesperado: '+(e&&e.message?e.message:e),false);}
+})();`;
+  return "javascript:" + encodeURIComponent(code.replace(/\n/g, ""));
+}
+
+
 export default function FeverSync() {
   const qc = useQueryClient();
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
@@ -60,7 +96,9 @@ export default function FeverSync() {
   const [tokenInput, setTokenInput] = useState("");
   const [tokenInfo, setTokenInfo] = useState<{ exp: number; user_email?: string; hoursRemaining: number } | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [browserModal, setBrowserModal] = useState<Cfg | null>(null);
   const hasFeature = useHasFeature(FEATURES.SYNC_FEVER);
+
 
   function decodeToken(raw: string) {
     setTokenError(null); setTokenInfo(null);
@@ -179,8 +217,24 @@ export default function FeverSync() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fever-sync-config"] }),
   });
 
+  const rotateSecretMut = useMutation({
+    mutationFn: async (id: string) => {
+      const next = crypto.randomUUID();
+      const { error } = await supabase.from("fever_sync_config" as any).update({ ingest_secret: next }).eq("id", id);
+      if (error) throw error;
+      return next;
+    },
+    onSuccess: async (next) => {
+      await qc.invalidateQueries({ queryKey: ["fever-sync-config"] });
+      setBrowserModal((b) => (b ? { ...b, ingest_secret: next } : b));
+      toast.success("Segredo rotacionado. Arrasta o bookmarklet novo (o antigo deixou de funcionar).");
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro a rotacionar segredo"),
+  });
+
   const cfgs = cfgQ.data || [];
   const runs = runsQ.data || [];
+
 
   if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_FEVER} />;
 
@@ -222,9 +276,13 @@ export default function FeverSync() {
                     checked={cfg.enabled}
                     onCheckedChange={(v) => enableMut.mutate({ id: cfg.id, enabled: v })}
                   />
-                  <Button variant="default" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
+                  <Button variant="default" size="sm" onClick={() => setBrowserModal(cfg)}>
+                    <Globe className="h-4 w-4 mr-2" /> Importar pelo browser
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
                     <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
                   </Button>
+
                   <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
                     <KeyRound className="h-4 w-4 mr-2" /> Credenciais
                   </Button>
@@ -451,6 +509,78 @@ export default function FeverSync() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!browserModal} onOpenChange={(o) => !o && setBrowserModal(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+          <DialogHeader><DialogTitle>Importar Fever pelo browser</DialogTitle></DialogHeader>
+          {browserModal && (
+            <div className="space-y-4 text-sm">
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <p>
+                  A Fever bloqueia a API a partir dos nossos servidores (IP de datacenter, verificado a 16/08/2026 — issue #48).
+                  Por isso a importação é disparada do <b>teu browser</b>: o bookmarklet obtém o JWT do Metabase no FeverZone e
+                  envia-o ao ERP, que continua a descarregar os XLSX e a correr o importador.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Como usar: arrasta o link abaixo para a barra de favoritos → abre <code>partners.feverup.com</code> com sessão
+                  iniciada na organização → clica em "Importar Fever".
+                </p>
+              </div>
+
+              <div className="rounded-md border p-4 flex items-center justify-center">
+                {/* eslint-disable-next-line */}
+                <a
+                  href={buildBookmarklet(browserModal)}
+                  onClick={(e) => e.preventDefault()}
+                  className="inline-flex items-center gap-2 rounded-md border bg-primary px-4 py-2 font-medium text-primary-foreground cursor-grab"
+                  draggable
+                >
+                  <Globe className="h-4 w-4" /> Importar Fever
+                </a>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Código do bookmarklet</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(buildBookmarklet(browserModal));
+                      toast.success("Bookmarklet copiado.");
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" /> Copiar
+                  </Button>
+                </div>
+                <Textarea readOnly value={buildBookmarklet(browserModal)} className="font-mono text-[10px] min-h-[120px]" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se o arrasto falhar: cria um favorito manualmente e cola isto no campo do endereço.
+                </p>
+              </div>
+
+              <div className="border-t pt-4 flex items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">
+                  Segredo de ingestão: <code>{(browserModal.ingest_secret || "").slice(0, 8)}…</code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={rotateSecretMut.isPending}
+                  onClick={() => rotateSecretMut.mutate(browserModal.id)}
+                >
+                  {rotateSecretMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Rotacionar segredo
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBrowserModal(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
