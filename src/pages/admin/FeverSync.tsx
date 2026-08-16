@@ -217,8 +217,24 @@ export default function FeverSync() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fever-sync-config"] }),
   });
 
+  const rotateSecretMut = useMutation({
+    mutationFn: async (id: string) => {
+      const next = crypto.randomUUID();
+      const { error } = await supabase.from("fever_sync_config" as any).update({ ingest_secret: next }).eq("id", id);
+      if (error) throw error;
+      return next;
+    },
+    onSuccess: async (next) => {
+      await qc.invalidateQueries({ queryKey: ["fever-sync-config"] });
+      setBrowserModal((b) => (b ? { ...b, ingest_secret: next } : b));
+      toast.success("Segredo rotacionado. Arrasta o bookmarklet novo (o antigo deixou de funcionar).");
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro a rotacionar segredo"),
+  });
+
   const cfgs = cfgQ.data || [];
   const runs = runsQ.data || [];
+
 
   if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_FEVER} />;
 
