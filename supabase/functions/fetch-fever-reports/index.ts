@@ -145,18 +145,52 @@ Deno.serve(async (req) => {
     debug.token_user = payload.user_email || null;
     debug.token_exp = new Date(payload.exp * 1000).toISOString();
 
-    // 3. POST /graphs
+    // 3. POST /graphs (com X-Client-Version + retry único em 412 via refresh-fever-token)
     const graphsUrl = `https://services.feverup.com/b2b-partners/1.0/partners/${cfg.partner_id}/graphs`;
-    const graphsResp = await fetchWithTimeout(graphsUrl, {
+    let clientVersion: string = cfg.client_version || FEVER_CLIENT_VERSION_FALLBACK;
+    debug.client_version = clientVersion;
+    await updateRun(admin, runId, { client_version_used: clientVersion });
+
+    const callGraphs = (version: string) => fetchWithTimeout(graphsUrl, {
       method: "POST",
       headers: {
         "Authorization": `B2bToken ${b2bToken}`,
         "Content-Type": "application/json",
         "Accept": "application/json",
         "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
+        "X-Client-Version": version,
       },
       body: JSON.stringify({ plan_id: Number(cfg.plan_id), group_name: "analytics" }),
     });
+
+    let graphsResp = await callGraphs(clientVersion);
+
+    if (graphsResp.status === 412) {
+      const first412 = (await graphsResp.text()).slice(0, 400);
+      console.log(`[fever-sync] /graphs 412 com ${clientVersion} — a pedir bump ao refresh-fever-token`);
+      debug.client_version_412 = clientVersion;
+      await fetch(`${SUPABASE_URL}/functions/v1/refresh-fever-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE}` },
+        body: JSON.stringify({ configId: cfg.id, triggeredBy: "client-version-bump-from-sync" }),
+      }).then((r) => r.text()).catch(() => null);
+
+      const { data: cfg2 } = await admin
+        .from("fever_sync_config").select("client_version").eq("id", cfg.id).single();
+      clientVersion = cfg2?.client_version || clientVersion;
+      debug.client_version_retry = clientVersion;
+      await updateRun(admin, runId, { client_version_used: clientVersion });
+      graphsResp = await callGraphs(clientVersion);
+
+      if (graphsResp.status === 412) {
+        const text = (await graphsResp.text()).slice(0, 400);
+        throw Object.assign(
+          new Error(`/graphs 412 MIN_VERSION_REQUIREMENT (X-Client-Version=${clientVersion}): ${text || first412}`),
+          { phase: "client_version_rejected" },
+        );
+      }
+    }
+
     if (!graphsResp.ok) {
       const text = (await graphsResp.text()).slice(0, 400);
       const phase = graphsResp.status === 401 ? "graphs_401" : `graphs_http_${graphsResp.status}`;
@@ -165,6 +199,7 @@ Deno.serve(async (req) => {
     const graphsJson: any = await graphsResp.json();
     const graphs: any[] = graphsJson?.data?.graphs || graphsJson?.graphs || [];
     debug.graphs_count = graphs.length;
+
 
     // 4. Extrair JWT Metabase
     const dashboard = graphs.find((g: any) => Number(g.external_id) === Number(cfg.dashboard_id));
