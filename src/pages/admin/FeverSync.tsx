@@ -316,12 +316,12 @@ export default function FeverSync() {
                   return (
                     <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedRun(r)}>
                       <TableCell className="font-mono text-xs">{new Date(r.started_at).toLocaleString("pt-PT")}</TableCell>
-                      <TableCell><Badge variant="outline">{r.mode}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{modeDisplay(r.mode)}</Badge></TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(r.status)}>
                           {r.status === "success" ? <CheckCircle2 className="h-3 w-3 mr-1" /> :
-                           r.status.endsWith("_failed") ? <AlertTriangle className="h-3 w-3 mr-1" /> : null}
-                          {r.status}
+                           r.status.endsWith("_failed") || r.status === "blocked_datacenter_ip" ? <AlertTriangle className="h-3 w-3 mr-1" /> : null}
+                          {statusDisplay(r.status)}
                         </Badge>
                       </TableCell>
                       <TableCell>{dur !== null ? `${dur}s` : "—"}</TableCell>
