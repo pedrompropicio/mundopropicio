@@ -52,8 +52,21 @@ type Run = {
 const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
   if (s === "success") return "default";
   if (s === "started") return "outline";
+  if (s === "blocked_datacenter_ip") return "destructive";
   if (s.endsWith("_failed")) return "destructive";
   return "secondary";
+};
+
+const statusDisplay = (s: string) => {
+  if (s === "blocked_datacenter_ip") return "Bloqueado pela Fever (IP)";
+  return s;
+};
+
+const modeDisplay = (m: string) => {
+  if (m === "browser") return "Browser";
+  if (m === "manual") return "Manual";
+  if (m === "cron") return "Cron";
+  return m;
 };
 
 const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fever-ingest-browser`;
@@ -134,23 +147,6 @@ export default function FeverSync() {
       if (error) throw error;
       return (data ?? []) as unknown as Run[];
     },
-  });
-
-  const runMut = useMutation({
-    mutationFn: async (configId: string) => {
-      const { data, error } = await supabase.functions.invoke("fetch-fever-reports", {
-        body: { configId, mode: "manual", triggeredBy: "ui" },
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data: any) => {
-      if (data?.ok) toast.success("Sync Fever concluída.");
-      else toast.error(`Falhou: ${data?.phase || "erro desconhecido"} — ${data?.error || ""}`);
-      qc.invalidateQueries({ queryKey: ["fever-sync-runs"] });
-      qc.invalidateQueries({ queryKey: ["fever-sync-config"] });
-    },
-    onError: (e: any) => toast.error(e?.message || "Erro a invocar função"),
   });
 
   const credsMut = useMutation({
@@ -276,19 +272,8 @@ export default function FeverSync() {
                     checked={cfg.enabled}
                     onCheckedChange={(v) => enableMut.mutate({ id: cfg.id, enabled: v })}
                   />
-                  <Button variant="default" size="sm" onClick={() => setBrowserModal(cfg)}>
-                    <Globe className="h-4 w-4 mr-2" /> Importar pelo browser
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
-                    <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
-                  </Button>
-
-                  <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
-                    <KeyRound className="h-4 w-4 mr-2" /> Credenciais
-                  </Button>
-                  <Button size="sm" disabled={runMut.isPending} onClick={() => runMut.mutate(cfg.id)}>
-                    {runMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                    Correr agora
+                  <Button size="sm" onClick={() => setBrowserModal(cfg)}>
+                    <Play className="h-4 w-4 mr-2" /> Importar agora
                   </Button>
                 </div>
               </div>
@@ -331,12 +316,12 @@ export default function FeverSync() {
                   return (
                     <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedRun(r)}>
                       <TableCell className="font-mono text-xs">{new Date(r.started_at).toLocaleString("pt-PT")}</TableCell>
-                      <TableCell><Badge variant="outline">{r.mode}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{modeDisplay(r.mode)}</Badge></TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(r.status)}>
                           {r.status === "success" ? <CheckCircle2 className="h-3 w-3 mr-1" /> :
-                           r.status.endsWith("_failed") ? <AlertTriangle className="h-3 w-3 mr-1" /> : null}
-                          {r.status}
+                           r.status.endsWith("_failed") || r.status === "blocked_datacenter_ip" ? <AlertTriangle className="h-3 w-3 mr-1" /> : null}
+                          {statusDisplay(r.status)}
                         </Badge>
                       </TableCell>
                       <TableCell>{dur !== null ? `${dur}s` : "—"}</TableCell>
@@ -350,6 +335,35 @@ export default function FeverSync() {
           )}
         </CardContent>
       </Card>
+
+      <details className="group rounded-lg border bg-muted/20">
+        <summary className="flex cursor-pointer items-center justify-between p-4 font-medium text-sm">
+          <span>Métodos antigos (API directa — bloqueada pela Fever)</span>
+          <span className="text-xs text-muted-foreground group-open:hidden">Clique para expandir</span>
+        </summary>
+        <div className="space-y-4 p-4 pt-0">
+          <p className="text-xs text-muted-foreground">
+            A Fever recusa pedidos vindos de IP de datacenter desde 20/06/2026 (issue #48).
+            Estes controlos dependem do login por API e só voltam a servir se a Fever desbloquear.
+          </p>
+          {cfgs.map((cfg) => (
+            <div key={cfg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md border bg-background p-3">
+              <div>
+                <p className="font-medium text-sm">{cfg.organization_name}</p>
+                <p className="text-xs text-muted-foreground font-mono">plan={cfg.plan_id} • venue={cfg.venue_id} • city={cfg.city_id}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
+                  <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
+                  <KeyRound className="h-4 w-4 mr-2" /> Credenciais
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
 
       <Dialog open={!!selectedRun} onOpenChange={(o) => !o && setSelectedRun(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
@@ -525,6 +539,10 @@ export default function FeverSync() {
                   Como usar: arrasta o link abaixo para a barra de favoritos → abre <code>partners.feverup.com</code> com sessão
                   iniciada na organização → clica em "Importar Fever".
                 </p>
+              </div>
+
+              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-yellow-800 dark:text-yellow-200 text-xs">
+                <b>Aviso:</b> Não desligues o interruptor Ativo desta configuração — a importação pelo browser também o respeita e deixa de funcionar.
               </div>
 
               <div className="rounded-md border p-4 flex items-center justify-center">
