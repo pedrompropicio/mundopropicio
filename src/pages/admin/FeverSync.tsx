@@ -541,6 +541,10 @@ export default function FeverSync() {
                 </p>
               </div>
 
+              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-yellow-800 dark:text-yellow-200 text-xs">
+                <b>Aviso:</b> Não desligues o interruptor Ativo desta configuração — a importação pelo browser também o respeita e deixa de funcionar.
+              </div>
+
               <div className="rounded-md border p-4 flex items-center justify-center">
                 {/* eslint-disable-next-line */}
                 <a
