@@ -56,6 +56,37 @@ const statusVariant = (s: string): "default" | "secondary" | "destructive" | "ou
   return "secondary";
 };
 
+const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fever-ingest-browser`;
+const FEVER_APPLICATION_ID = "84a4434b-d722-47dd-a247-9a073055e023";
+
+function buildBookmarklet(cfg: Cfg): string {
+  const clientVersion = cfg.client_version || "w.12.1.0";
+  const code = `(async function(){
+function show(t,ok){var d=document.getElementById('mpFeverOv');if(!d){d=document.createElement('div');d.id='mpFeverOv';document.body.appendChild(d);}d.style.cssText='position:fixed;z-index:2147483647;top:16px;right:16px;max-width:380px;padding:14px 16px;border-radius:10px;font:13px/1.45 system-ui,sans-serif;color:#fff;white-space:pre-wrap;box-shadow:0 8px 24px rgba(0,0,0,.35);cursor:pointer;background:'+(ok?'#166534':'#991b1b');d.textContent=t;d.onclick=function(){d.remove()};}
+try{
+if(location.hostname!=='partners.feverup.com'){show('Abre primeiro partners.feverup.com com sessao iniciada. A abrir...',false);setTimeout(function(){window.open('https://partners.feverup.com','_blank')},900);return;}
+var tk=localStorage.getItem('token');
+if(!tk){show('Sem token no browser. Entra na organizacao no FeverZone e clica outra vez.',false);return;}
+show('A obter o dashboard do Metabase...',true);
+var g=await fetch('https://services.feverup.com/b2b-partners/1.0/partners/${cfg.partner_id}/graphs',{method:'POST',headers:{'Authorization':'B2bToken '+tk,'Content-Type':'application/json','Accept':'application/json, text/plain, */*','Accept-Language':'pt-BR','X-Client-Version':'${clientVersion}','X-Application-Id':'${FEVER_APPLICATION_ID}'},body:JSON.stringify({plan_id:Number(${cfg.plan_id}),group_name:'analytics'})});
+if(!g.ok){show('Fever /graphs devolveu '+g.status+'. Se for 401, faz logout/login no FeverZone.',false);return;}
+var j=await g.json();
+var arr=(j&&j.data&&j.data.graphs)||j.graphs||[];
+var dash=arr.filter(function(x){return Number(x.external_id)===Number(${cfg.dashboard_id})})[0];
+if(!dash){show('Dashboard ${cfg.dashboard_id} nao encontrado (recebidos: '+arr.map(function(x){return x.external_id}).join(',')+').',false);return;}
+var m=String(dash.url||'').match(/\\/embed\\/dashboard\\/([^#?\\/]+)/);
+if(!m){show('Nao consegui extrair o JWT do Metabase do URL do dashboard.',false);return;}
+show('JWT obtido. A enviar para o ERP...',true);
+var r=await fetch('${SUPABASE_FN_URL}',{method:'POST',headers:{'Content-Type':'application/json','x-ingest-secret':'${cfg.ingest_secret || ""}'},body:JSON.stringify({configId:'${cfg.id}',metabaseJwt:m[1]})});
+var out=null;try{out=await r.json()}catch(e){}
+if(r.ok&&out&&out.ok){show(out.skipped?('Importacao ignorada: '+out.reason):('Importacao Fever concluida. Run '+out.runId),true);}
+else{show('Erro do ERP ('+r.status+'): '+((out&&(out.error||out.phase))||'sem detalhe'),false);}
+}catch(e){show('Erro inesperado: '+(e&&e.message?e.message:e),false);}
+})();`;
+  return "javascript:" + encodeURIComponent(code.replace(/\n/g, ""));
+}
+
+
 export default function FeverSync() {
   const qc = useQueryClient();
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
