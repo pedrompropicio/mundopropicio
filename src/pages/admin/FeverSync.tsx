@@ -276,9 +276,13 @@ export default function FeverSync() {
                     checked={cfg.enabled}
                     onCheckedChange={(v) => enableMut.mutate({ id: cfg.id, enabled: v })}
                   />
-                  <Button variant="default" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
+                  <Button variant="default" size="sm" onClick={() => setBrowserModal(cfg)}>
+                    <Globe className="h-4 w-4 mr-2" /> Importar pelo browser
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
                     <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
                   </Button>
+
                   <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
                     <KeyRound className="h-4 w-4 mr-2" /> Credenciais
                   </Button>
