@@ -147,9 +147,10 @@ Deno.serve(async (req) => {
       headers: {
         "Authorization": `B2bToken ${b2bToken}`,
         "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "pt-BR",
         "X-Client-Version": version,
+        "X-Application-Id": FEVER_APPLICATION_ID,
       },
       body: JSON.stringify({ plan_id: Number(cfg.plan_id), group_name: "analytics" }),
     });
@@ -184,9 +185,15 @@ Deno.serve(async (req) => {
 
     if (!graphsResp.ok) {
       const text = (await graphsResp.text()).slice(0, 400);
-      const phase = graphsResp.status === 401 ? "graphs_401" : `graphs_http_${graphsResp.status}`;
-      throw Object.assign(new Error(`/graphs ${graphsResp.status}: ${text}`), { phase });
+      if (graphsResp.status === 401) {
+        throw Object.assign(
+          new Error("A Fever rejeita chamadas a partir de IP de servidor (verificado 16/08/2026). Usa a importação via bookmarklet no browser — ver issue #48. Resposta Fever: " + text),
+          { phase: "blocked_datacenter_ip" },
+        );
+      }
+      throw Object.assign(new Error(`/graphs ${graphsResp.status}: ${text}`), { phase: `graphs_http_${graphsResp.status}` });
     }
+
     const graphsJson: any = await graphsResp.json();
     const graphs: any[] = graphsJson?.data?.graphs || graphsJson?.graphs || [];
     debug.graphs_count = graphs.length;
