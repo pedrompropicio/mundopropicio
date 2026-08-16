@@ -2,11 +2,17 @@
 // v24 — fetch() directo à API Fever + Metabase Embedded. Sem Browserless.
 // Fluxo: B2bToken (Vault) → POST /graphs → JWT Metabase → 2× GET xlsx → parser → import.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { parseFeverXlsxBuffers, groupFeverLots } from "../_shared/fever-parser.ts";
-import { runFeverImport } from "../_shared/fever-import-server.ts";
+import {
+  METABASE_PARAMS,
+  FEVER_CLIENT_VERSION_FALLBACK,
+  FEVER_APPLICATION_ID,
+  fetchWithTimeout,
+  downloadFeverXlsx,
+  runFeverPipeline,
+} from "../_shared/fever-metabase.ts";
 
-// v29_client_version_bump_2026_08_16
-const VERSION = "v29_client_version_bump_2026_08_16";
+// v30_datacenter_ip_diagnosis_2026_08_16
+const VERSION = "v30_datacenter_ip_diagnosis_2026_08_16";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,8 +22,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const FEVER_CLIENT_VERSION_FALLBACK = "w.13.0.0";
 
 interface Body { configId: string; mode?: "manual" | "cron"; triggeredBy?: string }
 
@@ -40,21 +44,6 @@ function decodeJwtPayload(jwt: string): any {
   return JSON.parse(atob(p));
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 30000): Promise<Response> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  try { return await fetch(url, { ...init, signal: ctrl.signal }); }
-  finally { clearTimeout(t); }
-}
-
-const METABASE_PARAMS = encodeURIComponent(JSON.stringify({
-  purchase_date: null,
-  event_date: null,
-  granularity: ["Day"],
-  tag: null,
-  ticket_type: ["Exclude add-ons"],
-  purchase_channel: null,
-}));
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
