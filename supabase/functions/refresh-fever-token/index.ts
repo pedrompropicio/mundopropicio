@@ -247,5 +247,7 @@ Deno.serve(async (req) => {
     expires_at: new Date(payload.exp * 1000).toISOString(),
     hoursRemaining,
     user_email: payload.user_email || null,
+    client_version: usedVersion,
+    versions_tried: tried,
   });
 });
