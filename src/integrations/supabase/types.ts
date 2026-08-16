@@ -5816,6 +5816,7 @@ export type Database = {
           card_tickets_card: number
           card_tickets_dashcard: number
           city_id: string
+          client_version: string | null
           company_id: string
           created_at: string
           dashboard_id: number
@@ -5839,6 +5840,7 @@ export type Database = {
           card_tickets_card?: number
           card_tickets_dashcard?: number
           city_id: string
+          client_version?: string | null
           company_id: string
           created_at?: string
           dashboard_id?: number
@@ -5862,6 +5864,7 @@ export type Database = {
           card_tickets_card?: number
           card_tickets_dashcard?: number
           city_id?: string
+          client_version?: string | null
           company_id?: string
           created_at?: string
           dashboard_id?: number
@@ -5897,6 +5900,7 @@ export type Database = {
       }
       fever_sync_runs: {
         Row: {
+          client_version_used: string | null
           company_id: string
           config_id: string
           created_at: string
@@ -5911,6 +5915,7 @@ export type Database = {
           triggered_by: string | null
         }
         Insert: {
+          client_version_used?: string | null
           company_id: string
           config_id: string
           created_at?: string
@@ -5925,6 +5930,7 @@ export type Database = {
           triggered_by?: string | null
         }
         Update: {
+          client_version_used?: string | null
           company_id?: string
           config_id?: string
           created_at?: string
