@@ -14,7 +14,28 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const FEVER_LOGIN_URL = "https://services.feverup.com/b2b-iam/1.0/login";
-const FEVER_CLIENT_VERSION = "w.12.0.14";
+const FEVER_CLIENT_VERSION = "w.13.0.0";
+const MAX_BUMP_ATTEMPTS = 3;
+
+/** "w.13.0.0" -> "w.14.0.0" */
+function bumpMajor(v: string): string {
+  const m = /^([a-zA-Z]+)\.(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
+  if (!m) return v;
+  return `${m[1]}.${Number(m[2]) + 1}.0.0`;
+}
+
+async function feverLogin(creds: { username: string; password: string }, clientVersion: string) {
+  const res = await fetch(FEVER_LOGIN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Client-Version": clientVersion,
+    },
+    body: JSON.stringify({ username: creds.username, password: creds.password }),
+  });
+  return { res, status: res.status };
+}
+
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
