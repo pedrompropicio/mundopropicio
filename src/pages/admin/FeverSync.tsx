@@ -52,8 +52,21 @@ type Run = {
 const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
   if (s === "success") return "default";
   if (s === "started") return "outline";
+  if (s === "blocked_datacenter_ip") return "destructive";
   if (s.endsWith("_failed")) return "destructive";
   return "secondary";
+};
+
+const statusDisplay = (s: string) => {
+  if (s === "blocked_datacenter_ip") return "Bloqueado pela Fever (IP)";
+  return s;
+};
+
+const modeDisplay = (m: string) => {
+  if (m === "browser") return "Browser";
+  if (m === "manual") return "Manual";
+  if (m === "cron") return "Cron";
+  return m;
 };
 
 const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fever-ingest-browser`;
