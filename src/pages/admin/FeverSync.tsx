@@ -259,19 +259,8 @@ export default function FeverSync() {
                     checked={cfg.enabled}
                     onCheckedChange={(v) => enableMut.mutate({ id: cfg.id, enabled: v })}
                   />
-                  <Button variant="default" size="sm" onClick={() => setBrowserModal(cfg)}>
-                    <Globe className="h-4 w-4 mr-2" /> Importar pelo browser
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
-                    <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
-                  </Button>
-
-                  <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
-                    <KeyRound className="h-4 w-4 mr-2" /> Credenciais
-                  </Button>
-                  <Button size="sm" disabled={runMut.isPending} onClick={() => runMut.mutate(cfg.id)}>
-                    {runMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                    Correr agora
+                  <Button size="sm" onClick={() => setBrowserModal(cfg)}>
+                    <Play className="h-4 w-4 mr-2" /> Importar agora
                   </Button>
                 </div>
               </div>
