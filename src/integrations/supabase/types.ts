@@ -5823,6 +5823,7 @@ export type Database = {
           enabled: boolean
           event_id: string
           id: string
+          ingest_secret: string
           last_run_at: string | null
           last_run_status: string | null
           last_token_refresh_at: string | null
@@ -5847,6 +5848,7 @@ export type Database = {
           enabled?: boolean
           event_id: string
           id?: string
+          ingest_secret?: string
           last_run_at?: string | null
           last_run_status?: string | null
           last_token_refresh_at?: string | null
@@ -5871,6 +5873,7 @@ export type Database = {
           enabled?: boolean
           event_id?: string
           id?: string
+          ingest_secret?: string
           last_run_at?: string | null
           last_run_status?: string | null
           last_token_refresh_at?: string | null
