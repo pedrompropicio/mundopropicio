@@ -211,63 +211,10 @@ Deno.serve(async (req) => {
     const metabaseJwt = m[1];
     debug.metabase_jwt_len = metabaseJwt.length;
 
-    // 5. Baixar 2 XLSX
-    const cards = [
-      { dashcard: cfg.card_sales_dashcard, card: cfg.card_sales_card, label: "sales_per_ticket_type", filename: "sales_per_ticket_type_and_ticket_price.xlsx" },
-      { dashcard: cfg.card_tickets_dashcard, card: cfg.card_tickets_card, label: "tickets_per_purchase_date", filename: "tickets_per_ticket_type_and_purchase_date.xlsx" },
-    ];
-    const downloaded: { label: string; filename: string; bytes: Uint8Array }[] = [];
-    for (const c of cards) {
-      const xlsxUrl = `https://feverzone.metabaseapp.com/api/embed/dashboard/${metabaseJwt}/dashcard/${c.dashcard}/card/${c.card}/xlsx?parameters=${METABASE_PARAMS}&format_rows=true&pivot_results=false`;
-      const r = await fetchWithTimeout(xlsxUrl, { headers: { "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } }, 45000);
-      if (!r.ok) {
-        const text = (await r.text()).slice(0, 300);
-        throw Object.assign(new Error(`XLSX ${c.label} ${r.status}: ${text}`), { phase: `xlsx_${c.label}_http_${r.status}` });
-      }
-      const buf = new Uint8Array(await r.arrayBuffer());
-      if (buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
-        throw Object.assign(new Error(`XLSX ${c.label} inválido (size=${buf.length}, magic=${buf[0]?.toString(16)} ${buf[1]?.toString(16)})`), { phase: `xlsx_${c.label}_invalid_magic` });
-      }
-      downloaded.push({ label: c.label, filename: c.filename, bytes: buf });
-      console.log(`[fever-sync] ${c.label} ok size=${buf.length}`);
-    }
+    // 5. Baixar 2 XLSX + 6/7/8. Parser + conta Fever + import (partilhado)
+    const downloaded = await downloadFeverXlsx(cfg, metabaseJwt);
+    const { filesAudit, audit } = await runFeverPipeline({ admin, cfg, downloaded, triggeredBy: triggeredBy || null });
 
-    const salesXlsx = downloaded.find(d => d.label === "tickets_per_purchase_date")!; // qty + datas
-    const pricesXlsx = downloaded.find(d => d.label === "sales_per_ticket_type")!;     // type+price+gross
-    const filesAudit = [
-      { name: salesXlsx.filename, size: salesXlsx.bytes.length, sheet_name: "sales" },
-      { name: pricesXlsx.filename, size: pricesXlsx.bytes.length, sheet_name: "prices" },
-    ];
-
-    // 6. Parser
-    let parseResult: any, grouped: any;
-    try {
-      parseResult = parseFeverXlsxBuffers(salesXlsx.bytes.buffer, pricesXlsx.bytes.buffer);
-      console.log(`[fever-sync] parsed: lots=${parseResult.lots.length} sales=${parseResult.sales.length} period=${parseResult.totals.periodFrom}→${parseResult.totals.periodTo} qty=${parseResult.totals.totalQty} gross=${parseResult.totals.totalGross} warns=${parseResult.warnings.length}`);
-      grouped = groupFeverLots(parseResult.lots);
-    } catch (e: any) {
-      throw Object.assign(new Error(`Parser: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
-    }
-
-    // 7. Conta Fever
-    const { data: feverAcc } = await admin.from("financial_accounts")
-      .select("id, name").eq("type", "ticket_office").eq("company_id", cfg.company_id)
-      .ilike("name", "%fever%").limit(1).maybeSingle();
-    if (!feverAcc) {
-      throw Object.assign(new Error("Conta financeira Fever não encontrada"), { phase: "import_failed", filesAudit });
-    }
-
-    // 8. Import
-    let audit: any;
-    try {
-      audit = await runFeverImport({
-        supabase: admin, eventId: cfg.event_id, feverAccountId: feverAcc.id,
-        parseResult, grouped, filenames: { sales: salesXlsx.filename, prices: pricesXlsx.filename },
-        triggeredBy: triggeredBy || null,
-      });
-    } catch (e: any) {
-      throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
-    }
 
     const finalStatus = (audit?.warnings?.length || 0) > 0 ? "success_with_warning" : "success";
     await updateRun(admin, runId, {
