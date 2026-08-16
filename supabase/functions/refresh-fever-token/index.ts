@@ -140,32 +140,69 @@ Deno.serve(async (req) => {
     return json(500, { error: `formato de credenciais inválido: ${e?.message || e}` });
   }
 
-  // 3. Login Fever
-  let loginRes: Response;
-  try {
-    loginRes = await fetch(FEVER_LOGIN_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Client-Version": FEVER_CLIENT_VERSION,
-      },
-      body: JSON.stringify({ username: creds.username, password: creds.password }),
+  // 3. Login Fever (com auto-bump de major SÓ em 412)
+  const startVersion: string = (cfg as any).client_version || FEVER_CLIENT_VERSION;
+  const tried: string[] = [];
+  let loginRes: Response | null = null;
+  let usedVersion = startVersion;
+  let last412Raw = "";
+
+  for (let i = 0; i < MAX_BUMP_ATTEMPTS; i++) {
+    const version = i === 0 ? startVersion : bumpMajor(tried[tried.length - 1]);
+    if (i > 0 && version === tried[tried.length - 1]) break; // não conseguiu incrementar
+    tried.push(version);
+    let attempt: { res: Response; status: number };
+    try {
+      attempt = await feverLogin(creds, version);
+    } catch (e: any) {
+      console.log(`[refresh-fever-token] fetch failed: ${e?.message}`);
+      return json(502, { error: `Fever login network error: ${e?.message || e}`, client_version: version });
+    }
+
+    if (attempt.status === 412) {
+      last412Raw = (await attempt.res.text()).slice(0, 500);
+      console.log(`[refresh-fever-token] 412 MIN_VERSION_REQUIREMENT com ${version}`);
+      continue;
+    }
+
+    if (attempt.status === 429) {
+      const txt = (await attempt.res.text()).slice(0, 500);
+      console.log(`[refresh-fever-token] 429 rate limit: ${txt}`);
+      return json(502, { error: "Fever rate limit de login — aguardar antes de nova tentativa", raw: txt, client_version: version });
+    }
+
+    if (attempt.status === 401) {
+      const txt = (await attempt.res.text()).slice(0, 500);
+      console.log(`[refresh-fever-token] 401 credenciais inválidas (sem retry)`);
+      return json(401, { error: `Credenciais Fever inválidas — actualizar via modal Credenciais.`, raw: txt, client_version: version });
+    }
+
+    usedVersion = version;
+    loginRes = attempt.res;
+    break;
+  }
+
+  if (!loginRes) {
+    return json(502, {
+      error: `Fever MIN_VERSION_REQUIREMENT (412). Actualizar X-Client-Version.`,
+      raw: last412Raw,
+      versions_tried: tried,
     });
-  } catch (e: any) {
-    console.log(`[refresh-fever-token] fetch failed: ${e?.message}`);
-    return json(502, { error: `Fever login network error: ${e?.message || e}` });
+  }
+
+  if (usedVersion !== (cfg as any).client_version) {
+    const { error: bumpErr } = await admin
+      .from("fever_sync_config")
+      .update({ client_version: usedVersion })
+      .eq("id", configId);
+    if (bumpErr) console.log(`[refresh-fever-token] client_version update warning: ${bumpErr.message}`);
+    else console.log(`[refresh-fever-token] auto-bump client_version: ${(cfg as any).client_version || "(null)"} -> ${usedVersion}`);
   }
 
   if (!loginRes.ok) {
     const txt = (await loginRes.text()).slice(0, 500);
     console.log(`[refresh-fever-token] login HTTP ${loginRes.status}: ${txt}`);
-    if (loginRes.status === 412) {
-      return json(502, { error: `Fever MIN_VERSION_REQUIREMENT (412). Actualizar X-Client-Version.`, raw: txt });
-    }
-    if (loginRes.status === 401) {
-      return json(401, { error: `Credenciais Fever inválidas — actualizar via modal Credenciais.`, raw: txt });
-    }
-    return json(502, { error: `Fever login HTTP ${loginRes.status}`, raw: txt });
+    return json(502, { error: `Fever login HTTP ${loginRes.status}`, raw: txt, client_version: usedVersion });
   }
 
   const loginJson = await loginRes.json().catch(() => null);
