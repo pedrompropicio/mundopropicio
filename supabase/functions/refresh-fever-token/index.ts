@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
   // 1. Carregar config
   const { data: cfg, error: cfgErr } = await admin
     .from("fever_sync_config")
-    .select("vault_secret_name, b2b_token_secret_name, organization_name")
+    .select("vault_secret_name, b2b_token_secret_name, organization_name, client_version")
     .eq("id", configId)
     .single();
   if (cfgErr || !cfg) {
