@@ -136,23 +136,6 @@ export default function FeverSync() {
     },
   });
 
-  const runMut = useMutation({
-    mutationFn: async (configId: string) => {
-      const { data, error } = await supabase.functions.invoke("fetch-fever-reports", {
-        body: { configId, mode: "manual", triggeredBy: "ui" },
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data: any) => {
-      if (data?.ok) toast.success("Sync Fever concluída.");
-      else toast.error(`Falhou: ${data?.phase || "erro desconhecido"} — ${data?.error || ""}`);
-      qc.invalidateQueries({ queryKey: ["fever-sync-runs"] });
-      qc.invalidateQueries({ queryKey: ["fever-sync-config"] });
-    },
-    onError: (e: any) => toast.error(e?.message || "Erro a invocar função"),
-  });
-
   const credsMut = useMutation({
     mutationFn: async () => {
       if (!credsModal) throw new Error("sem config");
