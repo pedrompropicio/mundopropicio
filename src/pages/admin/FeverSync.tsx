@@ -509,6 +509,78 @@ export default function FeverSync() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!browserModal} onOpenChange={(o) => !o && setBrowserModal(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+          <DialogHeader><DialogTitle>Importar Fever pelo browser</DialogTitle></DialogHeader>
+          {browserModal && (
+            <div className="space-y-4 text-sm">
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <p>
+                  A Fever bloqueia a API a partir dos nossos servidores (IP de datacenter, verificado a 16/08/2026 — issue #48).
+                  Por isso a importação é disparada do <b>teu browser</b>: o bookmarklet obtém o JWT do Metabase no FeverZone e
+                  envia-o ao ERP, que continua a descarregar os XLSX e a correr o importador.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Como usar: arrasta o link abaixo para a barra de favoritos → abre <code>partners.feverup.com</code> com sessão
+                  iniciada na organização → clica em "Importar Fever".
+                </p>
+              </div>
+
+              <div className="rounded-md border p-4 flex items-center justify-center">
+                {/* eslint-disable-next-line */}
+                <a
+                  href={buildBookmarklet(browserModal)}
+                  onClick={(e) => e.preventDefault()}
+                  className="inline-flex items-center gap-2 rounded-md border bg-primary px-4 py-2 font-medium text-primary-foreground cursor-grab"
+                  draggable
+                >
+                  <Globe className="h-4 w-4" /> Importar Fever
+                </a>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Código do bookmarklet</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(buildBookmarklet(browserModal));
+                      toast.success("Bookmarklet copiado.");
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" /> Copiar
+                  </Button>
+                </div>
+                <Textarea readOnly value={buildBookmarklet(browserModal)} className="font-mono text-[10px] min-h-[120px]" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se o arrasto falhar: cria um favorito manualmente e cola isto no campo do endereço.
+                </p>
+              </div>
+
+              <div className="border-t pt-4 flex items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">
+                  Segredo de ingestão: <code>{(browserModal.ingest_secret || "").slice(0, 8)}…</code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={rotateSecretMut.isPending}
+                  onClick={() => rotateSecretMut.mutate(browserModal.id)}
+                >
+                  {rotateSecretMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Rotacionar segredo
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBrowserModal(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
