@@ -17,6 +17,8 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const FEVER_CLIENT_VERSION_FALLBACK = "w.13.0.0";
+
 interface Body { configId: string; mode?: "manual" | "cron"; triggeredBy?: string }
 
 const json = (status: number, body: any) =>
