@@ -149,13 +149,17 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const buckets = { bilheteira: hasSalesNow ? (args.ticketSalesRevenue ?? 0) : 0, patrocinio: 0, outros: 0 };
         const source = hasSalesNow ? nonTicket : incomeTx;
         for (const t of source) {
-          const cls = classifyIncomeL1(t.account_categories?.code);
-          if (hasSalesNow && cls === "bilheteira") { /* já contado em ticketSales */ continue; }
+          const code = t.account_categories?.code ?? "";
+          const cls = classifyIncomeL1(code);
+          // A substituição por ticket_sales aplica-se APENAS a 1.1.01 (bilheteira),
+          // nunca a outras rubricas 1.1.* (ex. 1.1.03 F&B).
+          if (hasSalesNow && code === "1.1.01") continue;
           const v = eff(t.amount, t.iva_rate);
           if (cls === "bilheteira") buckets.bilheteira += v;
           else if (cls === "patrocinio") buckets.patrocinio += v;
           else buckets.outros += v;
         }
+
         return {
           displayValue: display,
           subtotals: [
