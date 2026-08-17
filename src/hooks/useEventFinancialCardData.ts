@@ -121,7 +121,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   return useMemo<UseEventFinancialCardDataResult>(() => {
     // ── Fase ──
     const realizedTx = txs.filter((t: any) =>
-      (t.status === "paid" || t.status === "approved") && !t.is_transitory
+      (t.status === "paid" || t.status === "approved" || t.status === "partially_paid") && !t.is_transitory
     );
     const hasTx = realizedTx.length > 0;
     const hasSales = (args.ticketSalesRevenue ?? 0) > 0;
@@ -132,7 +132,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       hasTransactions: hasTx,
       hasSales,
     });
-    const modeUsed: ModeUsed = mode === "auto" ? defaultModeForPhase(phase) : mode;
+    const modeUsed: ModeUsed = resolveMode(mode, phase, kind);
+
 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
