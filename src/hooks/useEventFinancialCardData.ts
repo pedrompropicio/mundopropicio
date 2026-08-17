@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   type CardMode, type ModeUsed, type Phase, type RevenueScenario,
   type FormalidadeBreakdown,
-  emptyBreakdown, addToBreakdown, detectPhase, defaultModeForPhase, classifyIncomeL1,
+  emptyBreakdown, addToBreakdown, detectPhase, resolveMode, classifyIncomeL1,
 } from "@/lib/event-financial-card";
+
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
 
 export interface UseEventFinancialCardDataArgs {
