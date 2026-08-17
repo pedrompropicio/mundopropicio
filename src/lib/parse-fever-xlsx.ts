@@ -40,7 +40,7 @@ export interface FeverParsedLot {
   ticketType: string;
   /** preço facial original do Fever (coluna Ticket Price) */
   ticketPrice: number;
-  /** preço unitário efetivo bruto, derivado de Total Gross Revenue / Tickets sold */
+  /** preço unitário efetivo bruto, derivado de Ticket Gross Revenue / Tickets sold */
   unitPrice: number;
   /** preço líquido sugerido (sem IVA 6%) — calculado como unitPrice / 1.06 */
   unitPriceNet: number;
@@ -77,7 +77,7 @@ export interface FeverParsedSale {
   ticketType: string;
   unitPrice: number;
   quantity: number;
-  /** valor bruto exato da linha, distribuído a partir de Total Gross Revenue */
+  /** valor bruto exato da linha, distribuído a partir de Ticket Gross Revenue */
   totalValue: number;
 }
 
@@ -262,6 +262,10 @@ export async function parseFeverXlsx(
   }
 
   // ----- PRICES (uma linha por Ticket Type+preço) -----
+  // Regra de negócio Fever: a Surcharge é paga pelo consumidor e é 100% da Fever;
+  // não há comissão de bilheteira cobrada ao promotor. O retorno da Fever para a
+  // MP vem por patrocínio (fixo + bónus variáveis por patamar de faturação).
+  // Por isso importamos sempre o valor de face (coluna G "Ticket Gross Revenue").
   const lotMap = new Map<string, FeverParsedLot>();
   for (let i = 1; i < pricesRowsRaw.length; i++) {
     const row = pricesRowsRaw[i] as any[];
@@ -453,7 +457,7 @@ export async function parseFeverXlsx(
     }
   }
 
-  // Ajusta resíduos de cêntimos por lote para que Σ total_value = Total Gross Revenue do Fever.
+  // Ajusta resíduos de cêntimos por lote para que Σ total_value = Ticket Gross Revenue do Fever.
   const salesByLotKey = new Map<string, FeverParsedSale[]>();
   for (const sale of sales) {
     const arr = salesByLotKey.get(sale.lotKey) || [];
