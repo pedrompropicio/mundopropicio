@@ -996,10 +996,11 @@ export default function EventDetail() {
 
         <StatCard
           title="Bilhetes"
-          value={`${event.tickets_sold.toLocaleString()}`}
+          value={`${ticketsSold.toLocaleString()}`}
           icon={Ticket}
-          subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((event.tickets_sold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
-          tooltip="Bilhetes vendidos registados no evento sobre a capacidade total configurada (não inclui convites/cortesias)."
+          subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((ticketsSold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
+          tooltip="Bilhetes vendidos calculados a partir dos registos de vendas de bilheteira (não inclui convites/cortesias)."
+
         />
       </div>
 
