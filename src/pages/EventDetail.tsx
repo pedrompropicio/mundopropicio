@@ -450,6 +450,30 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  // Bilhetes vendidos calculados a partir de ticket_sales (events.tickets_sold não é sincronizado).
+  const { data: ticketSalesQty = 0 } = useQuery({
+    queryKey: ["event_ticket_qty", id, selectedSubEvent, transactionEventIds.join(",")],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .in("event_id", transactionEventIds);
+      if (!zones || zones.length === 0) return 0;
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id")
+        .in("zone_id", zones.map((z: any) => z.id));
+      if (!lots || lots.length === 0) return 0;
+      const { data: sales } = await supabase
+        .from("ticket_sales")
+        .select("quantity")
+        .in("lot_id", lots.map((l: any) => l.id));
+      return (sales ?? []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
+    },
+    enabled: !!id,
+  });
+
+
   const renameSubEventMutation = useMutation({
     mutationFn: async ({ subId, newName }: { subId: string; newName: string }) => {
       const { error } = await supabase.from("events").update({ name: newName }).eq("id", subId);
