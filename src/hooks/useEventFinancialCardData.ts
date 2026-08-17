@@ -284,42 +284,71 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     } else {
-      // Forecast custos: formalidade-aware
+      // Forecast custos: formalidade-aware.
+      // Regra: cada transação é consumida NO MÁXIMO UMA VEZ (vínculo 1:1 via
+      // event_forecasts.transaction_id; fallback por categoria só para linhas sem vínculo).
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      // soma TX por category_id+event_id (paid+approved+pending)
-      const txExpense = txs.filter((t: any) => t.type === "expense" && !t.is_transitory);
-      const txByCat = new Map<string, number>();
-      for (const t of txExpense) {
+      const txEligible = txs.filter((t: any) =>
+        t.type === "expense" && !t.is_transitory &&
+        (t.status === "paid" || t.status === "approved" || t.status === "partially_paid" || t.status === "pending")
+      );
+      const txAmount = new Map<string, number>();
+      const txIdsByCat = new Map<string, string[]>();
+      for (const t of txEligible) {
+        txAmount.set(t.id, eff(t.amount, t.iva_rate));
         if (!t.category_id) continue;
-        if (t.status !== "paid" && t.status !== "approved" && t.status !== "pending") continue;
-        txByCat.set(t.category_id, (txByCat.get(t.category_id) ?? 0) + eff(t.amount, t.iva_rate));
+        const arr = txIdsByCat.get(t.category_id) ?? [];
+        arr.push(t.id);
+        txIdsByCat.set(t.category_id, arr);
       }
-      // categorias cobertas pelo BP
       const bpCats = new Set<string>(approved.map((f: any) => f.category_id).filter(Boolean));
+      const usedTxIds = new Set<string>();
+      const isBlinded = (f: any) =>
+        f.formalidade === "fechado" || f.formalidade === "pago_parcial" || f.formalidade === "pago_total";
+
       let bpSum = 0;
       let txLinkedSum = 0;
-      for (const f of approved) {
-        const f_ = f as any;
-        const isBlinded =
-          f_.formalidade === "fechado" ||
-          f_.formalidade === "pago_parcial" ||
-          f_.formalidade === "pago_total";
-        if (isBlinded && f_.category_id) {
-          const txAmt = txByCat.get(f_.category_id) ?? 0;
-          if (txAmt > 0) {
-            txLinkedSum += txAmt;
+      const pending: any[] = [];
+
+      // Passo 1 — vínculo directo 1:1.
+      for (const f of approved as any[]) {
+        if (isBlinded(f) && f.transaction_id && txAmount.has(f.transaction_id) && !usedTxIds.has(f.transaction_id)) {
+          usedTxIds.add(f.transaction_id);
+          txLinkedSum += txAmount.get(f.transaction_id) ?? 0;
+          continue;
+        }
+        pending.push(f);
+      }
+
+      // Passo 2 — fallback por categoria (consome cada TX uma única vez).
+      for (const f of pending) {
+        if (isBlinded(f) && f.category_id) {
+          const ids = (txIdsByCat.get(f.category_id) ?? []).filter((id) => !usedTxIds.has(id));
+          const sum = ids.reduce((s, id) => s + (txAmount.get(id) ?? 0), 0);
+          if (ids.length > 0) {
+            ids.forEach((id) => usedTxIds.add(id));
+            // A TX substitui a linha do BP (intenção do modo), mesmo quando soma 0.
+            txLinkedSum += sum;
+            continue;
+          }
+          if (usedTxIds.size > 0 && (txIdsByCat.get(f.category_id) ?? []).length > 0) {
+            // Categoria já totalmente consumida por outra linha → não somar de novo nem duplicar BP.
             continue;
           }
         }
-        bpSum += eff(f_.amount, f_.iva_rate);
+        bpSum += eff(f.amount, f.iva_rate);
       }
-      // órfãs: TX em categorias fora do BP
+
+      // TX sem BP: categorias fora do BP (ou sem categoria) nunca consumidas.
       let orphanSum = 0;
-      for (const [cat, sum] of txByCat) {
-        if (!bpCats.has(cat)) orphanSum += sum;
+      for (const t of txEligible) {
+        if (usedTxIds.has(t.id)) continue;
+        if (t.category_id && bpCats.has(t.category_id)) continue;
+        orphanSum += txAmount.get(t.id) ?? 0;
       }
+
       const extra =
         Number(args.masterExpenseShare || 0) +
         Number(args.masterForecastShare || 0) +
@@ -329,12 +358,14 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         displayValue: total,
         subtotals: [
           { label: "BP próprio", value: bpSum },
-          { label: "TX fora do BP", value: txLinkedSum + orphanSum },
+          { label: "TX que substituem BP", value: txLinkedSum },
+          { label: "TX sem BP", value: orphanSum },
           { label: "Forecast total", value: total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     }
+
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
       args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 }
