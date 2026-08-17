@@ -601,7 +601,7 @@ export default function EventDetail() {
     );
   }
 
-  const isCompleted = event.status === "completed";
+  const ticketsSold = ticketSalesQty > 0 ? ticketSalesQty : Number(event.tickets_sold || 0);
 
   // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
   const realizedTransactions = eventTransactions.filter(
