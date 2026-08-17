@@ -137,10 +137,11 @@ export function usePartnerFinancialCardData(
         const nonTicketSum = nonTicket.reduce((s, t) => s + num(t.amount), 0);
         const display = ticketRevenueNet + nonTicketSum;
 
-        const buckets = { bilheteira: ticketRevenueNet, patrocinio: 0, outros: 0 };
+        const buckets = { bilheteira: ticketRevenueNet, patrocinio: 0, ab: 0, outros: 0 };
         for (const t of nonTicket) {
           const cls = classifyIncomeL1(t.account_categories?.code);
           if (cls === "patrocinio") buckets.patrocinio += num(t.amount);
+          else if (cls === "ab") buckets.ab += num(t.amount);
           else buckets.outros += num(t.amount);
         }
         return {
@@ -148,6 +149,7 @@ export function usePartnerFinancialCardData(
           subtotals: [
             { label: "Bilheteira", value: buckets.bilheteira },
             { label: "Patrocínio", value: buckets.patrocinio },
+            ...(buckets.ab !== 0 ? [{ label: "A&B", value: buckets.ab }] : []),
             { label: "Outros", value: buckets.outros },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
@@ -188,18 +190,20 @@ export function usePartnerFinancialCardData(
         const nonTicket = approved.filter(
           (f) => classifyIncomeL1(f.account_categories?.code) !== "bilheteira",
         );
-        let patrocinio = 0, outros = 0;
+        let patrocinio = 0, ab = 0, outros = 0;
         for (const f of nonTicket) {
           const cls = classifyIncomeL1(f.account_categories?.code);
           if (cls === "patrocinio") patrocinio += num(f.amount);
+          else if (cls === "ab") ab += num(f.amount);
           else outros += num(f.amount);
         }
-        const total = ticketCargasNet + patrocinio + outros;
+        const total = ticketCargasNet + patrocinio + ab + outros;
         return {
           displayValue: total,
           subtotals: [
             { label: "Bilheteira", value: ticketCargasNet },
             { label: "Patrocínio", value: patrocinio },
+            ...(ab !== 0 ? [{ label: "A&B", value: ab }] : []),
             { label: "Outros", value: outros },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: total === 0,
@@ -233,19 +237,20 @@ export function usePartnerFinancialCardData(
       const nonTicket = incomeForecasts.filter(
         (f) => classifyIncomeL1(f.account_categories?.code) !== "bilheteira",
       );
-      let patrocinio = 0, outros = 0;
+      let patrocinio = 0, ab = 0, outros = 0;
       for (const f of nonTicket) {
         const cls = classifyIncomeL1(f.account_categories?.code);
         if (cls === "patrocinio") patrocinio += num(f.amount);
+        else if (cls === "ab") ab += num(f.amount);
         else outros += num(f.amount);
       }
-      const total = ticketCargasNet + patrocinio + outros;
+      const total = ticketCargasNet + patrocinio + ab + outros;
       return {
         displayValue: total,
         subtotals: [
           { label: "Bilheteira", value: ticketCargasNet },
           { label: "Patrocínio", value: patrocinio },
-          { label: "A&B", value: null },
+          { label: "A&B", value: ab !== 0 ? ab : null },
           { label: "Outros", value: outros },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: total === 0,

@@ -145,18 +145,19 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const hasSalesNow = (args.ticketSalesRevenue ?? 0) > 0;
         const display = hasSalesNow ? (args.ticketSalesRevenue ?? 0) + nonTicketSum : allIncomeSum;
 
-        // Subtotais por L1
-        const buckets = { bilheteira: hasSalesNow ? (args.ticketSalesRevenue ?? 0) : 0, patrocinio: 0, outros: 0 };
+        // Subtotais por rubrica exata
+        const buckets = { bilheteira: hasSalesNow ? (args.ticketSalesRevenue ?? 0) : 0, patrocinio: 0, ab: 0, outros: 0 };
         const source = hasSalesNow ? nonTicket : incomeTx;
         for (const t of source) {
           const code = t.account_categories?.code ?? "";
           const cls = classifyIncomeL1(code);
           // A substituição por ticket_sales aplica-se APENAS a 1.1.01 (bilheteira),
-          // nunca a outras rubricas 1.1.* (ex. 1.1.03 F&B).
+          // nunca a outras rubricas 1.1.* (ex. 1.1.03 A&B).
           if (hasSalesNow && code === "1.1.01") continue;
           const v = eff(t.amount, t.iva_rate);
           if (cls === "bilheteira") buckets.bilheteira += v;
           else if (cls === "patrocinio") buckets.patrocinio += v;
+          else if (cls === "ab") buckets.ab += v;
           else buckets.outros += v;
         }
 
@@ -165,10 +166,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           subtotals: [
             { label: "Bilheteira", value: buckets.bilheteira },
             { label: "Patrocínio", value: buckets.patrocinio },
+            ...(buckets.ab !== 0 ? [{ label: "A&B", value: buckets.ab }] : []),
             { label: "Outros", value: buckets.outros },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
+
       } else {
         // Expense
         const expTx = realizedTx.filter((t: any) => t.type === "expense");
