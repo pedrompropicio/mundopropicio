@@ -172,9 +172,22 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       } else {
         // Expense
         const expTx = realizedTx.filter((t: any) => t.type === "expense");
-        const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
-        const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
+        let paid = 0;
+        let approved = 0;
+        for (const t of expTx) {
+          const gross = eff(t.amount, t.iva_rate);
+          if (t.status === "paid") { paid += gross; continue; }
+          if (t.status === "partially_paid") {
+            // paid_amount é bruto; separa recebido/pago do que falta liquidar.
+            const already = Math.min(Math.max(Number(t.paid_amount || 0), 0), gross);
+            paid += already;
+            approved += gross - already;
+            continue;
+          }
+          approved += gross;
+        }
         const own = paid + approved;
+
         const masterTx = Number(args.masterExpenseShare || 0);
         const cache = Number(args.cacheImpact || 0);
         // Realized NÃO inclui forecasts do Master (só TX).
