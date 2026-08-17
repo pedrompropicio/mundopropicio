@@ -581,8 +581,9 @@ export default function EventDetail() {
 
   // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
   const realizedTransactions = eventTransactions.filter(
-    (t) => t.status === "paid" || t.status === "approved"
+    (t) => t.status === "paid" || t.status === "approved" || t.status === "partially_paid"
   );
+
   const incomeTransactions = realizedTransactions.filter((t) => t.type === "income");
   const expenseTransactions = realizedTransactions.filter((t) => t.type === "expense");
   const operationalExpenseTransactions = expenseTransactions.filter((t) => !t.is_transitory);
