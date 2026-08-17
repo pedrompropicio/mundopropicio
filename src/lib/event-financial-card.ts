@@ -76,13 +76,20 @@ export function resolveMode(mode: CardMode, phase: Phase, kind: "income" | "expe
 }
 
 
-/** Classifica L1 da árvore de contas pelo `code` (1.1.* / 1.2.* / outro). */
-export function classifyIncomeL1(code?: string | null): "bilheteira" | "patrocinio" | "outros" {
+/**
+ * Classifica a rubrica de receita pelo `code` EXATO da subcategoria.
+ * `1.1.01` = bilheteira; `1.1.03` = A&B; `1.2.*` = patrocínio; resto = outros.
+ * NUNCA classificar por prefixo `1.1` — 1.1.02 (merch), 1.1.03 (A&B) e
+ * 1.1.04 (camarotes) não são bilheteira.
+ */
+export function classifyIncomeL1(code?: string | null): "bilheteira" | "patrocinio" | "ab" | "outros" {
   const c = (code ?? "").trim();
-  if (c.startsWith("1.1")) return "bilheteira";
+  if (c === "1.1.01") return "bilheteira";
+  if (c === "1.1.03") return "ab";
   if (c.startsWith("1.2")) return "patrocinio";
   return "outros";
 }
+
 
 /** localStorage key para preferência de modo. */
 export function modeStorageKey(userId: string, eventId: string, kind: "income" | "expense"): string {
