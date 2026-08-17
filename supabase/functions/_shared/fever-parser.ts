@@ -145,6 +145,10 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
   if (!isFeverPricesFormat(pricesHeaders)) throw new Error("Ficheiro preços não está no formato Fever esperado.");
 
   const lotMap = new Map<string, FeverParsedLot>();
+  // Regra de negócio Fever: a Surcharge é paga pelo consumidor e é 100% da Fever;
+  // não há comissão de bilheteira cobrada ao promotor. O retorno da Fever para a
+  // MP vem por patrocínio (fixo + bónus variáveis por patamar de faturação).
+  // Por isso importamos sempre o valor de face (coluna G "Ticket Gross Revenue").
   for (let i = 1; i < pricesRows.length; i++) {
     const row = pricesRows[i] as any[];
     if (!row || row.length === 0) continue;
