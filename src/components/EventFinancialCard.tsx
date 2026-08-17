@@ -89,7 +89,9 @@ export function EventFinancialCard(props: Props) {
   const variantBorder = kind === "income" ? "border-accent/30" : "border-warning/30";
   const variantIcon = kind === "income" ? "text-accent" : "text-warning";
 
+  const forecastAvailable = allowedModes(data.phase, kind).includes("forecast");
   const showScenarioToggle = data.modeUsed === "forecast" && kind === "income";
+
 
   // Extras visíveis (cachê e rateio turnê) — mostrados em todos os modos quando > 0.
   const extras: Array<{ label: string; value: number }> = [];
