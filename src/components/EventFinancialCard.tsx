@@ -134,8 +134,9 @@ export function EventFinancialCard(props: Props) {
                 <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="committed">Comprometido</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>
+                {forecastAvailable && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>
+
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs">IVA</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
