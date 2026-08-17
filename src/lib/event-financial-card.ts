@@ -58,6 +58,24 @@ export function defaultModeForPhase(phase: Phase): ModeUsed {
   return "committed";
 }
 
+/**
+ * Modos disponíveis por fase/tipo de card.
+ * Evento concluído tem custo, não previsão → forecast de custos indisponível.
+ */
+export function allowedModes(phase: Phase, kind: "income" | "expense"): ModeUsed[] {
+  if (phase === "completed" && kind === "expense") return ["realized", "committed"];
+  return ["realized", "committed", "forecast"];
+}
+
+/** Resolve o modo efetivo, ignorando escolhas inválidas (inclui valor fixado em localStorage). */
+export function resolveMode(mode: CardMode, phase: Phase, kind: "income" | "expense"): ModeUsed {
+  const fallback = defaultModeForPhase(phase);
+  const allowed = allowedModes(phase, kind);
+  if (mode === "auto") return allowed.includes(fallback) ? fallback : allowed[0];
+  return allowed.includes(mode) ? mode : (allowed.includes(fallback) ? fallback : allowed[0]);
+}
+
+
 /** Classifica L1 da árvore de contas pelo `code` (1.1.* / 1.2.* / outro). */
 export function classifyIncomeL1(code?: string | null): "bilheteira" | "patrocinio" | "outros" {
   const c = (code ?? "").trim();

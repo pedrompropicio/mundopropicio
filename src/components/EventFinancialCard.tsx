@@ -5,7 +5,9 @@ import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredWithVat, writeStoredWithVat,
+  allowedModes,
 } from "@/lib/event-financial-card";
+
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -89,7 +91,9 @@ export function EventFinancialCard(props: Props) {
   const variantBorder = kind === "income" ? "border-accent/30" : "border-warning/30";
   const variantIcon = kind === "income" ? "text-accent" : "text-warning";
 
+  const forecastAvailable = allowedModes(data.phase, kind).includes("forecast");
   const showScenarioToggle = data.modeUsed === "forecast" && kind === "income";
+
 
   // Extras visíveis (cachê e rateio turnê) — mostrados em todos os modos quando > 0.
   const extras: Array<{ label: string; value: number }> = [];
@@ -134,8 +138,9 @@ export function EventFinancialCard(props: Props) {
                 <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="committed">Comprometido</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>
+                {forecastAvailable && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>
+
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs">IVA</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>

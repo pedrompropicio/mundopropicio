@@ -450,6 +450,30 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  // Bilhetes vendidos calculados a partir de ticket_sales (events.tickets_sold não é sincronizado).
+  const { data: ticketSalesQty = 0 } = useQuery({
+    queryKey: ["event_ticket_qty", id, selectedSubEvent, transactionEventIds.join(",")],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .in("event_id", transactionEventIds);
+      if (!zones || zones.length === 0) return 0;
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id")
+        .in("zone_id", zones.map((z: any) => z.id));
+      if (!lots || lots.length === 0) return 0;
+      const { data: sales } = await supabase
+        .from("ticket_sales")
+        .select("quantity")
+        .in("lot_id", lots.map((l: any) => l.id));
+      return (sales ?? []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
+    },
+    enabled: !!id,
+  });
+
+
   const renameSubEventMutation = useMutation({
     mutationFn: async ({ subId, newName }: { subId: string; newName: string }) => {
       const { error } = await supabase.from("events").update({ name: newName }).eq("id", subId);
@@ -578,11 +602,14 @@ export default function EventDetail() {
   }
 
   const isCompleted = event.status === "completed";
+  const ticketsSold = ticketSalesQty > 0 ? ticketSalesQty : Number(event.tickets_sold || 0);
+
 
   // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
   const realizedTransactions = eventTransactions.filter(
-    (t) => t.status === "paid" || t.status === "approved"
+    (t) => t.status === "paid" || t.status === "approved" || t.status === "partially_paid"
   );
+
   const incomeTransactions = realizedTransactions.filter((t) => t.type === "income");
   const expenseTransactions = realizedTransactions.filter((t) => t.type === "expense");
   const operationalExpenseTransactions = expenseTransactions.filter((t) => !t.is_transitory);
@@ -971,10 +998,11 @@ export default function EventDetail() {
 
         <StatCard
           title="Bilhetes"
-          value={`${event.tickets_sold.toLocaleString()}`}
+          value={`${ticketsSold.toLocaleString()}`}
           icon={Ticket}
-          subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((event.tickets_sold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
-          tooltip="Bilhetes vendidos registados no evento sobre a capacidade total configurada (não inclui convites/cortesias)."
+          subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((ticketsSold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
+          tooltip="Bilhetes vendidos calculados a partir dos registos de vendas de bilheteira (não inclui convites/cortesias)."
+
         />
       </div>
 
