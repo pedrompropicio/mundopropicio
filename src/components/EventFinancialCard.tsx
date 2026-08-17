@@ -5,7 +5,9 @@ import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredWithVat, writeStoredWithVat,
+  allowedModes,
 } from "@/lib/event-financial-card";
+
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import {
