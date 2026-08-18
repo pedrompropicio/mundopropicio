@@ -170,6 +170,32 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     enabled: zones.length > 0,
   });
 
+  // Vendas REAIS agregadas por zona (todas as sources de ticket_sales) — 1 query, sem N+1.
+  const zoneIdsKey = zones.map((z) => z.id).sort().join(",");
+  const { data: realSalesByZone = {} } = useQuery({
+    queryKey: ["event_ticket_sales_by_zone", eventId, zoneIdsKey],
+    queryFn: async () => {
+      const zoneIds = zones.map((z) => z.id);
+      if (zoneIds.length === 0) return {} as Record<string, { tickets: number; revenue: number }>;
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("zone_id, quantity, unit_price, total_value")
+        .in("zone_id", zoneIds);
+      if (error) throw error;
+      const acc: Record<string, { tickets: number; revenue: number }> = {};
+      for (const s of (data ?? []) as any[]) {
+        if (!s.zone_id) continue;
+        const cur = acc[s.zone_id] ?? { tickets: 0, revenue: 0 };
+        cur.tickets += Number(s.quantity ?? 0);
+        cur.revenue +=
+          s.total_value != null ? Number(s.total_value) : Number(s.quantity ?? 0) * Number(s.unit_price ?? 0);
+        acc[s.zone_id] = cur;
+      }
+      return acc;
+    },
+    enabled: zones.length > 0,
+  });
+
   // Fetch event data for last_sales_date + event_type + parent (gating do Combo)
   const { data: eventData } = useQuery({
     queryKey: ["event-ticketing-meta", eventId],
