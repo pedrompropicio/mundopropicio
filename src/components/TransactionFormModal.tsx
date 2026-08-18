@@ -196,6 +196,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [installmentWizard, setInstallmentWizard] = useState<{ count: number; firstDate: string; interval: "weekly" | "biweekly" | "monthly" }>({
     count: 2, firstDate: "", interval: "monthly",
   });
+  // Guarda anti-2ª geração: parcelas "(n/m)" já existentes para este documento.
+  const [existingInstallmentsFound, setExistingInstallmentsFound] = useState<ExistingInstallment[]>([]);
+
   const queryClient = useQueryClient();
 
   /**
