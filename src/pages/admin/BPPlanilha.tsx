@@ -7,6 +7,7 @@
  * substituir esta key ("non-commercial-and-evaluation") pela key comprada.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Handsontable from "handsontable";
 import { HotTable } from "@handsontable/react-wrapper";
 import { registerAllModules } from "handsontable/registry";
 import { HyperFormula } from "hyperformula";
