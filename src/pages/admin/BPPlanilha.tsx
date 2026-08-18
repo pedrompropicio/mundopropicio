@@ -903,8 +903,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         return;
       }
       const text = txt(value) || ORDERING_HOUSE_LABEL;
-      const dropdownRenderer = Handsontable.renderers.getRenderer("dropdown");
-      dropdownRenderer(inst, td, r, c, p, text, cellProps);
+      const dropdownRenderer = Handsontable.renderers.getRenderer("dropdown") as any;
+      dropdownRenderer(inst, td as any, r, c, p, text, cellProps);
       td.style.color = text === ORDERING_HOUSE_LABEL ? "hsl(var(--muted-foreground))" : "";
     },
     [],
