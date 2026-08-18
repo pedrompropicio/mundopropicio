@@ -224,25 +224,53 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const eRes = await supabase.from("events").select("name, company_id").eq("id", eventId).maybeSingle();
+      const eRes = await supabase
+        .from("events")
+        .select("name, company_id, parent_event_id")
+        .eq("id", eventId)
+        .maybeSingle();
       if (eRes.error) throw eRes.error;
       const eventCompanyId = (eRes.data as any)?.company_id ?? null;
+      const parentEventId = (eRes.data as any)?.parent_event_id ?? null;
       const catQuery = supabase.from("account_categories").select("id, name, code, parent_id, type, company_id");
-      const [fRes, cRes] = await Promise.all([
+      const partnersSourceId = parentEventId || eventId;
+      const [fRes, cRes, pRes, tRes] = await Promise.all([
         supabase
           .from("event_forecasts")
-          .select("id, category_id, description, specification, amount, iva_rate, formalidade, status")
+          .select(
+            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id",
+          )
           .eq("event_id", eventId)
           .is("version_id", null)
           .in("status", ["approved", "draft"])
           .eq("type", "expense"),
         eventCompanyId ? catQuery.eq("company_id", eventCompanyId) : catQuery,
+        supabase
+          .from("event_partners")
+          .select("id, percentage, suppliers:supplier_id(name)")
+          .eq("event_id", partnersSourceId),
+        supabase
+          .from("transactions")
+          .select(
+            "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, ordering_partner_id",
+          )
+          .eq("event_id", eventId)
+          .eq("type", "expense"),
       ]);
       if (fRes.error) throw fRes.error;
       if (cRes.error) throw cRes.error;
       const list = (fRes.data ?? []) as Entry[];
       setEntries(list);
       setCategories((cRes.data ?? []) as Category[]);
+      setPartners(
+        ((pRes.data ?? []) as any[]).map((p) => ({
+          id: p.id,
+          percentage: p.percentage,
+          name: (p.suppliers as any)?.name ?? "Sócio",
+        })),
+      );
+      setTransactions((tRes.data ?? []) as any[]);
+
       const map = new Map<string, Entry>();
       for (const e of list) map.set(e.id, e);
       originalsRef.current = map;
