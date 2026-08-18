@@ -131,6 +131,7 @@ export async function runBolImport(input: BolImportInput): Promise<BolImportAudi
         lot_type: "regular", lot_kind: "simple",
         is_combo: false, consumes_zone_ids: [],
         price: 0, quantity: row.capacity || 0, iva_rate: IVA_RATE, company_id: companyId,
+        sync_generated: true,
       }).select("id, name").single();
       if (error) throw new Error(`Criar lote da zona "${row.sector}": ${error.message}`);
       lot = data;
