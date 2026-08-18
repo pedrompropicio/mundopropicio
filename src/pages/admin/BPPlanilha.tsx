@@ -177,6 +177,9 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const [transactions, setTransactions] = useState<any[]>([]);
   /** Painel read-only de "anexos" (transações vinculadas a uma linha/bucket). */
   const [anexosPanel, setAnexosPanel] = useState<{ title: string; txs: any[] } | null>(null);
+  /** Anexos de ficheiro por transação do painel (uma query em lote). */
+  const [panelDocs, setPanelDocs] = useState<Record<string, TxDocLike[]>>({});
+
 
   const { theme } = useTheme();
   const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
