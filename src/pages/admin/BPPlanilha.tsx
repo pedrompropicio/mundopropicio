@@ -923,13 +923,30 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
 
   const actionBar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground">
           {totalChanges > 0
             ? `${totalChanges} alteração(ões) pendente(s) — ${counts.edits} editadas · ${counts.inserts} inseridas · ${counts.deletes} removidas`
             : "Sem alterações pendentes"}
         </span>
+        {partners.length > 0 && (
+          <Select value={orderingFilter} onValueChange={setOrderingFilter}>
+            <SelectTrigger className="h-8 w-[190px] text-xs">
+              <SelectValue placeholder="Ordenador" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ORDERING_FILTER_ALL}>Todos os ordenadores</SelectItem>
+              <SelectItem value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</SelectItem>
+              {partners.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
+
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" onClick={handleUndo} disabled={undoDepth === 0}>
           <Undo2 className="mr-1 h-3.5 w-3.5" /> Desfazer
