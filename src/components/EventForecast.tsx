@@ -1058,7 +1058,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           date: eventDate,
           due_date: eventDate,
           status: txStatus,
-        }).select("id").single();
+          // Herança preenchida no vínculo: TX gerada do BP nasce com o ordenador da linha.
+          ordering_partner_id: f.type === "expense" ? (f.ordering_partner_id || null) : null,
+        } as any).select("id").single();
         if (error) throw error;
 
         // Audit: log creation from BP (and auto-approval if applicable)
