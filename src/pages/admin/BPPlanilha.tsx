@@ -7,6 +7,7 @@
  * substituir esta key ("non-commercial-and-evaluation") pela key comprada.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Handsontable from "handsontable";
 import { HotTable } from "@handsontable/react-wrapper";
 import { registerAllModules } from "handsontable/registry";
 import { HyperFormula } from "hyperformula";
@@ -887,22 +888,28 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     [],
   );
 
-  /** Ordenador: só faz sentido em linhas de despesa reais; grupos/bucket ficam vazios. */
+  /**
+   * Ordenador: só faz sentido em linhas de despesa reais; grupos/bucket ficam vazios.
+   * Nas linhas de despesa delegamos ao renderer nativo de dropdown (mesma mecânica
+   * da coluna Formalidade) para a célula mostrar a seta do seletor.
+   */
   const ordererRenderer = useCallback(
-    (_inst: any, td: HTMLElement, r: number, _c: number, _p: any, value: any, cellProps: any) => {
-      td.className = cellProps?.className ?? "";
+    (inst: any, td: HTMLElement, r: number, c: number, p: any, value: any, cellProps: any) => {
       const m = metaRef.current[r];
       if (!m || m.kind !== "entry") {
+        td.className = cellProps?.className ?? "";
         td.textContent = "";
         td.style.color = "";
         return;
       }
       const text = txt(value) || ORDERING_HOUSE_LABEL;
-      td.textContent = text;
+      const dropdownRenderer = Handsontable.renderers.getRenderer("dropdown") as any;
+      dropdownRenderer(inst, td as any, r, c, p, text, cellProps);
       td.style.color = text === ORDERING_HOUSE_LABEL ? "hsl(var(--muted-foreground))" : "";
     },
     [],
   );
+
 
   /** Anexos: contador clicável (read-only) das transações vinculadas à linha. */
   const anexosRenderer = useCallback(
