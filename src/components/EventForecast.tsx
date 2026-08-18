@@ -1844,9 +1844,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Simetria por categoria: só TX cuja categoria foi orçada no BP deste evento.
       // TX sem categoria ficam fora (não há linha BP para comparar).
       if (!t.category_id || !bpCategoryIds.has(t.category_id)) return false;
+      // Ordenador efectivo (próprio ou herdado da linha BP) — só despesas.
+      if (
+        t.type === "expense" &&
+        !matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter)
+      ) return false;
       return true;
     });
-  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds]);
+  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   // Alinha os cards do BP ao mesmo perímetro estrito da vista "Previsão vs Real",
