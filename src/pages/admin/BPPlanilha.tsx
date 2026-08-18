@@ -755,13 +755,22 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         } as any);
         if (error) throw error;
       }
+      // Ordenador grava direto (a RPC não cobre este campo), tal como na visão agrupada.
+      for (const o of diff.ordererEdits) {
+        const { error } = await supabase
+          .from("event_forecasts")
+          .update({ ordering_partner_id: o.ordering_partner_id })
+          .eq("id", o.id);
+        if (error) throw error;
+      }
       if (diff.deletes.length) {
         const { error } = await supabase.from("event_forecasts").delete().in("id", diff.deletes);
         if (error) throw error;
       }
       toast.success(
-        `${diff.edits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
+        `${diff.edits.length + diff.ordererEdits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
       );
+
       // Refresh das vistas que leem event_forecasts + cards financeiros do evento
       for (const key of [
         ["event_forecasts"],
