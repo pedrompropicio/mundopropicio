@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
-import { compareHierarchicalCodes, calcWithIva, formatLocalDate } from "@/lib/utils";
+import { compareHierarchicalCodes, calcWithIva, formatDatePT } from "@/lib/utils";
 import { formatCurrencyDecimal } from "@/lib/mock-data";
 import {
   findMatchingTransactionsForForecast,
