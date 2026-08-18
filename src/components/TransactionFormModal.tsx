@@ -31,6 +31,8 @@ import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
+import { findExistingInstallments, existingInstallmentsMessage, type ExistingInstallment } from "@/lib/installment-guard";
+
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
