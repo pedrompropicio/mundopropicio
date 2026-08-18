@@ -306,23 +306,62 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     [catById],
   );
 
+  /* ────────────── ordenador de despesas por sócio (helpers locais) ────────────── */
+
+  const partnerNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of partners) m.set(p.id, p.name);
+    return m;
+  }, [partners]);
+
+  const ordererLabels = useMemo(
+    () => [ORDERING_HOUSE_LABEL, ...partners.map((p) => p.name)],
+    [partners],
+  );
+
+  const labelToPartnerId = useCallback(
+    (label: unknown): string | null => {
+      const v = txt(label);
+      if (!v || v === ORDERING_HOUSE_LABEL) return null;
+      const hit = partners.find((p) => p.name === v);
+      return hit ? hit.id : null;
+    },
+    [partners],
+  );
+
+  const inheritedOrdererMap = useMemo(
+    () => buildInheritedOrdererMap(entries as any[], transactions),
+    [entries, transactions],
+  );
+
   /* ─────────────────── construção da grelha (L1 > L2 > L3) ─────────────────── */
 
-  const { tableData, rowMeta } = useMemo(() => {
+  const { tableData, rowMeta, anexosByRow } = useMemo(() => {
     const data: any[][] = [];
     const meta: RowMeta[] = [];
-    const pushFormulaRow = (m: RowMeta, cells: any[]) => {
+    const anexos: (any[] | null)[] = [];
+    const pushFormulaRow = (m: RowMeta, cells: any[], txs: any[] | null) => {
       const sheetRow = data.length + 1;
       if (m.kind === "entry") {
         cells[COL.TOTAL] = `=D${sheetRow}*(1+E${sheetRow}/100)`;
       }
       data.push(cells);
       meta.push(m);
+      anexos.push(txs);
+    };
+    const pushPlainRow = (m: RowMeta, cells: any[], txs: any[] | null = null) => {
+      data.push(cells);
+      meta.push(m);
+      anexos.push(txs);
     };
 
     // agrupar entries (incluindo linhas novas) por categoria L3
     const byCat = new Map<string, { id?: string; tempId?: string; entry?: Entry; categoryId: string | null }[]>();
-    const visible = entries.filter((e) => !pendingDeletes.includes(e.id));
+    const visible = entries.filter(
+      (e) =>
+        !pendingDeletes.includes(e.id) &&
+        matchesOrderingPartnerFilter(e.ordering_partner_id ?? null, orderingFilter),
+    );
     for (const e of visible) {
       const key = e.category_id ?? "__none__";
       if (!byCat.has(key)) byCat.set(key, []);
@@ -352,6 +391,11 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       compareHierarchicalCodes(catById.get(a)?.code ?? "zz", catById.get(b)?.code ?? "zz"),
     );
 
+    const filterTxs = (list: any[]) =>
+      list.filter((t) =>
+        matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter),
+      );
+
     const shown = new Set<string>();
     for (const key of keys) {
       const catId = key === "__none__" ? null : key;
@@ -361,48 +405,94 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         if (level > 3 || shown.has(c.id)) return;
         shown.add(c.id);
         const indent = "    ".repeat(level - 1);
-        const cells = new Array(7).fill("");
+        const cells = new Array(NUM_COLS).fill("");
         cells[COL.CATEGORY] = `${indent}${c.code ?? ""} ${c.name}`.trim();
         cells[COL.AMOUNT] = null;
         cells[COL.IVA] = null;
-        data.push(cells);
-        meta.push({ kind: "group", level, categoryId: c.id });
+        pushPlainRow({ kind: "group", level, categoryId: c.id }, cells);
       });
       if (!chain.length) {
-        const cells = new Array(7).fill("");
+        const cells = new Array(NUM_COLS).fill("");
         cells[COL.CATEGORY] = "(sem categoria)";
-        data.push(cells);
-        meta.push({ kind: "group", level: 3, categoryId: null });
+        pushPlainRow({ kind: "group", level: 3, categoryId: null }, cells);
       }
 
       for (const row of byCat.get(key)!) {
         const label = catLabel(catId);
         if (row.entry) {
-          pushFormulaRow({ kind: "entry", id: row.entry.id, categoryId: catId, categoryLabel: label }, [
-            label,
-            row.entry.description ?? "",
-            row.entry.specification ?? "",
-            Number(row.entry.amount ?? 0),
-            Number(row.entry.iva_rate ?? 0),
-            "",
-            enumToLabel(row.entry.formalidade),
-          ]);
+          const txs = filterTxs(
+            findMatchingTransactionsForForecast(row.entry as any, transactions, entries as any[]),
+          );
+          pushFormulaRow(
+            { kind: "entry", id: row.entry.id, categoryId: catId, categoryLabel: label },
+            [
+              label,
+              row.entry.description ?? "",
+              row.entry.specification ?? "",
+              Number(row.entry.amount ?? 0),
+              Number(row.entry.iva_rate ?? 0),
+              "",
+              enumToLabel(row.entry.formalidade),
+              row.entry.ordering_partner_id
+                ? partnerNameById.get(row.entry.ordering_partner_id) ?? ORDERING_HOUSE_LABEL
+                : ORDERING_HOUSE_LABEL,
+              txs.length ? `🔗 ${txs.length}` : "",
+            ],
+            txs,
+          );
         } else {
-          pushFormulaRow({ kind: "entry", tempId: row.tempId!, categoryId: catId, categoryLabel: label }, [
-            label,
-            "",
-            "",
-            0,
-            Number(defaultRate),
-            "",
-            enumToLabel("estimado"),
-          ]);
+          pushFormulaRow(
+            { kind: "entry", tempId: row.tempId!, categoryId: catId, categoryLabel: label },
+            [label, "", "", 0, Number(defaultRate), "", enumToLabel("estimado"), ORDERING_HOUSE_LABEL, ""],
+            null,
+          );
+        }
+      }
+
+      // bucket sintético "Sem linha específica": TXs da categoria que nenhuma linha reclama
+      if (catId) {
+        const orphans = filterTxs(
+          findCategoryOrphanTransactions({
+            categoryId: catId,
+            type: "expense",
+            eventId,
+            transactions,
+            allForecasts: entries as any[],
+          }),
+        );
+        if (orphans.length) {
+          const cells = new Array(NUM_COLS).fill("");
+          cells[COL.CATEGORY] = catLabel(catId);
+          cells[COL.DESCRIPTION] = "Sem linha específica";
+          cells[COL.AMOUNT] = null;
+          cells[COL.IVA] = null;
+          cells[COL.ANEXOS] = `🔗 ${orphans.length}`;
+          pushPlainRow({ kind: "orphan", categoryId: catId }, cells, orphans);
         }
       }
     }
-    return { tableData: data, rowMeta: meta };
+    return { tableData: data, rowMeta: meta, anexosByRow: anexos };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, pendingDeletes, tempRows, catById, catLabel, defaultRate, dataVersion]);
+  }, [
+    entries,
+    pendingDeletes,
+    tempRows,
+    catById,
+    catLabel,
+    defaultRate,
+    dataVersion,
+    orderingFilter,
+    transactions,
+    inheritedOrdererMap,
+    partnerNameById,
+    eventId,
+  ]);
+
+  const anexosRef = useRef<(any[] | null)[]>([]);
+  useEffect(() => {
+    anexosRef.current = anexosByRow;
+  }, [anexosByRow]);
+
 
   useEffect(() => {
     metaRef.current = rowMeta;
