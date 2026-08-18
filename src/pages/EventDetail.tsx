@@ -1147,10 +1147,25 @@ export default function EventDetail() {
 
             {/* Transactions list */}
             <div className={`glass rounded-xl p-5 ${pieData.length > 0 ? "lg:col-span-3" : "lg:col-span-5"}`}>
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                {isGlobalView ? "Transações (Todas as Datas)" : "Transações do Evento"}
-              </h2>
-              {eventTransactions.length === 0 ? (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  {isGlobalView ? "Transações (Todas as Datas)" : "Transações do Evento"}
+                </h2>
+                {orderingPartners.length > 0 && (
+                  <select
+                    value={orderingFilter}
+                    onChange={(e) => setOrderingFilter(e.target.value)}
+                    className="rounded-lg border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
+                    <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</option>
+                    {orderingPartners.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {visibleTransactions.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -1165,7 +1180,7 @@ export default function EventDetail() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {eventTransactions.map((t) => {
+                      {visibleTransactions.map((t) => {
                           const effectiveStatus = (t as any)._effective_status ?? t.status;
                         const isSharedCost = isGlobalView && t.event_id === id;
                         const subName = isGlobalView
