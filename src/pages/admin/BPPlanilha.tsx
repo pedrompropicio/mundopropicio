@@ -38,6 +38,12 @@ import {
   findCategoryOrphanTransactions,
 } from "@/lib/bp-tx-matching";
 import {
+  openTransactionDocument,
+  isTextualRef,
+  type TxDocLike,
+} from "@/lib/open-transaction-document";
+
+import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
   ORDERING_HOUSE_LABEL,
@@ -177,6 +183,36 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const [transactions, setTransactions] = useState<any[]>([]);
   /** Painel read-only de "anexos" (transações vinculadas a uma linha/bucket). */
   const [anexosPanel, setAnexosPanel] = useState<{ title: string; txs: any[] } | null>(null);
+  /** Anexos de ficheiro por transação do painel (uma query em lote). */
+  const [panelDocs, setPanelDocs] = useState<Record<string, TxDocLike[]>>({});
+
+  /* Carrega em lote os anexos das transações mostradas no painel. */
+  useEffect(() => {
+    const ids = (anexosPanel?.txs ?? []).map((t: any) => t.id).filter(Boolean);
+    if (ids.length === 0) {
+      setPanelDocs({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("transaction_documents")
+        .select("id, name, file_url, transaction_id")
+        .in("transaction_id", ids);
+      if (cancelled) return;
+      const grouped: Record<string, TxDocLike[]> = {};
+      for (const d of (data ?? []) as any[]) {
+        if (!d.transaction_id) continue;
+        (grouped[d.transaction_id] ??= []).push(d as TxDocLike);
+      }
+      setPanelDocs(grouped);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [anexosPanel]);
+
+
 
   const { theme } = useTheme();
   const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
@@ -1219,7 +1255,30 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
                       Ordenador: {orderer ? partnerNameById.get(orderer) ?? "Sócio" : ORDERING_HOUSE_LABEL}
                     </span>
                   </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {(panelDocs[t.id] ?? []).length === 0 ? (
+                      <span className="text-[11px] text-muted-foreground">📎 —</span>
+                    ) : (
+                      (panelDocs[t.id] ?? []).map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            void openTransactionDocument(d).catch((err: any) =>
+                              toast.error(err?.message ?? "Não foi possível abrir o anexo"),
+                            );
+                          }}
+                          disabled={isTextualRef(d.file_url)}
+                          title={d.name}
+                          className="max-w-[14rem] truncate rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted disabled:cursor-default disabled:text-muted-foreground"
+                        >
+                          📎 {d.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
+
               );
             })}
           </div>
