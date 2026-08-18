@@ -1125,7 +1125,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       )}
 
       {/* === Vendas por Zona (realizado) === */}
-      {filteredZones.length > 0 && (
+      {realizedZones.length > 0 && (
         <div className="glass rounded-xl p-5">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">
             Vendas por Zona (realizado)
@@ -1148,7 +1148,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {sortedZones.map((z: any) => {
+                {realizedZones.map((z: any) => {
                   const real = (realSalesByZone as any)[z.id] ?? { tickets: 0, revenue: 0 };
                   const fcTickets = getZoneTotalTickets(z.id);
                   const fcValue = getZoneGrossRevenue(z.id);
@@ -1176,7 +1176,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               </tbody>
               <tfoot>
                 {(() => {
-                  const tot = sortedZones.reduce(
+                  const tot = realizedZones.reduce(
                     (acc: any, z: any) => {
                       const real = (realSalesByZone as any)[z.id] ?? { tickets: 0, revenue: 0 };
                       acc.tickets += real.tickets;
