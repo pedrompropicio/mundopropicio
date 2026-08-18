@@ -27,6 +27,14 @@ import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel"
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
 import { useCompany } from "@/hooks/useCompany";
+import {
+  ORDERING_FILTER_ALL,
+  ORDERING_FILTER_HOUSE,
+  ORDERING_HOUSE_LABEL,
+  buildInheritedOrdererMap,
+  effectiveTransactionOrderer,
+  matchesOrderingPartnerFilter,
+} from "@/lib/ordering-partner";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
@@ -244,6 +252,35 @@ export default function EventDetail() {
       ? [selectedSubEvent]
       : [id!];
 
+
+  // --- Ordenador de despesas (opcional; sem ordenador = MP/comum) ---
+  const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  const { data: orderingPartners = [] } = useQuery({
+    queryKey: ["event-ordering-partners", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, suppliers(name)")
+        .eq("event_id", id!);
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({ id: p.id, name: p.suppliers?.name ?? "Sócio" }));
+    },
+    enabled: !!id,
+  });
+  const { data: orderingForecasts = [] } = useQuery({
+    queryKey: ["event-ordering-forecasts", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, category_id, type, description, transaction_id, ordering_partner_id")
+        .eq("event_id", id!)
+        .eq("type", "expense")
+        .is("version_id", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id,
+  });
 
   const { data: eventTransactions = [] } = useQuery({
     queryKey: ["event_transactions", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
