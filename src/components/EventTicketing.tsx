@@ -135,7 +135,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     if ((addingLotForZone || editingLotId) && lotNameRef.current) lotNameRef.current.focus();
   }, [addingLotForZone, editingLotId]);
 
-  const { data: zones = [], isLoading } = useQuery({
+  // FRONTEIRA sync ↔ planeamento: as zonas/lotes com sync_generated=true são
+  // âncoras técnicas criadas pelas syncs de bilheteira (Ticketline/BOL) para
+  // pendurar as vendas reais. Nunca entram no planeamento (previsão).
+  const { data: allZones = [], isLoading } = useQuery({
     queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
       let q = supabase
@@ -151,10 +154,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     },
   });
 
-  const { data: allLots = [] } = useQuery({
+  const zones = useMemo(
+    () => (allZones as any[]).filter((z) => !z.sync_generated),
+    [allZones],
+  );
+
+  const { data: allLotsRaw = [] } = useQuery({
     queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const zoneIds = zones.map((z) => z.id);
+      const zoneIds = (allZones as any[]).map((z) => z.id);
       if (zoneIds.length === 0) return [];
       let q = supabase
         .from("event_ticket_lots")
@@ -167,15 +175,20 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       if (error) throw error;
       return data;
     },
-    enabled: zones.length > 0,
+    enabled: (allZones as any[]).length > 0,
   });
 
+  const allLots = useMemo(
+    () => (allLotsRaw as any[]).filter((l) => !l.sync_generated),
+    [allLotsRaw],
+  );
+
   // Vendas REAIS agregadas por zona (todas as sources de ticket_sales) — 1 query, sem N+1.
-  const zoneIdsKey = zones.map((z) => z.id).sort().join(",");
+  const zoneIdsKey = (allZones as any[]).map((z) => z.id).sort().join(",");
   const { data: realSalesByZone = {} } = useQuery({
     queryKey: ["event_ticket_sales_by_zone", eventId, zoneIdsKey],
     queryFn: async () => {
-      const zoneIds = zones.map((z) => z.id);
+      const zoneIds = (allZones as any[]).map((z) => z.id);
       if (zoneIds.length === 0) return {} as Record<string, { tickets: number; revenue: number }>;
       const { data, error } = await supabase
         .from("ticket_sales")
@@ -193,7 +206,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
       return acc;
     },
-    enabled: zones.length > 0,
+    enabled: (allZones as any[]).length > 0,
   });
 
   // Fetch event data for last_sales_date + event_type + parent (gating do Combo)
@@ -558,6 +571,17 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       return maxPriceB - maxPriceA;
     });
   }, [filteredZones, allLots]);
+
+  // Zonas para o bloco de REALIZADO: inclui as âncoras da sync (sync_generated),
+  // que não entram no planeamento mas têm vendas reais penduradas.
+  const realizedZones = useMemo(() => {
+    const base = sessionId
+      ? (allZones as any[]).filter((z) => z.session_id === sessionId || z.sync_generated)
+      : (allZones as any[]);
+    const planningIds = new Set(sortedZones.map((z: any) => z.id));
+    const extras = base.filter((z) => !planningIds.has(z.id));
+    return [...sortedZones, ...extras];
+  }, [allZones, sortedZones, sessionId]);
 
   const totalGrossRevenue = filteredZones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
   const totalNetRevenue = filteredZones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
@@ -1101,7 +1125,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       )}
 
       {/* === Vendas por Zona (realizado) === */}
-      {filteredZones.length > 0 && (
+      {realizedZones.length > 0 && (
         <div className="glass rounded-xl p-5">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">
             Vendas por Zona (realizado)
@@ -1124,7 +1148,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {sortedZones.map((z: any) => {
+                {realizedZones.map((z: any) => {
                   const real = (realSalesByZone as any)[z.id] ?? { tickets: 0, revenue: 0 };
                   const fcTickets = getZoneTotalTickets(z.id);
                   const fcValue = getZoneGrossRevenue(z.id);
@@ -1152,7 +1176,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               </tbody>
               <tfoot>
                 {(() => {
-                  const tot = sortedZones.reduce(
+                  const tot = realizedZones.reduce(
                     (acc: any, z: any) => {
                       const real = (realSalesByZone as any)[z.id] ?? { tickets: 0, revenue: 0 };
                       acc.tickets += real.tickets;

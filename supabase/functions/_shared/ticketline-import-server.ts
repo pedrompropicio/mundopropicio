@@ -151,8 +151,11 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
       audit.zonesReused++;
       continue;
     }
+    // FRONTEIRA: zona criada pela sync é apenas âncora técnica das vendas —
+    // sync_generated=true mantém-na fora do planeamento (previsão) do ERP.
     const { data, error } = await supabase.from("event_ticket_zones").insert({
       event_id: eventId, name: zName, session_id: null, total_capacity: 0, company_id: companyId,
+      sync_generated: true,
     }).select("id").single();
     if (error) throw new Error(`Criar zona "${zName}": ${error.message}`);
     zoneIdByName.set(zName, data!.id);
@@ -191,11 +194,13 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
     }
     const nextNum = (lotMaxNumberByZone.get(zoneId) || 0) + 1;
     lotMaxNumberByZone.set(zoneId, nextNum);
+    // FRONTEIRA: lote criado pela sync é âncora técnica (0/0) — nunca entra na previsão.
     const { data, error } = await supabase.from("event_ticket_lots").insert({
       zone_id: zoneId, name: lotName, lot_number: nextNum,
       lot_type: "regular", lot_kind: "simple",
       is_combo: false, consumes_zone_ids: [],
       price: 0, quantity: 0, iva_rate: IVA_RATE, company_id: companyId,
+      sync_generated: true,
     }).select("id").single();
     if (error) throw new Error(`Criar lote "${lotName}" em zona "${r.zone}": ${error.message}`);
     lotIdByRowKey.set(rowKey, data!.id);

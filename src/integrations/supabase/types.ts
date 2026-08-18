@@ -5217,6 +5217,7 @@ export type Database = {
           quantity: number
           sales_window_end: string | null
           sales_window_start: string | null
+          sync_generated: boolean
           ticket_type_id: string | null
           version_id: string | null
           zone_id: string
@@ -5240,6 +5241,7 @@ export type Database = {
           quantity?: number
           sales_window_end?: string | null
           sales_window_start?: string | null
+          sync_generated?: boolean
           ticket_type_id?: string | null
           version_id?: string | null
           zone_id: string
@@ -5263,6 +5265,7 @@ export type Database = {
           quantity?: number
           sales_window_end?: string | null
           sales_window_start?: string | null
+          sync_generated?: boolean
           ticket_type_id?: string | null
           version_id?: string | null
           zone_id?: string
@@ -5579,6 +5582,7 @@ export type Database = {
           id: string
           name: string
           session_id: string | null
+          sync_generated: boolean
           total_capacity: number | null
           updated_at: string
           version_id: string | null
@@ -5590,6 +5594,7 @@ export type Database = {
           id?: string
           name: string
           session_id?: string | null
+          sync_generated?: boolean
           total_capacity?: number | null
           updated_at?: string
           version_id?: string | null
@@ -5601,6 +5606,7 @@ export type Database = {
           id?: string
           name?: string
           session_id?: string | null
+          sync_generated?: boolean
           total_capacity?: number | null
           updated_at?: string
           version_id?: string | null
