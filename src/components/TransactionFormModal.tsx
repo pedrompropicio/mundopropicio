@@ -2516,6 +2516,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
+          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = MP/comum. */}
+          {form.type === "expense" && eventPartners.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Ordenador da despesa</label>
+              <select
+                value={form.ordering_partner_id}
+                onChange={(e) => setForm({ ...form, ordering_partner_id: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">— MP / comum</option>
+                {eventPartners.map((p: any) => (
+                  <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Opcional. Ao escolher uma linha do BP com ordenador, o valor é pré-preenchido.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             {currency === "EUR" ? (
               <div className="grid grid-cols-2 gap-3">
