@@ -767,6 +767,17 @@ export default function EventDetail() {
   }, {});
   const pieData = Object.values(expenseByCategory);
 
+  // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
+  const inheritedOrdererMap = buildInheritedOrdererMap(orderingForecasts, eventTransactions);
+  const visibleTransactions =
+    orderingFilter === ORDERING_FILTER_ALL
+      ? eventTransactions
+      : eventTransactions.filter((t: any) =>
+          t.type !== "expense"
+            ? false
+            : matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter),
+        );
+
   const statusLabels: Record<string, string> = {
     pending: "Aguardando",
     approved: "A Pagar",
