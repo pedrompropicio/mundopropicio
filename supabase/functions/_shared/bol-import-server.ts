@@ -107,9 +107,11 @@ export async function runBolImport(input: BolImportInput): Promise<BolImportAudi
   for (const row of parseResult.rows) {
     let zone = zonesByName.get(norm(row.sector));
     if (!zone) {
+      // FRONTEIRA: zona criada pela sync é âncora técnica das vendas — fora do planeamento.
       const { data, error } = await supabase.from("event_ticket_zones").insert({
         event_id: eventId, name: row.sector, session_id: null,
         total_capacity: row.capacity || 0, company_id: companyId,
+        sync_generated: true,
       }).select("id, name, total_capacity").single();
       if (error) throw new Error(`Criar zona "${row.sector}": ${error.message}`);
       zone = data;
