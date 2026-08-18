@@ -173,6 +173,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
   // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
+  // Ordenador da despesa: "all" | "house" (MP/comum, sem ordenador) | event_partners.id
+  const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
   // Tipo: "all" | "income" | "expense" — controla se mostramos só Receitas, só Despesas ou Ambos
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
