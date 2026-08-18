@@ -25,7 +25,16 @@ do componente: **em produção comercial é obrigatória licença Handsontable c
 - Grelha hierárquica L1 > L2 > L3 (linhas de grupo read-only, indentadas por nível) + linhas editáveis.
 - Colunas: Categoria (read-only) · Descrição · Especificação · Valor s/IVA · Taxa IVA (dropdown
   com as taxas do país do evento via `useEventIvaCountry`) · Total c/IVA (fórmula HyperFormula
-  `=D{n}*(1+E{n}/100)`, read-only) · Formalidade (dropdown com os 5 estados).
+  `=D{n}*(1+E{n}/100)`, read-only) · Formalidade (dropdown com os 5 estados) · **Ordenador**
+  (dropdown com "MP / comum" + sócios do evento; grava `ordering_partner_id` direto em
+  `event_forecasts` porque a RPC de batch não cobre o campo) · **Anexos** (read-only, contador
+  "🔗 N" clicável → painel lateral com as transações vinculadas).
+- Filtro **Ordenador** na toolbar (Todos | MP/comum | cada sócio) filtra linhas do BP e as
+  transações do painel de anexos (ordenador efetivo via `effectiveTransactionOrderer`).
+- Anexos usam o SSoT `src/lib/bp-tx-matching.ts` (`findMatchingTransactionsForForecast` +
+  `findCategoryOrphanTransactions`); o bucket "Sem linha específica" aparece como linha sintética
+  read-only no fim de cada categoria. Sem edição de vínculos na planilha.
+
 - Edição em memória → **Gravar** com diálogo de confirmação (N editadas / inseridas / removidas).
 - Gravação por diff: `batch_update_event_forecasts` (valida `updated === edits.length`),
   `batch_insert_event_forecasts` (novas entram como rascunho) e `DELETE` para removidas.
