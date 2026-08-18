@@ -807,7 +807,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Ticket className="h-4 w-4 text-primary" /> Total de Bilhetes
+            <Ticket className="h-4 w-4 text-primary" /> Total de Bilhetes (previsão)
           </div>
           <p className="font-mono text-lg font-bold">{totalTickets.toLocaleString()}</p>
           {totalCapacity > 0 && (
@@ -816,7 +816,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-success font-bold">€</span> Receita Bruta
+            <span className="text-success font-bold">€</span> Receita Bruta (previsão)
           </div>
           <p className="font-mono text-lg font-bold text-success">{formatCurrency(totalGrossRevenue)}</p>
           {totalCapacity > 0 && (
@@ -825,13 +825,13 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-warning font-bold">%</span> IVA Incluído
+            <span className="text-warning font-bold">%</span> IVA Incluído (previsão)
           </div>
           <p className="font-mono text-lg font-bold text-warning">{formatCurrency(totalIva)}</p>
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Layers className="h-4 w-4 text-primary" /> Receita Líquida
+            <Layers className="h-4 w-4 text-primary" /> Receita Líquida (previsão)
           </div>
           <p className="font-mono text-lg font-bold text-primary">{formatCurrency(totalNetRevenue)}</p>
           <p className="text-xs text-muted-foreground">{filteredZones.length} zonas · {filteredLots.length} lotes</p>
@@ -1040,7 +1040,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       {/* Revenue breakdown */}
       {filteredZones.length > 0 && filteredLots.length > 0 && (
         <div className="glass rounded-xl p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Resumo de Público e Receita por Zona/Dia</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">Resumo de Público e Receita por Zona/Dia (previsão)</h3>
+          <p className="text-xs text-muted-foreground mb-3">Valores calculados a partir dos lotes planeados — não são vendas realizadas.</p>
           <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ borderSpacing: 0 }}>
             <thead>
@@ -1050,11 +1051,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                 <th className="pb-2 text-right font-medium pl-4">Simples</th>
                 <th className="pb-2 text-right font-medium pl-4">Combos</th>
                 <th className="pb-2 text-right font-medium pl-4">Capacidade</th>
-                <th className="pb-2 text-right font-medium pl-4">Bilhetes vendidos</th>
-                <th className="pb-2 text-right font-medium pl-6">Preço Médio</th>
-                <th className="pb-2 text-right font-medium pl-6">Valor s/IVA</th>
-                <th className="pb-2 text-right font-medium pl-6">IVA</th>
-                <th className="pb-2 text-right font-medium pl-6">Total c/IVA</th>
+                <th className="pb-2 text-right font-medium pl-4">Bilhetes (previsão)</th>
+                <th className="pb-2 text-right font-medium pl-6">Preço Médio (previsão)</th>
+                <th className="pb-2 text-right font-medium pl-6">Valor s/IVA (previsão)</th>
+                <th className="pb-2 text-right font-medium pl-6">IVA (previsão)</th>
+                <th className="pb-2 text-right font-medium pl-6">Total c/IVA (previsão)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
