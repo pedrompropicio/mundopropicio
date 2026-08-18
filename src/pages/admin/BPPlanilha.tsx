@@ -38,6 +38,12 @@ import {
   findCategoryOrphanTransactions,
 } from "@/lib/bp-tx-matching";
 import {
+  openTransactionDocument,
+  isTextualRef,
+  type TxDocLike,
+} from "@/lib/open-transaction-document";
+
+import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
   ORDERING_HOUSE_LABEL,
