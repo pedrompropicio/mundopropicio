@@ -59,6 +59,8 @@ interface TransactionForm {
   /** Retenção IRS já declarada na fatura. Pré-preenche o modal de pagamento. */
   declared_withholding_rate: string;
   declared_withholding_amount: string;
+  /** Sócio ordenador da despesa (event_partners.id). "" = MP/comum. Só despesas. */
+  ordering_partner_id: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -83,6 +85,7 @@ const emptyForm: TransactionForm = {
   payment_reference: "",
   declared_withholding_rate: "",
   declared_withholding_amount: "",
+  ordering_partner_id: "",
 };
 
 const formatDueDateInput = (value: string) => {
@@ -567,7 +570,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification")
+        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification, ordering_partner_id")
         .in("event_id", forecastEventIds).is("version_id", null);
       if (error) throw error;
       return data;
@@ -1303,6 +1306,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
           declared_withholding_rate: data.type === "expense" && parseFloat(data.declared_withholding_rate) > 0 ? Number(data.declared_withholding_rate) : null,
           declared_withholding_amount: data.type === "expense" && parseFloat(data.declared_withholding_amount) > 0 ? parseFloat(data.declared_withholding_amount) : null,
+          ordering_partner_id: data.type === "expense" ? (data.ordering_partner_id || null) : null,
           currency,
           original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
           fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
@@ -2287,6 +2291,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 amount: String(Number(line.amount) || ""),
                 iva_rate: (line.iva_rate ?? 23) as IvaRate,
                 specification: line.specification || "",
+                // Herança: preenche o ordenador da linha BP (editável caso a caso).
+                ordering_partner_id: (line as any).ordering_partner_id || prev.ordering_partner_id,
               }));
               // Vincula à linha BP (FK escrita no INSERT). Ignora pseudo-ids (ex: "cache-auto").
               if (isUuid(line.id)) setSelectedForecastId(line.id);
