@@ -1026,6 +1026,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               "Taxa IVA",
               "Total c/IVA",
               "Formalidade",
+              "Ordenador",
+              "Anexos",
             ]}
             rowHeaders
             height={fullscreen ? "calc(100vh - 100px)" : 620}
@@ -1037,6 +1039,18 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             outsideClickDeselects={false}
             afterSelectionEnd={(r: number) => {
               if (typeof r === "number" && r >= 0) lastRowRef.current = r;
+            }}
+            afterOnCellMouseDown={(_e: any, coords: any) => {
+              if (!coords || coords.col !== COL.ANEXOS || coords.row < 0) return;
+              const txs = anexosRef.current[coords.row];
+              if (!txs?.length) return;
+              const m = metaRef.current[coords.row];
+              const hot = hotRef.current?.hotInstance;
+              const desc =
+                m && m.kind === "orphan"
+                  ? "Sem linha específica"
+                  : txt(hot?.getDataAtCell(coords.row, COL.DESCRIPTION)) || "Linha do BP";
+              setAnexosPanel({ title: desc, txs });
             }}
             // HyperFormula alimenta a coluna "Total c/IVA" (=D*(1+E/100)).
             formulas={{ engine: HyperFormula, licenseKey: "internal-use-in-handsontable" }}
@@ -1050,8 +1064,16 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
                   className: m.level === 3 ? "bpv2-l3" : "bpv2-group",
                 };
               }
+              if (m.kind === "orphan") {
+                return { readOnly: true, className: "bpv2-orphan" };
+              }
+              if ("tempId" in m) {
+                // Linhas novas: ordenador só depois de gravar (não há id ainda).
+                return {};
+              }
               return {};
             }}
+
             beforeChange={(changes, source) => {
               if (!changes) return;
               if (source === "loadData") return;
