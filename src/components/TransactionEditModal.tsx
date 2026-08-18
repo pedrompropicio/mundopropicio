@@ -66,6 +66,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     is_reimbursement: transaction.is_reimbursement ?? false,
     reimbursement_to: transaction.reimbursement_to ?? "",
     reimbursement_note_id: "",
+    ordering_partner_id: transaction.ordering_partner_id ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -363,9 +364,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         declared_withholding_amount: "Retenção IRS declarada (€)",
         is_reimbursement: "Reembolso",
         reimbursement_to: "Colaborador (reembolso)",
+        ordering_partner_id: "Ordenador da despesa",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
+        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id"]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
       for (const key of allowedFields) {
@@ -395,6 +397,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
       } : {
@@ -414,6 +417,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         currency,
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
@@ -760,6 +764,24 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
               <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Detalhes adicionais da despesa" />
+            </div>
+          )}
+
+          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = MP/comum.
+              A edição manual prevalece sobre a herança da linha BP. */}
+          {isExpense && form.event_id && eventPartnersForExtra.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Ordenador da despesa</label>
+              <select
+                value={form.ordering_partner_id}
+                onChange={(e) => setForm({ ...form, ordering_partner_id: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">— MP / comum</option>
+                {eventPartnersForExtra.map((p: any) => (
+                  <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
+                ))}
+              </select>
             </div>
           )}
 
