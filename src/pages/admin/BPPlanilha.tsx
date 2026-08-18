@@ -867,9 +867,19 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       },
       { data: COL.TOTAL, readOnly: true, type: "numeric", width: 150, renderer: moneyRenderer as any },
       { data: COL.FORMALIDADE, type: "dropdown", source: FORMALIDADE_LABELS, allowInvalid: false, width: 150 },
+      {
+        data: COL.ORDERER,
+        type: "dropdown",
+        source: ordererLabels,
+        allowInvalid: false,
+        width: 150,
+        renderer: ordererRenderer as any,
+      },
+      { data: COL.ANEXOS, readOnly: true, width: 90, renderer: anexosRenderer as any },
     ],
-    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer],
+    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer, ordererLabels, ordererRenderer, anexosRenderer],
   );
+
 
 
 
