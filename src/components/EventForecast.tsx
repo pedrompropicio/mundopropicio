@@ -3004,7 +3004,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering }: {
+  /** Permite alterar o ordenador da despesa nesta linha (mesma permissão de edição do BP). */
+  canEditOrdering?: boolean;
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
