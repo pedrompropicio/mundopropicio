@@ -2096,6 +2096,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </select>
               </div>
             )}
+            {/* Ordenador da despesa (só eventos com sócios) */}
+            {eventPartners.length > 0 && (
+              <div className="flex items-center gap-1.5" title="Ordenador da despesa — quem ordenou o gasto. Aplica-se só a despesas.">
+                <UserCog className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={orderingFilter}
+                  onChange={(e) => setOrderingFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
+                  <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL} (sem ordenador)</option>
+                  {eventPartners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {/* Transaction link filter */}
             <div className="flex items-center gap-1.5">
               <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
