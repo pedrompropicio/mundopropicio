@@ -1640,7 +1640,32 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Cronograma inválido", description: err, variant: "destructive" });
         return;
       }
+      // Bloqueio de segunda geração — sem opção de forçar.
+      try {
+        const existing = await findExistingInstallments({
+          eventId: form.event_id || null,
+          supplierId: form.supplier_id || null,
+          description: form.description,
+        });
+        setExistingInstallmentsFound(existing);
+        if (existing.length > 0) {
+          toast({
+            title: "Parcelamento bloqueado",
+            description: existingInstallmentsMessage(existing.length),
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (e: any) {
+        toast({
+          title: "Não foi possível validar parcelas existentes",
+          description: e?.message ?? "Tenta novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
+
     // Multi-IVA split path: create N sibling transactions sharing invoice_ref + invoice_group_id.
     if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
       const sharedInvoiceRef =
