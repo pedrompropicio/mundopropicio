@@ -1191,6 +1191,41 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Painel read-only: transações vinculadas à linha (mesmo SSoT da visão agrupada). */}
+      <Sheet open={!!anexosPanel} onOpenChange={(o) => !o && setAnexosPanel(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-base">{anexosPanel?.title}</SheetTitle>
+            <SheetDescription>
+              {anexosPanel?.txs.length ?? 0} transação(ões) atribuída(s) a esta linha — apenas leitura.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-2">
+            {(anexosPanel?.txs ?? []).map((t) => {
+              const orderer = effectiveTransactionOrderer(t, inheritedOrdererMap);
+              return (
+                <div key={t.id} className="rounded-lg border p-3 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium">{t.description || "(sem descrição)"}</span>
+                    <span className="whitespace-nowrap font-semibold">
+                      {formatCurrencyDecimal(calcWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)))}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                    <span>{formatDatePT(t.payment_date || t.due_date) || "—"}</span>
+                    <span>{t.status ?? "—"}</span>
+                    <span>
+                      Ordenador: {orderer ? partnerNameById.get(orderer) ?? "Sócio" : ORDERING_HOUSE_LABEL}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
+
   );
 }
