@@ -126,22 +126,20 @@ export function hasPaymentReference(tx: any): boolean {
 export function checkPaymentBankability(tx: any): BankabilityCheck {
   const dest = getCardLoadDestination(tx);
   const isCardLoad = !!dest;
+  const socialSecurity = isSocialSecurityExpense(tx);
   const iban = resolvePaymentIban(tx);
-  if (iban) return { ok: true, iban, viaReference: false, isCardLoad, internalNoIban: false };
-  if (hasPaymentReference(tx))
-    return { ok: true, iban: null, viaReference: true, isCardLoad, internalNoIban: false };
+  const base = { isCardLoad, internalNoIban: false, socialSecurityByNif: false };
+  if (iban) return { ...base, ok: true, iban, viaReference: false };
+  if (hasPaymentReference(tx)) return { ...base, ok: true, iban: null, viaReference: true };
+  // Segurança Social: sem IBAN e sem referência por natureza — paga-se no
+  // homebanking com o NIF da empresa. Sempre elegível, fora do SEPA.
+  if (socialSecurity)
+    return { ...base, ok: true, iban: null, viaReference: false, socialSecurityByNif: true };
   // Transferência interna (carga de cartão): sempre elegível — liquida-se no
   // homebanking entre contas próprias, com ou sem IBAN no cadastro.
   if (isCardLoad)
-    return { ok: true, iban: null, viaReference: false, isCardLoad: true, internalNoIban: true };
-  return {
-    ok: false,
-    iban: null,
-    viaReference: false,
-    isCardLoad,
-    internalNoIban: false,
-    reason: "no_bank_data",
-  };
+    return { ...base, ok: true, iban: null, viaReference: false, isCardLoad: true, internalNoIban: true };
+  return { ...base, ok: false, iban: null, viaReference: false, reason: "no_bank_data" };
 }
 
 export function isBankable(tx: any): boolean {
@@ -151,6 +149,11 @@ export function isBankable(tx: any): boolean {
 /** Carga de cartão sem IBAN de destino — elegível, mas fora do ficheiro SEPA. */
 export function isInternalNoIban(tx: any): boolean {
   return checkPaymentBankability(tx).internalNoIban;
+}
+
+/** Segurança Social por NIF — elegível, mas fora do ficheiro SEPA. */
+export function isSocialSecurityByNif(tx: any): boolean {
+  return checkPaymentBankability(tx).socialSecurityByNif;
 }
 
 /** Rótulo + tooltip do badge de inelegibilidade. */
@@ -165,4 +168,13 @@ export function internalNoIbanBadgeProps(): { label: string; tooltip: string } {
     tooltip: INTERNAL_NO_IBAN_TOOLTIP,
   };
 }
+
+/** Badge informativo (neutro) do pagamento de Segurança Social por NIF. */
+export function socialSecurityBadgeProps(): { label: string; tooltip: string } {
+  return {
+    label: "Pagamento por NIF — Segurança Social, liquidar no homebanking",
+    tooltip: SOCIAL_SECURITY_TOOLTIP,
+  };
+}
+
 
