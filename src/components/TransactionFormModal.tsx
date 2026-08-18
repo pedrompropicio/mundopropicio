@@ -3292,17 +3292,35 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </span>
                 </label>
                 {useInstallments && (
-                  <TransactionInstallmentsEditor
-                    grossTotal={grossTotal}
-                    defaultFirstDate={parseDueDateForDb(form.due_date) || form.date}
-                    installments={installmentRows}
-                    onChange={setInstallmentRows}
-                    count={installmentWizard.count}
-                    firstDate={installmentWizard.firstDate}
-                    interval={installmentWizard.interval}
-                    onWizardChange={setInstallmentWizard}
-                  />
+                  <>
+                    {existingInstallmentsFound.length > 0 && (
+                      <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive space-y-1">
+                        <div className="font-semibold">
+                          {existingInstallmentsMessage(existingInstallmentsFound.length)}
+                        </div>
+                        <ul className="space-y-0.5">
+                          {existingInstallmentsFound.map((r) => (
+                            <li key={r.id} className="font-mono">
+                              {r.description} — {r.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                              {r.due_date ? ` — venc. ${r.due_date}` : ""} — {r.status}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <TransactionInstallmentsEditor
+                      grossTotal={grossTotal}
+                      defaultFirstDate={parseDueDateForDb(form.due_date) || form.date}
+                      installments={installmentRows}
+                      onChange={setInstallmentRows}
+                      count={installmentWizard.count}
+                      firstDate={installmentWizard.firstDate}
+                      interval={installmentWizard.interval}
+                      onWizardChange={setInstallmentWizard}
+                    />
+                  </>
                 )}
+
               </div>
             );
           })()}
