@@ -171,6 +171,13 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  /* Ordenador de despesas por sócio (mesma semântica da visão agrupada). */
+  const [partners, setPartners] = useState<OrderingPartnerOption[]>([]);
+  const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  /** Painel read-only de "anexos" (transações vinculadas a uma linha/bucket). */
+  const [anexosPanel, setAnexosPanel] = useState<{ title: string; txs: any[] } | null>(null);
+
   const { theme } = useTheme();
   const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
 
