@@ -85,6 +85,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 interface Entry {
   id: string;
+  event_id?: string | null;
+  type?: string;
   category_id: string | null;
   description: string | null;
   specification: string | null;
@@ -92,6 +94,8 @@ interface Entry {
   iva_rate: number;
   formalidade: string | null;
   status?: string;
+  transaction_id?: string | null;
+  ordering_partner_id?: string | null;
 }
 interface Category {
   id: string;
@@ -102,13 +106,27 @@ interface Category {
 }
 type RowMeta =
   | { kind: "group"; level: 1 | 2 | 3; categoryId: string | null }
+  | { kind: "orphan"; categoryId: string | null }
   | { kind: "entry"; id: string; categoryId: string | null; categoryLabel: string }
   | { kind: "entry"; tempId: string; categoryId: string | null; categoryLabel: string };
 
-const COL = { CATEGORY: 0, DESCRIPTION: 1, SPEC: 2, AMOUNT: 3, IVA: 4, TOTAL: 5, FORMALIDADE: 6 };
+const COL = {
+  CATEGORY: 0,
+  DESCRIPTION: 1,
+  SPEC: 2,
+  AMOUNT: 3,
+  IVA: 4,
+  TOTAL: 5,
+  FORMALIDADE: 6,
+  ORDERER: 7,
+  ANEXOS: 8,
+};
+const NUM_COLS = 9;
 
 interface DiffResult {
   edits: { id: string; fields: Record<string, unknown>; label: string }[];
+  /** Ordenador grava-se direto (fora da RPC), tal como na visão agrupada. */
+  ordererEdits: { id: string; ordering_partner_id: string | null; label: string }[];
   inserts: {
     category_id: string | null;
     description: string;
@@ -119,6 +137,7 @@ interface DiffResult {
   }[];
   deletes: string[];
 }
+
 
 interface BPPlanilhaProps {
   eventId: string;
