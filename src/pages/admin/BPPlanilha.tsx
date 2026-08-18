@@ -851,6 +851,36 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     [],
   );
 
+  /** Ordenador: só faz sentido em linhas de despesa reais; grupos/bucket ficam vazios. */
+  const ordererRenderer = useCallback(
+    (_inst: any, td: HTMLElement, r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = cellProps?.className ?? "";
+      const m = metaRef.current[r];
+      if (!m || m.kind !== "entry") {
+        td.textContent = "";
+        td.style.color = "";
+        return;
+      }
+      const text = txt(value) || ORDERING_HOUSE_LABEL;
+      td.textContent = text;
+      td.style.color = text === ORDERING_HOUSE_LABEL ? "hsl(var(--muted-foreground))" : "";
+    },
+    [],
+  );
+
+  /** Anexos: contador clicável (read-only) das transações vinculadas à linha. */
+  const anexosRenderer = useCallback(
+    (_inst: any, td: HTMLElement, r: number, _c: number, _p: any, value: any, cellProps: any) => {
+      td.className = `htCenter${cellProps?.className ? ` ${cellProps.className}` : ""}`;
+      const text = txt(value);
+      td.textContent = text;
+      td.style.cursor = text ? "pointer" : "";
+      td.style.color = text ? "hsl(var(--primary))" : "";
+      td.style.textDecoration = text ? "underline" : "";
+    },
+    [],
+  );
+
   const columns = useMemo(
     () => [
       { data: COL.CATEGORY, readOnly: true, width: 300, renderer: categoryRenderer as any },
