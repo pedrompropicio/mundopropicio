@@ -1228,7 +1228,30 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
                       Ordenador: {orderer ? partnerNameById.get(orderer) ?? "Sócio" : ORDERING_HOUSE_LABEL}
                     </span>
                   </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {(panelDocs[t.id] ?? []).length === 0 ? (
+                      <span className="text-[11px] text-muted-foreground">📎 —</span>
+                    ) : (
+                      (panelDocs[t.id] ?? []).map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            void openTransactionDocument(d).catch((err: any) =>
+                              toast.error(err?.message ?? "Não foi possível abrir o anexo"),
+                            );
+                          }}
+                          disabled={isTextualRef(d.file_url)}
+                          title={d.name}
+                          className="max-w-[14rem] truncate rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted disabled:cursor-default disabled:text-muted-foreground"
+                        >
+                          📎 {d.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
+
               );
             })}
           </div>
