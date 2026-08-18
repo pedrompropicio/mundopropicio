@@ -1643,8 +1643,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return formal === formalidadeFilter;
   };
 
+  // Ordenador da despesa — filtro aplica-se SÓ a despesas (receitas não têm ordenador).
+  const matchesOrderingFilter = (f: any) => {
+    if (orderingFilter === ORDERING_FILTER_ALL) return true;
+    if (f?.type !== "expense") return true;
+    return matchesOrderingPartnerFilter(f?.ordering_partner_id ?? null, orderingFilter);
+  };
+
+  // Herança: TX de despesa sem ordenador próprio herda o da linha BP que a reclama.
+  const inheritedOrdererMap = useMemo(
+    () => buildInheritedOrdererMap([...forecasts, ...adoptedForecasts], transactions),
+    [forecasts, adoptedForecasts, transactions],
+  );
+
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
