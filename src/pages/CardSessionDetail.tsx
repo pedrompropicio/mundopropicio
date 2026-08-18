@@ -30,6 +30,17 @@ import { CardLoadModal } from "@/components/cards/CardLoadModal";
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
 import { ApproveCardItemModal } from "@/components/cards/ApproveCardItemModal";
 import { CloseCardSessionModal } from "@/components/cards/CloseCardSessionModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  exportCardSessionToPdf,
+  exportCardSessionToExcel,
+  type CardSessionExportData,
+} from "@/lib/export-card-session";
 
 type Tab = "expenses" | "queue" | "loads";
 
