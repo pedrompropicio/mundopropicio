@@ -186,6 +186,33 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   /** Anexos de ficheiro por transação do painel (uma query em lote). */
   const [panelDocs, setPanelDocs] = useState<Record<string, TxDocLike[]>>({});
 
+  /* Carrega em lote os anexos das transações mostradas no painel. */
+  useEffect(() => {
+    const ids = (anexosPanel?.txs ?? []).map((t: any) => t.id).filter(Boolean);
+    if (ids.length === 0) {
+      setPanelDocs({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("transaction_documents")
+        .select("id, name, file_url, transaction_id")
+        .in("transaction_id", ids);
+      if (cancelled) return;
+      const grouped: Record<string, TxDocLike[]> = {};
+      for (const d of (data ?? []) as any[]) {
+        if (!d.transaction_id) continue;
+        (grouped[d.transaction_id] ??= []).push(d as TxDocLike);
+      }
+      setPanelDocs(grouped);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [anexosPanel]);
+
+
 
   const { theme } = useTheme();
   const htThemeClass = theme === "dark" ? "ht-theme-main-dark" : "ht-theme-main";
