@@ -151,8 +151,11 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
       audit.zonesReused++;
       continue;
     }
+    // FRONTEIRA: zona criada pela sync é apenas âncora técnica das vendas —
+    // sync_generated=true mantém-na fora do planeamento (previsão) do ERP.
     const { data, error } = await supabase.from("event_ticket_zones").insert({
       event_id: eventId, name: zName, session_id: null, total_capacity: 0, company_id: companyId,
+      sync_generated: true,
     }).select("id").single();
     if (error) throw new Error(`Criar zona "${zName}": ${error.message}`);
     zoneIdByName.set(zName, data!.id);
