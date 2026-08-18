@@ -18,7 +18,7 @@ import BPGridEditor from "@/components/BPGridEditor";
 const BPPlanilha = lazy(() => import("@/pages/admin/BPPlanilha"));
 import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
-import { StickyNote } from "lucide-react";
+import { StickyNote, UserCog } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
