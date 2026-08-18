@@ -446,6 +446,17 @@ export default function CardSessionDetail() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
+                <FileDown className="mr-1 inline h-4 w-4" /> Exportar
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport("pdf")}>PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("excel")}>Excel</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canManage && !isLocked && (
             <button onClick={() => setLoadOpen(true)} className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
               <Plus className="mr-1 inline h-4 w-4" /> Recarga
