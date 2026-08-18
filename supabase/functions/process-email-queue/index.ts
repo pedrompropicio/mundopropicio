@@ -7,6 +7,12 @@ const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
 
+// Domínios cujo envio sai pela API do Resend em vez do Lovable Email.
+// Chave = sender_domain do payload; valor = nome da env var com a API key.
+const RESEND_DOMAINS: Record<string, string> = {
+  'notify.coalafestival.pt': 'RESEND_API_KEY_COALA',
+}
+
 // Check if an error is a rate-limit (429) response.
 // Uses EmailAPIError.status when available (email-js >=0.x with structured errors),
 // falls back to parsing the error message for older versions.
@@ -32,6 +38,58 @@ function getRetryAfterSeconds(error: unknown): number {
     return (error as { retryAfterSeconds: number | null }).retryAfterSeconds ?? 60
   }
   return 60
+}
+
+class ResendAPIError extends Error {
+  status: number
+  retryAfterSeconds: number | null
+  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
+    super(message)
+    this.name = 'ResendAPIError'
+    this.status = status
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
+async function sendViaResend(payload: Record<string, any>, apiKey: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+  if (payload.idempotency_key) {
+    headers['Idempotency-Key'] = String(payload.idempotency_key)
+  }
+
+  const body: Record<string, unknown> = {
+    from: payload.from,
+    to: [payload.to],
+    subject: payload.subject,
+  }
+  if (payload.html) body.html = payload.html
+  if (payload.text) body.text = payload.text
+  if (payload.reply_to) body.reply_to = payload.reply_to
+  if (payload.unsubscribe_url) {
+    body.headers = {
+      'List-Unsubscribe': `<${payload.unsubscribe_url}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    }
+  }
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const detail = await res.text()
+    const retryAfter = res.headers.get('retry-after')
+    throw new ResendAPIError(
+      res.status,
+      `Resend API ${res.status}: ${detail.slice(0, 500)}`,
+      retryAfter ? Number(retryAfter) : null
+    )
+  }
 }
 
 function parseJwtClaims(token: string): Record<string, unknown> | null {
@@ -245,27 +303,38 @@ Deno.serve(async (req) => {
         }
       }
 
+      const senderDomain = typeof payload.sender_domain === 'string' ? payload.sender_domain : ''
+      const resendEnvVar = RESEND_DOMAINS[senderDomain]
+
       try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-        )
+        if (resendEnvVar) {
+          const resendKey = Deno.env.get(resendEnvVar)
+          if (!resendKey) {
+            throw new Error(`Missing ${resendEnvVar} for sender_domain ${senderDomain}`)
+          }
+          await sendViaResend(payload, resendKey)
+        } else {
+          await sendLovableEmail(
+            {
+              run_id: payload.run_id,
+              to: payload.to,
+              from: payload.from,
+              sender_domain: payload.sender_domain,
+              subject: payload.subject,
+              html: payload.html,
+              text: payload.text,
+              purpose: payload.purpose,
+              label: payload.label,
+              idempotency_key: payload.idempotency_key,
+              unsubscribe_token: payload.unsubscribe_token,
+              message_id: payload.message_id,
+            },
+            // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
+            // falls back to the default Lovable API endpoint (https://api.lovable.dev).
+            // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
+            { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+          )
+        }
 
         // Log success
         await supabase.from('email_send_log').insert({
@@ -324,7 +393,10 @@ Deno.serve(async (req) => {
         // 403 means emails are disabled for this project — retrying won't help.
         // Move straight to DLQ and stop processing the rest of the batch.
         if (isForbidden(error)) {
-          await moveToDlq(supabase, queue, msg, 'Emails disabled for this project')
+          const reason = resendEnvVar
+            ? `Resend rejected the request (403): ${errorMsg.slice(0, 300)}`
+            : 'Emails disabled for this project'
+          await moveToDlq(supabase, queue, msg, reason)
           return new Response(
             JSON.stringify({ processed: totalProcessed, stopped: 'emails_disabled' }),
             { headers: { 'Content-Type': 'application/json' } }
