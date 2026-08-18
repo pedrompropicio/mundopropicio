@@ -40,6 +40,58 @@ function getRetryAfterSeconds(error: unknown): number {
   return 60
 }
 
+class ResendAPIError extends Error {
+  status: number
+  retryAfterSeconds: number | null
+  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
+    super(message)
+    this.name = 'ResendAPIError'
+    this.status = status
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
+async function sendViaResend(payload: Record<string, any>, apiKey: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+  if (payload.idempotency_key) {
+    headers['Idempotency-Key'] = String(payload.idempotency_key)
+  }
+
+  const body: Record<string, unknown> = {
+    from: payload.from,
+    to: [payload.to],
+    subject: payload.subject,
+  }
+  if (payload.html) body.html = payload.html
+  if (payload.text) body.text = payload.text
+  if (payload.reply_to) body.reply_to = payload.reply_to
+  if (payload.unsubscribe_url) {
+    body.headers = {
+      'List-Unsubscribe': `<${payload.unsubscribe_url}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    }
+  }
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const detail = await res.text()
+    const retryAfter = res.headers.get('retry-after')
+    throw new ResendAPIError(
+      res.status,
+      `Resend API ${res.status}: ${detail.slice(0, 500)}`,
+      retryAfter ? Number(retryAfter) : null
+    )
+  }
+}
+
 function parseJwtClaims(token: string): Record<string, unknown> | null {
   const parts = token.split('.')
   if (parts.length < 2) {
