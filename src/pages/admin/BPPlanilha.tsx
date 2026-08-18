@@ -715,7 +715,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const handleSave = async () => {
     if (saving) return;
     const diff = buildDiff();
-    if (!diff.edits.length && !diff.inserts.length && !diff.deletes.length) {
+    if (!diff.edits.length && !diff.ordererEdits.length && !diff.inserts.length && !diff.deletes.length) {
       toast.info("Sem alterações para gravar.");
       return;
     }
