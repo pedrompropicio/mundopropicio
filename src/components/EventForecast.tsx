@@ -1815,9 +1815,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Quando vê-se só o Master (toggle OFF), exclui forecasts de filhos por segurança.
       // `parentEventId` chega undefined no evento Master, por isso usamos `== null`.
       if (!includeSubsInBP && parentEventId == null && f.event_id !== eventId) return false;
+      // Filtro de ordenador (só despesas) — previsto e realizado ficam coerentes.
+      if (f.type === "expense" && !matchesOrderingPartnerFilter(f.ordering_partner_id ?? null, orderingFilter)) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
