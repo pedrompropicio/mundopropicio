@@ -30,6 +30,17 @@ import { CardLoadModal } from "@/components/cards/CardLoadModal";
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
 import { ApproveCardItemModal } from "@/components/cards/ApproveCardItemModal";
 import { CloseCardSessionModal } from "@/components/cards/CloseCardSessionModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  exportCardSessionToPdf,
+  exportCardSessionToExcel,
+  type CardSessionExportData,
+} from "@/lib/export-card-session";
 
 type Tab = "expenses" | "queue" | "loads";
 
@@ -348,6 +359,70 @@ export default function CardSessionDetail() {
   const canEditExpenses = canManage && status === "open";
   const canEditOpening = canEditExpenses;
 
+  /** Payload de exportação — os mesmos números dos cards acima. */
+  const buildExportData = (): CardSessionExportData => {
+    const rows = [
+      ...(expenses as any[]).map((e) => ({
+        date: String(e.date ?? ""),
+        description: String(e.description ?? ""),
+        event: e.events?.name ?? "Sem evento",
+        category: e.account_categories
+          ? `${e.account_categories.code ?? ""} ${e.account_categories.name ?? ""}`.trim()
+          : "—",
+        status: "Aprovada",
+        amount: Number(e.paid_amount) || cardItemGross(e),
+      })),
+      ...pendingItems.map((i: any) => ({
+        date: String(i.item_date ?? ""),
+        description: String(i.description ?? i.supplier_name_raw ?? "Item pendente"),
+        event: i.events?.name ?? "Sem evento",
+        category: "—",
+        status: "Pendente de aprovação",
+        amount: cardItemGross(i),
+      })),
+    ].sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      companyId: (session as any)?.company_id ?? null,
+      cardName,
+      holderName: String(session.holder_name ?? "—"),
+      primaryEventName: (session as any).events?.name ?? null,
+      statusLabel: CARD_SESSION_STATUS_LABELS[status],
+      openedAt: session.opened_at ?? null,
+      closedAt: (session as any).closed_at ?? null,
+      summary: {
+        availableOnCard: cardBalance === undefined ? null : Number(cardBalance),
+        delivered: opening + totalLoads,
+        deliveredNote: `Abertura ${formatCurrency(opening)} (${isOverride ? "override manual" : "calculado da conta"}) + ${loads.length} recarga(s)`,
+        approvedSpent: totalApproved,
+        approvedCount: (expenses as any[]).length,
+        pending: totalPending,
+        pendingCount: pendingItems.length,
+        theoretical,
+      },
+      byEvent: Object.values(expensesByEvent).map((v) => ({ name: v.name, amount: v.amount })),
+      expenses: rows,
+      loads: (loads as any[])
+        .slice()
+        .sort((a, b) => String(a.load_date ?? "").localeCompare(String(b.load_date ?? "")))
+        .map((l) => ({
+          date: String(l.load_date ?? ""),
+          source: l.source?.name ?? "—",
+          amount: Number(l.amount ?? 0),
+        })),
+    };
+  };
+
+  const handleExport = async (kind: "pdf" | "excel") => {
+    try {
+      const payload = buildExportData();
+      if (kind === "pdf") await exportCardSessionToPdf(payload);
+      else await exportCardSessionToExcel(payload);
+    } catch (e: any) {
+      toast({ title: "Erro ao exportar", description: e?.message, variant: "destructive" });
+    }
+  };
+
 
 
   return (
@@ -371,6 +446,17 @@ export default function CardSessionDetail() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
+                <FileDown className="mr-1 inline h-4 w-4" /> Exportar
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport("pdf")}>PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("excel")}>Excel</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canManage && !isLocked && (
             <button onClick={() => setLoadOpen(true)} className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
               <Plus className="mr-1 inline h-4 w-4" /> Recarga

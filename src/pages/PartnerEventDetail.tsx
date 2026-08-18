@@ -21,6 +21,7 @@ import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
+import { fetchExportBranding } from "@/lib/export-header";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -926,6 +927,8 @@ export default function PartnerEventDetail() {
     const p = buildExportPayload();
     if (!p) return;
     try {
+      // Cabeçalho institucional: logo da empresa ativa (fallback interno do módulo).
+      const branding = await fetchExportBranding();
       exportPLToPDF(
         p.eventsToExport,
         p.allEvents,
@@ -938,8 +941,8 @@ export default function PartnerEventDetail() {
         [],
         "expense",
         3,
-        null,          // companyLogoDataUrl (usa fallback do módulo)
-        companyDisplayName,
+        branding.logoDataUrl, // companyLogoDataUrl
+        branding.displayName || companyDisplayName,
         true,
         null,
         p.expand,
