@@ -1099,6 +1099,99 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
       )}
 
+      {/* === Vendas por Zona (realizado) === */}
+      {filteredZones.length > 0 && (
+        <div className="glass rounded-xl p-5">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            Vendas por Zona (realizado)
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            Vendas reais registadas em todas as origens (sync automático, importações e lançamentos manuais).
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ borderSpacing: 0 }}>
+              <thead>
+                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="pb-2 text-left font-medium">Zona</th>
+                  <th className="pb-2 text-right font-medium pl-4">Bilhetes vendidos</th>
+                  <th className="pb-2 text-right font-medium pl-4">Valor total</th>
+                  <th className="pb-2 text-right font-medium pl-4">% da capacidade</th>
+                  <th className="pb-2 text-right font-medium pl-6">Previsão (bilhetes)</th>
+                  <th className="pb-2 text-right font-medium pl-4">Previsão (valor)</th>
+                  <th className="pb-2 text-right font-medium pl-6">Desvio (bilhetes)</th>
+                  <th className="pb-2 text-right font-medium pl-4">Desvio (valor)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {sortedZones.map((z: any) => {
+                  const real = (realSalesByZone as any)[z.id] ?? { tickets: 0, revenue: 0 };
+                  const fcTickets = getZoneTotalTickets(z.id);
+                  const fcValue = getZoneGrossRevenue(z.id);
+                  const cap = Number(z.total_capacity ?? 0);
+                  const pct = cap > 0 ? (real.tickets / cap) * 100 : null;
+                  const devTix = real.tickets - fcTickets;
+                  const devVal = real.revenue - fcValue;
+                  return (
+                    <tr key={z.id}>
+                      <td className="py-2.5 font-medium">{z.name}</td>
+                      <td className="py-2.5 text-right font-mono font-semibold pl-4">{real.tickets.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-mono font-semibold text-success pl-4">{formatCurrency(real.revenue)}</td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{pct === null ? "—" : `${pct.toFixed(1)}%`}</td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{fcTickets.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{formatCurrency(fcValue)}</td>
+                      <td className={`py-2.5 text-right font-mono pl-6 ${devTix < 0 ? "text-destructive" : "text-success"}`}>
+                        {devTix > 0 ? "+" : ""}{devTix.toLocaleString()}
+                      </td>
+                      <td className={`py-2.5 text-right font-mono pl-4 ${devVal < 0 ? "text-destructive" : "text-success"}`}>
+                        {devVal > 0 ? "+" : ""}{formatCurrency(devVal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                {(() => {
+                  const tot = sortedZones.reduce(
+                    (acc: any, z: any) => {
+                      const real = (realSalesByZone as any)[z.id] ?? { tickets: 0, revenue: 0 };
+                      acc.tickets += real.tickets;
+                      acc.revenue += real.revenue;
+                      acc.fcTickets += getZoneTotalTickets(z.id);
+                      acc.fcValue += getZoneGrossRevenue(z.id);
+                      acc.cap += Number(z.total_capacity ?? 0);
+                      return acc;
+                    },
+                    { tickets: 0, revenue: 0, fcTickets: 0, fcValue: 0, cap: 0 },
+                  );
+                  const devTix = tot.tickets - tot.fcTickets;
+                  const devVal = tot.revenue - tot.fcValue;
+                  return (
+                    <tr className="border-t border-border/50 font-bold">
+                      <td className="py-2.5">Total</td>
+                      <td className="py-2.5 text-right font-mono pl-4">{tot.tickets.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-mono text-success pl-4">{formatCurrency(tot.revenue)}</td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">
+                        {tot.cap > 0 ? `${((tot.tickets / tot.cap) * 100).toFixed(1)}%` : "—"}
+                      </td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{tot.fcTickets.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{formatCurrency(tot.fcValue)}</td>
+                      <td className={`py-2.5 text-right font-mono pl-6 ${devTix < 0 ? "text-destructive" : "text-success"}`}>
+                        {devTix > 0 ? "+" : ""}{devTix.toLocaleString()}
+                      </td>
+                      <td className={`py-2.5 text-right font-mono pl-4 ${devVal < 0 ? "text-destructive" : "text-success"}`}>
+                        {devVal > 0 ? "+" : ""}{formatCurrency(devVal)}
+                      </td>
+                    </tr>
+                  );
+                })()}
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+
+
       {/* === Bilheteiras Associadas === */}
       <div className="glass rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
