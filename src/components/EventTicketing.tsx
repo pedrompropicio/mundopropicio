@@ -572,6 +572,17 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     });
   }, [filteredZones, allLots]);
 
+  // Zonas para o bloco de REALIZADO: inclui as âncoras da sync (sync_generated),
+  // que não entram no planeamento mas têm vendas reais penduradas.
+  const realizedZones = useMemo(() => {
+    const base = sessionId
+      ? (allZones as any[]).filter((z) => z.session_id === sessionId || z.sync_generated)
+      : (allZones as any[]);
+    const planningIds = new Set(sortedZones.map((z: any) => z.id));
+    const extras = base.filter((z) => !planningIds.has(z.id));
+    return [...sortedZones, ...extras];
+  }, [allZones, sortedZones, sessionId]);
+
   const totalGrossRevenue = filteredZones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
   const totalNetRevenue = filteredZones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
   const totalIva = filteredZones.reduce((s, z) => s + getZoneIva(z.id), 0);
