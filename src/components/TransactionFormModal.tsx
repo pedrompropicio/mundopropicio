@@ -2259,6 +2259,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   lines: [{
                     id: "cache-auto",
                     event_id: form.event_id,
+                    ordering_partner_id: null as any,
                     type: "expense" as const,
                     category_id: cacheCatId,
                     amount: totalCache,
