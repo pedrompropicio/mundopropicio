@@ -3292,6 +3292,18 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     />
                   </span>
                 )}
+                {/* Ordenador — só despesas de eventos com sócios. Receitas não têm. */}
+                {item.type === "expense" && eventPartners.length > 0 && !item._prorated && !item._overhead_via_master && !item._synthetic_orphan && (
+                  <span className="ml-2 align-middle">
+                    <OrderingPartnerBadge
+                      forecastId={item.id}
+                      eventId={item.event_id ?? eventId ?? ""}
+                      current={item.ordering_partner_id}
+                      partners={eventPartners as any}
+                      readOnly={readOnly || !canEditOrdering}
+                    />
+                  </span>
+                )}
                 {item.is_overhead && canSeeOverhead && (
                   <span
                     className="ml-2 inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
