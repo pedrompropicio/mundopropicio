@@ -27,6 +27,14 @@ import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel"
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
 import { useCompany } from "@/hooks/useCompany";
+import {
+  ORDERING_FILTER_ALL,
+  ORDERING_FILTER_HOUSE,
+  ORDERING_HOUSE_LABEL,
+  buildInheritedOrdererMap,
+  effectiveTransactionOrderer,
+  matchesOrderingPartnerFilter,
+} from "@/lib/ordering-partner";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
@@ -244,6 +252,35 @@ export default function EventDetail() {
       ? [selectedSubEvent]
       : [id!];
 
+
+  // --- Ordenador de despesas (opcional; sem ordenador = MP/comum) ---
+  const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  const { data: orderingPartners = [] } = useQuery({
+    queryKey: ["event-ordering-partners", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, suppliers(name)")
+        .eq("event_id", id!);
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({ id: p.id, name: p.suppliers?.name ?? "Sócio" }));
+    },
+    enabled: !!id,
+  });
+  const { data: orderingForecasts = [] } = useQuery({
+    queryKey: ["event-ordering-forecasts", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, category_id, type, description, transaction_id, ordering_partner_id")
+        .eq("event_id", id!)
+        .eq("type", "expense")
+        .is("version_id", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id,
+  });
 
   const { data: eventTransactions = [] } = useQuery({
     queryKey: ["event_transactions", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
@@ -730,6 +767,17 @@ export default function EventDetail() {
   }, {});
   const pieData = Object.values(expenseByCategory);
 
+  // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
+  const inheritedOrdererMap = buildInheritedOrdererMap(orderingForecasts, eventTransactions);
+  const visibleTransactions =
+    orderingFilter === ORDERING_FILTER_ALL
+      ? eventTransactions
+      : eventTransactions.filter((t: any) =>
+          t.type !== "expense"
+            ? false
+            : matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter),
+        );
+
   const statusLabels: Record<string, string> = {
     pending: "Aguardando",
     approved: "A Pagar",
@@ -1099,10 +1147,25 @@ export default function EventDetail() {
 
             {/* Transactions list */}
             <div className={`glass rounded-xl p-5 ${pieData.length > 0 ? "lg:col-span-3" : "lg:col-span-5"}`}>
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                {isGlobalView ? "Transações (Todas as Datas)" : "Transações do Evento"}
-              </h2>
-              {eventTransactions.length === 0 ? (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  {isGlobalView ? "Transações (Todas as Datas)" : "Transações do Evento"}
+                </h2>
+                {orderingPartners.length > 0 && (
+                  <select
+                    value={orderingFilter}
+                    onChange={(e) => setOrderingFilter(e.target.value)}
+                    className="rounded-lg border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
+                    <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</option>
+                    {orderingPartners.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {visibleTransactions.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -1117,7 +1180,7 @@ export default function EventDetail() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {eventTransactions.map((t) => {
+                      {visibleTransactions.map((t) => {
                           const effectiveStatus = (t as any)._effective_status ?? t.status;
                         const isSharedCost = isGlobalView && t.event_id === id;
                         const subName = isGlobalView

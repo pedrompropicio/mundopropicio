@@ -18,7 +18,7 @@ import BPGridEditor from "@/components/BPGridEditor";
 const BPPlanilha = lazy(() => import("@/pages/admin/BPPlanilha"));
 import { Table2, LayoutList, FileSpreadsheet } from "lucide-react";
 
-import { StickyNote } from "lucide-react";
+import { StickyNote, UserCog } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
@@ -33,6 +33,15 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
+import {
+  ORDERING_FILTER_ALL,
+  ORDERING_FILTER_HOUSE,
+  ORDERING_HOUSE_LABEL,
+  buildInheritedOrdererMap,
+  effectiveTransactionOrderer,
+  matchesOrderingPartnerFilter,
+} from "@/lib/ordering-partner";
+import { OrderingPartnerBadge } from "@/components/bp/OrderingPartnerBadge";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
@@ -173,6 +182,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
   // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
+  // Ordenador da despesa: "all" | "house" (MP/comum, sem ordenador) | event_partners.id
+  const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
   // Tipo: "all" | "income" | "expense" — controla se mostramos só Receitas, só Despesas ou Ambos
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
@@ -1047,7 +1058,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           date: eventDate,
           due_date: eventDate,
           status: txStatus,
-        }).select("id").single();
+          // Herança preenchida no vínculo: TX gerada do BP nasce com o ordenador da linha.
+          ordering_partner_id: f.type === "expense" ? (f.ordering_partner_id || null) : null,
+        } as any).select("id").single();
         if (error) throw error;
 
         // Audit: log creation from BP (and auto-approval if applicable)
@@ -1632,8 +1645,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return formal === formalidadeFilter;
   };
 
+  // Ordenador da despesa — filtro aplica-se SÓ a despesas (receitas não têm ordenador).
+  const matchesOrderingFilter = (f: any) => {
+    if (orderingFilter === ORDERING_FILTER_ALL) return true;
+    if (f?.type !== "expense") return true;
+    return matchesOrderingPartnerFilter(f?.ordering_partner_id ?? null, orderingFilter);
+  };
+
+  // Herança: TX de despesa sem ordenador próprio herda o da linha BP que a reclama.
+  const inheritedOrdererMap = useMemo(
+    () => buildInheritedOrdererMap([...forecasts, ...adoptedForecasts], transactions),
+    [forecasts, adoptedForecasts, transactions],
+  );
+
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
@@ -1665,12 +1691,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         if (formal !== formalidadeFilter) return false;
       }
 
+      // Ordenador da despesa — mesma regra das linhas locais.
+      if (!matchesOrderingPartnerFilter(forecast?.ordering_partner_id ?? null, orderingFilter)) return false;
+
       if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, adoptedForecasts, eventId, hasTxForForecast]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, orderingFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -1788,9 +1817,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Quando vê-se só o Master (toggle OFF), exclui forecasts de filhos por segurança.
       // `parentEventId` chega undefined no evento Master, por isso usamos `== null`.
       if (!includeSubsInBP && parentEventId == null && f.event_id !== eventId) return false;
+      // Filtro de ordenador (só despesas) — previsto e realizado ficam coerentes.
+      if (f.type === "expense" && !matchesOrderingPartnerFilter(f.ordering_partner_id ?? null, orderingFilter)) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
@@ -1815,9 +1846,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Simetria por categoria: só TX cuja categoria foi orçada no BP deste evento.
       // TX sem categoria ficam fora (não há linha BP para comparar).
       if (!t.category_id || !bpCategoryIds.has(t.category_id)) return false;
+      // Ordenador efectivo (próprio ou herdado da linha BP) — só despesas.
+      if (
+        t.type === "expense" &&
+        !matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter)
+      ) return false;
       return true;
     });
-  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds]);
+  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   // Alinha os cards do BP ao mesmo perímetro estrito da vista "Previsão vs Real",
@@ -2058,6 +2094,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <option value="company">Empresa (Mundo Propício)</option>
                   {eventPartners.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name} ({p.percentage}%)</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Ordenador da despesa (só eventos com sócios) */}
+            {eventPartners.length > 0 && (
+              <div className="flex items-center gap-1.5" title="Ordenador da despesa — quem ordenou o gasto. Aplica-se só a despesas.">
+                <UserCog className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={orderingFilter}
+                  onChange={(e) => setOrderingFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
+                  <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL} (sem ordenador)</option>
+                  {eventPartners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               </div>
@@ -2650,7 +2703,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <React.Fragment key={f.id}>
-                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canEditOrdering={canEditBP || canEditBPPartial || canEditApprovedBP} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
                                   {/* Adopted sub-event children */}
                                   {(adoptedByMaster[f.id] ?? []).map((af: any) => (
                                     <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
@@ -2953,7 +3006,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering }: {
+  /** Permite alterar o ordenador da despesa nesta linha (mesma permissão de edição do BP). */
+  canEditOrdering?: boolean;
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -3236,6 +3291,18 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.formalidade}
                       readOnly={readOnly}
+                    />
+                  </span>
+                )}
+                {/* Ordenador — só despesas de eventos com sócios. Receitas não têm. */}
+                {item.type === "expense" && eventPartners.length > 0 && !item._prorated && !item._overhead_via_master && !item._synthetic_orphan && (
+                  <span className="ml-2 align-middle">
+                    <OrderingPartnerBadge
+                      forecastId={item.id}
+                      eventId={item.event_id ?? eventId ?? ""}
+                      current={item.ordering_partner_id}
+                      partners={eventPartners as any}
+                      readOnly={readOnly || !canEditOrdering}
                     />
                   </span>
                 )}

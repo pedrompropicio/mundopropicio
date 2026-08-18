@@ -4029,6 +4029,7 @@ export type Database = {
           iva_rate: number
           master_forecast_id: string | null
           notes: string | null
+          ordering_partner_id: string | null
           original_amount: number | null
           specification: string | null
           status: string
@@ -4066,6 +4067,7 @@ export type Database = {
           iva_rate?: number
           master_forecast_id?: string | null
           notes?: string | null
+          ordering_partner_id?: string | null
           original_amount?: number | null
           specification?: string | null
           status?: string
@@ -4103,6 +4105,7 @@ export type Database = {
           iva_rate?: number
           master_forecast_id?: string | null
           notes?: string | null
+          ordering_partner_id?: string | null
           original_amount?: number | null
           specification?: string | null
           status?: string
@@ -4152,6 +4155,13 @@ export type Database = {
             columns: ["master_forecast_id"]
             isOneToOne: false
             referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_ordering_partner_id_fkey"
+            columns: ["ordering_partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
             referencedColumns: ["id"]
           },
           {
@@ -10099,6 +10109,7 @@ export type Database = {
           is_reimbursement: boolean
           is_transitory: boolean
           iva_rate: number
+          ordering_partner_id: string | null
           original_amount: number | null
           paid_amount: number
           parent_transaction_id: string | null
@@ -10148,6 +10159,7 @@ export type Database = {
           is_reimbursement?: boolean
           is_transitory?: boolean
           iva_rate?: number
+          ordering_partner_id?: string | null
           original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
@@ -10197,6 +10209,7 @@ export type Database = {
           is_reimbursement?: boolean
           is_transitory?: boolean
           iva_rate?: number
+          ordering_partner_id?: string | null
           original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
@@ -10255,6 +10268,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_ordering_partner_id_fkey"
+            columns: ["ordering_partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
             referencedColumns: ["id"]
           },
           {
