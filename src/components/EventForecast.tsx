@@ -1689,12 +1689,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         if (formal !== formalidadeFilter) return false;
       }
 
+      // Ordenador da despesa — mesma regra das linhas locais.
+      if (!matchesOrderingPartnerFilter(forecast?.ordering_partner_id ?? null, orderingFilter)) return false;
+
       if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, adoptedForecasts, eventId, hasTxForForecast]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, orderingFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
