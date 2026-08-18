@@ -926,6 +926,8 @@ export default function PartnerEventDetail() {
     const p = buildExportPayload();
     if (!p) return;
     try {
+      // Cabeçalho institucional: logo da empresa ativa (fallback interno do módulo).
+      const branding = await fetchExportBranding();
       exportPLToPDF(
         p.eventsToExport,
         p.allEvents,
@@ -938,8 +940,8 @@ export default function PartnerEventDetail() {
         [],
         "expense",
         3,
-        null,          // companyLogoDataUrl (usa fallback do módulo)
-        companyDisplayName,
+        branding.logoDataUrl, // companyLogoDataUrl
+        branding.displayName || companyDisplayName,
         true,
         null,
         p.expand,
