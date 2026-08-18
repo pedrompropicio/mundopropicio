@@ -2882,7 +2882,7 @@ export type Database = {
       }
       email_send_log: {
         Row: {
-          company_id: string
+          company_id: string | null
           created_at: string
           error_message: string | null
           id: string
@@ -2893,7 +2893,7 @@ export type Database = {
           template_name: string
         }
         Insert: {
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -2904,7 +2904,7 @@ export type Database = {
           template_name: string
         }
         Update: {
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
