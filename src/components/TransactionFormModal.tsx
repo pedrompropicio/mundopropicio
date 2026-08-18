@@ -1368,6 +1368,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         if (useInstallments && insertedTx?.id && installmentRows.length >= 2) {
           const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
           const n = installmentRows.length;
+          // Defesa final (server-side round-trip) contra segunda geração.
+          const preExisting = await findExistingInstallments({
+            eventId: data.event_id || null,
+            supplierId: data.supplier_id || null,
+            description: data.description,
+            parentTransactionId: insertedTx.id,
+            excludeIds: [insertedTx.id],
+          });
+          if (preExisting.length > 0) {
+            throw new Error(existingInstallmentsMessage(preExisting.length));
+          }
           for (let i = 1; i < n; i++) {
             const inst = installmentRows[i];
             const netAmt = +(Number(inst.amount || 0) / ivaMultiplier).toFixed(2);
@@ -1407,13 +1418,32 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               await supabase.from("transaction_audit_log").insert({
                 transaction_id: siblingTx.id,
                 changed_by: callerName,
-                field_name: "Criação",
+                field_name: "Criação (parcela)",
                 old_value: null,
-                new_value: `Parcela ${i + 1}/${n} de "${data.description}" — ${Number(inst.amount).toFixed(2)} € (bruto)`,
+                new_value: `${data.description} (${i + 1}/${n}) — ${Number(inst.amount).toFixed(2)} € (bruto)`,
               });
             }
           }
+          // Auditoria na 1ª parcela (mãe do grupo): resumo do parcelamento.
+          const totalGross = installmentRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+          await supabase.from("transaction_audit_log").insert([
+            {
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "Criação (parcela)",
+              old_value: null,
+              new_value: `${data.description} (1/${n}) — ${Number(installmentRows[0]?.amount || 0).toFixed(2)} € (bruto)`,
+            },
+            {
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "Parcelamento",
+              old_value: null,
+              new_value: `Parcelamento gerado: ${n} parcelas, total ${totalGross.toFixed(2)} €`,
+            },
+          ] as any);
         }
+
 
         // Link to Master forecast if user chose "master" in reinforcement dialog
 
