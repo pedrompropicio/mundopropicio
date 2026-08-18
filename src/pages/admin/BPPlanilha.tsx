@@ -503,7 +503,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const buildDiff = useCallback((): DiffResult => {
     const hot = hotRef.current?.hotInstance;
     const meta = metaRef.current;
-    const res: DiffResult = { edits: [], inserts: [], deletes: [...pendingDeletes] };
+    const res: DiffResult = { edits: [], ordererEdits: [], inserts: [], deletes: [...pendingDeletes] };
     if (!hot) return res;
 
     meta.forEach((m, r) => {
@@ -513,6 +513,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const amount = round2(parseAmountPT(hot.getDataAtCell(r, COL.AMOUNT)) ?? 0);
       const iva_rate = parseAmountPT(hot.getDataAtCell(r, COL.IVA)) ?? 0;
       const formalidade = labelToEnum(hot.getDataAtCell(r, COL.FORMALIDADE)) ?? "estimado";
+      const ordering_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.ORDERER));
 
       if ("tempId" in m) {
         res.inserts.push({
@@ -537,14 +538,26 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       if (Object.keys(fields).length) {
         res.edits.push({ id: m.id, fields, label: description || orig.description || m.id });
       }
+      if ((orig.ordering_partner_id ?? null) !== ordering_partner_id) {
+        res.ordererEdits.push({
+          id: m.id,
+          ordering_partner_id,
+          label: description || orig.description || m.id,
+        });
+      }
     });
     return res;
-  }, [pendingDeletes]);
+  }, [pendingDeletes, labelToPartnerId]);
 
   const recount = useCallback(() => {
     const d = buildDiff();
-    setCounts({ edits: d.edits.length, inserts: d.inserts.length, deletes: d.deletes.length });
+    setCounts({
+      edits: d.edits.length + d.ordererEdits.length,
+      inserts: d.inserts.length,
+      deletes: d.deletes.length,
+    });
   }, [buildDiff]);
+
 
   useEffect(() => {
     // recontar quando a estrutura muda (inserir/apagar linha)
