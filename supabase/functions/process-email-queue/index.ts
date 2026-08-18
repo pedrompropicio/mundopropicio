@@ -7,6 +7,12 @@ const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
 
+// Domínios cujo envio sai pela API do Resend em vez do Lovable Email.
+// Chave = sender_domain do payload; valor = nome da env var com a API key.
+const RESEND_DOMAINS: Record<string, string> = {
+  'notify.coalafestival.pt': 'RESEND_API_KEY_COALA',
+}
+
 // Check if an error is a rate-limit (429) response.
 // Uses EmailAPIError.status when available (email-js >=0.x with structured errors),
 // falls back to parsing the error message for older versions.
