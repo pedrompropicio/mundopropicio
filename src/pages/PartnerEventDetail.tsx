@@ -21,6 +21,7 @@ import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
+import { fetchExportBranding } from "@/lib/export-header";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
