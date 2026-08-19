@@ -111,7 +111,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, category_id, description")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("status", "approved")
