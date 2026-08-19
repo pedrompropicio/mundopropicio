@@ -1640,6 +1640,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                   {form.is_reimbursement ? "Vincule a uma Nota após guardar" : "Marcar se foi despesa a reembolsar"}
                 </span>
               </div>
+              {hasChildren && (
+                <p className="text-[10px] text-muted-foreground">
+                  Num split, o reembolso é marcado na transação master (valor total).
+                </p>
+              )}
               {form.is_reimbursement && (
                 <div className="space-y-2">
                   {!isLinkedToReimbursementNote && (
