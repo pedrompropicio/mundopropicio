@@ -1,1 +1,2 @@
 - [Sync nunca escreve no planeamento](mem://constraints/sync-never-writes-planning) — event_ticket_zones/lots são humanos; syncs Ticketline/BOL só criam âncoras sync_generated=true (fora da previsão); réguas do portal vivem em event_marketing.ticket_lots
+- [Composição do custo do evento](mem://features/event-cost-basis) — helper único `event-cost-basis.ts`: IVA linha a linha, toggles overhead e "fora do BP" (= Σ max(realizado−previsto,0) por rubrica) no card da capa, Fecho e portal do sócio
