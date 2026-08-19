@@ -17,6 +17,10 @@ import {
   normalizePartnerCalcBasis,
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
+import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
+import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
+import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+
 
 interface Props {
   eventId: string;
