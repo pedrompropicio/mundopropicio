@@ -3531,7 +3531,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Pencil className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
-              {!readOnly && <FormalidadeHistoryPopover forecastId={item.id} />}
+              {(!readOnly || formalidadeEditable) && <FormalidadeHistoryPopover forecastId={item.id} />}
               {isApproved && !readOnly && (
                 <button
                   onClick={() => setShowAuditLog(!showAuditLog)}
