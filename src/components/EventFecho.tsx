@@ -324,7 +324,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Criterio: ${describeFechoBasis(basis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
