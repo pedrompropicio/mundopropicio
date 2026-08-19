@@ -623,6 +623,46 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
   const isBpLinked = !!linkedForecast && !unlinkBpRequested;
   const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
+
+  // ─── Realocação para outra LINHA do BP dentro da mesma L3 ───
+  // Mesmas permissões da ferramenta "Alocar realizado".
+  const canManageTxAlloc = isAdmin || isManager || hasPermission("manage_transactions");
+  const categoryChangedFromOriginal =
+    !!form.category_id && form.category_id !== (transaction.category_id ?? "");
+  const bpLinesEnabled =
+    canManageTxAlloc && !paidLocked && !!form.event_id && !!form.category_id && !hasChildren;
+
+  const { data: bpLines = [] } = useQuery({
+    queryKey: ["tx-edit-bp-lines", form.event_id, form.category_id, transaction.type],
+    queryFn: () =>
+      fetchBpLinesForCategory({
+        eventId: form.event_id,
+        categoryId: form.category_id,
+        type: transaction.type === "income" ? "income" : "expense",
+      }),
+    enabled: bpLinesEnabled,
+  });
+
+  // "" = sem linha específica (via rubrica)
+  const [bpLineChoice, setBpLineChoice] = useState<string>("");
+  const [bpLineTouched, setBpLineTouched] = useState(false);
+  const linkedForecastId = (linkedForecast as any)?.id ?? null;
+  const linkedForecastCat = (linkedForecast as any)?.category_id ?? null;
+  useEffect(() => {
+    if (bpLineTouched) return;
+    if (linkedForecastId && linkedForecastCat === form.category_id) {
+      setBpLineChoice(linkedForecastId);
+    } else {
+      setBpLineChoice("");
+    }
+  }, [linkedForecastId, linkedForecastCat, form.category_id, bpLineTouched]);
+
+  const currentLinkedIdForSave =
+    linkedForecastId && linkedForecastCat === form.category_id ? linkedForecastId : linkedForecastId;
+  const bpLinkDirty =
+    bpLinesEnabled &&
+    !unlinkBpRequested &&
+    (bpLineChoice || null) !== (linkedForecastCat === form.category_id ? linkedForecastId : null);
   // Regra: TX vinculada a BP só aceita L3 do mesmo L2 do BP.
   const bpL2Id = (() => {
     if (!bpCategoryId) return null;
