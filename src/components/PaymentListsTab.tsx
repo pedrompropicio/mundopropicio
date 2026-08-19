@@ -88,7 +88,7 @@ function PaymentDocsButton({ transactionId, onClick }: { transactionId: string; 
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBackdropClose } from "@/lib/backdropClose";
-import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds } from "@/lib/supplier-bank";
+import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds, attachSupplierBankToTxRows, fetchSupplierBankRows } from "@/lib/supplier-bank";
 
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
