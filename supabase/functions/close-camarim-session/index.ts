@@ -432,6 +432,7 @@ Deno.serve(async (req) => {
         currency: session.currency ?? "EUR",
         is_reimbursement: isReimbursement,
         reimbursement_to: isReimbursement ? first.buyerId : null,
+        company_id: sessionCompanyId, // service-role: current_company_id() returns NULL
       };
 
       if (txStatus === "paid") {
@@ -480,6 +481,7 @@ Deno.serve(async (req) => {
           doc_type: "outro",
           uploaded_by: caller.email ?? "sistema",
           is_accounting: true,
+          company_id: sessionCompanyId,
         });
       }
 
@@ -526,6 +528,7 @@ Deno.serve(async (req) => {
             doc_type: "outro",
             uploaded_by: caller.email ?? "sistema",
             is_accounting: true,
+            company_id: sessionCompanyId,
           }));
           const { error: dossierLinkErr } = await adminClient
             .from("transaction_documents")
@@ -585,6 +588,7 @@ Deno.serve(async (req) => {
             currency: session.currency ?? "EUR",
             paid_amount: 0,
             account_id: settlementAccountId,
+            company_id: sessionCompanyId,
           })
           .select("id")
           .single();
@@ -612,6 +616,7 @@ Deno.serve(async (req) => {
             currency: session.currency ?? "EUR",
             paid_amount: 0,
             account_id: settlementAccountId,
+            company_id: sessionCompanyId,
           })
           .select("id")
           .single();
@@ -706,13 +711,17 @@ Deno.serve(async (req) => {
         ? "done"
         : "partial";
 
-    await adminClient.from("camarim_integrations").insert({
+    const { error: integrationLogErr } = await adminClient.from("camarim_integrations").insert({
       session_id: body.session_id,
       integration_type: "financial_close",
       status: integrationStatus,
       created_by: caller.id,
       summary_payload: integrationSummary,
+      company_id: sessionCompanyId,
     });
+    if (integrationLogErr) {
+      console.error("[close-camarim-session] Falha ao registar camarim_integrations:", integrationLogErr.message);
+    }
 
     if (allFailed) {
       return json({
