@@ -2431,7 +2431,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               f._orphanBucket ? (
                                 <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
                               ) : f.is_overhead ? (
-                                <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                                <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                                   <td className="py-1.5 pr-2">
@@ -2657,7 +2657,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               ) : f._overhead_via_master ? (
                                 <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : f.is_overhead ? (
-                                <ForecastRow key={`overhead-${f.id}`} item={f} colorClass="text-warning/80" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                                <ForecastRow key={`overhead-${f.id}`} item={f} colorClass="text-warning/80" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : f._prorated ? (
                                 <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
@@ -3006,9 +3006,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering, formalidadeEditable }: {
   /** Permite alterar o ordenador da despesa nesta linha (mesma permissão de edição do BP). */
   canEditOrdering?: boolean;
+  /**
+   * Linhas read-only (ex.: overheads) cujo ESTADO COMERCIAL (formalidade) continua
+   * editável — o valor é que é calculado/rateado, a formalidade é decisão humana.
+   */
+  formalidadeEditable?: boolean;
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -3290,7 +3295,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       forecastId={item.id}
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.formalidade}
-                      readOnly={readOnly}
+                      readOnly={readOnly && !formalidadeEditable}
                     />
                   </span>
                 )}
@@ -3526,7 +3531,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Pencil className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
-              {!readOnly && <FormalidadeHistoryPopover forecastId={item.id} />}
+              {(!readOnly || formalidadeEditable) && <FormalidadeHistoryPopover forecastId={item.id} />}
               {isApproved && !readOnly && (
                 <button
                   onClick={() => setShowAuditLog(!showAuditLog)}

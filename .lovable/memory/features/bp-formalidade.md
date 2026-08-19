@@ -45,3 +45,15 @@ Faz **merge inteligente**:
 4. Linhas removidas pelo cenário deixam de existir (e o respetivo log apaga via CASCADE).
 
 Mesma lógica em cascade para Splits (`_formalidade_carry_split`).
+
+## Overheads / rateios (2026-08-19)
+Razão do bloqueio antigo: a RPC `batch_update_event_forecasts` rejeitava qualquer edição em
+linhas com `is_overhead`/`exclude_from_result` e a vista Agrupada renderizava-as com `readOnly`,
+o que também punha o `FormalidadeBadge` em modo leitura.
+
+Correção: a formalidade é editável nestas linhas nas DUAS vistas, com as permissões normais do BP:
+- RPC: overhead/excluded aceita edições cujo payload só tenha `formalidade` (valores continuam read-only).
+- Agrupada: `ForecastRow` tem prop `formalidadeEditable` (badge + popover de histórico ativos em overheads).
+- Planilha: linhas locked (`isLockedEntry`) ficam read-only excepto a coluna Formalidade; o diff só
+  envia `formalidade` e não permite apagá-las.
+Nenhum recálculo automático de overhead escreve `formalidade` — o estado escolhido persiste.
