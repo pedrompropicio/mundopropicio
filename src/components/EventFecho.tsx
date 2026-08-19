@@ -74,20 +74,19 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ---- Transações (income + expense) — apenas do evento (não Master se sub) ou master+filhos
-  // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam:
-  //   • status ∈ {approved, paid}  (ignora pending/draft/refused)
-  //   • !is_transitory             (ignora cauções, devoluções, extras de sócio em trânsito)
-  //   • !exclude_from_result       (ignora linhas marcadas para não impactar resultado)
+  // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam.
+  // Filtro canónico em `@/lib/fecho-filters` (ver .lovable/memory/features/fecho-filter-parity.md):
+  //   status ∈ {approved, paid} · !is_transitory · !exclude_from_result · reversed_at IS NULL · !is_hidden
   const { data: transactions = [] } = useQuery({
     queryKey: ["fecho-transactions", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, is_transitory, exclude_from_result, account_categories(name)")
+        .select("id, type, amount, iva_rate, status, description, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]);
       if (error) throw error;
-      return (data || []).filter((t: any) => !t.is_transitory && !t.exclude_from_result);
+      return (data || []).filter((t: any) => isValidFechoTransaction(t));
     },
   });
 
