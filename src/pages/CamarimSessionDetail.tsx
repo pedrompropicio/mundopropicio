@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportCamarimSessionPdf } from "@/lib/export-camarim-session-pdf";
+import { extractFnError } from "@/lib/edge-fn-error";
 
 import {
   SESSION_STATUS_LABELS,
