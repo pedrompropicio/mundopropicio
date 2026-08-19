@@ -414,7 +414,8 @@ Deno.serve(async (req) => {
         iva_rate: snappedRate,
         event_id: first.eventId,
         category_id: camarimCategoryId, // FORCED to 2.6.04 — Camarins
-        supplier_id: null, // consolidated — no single supplier
+        supplier_id: administratorSupplierId, // administradora da sessão (recebeu o adiantamento)
+        payment_reference: sessionPaymentRef,
         specification: specification + ivaNote,
         date: txDate,
         status: txStatus,
