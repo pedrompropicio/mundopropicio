@@ -438,7 +438,7 @@ export default function CamarimSessionDetail() {
     }
 
     return issues;
-  }, [approvedItems, funds, totals, session?.currency]);
+  }, [approvedItems, funds, totals, session?.currency, administrator]);
 
 
 
