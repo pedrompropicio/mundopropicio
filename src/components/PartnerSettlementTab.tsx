@@ -842,23 +842,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
+    y += 5;
+    doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
     doc.setTextColor(0);
     y += 8;
 
     // ===== 1. RESUMO FINANCEIRO =====
-    // Premissa: Receita SEM IVA, Despesa COM IVA — coluna única.
+    // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
     const tableWidth = pageW - margin * 2;
     const labelColW = 130;
     const valueColW = tableWidth - labelColW;
-    const resultGross = totalRevenueNet - totalExpensesGross;
+    const expenseTotalForPdf = basis.withVat ? totalExpensesGross : totalExpensesNet;
+    const resultGross = totalRevenueNet - expenseTotalForPdf;
     const revenueIva = Math.max(0, totalRevenueGross - totalRevenueNet);
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
     const externalSettlements = settlements.filter((s) => !s.isHouse);
     const houseSettlement = settlements.find((s) => s.isHouse);
     const totalPaidByPartners = externalSettlements.reduce((sum, s) => sum + s.totalPaidByPartner, 0);
-    const companyPaidOperationalCosts = Math.max(0, totalExpensesGross - totalPaidByPartners);
+    const companyPaidOperationalCosts = Math.max(0, expenseTotalForPdf - totalPaidByPartners);
     const retainedCash = houseSettlement?.transitoryCredit || 0;
     const distributableRevenueCash = Math.max(0, totalRevenueGross - revenueIva);
     const cashBeforeReserve = Math.max(0, distributableRevenueCash - companyPaidOperationalCosts);
@@ -874,9 +877,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       head: [["", "Valor"]],
       body: [
         ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        ["Despesas", formatCurrency(totalExpensesGross)],
+        [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
         ["Resultado", formatCurrency(resultGross)],
       ],
+
       margin: { left: margin, right: margin },
       tableWidth,
       styles: { fontSize: 9, cellPadding: 2.5 },
