@@ -24,6 +24,10 @@ import {
   normalizePartnerCalcBasis,
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
+import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
+import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
+import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+
 import {
   HOUSE_PARTNER_ID,
   HOUSE_PARTNER_NAME,
@@ -148,6 +152,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       return data;
     },
   });
+
+  // Critério de fecho (IVA · base · overhead · fora do BP). Valor inicial do
+  // IVA vem de partner_calc_basis; o toggle nunca escreve nesse campo.
+  const basis = useFechoBasis(eventId, event?.partner_calc_basis);
+
+
 
   // Sub-events with city info (for breakdown)
   const { data: subEvents = [] } = useQuery({
@@ -405,15 +415,35 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const totalRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
     + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
-  const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0)
-    + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
-  const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0)
-    + overheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
+  // ---- Despesa segundo o critério selecionado no seletor ----------------
+  // Base "realizado" = transações; base "comprometido" = linhas aprovadas do BP.
+  // Overhead e "fora do BP" (excesso por rubrica) entram por toggle.
+  const operationalForecasts = (forecasts as any[]).filter((f: any) =>
+    f.type === "expense" && f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
+  );
+
+  const expenseSourceLines = basis.expenseSource === "committed" ? operationalForecasts : expenseTransactions;
+
+  const overheadNet = basis.includeOverhead
+    ? overheads.reduce((s: number, o: any) => s + Number(o.amount), 0) : 0;
+  const overheadGross = basis.includeOverhead
+    ? overheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0) : 0;
+
+  const outsideBpNet = basis.expenseSource === "committed" && basis.includeOutsideBp
+    ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, false) : 0;
+  const outsideBpGross = basis.expenseSource === "committed" && basis.includeOutsideBp
+    ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, true) : 0;
+
+  const totalExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
+  const totalExpensesGross = sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross;
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
-  const expenseBase = getPartnerExpenseBase(calcBasis, totalExpensesNet, totalExpensesGross);
+  const expenseBase = ignoresOperationalExpenses(calcBasis)
+    ? 0
+    : (basis.withVat ? totalExpensesGross : totalExpensesNet);
   const resultBase = revenueBase - expenseBase;
+
 
   // ---- City breakdown (para turnês) ----
   // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions.
@@ -665,7 +695,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const revenue = revenueBase;
     const expenses = ignoresOperationalExpenses(calcBasis)
       ? 0
-      : (p.expense_includes_iva || usesGrossExpenseAmounts(calcBasis) ? totalExpensesGross : totalExpensesNet);
+      : (p.expense_includes_iva || basis.withVat ? totalExpensesGross : totalExpensesNet);
+
     const result = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
     const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = result * (effectivePercentage / 100);
@@ -680,7 +711,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             const txEvId = pe.transactions?.event_id || pe.event_id;
             return {
               description: pe.transactions?.description || "—",
-              amount: usesGrossExpenseAmounts(calcBasis)
+              amount: basis.withVat
                 ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
                 : Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
@@ -698,7 +729,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             const txEvId = pe.transactions?.event_id || pe.event_id;
             return {
               description: pe.transactions?.description || "—",
-              amount: usesGrossExpenseAmounts(calcBasis)
+              amount: basis.withVat
                 ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
                 : Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
@@ -811,23 +842,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
+    y += 5;
+    doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
     doc.setTextColor(0);
     y += 8;
 
     // ===== 1. RESUMO FINANCEIRO =====
-    // Premissa: Receita SEM IVA, Despesa COM IVA — coluna única.
+    // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
     const tableWidth = pageW - margin * 2;
     const labelColW = 130;
     const valueColW = tableWidth - labelColW;
-    const resultGross = totalRevenueNet - totalExpensesGross;
+    const expenseTotalForPdf = basis.withVat ? totalExpensesGross : totalExpensesNet;
+    const resultGross = totalRevenueNet - expenseTotalForPdf;
     const revenueIva = Math.max(0, totalRevenueGross - totalRevenueNet);
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
     const externalSettlements = settlements.filter((s) => !s.isHouse);
     const houseSettlement = settlements.find((s) => s.isHouse);
     const totalPaidByPartners = externalSettlements.reduce((sum, s) => sum + s.totalPaidByPartner, 0);
-    const companyPaidOperationalCosts = Math.max(0, totalExpensesGross - totalPaidByPartners);
+    const companyPaidOperationalCosts = Math.max(0, expenseTotalForPdf - totalPaidByPartners);
     const retainedCash = houseSettlement?.transitoryCredit || 0;
     const distributableRevenueCash = Math.max(0, totalRevenueGross - revenueIva);
     const cashBeforeReserve = Math.max(0, distributableRevenueCash - companyPaidOperationalCosts);
@@ -843,9 +877,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       head: [["", "Valor"]],
       body: [
         ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        ["Despesas", formatCurrency(totalExpensesGross)],
+        [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
         ["Resultado", formatCurrency(resultGross)],
       ],
+
       margin: { left: margin, right: margin },
       tableWidth,
       styles: { fontSize: 9, cellPadding: 2.5 },
@@ -1703,13 +1738,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="l3">Despesas: Nível 3 (detalhe)</SelectItem>
             </SelectContent>
           </Select>
+          <FechoBasisSelector basis={basis} />
           <Button size="sm" variant="outline" onClick={exportPdf}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
           </Button>
         </div>
       </div>
 
-      {/* Global summary — Receita s/IVA, Despesa c/IVA (premissa do relatório de fecho) */}
+      {/* Global summary — critério conforme seletor */}
       <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
@@ -1717,17 +1753,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <p className="text-xl font-bold font-mono text-success">{formatCurrency(totalRevenueNet)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas</p>
-            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(totalExpensesGross)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Despesas ({basis.withVat ? "c/IVA" : "s/IVA"})
+            </p>
+            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(expenseBase)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Resultado</p>
-            <p className={`text-xl font-bold font-mono ${(totalRevenueNet - totalExpensesGross) >= 0 ? "text-success" : "text-destructive"}`}>
-              {formatCurrency(totalRevenueNet - totalExpensesGross)}
+            <p className={`text-xl font-bold font-mono ${resultBase >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(resultBase)}
             </p>
           </div>
         </div>
+        <p className="text-[10px] text-muted-foreground">{describeFechoBasis(basis)}</p>
       </div>
+
 
       {/* City breakdown for tours */}
       {cityBreakdown.length > 0 && (

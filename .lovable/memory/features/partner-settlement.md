@@ -106,3 +106,32 @@ Para evitar leitura enganosa do tipo "MP deve pagar X ao sócio" quando parte de
   - admin/manager → vínculo `approved` + transação `paid` (`account_id = null`), auditoria em `transaction_audit_log`.
   - outros papéis → vínculo `pending_approval` (`proposed_by`), transação intocada.
 - **Painel do evento** mantém conferência/aprovação. Unicidade garantida por `UNIQUE(transaction_id)` em `partner_paid_expenses`.
+
+## `events.partner_calc_basis` — porque existe (contexto de negócio)
+
+O critério de fecho do resultado **difere consoante a empresa sócia/parceira seja
+do Brasil ou de Portugal**. É essa a razão de existir o campo:
+
+- `net_result` — Receitas s/IVA − Despesas s/IVA (40 dos 44 eventos).
+- `net_result_gross_expenses` — Receitas s/IVA − Despesas **c/IVA** (ex.: Anitta EDA 2026,
+  parceiro brasileiro: o IVA português não é recuperável do lado dele, logo a despesa
+  entra bruta no acerto).
+- `gross_revenue` — só receitas s/IVA, sem despesas operacionais.
+
+O campo continua a ser **o valor gravado do evento** e é o **valor inicial** do toggle
+de IVA do seletor de critério do Fecho. O toggle é de escolha livre do utilizador e
+**nunca escreve** em `partner_calc_basis`. Não há avisos de "vista alternativa" nem
+referências a base contratual no ecrã ou no PDF — o PDF apenas indica "c/IVA" ou
+"s/IVA" junto aos totais.
+
+## Seletor de critério do Fecho (`useFechoBasis` + `FechoBasisSelector`)
+
+Presente no Encontro de Contas (`PartnerSettlementTab`) e no Fecho do Evento (`EventFecho`):
+
+- **IVA nas despesas**: s/IVA ↔ c/IVA (inicial: `partner_calc_basis`).
+- **Base da despesa**: `realized` (transações, default) ou `committed` (linhas aprovadas do BP).
+- **Incluir overhead**: default **ON** (comportamento histórico).
+- **Incluir transações fora do BP**: default **OFF**; só ativo na base `committed`.
+
+Persistido em `localStorage` por user+evento. Propaga ao PDF, que imprime o critério
+no cabeçalho (`describeFechoBasis`). Cálculo via `@/lib/event-cost-basis` (IVA linha a linha).

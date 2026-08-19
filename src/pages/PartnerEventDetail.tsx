@@ -27,6 +27,8 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
+import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
+
 
 
 /** Resolve um file_url de transaction_documents em URL clicável.
@@ -785,27 +787,25 @@ export default function PartnerEventDetail() {
   // Aplica-se só na vista "BP" e nos cards (com permissão). A vista
   // "BP × Realizado" e os exports mantêm-se com o previsto original.
   const bpL3Overrun = useMemo(() => {
-    const m: Record<string, { forecast: number; realized: number; excess: number }> = {};
-    if (!canSeeAdjusted) return m;
+    if (!canSeeAdjusted) return {} as Record<string, OverrunInfo>;
+    const entries: Array<{ key: string; forecast: number; realized: number }> = [];
     bpGroupedHier.forEach((l1) => {
       l1.l2Groups.forEach((l2) => {
         l2.l3Groups.forEach((l3) => {
           if (!l3.id) return;
-          const realized = realizedByL3Id[l3.id]?.total ?? 0;
-          const forecast = Number(l3.total) || 0;
-          if (realized > forecast + 0.005) {
-            m[l3.id] = { forecast, realized, excess: realized - forecast };
-          }
+          entries.push({
+            key: l3.id,
+            forecast: Number(l3.total) || 0,
+            realized: realizedByL3Id[l3.id]?.total ?? 0,
+          });
         });
       });
     });
-    return m;
+    return computeOverrunMap(entries);
   }, [canSeeAdjusted, bpGroupedHier, realizedByL3Id]);
 
-  const bpExcessTotal = useMemo(
-    () => Object.values(bpL3Overrun).reduce((s, r) => s + r.excess, 0),
-    [bpL3Overrun],
-  );
+  const bpExcessTotal = useMemo(() => sumExcess(bpL3Overrun), [bpL3Overrun]);
+
   const bpAdjustedCount = Object.keys(bpL3Overrun).length;
   const bpTotalExpenseAdjusted = bpTotalExpense + bpExcessTotal;
 

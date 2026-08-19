@@ -5,6 +5,7 @@ import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredWithVat, writeStoredWithVat,
+  readStoredCostToggle, writeStoredCostToggle,
   allowedModes,
 } from "@/lib/event-financial-card";
 
@@ -13,8 +14,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface Props {
   eventId: string;
@@ -62,9 +65,21 @@ export function EventFinancialCard(props: Props) {
   const [mode, setMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
   const [withVat, setWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
+  const [includeOverhead, setIncludeOverhead] = useState<boolean>(
+    () => readStoredCostToggle(userId, eventId, kind, "overhead"),
+  );
+  const [includeOutsideBp, setIncludeOutsideBp] = useState<boolean>(
+    () => readStoredCostToggle(userId, eventId, kind, "outsidebp"),
+  );
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
   useEffect(() => { writeStoredWithVat(userId, eventId, kind, withVat); }, [userId, eventId, kind, withVat]);
+  useEffect(() => {
+    writeStoredCostToggle(userId, eventId, kind, "overhead", includeOverhead);
+  }, [userId, eventId, kind, includeOverhead]);
+  useEffect(() => {
+    writeStoredCostToggle(userId, eventId, kind, "outsidebp", includeOutsideBp);
+  }, [userId, eventId, kind, includeOutsideBp]);
 
   const data = useEventFinancialCardData({
     eventId,
@@ -79,9 +94,12 @@ export function EventFinancialCard(props: Props) {
     masterForecastShare: props.masterForecastShare,
     cacheImpact: props.cacheImpact,
     withVat,
+    includeOverhead,
+    includeOutsideBp,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
+
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
   const title = kind === "income"
@@ -123,6 +141,12 @@ export function EventFinancialCard(props: Props) {
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
           </span>
+          {kind === "expense" && (includeOverhead || includeOutsideBp) && (
+            <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {[includeOverhead ? "+OH" : null, includeOutsideBp ? "+fora BP" : null].filter(Boolean).join(" ")}
+            </span>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -147,6 +171,28 @@ export function EventFinancialCard(props: Props) {
                 <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
+              {kind === "expense" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs">Composição do custo</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={includeOverhead}
+                    onCheckedChange={(v) => setIncludeOverhead(!!v)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Incluir overhead
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={includeOutsideBp}
+                    disabled={data.modeUsed !== "committed"}
+                    onCheckedChange={(v) => setIncludeOutsideBp(!!v)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Incluir transações fora do BP
+                  </DropdownMenuCheckboxItem>
+                </>
+              )}
+
               {showScenarioToggle && (
                 <>
                   <DropdownMenuSeparator />

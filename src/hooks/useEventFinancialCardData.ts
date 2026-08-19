@@ -6,8 +6,10 @@ import {
   type FormalidadeBreakdown,
   emptyBreakdown, addToBreakdown, detectPhase, resolveMode, classifyIncomeL1,
 } from "@/lib/event-financial-card";
+import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+
 
 export interface UseEventFinancialCardDataArgs {
   eventId: string;
@@ -28,7 +30,12 @@ export interface UseEventFinancialCardDataArgs {
   cacheImpact?: number;
   /** Se true, aplica IVA (bruto). Default false = base líquida. */
   withVat?: boolean;
+  /** Incluir linhas de overhead do BP (default OFF). */
+  includeOverhead?: boolean;
+  /** Incluir excesso por rubrica (transações fora do BP) — só no modo committed. Default OFF. */
+  includeOutsideBp?: boolean;
 }
+
 
 export interface Subtotal {
   label: string;
@@ -48,16 +55,16 @@ export interface UseEventFinancialCardDataResult {
 }
 
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
-  const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate, withVat = false } = args;
+  const {
+    eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate,
+    withVat = false, includeOverhead = false, includeOutsideBp = false,
+  } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
 
-  // Multiplicador c/IVA por linha (fallback 0 quando iva_rate ausente).
-  const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) => {
-    const a = Number(amount || 0);
-    if (!withVat) return a;
-    return a * (1 + Number(ivaRate || 0) / 100);
-  };
+  // Valor da linha c/ ou s/IVA — arredondamento ao cêntimo LINHA A LINHA (Art.º 18 CIVA).
+  const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) =>
+    lineValue(amount, ivaRate, withVat);
 
   // ── transactions (paid + approved, NÃO inclui pending para alinhar com Cards/Análise) ──
   const { data: txs = [] } = useQuery({
@@ -65,7 +72,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -79,13 +86,14 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
       if (error) throw error;
       return (data ?? []) as any[];
     },
+
     enabled: ids.length > 0,
   });
 
@@ -209,24 +217,44 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
-      const approved = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
+      // Operacionais: linhas aprovadas que entram no resultado.
+      // Overhead: linhas is_overhead (têm exclude_from_result=true) — só com o toggle ON.
+      const operational = forecasts.filter((f: any) =>
+        f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
       );
+      const overheadLines = forecasts.filter((f: any) =>
+        f.status === "approved" && !f.is_transitory && f.is_overhead
+      );
+      const approved = includeOverhead ? [...operational, ...overheadLines] : operational;
       const total = approved.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0);
       const bd = approved.reduce<FormalidadeBreakdown>(
         (acc, f) => addToBreakdown(acc, f.formalidade, eff(f.amount, f.iva_rate)),
         emptyBreakdown(),
       );
+
+      // "Fora do BP" = excesso por rubrica sobre as linhas OPERACIONAIS do BP
+      // (Σ max(realizado − previsto, 0)). Independente do toggle de overhead.
+      const outsideBp = kind === "expense" && includeOutsideBp
+        ? computeOutsideBpExcess(
+            operational,
+            txs.filter((t: any) =>
+              t.type === "expense" && !t.is_transitory && !t.is_hidden && !t.reversed_at
+            ),
+            withVat,
+          )
+        : 0;
+
       const extra = kind === "expense"
         ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
         : 0;
       return {
-        displayValue: total + extra,
+        displayValue: total + extra + outsideBp,
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
         phase, modeUsed, unavailable: approved.length === 0,
       };
     }
+
 
     // ── FORECAST ──────────────────────────────────────────────
     if (kind === "income") {
@@ -291,7 +319,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       // Regra: cada transação é consumida NO MÁXIMO UMA VEZ (vínculo 1:1 via
       // event_forecasts.transaction_id; fallback por categoria só para linhas sem vínculo).
       const approved = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
+        f.status === "approved" && !f.is_transitory &&
+        (f.is_overhead ? includeOverhead : !f.exclude_from_result)
+
       );
       const txEligible = txs.filter((t: any) =>
         t.type === "expense" && !t.is_transitory &&
@@ -370,5 +400,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     }
 
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
+      includeOverhead, includeOutsideBp,
       args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
+
 }

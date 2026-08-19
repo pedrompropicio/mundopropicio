@@ -17,6 +17,10 @@ import {
   normalizePartnerCalcBasis,
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
+import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
+import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
+import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+
 
 interface Props {
   eventId: string;
@@ -74,6 +78,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
+  // Critério de fecho (IVA · base da despesa · overhead · fora do BP).
+  const basis = useFechoBasis(partnersSourceId, (eventInfo as any)?.partner_calc_basis);
+
+
+
   // ---- Transações (income + expense) — apenas do evento (não Master se sub) ou master+filhos
   // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam.
   // Filtro canónico em `@/lib/fecho-filters` (ver .lovable/memory/features/fecho-filter-parity.md):
@@ -83,7 +92,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
+        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]);
       if (error) throw error;
@@ -104,6 +113,25 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       return data || [];
     },
   });
+
+  // ---- Forecasts operacionais aprovados (base "BP comprometido" do seletor)
+  const { data: operationalForecasts = [] } = useQuery({
+    queryKey: ["fecho-operational-forecasts", allEventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result")
+        .in("event_id", allEventIds)
+        .eq("type", "expense")
+        .eq("status", "approved")
+        .eq("is_overhead", false)
+        .is("version_id", null);
+      if (error) throw error;
+      return (data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
+    },
+  });
+
+
 
   // ---- Overhead via Master (quando este evento é Split)
   const { data: masterOverheadSlice = [] } = useQuery({
@@ -195,7 +223,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   //   • net (raro)                          → ambos NET
   // Esta lógica é INDEPENDENTE da Análise de Resultados do Dashboard, que é sempre NET.
   const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
-  const useGrossExpenses = usesGrossExpenseAmounts(calcBasis);
+  const useGrossExpenses = basis.withVat;
+
 
   // Receita = bilheteira (ticket_sales) + receitas em transações.
   // Se houver ticket_sales, as transações da rubrica 1.1.01 (Bilheteira) são o mesmo
@@ -210,15 +239,22 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
     + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
-  const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
-  const expenseGross = expenseTx.reduce(
-    (s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)),
-    0,
-  );
+  // Base da despesa conforme seletor: realizado (transações) ou BP comprometido.
+  const expenseSourceLines = basis.expenseSource === "committed"
+    ? (operationalForecasts as any[])
+    : expenseTx;
+  const expenseNet = sumLines(expenseSourceLines, false);
+  const expenseGross = sumLines(expenseSourceLines, true);
+
+  // "Fora do BP" = excesso por rubrica (Σ max(realizado − previsto, 0)).
+  const outsideBp = basis.expenseSource === "committed" && basis.includeOutsideBp
+    ? computeOutsideBpExcess(operationalForecasts as any[], expenseTx as any[], basis.withVat)
+    : 0;
 
   const revenue = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
-  const expensesOp = useGrossExpenses ? expenseGross : expenseNet;
+  const expensesOp = (useGrossExpenses ? expenseGross : expenseNet) + outsideBp;
   const resultWithoutOverhead = revenue - expensesOp;
+
 
   // Overheads (próprios + via master)
   const allOverheads = [...ownOverheads, ...masterOverheadSlice];
@@ -232,7 +268,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // Overhead segue a mesma base do resto do Fecho.
   const overheadIncomeFinal = calcBasis === "gross_revenue" ? overheadIncomeGross : overheadIncomeNet;
   const overheadExpenseFinal = useGrossExpenses ? overheadExpenseGross : overheadExpenseNet;
-  const overheadNet = overheadIncomeFinal - overheadExpenseFinal;
+  const overheadNet = basis.includeOverhead ? overheadIncomeFinal - overheadExpenseFinal : 0;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
   // Acerto com sócios — base = resultado COM overhead (overhead entra no acerto, mas não na empresa)
@@ -288,7 +324,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Criterio: ${describeFechoBasis(basis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -414,18 +450,20 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // ============= Render =============
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <FileBarChart2 className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-bold">Fecho do Evento</h3>
-          <Badge variant="outline" className="text-[10px]">
-            Base: {getPartnerCalcBasisLabel(calcBasis)}
-          </Badge>
+          <Badge variant="outline" className="text-[10px]">{describeFechoBasis(basis)}</Badge>
         </div>
-        <Button size="sm" variant="outline" onClick={exportPdf}>
-          <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <FechoBasisSelector basis={basis} />
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+          </Button>
+        </div>
       </div>
+
 
       {/* Síntese sem overhead */}
       <div className="glass rounded-xl p-4">
