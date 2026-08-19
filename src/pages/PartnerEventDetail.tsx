@@ -27,6 +27,8 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
+import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
+
 
 
 /** Resolve um file_url de transaction_documents em URL clicável.
