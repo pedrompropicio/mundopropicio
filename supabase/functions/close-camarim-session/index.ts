@@ -282,10 +282,12 @@ Deno.serve(async (req) => {
       let buyerId: string | null = null;
 
       if (it.payment_origin === "advance") {
-        accountId = advanceAccountId;
+        // A despesa sai da CONTA-CORRENTE DA SESSÃO (onde entrou o adiantamento),
+        // não do banco — o banco já registou a saída do adiantamento.
+        accountId = camarimAccountId;
         if (!accountId) {
           preflightErrors.push(
-            `Item ${it.id}: pago pelo adiantamento, mas a sessão não tem movimento de adiantamento registado. Regista um movimento na aba "Fundos" antes de integrar.`,
+            `Item ${it.id}: pago pelo adiantamento, mas não foi possível resolver a conta-corrente da sessão de camarim (financial_accounts type='camarim_session'). Verifica a sessão antes de integrar.`,
           );
           continue;
         }
