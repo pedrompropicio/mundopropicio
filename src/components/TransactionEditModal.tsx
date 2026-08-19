@@ -348,6 +348,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: installmentGroupRows = [] } = useInstallmentGroup(transaction);
   const isInstallmentGroup = installmentGroupRows.length >= 2;
 
+  // Admin e gestora podem realocar o vínculo do BP (e mudar a L3) mesmo em TX liquidadas:
+  // não mexe em valores nem em estado de pagamento, só em event_forecasts.transaction_id / category_id.
+  const canReallocBpWhenPaid = isAdmin || isManager;
+
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
@@ -368,9 +373,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ordering_partner_id: "Ordenador da despesa",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id"]
+        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id",
+           ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
+
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
@@ -398,6 +405,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
+
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
@@ -655,7 +664,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const categoryChangedFromOriginal =
     !!form.category_id && form.category_id !== (transaction.category_id ?? "");
   const bpLinesEnabled =
-    canManageTxAlloc && !paidLocked && !!form.event_id && !!form.category_id && !hasChildren;
+    canManageTxAlloc && (!paidLocked || canReallocBpWhenPaid) && !!form.event_id && !!form.category_id && !hasChildren;
 
   const { data: bpLines = [] } = useQuery({
     queryKey: ["tx-edit-bp-lines", form.event_id, form.category_id, transaction.type],
@@ -1097,6 +1106,45 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             )}
           </div>
           )}
+
+          {/* TX liquidada + admin/gestora: categoria L3 e realocação da linha do BP continuam editáveis. */}
+          {paidLocked && canReallocBpWhenPaid && !hasChildren && (
+            <div className="rounded-lg border border-border/60 bg-secondary/20 p-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+              <SearchableSelect
+                options={categoryOptions}
+                value={form.category_id}
+                onValueChange={(v) => setForm({ ...form, category_id: v })}
+                placeholder="Sem categoria"
+                searchPlaceholder="Pesquisar categoria…"
+              />
+              {bpLinesEnabled && !unlinkBpRequested && bpLines.length > 0 && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Linha do BP</label>
+                  <select
+                    value={bpLineChoice}
+                    onChange={(e) => { setBpLineTouched(true); setBpLineChoice(e.target.value); }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="">— Sem linha específica (via rubrica)</option>
+                    {bpLines.map((l) => {
+                      const busy = !!l.transaction_id && l.transaction_id !== transaction.id;
+                      return (
+                        <option key={l.id} value={l.id} disabled={busy}>
+                          {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€{busy ? " (ocupada)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                Realocação só altera o vínculo ao BP — não mexe em valores nem no estado de pagamento.
+              </p>
+            </div>
+          )}
+
+
 
           {isExpense && (
             <div>
