@@ -450,18 +450,20 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // ============= Render =============
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <FileBarChart2 className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-bold">Fecho do Evento</h3>
-          <Badge variant="outline" className="text-[10px]">
-            Base: {getPartnerCalcBasisLabel(calcBasis)}
-          </Badge>
+          <Badge variant="outline" className="text-[10px]">{describeFechoBasis(basis)}</Badge>
         </div>
-        <Button size="sm" variant="outline" onClick={exportPdf}>
-          <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <FechoBasisSelector basis={basis} />
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+          </Button>
+        </div>
       </div>
+
 
       {/* Síntese sem overhead */}
       <div className="glass rounded-xl p-4">
