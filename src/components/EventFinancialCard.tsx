@@ -5,6 +5,7 @@ import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredWithVat, writeStoredWithVat,
+  readStoredCostToggle, writeStoredCostToggle,
   allowedModes,
 } from "@/lib/event-financial-card";
 
@@ -13,8 +14,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface Props {
   eventId: string;
