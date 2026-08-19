@@ -404,6 +404,11 @@ export default function EventABTab({ eventId }: Props) {
       {/* KPIs consolidados — adaptativos conforme os modos */}
       <KpisConsolidados totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
 
+      {/* Realizado (fecho) — origem: transações do evento (read-only) */}
+      <EventABRealizedSection eventId={eventId} />
+
+
+
       {/* Bebidas — por zona */}
       <Card>
         <CardHeader className="flex-row items-center justify-between flex-wrap gap-2">
