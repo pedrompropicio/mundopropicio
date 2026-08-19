@@ -214,7 +214,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   //   • net (raro)                          → ambos NET
   // Esta lógica é INDEPENDENTE da Análise de Resultados do Dashboard, que é sempre NET.
   const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
-  const useGrossExpenses = usesGrossExpenseAmounts(calcBasis);
+  const useGrossExpenses = basis.withVat;
+
 
   // Receita = bilheteira (ticket_sales) + receitas em transações.
   // Se houver ticket_sales, as transações da rubrica 1.1.01 (Bilheteira) são o mesmo
