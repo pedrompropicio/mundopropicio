@@ -440,35 +440,50 @@ export default function PartnerEventDetail() {
   );
   const partnerEventIdsKey = partnerEventIds.join(",");
 
-  const { data: partnerAdvances = [] } = useQuery({
-    queryKey: ["partner_event_advances", partnerEventIdsKey],
+  // Sem acesso a `transactions`: os adiantamentos/despesas pagas pelo sócio
+  // vêm por RPC SECURITY DEFINER, restrita aos registos destes eventos.
+  const { data: partnerExpenseRows = [] } = useQuery({
+    queryKey: ["partner_event_partner_expenses", partnerEventIdsKey],
     queryFn: async () => {
       if (partnerEventIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("partner_advance_expenses")
-        .select("id, event_id, notes, created_at, transactions(description, amount, iva_rate, date)")
-        .in("event_id", partnerEventIds)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("get_partner_event_partner_expenses" as any, {
+        p_event_ids: partnerEventIds,
+      } as any);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
     enabled: partnerEventIds.length > 0,
   });
 
-  const { data: partnerPaidExpenses = [] } = useQuery({
-    queryKey: ["partner_event_paid", partnerEventIdsKey],
-    queryFn: async () => {
-      if (partnerEventIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("partner_paid_expenses")
-        .select("id, event_id, notes, paid_date, created_at, transactions(description, amount, iva_rate, date)")
-        .in("event_id", partnerEventIds)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+  const mapPartnerExpenseRow = (r: any) => ({
+    id: r.id,
+    event_id: r.event_id,
+    notes: r.notes,
+    created_at: r.created_at,
+    paid_date: r.entry_date,
+    transactions: {
+      description: r.description,
+      amount: Number(r.base_amount) || 0,
+      iva_rate: Number(r.iva_rate) || 0,
+      date: r.entry_date,
     },
-    enabled: partnerEventIds.length > 0,
   });
+
+  const partnerAdvances = useMemo(
+    () => (partnerExpenseRows as any[])
+      .filter((r) => r.kind === "advance")
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .map(mapPartnerExpenseRow),
+    [partnerExpenseRows],
+  );
+  const partnerPaidExpenses = useMemo(
+    () => (partnerExpenseRows as any[])
+      .filter((r) => r.kind === "paid")
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .map(mapPartnerExpenseRow),
+    [partnerExpenseRows],
+  );
+
 
   // ── Anexos do BP agregados por categoria L3 (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
   const { data: bpAttachmentsRaw = [] } = useQuery({
