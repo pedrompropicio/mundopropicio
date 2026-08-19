@@ -555,7 +555,7 @@ function useEligibleTransactionsForList() {
         .or("is_reimbursement.is.null,is_reimbursement.eq.false")
         .order("date", { ascending: false });
       if (error) throw error;
-      const rows = mergeEmbeddedSupplierBank(data ?? [], await fetchSupplierBankMap(collectSupplierIds(data ?? [])));
+      const rows: any[] = mergeEmbeddedSupplierBank((data ?? []) as any[], await fetchSupplierBankMap(collectSupplierIds((data ?? []) as any[])));
 
       const loadedIds = new Set(rows.map((tx: any) => tx.id).filter(Boolean));
       const missingParentIds = [...new Set(rows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
