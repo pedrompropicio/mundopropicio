@@ -619,6 +619,26 @@ Deno.serve(async (req) => {
     // IDs de todas as transações geradas (consolidadas + settlement)
     const allTxIds = [...created, ...(settlementTxId ? [settlementTxId] : [])];
 
+    // ===== Auditoria: registar a origem de cada transação criada (autor real) =====
+    if (allTxIds.length > 0) {
+      const auditRows = allTxIds.map((txId) => ({
+        transaction_id: txId,
+        field_name: "created_by_camarim_integration",
+        old_value: null,
+        new_value: `Sessão de camarim ${session.title} (${sessionPaymentRef})${
+          txId === settlementTxId ? " · acerto de adiantamento" : " · agregado por taxa de IVA"
+        }`,
+        changed_by: caller.id,
+        company_id: (session as any).company_id,
+      }));
+      const { error: auditErr } = await adminClient
+        .from("transaction_audit_log")
+        .insert(auditRows);
+      if (auditErr) errors.push(`Auditoria: ${auditErr.message}`);
+    }
+
+
+
     // Snapshot completo do resumo
     const integrationSummary = {
       generated_at: new Date().toISOString(),
