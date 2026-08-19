@@ -565,7 +565,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ===== Settlement (advance balance) — unchanged logic =====
+    // ===== Settlement (acerto do adiantamento) — PAR DE TRANSFERÊNCIA INTERNA 10.3 =====
+    // A devolução/reforço NÃO é receita/despesa do evento: espelha o padrão do
+    // adiantamento (par 10.3, sem event_id), para que a conta-corrente da sessão zere.
     const { data: fundMoves } = await adminClient
       .from("camarim_fund_moves")
       .select("move_type,amount")
@@ -586,70 +588,89 @@ Deno.serve(async (req) => {
     const balance = +(spentFromAdvance - advanceNet).toFixed(2);
     let settlementType: "refund" | "reinforcement" | "balanced" = "balanced";
     let settlementTxId: string | null = null;
+    let settlementCounterTxId: string | null = null;
 
-    const settlementAccountId = body.settlement_account_id ?? advanceAccountId;
+    const settlementBankAccountId = body.settlement_account_id ?? advanceAccountId;
     const SETTLEMENT_TOLERANCE = 0.01;
 
-    if (advanceNet > 0 && Math.abs(balance) >= SETTLEMENT_TOLERANCE && settlementAccountId) {
-      const settlementEventId = session.master_event_id ?? primaryEventId;
-      if (balance > 0) {
-        settlementType = "reinforcement";
-        const { data: stx, error: stxErr } = await adminClient
-          .from("transactions")
-          .insert({
-            description: `Camarim — Reforço (acerto adiantamento) · ${session.title}`,
-            type: "expense",
-            amount: balance,
-            iva_rate: 0,
-            event_id: settlementEventId,
-            category_id: null,
-            supplier_id: body.settlement_supplier_id ?? administratorSupplierId,
-            payment_reference: sessionPaymentRef,
-            specification: `Acerto automático do adiantamento da sessão ${session.title} (reembolso à administradora)`,
-            date: new Date().toISOString().slice(0, 10),
-            status: "approved",
-            currency: session.currency ?? "EUR",
-            paid_amount: 0,
-            account_id: settlementAccountId,
-            company_id: sessionCompanyId,
-          })
-          .select("id")
-          .single();
-        if (stxErr) {
-          errors.push(`Acerto/reforço: ${stxErr.message}`);
-        } else {
-          settlementTxId = (stx as any).id;
-        }
+    if (advanceNet > 0 && Math.abs(balance) >= SETTLEMENT_TOLERANCE && settlementBankAccountId) {
+      // Categoria de transferência interna 10.3 — company-scoped (mesma armadilha
+      // multi-tenant da 2.6.04: 1 linha por código POR EMPRESA).
+      const { data: transferCat, error: transferCatErr } = await adminClient
+        .from("account_categories")
+        .select("id")
+        .eq("code", "10.3")
+        .eq("is_active", true)
+        .eq("company_id", sessionCompanyId)
+        .maybeSingle();
+
+      if (transferCatErr || !transferCat?.id) {
+        errors.push(
+          "Acerto do adiantamento não criado: categoria 10.3 (transferência interna) não encontrada/ativa no plano de contas desta empresa. Avisa um administrador.",
+        );
+      } else if (!camarimAccountId) {
+        errors.push(
+          "Acerto do adiantamento não criado: conta-corrente da sessão de camarim não resolvida (financial_accounts type='camarim_session').",
+        );
       } else {
-        settlementType = "refund";
-        const { data: stx, error: stxErr } = await adminClient
-          .from("transactions")
-          .insert({
-            description: `Camarim — Devolução (acerto adiantamento) · ${session.title}`,
-            type: "income",
-            amount: Math.abs(balance),
-            iva_rate: 0,
-            event_id: settlementEventId,
-            category_id: null,
-            supplier_id: body.settlement_supplier_id ?? administratorSupplierId,
-            payment_reference: sessionPaymentRef,
-            specification: `Acerto automático do adiantamento da sessão ${session.title} (devolução de caixa em mão pela administradora)`,
-            date: new Date().toISOString().slice(0, 10),
-            status: "approved",
-            currency: session.currency ?? "EUR",
-            paid_amount: 0,
-            account_id: settlementAccountId,
-            company_id: sessionCompanyId,
-          })
-          .select("id")
-          .single();
-        if (stxErr) {
-          errors.push(`Acerto/devolução: ${stxErr.message}`);
+        const transferCategoryId = transferCat.id as string;
+        const settlementDate = new Date().toISOString().slice(0, 10);
+        const absBalance = +Math.abs(balance).toFixed(2);
+        const isRefund = balance < 0;
+        settlementType = isRefund ? "refund" : "reinforcement";
+
+        const label = isRefund ? "Devolução" : "Reforço";
+        const spec = isRefund
+          ? `Acerto automático do adiantamento da sessão ${session.title} (devolução de caixa em mão pela administradora) — transferência interna`
+          : `Acerto automático do adiantamento da sessão ${session.title} (reforço à administradora) — transferência interna`;
+
+        const baseLeg = {
+          iva_rate: 0,
+          event_id: null,
+          category_id: transferCategoryId,
+          supplier_id: body.settlement_supplier_id ?? administratorSupplierId,
+          payment_reference: sessionPaymentRef,
+          specification: spec,
+          date: settlementDate,
+          status: "approved",
+          currency: session.currency ?? "EUR",
+          paid_amount: 0,
+          amount: absBalance,
+          company_id: sessionCompanyId,
+        };
+
+        // Perna bancária (settlement_transaction_id aponta para esta)
+        const bankLeg = {
+          ...baseLeg,
+          description: `Camarim — ${label} (acerto adiantamento) · ${session.title}`,
+          type: isRefund ? "income" : "expense",
+          account_id: settlementBankAccountId,
+        };
+        // Perna da conta camarim (contrapartida — zera a conta-corrente)
+        const camarimLeg = {
+          ...baseLeg,
+          description: `Camarim — ${label} (acerto adiantamento · conta camarim) · ${session.title}`,
+          type: isRefund ? "expense" : "income",
+          account_id: camarimAccountId,
+        };
+
+        const { data: bankTx, error: bankErr } = await adminClient
+          .from("transactions").insert(bankLeg).select("id").single();
+        if (bankErr) {
+          errors.push(`Acerto/${settlementType} (perna bancária): ${bankErr.message}`);
         } else {
-          settlementTxId = (stx as any).id;
+          settlementTxId = (bankTx as any).id as string;
+          const { data: camTx, error: camErr } = await adminClient
+            .from("transactions").insert(camarimLeg).select("id").single();
+          if (camErr) {
+            errors.push(`Acerto/${settlementType} (perna conta camarim): ${camErr.message}`);
+          } else {
+            settlementCounterTxId = (camTx as any).id as string;
+          }
         }
       }
     }
+
 
     const allFailed = created.length === 0 && errors.length > 0;
 
