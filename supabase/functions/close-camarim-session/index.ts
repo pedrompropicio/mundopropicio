@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const { data: session, error: sErr } = await adminClient
       .from("camarim_sessions")
       .select(
-        "id,title,status,currency,master_event_id,opened_at,closed_at,company_id,fund_holder_type,fund_holder_supplier_id,fund_holder_user_id",
+        "id,title,status,currency,master_event_id,opened_at,closed_at,company_id,fund_holder_type,fund_holder_supplier_id,fund_holder_user_id,advance_account_id",
       )
       .eq("id", body.session_id)
       .single();
