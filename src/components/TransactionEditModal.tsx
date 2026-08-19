@@ -664,7 +664,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const categoryChangedFromOriginal =
     !!form.category_id && form.category_id !== (transaction.category_id ?? "");
   const bpLinesEnabled =
-    canManageTxAlloc && !paidLocked && !!form.event_id && !!form.category_id && !hasChildren;
+    canManageTxAlloc && (!paidLocked || canReallocBpWhenPaid) && !!form.event_id && !!form.category_id && !hasChildren;
 
   const { data: bpLines = [] } = useQuery({
     queryKey: ["tx-edit-bp-lines", form.event_id, form.category_id, transaction.type],
