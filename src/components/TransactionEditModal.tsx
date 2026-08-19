@@ -1612,9 +1612,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {/* Reembolso toggle — despesas ainda não aprovadas nem pagas.
+          {/* Reembolso toggle — despesas não liquidadas (inclui aprovadas e masters de split).
               Permite ao editor corrigir uma transação que devia ter sido marcada como reembolso. */}
-          {isExpense && !isApproved && !isPaid && !hasChildren && !isPaidByPartner && !isPartnerExtra && (
+          {isExpense && !isPaid && !isPaidByPartner && !isPartnerExtra && (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
