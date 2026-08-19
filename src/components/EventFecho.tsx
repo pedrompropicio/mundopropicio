@@ -197,17 +197,18 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
   const useGrossExpenses = usesGrossExpenseAmounts(calcBasis);
 
-  // Receita: ticket sales se houver, senão income transactions
-  const incomeTx = transactions.filter((t: any) => t.type === "income");
+  // Receita = bilheteira (ticket_sales) + receitas em transações.
+  // Se houver ticket_sales, as transações da rubrica 1.1.01 (Bilheteira) são o mesmo
+  // dinheiro já contado nas ticket_sales → excluídas para não duplicar.
+  const incomeTxAll = transactions.filter((t: any) => t.type === "income");
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
   const hasTickets = ticketSales.length > 0;
-  const revenueNet = hasTickets
-    ? ticketSales.reduce((s, t: any) => s + t.net, 0)
-    : incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
-  const revenueGross = hasTickets
-    ? ticketSales.reduce((s, t: any) => s + t.gross, 0)
-    : incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+  const incomeTx = hasTickets ? incomeTxAll.filter((t: any) => !isTicketingRevenueTx(t)) : incomeTxAll;
+  const revenueNet = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.net, 0) : 0)
+    + incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
+  const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
+    + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
   const expenseGross = expenseTx.reduce(
