@@ -2449,12 +2449,14 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
         .eq("payment_list_id", listId)
         // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
         .is("removed_at", null);
       if (error) throw error;
       const rows = data ?? [];
+      await attachSupplierBankToTxRows(rows.map((item: any) => item.transactions).filter(Boolean));
+
       const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
       const loadedIds = new Set(txRows.map((tx: any) => tx.id).filter(Boolean));
       const missingParentIds = [...new Set(txRows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
