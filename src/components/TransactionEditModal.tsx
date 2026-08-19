@@ -1107,6 +1107,45 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
+          {/* TX liquidada + admin/gestora: categoria L3 e realocação da linha do BP continuam editáveis. */}
+          {paidLocked && canReallocBpWhenPaid && !hasChildren && (
+            <div className="rounded-lg border border-border/60 bg-secondary/20 p-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+              <SearchableSelect
+                options={categoryOptions}
+                value={form.category_id}
+                onValueChange={(v) => setForm({ ...form, category_id: v })}
+                placeholder="Sem categoria"
+                searchPlaceholder="Pesquisar categoria…"
+              />
+              {bpLinesEnabled && !unlinkBpRequested && bpLines.length > 0 && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Linha do BP</label>
+                  <select
+                    value={bpLineChoice}
+                    onChange={(e) => { setBpLineTouched(true); setBpLineChoice(e.target.value); }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="">— Sem linha específica (via rubrica)</option>
+                    {bpLines.map((l) => {
+                      const busy = !!l.transaction_id && l.transaction_id !== transaction.id;
+                      return (
+                        <option key={l.id} value={l.id} disabled={busy}>
+                          {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€{busy ? " (ocupada)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                Realocação só altera o vínculo ao BP — não mexe em valores nem no estado de pagamento.
+              </p>
+            </div>
+          )}
+
+
+
           {isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
