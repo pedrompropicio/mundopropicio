@@ -24,6 +24,10 @@ import {
   normalizePartnerCalcBasis,
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
+import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
+import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
+import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+
 import {
   HOUSE_PARTNER_ID,
   HOUSE_PARTNER_NAME,
