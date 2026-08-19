@@ -105,6 +105,25 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
+  // ---- Forecasts operacionais aprovados (base "BP comprometido" do seletor)
+  const { data: operationalForecasts = [] } = useQuery({
+    queryKey: ["fecho-operational-forecasts", allEventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, amount, iva_rate, category_id, description")
+        .in("event_id", allEventIds)
+        .eq("type", "expense")
+        .eq("status", "approved")
+        .eq("is_overhead", false)
+        .is("version_id", null);
+      if (error) throw error;
+      return (data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
+    },
+  });
+
+
+
   // ---- Overhead via Master (quando este evento é Split)
   const { data: masterOverheadSlice = [] } = useQuery({
     queryKey: ["fecho-overhead-via-master", parentEventId, eventId],
