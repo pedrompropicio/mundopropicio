@@ -209,6 +209,9 @@ Deno.serve(async (req) => {
     }
 
     // ===== Find advance financial account from latest fund_move =====
+    // NOTA: esta é a conta de ORIGEM do adiantamento (o banco) — o banco JÁ pagou
+    // o adiantamento (par de transferência interna 10.3). Serve apenas como
+    // contraparte bancária do acerto, NUNCA como account_id das despesas.
     const { data: lastFundAdvance } = await adminClient
       .from("camarim_fund_moves")
       .select("financial_account_id")
@@ -217,6 +220,24 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(1);
     const advanceAccountId = (lastFundAdvance?.[0] as any)?.financial_account_id ?? null;
+
+    // ===== Conta-corrente da sessão de camarim (type='camarim_session') =====
+    // Caminho canónico: camarim_sessions.advance_account_id (criada pelo trigger
+    // ensure_camarim_advance_account). Fallback: lookup por type + description
+    // com o session_id, company-scoped.
+    let camarimAccountId: string | null =
+      ((session as any).advance_account_id as string | null) ?? null;
+    if (!camarimAccountId) {
+      const { data: accRows } = await adminClient
+        .from("financial_accounts")
+        .select("id,description")
+        .eq("type", "camarim_session")
+        .eq("company_id", sessionCompanyId)
+        .ilike("description", `%${body.session_id}%`)
+        .limit(2);
+      camarimAccountId = (accRows ?? []).length === 1 ? ((accRows as any)[0].id as string) : null;
+    }
+
 
     // ===== Pre-flight: validate every item can be resolved into a group =====
     type ResolvedItem = {
