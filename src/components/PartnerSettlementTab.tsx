@@ -16,6 +16,7 @@ import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
+import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
 import {
   getPartnerExpenseBase,
   getPartnerRevenueBase,
@@ -182,7 +183,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, category_id, account_categories(name, code, parent_id)")
+        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(name, code, parent_id)")
         .in("event_id", allEventIds);
       if (error) throw error;
       return data;
@@ -383,7 +384,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const ticketRevenueGross = ticketSales.reduce((s: number, t: any) => s + t.gross, 0);
   const ticketRevenueNet = ticketSales.reduce((s: number, t: any) => s + t.net, 0);
 
-  const validTx = transactions.filter((t: any) => !t.is_transitory && !t.exclude_from_result && (t.status === "approved" || t.status === "paid"));
+  const validTx = transactions.filter((t: any) => isValidFechoTransaction(t));
   const incomeTransactions = validTx.filter((t: any) => t.type === "income");
   const adoptedMasterSourceIds = new Set(
     adoptedMasterExpenseSlices.map((slice: any) => slice._master_transaction_id).filter(Boolean),
@@ -393,12 +394,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     ...adoptedMasterExpenseSlices,
   ];
 
-  const totalRevenueNet = hasTicketSales
-    ? ticketRevenueNet
-    : incomeTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalRevenueGross = hasTicketSales
-    ? ticketRevenueGross
-    : incomeTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+  // Receita = bilheteira (ticket_sales) + receitas em transações.
+  // Se houver ticket_sales, as transações da rubrica 1.1.01 são o mesmo dinheiro → excluídas.
+  const revenueTxForTotals = hasTicketSales
+    ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
+    : incomeTransactions;
+
+  const totalRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
+    + revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
+    + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
   const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0)
     + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
@@ -420,7 +425,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         const childRows = subEvents.filter((se: any) => se.id !== eventId);
         const childCount = childRows.length || 1;
         const masterTx = validTx.filter((t: any) => t.event_id === eventId);
-        const masterInc = masterTx.filter((t: any) => t.type === "income");
+        const masterInc = masterTx.filter((t: any) => t.type === "income" && !(hasTicketSales && isTicketingRevenueTx(t)));
         const masterExp = masterTx.filter((t: any) => t.type === "expense");
         const masterTbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === eventId);
         const masterRevenueNetShare = (
@@ -442,7 +447,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
         return childRows.map((se: any) => {
           const evtTx = validTx.filter((t: any) => t.event_id === se.id);
-          const inc = evtTx.filter((t: any) => t.type === "income");
+          const inc = evtTx.filter((t: any) => t.type === "income" && !(hasTicketSales && isTicketingRevenueTx(t)));
           const exp = evtTx.filter((t: any) => t.type === "expense");
           const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
           const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);

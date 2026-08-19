@@ -11,6 +11,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
 import {
   getPartnerCalcBasisLabel,
   normalizePartnerCalcBasis,
@@ -74,20 +75,19 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ---- Transações (income + expense) — apenas do evento (não Master se sub) ou master+filhos
-  // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam:
-  //   • status ∈ {approved, paid}  (ignora pending/draft/refused)
-  //   • !is_transitory             (ignora cauções, devoluções, extras de sócio em trânsito)
-  //   • !exclude_from_result       (ignora linhas marcadas para não impactar resultado)
+  // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam.
+  // Filtro canónico em `@/lib/fecho-filters` (ver .lovable/memory/features/fecho-filter-parity.md):
+  //   status ∈ {approved, paid} · !is_transitory · !exclude_from_result · reversed_at IS NULL · !is_hidden
   const { data: transactions = [] } = useQuery({
     queryKey: ["fecho-transactions", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, is_transitory, exclude_from_result, account_categories(name)")
+        .select("id, type, amount, iva_rate, status, description, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]);
       if (error) throw error;
-      return (data || []).filter((t: any) => !t.is_transitory && !t.exclude_from_result);
+      return (data || []).filter((t: any) => isValidFechoTransaction(t));
     },
   });
 
@@ -197,17 +197,18 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
   const useGrossExpenses = usesGrossExpenseAmounts(calcBasis);
 
-  // Receita: ticket sales se houver, senão income transactions
-  const incomeTx = transactions.filter((t: any) => t.type === "income");
+  // Receita = bilheteira (ticket_sales) + receitas em transações.
+  // Se houver ticket_sales, as transações da rubrica 1.1.01 (Bilheteira) são o mesmo
+  // dinheiro já contado nas ticket_sales → excluídas para não duplicar.
+  const incomeTxAll = transactions.filter((t: any) => t.type === "income");
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
   const hasTickets = ticketSales.length > 0;
-  const revenueNet = hasTickets
-    ? ticketSales.reduce((s, t: any) => s + t.net, 0)
-    : incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
-  const revenueGross = hasTickets
-    ? ticketSales.reduce((s, t: any) => s + t.gross, 0)
-    : incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+  const incomeTx = hasTickets ? incomeTxAll.filter((t: any) => !isTicketingRevenueTx(t)) : incomeTxAll;
+  const revenueNet = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.net, 0) : 0)
+    + incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
+  const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
+    + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
   const expenseGross = expenseTx.reduce(
