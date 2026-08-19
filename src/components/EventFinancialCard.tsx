@@ -141,6 +141,12 @@ export function EventFinancialCard(props: Props) {
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
           </span>
+          {kind === "expense" && (includeOverhead || includeOutsideBp) && (
+            <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {[includeOverhead ? "+OH" : null, includeOutsideBp ? "+fora BP" : null].filter(Boolean).join(" ")}
+            </span>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
