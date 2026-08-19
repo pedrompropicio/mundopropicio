@@ -319,7 +319,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       // Regra: cada transação é consumida NO MÁXIMO UMA VEZ (vínculo 1:1 via
       // event_forecasts.transaction_id; fallback por categoria só para linhas sem vínculo).
       const approved = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
+        f.status === "approved" && !f.is_transitory &&
+        (f.is_overhead ? includeOverhead : !f.exclude_from_result)
+
       );
       const txEligible = txs.filter((t: any) =>
         t.type === "expense" && !t.is_transitory &&
