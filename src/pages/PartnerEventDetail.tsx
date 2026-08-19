@@ -613,8 +613,9 @@ export default function PartnerEventDetail() {
           // receitas em LÍQUIDO. Alinhado com buildPartnerSettlementReportData.
           const baseAmount = Number(t.amount);
           const displayAmount = type === "expense"
-            ? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0))
+            ? Number(t.gross_amount ?? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0)))
             : baseAmount;
+
           pushItem(l1Map, t.category_id, {
             id: t.id,
             date: t.date,
