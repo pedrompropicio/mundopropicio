@@ -67,10 +67,14 @@ export function FundHolderPicker({ value, onChange, disabled }: Props) {
         refetchProfiles(),
         supabase
           .from("suppliers")
-          .select("id,name,iban")
+          .select("id,name")
           .order("name")
           .limit(1000)
-          .then(({ data }) => setSuppliers((data ?? []) as SupplierOption[])),
+          .then(async ({ data }) => {
+            const bank = await fetchSupplierBankMap(((data ?? []) as any[]).map((s) => s.id));
+            setSuppliers(mergeSupplierBank((data ?? []) as any[], bank) as unknown as SupplierOption[]);
+          }),
+
       ]);
     })();
   }, []);
