@@ -383,7 +383,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const ticketRevenueGross = ticketSales.reduce((s: number, t: any) => s + t.gross, 0);
   const ticketRevenueNet = ticketSales.reduce((s: number, t: any) => s + t.net, 0);
 
-  const validTx = transactions.filter((t: any) => !t.is_transitory && !t.exclude_from_result && (t.status === "approved" || t.status === "paid"));
+  const validTx = transactions.filter((t: any) => isValidFechoTransaction(t));
   const incomeTransactions = validTx.filter((t: any) => t.type === "income");
   const adoptedMasterSourceIds = new Set(
     adoptedMasterExpenseSlices.map((slice: any) => slice._master_transaction_id).filter(Boolean),
@@ -393,12 +393,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     ...adoptedMasterExpenseSlices,
   ];
 
-  const totalRevenueNet = hasTicketSales
-    ? ticketRevenueNet
-    : incomeTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalRevenueGross = hasTicketSales
-    ? ticketRevenueGross
-    : incomeTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+  // Receita = bilheteira (ticket_sales) + receitas em transações.
+  // Se houver ticket_sales, as transações da rubrica 1.1.01 são o mesmo dinheiro → excluídas.
+  const revenueTxForTotals = hasTicketSales
+    ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
+    : incomeTransactions;
+
+  const totalRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
+    + revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
+    + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
   const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0)
     + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
