@@ -125,3 +125,28 @@ export function readStoredWithVat(userId: string, eventId: string, kind: "income
 export function writeStoredWithVat(userId: string, eventId: string, kind: "income" | "expense", withVat: boolean) {
   try { localStorage.setItem(vatStorageKey(userId, eventId, kind), withVat ? "1" : "0"); } catch {/* noop */}
 }
+
+/** Toggles de composição do custo (overhead / fora do BP) — default OFF. */
+export type CostToggle = "overhead" | "outsidebp";
+
+export function costToggleStorageKey(
+  userId: string, eventId: string, kind: "income" | "expense", toggle: CostToggle,
+): string {
+  return `ef-card-${toggle}-${userId}-${eventId}-${kind}`;
+}
+
+export function readStoredCostToggle(
+  userId: string, eventId: string, kind: "income" | "expense", toggle: CostToggle,
+): boolean {
+  try {
+    return localStorage.getItem(costToggleStorageKey(userId, eventId, kind, toggle)) === "1";
+  } catch {/* noop */}
+  return false;
+}
+
+export function writeStoredCostToggle(
+  userId: string, eventId: string, kind: "income" | "expense", toggle: CostToggle, value: boolean,
+) {
+  try { localStorage.setItem(costToggleStorageKey(userId, eventId, kind, toggle), value ? "1" : "0"); } catch {/* noop */}
+}
+
