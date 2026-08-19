@@ -24,6 +24,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import { fetchBpLinesForCategory, relinkTransactionToForecast } from "@/lib/bp-line-relink";
 
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
@@ -69,7 +70,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     ordering_partner_id: transaction.ordering_partner_id ?? "",
   });
   const queryClient = useQueryClient();
-  const { user, isManager } = useAuth();
+  const { user, isManager, hasPermission } = useAuth();
 
   // Multi-currency state
   const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
