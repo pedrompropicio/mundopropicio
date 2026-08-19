@@ -11466,6 +11466,34 @@ export type Database = {
         Returns: string
       }
       get_partner_bp_realized: { Args: { p_event_id: string }; Returns: Json }
+      get_partner_event_partner_expenses: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          base_amount: number
+          created_at: string
+          description: string
+          entry_date: string
+          event_id: string
+          id: string
+          iva_rate: number
+          kind: string
+          notes: string
+          total_amount: number
+        }[]
+      }
+      get_partner_event_tx_aggregates: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          base_amount: number
+          category_id: string
+          event_id: string
+          gross_amount: number
+          iva_amount: number
+          iva_rate: number
+          tx_count: number
+          tx_type: string
+        }[]
+      }
       get_sales_position: {
         Args: never
         Returns: {

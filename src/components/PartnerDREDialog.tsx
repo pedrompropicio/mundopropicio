@@ -32,9 +32,21 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
     queryKey: ["partner_dre_bundle", eventId],
     enabled,
     queryFn: async () => {
+      const eventsRes = await supabase.from("events").select("*");
+      if (eventsRes.error) throw eventsRes.error;
+      const events = eventsRes.data ?? [];
+      // Universo de eventos relevante: o próprio + sub-eventos (turnê) + Master.
+      const evt = events.find((e: any) => e.id === eventId);
+      const dreEventIds = Array.from(
+        new Set([
+          eventId,
+          ...(evt?.parent_event_id ? [evt.parent_event_id as string] : []),
+          ...events.filter((e: any) => e.parent_event_id === eventId).map((e: any) => e.id as string),
+        ]),
+      );
+
       const [
-        eventsRes,
-        txRes,
+        aggRes,
         catsRes,
         zonesRes,
         lotsRes,
@@ -42,8 +54,9 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
         partnersRes,
         overheadsRes,
       ] = await Promise.all([
-        supabase.from("events").select("*"),
-        supabase.from("transactions").select("*").in("status", ["approved", "paid"]),
+        // O sócio não tem acesso à tabela `transactions`: agregados por
+        // (evento, tipo, rubrica, taxa de IVA) via RPC SECURITY DEFINER.
+        supabase.rpc("get_partner_event_tx_aggregates" as any, { p_event_ids: dreEventIds } as any),
         supabase.from("account_categories").select("*"),
         supabase.from("event_ticket_zones").select("*"),
         supabase.from("event_ticket_lots").select("*"),
@@ -55,12 +68,21 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
           .eq("is_overhead", true)
           .is("version_id", null),
       ]);
-      if (eventsRes.error) throw eventsRes.error;
-      if (txRes.error) throw txRes.error;
+      if (aggRes.error) throw aggRes.error;
       if (catsRes.error) throw catsRes.error;
+      const transactions = ((aggRes.data ?? []) as any[]).map((r: any) => ({
+        id: `agg-${r.event_id}-${r.tx_type}-${r.category_id ?? "none"}-${r.iva_rate}`,
+        event_id: r.event_id,
+        type: r.tx_type,
+        category_id: r.category_id,
+        amount: Number(r.base_amount) || 0,
+        iva_rate: Number(r.iva_rate) || 0,
+        is_transitory: false,
+        exclude_from_result: false,
+      }));
       return {
-        events: eventsRes.data ?? [],
-        transactions: txRes.data ?? [],
+        events,
+        transactions,
         categories: catsRes.data ?? [],
         ticketZones: zonesRes.data ?? [],
         ticketLots: lotsRes.data ?? [],
@@ -70,6 +92,7 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
       };
     },
   });
+
 
   // Overheads expandidos Master→Splits (÷N)
   const closingCosts = useMemo(

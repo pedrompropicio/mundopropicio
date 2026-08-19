@@ -242,11 +242,10 @@ export default function PartnerEventDetail() {
       const zonesEventIds = isMasterView ? [id!, ...subIds] : [activeEventId];
       const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").in("event_id", zonesEventIds),
-        supabase
-          .from("transactions")
-          .select("*, account_categories(id, code, name, parent_id)")
-          .in("event_id", txEventIds)
-          .order("date", { ascending: false }),
+        // O sócio NÃO tem acesso à tabela `transactions`. O realizado chega
+        // agregado por (evento, tipo, rubrica, taxa de IVA) via RPC
+        // SECURITY DEFINER — nunca lançamentos individuais.
+        supabase.rpc("get_partner_event_tx_aggregates" as any, { p_event_ids: txEventIds } as any),
         supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
         supabase
@@ -260,27 +259,37 @@ export default function PartnerEventDetail() {
       if (txRes.error) throw txRes.error;
 
       const zones = (zonesRes.data ?? []) as any[];
-      const allTxs = (txRes.data ?? []) as any[];
-      const txIds = allTxs.map((t: any) => t.id);
-
-      const isValidTx = (t: any) =>
-        (t.status === "approved" || t.status === "paid") &&
-        !t.is_transitory &&
-        !t.exclude_from_result;
+      // Pseudo-transações: 1 linha por (evento, tipo, rubrica, taxa de IVA).
+      // O universo canónico do Fecho já é aplicado dentro da RPC.
+      const allTxs = ((txRes.data ?? []) as any[]).map((r: any) => ({
+        id: `agg-${r.event_id}-${r.tx_type}-${r.category_id ?? "none"}-${r.iva_rate}`,
+        event_id: r.event_id,
+        type: r.tx_type,
+        category_id: r.category_id,
+        amount: Number(r.base_amount) || 0,
+        iva_rate: Number(r.iva_rate) || 0,
+        gross_amount: Number(r.gross_amount) || 0,
+        tx_count: Number(r.tx_count) || 0,
+        date: "",
+        description: "",
+        status: "approved",
+        is_transitory: false,
+        exclude_from_result: false,
+      }));
 
       let effectiveTransactions: any[];
       if (isMasterView) {
         // Master: locais (Master) + todos sub-eventos, sem rateio
-        effectiveTransactions = allTxs.filter(isValidTx);
+        effectiveTransactions = allTxs;
       } else {
-        const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
+        const localTx = allTxs.filter((t: any) => t.event_id === activeEventId);
         const masterTx = parentEventId
           ? allTxs
-              .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
+              .filter((t: any) => t.event_id === parentEventId)
               .map((t: any) => ({
                 ...t,
                 amount: Number(t.amount) / siblingCount,
-                paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
+                gross_amount: Number(t.gross_amount) / siblingCount,
                 _viaMaster: true,
               }))
           : [];
@@ -290,14 +299,12 @@ export default function PartnerEventDetail() {
       // Zone IDs
       const zoneIds = zones.map((z: any) => z.id);
 
-      const [salesRes, docsRes] = await Promise.all([
+      const [salesRes] = await Promise.all([
         zoneIds.length > 0
           ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, lot_id, financial_account_id").in("zone_id", zoneIds)
           : Promise.resolve({ data: [], error: null }),
-        txIds.length > 0
-          ? supabase.from("transaction_documents").select("id, transaction_id, name, file_url, doc_type").in("transaction_id", txIds)
-          : Promise.resolve({ data: [], error: null }),
       ]);
+
 
       const allForecastsRaw = (overheadsRes.data ?? []) as any[];
       const overheadsRaw = allForecastsRaw.filter((f: any) => f.is_overhead === true);
@@ -322,11 +329,16 @@ export default function PartnerEventDetail() {
       // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
       const perCityBreakdown = isMasterView
         ? visibleSubEvents.map((sub: any) => {
-            const localTx = allTxs.filter((t: any) => t.event_id === sub.id && isValidTx(t));
+            const localTx = allTxs.filter((t: any) => t.event_id === sub.id);
             const masterTxRated = allTxs
-              .filter((t: any) => t.event_id === id && isValidTx(t))
-              .map((t: any) => ({ ...t, amount: Number(t.amount) / masterChildCount }));
+              .filter((t: any) => t.event_id === id)
+              .map((t: any) => ({
+                ...t,
+                amount: Number(t.amount) / masterChildCount,
+                gross_amount: Number(t.gross_amount) / masterChildCount,
+              }));
             const cityTx = [...localTx, ...masterTxRated];
+
             const cityOverheads = overheadsRaw.flatMap((o: any) => {
               if (o.event_id === sub.id) return [o];
               if (o.event_id === id) return [{ ...o, amount: Number(o.amount) / masterChildCount }];
@@ -350,7 +362,7 @@ export default function PartnerEventDetail() {
             const income = txIncome + cityTicketNet;
             const expense = cityTx
               .filter((t: any) => t.type === "expense")
-              .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0)
+              .reduce((s: number, t: any) => s + Number(t.gross_amount ?? 0), 0)
               + cityOverheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
             return { id: sub.id, name: sub.name, income, expense, result: income - expense };
           })
@@ -360,7 +372,8 @@ export default function PartnerEventDetail() {
         ticketZones: zones,
         ticketSales: (salesRes.data ?? []) as any[],
         transactions: effectiveTransactions,
-        transactionDocs: (docsRes.data ?? []) as any[],
+        transactionDocs: [] as any[],
+
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
@@ -427,35 +440,50 @@ export default function PartnerEventDetail() {
   );
   const partnerEventIdsKey = partnerEventIds.join(",");
 
-  const { data: partnerAdvances = [] } = useQuery({
-    queryKey: ["partner_event_advances", partnerEventIdsKey],
+  // Sem acesso a `transactions`: os adiantamentos/despesas pagas pelo sócio
+  // vêm por RPC SECURITY DEFINER, restrita aos registos destes eventos.
+  const { data: partnerExpenseRows = [] } = useQuery({
+    queryKey: ["partner_event_partner_expenses", partnerEventIdsKey],
     queryFn: async () => {
       if (partnerEventIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("partner_advance_expenses")
-        .select("id, event_id, notes, created_at, transactions(description, amount, iva_rate, date)")
-        .in("event_id", partnerEventIds)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("get_partner_event_partner_expenses" as any, {
+        p_event_ids: partnerEventIds,
+      } as any);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
     enabled: partnerEventIds.length > 0,
   });
 
-  const { data: partnerPaidExpenses = [] } = useQuery({
-    queryKey: ["partner_event_paid", partnerEventIdsKey],
-    queryFn: async () => {
-      if (partnerEventIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("partner_paid_expenses")
-        .select("id, event_id, notes, paid_date, created_at, transactions(description, amount, iva_rate, date)")
-        .in("event_id", partnerEventIds)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+  const mapPartnerExpenseRow = (r: any) => ({
+    id: r.id,
+    event_id: r.event_id,
+    notes: r.notes,
+    created_at: r.created_at,
+    paid_date: r.entry_date,
+    transactions: {
+      description: r.description,
+      amount: Number(r.base_amount) || 0,
+      iva_rate: Number(r.iva_rate) || 0,
+      date: r.entry_date,
     },
-    enabled: partnerEventIds.length > 0,
   });
+
+  const partnerAdvances = useMemo(
+    () => (partnerExpenseRows as any[])
+      .filter((r) => r.kind === "advance")
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .map(mapPartnerExpenseRow),
+    [partnerExpenseRows],
+  );
+  const partnerPaidExpenses = useMemo(
+    () => (partnerExpenseRows as any[])
+      .filter((r) => r.kind === "paid")
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .map(mapPartnerExpenseRow),
+    [partnerExpenseRows],
+  );
+
 
   // ── Anexos do BP agregados por categoria L3 (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
   const { data: bpAttachmentsRaw = [] } = useQuery({
@@ -600,8 +628,9 @@ export default function PartnerEventDetail() {
           // receitas em LÍQUIDO. Alinhado com buildPartnerSettlementReportData.
           const baseAmount = Number(t.amount);
           const displayAmount = type === "expense"
-            ? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0))
+            ? Number(t.gross_amount ?? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0)))
             : baseAmount;
+
           pushItem(l1Map, t.category_id, {
             id: t.id,
             date: t.date,
@@ -1025,7 +1054,7 @@ export default function PartnerEventDetail() {
   const transactionIncome = transactionIncomeOnly + ticketRevenueNet;
   const transactionsExpenseGross = transactions
     .filter((t: any) => t.type === "expense")
-    .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+    .reduce((s: number, t: any) => s + Number(t.gross_amount ?? calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0))), 0);
   const overheadExpenseGross = overheads
     .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
   const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
@@ -1034,8 +1063,11 @@ export default function PartnerEventDetail() {
   // ─── Cards do sócio (visão única e fixa) ───
   // Receitas realizadas NET = bilhetes vendidos + patrocínios confirmados (1.2*) + bares (1.1.03*)
   // Despesas = bpTotalExpense (BP aprovado c/IVA, já inclui overhead).
+  const categoryCodeById: Record<string, string> = {};
+  allCategories.forEach((c: any) => { categoryCodeById[c.id] = c.code; });
   const incomeTxNet = (kindPrefix: string) => transactions
-    .filter((t: any) => t.type === "income" && (t.account_categories?.code ?? "").startsWith(kindPrefix))
+    .filter((t: any) => t.type === "income" && (categoryCodeById[t.category_id] ?? "").startsWith(kindPrefix))
+
     .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
   const sponsorshipRealNet = incomeTxNet("1.2");
   const barsRealNet = incomeTxNet("1.1.03");

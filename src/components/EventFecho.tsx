@@ -13,9 +13,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
 import {
-  getPartnerCalcBasisLabel,
   normalizePartnerCalcBasis,
-  usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
