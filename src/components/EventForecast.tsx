@@ -3295,7 +3295,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       forecastId={item.id}
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.formalidade}
-                      readOnly={readOnly}
+                      readOnly={readOnly && !formalidadeEditable}
                     />
                   </span>
                 )}
