@@ -21,6 +21,7 @@ import {
 import { useCitySimulator } from "@/hooks/useCitySimulator";
 import { useCompany } from "@/hooks/useCompany";
 import EventABRealizedSection from "@/components/EventABRealizedSection";
+import EventABAttachmentsSection from "@/components/EventABAttachmentsSection";
 
 
 interface Props {
@@ -697,6 +698,9 @@ export default function EventABTab({ eventId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Anexos — documentos de fecho do operador de bares (só armazenamento) */}
+      <EventABAttachmentsSection eventId={eventId} />
     </div>
   );
 }

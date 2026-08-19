@@ -3000,6 +3000,50 @@ export type Database = {
           },
         ]
       }
+      event_ab_attachments: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          event_id: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ab_attachments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ab_config: {
         Row: {
           ab_mode_alimentos: string
