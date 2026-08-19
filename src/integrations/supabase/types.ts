@@ -11200,6 +11200,7 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_supplier_bank_data: { Args: never; Returns: boolean }
       check_supplier_iban_duplicate: {
         Args: { p_iban: string; p_supplier_id?: string }
         Returns: Json
@@ -11490,6 +11491,20 @@ export type Database = {
           total_value: number
           yesterday_qty: number
           yesterday_value: number
+        }[]
+      }
+      get_supplier_bank_details: {
+        Args: { p_supplier_ids?: string[] }
+        Returns: {
+          iban: string
+          iban_2: string
+          iban_3: string
+          id: string
+          name: string
+          nif: string
+          swift_bic: string
+          swift_bic_2: string
+          swift_bic_3: string
         }[]
       }
       get_user_max_daily_budget_eur: {

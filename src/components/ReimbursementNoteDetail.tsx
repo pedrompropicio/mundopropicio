@@ -11,6 +11,8 @@ import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileTe
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
+import { fetchSupplierBankRows, fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -138,16 +140,12 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const { data: supplierData } = useQuery({
     queryKey: ["supplier-bank-details-reimb", (note as any)?.supplier_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("suppliers")
-        .select("name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3")
-        .eq("id", (note as any).supplier_id)
-        .single();
-      if (error) throw error;
-      return data;
+      const rows = await fetchSupplierBankRows([(note as any).supplier_id]);
+      return rows[0] ?? null;
     },
     enabled: !!(note as any)?.supplier_id,
   });
+
 
   // Financial accounts for payment
   const { data: accounts = [] } = useQuery({
