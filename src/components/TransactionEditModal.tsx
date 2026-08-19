@@ -405,6 +405,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
+
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
