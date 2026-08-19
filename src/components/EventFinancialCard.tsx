@@ -65,9 +65,21 @@ export function EventFinancialCard(props: Props) {
   const [mode, setMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
   const [withVat, setWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
+  const [includeOverhead, setIncludeOverhead] = useState<boolean>(
+    () => readStoredCostToggle(userId, eventId, kind, "overhead"),
+  );
+  const [includeOutsideBp, setIncludeOutsideBp] = useState<boolean>(
+    () => readStoredCostToggle(userId, eventId, kind, "outsidebp"),
+  );
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
   useEffect(() => { writeStoredWithVat(userId, eventId, kind, withVat); }, [userId, eventId, kind, withVat]);
+  useEffect(() => {
+    writeStoredCostToggle(userId, eventId, kind, "overhead", includeOverhead);
+  }, [userId, eventId, kind, includeOverhead]);
+  useEffect(() => {
+    writeStoredCostToggle(userId, eventId, kind, "outsidebp", includeOutsideBp);
+  }, [userId, eventId, kind, includeOutsideBp]);
 
   const data = useEventFinancialCardData({
     eventId,
@@ -82,9 +94,12 @@ export function EventFinancialCard(props: Props) {
     masterForecastShare: props.masterForecastShare,
     cacheImpact: props.cacheImpact,
     withVat,
+    includeOverhead,
+    includeOutsideBp,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
+
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
   const title = kind === "income"
