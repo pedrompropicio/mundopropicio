@@ -90,6 +90,20 @@ const txt = (v: unknown) => String(v ?? "").trim();
 const sameTxt = (a: unknown, b: unknown) => txt(a) === txt(b);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Linhas cujo VALOR é read-only (overheads/rateios, adoções do Master, overrides
+ * retroativos). A RPC `batch_update_event_forecasts` bloqueia estas linhas em tudo
+ * excepto na FORMALIDADE — que é decisão comercial humana e nunca é reescrita por
+ * recálculos automáticos. Por isso a grelha deixa só essa coluna editável.
+ */
+const isLockedEntry = (e: {
+  is_overhead?: boolean | null;
+  exclude_from_result?: boolean | null;
+  master_forecast_id?: string | null;
+  is_retroactive_override?: boolean | null;
+}) =>
+  !!e.is_overhead || !!e.exclude_from_result || !!e.master_forecast_id || !!e.is_retroactive_override;
+
 interface Entry {
   id: string;
   event_id?: string | null;
@@ -103,6 +117,11 @@ interface Entry {
   status?: string;
   transaction_id?: string | null;
   ordering_partner_id?: string | null;
+  /** Overhead/rateio: valor é calculado — só a formalidade é editável nesta linha. */
+  is_overhead?: boolean | null;
+  exclude_from_result?: boolean | null;
+  master_forecast_id?: string | null;
+  is_retroactive_override?: boolean | null;
 }
 interface Category {
   id: string;
@@ -114,7 +133,7 @@ interface Category {
 type RowMeta =
   | { kind: "group"; level: 1 | 2 | 3; categoryId: string | null }
   | { kind: "orphan"; categoryId: string | null }
-  | { kind: "entry"; id: string; categoryId: string | null; categoryLabel: string }
+  | { kind: "entry"; id: string; categoryId: string | null; categoryLabel: string; locked?: boolean }
   | { kind: "entry"; tempId: string; categoryId: string | null; categoryLabel: string };
 
 const COL = {
@@ -275,7 +294,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         supabase
           .from("event_forecasts")
           .select(
-            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id",
+            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override",
           )
           .eq("event_id", eventId)
           .is("version_id", null)
@@ -461,7 +480,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             findMatchingTransactionsForForecast(row.entry as any, transactions, entries as any[]),
           );
           pushFormulaRow(
-            { kind: "entry", id: row.entry.id, categoryId: catId, categoryLabel: label },
+            { kind: "entry", id: row.entry.id, categoryId: catId, categoryLabel: label, locked: isLockedEntry(row.entry) },
             [
               label,
               row.entry.description ?? "",
@@ -566,6 +585,17 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const orig = originalsRef.current.get(m.id);
       if (!orig) return;
       const fields: Record<string, unknown> = {};
+      if (m.locked) {
+        // Linha de valor calculado: só a formalidade viaja para a RPC.
+        if ((orig.formalidade ?? "estimado") !== formalidade) {
+          res.edits.push({
+            id: m.id,
+            fields: { formalidade },
+            label: description || orig.description || m.id,
+          });
+        }
+        return;
+      }
       if (!sameTxt(orig.description, description)) fields.description = description || null;
       if (!sameTxt(orig.specification, specification)) fields.specification = specification || null;
       if (round2(Number(orig.amount ?? 0)) !== amount) fields.amount = amount;
@@ -654,6 +684,10 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     }
     if (m.kind !== "entry") {
       toast.info("Só é possível apagar linhas de despesa (não cabeçalhos de grupo).");
+      return;
+    }
+    if (!("tempId" in m) && m.locked) {
+      toast.info("Linha de overhead/rateio: não pode ser apagada aqui.");
       return;
     }
     if ("tempId" in m) {
@@ -1130,6 +1164,10 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               if ("tempId" in m) {
                 // Linhas novas: ordenador só depois de gravar (não há id ainda).
                 return {};
+              }
+              if (m.locked) {
+                // Overhead/rateio: valor calculado. Só a formalidade é editável.
+                return { readOnly: true, className: "bpv2-locked" };
               }
               return {};
             }}
