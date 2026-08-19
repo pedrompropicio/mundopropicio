@@ -30,7 +30,12 @@ export interface UseEventFinancialCardDataArgs {
   cacheImpact?: number;
   /** Se true, aplica IVA (bruto). Default false = base líquida. */
   withVat?: boolean;
+  /** Incluir linhas de overhead do BP (default OFF). */
+  includeOverhead?: boolean;
+  /** Incluir excesso por rubrica (transações fora do BP) — só no modo committed. Default OFF. */
+  includeOutsideBp?: boolean;
 }
+
 
 export interface Subtotal {
   label: string;
