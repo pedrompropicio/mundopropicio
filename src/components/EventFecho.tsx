@@ -78,6 +78,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
+  // Critério de fecho (IVA · base da despesa · overhead · fora do BP).
+  const basis = useFechoBasis(partnersSourceId, (eventInfo as any)?.partner_calc_basis);
+
+
+
   // ---- Transações (income + expense) — apenas do evento (não Master se sub) ou master+filhos
   // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam.
   // Filtro canónico em `@/lib/fecho-filters` (ver .lovable/memory/features/fecho-filter-parity.md):
