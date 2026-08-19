@@ -1039,7 +1039,7 @@ export default function PartnerEventDetail() {
   const transactionIncome = transactionIncomeOnly + ticketRevenueNet;
   const transactionsExpenseGross = transactions
     .filter((t: any) => t.type === "expense")
-    .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+    .reduce((s: number, t: any) => s + Number(t.gross_amount ?? calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0))), 0);
   const overheadExpenseGross = overheads
     .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
   const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
@@ -1048,8 +1048,11 @@ export default function PartnerEventDetail() {
   // ─── Cards do sócio (visão única e fixa) ───
   // Receitas realizadas NET = bilhetes vendidos + patrocínios confirmados (1.2*) + bares (1.1.03*)
   // Despesas = bpTotalExpense (BP aprovado c/IVA, já inclui overhead).
+  const categoryCodeById: Record<string, string> = {};
+  allCategories.forEach((c: any) => { categoryCodeById[c.id] = c.code; });
   const incomeTxNet = (kindPrefix: string) => transactions
-    .filter((t: any) => t.type === "income" && (t.account_categories?.code ?? "").startsWith(kindPrefix))
+    .filter((t: any) => t.type === "income" && (categoryCodeById[t.category_id] ?? "").startsWith(kindPrefix))
+
     .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
   const sponsorshipRealNet = incomeTxNet("1.2");
   const barsRealNet = incomeTxNet("1.1.03");
