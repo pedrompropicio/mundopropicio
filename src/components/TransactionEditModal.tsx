@@ -24,6 +24,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import { fetchBpLinesForCategory, relinkTransactionToForecast } from "@/lib/bp-line-relink";
 
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
@@ -69,7 +70,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     ordering_partner_id: transaction.ordering_partner_id ?? "",
   });
   const queryClient = useQueryClient();
-  const { user, isManager } = useAuth();
+  const { user, isManager, hasPermission } = useAuth();
 
   // Multi-currency state
   const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
@@ -380,7 +381,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
       // Zero campos alterados = no-op de fecho (não é erro).
-      if (changes.length === 0 && !wantsNewReimbursementLink) {
+      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty) {
         return { data: null, snapshot: null, changesCount: 0, noop: true as const };
       }
 
@@ -544,6 +545,23 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
       }
 
+      // Realocação para outra linha do BP dentro da L3 (mesma mecânica da Alocação do Realizado).
+      if (bpLinkDirty) {
+        try {
+          await relinkTransactionToForecast({
+            transactionId: transaction.id,
+            currentForecastId: linkedForecastId,
+            targetForecastId: bpLineChoice || null,
+          });
+        } catch (relinkErr: any) {
+          toast({
+            title: "TX atualizada, mas falhou realocar a linha do BP",
+            description: relinkErr?.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
       if (unlinkBpRequested && (linkedForecast as any)?.id) {
         const { error: unlinkErr } = await supabase
@@ -564,6 +582,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
     onSuccess: async (result) => {
       invalidateTransactionQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["linked-forecast", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["tx-edit-bp-lines"] });
+      queryClient.invalidateQueries({ queryKey: ["ra_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["ra_txs"] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["partner_realized"] });
+      queryClient.invalidateQueries({ queryKey: ["bp-planilha"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-link", transaction.id] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
@@ -623,6 +648,44 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
   const isBpLinked = !!linkedForecast && !unlinkBpRequested;
   const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
+
+  // ─── Realocação para outra LINHA do BP dentro da mesma L3 ───
+  // Mesmas permissões da ferramenta "Alocar realizado".
+  const canManageTxAlloc = isAdmin || isManager || hasPermission("manage_transactions");
+  const categoryChangedFromOriginal =
+    !!form.category_id && form.category_id !== (transaction.category_id ?? "");
+  const bpLinesEnabled =
+    canManageTxAlloc && !paidLocked && !!form.event_id && !!form.category_id && !hasChildren;
+
+  const { data: bpLines = [] } = useQuery({
+    queryKey: ["tx-edit-bp-lines", form.event_id, form.category_id, transaction.type],
+    queryFn: () =>
+      fetchBpLinesForCategory({
+        eventId: form.event_id,
+        categoryId: form.category_id,
+        type: transaction.type === "income" ? "income" : "expense",
+      }),
+    enabled: bpLinesEnabled,
+  });
+
+  // "" = sem linha específica (via rubrica)
+  const [bpLineChoice, setBpLineChoice] = useState<string>("");
+  const [bpLineTouched, setBpLineTouched] = useState(false);
+  const linkedForecastId = (linkedForecast as any)?.id ?? null;
+  const linkedForecastCat = (linkedForecast as any)?.category_id ?? null;
+  useEffect(() => {
+    if (bpLineTouched) return;
+    if (linkedForecastId && linkedForecastCat === form.category_id) {
+      setBpLineChoice(linkedForecastId);
+    } else {
+      setBpLineChoice("");
+    }
+  }, [linkedForecastId, linkedForecastCat, form.category_id, bpLineTouched]);
+
+  const bpLinkDirty =
+    bpLinesEnabled &&
+    !unlinkBpRequested &&
+    (bpLineChoice || null) !== (linkedForecastCat === form.category_id ? linkedForecastId : null);
   // Regra: TX vinculada a BP só aceita L3 do mesmo L2 do BP.
   const bpL2Id = (() => {
     if (!bpCategoryId) return null;
@@ -986,6 +1049,31 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                   ⚠️ Vínculo BP será removido ao gravar.{" "}
                   <button type="button" className="underline" onClick={() => setUnlinkBpRequested(false)}>Reverter</button>
                 </p>
+              )}
+              {bpLinesEnabled && !unlinkBpRequested && bpLines.length > 0 && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Linha do BP</label>
+                  <select
+                    value={bpLineChoice}
+                    onChange={(e) => { setBpLineTouched(true); setBpLineChoice(e.target.value); }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="">— Sem linha específica (via rubrica)</option>
+                    {bpLines.map((l) => {
+                      const busy = !!l.transaction_id && l.transaction_id !== transaction.id;
+                      return (
+                        <option key={l.id} value={l.id} disabled={busy}>
+                          {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€{busy ? " (ocupada)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {categoryChangedFromOriginal && !!linkedForecastId && linkedForecastCat !== form.category_id && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Mudaste a rubrica L3 — o vínculo anterior será limpo ao gravar.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             {hasChildren ? (
