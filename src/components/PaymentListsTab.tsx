@@ -1341,12 +1341,21 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (txIds.length > 0) {
         const { data: notes } = await supabase
           .from("reimbursement_notes")
-          .select("payment_transaction_id, payment_iban, employee_name, code, supplier_id, suppliers:supplier_id(name, trade_name, iban, email)")
+          .select("payment_transaction_id, payment_iban, employee_name, code, supplier_id, suppliers:supplier_id(name, trade_name, email)")
           .in("payment_transaction_id", txIds);
+        const noteBank = await fetchSupplierBankMap(
+          (notes ?? []).map((n: any) => n.supplier_id).filter(Boolean),
+        );
+        for (const n of notes ?? []) {
+          if ((n as any).suppliers && (n as any).supplier_id) {
+            Object.assign((n as any).suppliers, noteBank.get((n as any).supplier_id) ?? {});
+          }
+        }
         const noteMap: Record<string, any> = {};
         for (const n of notes ?? []) {
           if (n.payment_transaction_id) noteMap[n.payment_transaction_id] = n;
         }
+
         for (const item of filtered) {
           const tx = item.transactions;
           if (!tx) continue;
