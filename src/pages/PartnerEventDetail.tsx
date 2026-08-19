@@ -329,11 +329,16 @@ export default function PartnerEventDetail() {
       // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
       const perCityBreakdown = isMasterView
         ? visibleSubEvents.map((sub: any) => {
-            const localTx = allTxs.filter((t: any) => t.event_id === sub.id && isValidTx(t));
+            const localTx = allTxs.filter((t: any) => t.event_id === sub.id);
             const masterTxRated = allTxs
-              .filter((t: any) => t.event_id === id && isValidTx(t))
-              .map((t: any) => ({ ...t, amount: Number(t.amount) / masterChildCount }));
+              .filter((t: any) => t.event_id === id)
+              .map((t: any) => ({
+                ...t,
+                amount: Number(t.amount) / masterChildCount,
+                gross_amount: Number(t.gross_amount) / masterChildCount,
+              }));
             const cityTx = [...localTx, ...masterTxRated];
+
             const cityOverheads = overheadsRaw.flatMap((o: any) => {
               if (o.event_id === sub.id) return [o];
               if (o.event_id === id) return [{ ...o, amount: Number(o.amount) / masterChildCount }];
