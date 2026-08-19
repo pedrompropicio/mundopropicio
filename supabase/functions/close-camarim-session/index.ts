@@ -355,7 +355,11 @@ Deno.serve(async (req) => {
         : first.paymentOrigin === "card" ? "Cartão"
         : "Reembolso";
 
-      const description = `Camarim · ${session.title} · ${originLabel} · ${itemCount} ${itemCount === 1 ? "item" : "itens"}`.slice(0, 250);
+      const receiptWord = itemCount === 1 ? "recibo" : "recibos";
+      const originSuffix = first.paymentOrigin === "advance" ? "" : ` · ${originLabel}`;
+      const description =
+        `Camarim — ${session.title} (${itemCount} ${receiptWord}, IVA ${first.ivaRate}%)${originSuffix}`
+          .slice(0, 250);
 
       // Aggregate per analytic_tag for the specification field
       const tagAgg = new Map<string, { count: number; total: number }>();
