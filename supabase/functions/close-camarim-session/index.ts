@@ -674,8 +674,9 @@ Deno.serve(async (req) => {
 
     const allFailed = created.length === 0 && errors.length > 0;
 
-    // IDs de todas as transações geradas (consolidadas + settlement)
-    const allTxIds = [...created, ...(settlementTxId ? [settlementTxId] : [])];
+    // IDs de todas as transações geradas (consolidadas + ambas as pernas do acerto)
+    const settlementIds = [settlementTxId, settlementCounterTxId].filter(Boolean) as string[];
+    const allTxIds = [...created, ...settlementIds];
 
     // ===== Auditoria: registar a origem de cada transação criada (autor real) =====
     if (allTxIds.length > 0) {
@@ -684,7 +685,11 @@ Deno.serve(async (req) => {
         field_name: "created_by_camarim_integration",
         old_value: null,
         new_value: `Sessão de camarim ${session.title} (${sessionPaymentRef})${
-          txId === settlementTxId ? " · acerto de adiantamento" : " · agregado por taxa de IVA"
+          txId === settlementTxId
+            ? " · acerto de adiantamento (perna bancária, transferência interna 10.3)"
+            : txId === settlementCounterTxId
+              ? " · acerto de adiantamento (perna conta camarim, transferência interna 10.3)"
+              : " · agregado por taxa de IVA"
         }`,
         changed_by: caller.email ?? caller.id,
         company_id: (session as any).company_id,
