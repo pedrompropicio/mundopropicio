@@ -492,6 +492,7 @@ export default function CamarimSessionDetail() {
           session_id: id,
           card_account_id: cardAccountId || null,
           settlement_account_id: settlementAccountId || null,
+          settlement_supplier_id: administrator?.supplierId ?? null,
           parked_decisions: Object.entries(parkedDecisions).map(([item_id, v]) => ({
             item_id,
             decision: v.decision,
@@ -1038,7 +1039,7 @@ export default function CamarimSessionDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
             <AlertDialogDescription>
-              Os {approvedItems.length} itens aprovados vão ser <strong>consolidados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong>, agrupadas por evento, origem de pagamento, conta e taxa de IVA. O detalhe analítico de cada talão fica preservado e acessível na aba "Camarim" da transação. Itens pagos por adiantamento ficam liquidados na caixa do camarim; recursos próprios ficam a reembolsar.
+              Os {approvedItems.length} recibos aprovados vão ser <strong>agregados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong> — uma por taxa de IVA (e por destino de BP, evento, origem de pagamento e conta). A administradora da sessão{administrator ? ` (${administrator.name})` : ""} fica como entidade das transações e como contraparte do acerto do adiantamento. Os recibos individuais continuam na sessão e ficam anexos às transações agregadas. Itens pagos por adiantamento ficam liquidados na caixa do camarim; recursos próprios ficam a reembolsar.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
