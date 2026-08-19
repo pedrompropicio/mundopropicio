@@ -96,3 +96,19 @@ export function mergeEmbeddedSupplierBank<T extends { supplier_id?: string | nul
 export function collectSupplierIds(rows: { supplier_id?: string | null }[]): string[] {
   return Array.from(new Set(rows.map((r) => r.supplier_id).filter(Boolean) as string[]));
 }
+
+/**
+ * Enriquece IN-PLACE o objeto embutido `suppliers` de linhas de transação já
+ * carregadas (usado quando as linhas são partilhadas por referência).
+ */
+export async function attachSupplierBankToTxRows(
+  txRows: { supplier_id?: string | null; suppliers?: any }[],
+): Promise<void> {
+  const bank = await fetchSupplierBankMap(collectSupplierIds(txRows));
+  for (const tx of txRows) {
+    if (!tx.suppliers) continue;
+    const id = (tx.supplier_id ?? tx.suppliers?.id) as string | undefined;
+    const b = id ? bank.get(id) : undefined;
+    Object.assign(tx.suppliers, EMPTY_BANK, b ?? {});
+  }
+}
