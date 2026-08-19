@@ -16,6 +16,7 @@ import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
+import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
 import {
   getPartnerExpenseBase,
   getPartnerRevenueBase,
