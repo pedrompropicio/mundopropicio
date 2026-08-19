@@ -13,6 +13,7 @@ export const ISOLATED_BUCKETS = new Set<string>([
   "cache-extra-documents",
   "camarim-documents",
   "closing-cost-documents",
+  "event-ab-attachments",
   "event-forecast-attachments",
   "implementation-files",
   "import-reports",
