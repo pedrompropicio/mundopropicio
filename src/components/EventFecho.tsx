@@ -83,7 +83,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
+        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]);
       if (error) throw error;
