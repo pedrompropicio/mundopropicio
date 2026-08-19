@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDatePT } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds } from "@/lib/supplier-bank";
+
 
 export default function ReportContasPagar() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
@@ -56,12 +58,14 @@ export default function ReportContasPagar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, iban), account_categories(code, name)")
+        .select("*, events(name), suppliers(name), account_categories(code, name)")
         .eq("type", "expense")
         .in("status", ["approved", "pending"])
         .order("date", { ascending: false });
       if (error) throw error;
-      return data;
+      const rows = (data ?? []) as any[];
+      return mergeEmbeddedSupplierBank(rows, await fetchSupplierBankMap(collectSupplierIds(rows)));
+
     },
   });
 

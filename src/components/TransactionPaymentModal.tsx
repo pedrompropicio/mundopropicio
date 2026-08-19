@@ -15,6 +15,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
+import { fetchSupplierBankRows } from "@/lib/supplier-bank";
+
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
@@ -118,12 +120,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const { data: supplierData } = useQuery({
     queryKey: ["supplier-bank-details", transaction.supplier_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("id", transaction.supplier_id).single();
-      if (error) throw error;
-      return data;
+      const rows = await fetchSupplierBankRows([transaction.supplier_id]);
+      return rows[0] ?? null;
     },
     enabled: !!transaction.supplier_id,
   });
+
 
   const { data: txSummary = [] } = useQuery({
     queryKey: ["financial-accounts-tx-summary"],

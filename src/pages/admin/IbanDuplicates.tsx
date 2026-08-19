@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, fetchSupplierBankRows, mergeSupplierBank } from "@/lib/supplier-bank";
+
 
 type SupplierRow = {
   id: string;
@@ -40,12 +42,8 @@ export default function IbanDuplicatesPage() {
     queryKey: ["iban-duplicates-source"],
     enabled: isAuthorized,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("suppliers")
-        .select("id, name, nif, iban, iban_2, iban_3")
-        .or("iban.not.is.null,iban_2.not.is.null,iban_3.not.is.null");
-      if (error) throw error;
-      return (data ?? []) as SupplierRow[];
+      const rows = await fetchSupplierBankRows(null);
+      return rows.filter((r) => r.iban || r.iban_2 || r.iban_3) as unknown as SupplierRow[];
     },
   });
 
@@ -55,13 +53,15 @@ export default function IbanDuplicatesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("*")
+        .select(SUPPLIER_BASE_COLUMNS)
         .eq("id", editingId!)
         .single();
       if (error) throw error;
-      return data as any;
+      const bank = await fetchSupplierBankMap([editingId!]);
+      return mergeSupplierBank([data as any], bank)[0] as any;
     },
   });
+
 
   const groups: DupGroup[] = useMemo(() => {
     if (!suppliers) return [];

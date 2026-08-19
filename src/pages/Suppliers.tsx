@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+
 
 type ViewMode = "grid" | "list";
 type SortField = "name" | "trade_name";
@@ -33,11 +35,13 @@ export default function Suppliers() {
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("*").order("name");
+      const { data, error } = await supabase.from("suppliers").select(SUPPLIER_BASE_COLUMNS).order("name");
       if (error) throw error;
-      return data;
+      const bank = await fetchSupplierBankMap((data ?? []).map((s: any) => s.id));
+      return mergeSupplierBank((data ?? []) as any[], bank) as any[];
     },
   });
+
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

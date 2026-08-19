@@ -88,6 +88,8 @@ function PaymentDocsButton({ transactionId, onClick }: { transactionId: string; 
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBackdropClose } from "@/lib/backdropClose";
+import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds, attachSupplierBankToTxRows, fetchSupplierBankRows } from "@/lib/supplier-bank";
+
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
@@ -548,14 +550,15 @@ function useEligibleTransactionsForList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
+        .select("*, events(name), suppliers(name, trade_name), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
         // Reembolsos só podem ser liquidados via Nota de Reembolso — nunca em Lista de Pagamento
         .or("is_reimbursement.is.null,is_reimbursement.eq.false")
         .order("date", { ascending: false });
       if (error) throw error;
-      const rows = data ?? [];
+      const rows: any[] = mergeEmbeddedSupplierBank((data ?? []) as any[], await fetchSupplierBankMap(collectSupplierIds((data ?? []) as any[])));
+
       const loadedIds = new Set(rows.map((tx: any) => tx.id).filter(Boolean));
       const missingParentIds = [...new Set(rows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
         .filter((id: string) => !loadedIds.has(id));
@@ -1278,12 +1281,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, email), account_categories(code, name, parent_id))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name, email), account_categories(code, name, parent_id))")
         .eq("payment_list_id", listId)
         .order("created_at", { ascending: true });
       if (error) throw error;
       const rows = data ?? [];
       const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
+      await attachSupplierBankToTxRows(txRows);
+
       const loadedIds = new Set(txRows.map((tx: any) => tx.id).filter(Boolean));
       const missingParentIds = [...new Set(txRows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
         .filter((id: string) => !loadedIds.has(id));
@@ -1336,12 +1341,21 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (txIds.length > 0) {
         const { data: notes } = await supabase
           .from("reimbursement_notes")
-          .select("payment_transaction_id, payment_iban, employee_name, code, supplier_id, suppliers:supplier_id(name, trade_name, iban, email)")
+          .select("payment_transaction_id, payment_iban, employee_name, code, supplier_id, suppliers:supplier_id(name, trade_name, email)")
           .in("payment_transaction_id", txIds);
+        const noteBank = await fetchSupplierBankMap(
+          (notes ?? []).map((n: any) => n.supplier_id).filter(Boolean),
+        );
+        for (const n of notes ?? []) {
+          if ((n as any).suppliers && (n as any).supplier_id) {
+            Object.assign((n as any).suppliers, noteBank.get((n as any).supplier_id) ?? {});
+          }
+        }
         const noteMap: Record<string, any> = {};
         for (const n of notes ?? []) {
           if (n.payment_transaction_id) noteMap[n.payment_transaction_id] = n;
         }
+
         for (const item of filtered) {
           const tx = item.transactions;
           if (!tx) continue;
@@ -2435,12 +2449,14 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
         .eq("payment_list_id", listId)
         // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
         .is("removed_at", null);
       if (error) throw error;
       const rows = data ?? [];
+      await attachSupplierBankToTxRows(rows.map((item: any) => item.transactions).filter(Boolean));
+
       const txRows = rows.map((item: any) => item.transactions).filter(Boolean);
       const loadedIds = new Set(txRows.map((tx: any) => tx.id).filter(Boolean));
       const missingParentIds = [...new Set(txRows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]

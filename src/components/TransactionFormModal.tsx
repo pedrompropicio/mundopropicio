@@ -32,6 +32,8 @@ import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 import { findExistingInstallments, existingInstallmentsMessage, type ExistingInstallment } from "@/lib/installment-guard";
+import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+
 
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
@@ -425,11 +427,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name, trade_name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("suppliers").select("id, name, trade_name, nif").eq("is_active", true).order("name");
       if (error) throw error;
-      return data;
+      const bank = await fetchSupplierBankMap((data ?? []).map((s: any) => s.id));
+      return mergeSupplierBank((data ?? []) as any[], bank) as any[];
     },
   });
+
 
   const selectedSupplier = suppliers.find((s: any) => s.id === form.supplier_id) ?? null;
 

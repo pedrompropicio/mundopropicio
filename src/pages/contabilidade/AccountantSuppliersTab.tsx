@@ -15,6 +15,8 @@ import { Loader2, Paperclip, Eye, ArrowDownUp, ChevronRight } from "lucide-react
 import { SupplierViewModal, type SupplierRow } from "./SupplierViewModal";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import type { Period } from "./PeriodSelector";
+import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+
 
 interface Props {
   period: Period;
@@ -43,14 +45,17 @@ export function AccountantSuppliersTab({ period }: Props) {
     queryKey: ["accountant-suppliers", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data: rows, error } = await (supabase as any)
+      const { data: base, error } = await (supabase as any)
         .from("suppliers")
-        .select("id, name, trade_name, nif, email, phone, address, contact_name, category, payment_terms, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3, notes, is_partner")
+        .select("id, name, trade_name, nif, email, phone, address, contact_name, category, payment_terms, notes, is_partner")
         .eq("company_id", companyId)
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
+      const bank = await fetchSupplierBankMap((base ?? []).map((r: any) => r.id));
+      const rows = mergeSupplierBank((base ?? []) as any[], bank);
       const ids = (rows ?? []).map((r: any) => r.id);
+
       const counts = new Map<string, number>();
       if (ids.length) {
         const { data: docs } = await (supabase as any)
