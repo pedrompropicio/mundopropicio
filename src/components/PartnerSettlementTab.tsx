@@ -447,7 +447,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
         return childRows.map((se: any) => {
           const evtTx = validTx.filter((t: any) => t.event_id === se.id);
-          const inc = evtTx.filter((t: any) => t.type === "income");
+          const inc = evtTx.filter((t: any) => t.type === "income" && !(hasTicketSales && isTicketingRevenueTx(t)));
           const exp = evtTx.filter((t: any) => t.type === "expense");
           const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
           const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
