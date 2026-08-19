@@ -21,6 +21,7 @@ import {
 import { useCitySimulator } from "@/hooks/useCitySimulator";
 import { useCompany } from "@/hooks/useCompany";
 import EventABRealizedSection from "@/components/EventABRealizedSection";
+import EventABAttachmentsSection from "@/components/EventABAttachmentsSection";
 
 
 interface Props {
