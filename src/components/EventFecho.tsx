@@ -259,7 +259,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // Overhead segue a mesma base do resto do Fecho.
   const overheadIncomeFinal = calcBasis === "gross_revenue" ? overheadIncomeGross : overheadIncomeNet;
   const overheadExpenseFinal = useGrossExpenses ? overheadExpenseGross : overheadExpenseNet;
-  const overheadNet = overheadIncomeFinal - overheadExpenseFinal;
+  const overheadNet = basis.includeOverhead ? overheadIncomeFinal - overheadExpenseFinal : 0;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
   // Acerto com sócios — base = resultado COM overhead (overhead entra no acerto, mas não na empresa)
