@@ -711,7 +711,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             const txEvId = pe.transactions?.event_id || pe.event_id;
             return {
               description: pe.transactions?.description || "—",
-              amount: usesGrossExpenseAmounts(calcBasis)
+              amount: basis.withVat
                 ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
                 : Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
@@ -729,7 +729,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             const txEvId = pe.transactions?.event_id || pe.event_id;
             return {
               description: pe.transactions?.description || "—",
-              amount: usesGrossExpenseAmounts(calcBasis)
+              amount: basis.withVat
                 ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
                 : Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
