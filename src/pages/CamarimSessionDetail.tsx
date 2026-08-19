@@ -177,8 +177,41 @@ export default function CamarimSessionDetail() {
     setSession(s as any as SessionData);
     setItems(itemsList);
     setFunds((fm ?? []) as any as FundMove[]);
+    await resolveAdministrator(s as any);
     setLoading(false);
   };
+
+  /**
+   * Resolve a administradora da sessão: prestador externo escolhido directamente,
+   * ou o fornecedor vinculado ao colaborador responsável pelo caixa.
+   */
+  const resolveAdministrator = async (s: any) => {
+    if (!s) {
+      setAdministrator(null);
+      return;
+    }
+    let supplierId: string | null =
+      s.fund_holder_type === "supplier" ? (s.fund_holder_supplier_id ?? null) : null;
+    if (!supplierId && s.fund_holder_user_id) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("linked_supplier_id")
+        .eq("id", s.fund_holder_user_id)
+        .maybeSingle();
+      supplierId = (prof as any)?.linked_supplier_id ?? null;
+    }
+    if (!supplierId) {
+      setAdministrator(null);
+      return;
+    }
+    const { data: sup } = await supabase
+      .from("suppliers")
+      .select("id,name")
+      .eq("id", supplierId)
+      .maybeSingle();
+    setAdministrator({ supplierId, name: (sup as any)?.name ?? "(fornecedor)" });
+  };
+
 
   const handleDeleteSession = async () => {
     if (!id || !session) return;
