@@ -381,7 +381,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
       // Zero campos alterados = no-op de fecho (não é erro).
-      if (changes.length === 0 && !wantsNewReimbursementLink) {
+      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty) {
         return { data: null, snapshot: null, changesCount: 0, noop: true as const };
       }
 
@@ -545,6 +545,23 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
       }
 
+      // Realocação para outra linha do BP dentro da L3 (mesma mecânica da Alocação do Realizado).
+      if (bpLinkDirty) {
+        try {
+          await relinkTransactionToForecast({
+            transactionId: transaction.id,
+            currentForecastId: linkedForecastId,
+            targetForecastId: bpLineChoice || null,
+          });
+        } catch (relinkErr: any) {
+          toast({
+            title: "TX atualizada, mas falhou realocar a linha do BP",
+            description: relinkErr?.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
       if (unlinkBpRequested && (linkedForecast as any)?.id) {
         const { error: unlinkErr } = await supabase
@@ -565,6 +582,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
     onSuccess: async (result) => {
       invalidateTransactionQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["linked-forecast", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["tx-edit-bp-lines"] });
+      queryClient.invalidateQueries({ queryKey: ["ra_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["ra_txs"] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["partner_realized"] });
+      queryClient.invalidateQueries({ queryKey: ["bp-planilha"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-link", transaction.id] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
@@ -658,8 +682,6 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     }
   }, [linkedForecastId, linkedForecastCat, form.category_id, bpLineTouched]);
 
-  const currentLinkedIdForSave =
-    linkedForecastId && linkedForecastCat === form.category_id ? linkedForecastId : linkedForecastId;
   const bpLinkDirty =
     bpLinesEnabled &&
     !unlinkBpRequested &&
