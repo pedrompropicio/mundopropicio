@@ -110,6 +110,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ===== ADMINISTRADORA (obrigatória) =====
+    // A sessão tem de estar associada a uma entidade cadastrada (supplier) — a mesma
+    // pessoa que recebeu o adiantamento. É ela o supplier_id das transações agregadas
+    // e a contraparte do acerto de adiantamento.
+    let administratorSupplierId: string | null =
+      (session as any).fund_holder_type === "supplier"
+        ? ((session as any).fund_holder_supplier_id ?? null)
+        : null;
+    if (!administratorSupplierId && (session as any).fund_holder_user_id) {
+      // Colaborador: a entidade é o fornecedor vinculado ao perfil (mesmo padrão dos reembolsos).
+      const { data: holderProfile } = await adminClient
+        .from("profiles")
+        .select("linked_supplier_id")
+        .eq("id", (session as any).fund_holder_user_id)
+        .maybeSingle();
+      administratorSupplierId = (holderProfile as any)?.linked_supplier_id ?? null;
+    }
+    if (!administratorSupplierId) {
+      return json({
+        error:
+          "Sessão sem administradora definida. Edita a sessão e escolhe o responsável pelo caixa " +
+          "(prestador externo do cadastro, ou colaborador com fornecedor vinculado) antes de integrar.",
+      }, 422);
+    }
+
+    const sessionPaymentRef = `CAMARIM-${String(session.id).slice(0, 8).toUpperCase()}`;
+
+
     // Primary event (for items without explicit event_id)
     const { data: events } = await adminClient
       .from("camarim_session_events")
