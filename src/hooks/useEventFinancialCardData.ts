@@ -217,24 +217,44 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
-      const approved = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
+      // Operacionais: linhas aprovadas que entram no resultado.
+      // Overhead: linhas is_overhead (têm exclude_from_result=true) — só com o toggle ON.
+      const operational = forecasts.filter((f: any) =>
+        f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
       );
+      const overheadLines = forecasts.filter((f: any) =>
+        f.status === "approved" && !f.is_transitory && f.is_overhead
+      );
+      const approved = includeOverhead ? [...operational, ...overheadLines] : operational;
       const total = approved.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0);
       const bd = approved.reduce<FormalidadeBreakdown>(
         (acc, f) => addToBreakdown(acc, f.formalidade, eff(f.amount, f.iva_rate)),
         emptyBreakdown(),
       );
+
+      // "Fora do BP" = excesso por rubrica sobre as linhas OPERACIONAIS do BP
+      // (Σ max(realizado − previsto, 0)). Independente do toggle de overhead.
+      const outsideBp = kind === "expense" && includeOutsideBp
+        ? computeOutsideBpExcess(
+            operational,
+            txs.filter((t: any) =>
+              t.type === "expense" && !t.is_transitory && !t.is_hidden && !t.reversed_at
+            ),
+            withVat,
+          )
+        : 0;
+
       const extra = kind === "expense"
         ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
         : 0;
       return {
-        displayValue: total + extra,
+        displayValue: total + extra + outsideBp,
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
         phase, modeUsed, unavailable: approved.length === 0,
       };
     }
+
 
     // ── FORECAST ──────────────────────────────────────────────
     if (kind === "income") {
