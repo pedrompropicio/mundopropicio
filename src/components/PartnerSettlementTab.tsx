@@ -425,7 +425,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         const childRows = subEvents.filter((se: any) => se.id !== eventId);
         const childCount = childRows.length || 1;
         const masterTx = validTx.filter((t: any) => t.event_id === eventId);
-        const masterInc = masterTx.filter((t: any) => t.type === "income");
+        const masterInc = masterTx.filter((t: any) => t.type === "income" && !(hasTicketSales && isTicketingRevenueTx(t)));
         const masterExp = masterTx.filter((t: any) => t.type === "expense");
         const masterTbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === eventId);
         const masterRevenueNetShare = (
