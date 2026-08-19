@@ -6,8 +6,10 @@ import {
   type FormalidadeBreakdown,
   emptyBreakdown, addToBreakdown, detectPhase, resolveMode, classifyIncomeL1,
 } from "@/lib/event-financial-card";
+import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+
 
 export interface UseEventFinancialCardDataArgs {
   eventId: string;
