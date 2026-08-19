@@ -405,15 +405,35 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const totalRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
     + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
-  const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0)
-    + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
-  const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0)
-    + overheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
+  // ---- Despesa segundo o critério selecionado no seletor ----------------
+  // Base "realizado" = transações; base "comprometido" = linhas aprovadas do BP.
+  // Overhead e "fora do BP" (excesso por rubrica) entram por toggle.
+  const operationalForecasts = (forecasts as any[]).filter((f: any) =>
+    f.type === "expense" && f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
+  );
+
+  const expenseSourceLines = basis.expenseSource === "committed" ? operationalForecasts : expenseTransactions;
+
+  const overheadNet = basis.includeOverhead
+    ? overheads.reduce((s: number, o: any) => s + Number(o.amount), 0) : 0;
+  const overheadGross = basis.includeOverhead
+    ? overheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0) : 0;
+
+  const outsideBpNet = basis.expenseSource === "committed" && basis.includeOutsideBp
+    ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, false) : 0;
+  const outsideBpGross = basis.expenseSource === "committed" && basis.includeOutsideBp
+    ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, true) : 0;
+
+  const totalExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
+  const totalExpensesGross = sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross;
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
-  const expenseBase = getPartnerExpenseBase(calcBasis, totalExpensesNet, totalExpensesGross);
+  const expenseBase = ignoresOperationalExpenses(calcBasis)
+    ? 0
+    : (basis.withVat ? totalExpensesGross : totalExpensesNet);
   const resultBase = revenueBase - expenseBase;
+
 
   // ---- City breakdown (para turnês) ----
   // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions.
