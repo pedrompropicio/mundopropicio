@@ -371,6 +371,14 @@ export default function CamarimSessionDetail() {
   // Bloqueios pré-integração: lista de problemas que impedem o fluxo
   const blockingIssues = useMemo(() => {
     const issues: string[] = [];
+    // (0) Administradora obrigatória — é o supplier das transações agregadas e a
+    // contraparte do acerto do adiantamento.
+    if (!administrator) {
+      issues.push(
+        'Sessão sem administradora definida. Clica em "Editar sessão" e escolhe o responsável pelo caixa — prestador externo do cadastro, ou colaborador com fornecedor vinculado — antes de integrar.',
+      );
+    }
+
     const advanceItems = approvedItems.filter((i) => i.payment_origin === "advance");
     const advanceFundMoves = funds.filter(
       (f) => f.move_type === "advance" || f.move_type === "reinforcement",
