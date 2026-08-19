@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
     // ===== Load session =====
     const { data: session, error: sErr } = await adminClient
       .from("camarim_sessions")
-      .select("id,title,status,currency,master_event_id,opened_at,closed_at,company_id")
+      .select(
+        "id,title,status,currency,master_event_id,opened_at,closed_at,company_id,fund_holder_type,fund_holder_supplier_id,fund_holder_user_id",
+      )
       .eq("id", body.session_id)
       .single();
     if (sErr || !session) return json({ error: "Sessão não encontrada" }, 404);
@@ -107,6 +109,34 @@ Deno.serve(async (req) => {
         return json({ error: "Cross-tenant access denied" }, 403);
       }
     }
+
+    // ===== ADMINISTRADORA (obrigatória) =====
+    // A sessão tem de estar associada a uma entidade cadastrada (supplier) — a mesma
+    // pessoa que recebeu o adiantamento. É ela o supplier_id das transações agregadas
+    // e a contraparte do acerto de adiantamento.
+    let administratorSupplierId: string | null =
+      (session as any).fund_holder_type === "supplier"
+        ? ((session as any).fund_holder_supplier_id ?? null)
+        : null;
+    if (!administratorSupplierId && (session as any).fund_holder_user_id) {
+      // Colaborador: a entidade é o fornecedor vinculado ao perfil (mesmo padrão dos reembolsos).
+      const { data: holderProfile } = await adminClient
+        .from("profiles")
+        .select("linked_supplier_id")
+        .eq("id", (session as any).fund_holder_user_id)
+        .maybeSingle();
+      administratorSupplierId = (holderProfile as any)?.linked_supplier_id ?? null;
+    }
+    if (!administratorSupplierId) {
+      return json({
+        error:
+          "Sessão sem administradora definida. Edita a sessão e escolhe o responsável pelo caixa " +
+          "(prestador externo do cadastro, ou colaborador com fornecedor vinculado) antes de integrar.",
+      }, 422);
+    }
+
+    const sessionPaymentRef = `CAMARIM-${String(session.id).slice(0, 8).toUpperCase()}`;
+
 
     // Primary event (for items without explicit event_id)
     const { data: events } = await adminClient
@@ -267,9 +297,11 @@ Deno.serve(async (req) => {
     }
 
     // ===== Group items by consolidation key =====
+    // Inclui o destino de BP (bp_scope) para nunca misturar rateio Master com despesa local.
     const groupKey = (r: ResolvedItem) =>
       [
         r.eventId,
+        (r.raw.bp_scope as string | null) ?? "",
         r.paymentOrigin,
         r.accountId ?? "",
         r.buyerId ?? "",
@@ -323,7 +355,11 @@ Deno.serve(async (req) => {
         : first.paymentOrigin === "card" ? "Cartão"
         : "Reembolso";
 
-      const description = `Camarim · ${session.title} · ${originLabel} · ${itemCount} ${itemCount === 1 ? "item" : "itens"}`.slice(0, 250);
+      const receiptWord = itemCount === 1 ? "recibo" : "recibos";
+      const originSuffix = first.paymentOrigin === "advance" ? "" : ` · ${originLabel}`;
+      const description =
+        `Camarim — ${session.title} (${itemCount} ${receiptWord}, IVA ${first.ivaRate}%)${originSuffix}`
+          .slice(0, 250);
 
       // Aggregate per analytic_tag for the specification field
       const tagAgg = new Map<string, { count: number; total: number }>();
@@ -378,7 +414,8 @@ Deno.serve(async (req) => {
         iva_rate: snappedRate,
         event_id: first.eventId,
         category_id: camarimCategoryId, // FORCED to 2.6.04 — Camarins
-        supplier_id: null, // consolidated — no single supplier
+        supplier_id: administratorSupplierId, // administradora da sessão (recebeu o adiantamento)
+        payment_reference: sessionPaymentRef,
         specification: specification + ivaNote,
         date: txDate,
         status: txStatus,
@@ -531,8 +568,9 @@ Deno.serve(async (req) => {
             iva_rate: 0,
             event_id: settlementEventId,
             category_id: null,
-            supplier_id: body.settlement_supplier_id ?? null,
-            specification: `Acerto automático do adiantamento da sessão ${session.title}`,
+            supplier_id: body.settlement_supplier_id ?? administratorSupplierId,
+            payment_reference: sessionPaymentRef,
+            specification: `Acerto automático do adiantamento da sessão ${session.title} (reembolso à administradora)`,
             date: new Date().toISOString().slice(0, 10),
             status: "approved",
             currency: session.currency ?? "EUR",
@@ -557,8 +595,9 @@ Deno.serve(async (req) => {
             iva_rate: 0,
             event_id: settlementEventId,
             category_id: null,
-            supplier_id: body.settlement_supplier_id ?? null,
-            specification: `Acerto automático do adiantamento da sessão ${session.title}`,
+            supplier_id: body.settlement_supplier_id ?? administratorSupplierId,
+            payment_reference: sessionPaymentRef,
+            specification: `Acerto automático do adiantamento da sessão ${session.title} (devolução de caixa em mão pela administradora)`,
             date: new Date().toISOString().slice(0, 10),
             status: "approved",
             currency: session.currency ?? "EUR",
@@ -580,12 +619,36 @@ Deno.serve(async (req) => {
     // IDs de todas as transações geradas (consolidadas + settlement)
     const allTxIds = [...created, ...(settlementTxId ? [settlementTxId] : [])];
 
+    // ===== Auditoria: registar a origem de cada transação criada (autor real) =====
+    if (allTxIds.length > 0) {
+      const auditRows = allTxIds.map((txId) => ({
+        transaction_id: txId,
+        field_name: "created_by_camarim_integration",
+        old_value: null,
+        new_value: `Sessão de camarim ${session.title} (${sessionPaymentRef})${
+          txId === settlementTxId ? " · acerto de adiantamento" : " · agregado por taxa de IVA"
+        }`,
+        changed_by: caller.id,
+        company_id: (session as any).company_id,
+      }));
+      const { error: auditErr } = await adminClient
+        .from("transaction_audit_log")
+        .insert(auditRows);
+      if (auditErr) errors.push(`Auditoria: ${auditErr.message}`);
+    }
+
+
+
     // Snapshot completo do resumo
     const integrationSummary = {
       generated_at: new Date().toISOString(),
       generated_by: caller.email ?? caller.id,
       session_title: session.title,
       currency: session.currency ?? "EUR",
+      integrated_by_user_id: caller.id,
+      administrator_supplier_id: administratorSupplierId,
+      aggregation_mode: "hybrid_by_iva_rate",
+      payment_reference: sessionPaymentRef,
       consolidated_groups: created.length,
       consolidated_transaction_ids: created,
       items_integrated: resolved.length,
@@ -616,6 +679,7 @@ Deno.serve(async (req) => {
         .update({
           status: "integrated",
           integrated_at: new Date().toISOString(),
+          integrated_by: caller.id,
           advance_total: advanceNet,
           spent_total: spentFromAdvance,
           settlement_balance: balance,

@@ -61,6 +61,9 @@ interface SessionData {
   notes: string | null;
   integration_summary: any | null;
   integration_transaction_ids: string[] | null;
+  fund_holder_type?: string | null;
+  fund_holder_supplier_id?: string | null;
+  fund_holder_user_id?: string | null;
 }
 
 interface ItemRow {
@@ -130,6 +133,9 @@ export default function CamarimSessionDetail() {
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
   const [confirmIntegration, setConfirmIntegration] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  // Administradora da sessão (entidade que recebeu o adiantamento) — obrigatória para integrar.
+  const [administrator, setAdministrator] = useState<{ supplierId: string; name: string } | null>(null);
+
 
 
   useEffect(() => {
@@ -171,8 +177,41 @@ export default function CamarimSessionDetail() {
     setSession(s as any as SessionData);
     setItems(itemsList);
     setFunds((fm ?? []) as any as FundMove[]);
+    await resolveAdministrator(s as any);
     setLoading(false);
   };
+
+  /**
+   * Resolve a administradora da sessão: prestador externo escolhido directamente,
+   * ou o fornecedor vinculado ao colaborador responsável pelo caixa.
+   */
+  const resolveAdministrator = async (s: any) => {
+    if (!s) {
+      setAdministrator(null);
+      return;
+    }
+    let supplierId: string | null =
+      s.fund_holder_type === "supplier" ? (s.fund_holder_supplier_id ?? null) : null;
+    if (!supplierId && s.fund_holder_user_id) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("linked_supplier_id")
+        .eq("id", s.fund_holder_user_id)
+        .maybeSingle();
+      supplierId = (prof as any)?.linked_supplier_id ?? null;
+    }
+    if (!supplierId) {
+      setAdministrator(null);
+      return;
+    }
+    const { data: sup } = await supabase
+      .from("suppliers")
+      .select("id,name")
+      .eq("id", supplierId)
+      .maybeSingle();
+    setAdministrator({ supplierId, name: (sup as any)?.name ?? "(fornecedor)" });
+  };
+
 
   const handleDeleteSession = async () => {
     if (!id || !session) return;
@@ -332,6 +371,14 @@ export default function CamarimSessionDetail() {
   // Bloqueios pré-integração: lista de problemas que impedem o fluxo
   const blockingIssues = useMemo(() => {
     const issues: string[] = [];
+    // (0) Administradora obrigatória — é o supplier das transações agregadas e a
+    // contraparte do acerto do adiantamento.
+    if (!administrator) {
+      issues.push(
+        'Sessão sem administradora definida. Clica em "Editar sessão" e escolhe o responsável pelo caixa — prestador externo do cadastro, ou colaborador com fornecedor vinculado — antes de integrar.',
+      );
+    }
+
     const advanceItems = approvedItems.filter((i) => i.payment_origin === "advance");
     const advanceFundMoves = funds.filter(
       (f) => f.move_type === "advance" || f.move_type === "reinforcement",
@@ -391,7 +438,7 @@ export default function CamarimSessionDetail() {
     }
 
     return issues;
-  }, [approvedItems, funds, totals, session?.currency]);
+  }, [approvedItems, funds, totals, session?.currency, administrator]);
 
 
 
@@ -445,6 +492,7 @@ export default function CamarimSessionDetail() {
           session_id: id,
           card_account_id: cardAccountId || null,
           settlement_account_id: settlementAccountId || null,
+          settlement_supplier_id: administrator?.supplierId ?? null,
           parked_decisions: Object.entries(parkedDecisions).map(([item_id, v]) => ({
             item_id,
             decision: v.decision,
@@ -991,7 +1039,7 @@ export default function CamarimSessionDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
             <AlertDialogDescription>
-              Os {approvedItems.length} itens aprovados vão ser <strong>consolidados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong>, agrupadas por evento, origem de pagamento, conta e taxa de IVA. O detalhe analítico de cada talão fica preservado e acessível na aba "Camarim" da transação. Itens pagos por adiantamento ficam liquidados na caixa do camarim; recursos próprios ficam a reembolsar.
+              Os {approvedItems.length} recibos aprovados vão ser <strong>agregados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong> — uma por taxa de IVA (e por destino de BP, evento, origem de pagamento e conta). A administradora da sessão{administrator ? ` (${administrator.name})` : ""} fica como entidade das transações e como contraparte do acerto do adiantamento. Os recibos individuais continuam na sessão e ficam anexos às transações agregadas. Itens pagos por adiantamento ficam liquidados na caixa do camarim; recursos próprios ficam a reembolsar.
             </AlertDialogDescription>
           </AlertDialogHeader>
 

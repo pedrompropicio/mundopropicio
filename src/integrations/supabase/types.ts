@@ -1383,6 +1383,7 @@ export type Database = {
           fund_holder_user_id: string | null
           id: string
           integrated_at: string | null
+          integrated_by: string | null
           integration_summary: Json | null
           integration_transaction_ids: string[]
           master_event_id: string | null
@@ -1412,6 +1413,7 @@ export type Database = {
           fund_holder_user_id?: string | null
           id?: string
           integrated_at?: string | null
+          integrated_by?: string | null
           integration_summary?: Json | null
           integration_transaction_ids?: string[]
           master_event_id?: string | null
@@ -1441,6 +1443,7 @@ export type Database = {
           fund_holder_user_id?: string | null
           id?: string
           integrated_at?: string | null
+          integrated_by?: string | null
           integration_summary?: Json | null
           integration_transaction_ids?: string[]
           master_event_id?: string | null
