@@ -695,7 +695,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const revenue = revenueBase;
     const expenses = ignoresOperationalExpenses(calcBasis)
       ? 0
-      : (p.expense_includes_iva || usesGrossExpenseAmounts(calcBasis) ? totalExpensesGross : totalExpensesNet);
+      : (p.expense_includes_iva || basis.withVat ? totalExpensesGross : totalExpensesNet);
+
     const result = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
     const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = result * (effectivePercentage / 100);
