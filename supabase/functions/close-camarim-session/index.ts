@@ -432,6 +432,7 @@ Deno.serve(async (req) => {
         currency: session.currency ?? "EUR",
         is_reimbursement: isReimbursement,
         reimbursement_to: isReimbursement ? first.buyerId : null,
+        company_id: sessionCompanyId, // service-role: current_company_id() returns NULL
       };
 
       if (txStatus === "paid") {
@@ -585,6 +586,7 @@ Deno.serve(async (req) => {
             currency: session.currency ?? "EUR",
             paid_amount: 0,
             account_id: settlementAccountId,
+            company_id: sessionCompanyId,
           })
           .select("id")
           .single();
@@ -612,6 +614,7 @@ Deno.serve(async (req) => {
             currency: session.currency ?? "EUR",
             paid_amount: 0,
             account_id: settlementAccountId,
+            company_id: sessionCompanyId,
           })
           .select("id")
           .single();
