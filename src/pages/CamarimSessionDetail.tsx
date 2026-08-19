@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportCamarimSessionPdf } from "@/lib/export-camarim-session-pdf";
+import { extractFnError } from "@/lib/edge-fn-error";
 
 import {
   SESSION_STATUS_LABELS,
@@ -500,7 +501,7 @@ export default function CamarimSessionDetail() {
           })),
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await extractFnError(error));
       if (data?.error) throw new Error(data.error);
       const settlementMsg = data?.settlement?.type && data.settlement.type !== "balanced"
         ? ` · Acerto: ${data.settlement.type === "reinforcement" ? "reforço a pagar" : "devolução a receber"} de ${formatCurrency(Math.abs(data.settlement.balance ?? 0), session?.currency ?? "EUR")}`

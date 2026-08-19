@@ -55,13 +55,13 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Role check: admin OR manager
-    const { data: roleData } = await adminClient
+    // Role check: admin OR manager OR platform_admin (multi-membership → várias linhas)
+    const { data: roleRows } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", caller.id)
-      .single();
-    if (!roleData || (roleData.role !== "admin" && roleData.role !== "manager")) {
+      .eq("user_id", caller.id);
+    const callerRoles = (roleRows ?? []).map((r: any) => r.role as string);
+    if (!callerRoles.some((r) => r === "admin" || r === "manager" || r === "platform_admin")) {
       return json({ error: "Apenas admin/manager podem integrar a sessão" }, 403);
     }
 
@@ -628,7 +628,7 @@ Deno.serve(async (req) => {
         new_value: `Sessão de camarim ${session.title} (${sessionPaymentRef})${
           txId === settlementTxId ? " · acerto de adiantamento" : " · agregado por taxa de IVA"
         }`,
-        changed_by: caller.id,
+        changed_by: caller.email ?? caller.id,
         company_id: (session as any).company_id,
       }));
       const { error: auditErr } = await adminClient
