@@ -20,6 +20,8 @@ import {
 } from "@/lib/event-ab-calc";
 import { useCitySimulator } from "@/hooks/useCitySimulator";
 import { useCompany } from "@/hooks/useCompany";
+import EventABRealizedSection from "@/components/EventABRealizedSection";
+
 
 interface Props {
   eventId: string;
@@ -401,6 +403,11 @@ export default function EventABTab({ eventId }: Props) {
 
       {/* KPIs consolidados — adaptativos conforme os modos */}
       <KpisConsolidados totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
+
+      {/* Realizado (fecho) — origem: transações do evento (read-only) */}
+      <EventABRealizedSection eventId={eventId} />
+
+
 
       {/* Bebidas — por zona */}
       <Card>
