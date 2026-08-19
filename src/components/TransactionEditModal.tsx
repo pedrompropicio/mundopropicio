@@ -348,6 +348,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: installmentGroupRows = [] } = useInstallmentGroup(transaction);
   const isInstallmentGroup = installmentGroupRows.length >= 2;
 
+  // Admin e gestora podem realocar o vínculo do BP (e mudar a L3) mesmo em TX liquidadas:
+  // não mexe em valores nem em estado de pagamento, só em event_forecasts.transaction_id / category_id.
+  const canReallocBpWhenPaid = isAdmin || isManager;
+
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
