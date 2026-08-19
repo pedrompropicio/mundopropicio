@@ -1733,13 +1733,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="l3">Despesas: Nível 3 (detalhe)</SelectItem>
             </SelectContent>
           </Select>
+          <FechoBasisSelector basis={basis} />
           <Button size="sm" variant="outline" onClick={exportPdf}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
           </Button>
         </div>
       </div>
 
-      {/* Global summary — Receita s/IVA, Despesa c/IVA (premissa do relatório de fecho) */}
+      {/* Global summary — critério conforme seletor */}
       <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
@@ -1747,17 +1748,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <p className="text-xl font-bold font-mono text-success">{formatCurrency(totalRevenueNet)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas</p>
-            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(totalExpensesGross)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Despesas ({basis.withVat ? "c/IVA" : "s/IVA"})
+            </p>
+            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(expenseBase)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Resultado</p>
-            <p className={`text-xl font-bold font-mono ${(totalRevenueNet - totalExpensesGross) >= 0 ? "text-success" : "text-destructive"}`}>
-              {formatCurrency(totalRevenueNet - totalExpensesGross)}
+            <p className={`text-xl font-bold font-mono ${resultBase >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(resultBase)}
             </p>
           </div>
         </div>
+        <p className="text-[10px] text-muted-foreground">{describeFechoBasis(basis)}</p>
       </div>
+
 
       {/* City breakdown for tours */}
       {cityBreakdown.length > 0 && (
