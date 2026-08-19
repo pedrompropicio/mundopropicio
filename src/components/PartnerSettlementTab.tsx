@@ -153,6 +153,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
+  // Critério de fecho (IVA · base · overhead · fora do BP). Valor inicial do
+  // IVA vem de partner_calc_basis; o toggle nunca escreve nesse campo.
+  const basis = useFechoBasis(eventId, event?.partner_calc_basis);
+
+
+
   // Sub-events with city info (for breakdown)
   const { data: subEvents = [] } = useQuery({
     queryKey: ["sub-events-cities", allEventIdsKey],
