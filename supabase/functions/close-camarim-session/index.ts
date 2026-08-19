@@ -297,9 +297,11 @@ Deno.serve(async (req) => {
     }
 
     // ===== Group items by consolidation key =====
+    // Inclui o destino de BP (bp_scope) para nunca misturar rateio Master com despesa local.
     const groupKey = (r: ResolvedItem) =>
       [
         r.eventId,
+        (r.raw.bp_scope as string | null) ?? "",
         r.paymentOrigin,
         r.accountId ?? "",
         r.buyerId ?? "",
