@@ -697,6 +697,9 @@ export default function EventABTab({ eventId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Anexos — documentos de fecho do operador de bares (só armazenamento) */}
+      <EventABAttachmentsSection eventId={eventId} />
     </div>
   );
 }
