@@ -435,9 +435,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         fx_rate_source: currency === "EUR" ? null : fxRateSource,
         declared_withholding_rate: transaction.type === "expense" && parseFloat(form.declared_withholding_rate) > 0 ? Number(form.declared_withholding_rate) : null,
         declared_withholding_amount: transaction.type === "expense" && parseFloat(form.declared_withholding_amount) > 0 ? parseFloat(form.declared_withholding_amount) : null,
-        // Reembolso: só permitimos alterar em despesas ainda não aprovadas/pagas (ver UI).
+        // Reembolso: permitido em despesas não liquidadas (inclui aprovadas e masters de split — ver UI).
+        // Em split, marca-se apenas a master; as filhas não são propagadas.
         // Se desligado, limpa também reimbursement_to.
-        ...(transaction.type === "expense" && !isApproved && !isPaid ? {
+        ...(transaction.type === "expense" && !isPaid ? {
           is_reimbursement: form.is_reimbursement,
           reimbursement_to: form.is_reimbursement ? (form.reimbursement_to.trim() || null) : null,
         } : {}),
@@ -1611,9 +1612,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {/* Reembolso toggle — despesas ainda não aprovadas nem pagas.
+          {/* Reembolso toggle — despesas não liquidadas (inclui aprovadas e masters de split).
               Permite ao editor corrigir uma transação que devia ter sido marcada como reembolso. */}
-          {isExpense && !isApproved && !isPaid && !hasChildren && !isPaidByPartner && !isPartnerExtra && (
+          {isExpense && !isPaid && !isPaidByPartner && !isPartnerExtra && (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
@@ -1639,6 +1640,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                   {form.is_reimbursement ? "Vincule a uma Nota após guardar" : "Marcar se foi despesa a reembolsar"}
                 </span>
               </div>
+              {hasChildren && (
+                <p className="text-[10px] text-muted-foreground">
+                  Num split, o reembolso é marcado na transação master (valor total).
+                </p>
+              )}
               {form.is_reimbursement && (
                 <div className="space-y-2">
                   {!isLinkedToReimbursementNote && (
