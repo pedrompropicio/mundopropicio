@@ -55,16 +55,16 @@ export interface UseEventFinancialCardDataResult {
 }
 
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
-  const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate, withVat = false } = args;
+  const {
+    eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate,
+    withVat = false, includeOverhead = false, includeOutsideBp = false,
+  } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
 
-  // Multiplicador c/IVA por linha (fallback 0 quando iva_rate ausente).
-  const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) => {
-    const a = Number(amount || 0);
-    if (!withVat) return a;
-    return a * (1 + Number(ivaRate || 0) / 100);
-  };
+  // Valor da linha c/ ou s/IVA — arredondamento ao cêntimo LINHA A LINHA (Art.º 18 CIVA).
+  const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) =>
+    lineValue(amount, ivaRate, withVat);
 
   // ── transactions (paid + approved, NÃO inclui pending para alinhar com Cards/Análise) ──
   const { data: txs = [] } = useQuery({
@@ -72,7 +72,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -86,13 +86,14 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
       if (error) throw error;
       return (data ?? []) as any[];
     },
+
     enabled: ids.length > 0,
   });
 
