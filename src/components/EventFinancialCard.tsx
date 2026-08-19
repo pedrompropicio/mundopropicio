@@ -171,6 +171,28 @@ export function EventFinancialCard(props: Props) {
                 <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
+              {kind === "expense" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs">Composição do custo</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={includeOverhead}
+                    onCheckedChange={(v) => setIncludeOverhead(!!v)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Incluir overhead
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={includeOutsideBp}
+                    disabled={data.modeUsed !== "committed"}
+                    onCheckedChange={(v) => setIncludeOutsideBp(!!v)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Incluir transações fora do BP
+                  </DropdownMenuCheckboxItem>
+                </>
+              )}
+
               {showScenarioToggle && (
                 <>
                   <DropdownMenuSeparator />
