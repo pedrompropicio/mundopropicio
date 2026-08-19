@@ -68,20 +68,6 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as RequestBody;
     if (!body?.session_id) return json({ error: "session_id obrigatório" }, 400);
 
-    // ===== Resolve fixed accounting category 2.6.04 — Camarins =====
-    const { data: catRow, error: catErr } = await adminClient
-      .from("account_categories")
-      .select("id,code,name,is_active")
-      .eq("code", "2.6.04")
-      .eq("is_active", true)
-      .single();
-    if (catErr || !catRow) {
-      return json({
-        error: "Categoria 2.6.04 — Camarins não encontrada/ativa no plano de contas. Avisa um administrador.",
-      }, 500);
-    }
-    const camarimCategoryId = catRow.id as string;
-
     // ===== Load session =====
     const { data: session, error: sErr } = await adminClient
       .from("camarim_sessions")
@@ -109,6 +95,29 @@ Deno.serve(async (req) => {
         return json({ error: "Cross-tenant access denied" }, 403);
       }
     }
+
+    // ===== Resolve fixed accounting category 2.6.04 — Camarins =====
+    // GOTCHA: account_categories tem 1 linha por código POR EMPRESA → o lookup
+    // TEM de ser company-scoped, senão devolve N linhas.
+    const sessionCompanyId = (session as any).company_id as string | null;
+    const { data: catRow, error: catErr } = await adminClient
+      .from("account_categories")
+      .select("id,code,name,is_active,company_id")
+      .eq("code", "2.6.04")
+      .eq("is_active", true)
+      .eq("company_id", sessionCompanyId)
+      .maybeSingle();
+    if (catErr) {
+      return json({
+        error: `Erro ao resolver a categoria 2.6.04 — Camarins: ${catErr.message}`,
+      }, 500);
+    }
+    if (!catRow) {
+      return json({
+        error: "Categoria 2.6.04 — Camarins não encontrada/ativa no plano de contas desta empresa. Avisa um administrador.",
+      }, 500);
+    }
+    const camarimCategoryId = catRow.id as string;
 
     // ===== ADMINISTRADORA (obrigatória) =====
     // A sessão tem de estar associada a uma entidade cadastrada (supplier) — a mesma
