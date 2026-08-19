@@ -548,14 +548,15 @@ function useEligibleTransactionsForList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
+        .select("*, events(name), suppliers(name, trade_name), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
         // Reembolsos só podem ser liquidados via Nota de Reembolso — nunca em Lista de Pagamento
         .or("is_reimbursement.is.null,is_reimbursement.eq.false")
         .order("date", { ascending: false });
       if (error) throw error;
-      const rows = data ?? [];
+      const rows = mergeEmbeddedSupplierBank(data ?? [], await fetchSupplierBankMap(collectSupplierIds(data ?? [])));
+
       const loadedIds = new Set(rows.map((tx: any) => tx.id).filter(Boolean));
       const missingParentIds = [...new Set(rows.map((tx: any) => tx.parent_transaction_id).filter(Boolean))]
         .filter((id: string) => !loadedIds.has(id));
