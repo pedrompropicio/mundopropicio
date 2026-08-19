@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
     // ===== Load session =====
     const { data: session, error: sErr } = await adminClient
       .from("camarim_sessions")
-      .select("id,title,status,currency,master_event_id,opened_at,closed_at,company_id")
+      .select(
+        "id,title,status,currency,master_event_id,opened_at,closed_at,company_id,fund_holder_type,fund_holder_supplier_id,fund_holder_user_id",
+      )
       .eq("id", body.session_id)
       .single();
     if (sErr || !session) return json({ error: "Sessão não encontrada" }, 404);
