@@ -645,6 +645,10 @@ Deno.serve(async (req) => {
       generated_by: caller.email ?? caller.id,
       session_title: session.title,
       currency: session.currency ?? "EUR",
+      integrated_by_user_id: caller.id,
+      administrator_supplier_id: administratorSupplierId,
+      aggregation_mode: "hybrid_by_iva_rate",
+      payment_reference: sessionPaymentRef,
       consolidated_groups: created.length,
       consolidated_transaction_ids: created,
       items_integrated: resolved.length,
@@ -675,6 +679,7 @@ Deno.serve(async (req) => {
         .update({
           status: "integrated",
           integrated_at: new Date().toISOString(),
+          integrated_by: caller.id,
           advance_total: advanceNet,
           spent_total: spentFromAdvance,
           settlement_balance: balance,
