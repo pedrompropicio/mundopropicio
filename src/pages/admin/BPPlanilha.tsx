@@ -1076,6 +1076,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       <style>{`
         .handsontable td.bpv2-group { background: hsl(var(--muted)) !important; }
         .handsontable td.bpv2-l3 { background: hsl(var(--secondary)) !important; }
+        .handsontable td.bpv2-locked { background: hsl(var(--muted) / 0.4) !important; font-style: italic; }
       `}</style>
 
 
@@ -1149,7 +1150,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             // HyperFormula alimenta a coluna "Total c/IVA" (=D*(1+E/100)).
             formulas={{ engine: HyperFormula, licenseKey: "internal-use-in-handsontable" }}
             licenseKey="non-commercial-and-evaluation"
-            cells={(row) => {
+            cells={(row, col) => {
               const m = metaRef.current[row];
               if (!m) return {};
               if (m.kind === "group") {
@@ -1166,8 +1167,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
                 return {};
               }
               if (m.locked) {
-                // Overhead/rateio: valor calculado. Só a formalidade é editável.
-                return { readOnly: true, className: "bpv2-locked" };
+                // Overhead/rateio: valor calculado. Só a formalidade fica editável.
+                return { readOnly: col !== COL.FORMALIDADE, className: "bpv2-locked" };
               }
               return {};
             }}
