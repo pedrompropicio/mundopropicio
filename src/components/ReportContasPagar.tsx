@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDatePT } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds } from "@/lib/supplier-bank";
+
 
 export default function ReportContasPagar() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
