@@ -230,15 +230,22 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
     + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
-  const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
-  const expenseGross = expenseTx.reduce(
-    (s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)),
-    0,
-  );
+  // Base da despesa conforme seletor: realizado (transações) ou BP comprometido.
+  const expenseSourceLines = basis.expenseSource === "committed"
+    ? (operationalForecasts as any[])
+    : expenseTx;
+  const expenseNet = sumLines(expenseSourceLines, false);
+  const expenseGross = sumLines(expenseSourceLines, true);
+
+  // "Fora do BP" = excesso por rubrica (Σ max(realizado − previsto, 0)).
+  const outsideBp = basis.expenseSource === "committed" && basis.includeOutsideBp
+    ? computeOutsideBpExcess(operationalForecasts as any[], expenseTx as any[], basis.withVat)
+    : 0;
 
   const revenue = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
-  const expensesOp = useGrossExpenses ? expenseGross : expenseNet;
+  const expensesOp = (useGrossExpenses ? expenseGross : expenseNet) + outsideBp;
   const resultWithoutOverhead = revenue - expensesOp;
+
 
   // Overheads (próprios + via master)
   const allOverheads = [...ownOverheads, ...masterOverheadSlice];
