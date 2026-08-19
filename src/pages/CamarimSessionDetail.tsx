@@ -133,6 +133,9 @@ export default function CamarimSessionDetail() {
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
   const [confirmIntegration, setConfirmIntegration] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  // Administradora da sessão (entidade que recebeu o adiantamento) — obrigatória para integrar.
+  const [administrator, setAdministrator] = useState<{ supplierId: string; name: string } | null>(null);
+
 
 
   useEffect(() => {
