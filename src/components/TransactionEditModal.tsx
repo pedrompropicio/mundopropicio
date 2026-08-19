@@ -1050,6 +1050,31 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                   <button type="button" className="underline" onClick={() => setUnlinkBpRequested(false)}>Reverter</button>
                 </p>
               )}
+              {bpLinesEnabled && !unlinkBpRequested && bpLines.length > 0 && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Linha do BP</label>
+                  <select
+                    value={bpLineChoice}
+                    onChange={(e) => { setBpLineTouched(true); setBpLineChoice(e.target.value); }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="">— Sem linha específica (via rubrica)</option>
+                    {bpLines.map((l) => {
+                      const busy = !!l.transaction_id && l.transaction_id !== transaction.id;
+                      return (
+                        <option key={l.id} value={l.id} disabled={busy}>
+                          {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€{busy ? " (ocupada)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {categoryChangedFromOriginal && !!linkedForecastId && linkedForecastCat !== form.category_id && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Mudaste a rubrica L3 — o vínculo anterior será limpo ao gravar.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             {hasChildren ? (
               <div>
