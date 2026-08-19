@@ -26,6 +26,7 @@ import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
+import { calcTotalWithIva } from "@/lib/iva";
 import { useCompany } from "@/hooks/useCompany";
 import {
   ORDERING_FILTER_ALL,
@@ -1176,7 +1177,7 @@ export default function EventDetail() {
                         <th className="hidden pb-3 text-left font-medium sm:table-cell">Categoria</th>
                         {isGlobalView && <th className="hidden pb-3 text-left font-medium md:table-cell">Origem</th>}
                         <th className="pb-3 text-left font-medium">Estado</th>
-                        <th className="pb-3 text-right font-medium">Valor</th>
+                        <th className="pb-3 text-right font-medium">Valor c/IVA</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
@@ -1215,7 +1216,7 @@ export default function EventDetail() {
                               </span>
                             </td>
                             <td className={`py-3 text-right font-mono font-semibold ${t.type === "income" ? "text-success" : "text-warning"}`}>
-                              {t.type === "income" ? "+" : "-"}{formatCurrency(Number(t.amount))}
+                              {t.type === "income" ? "+" : "-"}{formatCurrency(calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)))}
                             </td>
                           </tr>
                         );
