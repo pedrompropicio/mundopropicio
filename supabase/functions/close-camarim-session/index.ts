@@ -628,7 +628,7 @@ Deno.serve(async (req) => {
         new_value: `Sessão de camarim ${session.title} (${sessionPaymentRef})${
           txId === settlementTxId ? " · acerto de adiantamento" : " · agregado por taxa de IVA"
         }`,
-        changed_by: caller.id,
+        changed_by: caller.email ?? caller.id,
         company_id: (session as any).company_id,
       }));
       const { error: auditErr } = await adminClient
