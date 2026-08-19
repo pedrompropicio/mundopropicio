@@ -61,6 +61,9 @@ interface SessionData {
   notes: string | null;
   integration_summary: any | null;
   integration_transaction_ids: string[] | null;
+  fund_holder_type?: string | null;
+  fund_holder_supplier_id?: string | null;
+  fund_holder_user_id?: string | null;
 }
 
 interface ItemRow {
