@@ -362,7 +362,7 @@ export default function PartnerEventDetail() {
             const income = txIncome + cityTicketNet;
             const expense = cityTx
               .filter((t: any) => t.type === "expense")
-              .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0)
+              .reduce((s: number, t: any) => s + Number(t.gross_amount ?? 0), 0)
               + cityOverheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
             return { id: sub.id, name: sub.name, income, expense, result: income - expense };
           })
@@ -372,7 +372,8 @@ export default function PartnerEventDetail() {
         ticketZones: zones,
         ticketSales: (salesRes.data ?? []) as any[],
         transactions: effectiveTransactions,
-        transactionDocs: (docsRes.data ?? []) as any[],
+        transactionDocs: [] as any[],
+
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
