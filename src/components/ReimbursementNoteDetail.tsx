@@ -308,6 +308,31 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
             throw new Error("Já existe pagamento registado — estorna o pagamento primeiro.");
           }
 
+          // Verificar listas de pagamento: ativas bloqueiam; removidas (soft-remove) são limpas.
+          const { data: listItems } = await supabase
+            .from("payment_list_items")
+            .select("id, removed_at")
+            .eq("transaction_id", payTxId);
+
+          const activeItems = (listItems || []).filter((li: any) => !li.removed_at);
+          if (activeItems.length > 0) {
+            throw new Error(
+              "A transação de pagamento está numa lista de pagamentos — remove-a da lista primeiro.",
+            );
+          }
+
+          const removedItems = (listItems || []).filter((li: any) => li.removed_at);
+          if (removedItems.length > 0) {
+            const { error: cleanupErr } = await supabase
+              .from("payment_list_items")
+              .delete()
+              .in(
+                "id",
+                removedItems.map((li: any) => li.id),
+              );
+            if (cleanupErr) throw cleanupErr;
+          }
+
           const { error: delErr } = await supabase.from("transactions").delete().eq("id", payTxId);
           if (delErr) throw delErr;
         }
