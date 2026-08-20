@@ -7,7 +7,7 @@ type: feature
 ## Dois níveis de acesso (decisão do Pedro, 2026-07-15)
 
 - **`canSeeAdjusted` — QUALQUER sócio com acesso ao BP** (não requer permissão).
-  Vê o "BP ajustado à realidade": colunas Rubrica | Valor | Previsto | Formalidade sempre presentes; rubricas L3 ultrapassadas têm Valor=realizado destacado a âmbar + Previsto original ao lado; excessos propagam a subtotais L2/L1/TOTAL/card Despesas/Resultado; nota "inclui N rubrica(s) ajustada(s)" no card.
+  Vê o "Previsto + excedido à realidade": colunas Rubrica | Valor | Previsto | Formalidade sempre presentes; rubricas L3 ultrapassadas têm Valor=realizado destacado a âmbar + Previsto original ao lado; excessos propagam a subtotais L2/L1/TOTAL/card Despesas/Resultado; nota "inclui N rubrica(s) ajustada(s)" no card.
 - **`canSeeComparative` — permissão `view_partner_realized`**.
   Ativa em cima do anterior: seletor "BP | BP × Realizado" na aba BP, vista comparativa L1/L2/L3 (Previsto | Realizado | Diferença) e linha "Previsto c/IVA · Realizado X € (Y%)" no card Despesas. Também usa `mode="comparison"` + `pseudoTransactions` nos exports.
 

@@ -5,12 +5,12 @@
  * Regras (decisões do Pedro):
  *  • IVA é sempre calculado LINHA A LINHA via `@/lib/iva` (Art.º 18 CIVA).
  *    Nunca `amount * (1 + rate/100)` no agregado — dava desvios de cêntimos.
- *  • EXCESSO POR RUBRICA (entra SEMPRE na base "BP ajustado" — não é opção;
+ *  • EXCESSO POR RUBRICA (entra SEMPRE na base "Previsto + excedido" — não é opção;
  *    um total dependente de um clique produz erro de fecho):
  *        Σ por category_id de max(realizado − previsto, 0)
  *    Rubricas sem linha no BP contam por inteiro (previsto = 0); transações
  *    sem categoria formam um bucket próprio. Esta é a definição já usada no
- *    "BP ajustado à realidade" do portal do sócio (bpL3Overrun).
+ *    "Previsto + excedido à realidade" do portal do sócio (bpL3Overrun).
  *  • Overhead (is_overhead) é opcional e nunca se mistura com o baseline do
  *    excesso — o excesso compara só rubricas operacionais.
  */
@@ -93,7 +93,7 @@ export interface OverrunInfo {
 }
 
 /**
- * Mapa de rubricas ultrapassadas (usado pelo "BP ajustado à realidade").
+ * Mapa de rubricas ultrapassadas (usado pelo "Previsto + excedido à realidade").
  * Mesma definição de excesso de `computeOutsideBpExcess`, mas devolve detalhe
  * por chave para o UI poder destacar a linha.
  */

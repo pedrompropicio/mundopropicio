@@ -734,7 +734,7 @@ export default function PartnerEventDetail() {
 
   // ─── Realizados por rubrica (via RPC) ───
   // Decisão do Pedro: dois níveis de acesso distintos.
-  //  • canSeeAdjusted → QUALQUER sócio com acesso ao BP: vê o "BP ajustado
+  //  • canSeeAdjusted → QUALQUER sócio com acesso ao BP: vê o "Previsto + excedido
   //    à realidade" (rubricas ultrapassadas com Valor=realizado destacado
   //    e Previsto original ao lado; propagação a subtotais/TOTAL/cards).
   //  • canSeeComparative (permissão view_partner_realized) → adiciona o
@@ -805,7 +805,7 @@ export default function PartnerEventDetail() {
   );
   const bpTotalRealizedExpense = realizedTotals.grand;
 
-  // ─── "BP ajustado à realidade" ──────────────────────────────────────────
+  // ─── "Previsto + excedido à realidade" ───────────────────────────────────
   // Racional (decisão do Pedro): enquanto o evento decorre, uma rubrica L3
   // cujo realizado (c/IVA, vindo da RPC get_partner_bp_realized) JÁ
   // ULTRAPASSOU o previsto deixa de representar realidade. Nesse caso a
@@ -1471,7 +1471,7 @@ export default function PartnerEventDetail() {
                       // rubricas L3 ajustadas ao realizado (e na linha BP
                       // única correspondente); nas restantes fica vazia.
                       // Aplicável a todos os sócios com acesso ao BP — o
-                      // "BP ajustado à realidade" passou a ser padrão.
+                      // "Previsto + excedido à realidade" passou a ser padrão.
                       // Mobile (<sm): rubrica ocupa a linha toda (nome completo, quebra
                       // permitida) e Valor/Previsto/Formalidade alinham numa segunda linha.
                       const gridStyle = "grid items-center gap-x-3 grid-cols-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem_6rem]";
@@ -1485,7 +1485,7 @@ export default function PartnerEventDetail() {
                             <span className="text-right tabular-nums">Formalidade</span>
                           </div>
                           {bpGroupedHier.map((l1) => {
-                            // "BP ajustado à realidade": propaga excessos das
+                            // "Previsto + excedido à realidade": propaga excessos das
                             // rubricas L3 ultrapassadas aos subtotais L2/L1 e
                             // ao TOTAL. Ver comentário no cálculo bpL3Overrun.
                             const l1Excess = bpExcessByL1[l1.code] ?? 0;

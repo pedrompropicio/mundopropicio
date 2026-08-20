@@ -231,7 +231,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       );
 
       // Excesso por rubrica sobre as linhas OPERACIONAIS do BP
-      // (Σ max(realizado − previsto, 0)) — entra SEMPRE na base "BP ajustado".
+      // (Σ max(realizado − previsto, 0)) — entra SEMPRE na base "Previsto + excedido".
       // Não é opcional: um total dependente de um clique produz erro de fecho.
       const outsideBp = kind === "expense"
         ? computeOutsideBpExcess(
