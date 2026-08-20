@@ -11,7 +11,7 @@ export interface FechoBasis {
   /** Overhead entra no resultado do acerto (default ON = comportamento atual). */
   includeOverhead: boolean;
   setIncludeOverhead: (v: boolean) => void;
-  /** Base da despesa: transações realizadas ou BP ajustado (max previsto/realizado por rubrica). */
+  /** Base da despesa: transações realizadas ou previsto + excedido (max previsto/realizado por rubrica). */
   expenseSource: FechoExpenseSource;
   setExpenseSource: (v: FechoExpenseSource) => void;
 }
@@ -81,7 +81,7 @@ export function useFechoBasis(eventId: string, partnerCalcBasis?: string | null)
 export function describeFechoBasis(b: FechoBasis): string {
   const parts = [
     `Despesas ${b.withVat ? "c/IVA" : "s/IVA"}`,
-    b.expenseSource === "committed" ? "base: BP ajustado" : "base: realizado",
+    b.expenseSource === "committed" ? "base: previsto + excedido" : "base: realizado",
     b.includeOverhead ? "com overhead" : "sem overhead",
   ];
   return parts.join(" · ");
