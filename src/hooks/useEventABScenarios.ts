@@ -86,7 +86,7 @@ export function useEventABScenarios(
     const modeBebidas: ABMode   = (config?.ab_mode_bebidas   as ABMode) ?? "terceirizacao";
     const modeAlimentos: ABMode = (config?.ab_mode_alimentos as ABMode) ?? "terceirizacao";
 
-    const food: ABFoodConfig = {
+    const baseFood: ABFoodConfig = {
       fee_alimentos:               Number(config?.fee_alimentos               || 0),
       repasse_alimentos_pct:       Number(config?.repasse_alimentos_pct       || 0),
       per_capita_alimentos:        Number(config?.per_capita_alimentos        || 0),
@@ -94,6 +94,17 @@ export function useEventABScenarios(
       custo_fixo_alimentos:        Number(config?.custo_fixo_alimentos        || 0),
       operador_nome:               config?.operador_nome_alimentos ?? undefined,
     };
+
+    // A facturação real do operador só entra no cenário Real.
+    // BE/Forecast continuam projecções puras por per capita.
+    const buildFood = (scen: "real" | "breakeven" | "forecast"): ABFoodConfig => ({
+      ...baseFood,
+      faturacao_real_alimentos:
+        scen === "real" && (config as any)?.faturacao_real_alimentos != null
+          ? Number((config as any).faturacao_real_alimentos)
+          : null,
+    });
+
 
     const attendanceByScen = { real, breakeven, forecast } as const;
 
