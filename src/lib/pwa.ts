@@ -1,6 +1,28 @@
 import { registerSW } from "virtual:pwa-register";
 
-const PWA_UPDATE_INTERVAL_MS = 60_000;
+const PWA_UPDATE_INTERVAL_MS = 15 * 60_000;
+
+type ControllerChangeListener = () => void;
+
+const controllerChangeListeners = new Set<ControllerChangeListener>();
+let hasPendingControllerChange = false;
+
+export function subscribeToPWAControllerChange(listener: ControllerChangeListener) {
+  controllerChangeListeners.add(listener);
+
+  if (hasPendingControllerChange) {
+    listener();
+  }
+
+  return () => {
+    controllerChangeListeners.delete(listener);
+  };
+}
+
+function notifyControllerChange() {
+  hasPendingControllerChange = true;
+  controllerChangeListeners.forEach((listener) => listener());
+}
 
 export function registerPWA() {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) {
@@ -16,25 +38,33 @@ export function registerPWA() {
   })();
 
   const hostname = window.location.hostname;
-  const isPreviewHost = hostname.includes("id-preview--") || hostname.includes("lovableproject.com");
+  const isPreviewHost =
+    hostname.startsWith("id-preview--") ||
+    hostname.startsWith("preview--") ||
+    hostname === "lovableproject.com" ||
+    hostname.endsWith(".lovableproject.com") ||
+    hostname === "lovableproject-dev.com" ||
+    hostname.endsWith(".lovableproject-dev.com") ||
+    hostname === "beta.lovable.dev" ||
+    hostname.endsWith(".beta.lovable.dev");
+  const serviceWorkerDisabled = new URLSearchParams(window.location.search).get("sw") === "off";
 
-  if (isInIframe || isPreviewHost) {
+  if (isInIframe || isPreviewHost || serviceWorkerDisabled) {
     void navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((registration) => {
-        void registration.unregister();
+        if (registration.active?.scriptURL.endsWith("/sw.js")) {
+          void registration.unregister();
+        }
       });
     });
     return;
   }
 
-  let isRefreshing = false;
-
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      // Apply updates immediately so users never stay on a stale bundle that is
-      // missing newly-added routes (e.g. /relatorios/bp-transacoes). The SW
-      // controllerchange handler below will reload the page automatically.
+      // Activate the new worker immediately. The controllerchange listener
+      // delegates the reload decision to React so active work is not lost.
       void updateSW(true);
     },
     onRegisteredSW(_swUrl, registration) {
@@ -61,12 +91,5 @@ export function registerPWA() {
     },
   });
 
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (isRefreshing) {
-      return;
-    }
-
-    isRefreshing = true;
-    window.location.reload();
-  });
+  navigator.serviceWorker.addEventListener("controllerchange", notifyControllerChange);
 }

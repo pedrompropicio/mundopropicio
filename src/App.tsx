@@ -9,6 +9,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ApprovedPaymentListReminder } from "@/components/ApprovedPaymentListReminder";
+import { PWAUpdateManager } from "@/components/PWAUpdateManager";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -571,6 +572,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <PWAUpdateManager />
           <AuthProvider>
             <CompanyBrandingProvider>
               <ConfirmMetaActionProvider>
