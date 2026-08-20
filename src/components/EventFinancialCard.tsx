@@ -35,14 +35,17 @@ interface Props {
   cacheImpact?: number;
   /** Callback com o displayValue actual — usado pelo card Lucro. */
   onValueChange?: (value: number) => void;
+  /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
+  partnerCalcBasis?: string | null;
 }
 
 const MODE_LABEL: Record<CardMode, string> = {
-  auto: "Auto",
+  auto: "Automático",
   realized: "Realizado",
   committed: "Previsto + excedido",
   forecast: "Forecast",
 };
+
 
 const SCENARIO_LABEL: Record<RevenueScenario, string> = {
   today: "Hoje",
