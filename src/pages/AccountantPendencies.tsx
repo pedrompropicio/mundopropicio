@@ -67,11 +67,13 @@ export default function AccountantPendencies() {
       const { data: rows, error } = await q;
       if (error) throw error;
 
-      const reviewerIds = [...new Set((rows ?? []).map((r: any) => r.reviewed_by).filter(Boolean))];
+      const peopleIds = [...new Set((rows ?? [])
+        .flatMap((r: any) => [r.reviewed_by, r.closed_by])
+        .filter(Boolean))];
       let names: Record<string, string> = {};
-      if (reviewerIds.length) {
+      if (peopleIds.length) {
         const { data: profs } = await (supabase as any)
-          .from("profiles").select("id, full_name, email").in("id", reviewerIds);
+          .from("profiles").select("id, full_name, email").in("id", peopleIds);
         for (const p of profs ?? []) names[p.id] = p.full_name || p.email || "—";
       }
 
@@ -82,9 +84,19 @@ export default function AccountantPendencies() {
         tx_payment_date: r.transactions?.payment_date ?? null,
         supplier_name: r.transactions?.suppliers?.name ?? null,
         reviewer_name: r.reviewed_by ? names[r.reviewed_by] ?? "—" : "—",
+        closer_name: r.closed_by ? names[r.closed_by] ?? "—" : null,
       }));
     },
   });
+
+  function invalidateAll() {
+    queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-review"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-reviews"] });
+    invalidateTransactionQueries(queryClient);
+  }
 
   const respond = useMutation({
     mutationFn: async (row: Row) => {
@@ -95,14 +107,32 @@ export default function AccountantPendencies() {
     },
     onSuccess: () => {
       toast({ title: "Resposta registada" });
-      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
-      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
-      queryClient.invalidateQueries({ queryKey: ["accountant-review"] });
-      queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
-      invalidateTransactionQueries(queryClient);
+      invalidateAll();
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
+
+  const close = useMutation({
+    mutationFn: async (row: Row) => {
+      if (!user) throw new Error("Sessão inválida.");
+      const text = (drafts[row.id] ?? row.response_note ?? "").trim();
+      if (!text) throw new Error("Justificação obrigatória: escreve o motivo do encerramento na caixa de resposta.");
+      await closeAccountantReview({
+        reviewId: row.id,
+        justification: text,
+        userId: user.id,
+        hasResponder: !!row.responded_by,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Pendência encerrada" });
+      invalidateAll();
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
+  const canClose = isAdmin || isManager || role === "editor";
+
 
   const rows = data ?? [];
   const pendingCount = rows.filter((r) => r.status === "pendente").length;
