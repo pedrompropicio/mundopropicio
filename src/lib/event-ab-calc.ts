@@ -49,9 +49,18 @@ export interface ABZoneInput {
   per_capita_custo_bebidas?: number;
   /** Custo fixo da zona (staff, aluguer) — apenas em modo exploracao_propria */
   custo_fixo_bebidas?: number;
+  /**
+   * Facturação REAL do operador nesta zona (s/IVA), depois do fecho POS.
+   * Quando NÃO-NULA manda no cálculo e substitui `participants × per_capita`.
+   * `null`/`undefined` = não informada (comportamento estimado). 0 é um valor
+   * legítimo (operou e não facturou nada) e é respeitado.
+   * Só deve ser passada no cenário "real" — ver useEventABScenarios/EventABTab.
+   */
+  faturacao_real_bebidas?: number | null;
   /** Label livre para identificar o operador — opcional, sem FK em v1 */
   operador_nome?: string;
 }
+
 
 export interface ABFoodConfig {
   fee_alimentos: number;
