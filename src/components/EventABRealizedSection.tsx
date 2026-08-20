@@ -90,6 +90,24 @@ export default function EventABRealizedSection({
               </div>
             </div>
 
+            {moduleReceita != null && (
+              <div className="rounded-md border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+                <div className="font-medium text-foreground">Leitura informativa</div>
+                <div className="tabular-nums">
+                  Módulo A&B (cenário Real, com facturação real): {fmtEUR(moduleReceita)} · Receita
+                  lançada em transações: {fmtEUR(r.receita)} · Diferença:{" "}
+                  {fmtEUR(moduleReceita - r.receita)}
+                </div>
+                <p>
+                  Divergência é esperada enquanto o fecho não estiver completo (podem faltar
+                  lançamentos ou existir despesas descontadas na quota). O módulo não corrige as
+                  transações.
+                </p>
+              </div>
+            )}
+
+
+
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
