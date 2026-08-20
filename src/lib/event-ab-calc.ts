@@ -71,6 +71,14 @@ export interface ABFoodConfig {
   per_capita_custo_alimentos?: number;
   /** Custo fixo de alimentos — apenas em modo exploracao_propria */
   custo_fixo_alimentos?: number;
+  /**
+   * Facturação REAL do operador de alimentos (s/IVA), depois do fecho POS.
+   * Quando NÃO-NULA manda no cálculo e substitui
+   * `participantesElegiveisAlimentos × per_capita_alimentos`.
+   * `null`/`undefined` = não informada. 0 é legítimo e é respeitado.
+   * Só deve ser passada no cenário "real".
+   */
+  faturacao_real_alimentos?: number | null;
   /** Label livre para o operador de alimentos */
   operador_nome?: string;
 }
