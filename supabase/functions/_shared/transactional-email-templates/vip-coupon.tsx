@@ -175,5 +175,6 @@ const button = {
   textDecoration: 'none',
   display: 'inline-block',
 }
+const conditions = { fontSize: '12px', color: '#6b7280', lineHeight: '1.5', margin: '0 0 16px' }
 const hr = { borderColor: '#e5e7eb', margin: '24px 0' }
 const footer = { fontSize: '12px', color: '#999999', margin: '0', lineHeight: '1.4' }
