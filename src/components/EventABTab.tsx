@@ -612,7 +612,7 @@ export default function EventABTab({ eventId }: Props) {
                   );
                 })}
                 <TableRow className="font-semibold">
-                  <TableCell colSpan={modeBebidas === "terceirizacao" ? 8 : 9}>Totais Bebidas</TableCell>
+                  <TableCell colSpan={modeBebidas === "terceirizacao" ? 9 : 10}>Totais Bebidas</TableCell>
                   <TableCell className="text-right tabular-nums text-primary">{fmtEUR(totals.receitaBebidas)}</TableCell>
                   {modeBebidas === "exploracao_propria" && (
                     <TableCell className="text-right tabular-nums text-rose-600">{fmtEUR(totals.custoCasaBebidas)}</TableCell>
