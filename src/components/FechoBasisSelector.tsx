@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import type { FechoBasis, FechoExpenseSource } from "@/hooks/useFechoBasis";
 
 /**
- * Seletor de critério do Fecho (IVA · base da despesa · overhead · fora do BP).
+ * Seletor de critério do Fecho (IVA · base da despesa · overhead).
  * Escolha livre do utilizador; o critério selecionado é o que sai no PDF.
  */
 export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {

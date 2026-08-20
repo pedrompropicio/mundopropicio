@@ -399,7 +399,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     }
 
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
-      includeOverhead, includeOutsideBp,
+      includeOverhead,
       args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 
 }

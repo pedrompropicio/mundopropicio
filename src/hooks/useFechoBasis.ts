@@ -11,7 +11,7 @@ export interface FechoBasis {
   /** Overhead entra no resultado do acerto (default ON = comportamento atual). */
   includeOverhead: boolean;
   setIncludeOverhead: (v: boolean) => void;
-  /** Base da despesa: transações realizadas ou BP comprometido. */
+  /** Base da despesa: transações realizadas ou BP ajustado (max previsto/realizado por rubrica). */
   expenseSource: FechoExpenseSource;
   setExpenseSource: (v: FechoExpenseSource) => void;
 }

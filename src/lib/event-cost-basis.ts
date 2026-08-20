@@ -5,7 +5,8 @@
  * Regras (decisões do Pedro):
  *  • IVA é sempre calculado LINHA A LINHA via `@/lib/iva` (Art.º 18 CIVA).
  *    Nunca `amount * (1 + rate/100)` no agregado — dava desvios de cêntimos.
- *  • "Transações fora do BP" = EXCESSO POR RUBRICA:
+ *  • EXCESSO POR RUBRICA (entra SEMPRE na base "BP ajustado" — não é opção;
+ *    um total dependente de um clique produz erro de fecho):
  *        Σ por category_id de max(realizado − previsto, 0)
  *    Rubricas sem linha no BP contam por inteiro (previsto = 0); transações
  *    sem categoria formam um bucket próprio. Esta é a definição já usada no
@@ -22,8 +23,6 @@ export const EXCESS_EPSILON = 0.005;
 export interface CostBasisOptions {
   /** Incluir linhas de overhead (is_overhead) no total. Default OFF no card, ON no Fecho. */
   includeOverhead: boolean;
-  /** Incluir o excesso por rubrica (transações fora do BP). */
-  includeOutsideBp: boolean;
   /** true = valores c/IVA (bruto); false = base líquida. */
   withVat: boolean;
 }

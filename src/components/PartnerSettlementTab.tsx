@@ -151,7 +151,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Critério de fecho (IVA · base · overhead · fora do BP). Valor inicial do
+  // Critério de fecho (IVA · base · overhead). Valor inicial do
   // IVA vem de partner_calc_basis; o toggle nunca escreve nesse campo.
   const basis = useFechoBasis(eventId, event?.partner_calc_basis);
 
@@ -415,7 +415,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   // ---- Despesa segundo o critério selecionado no seletor ----------------
   // Base "realizado" = transações; base "comprometido" = linhas aprovadas do BP.
-  // Overhead e "fora do BP" (excesso por rubrica) entram por toggle.
+  // Overhead entra por toggle; o excesso por rubrica entra sempre na base "BP ajustado".
   const operationalForecasts = (forecasts as any[]).filter((f: any) =>
     f.type === "expense" && f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
   );
