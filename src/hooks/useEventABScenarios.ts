@@ -146,6 +146,10 @@ export function useEventABScenarios(
           per_capita_custo_bebidas: Number(z.per_capita_custo_bebidas || 0),
           custo_fixo_bebidas:       Number(z.custo_fixo_bebidas      || 0),
           operador_nome:            z.operador_nome ?? undefined,
+          faturacao_real_bebidas:
+            scen === "real" && z.faturacao_real_bebidas != null
+              ? Number(z.faturacao_real_bebidas)
+              : null,
         };
       });
     };
@@ -153,9 +157,10 @@ export function useEventABScenarios(
     return {
       hasConfig: true,
       totals: {
-        real:      computeTotals(buildInputs("real"),      food, modeBebidas, modeAlimentos),
-        breakeven: computeTotals(buildInputs("breakeven"), food, modeBebidas, modeAlimentos),
-        forecast:  computeTotals(buildInputs("forecast"),  food, modeBebidas, modeAlimentos),
+        real:      computeTotals(buildInputs("real"),      buildFood("real"),      modeBebidas, modeAlimentos),
+        breakeven: computeTotals(buildInputs("breakeven"), buildFood("breakeven"), modeBebidas, modeAlimentos),
+        forecast:  computeTotals(buildInputs("forecast"),  buildFood("forecast"),  modeBebidas, modeAlimentos),
+
       },
     };
   }, [eventId, zones, config, real, breakeven, forecast, participants]);
