@@ -47,6 +47,24 @@ O e-mail traz nome do evento, rótulo do desconto, o **código em destaque**,
 validade em DD/MM/AAAA e botão "Comprar bilhete" para `events.ticketing_url`
 (o botão é omitido se não houver URL).
 
+#### Supressão do welcome antigo (sem e-mails duplicados)
+
+`public.tg_lead_capture_vip_welcome` (o welcome genérico do portal) **não envia**
+quando o registo é `source LIKE 'vip%'` e o `event_slug` aponta para um evento MP
+com **cupom próprio ativo** (`events.vip_coupon_code` não vazio **e**
+`vip_coupon_valid_until >= current_date`). Nesse caso o `vip-coupon-email` cobre
+boas-vindas + código — evita dois e-mails com descontos contraditórios.
+
+Fora desse caso, o welcome mantém-se, mas com copy honesto:
+
+- **sem** cupom global (`portal_settings general.vip_coupon_code` vazio) →
+  welcome genérico (bem-vindo ao VIP, pré-vendas em primeira mão, botão
+  "Ver eventos"). Sem promessa de percentagem e sem "o teu código está a caminho".
+- **com** cupom global → mostra o código e usa o rótulo de
+  `portal_settings general.vip_coupon_discount_label`; se o rótulo faltar, usa o
+  genérico "desconto VIP" / "VIP discount" — nunca inventa percentagem.
+
+
 ### 2. Lembrete
 
 Cron diário 08:30 UTC → `mode=reminder`:
