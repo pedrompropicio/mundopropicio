@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: false,
+      injectRegister: null,
       devOptions: {
         enabled: false,
       },
@@ -43,11 +43,32 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/],
         // "html" é obrigatório: sem index.html no precache, o navigateFallback
         // do SW não resolve e a app abre em ecrã branco (PWA/mobile).
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         importScripts: ["/sw-push.js"],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "app-navigations",
+              networkTimeoutSeconds: 4,
+            },
+          },
+          {
+            urlPattern: ({ request, url, sameOrigin }) =>
+              sameOrigin &&
+              ["script", "style", "worker"].includes(request.destination) &&
+              /-[A-Za-z0-9_-]{8,}\./.test(url.pathname),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "hashed-assets",
+            },
+          },
+        ],
       },
     }),
   ].filter(Boolean),
