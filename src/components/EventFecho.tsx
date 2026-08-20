@@ -245,7 +245,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const expenseGross = sumLines(expenseSourceLines, true);
 
   // "Fora do BP" = excesso por rubrica (Σ max(realizado − previsto, 0)).
-  const outsideBp = basis.expenseSource === "committed" && basis.includeOutsideBp
+  const outsideBp = basis.expenseSource === "committed"
     ? computeOutsideBpExcess(operationalForecasts as any[], expenseTx as any[], basis.withVat)
     : 0;
 

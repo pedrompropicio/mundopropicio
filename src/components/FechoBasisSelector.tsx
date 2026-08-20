@@ -14,9 +14,8 @@ import type { FechoBasis, FechoExpenseSource } from "@/hooks/useFechoBasis";
 export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
   const chips = [
     basis.withVat ? "c/IVA" : "s/IVA",
-    basis.expenseSource === "committed" ? "BP comprometido" : "Realizado",
+    basis.expenseSource === "committed" ? "BP ajustado" : "Realizado",
     basis.includeOverhead ? "+OH" : "s/OH",
-    basis.includeOutsideBp && basis.expenseSource === "committed" ? "+fora BP" : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -49,7 +48,9 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
             onValueChange={(v) => basis.setExpenseSource(v as FechoExpenseSource)}
           >
             <DropdownMenuRadioItem value="realized">Realizado (transações)</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="committed">BP comprometido</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="committed" title="Maior valor entre previsto e realizado, por rubrica">
+              BP ajustado
+            </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
 
           <DropdownMenuSeparator />
@@ -60,14 +61,6 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
             onSelect={(e) => e.preventDefault()}
           >
             Incluir overhead
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={basis.includeOutsideBp}
-            disabled={basis.expenseSource !== "committed"}
-            onCheckedChange={(v) => basis.setIncludeOutsideBp(!!v)}
-            onSelect={(e) => e.preventDefault()}
-          >
-            Incluir transações fora do BP
           </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>

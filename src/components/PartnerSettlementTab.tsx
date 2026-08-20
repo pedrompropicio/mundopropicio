@@ -427,9 +427,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const overheadGross = basis.includeOverhead
     ? overheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0) : 0;
 
-  const outsideBpNet = basis.expenseSource === "committed" && basis.includeOutsideBp
+  const outsideBpNet = basis.expenseSource === "committed"
     ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, false) : 0;
-  const outsideBpGross = basis.expenseSource === "committed" && basis.includeOutsideBp
+  const outsideBpGross = basis.expenseSource === "committed"
     ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, true) : 0;
 
   const totalExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
