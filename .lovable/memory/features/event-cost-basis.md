@@ -93,3 +93,20 @@ receita **não é o espelho** do custo:
   a zero ou "indisponível" por falta de BP → **subavalia**.
 - Trata-se com decisão própria (BP de receita obrigatório, ou card de receita
   ignorar o modo comprometido), não com a regra do excesso.
+
+## CRITÉRIO ÚNICO POR EVENTO (2026-08-20)
+Card da capa e Fecho (Encontro de Contas + Geral) partilham **um só** critério
+de custo por evento, em `src/hooks/useEventCostBasis.ts` (store com listeners →
+mexer num ecrã reflete-se no outro em tempo real). `useFechoBasis` é wrapper.
+- Chave `localStorage`: `event-cost-basis-{userId}-{eventId}-{vat|overhead|expsource}`
+  (uma por evento, já não uma por ecrã).
+- Defaults: **overhead ON** (custo real imputado ao evento) e **IVA a partir de
+  `events.partner_calc_basis`** (critério contratual gravado). O toggle nunca
+  escreve em `partner_calc_basis`.
+- Só o card de **custos** usa o store; o card de receitas mantém preferência
+  própria de IVA.
+- Modo do card ↔ base do Fecho: `realized`/`committed` sincronizam; `auto` e
+  `forecast` são exclusivos do card.
+- Modo "Auto" renomeado para **"Automático (pela fase do evento)"** (planeamento
+  → Forecast, produção → Previsto + excedido, concluído → Realizado) para deixar
+  de duplicar o rótulo "Previsto + excedido" no mesmo menu.
