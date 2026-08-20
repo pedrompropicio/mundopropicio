@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertTriangle, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Lock, MessageSquare } from "lucide-react";
 import { respondAccountantReview, type AccountantReview } from "@/lib/accountant-reviews";
 import { format } from "date-fns";
 
@@ -48,6 +48,21 @@ export function AccountantReviewRowBadge({ transactionId }: { transactionId: str
   const { data: map } = useReviewsMap();
   const data = map?.[transactionId] ?? null;
   if (!data) return null;
+  if (data.status === "encerrada") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-0.5 rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground cursor-help">
+            <Lock className="h-3 w-3" /> Encerrada
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm text-xs space-y-1">
+          <p className="font-medium">Pendência encerrada pelo financeiro</p>
+          <p>{data.response_note || "—"}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
   if (data.status === "conferido") {
     return (
       <Tooltip>
@@ -112,12 +127,13 @@ export function AccountantReviewBlock({ transactionId }: { transactionId: string
   if (!data) return null;
 
   const isPending = data.status === "pendente";
+  const isClosed = data.status === "encerrada";
 
   return (
-    <div className={`rounded-lg border px-3 py-2 text-xs space-y-2 ${isPending ? "border-amber-500/30 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
+    <div className={`rounded-lg border px-3 py-2 text-xs space-y-2 ${isPending ? "border-amber-500/30 bg-amber-500/10" : isClosed ? "border-border bg-muted/40" : "border-emerald-500/30 bg-emerald-500/10"}`}>
       <div className="flex items-center gap-1.5 font-semibold">
-        {isPending ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-        {isPending ? "Pendência da contabilista" : "Conferido pela contabilista"}
+        {isPending ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> : isClosed ? <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+        {isPending ? "Pendência da contabilista" : isClosed ? "Pendência encerrada pelo financeiro" : "Conferido pela contabilista"}
         {data.reviewed_at && <span className="font-normal text-muted-foreground">· {format(new Date(data.reviewed_at), "dd/MM/yyyy HH:mm")}</span>}
       </div>
       {data.note && <p className="whitespace-pre-wrap">{data.note}</p>}
