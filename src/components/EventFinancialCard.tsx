@@ -64,19 +64,46 @@ export function EventFinancialCard(props: Props) {
   const { eventId, kind, isMasterView, onValueChange } = props;
   const { user } = useAuth();
   const userId = user?.id ?? "anon";
+  const isExpense = kind === "expense";
 
-  const [mode, setMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
+  // Critério ÚNICO por evento (partilhado com o Fecho). Só o card de CUSTOS o usa;
+  // o card de receitas mantém a sua própria preferência de IVA.
+  const shared = useEventCostBasis(eventId, props.partnerCalcBasis);
+
+  const [mode, setMode] = useState<CardMode>(() => {
+    const stored = readStoredMode(userId, eventId, kind);
+    if (isExpense && (stored === "realized" || stored === "committed")) return shared.expenseSource;
+    return stored;
+  });
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
-  const [withVat, setWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
-  const [includeOverhead, setIncludeOverhead] = useState<boolean>(
+  const [incomeWithVat, setIncomeWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
+  const [incomeOverhead, setIncomeOverhead] = useState<boolean>(
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
   );
 
-  useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
-  useEffect(() => { writeStoredWithVat(userId, eventId, kind, withVat); }, [userId, eventId, kind, withVat]);
+  const withVat = isExpense ? shared.withVat : incomeWithVat;
+  const includeOverhead = isExpense ? shared.includeOverhead : incomeOverhead;
+  const setWithVat = isExpense ? shared.setWithVat : setIncomeWithVat;
+  const setIncludeOverhead = isExpense ? shared.setIncludeOverhead : setIncomeOverhead;
+
+  // Modo <-> base da despesa: mexer no card reflete-se no Fecho e vice-versa.
+  const handleModeChange = (next: CardMode) => {
+    setMode(next);
+    if (isExpense && (next === "realized" || next === "committed")) shared.setExpenseSource(next);
+  };
   useEffect(() => {
-    writeStoredCostToggle(userId, eventId, kind, "overhead", includeOverhead);
-  }, [userId, eventId, kind, includeOverhead]);
+    if (!isExpense) return;
+    setMode((cur) => (cur === "realized" || cur === "committed" ? shared.expenseSource : cur));
+  }, [isExpense, shared.expenseSource]);
+
+  useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
+  useEffect(() => {
+    if (!isExpense) writeStoredWithVat(userId, eventId, kind, incomeWithVat);
+  }, [isExpense, userId, eventId, kind, incomeWithVat]);
+  useEffect(() => {
+    if (!isExpense) writeStoredCostToggle(userId, eventId, kind, "overhead", incomeOverhead);
+  }, [isExpense, userId, eventId, kind, incomeOverhead]);
+
 
   const data = useEventFinancialCardData({
     eventId,
