@@ -257,20 +257,28 @@ export function computeTotals(
   let custoCasaAlimentos: number;
   let parteGeradorAlimentos: number;
 
+  // Facturação real do operador de alimentos vence a estimativa quando informada.
+  const fatAlimentosBase = resolveFaturacao(
+    food.faturacao_real_alimentos,
+    participantesElegiveisAlimentos,
+    num(food.per_capita_alimentos),
+  );
+
   if (modeAlimentos === "exploracao_propria") {
-    faturacaoAlimentos    = participantesElegiveisAlimentos * num(food.per_capita_alimentos);
+    faturacaoAlimentos    = fatAlimentosBase;
     receitaAlimentos      = faturacaoAlimentos;
     custoCasaAlimentos    = participantesElegiveisAlimentos * num(food.per_capita_custo_alimentos)
                             + num(food.custo_fixo_alimentos);
     parteGeradorAlimentos = 0;
   } else {
     // Terceirização (comportamento original)
-    faturacaoAlimentos    = participantesElegiveisAlimentos * num(food.per_capita_alimentos);
+    faturacaoAlimentos    = fatAlimentosBase;
     const repAli          = num(food.repasse_alimentos_pct) / 100;
     receitaAlimentos      = num(food.fee_alimentos) + faturacaoAlimentos * repAli;
     custoCasaAlimentos    = 0;
     parteGeradorAlimentos = faturacaoAlimentos - faturacaoAlimentos * repAli;
   }
+
 
   const faturacaoTotal    = faturacaoBebidas + faturacaoAlimentos;
   const receitaTotal      = receitaBebidas + receitaAlimentos;
