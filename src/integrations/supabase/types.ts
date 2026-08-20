@@ -10686,6 +10686,33 @@ export type Database = {
           },
         ]
       }
+      vip_coupon_email_log: {
+        Row: {
+          email: string
+          event_id: string
+          id: string
+          lead_id: string | null
+          sent_at: string
+          type: string
+        }
+        Insert: {
+          email: string
+          event_id: string
+          id?: string
+          lead_id?: string | null
+          sent_at?: string
+          type: string
+        }
+        Update: {
+          email?: string
+          event_id?: string
+          id?: string
+          lead_id?: string | null
+          sent_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       blog_posts_public: {
@@ -11840,6 +11867,7 @@ export type Database = {
         Returns: Json
       }
       run_rls_legacy_audit_cron: { Args: never; Returns: Json }
+      run_vip_coupon_reminder: { Args: never; Returns: Json }
       seed_operacao_frentes_default: {
         Args: { p_event_id: string }
         Returns: number
@@ -11919,6 +11947,7 @@ export type Database = {
         Args: { _forecast_id: string; _tx_category_id: string }
         Returns: boolean
       }
+      vip_coupon_functions_base_url: { Args: never; Returns: string }
     }
     Enums: {
       app_role:
