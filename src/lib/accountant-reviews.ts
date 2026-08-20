@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ReviewStatus = "conferido" | "pendente";
+export type ReviewStatus = "conferido" | "pendente" | "encerrada";
 
 export interface AccountantReview {
   id: string;
@@ -13,8 +13,11 @@ export interface AccountantReview {
   response_note: string | null;
   responded_by: string | null;
   responded_at: string | null
+  closed_by: string | null;
+  closed_at: string | null;
   updated_at: string;
 }
+
 
 /** Lê as conferências de um conjunto de transações (chunked para evitar URLs enormes). */
 export async function fetchReviewsForTransactions(
