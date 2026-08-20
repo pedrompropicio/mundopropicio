@@ -2552,6 +2552,7 @@ export type Database = {
           id: string
           legal_name: string
           logo_url: string | null
+          public_portal: boolean
           slug: string
           status: string
           tax_id: string | null
@@ -2572,6 +2573,7 @@ export type Database = {
           id?: string
           legal_name: string
           logo_url?: string | null
+          public_portal?: boolean
           slug: string
           status?: string
           tax_id?: string | null
@@ -2592,6 +2594,7 @@ export type Database = {
           id?: string
           legal_name?: string
           logo_url?: string | null
+          public_portal?: boolean
           slug?: string
           status?: string
           tax_id?: string | null
@@ -11579,6 +11582,10 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_public_portal_company: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
       list_bp_versions: {
         Args: { _event_id: string }
         Returns: {
