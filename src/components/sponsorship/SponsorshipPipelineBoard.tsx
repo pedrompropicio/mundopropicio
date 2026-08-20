@@ -14,7 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   STAGE_COLORS,
   STAGE_LABELS,
@@ -318,13 +317,15 @@ function Column({
   const sum = rows.reduce((a, r) => a + effectiveAmount(r), 0);
   return (
     <div
-      className="w-72 flex-shrink-0 rounded-lg border bg-card/40"
+      className="w-72 min-w-[18rem] shrink-0 overflow-hidden rounded-lg border bg-card/40"
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
       <div className={cn("px-3 py-2 border-b flex items-center justify-between rounded-t-lg", STAGE_COLORS[stage])}>
-        <span className="text-xs font-semibold uppercase tracking-wide">{STAGE_LABELS[stage]}</span>
-        <span className="text-xs font-bold">{rows.length}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide truncate" title={STAGE_LABELS[stage]}>
+          {STAGE_LABELS[stage]}
+        </span>
+        <span className="text-xs font-bold shrink-0">{rows.length}</span>
       </div>
       <div className="px-3 py-1 text-[11px] text-muted-foreground border-b">
         {fmtMoney(sum)}
@@ -364,7 +365,12 @@ function SponsorCard({
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold text-sm leading-tight">{row.supplier_name}</p>
+          <p
+            className="font-semibold text-sm leading-tight min-w-0 flex-1 break-words line-clamp-2"
+            title={row.supplier_name}
+          >
+            {row.supplier_name}
+          </p>
           {row.linked_transaction_id ? (
             <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary shrink-0">
               <ExternalLink className="h-3 w-3" />
