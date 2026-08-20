@@ -44,7 +44,9 @@ export default defineConfig(({ mode }) => ({
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/~oauth/],
-        globPatterns: ["**/*.{js,css,ico,png,svg}"],
+        // "html" é obrigatório: sem index.html no precache, o navigateFallback
+        // do SW não resolve e a app abre em ecrã branco (PWA/mobile).
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         importScripts: ["/sw-push.js"],
       },
     }),
