@@ -13,9 +13,21 @@ const fmtEUR = (n: number) =>
  * Secção "Realizado (fecho)" do módulo A&B — read-only, alimentada pelas
  * transações do evento (ver useEventABRealized). Não substitui o planeamento.
  */
-export default function EventABRealizedSection({ eventId }: { eventId: string }) {
+export default function EventABRealizedSection({
+  eventId,
+  moduleReceita = null,
+}: {
+  eventId: string;
+  /**
+   * Receita A&B calculada pelo módulo no cenário Real, passada apenas quando
+   * há facturação real do operador informada. Serve para uma leitura
+   * informativa de reconciliação — não corrige nem substitui nada.
+   */
+  moduleReceita?: number | null;
+}) {
   const navigate = useNavigate();
   const r = useEventABRealized(eventId);
+
 
   const goToTx = (id: string) => navigate(`/transacoes?highlight=${id}`);
 
@@ -77,6 +89,24 @@ export default function EventABRealizedSection({ eventId }: { eventId: string })
                 </div>
               </div>
             </div>
+
+            {moduleReceita != null && (
+              <div className="rounded-md border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+                <div className="font-medium text-foreground">Leitura informativa</div>
+                <div className="tabular-nums">
+                  Módulo A&B (cenário Real, com facturação real): {fmtEUR(moduleReceita)} · Receita
+                  lançada em transações: {fmtEUR(r.receita)} · Diferença:{" "}
+                  {fmtEUR(moduleReceita - r.receita)}
+                </div>
+                <p>
+                  Divergência é esperada enquanto o fecho não estiver completo (podem faltar
+                  lançamentos ou existir despesas descontadas na quota). O módulo não corrige as
+                  transações.
+                </p>
+              </div>
+            )}
+
+
 
             <div className="overflow-x-auto">
               <Table>

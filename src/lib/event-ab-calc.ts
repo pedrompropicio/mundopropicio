@@ -49,9 +49,18 @@ export interface ABZoneInput {
   per_capita_custo_bebidas?: number;
   /** Custo fixo da zona (staff, aluguer) — apenas em modo exploracao_propria */
   custo_fixo_bebidas?: number;
+  /**
+   * Facturação REAL do operador nesta zona (s/IVA), depois do fecho POS.
+   * Quando NÃO-NULA manda no cálculo e substitui `participants × per_capita`.
+   * `null`/`undefined` = não informada (comportamento estimado). 0 é um valor
+   * legítimo (operou e não facturou nada) e é respeitado.
+   * Só deve ser passada no cenário "real" — ver useEventABScenarios/EventABTab.
+   */
+  faturacao_real_bebidas?: number | null;
   /** Label livre para identificar o operador — opcional, sem FK em v1 */
   operador_nome?: string;
 }
+
 
 export interface ABFoodConfig {
   fee_alimentos: number;
@@ -62,6 +71,14 @@ export interface ABFoodConfig {
   per_capita_custo_alimentos?: number;
   /** Custo fixo de alimentos — apenas em modo exploracao_propria */
   custo_fixo_alimentos?: number;
+  /**
+   * Facturação REAL do operador de alimentos (s/IVA), depois do fecho POS.
+   * Quando NÃO-NULA manda no cálculo e substitui
+   * `participantesElegiveisAlimentos × per_capita_alimentos`.
+   * `null`/`undefined` = não informada. 0 é legítimo e é respeitado.
+   * Só deve ser passada no cenário "real".
+   */
+  faturacao_real_alimentos?: number | null;
   /** Label livre para o operador de alimentos */
   operador_nome?: string;
 }
@@ -128,6 +145,24 @@ const num = (v: any, fb = 0): number => {
   return Number.isFinite(n) ? n : fb;
 };
 
+/**
+ * Facturação a usar: o valor REAL quando informado (não-nulo e finito),
+ * caso contrário a estimativa `participantes × per capita`.
+ * Nulo ≠ zero: 0 informado é um valor legítimo e vence a estimativa.
+ */
+export function resolveFaturacao(
+  real: number | null | undefined,
+  participants: number,
+  perCapita: number,
+): number {
+  if (real != null) {
+    const n = typeof real === "number" ? real : Number(real);
+    if (Number.isFinite(n)) return n;
+  }
+  return participants * num(perCapita);
+}
+
+
 // ── computeZone ───────────────────────────────────────────────────────────────
 
 export function computeZone(zone: ABZoneInput, mode: ABMode = "terceirizacao"): ABZoneResult {
@@ -152,7 +187,13 @@ export function computeZone(zone: ABZoneInput, mode: ABMode = "terceirizacao"): 
     // Exploração própria: casa fatura e suporta custos directamente.
     // participants_manual (já resolvido antes de chegar aqui) é o mesmo
     // denominador para receita e custo — ver edge case na documentação.
-    const receita = participants * num(zone.per_capita_bebidas);
+    // A facturação real, quando informada, substitui a RECEITA estimada; o
+    // custo continua a ser calculado por participantes (não é facturação).
+    const receita = resolveFaturacao(
+      zone.faturacao_real_bebidas,
+      participants,
+      num(zone.per_capita_bebidas),
+    );
     const custo = participants * num(zone.per_capita_custo_bebidas) + num(zone.custo_fixo_bebidas);
     const resultado = receita - custo;
     return {
@@ -168,11 +209,16 @@ export function computeZone(zone: ABZoneInput, mode: ABMode = "terceirizacao"): 
     };
   }
 
-  // Terceirização (comportamento original)
-  const fat = participants * num(zone.per_capita_bebidas);
+  // Terceirização (comportamento original; facturação real vence quando informada)
+  const fat = resolveFaturacao(
+    zone.faturacao_real_bebidas,
+    participants,
+    num(zone.per_capita_bebidas),
+  );
   const repasse = num(zone.repasse_bebidas_pct) / 100;
   const receita = fat * repasse;
   const parteGerador = fat - receita;
+
   return {
     id: zone.id,
     zone_label: zone.zone_label,
@@ -211,20 +257,28 @@ export function computeTotals(
   let custoCasaAlimentos: number;
   let parteGeradorAlimentos: number;
 
+  // Facturação real do operador de alimentos vence a estimativa quando informada.
+  const fatAlimentosBase = resolveFaturacao(
+    food.faturacao_real_alimentos,
+    participantesElegiveisAlimentos,
+    num(food.per_capita_alimentos),
+  );
+
   if (modeAlimentos === "exploracao_propria") {
-    faturacaoAlimentos    = participantesElegiveisAlimentos * num(food.per_capita_alimentos);
+    faturacaoAlimentos    = fatAlimentosBase;
     receitaAlimentos      = faturacaoAlimentos;
     custoCasaAlimentos    = participantesElegiveisAlimentos * num(food.per_capita_custo_alimentos)
                             + num(food.custo_fixo_alimentos);
     parteGeradorAlimentos = 0;
   } else {
     // Terceirização (comportamento original)
-    faturacaoAlimentos    = participantesElegiveisAlimentos * num(food.per_capita_alimentos);
+    faturacaoAlimentos    = fatAlimentosBase;
     const repAli          = num(food.repasse_alimentos_pct) / 100;
     receitaAlimentos      = num(food.fee_alimentos) + faturacaoAlimentos * repAli;
     custoCasaAlimentos    = 0;
     parteGeradorAlimentos = faturacaoAlimentos - faturacaoAlimentos * repAli;
   }
+
 
   const faturacaoTotal    = faturacaoBebidas + faturacaoAlimentos;
   const receitaTotal      = receitaBebidas + receitaAlimentos;

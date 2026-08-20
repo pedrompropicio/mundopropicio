@@ -86,7 +86,7 @@ export function useEventABScenarios(
     const modeBebidas: ABMode   = (config?.ab_mode_bebidas   as ABMode) ?? "terceirizacao";
     const modeAlimentos: ABMode = (config?.ab_mode_alimentos as ABMode) ?? "terceirizacao";
 
-    const food: ABFoodConfig = {
+    const baseFood: ABFoodConfig = {
       fee_alimentos:               Number(config?.fee_alimentos               || 0),
       repasse_alimentos_pct:       Number(config?.repasse_alimentos_pct       || 0),
       per_capita_alimentos:        Number(config?.per_capita_alimentos        || 0),
@@ -94,6 +94,17 @@ export function useEventABScenarios(
       custo_fixo_alimentos:        Number(config?.custo_fixo_alimentos        || 0),
       operador_nome:               config?.operador_nome_alimentos ?? undefined,
     };
+
+    // A facturação real do operador só entra no cenário Real.
+    // BE/Forecast continuam projecções puras por per capita.
+    const buildFood = (scen: "real" | "breakeven" | "forecast"): ABFoodConfig => ({
+      ...baseFood,
+      faturacao_real_alimentos:
+        scen === "real" && (config as any)?.faturacao_real_alimentos != null
+          ? Number((config as any).faturacao_real_alimentos)
+          : null,
+    });
+
 
     const attendanceByScen = { real, breakeven, forecast } as const;
 
@@ -135,6 +146,10 @@ export function useEventABScenarios(
           per_capita_custo_bebidas: Number(z.per_capita_custo_bebidas || 0),
           custo_fixo_bebidas:       Number(z.custo_fixo_bebidas      || 0),
           operador_nome:            z.operador_nome ?? undefined,
+          faturacao_real_bebidas:
+            scen === "real" && z.faturacao_real_bebidas != null
+              ? Number(z.faturacao_real_bebidas)
+              : null,
         };
       });
     };
@@ -142,9 +157,10 @@ export function useEventABScenarios(
     return {
       hasConfig: true,
       totals: {
-        real:      computeTotals(buildInputs("real"),      food, modeBebidas, modeAlimentos),
-        breakeven: computeTotals(buildInputs("breakeven"), food, modeBebidas, modeAlimentos),
-        forecast:  computeTotals(buildInputs("forecast"),  food, modeBebidas, modeAlimentos),
+        real:      computeTotals(buildInputs("real"),      buildFood("real"),      modeBebidas, modeAlimentos),
+        breakeven: computeTotals(buildInputs("breakeven"), buildFood("breakeven"), modeBebidas, modeAlimentos),
+        forecast:  computeTotals(buildInputs("forecast"),  buildFood("forecast"),  modeBebidas, modeAlimentos),
+
       },
     };
   }, [eventId, zones, config, real, breakeven, forecast, participants]);

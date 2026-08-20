@@ -349,22 +349,40 @@ export default function EventABTab({ eventId }: Props) {
         per_capita_custo_bebidas: Number(z.per_capita_custo_bebidas || 0),
         custo_fixo_bebidas:       Number(z.custo_fixo_bebidas      || 0),
         operador_nome:            z.operador_nome ?? undefined,
+        // Facturação real do operador só manda no cenário Real
+        faturacao_real_bebidas:
+          scenario === "real" && z.faturacao_real_bebidas != null
+            ? Number(z.faturacao_real_bebidas)
+            : null,
       })),
     [zones, scenario, realParticipants, simParticipantsByLabel, lotsCapacity],
   );
 
-  const food: ABFoodConfig = {
-    fee_alimentos:              Number(config?.fee_alimentos              || 0),
-    repasse_alimentos_pct:      Number(config?.repasse_alimentos_pct      || 0),
-    per_capita_alimentos:       Number(config?.per_capita_alimentos       || 0),
-    per_capita_custo_alimentos: Number(config?.per_capita_custo_alimentos || 0),
-    custo_fixo_alimentos:       Number(config?.custo_fixo_alimentos       || 0),
-  };
+  const food: ABFoodConfig = useMemo(
+    () => ({
+      fee_alimentos:              Number(config?.fee_alimentos              || 0),
+      repasse_alimentos_pct:      Number(config?.repasse_alimentos_pct      || 0),
+      per_capita_alimentos:       Number(config?.per_capita_alimentos       || 0),
+      per_capita_custo_alimentos: Number(config?.per_capita_custo_alimentos || 0),
+      custo_fixo_alimentos:       Number(config?.custo_fixo_alimentos       || 0),
+      faturacao_real_alimentos:
+        scenario === "real" && config?.faturacao_real_alimentos != null
+          ? Number(config.faturacao_real_alimentos)
+          : null,
+    }),
+    [config, scenario],
+  );
 
   const totals = useMemo(
     () => computeTotals(calcInputs, food, modeBebidas, modeAlimentos),
     [calcInputs, food, modeBebidas, modeAlimentos],
   );
+
+  /** Há facturação real informada em qualquer bloco? (para reconciliação informativa) */
+  const hasFaturacaoReal =
+    config?.faturacao_real_alimentos != null ||
+    zones.some((z: any) => z.faturacao_real_bebidas != null);
+
 
   const addEmptyZone = () =>
     upsertZone.mutate({
@@ -406,7 +424,11 @@ export default function EventABTab({ eventId }: Props) {
       <KpisConsolidados totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
 
       {/* Realizado (fecho) — origem: transações do evento (read-only) */}
-      <EventABRealizedSection eventId={eventId} />
+      <EventABRealizedSection
+        eventId={eventId}
+        moduleReceita={scenario === "real" && hasFaturacaoReal ? totals.receitaTotal : null}
+      />
+
 
 
 
@@ -445,6 +467,8 @@ export default function EventABTab({ eventId }: Props) {
                   <TableHead className="text-right">Override manual</TableHead>
                   <TableHead className="text-center">Open Bar</TableHead>
                   <TableHead className="text-right">{labelPerCapitaBebidas}</TableHead>
+                  <TableHead className="text-right">Facturação real (€)</TableHead>
+
                   {modeBebidas === "terceirizacao" && (
                     <TableHead className="text-right">% Repasse</TableHead>
                   )}
@@ -516,6 +540,26 @@ export default function EventABTab({ eventId }: Props) {
                           disabled={!!z.open_bar}
                         />
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          placeholder="estimado"
+                          className="w-28 ml-auto"
+                          disabled={!!z.open_bar}
+                          onChange={() => {}}
+                          defaultValue={z.faturacao_real_bebidas ?? ""}
+                          key={`fr-${z.id}-${z.faturacao_real_bebidas ?? ""}`}
+                          onBlur={(e) => {
+                            const v = e.target.value === "" ? null : Number(e.target.value);
+                            if (v !== (z.faturacao_real_bebidas ?? null)) {
+                              upsertZone.mutate({ ...z, faturacao_real_bebidas: v });
+                            }
+                          }}
+                        />
+                      </TableCell>
+
                       {modeBebidas === "terceirizacao" && (
                         <TableCell className="text-right">
                           <MoneyInput
@@ -572,7 +616,7 @@ export default function EventABTab({ eventId }: Props) {
                   );
                 })}
                 <TableRow className="font-semibold">
-                  <TableCell colSpan={modeBebidas === "terceirizacao" ? 8 : 9}>Totais Bebidas</TableCell>
+                  <TableCell colSpan={modeBebidas === "terceirizacao" ? 9 : 10}>Totais Bebidas</TableCell>
                   <TableCell className="text-right tabular-nums text-primary">{fmtEUR(totals.receitaBebidas)}</TableCell>
                   {modeBebidas === "exploracao_propria" && (
                     <TableCell className="text-right tabular-nums text-rose-600">{fmtEUR(totals.custoCasaBebidas)}</TableCell>
@@ -624,6 +668,32 @@ export default function EventABTab({ eventId }: Props) {
               onChange={(v) => upsertConfig.mutate({ per_capita_alimentos: v })}
             />
           </div>
+
+          {/* Facturação REAL do operador (fecho POS) — vence o per capita */}
+          <div className="space-y-2">
+            <Label>Facturação real do operador (€, s/IVA)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              placeholder="vazio = estimar por per capita"
+              defaultValue={config?.faturacao_real_alimentos ?? ""}
+              key={`fr-ali-${config?.faturacao_real_alimentos ?? ""}`}
+              onChange={() => {}}
+              onBlur={(e) => {
+                const v = e.target.value === "" ? null : Number(e.target.value);
+                if (v !== (config?.faturacao_real_alimentos ?? null)) {
+                  upsertConfig.mutate({ faturacao_real_alimentos: v });
+                }
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Quando preenchida substitui <em>participantes × per capita</em> no cenário Real.
+              Vazio = estimativa. 0 é um valor válido.
+              {scenario !== "real" && " Não afecta Break Even nem Forecast."}
+            </p>
+          </div>
+
 
           {/* Campos Terceirização */}
           {modeAlimentos === "terceirizacao" && (
