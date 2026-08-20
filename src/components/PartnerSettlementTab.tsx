@@ -414,8 +414,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
   // ---- Despesa segundo o critério selecionado no seletor ----------------
-  // Base "realizado" = transações; base "comprometido" = linhas aprovadas do BP.
-  // Overhead entra por toggle; o excesso por rubrica entra sempre na base "BP ajustado".
+  // Base "realizado" = transações; base "previsto + excedido" = linhas aprovadas do BP.
+  // Overhead entra por toggle; o excesso por rubrica entra sempre nessa base.
   const operationalForecasts = (forecasts as any[]).filter((f: any) =>
     f.type === "expense" && f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
   );

@@ -112,7 +112,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
-  // ---- Forecasts operacionais aprovados (base "BP ajustado" do seletor)
+  // ---- Forecasts operacionais aprovados (base "Previsto + excedido" do seletor)
   const { data: operationalForecasts = [] } = useQuery({
     queryKey: ["fecho-operational-forecasts", allEventIds],
     queryFn: async () => {
@@ -237,7 +237,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
     + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
-  // Base da despesa conforme seletor: realizado (transações) ou BP ajustado.
+  // Base da despesa conforme seletor: realizado (transações) ou previsto + excedido.
   const expenseSourceLines = basis.expenseSource === "committed"
     ? (operationalForecasts as any[])
     : expenseTx;

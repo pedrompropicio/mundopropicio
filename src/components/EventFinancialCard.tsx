@@ -40,7 +40,7 @@ interface Props {
 const MODE_LABEL: Record<CardMode, string> = {
   auto: "Auto",
   realized: "Realizado",
-  committed: "BP ajustado",
+  committed: "Previsto + excedido",
   forecast: "Forecast",
 };
 
@@ -156,9 +156,9 @@ export function EventFinancialCard(props: Props) {
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem
                   value="committed"
-                  title="Maior valor entre previsto e realizado, por rubrica"
+                  title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
                 >
-                  BP ajustado
+                  Previsto + excedido
                 </DropdownMenuRadioItem>
                 {forecastAvailable && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>

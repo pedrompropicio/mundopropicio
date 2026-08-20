@@ -57,10 +57,10 @@ linha a linha. Rubricas sem linha no BP contam por inteiro; TX sem categoria
 formam bucket próprio.
 
 ### Rótulo
-"Comprometido" / "BP comprometido" → **"BP ajustado"**, tooltip
-*"maior valor entre previsto e realizado, por rubrica"*. Aplicado em
-`EventFinancialCard.tsx` (chip + dropdown), `FechoBasisSelector.tsx` (chip +
-radio) e `describeFechoBasis` em `useFechoBasis.ts` (cabeçalho dos PDFs).
+"Comprometido" / "BP comprometido" → **"Previsto + excedido"**, tooltip
+*"previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"*.
+Aplicado em `EventFinancialCard.tsx` (chip + dropdown), `FechoBasisSelector.tsx`
+(chip + radio) e `describeFechoBasis` em `useFechoBasis.ts` (cabeçalho dos PDFs).
 Valor interno `"committed"` mantém-se (chaves/localStorage intactos).
 
 ### "Tem BP" tem de subir ao Master

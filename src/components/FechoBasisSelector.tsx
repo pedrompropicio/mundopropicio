@@ -14,7 +14,7 @@ import type { FechoBasis, FechoExpenseSource } from "@/hooks/useFechoBasis";
 export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
   const chips = [
     basis.withVat ? "c/IVA" : "s/IVA",
-    basis.expenseSource === "committed" ? "BP ajustado" : "Realizado",
+    basis.expenseSource === "committed" ? "Previsto + excedido" : "Realizado",
     basis.includeOverhead ? "+OH" : "s/OH",
   ].filter(Boolean) as string[];
 
@@ -48,8 +48,8 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
             onValueChange={(v) => basis.setExpenseSource(v as FechoExpenseSource)}
           >
             <DropdownMenuRadioItem value="realized">Realizado (transações)</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="committed" title="Maior valor entre previsto e realizado, por rubrica">
-              BP ajustado
+            <DropdownMenuRadioItem value="committed" title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica">
+              Previsto + excedido
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
 

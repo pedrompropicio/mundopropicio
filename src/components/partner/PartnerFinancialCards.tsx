@@ -20,7 +20,7 @@ export interface PartnerFinancialCardsProps {
   realizedError?: boolean;
   /**
    * Nº de rubricas L3 cujo previsto foi substituído pelo realizado (ver
-   * "BP ajustado à realidade" em PartnerEventDetail). Quando > 0 acrescenta
+   * "Previsto + excedido à realidade" em PartnerEventDetail). Quando > 0 acrescenta
    * uma nota discreta no card Despesas.
    */
   adjustedRubricsCount?: number;
