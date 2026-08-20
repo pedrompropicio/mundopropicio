@@ -40,7 +40,7 @@ interface Props {
 const MODE_LABEL: Record<CardMode, string> = {
   auto: "Auto",
   realized: "Realizado",
-  committed: "Comprometido",
+  committed: "BP ajustado",
   forecast: "Forecast",
 };
 
@@ -68,18 +68,12 @@ export function EventFinancialCard(props: Props) {
   const [includeOverhead, setIncludeOverhead] = useState<boolean>(
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
   );
-  const [includeOutsideBp, setIncludeOutsideBp] = useState<boolean>(
-    () => readStoredCostToggle(userId, eventId, kind, "outsidebp"),
-  );
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
   useEffect(() => { writeStoredWithVat(userId, eventId, kind, withVat); }, [userId, eventId, kind, withVat]);
   useEffect(() => {
     writeStoredCostToggle(userId, eventId, kind, "overhead", includeOverhead);
   }, [userId, eventId, kind, includeOverhead]);
-  useEffect(() => {
-    writeStoredCostToggle(userId, eventId, kind, "outsidebp", includeOutsideBp);
-  }, [userId, eventId, kind, includeOutsideBp]);
 
   const data = useEventFinancialCardData({
     eventId,
@@ -95,7 +89,6 @@ export function EventFinancialCard(props: Props) {
     cacheImpact: props.cacheImpact,
     withVat,
     includeOverhead,
-    includeOutsideBp,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
@@ -141,9 +134,9 @@ export function EventFinancialCard(props: Props) {
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
           </span>
-          {kind === "expense" && (includeOverhead || includeOutsideBp) && (
+          {kind === "expense" && includeOverhead && (
             <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {[includeOverhead ? "+OH" : null, includeOutsideBp ? "+fora BP" : null].filter(Boolean).join(" ")}
+              +OH
             </span>
           )}
 
@@ -161,7 +154,12 @@ export function EventFinancialCard(props: Props) {
               <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as CardMode)}>
                 <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="committed">Comprometido</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  value="committed"
+                  title="Maior valor entre previsto e realizado, por rubrica"
+                >
+                  BP ajustado
+                </DropdownMenuRadioItem>
                 {forecastAvailable && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>
 
@@ -181,14 +179,6 @@ export function EventFinancialCard(props: Props) {
                     onSelect={(e) => e.preventDefault()}
                   >
                     Incluir overhead
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={includeOutsideBp}
-                    disabled={data.modeUsed !== "committed"}
-                    onCheckedChange={(v) => setIncludeOutsideBp(!!v)}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Incluir transações fora do BP
                   </DropdownMenuCheckboxItem>
                 </>
               )}

@@ -11,10 +11,7 @@ export interface FechoBasis {
   /** Overhead entra no resultado do acerto (default ON = comportamento atual). */
   includeOverhead: boolean;
   setIncludeOverhead: (v: boolean) => void;
-  /** Somar o excesso por rubrica (transações fora do BP) — só na base "comprometido". */
-  includeOutsideBp: boolean;
-  setIncludeOutsideBp: (v: boolean) => void;
-  /** Base da despesa: transações realizadas ou BP comprometido. */
+  /** Base da despesa: transações realizadas ou BP ajustado (max previsto/realizado por rubrica). */
   expenseSource: FechoExpenseSource;
   setExpenseSource: (v: FechoExpenseSource) => void;
 }
@@ -51,9 +48,6 @@ export function useFechoBasis(eventId: string, partnerCalcBasis?: string | null)
   const [includeOverhead, setIncludeOverhead] = useState<boolean>(
     () => readBool(userId, eventId, "overhead", true),
   );
-  const [includeOutsideBp, setIncludeOutsideBp] = useState<boolean>(
-    () => readBool(userId, eventId, "outsidebp", false),
-  );
   const [expenseSource, setExpenseSource] = useState<FechoExpenseSource>(() => {
     try {
       const v = localStorage.getItem(key(userId, eventId, "expsource"));
@@ -72,7 +66,6 @@ export function useFechoBasis(eventId: string, partnerCalcBasis?: string | null)
 
   useEffect(() => { if (hydrated) writeBool(userId, eventId, "vat", withVat); }, [hydrated, userId, eventId, withVat]);
   useEffect(() => { writeBool(userId, eventId, "overhead", includeOverhead); }, [userId, eventId, includeOverhead]);
-  useEffect(() => { writeBool(userId, eventId, "outsidebp", includeOutsideBp); }, [userId, eventId, includeOutsideBp]);
   useEffect(() => {
     try { localStorage.setItem(key(userId, eventId, "expsource"), expenseSource); } catch {/* noop */}
   }, [userId, eventId, expenseSource]);
@@ -80,7 +73,6 @@ export function useFechoBasis(eventId: string, partnerCalcBasis?: string | null)
   return {
     withVat, setWithVat,
     includeOverhead, setIncludeOverhead,
-    includeOutsideBp, setIncludeOutsideBp,
     expenseSource, setExpenseSource,
   };
 }
@@ -89,9 +81,8 @@ export function useFechoBasis(eventId: string, partnerCalcBasis?: string | null)
 export function describeFechoBasis(b: FechoBasis): string {
   const parts = [
     `Despesas ${b.withVat ? "c/IVA" : "s/IVA"}`,
-    b.expenseSource === "committed" ? "base: BP comprometido" : "base: realizado",
+    b.expenseSource === "committed" ? "base: BP ajustado" : "base: realizado",
     b.includeOverhead ? "com overhead" : "sem overhead",
   ];
-  if (b.includeOutsideBp && b.expenseSource === "committed") parts.push("inclui fora do BP");
   return parts.join(" · ");
 }

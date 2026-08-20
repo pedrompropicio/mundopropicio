@@ -76,7 +76,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
-  // Critério de fecho (IVA · base da despesa · overhead · fora do BP).
+  // Critério de fecho (IVA · base da despesa · overhead).
   const basis = useFechoBasis(partnersSourceId, (eventInfo as any)?.partner_calc_basis);
 
 
@@ -112,7 +112,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
-  // ---- Forecasts operacionais aprovados (base "BP comprometido" do seletor)
+  // ---- Forecasts operacionais aprovados (base "BP ajustado" do seletor)
   const { data: operationalForecasts = [] } = useQuery({
     queryKey: ["fecho-operational-forecasts", allEventIds],
     queryFn: async () => {
@@ -237,7 +237,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
     + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
-  // Base da despesa conforme seletor: realizado (transações) ou BP comprometido.
+  // Base da despesa conforme seletor: realizado (transações) ou BP ajustado.
   const expenseSourceLines = basis.expenseSource === "committed"
     ? (operationalForecasts as any[])
     : expenseTx;
@@ -245,7 +245,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const expenseGross = sumLines(expenseSourceLines, true);
 
   // "Fora do BP" = excesso por rubrica (Σ max(realizado − previsto, 0)).
-  const outsideBp = basis.expenseSource === "committed" && basis.includeOutsideBp
+  const outsideBp = basis.expenseSource === "committed"
     ? computeOutsideBpExcess(operationalForecasts as any[], expenseTx as any[], basis.withVat)
     : 0;
 

@@ -126,8 +126,8 @@ export function writeStoredWithVat(userId: string, eventId: string, kind: "incom
   try { localStorage.setItem(vatStorageKey(userId, eventId, kind), withVat ? "1" : "0"); } catch {/* noop */}
 }
 
-/** Toggles de composição do custo (overhead / fora do BP) — default OFF. */
-export type CostToggle = "overhead" | "outsidebp";
+/** Toggles de composição do custo — default OFF. */
+export type CostToggle = "overhead";
 
 export function costToggleStorageKey(
   userId: string, eventId: string, kind: "income" | "expense", toggle: CostToggle,
