@@ -20,3 +20,10 @@ a quem se cadastra VIP no portal (`lead_capture.source LIKE 'vip%'` + `consent_e
 - **Testes só com `dryRun: true`** — nunca inserir leads reais nem enviar e-mail.
 
 Doc: `docs/features/vip-coupon-email.md`
+
+## Supressão do welcome antigo
+`tg_lead_capture_vip_welcome` não envia quando `source LIKE 'vip%'` e o evento
+tem cupom próprio ativo (`vip_coupon_code` + `vip_coupon_valid_until >= current_date`).
+Sem cupom global: welcome genérico (sem "5%" nem "código a caminho"). Com cupom
+global: usa `portal_settings general.vip_coupon_discount_label` (fallback
+"desconto VIP", nunca percentual inventado).
