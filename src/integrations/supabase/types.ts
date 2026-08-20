@@ -3059,6 +3059,7 @@ export type Database = {
           created_at: string
           custo_fixo_alimentos: number
           event_id: string
+          faturacao_real_alimentos: number | null
           fee_alimentos: number
           id: string
           notes: string | null
@@ -3076,6 +3077,7 @@ export type Database = {
           created_at?: string
           custo_fixo_alimentos?: number
           event_id: string
+          faturacao_real_alimentos?: number | null
           fee_alimentos?: number
           id?: string
           notes?: string | null
@@ -3093,6 +3095,7 @@ export type Database = {
           created_at?: string
           custo_fixo_alimentos?: number
           event_id?: string
+          faturacao_real_alimentos?: number | null
           fee_alimentos?: number
           id?: string
           notes?: string | null
@@ -3125,6 +3128,7 @@ export type Database = {
           created_at: string
           custo_fixo_bebidas: number
           event_id: string
+          faturacao_real_bebidas: number | null
           id: string
           open_bar: boolean
           open_food: boolean
@@ -3143,6 +3147,7 @@ export type Database = {
           created_at?: string
           custo_fixo_bebidas?: number
           event_id: string
+          faturacao_real_bebidas?: number | null
           id?: string
           open_bar?: boolean
           open_food?: boolean
@@ -3161,6 +3166,7 @@ export type Database = {
           created_at?: string
           custo_fixo_bebidas?: number
           event_id?: string
+          faturacao_real_bebidas?: number | null
           id?: string
           open_bar?: boolean
           open_food?: boolean
