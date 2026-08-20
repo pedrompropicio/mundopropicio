@@ -171,14 +171,14 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
             Importar do Excel
           </Button>
         )}
-        <p className="text-xs text-muted-foreground ml-auto">
+        <p className="text-xs text-muted-foreground sm:ml-auto shrink-0">
           Arrasta os cards entre colunas para mudar o estado.
         </p>
       </div>
 
-      {/* Kanban */}
-      <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex gap-3 pb-3 w-max">
+      {/* Kanban — scroll horizontal nativo, contido na largura disponível */}
+      <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden pb-3">
+        <div className="flex gap-3 w-max">
           {STAGE_ORDER.map((stage) => (
             <Column
               key={stage}
@@ -205,8 +205,8 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
             </Column>
           ))}
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
+
 
       {isLoading && (
         <div className="text-center text-sm text-muted-foreground py-4">A carregar pipeline…</div>
