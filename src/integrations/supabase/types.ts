@@ -73,6 +73,8 @@ export type Database = {
       }
       accountant_transaction_reviews: {
         Row: {
+          closed_at: string | null
+          closed_by: string | null
           company_id: string
           created_at: string
           id: string
@@ -87,6 +89,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
           company_id: string
           created_at?: string
           id?: string
@@ -101,6 +105,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          closed_at?: string | null
+          closed_by?: string | null
           company_id?: string
           created_at?: string
           id?: string
