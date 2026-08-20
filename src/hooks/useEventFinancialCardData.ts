@@ -32,8 +32,6 @@ export interface UseEventFinancialCardDataArgs {
   withVat?: boolean;
   /** Incluir linhas de overhead do BP (default OFF). */
   includeOverhead?: boolean;
-  /** Incluir excesso por rubrica (transações fora do BP) — só no modo committed. Default OFF. */
-  includeOutsideBp?: boolean;
 }
 
 
@@ -57,7 +55,7 @@ export interface UseEventFinancialCardDataResult {
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
   const {
     eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate,
-    withVat = false, includeOverhead = false, includeOutsideBp = false,
+    withVat = false, includeOverhead = false,
   } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
@@ -232,9 +230,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         emptyBreakdown(),
       );
 
-      // "Fora do BP" = excesso por rubrica sobre as linhas OPERACIONAIS do BP
-      // (Σ max(realizado − previsto, 0)). Independente do toggle de overhead.
-      const outsideBp = kind === "expense" && includeOutsideBp
+      // Excesso por rubrica sobre as linhas OPERACIONAIS do BP
+      // (Σ max(realizado − previsto, 0)) — entra SEMPRE na base "BP ajustado".
+      // Não é opcional: um total dependente de um clique produz erro de fecho.
+      const outsideBp = kind === "expense"
         ? computeOutsideBpExcess(
             operational,
             txs.filter((t: any) =>
