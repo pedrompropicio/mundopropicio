@@ -215,6 +215,13 @@ export default function AccountantPendencies() {
                 </div>
               )}
 
+              {r.status === "encerrada" && (
+                <p className="text-xs text-muted-foreground">
+                  Encerrada por {r.closer_name ?? "—"}
+                  {r.closed_at ? ` em ${format(new Date(r.closed_at), "dd/MM/yyyy HH:mm")}` : ""} — sem validação da contabilista.
+                </p>
+              )}
+
               {r.status === "pendente" && (
                 <div className="space-y-1.5">
                   <Textarea
@@ -223,12 +230,38 @@ export default function AccountantPendencies() {
                     placeholder="Responder à contabilista…"
                     className="min-h-[60px] text-xs"
                   />
-                  <Button size="sm" onClick={() => respond.mutate(r)} disabled={respond.isPending}>
-                    {respond.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                    {r.response_note ? "Atualizar resposta" : "Responder"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" onClick={() => respond.mutate(r)} disabled={respond.isPending}>
+                      {respond.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {r.response_note ? "Atualizar resposta" : "Responder"}
+                    </Button>
+                    {canClose && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" disabled={close.isPending}>
+                            {close.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Lock className="mr-1 h-3 w-3" />}
+                            Encerrar pendência
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Encerrar esta pendência?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              A pendência sai da lista de pendentes sem validação da contabilista. A justificação escrita
+                              na caixa de resposta fica registada e visível para ela, que pode reabrir.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => close.mutate(r)}>Encerrar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </div>
               )}
+
             </div>
           ))}
         </div>
