@@ -187,7 +187,13 @@ export function computeZone(zone: ABZoneInput, mode: ABMode = "terceirizacao"): 
     // Exploração própria: casa fatura e suporta custos directamente.
     // participants_manual (já resolvido antes de chegar aqui) é o mesmo
     // denominador para receita e custo — ver edge case na documentação.
-    const receita = participants * num(zone.per_capita_bebidas);
+    // A facturação real, quando informada, substitui a RECEITA estimada; o
+    // custo continua a ser calculado por participantes (não é facturação).
+    const receita = resolveFaturacao(
+      zone.faturacao_real_bebidas,
+      participants,
+      num(zone.per_capita_bebidas),
+    );
     const custo = participants * num(zone.per_capita_custo_bebidas) + num(zone.custo_fixo_bebidas);
     const resultado = receita - custo;
     return {
@@ -203,11 +209,16 @@ export function computeZone(zone: ABZoneInput, mode: ABMode = "terceirizacao"): 
     };
   }
 
-  // Terceirização (comportamento original)
-  const fat = participants * num(zone.per_capita_bebidas);
+  // Terceirização (comportamento original; facturação real vence quando informada)
+  const fat = resolveFaturacao(
+    zone.faturacao_real_bebidas,
+    participants,
+    num(zone.per_capita_bebidas),
+  );
   const repasse = num(zone.repasse_bebidas_pct) / 100;
   const receita = fat * repasse;
   const parteGerador = fat - receita;
+
   return {
     id: zone.id,
     zone_label: zone.zone_label,
