@@ -155,9 +155,11 @@ export default function AccountantPendencies() {
             <SelectContent>
               <SelectItem value="pendente">Pendentes</SelectItem>
               <SelectItem value="conferido">Conferidas</SelectItem>
+              <SelectItem value="encerrada">Encerradas</SelectItem>
               <SelectItem value="all">Todas</SelectItem>
             </SelectContent>
           </Select>
+
         </div>
       </div>
 
