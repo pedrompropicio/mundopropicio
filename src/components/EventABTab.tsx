@@ -643,6 +643,32 @@ export default function EventABTab({ eventId }: Props) {
             />
           </div>
 
+          {/* Facturação REAL do operador (fecho POS) — vence o per capita */}
+          <div className="space-y-2">
+            <Label>Facturação real do operador (€, s/IVA)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              placeholder="vazio = estimar por per capita"
+              defaultValue={config?.faturacao_real_alimentos ?? ""}
+              key={`fr-ali-${config?.faturacao_real_alimentos ?? ""}`}
+              onChange={() => {}}
+              onBlur={(e) => {
+                const v = e.target.value === "" ? null : Number(e.target.value);
+                if (v !== (config?.faturacao_real_alimentos ?? null)) {
+                  upsertConfig.mutate({ faturacao_real_alimentos: v });
+                }
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Quando preenchida substitui <em>participantes × per capita</em> no cenário Real.
+              Vazio = estimativa. 0 é um valor válido.
+              {scenario !== "real" && " Não afecta Break Even nem Forecast."}
+            </p>
+          </div>
+
+
           {/* Campos Terceirização */}
           {modeAlimentos === "terceirizacao" && (
             <>
