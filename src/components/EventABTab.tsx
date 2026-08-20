@@ -424,7 +424,11 @@ export default function EventABTab({ eventId }: Props) {
       <KpisConsolidados totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
 
       {/* Realizado (fecho) — origem: transações do evento (read-only) */}
-      <EventABRealizedSection eventId={eventId} />
+      <EventABRealizedSection
+        eventId={eventId}
+        moduleReceita={scenario === "real" && hasFaturacaoReal ? totals.receitaTotal : null}
+      />
+
 
 
 
