@@ -349,22 +349,40 @@ export default function EventABTab({ eventId }: Props) {
         per_capita_custo_bebidas: Number(z.per_capita_custo_bebidas || 0),
         custo_fixo_bebidas:       Number(z.custo_fixo_bebidas      || 0),
         operador_nome:            z.operador_nome ?? undefined,
+        // Facturação real do operador só manda no cenário Real
+        faturacao_real_bebidas:
+          scenario === "real" && z.faturacao_real_bebidas != null
+            ? Number(z.faturacao_real_bebidas)
+            : null,
       })),
     [zones, scenario, realParticipants, simParticipantsByLabel, lotsCapacity],
   );
 
-  const food: ABFoodConfig = {
-    fee_alimentos:              Number(config?.fee_alimentos              || 0),
-    repasse_alimentos_pct:      Number(config?.repasse_alimentos_pct      || 0),
-    per_capita_alimentos:       Number(config?.per_capita_alimentos       || 0),
-    per_capita_custo_alimentos: Number(config?.per_capita_custo_alimentos || 0),
-    custo_fixo_alimentos:       Number(config?.custo_fixo_alimentos       || 0),
-  };
+  const food: ABFoodConfig = useMemo(
+    () => ({
+      fee_alimentos:              Number(config?.fee_alimentos              || 0),
+      repasse_alimentos_pct:      Number(config?.repasse_alimentos_pct      || 0),
+      per_capita_alimentos:       Number(config?.per_capita_alimentos       || 0),
+      per_capita_custo_alimentos: Number(config?.per_capita_custo_alimentos || 0),
+      custo_fixo_alimentos:       Number(config?.custo_fixo_alimentos       || 0),
+      faturacao_real_alimentos:
+        scenario === "real" && config?.faturacao_real_alimentos != null
+          ? Number(config.faturacao_real_alimentos)
+          : null,
+    }),
+    [config, scenario],
+  );
 
   const totals = useMemo(
     () => computeTotals(calcInputs, food, modeBebidas, modeAlimentos),
     [calcInputs, food, modeBebidas, modeAlimentos],
   );
+
+  /** Há facturação real informada em qualquer bloco? (para reconciliação informativa) */
+  const hasFaturacaoReal =
+    config?.faturacao_real_alimentos != null ||
+    zones.some((z: any) => z.faturacao_real_bebidas != null);
+
 
   const addEmptyZone = () =>
     upsertZone.mutate({
