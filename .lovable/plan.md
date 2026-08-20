@@ -1,130 +1,77 @@
-# Fornecedores: acesso a dados bancários — levantamento e plano
+# A&B — Facturação realizada do operador (override do per capita)
 
-## Conclusão principal (antes de tudo)
+## Resposta às 3 perguntas de desenho
 
-O finding **`suppliers_bank_details_non_financial_roles` é um falso positivo do scanner**.
-Nenhum papel não-financeiro consegue hoje ler `iban`, `iban_2`, `iban_3`, `swift_bic`,
-`swift_bic_2`, `swift_bic_3` — não por causa das policies, mas por causa dos **grants por coluna**.
+### 1. Interacção com os 3 cenários — concordo contigo
+A facturação real aplica-se **só ao cenário "Real"**. Break Even e Forecast continuam a usar
+`participantes × per capita`, senão os sliders do Simulador deixam de mexer em A&B depois do
+fecho e o BE deixa de ser um ponto de equilíbrio (passaria a ser uma constante).
 
-Estado real em BD:
+Implementação: o override **não** entra em `computeTotals` como campo global. Entra como campo
+por-cenário: `useEventABScenarios` só o passa quando `scen === "real"`. `computeTotals` recebe
+um valor já resolvido (número ou `null`) e não sabe de cenários — mantém-se pura.
+
+Efeito colateral desejável: `scaleABFromReal` (usado em `useCitySimulator` e `EventSimulator`)
+escala BE/Forecast a partir do rácio contra o A&B **real**. Se o real passar a vir do POS, o
+escalamento passa a ancorar no número verdadeiro — melhoria, não regressão.
+
+### 2. Duplicação com o card "Realizado (fecho)" — não derivar, mas reconciliar
+Derivar automaticamente é tentador mas errado aqui: `useEventABRealized` lê a **nossa quota já
+líquida** (a transação de 29.613,50 €), não a facturação do operador (98.711,67 €). Não há forma
+fiável de inverter — a % de repasse pode mudar, há fee fixo nos alimentos, e há eventos com
+bebidas e alimentos no mesmo lançamento. Inverter 29.613,50 ÷ 0,30 recriaria exactamente o
+problema dos "dois números para a mesma verdade" que quiseste evitar.
+
+Proposta: **uma fonte para cada coisa, com reconciliação visível.**
+- A facturação bruta do operador é input manual (é um documento do operador, não existe na nossa BD).
+- A nossa quota realizada continua a vir das transações (`useEventABRealized`).
+- A UI compara: `receitaAlimentos` calculada (98.711,67 × 30% = 29.613,50) vs `receita` do card
+  Realizado. Se divergirem mais de 0,05 €, badge de aviso âmbar no bloco Alimentos e no card
+  Realizado, com os dois valores e a diferença. Se baterem, badge verde "conciliado".
+- Sem escrita automática em nenhum dos lados. `auto_sync_bp` continua desligado.
+
+### 3. Migration — nada parte
+Duas colunas novas, `numeric` nullable, sem default, sem tocar em colunas existentes nem em RLS:
+- `public.event_ab_config.faturacao_real_alimentos numeric NULL`
+- `public.event_ab_zones.faturacao_real_bebidas numeric NULL`
+
+Consumidores verificados: `useCitySimulator`, `EventSimulator`, `EventSimulatorDemo`, `ReportDRE`,
+`EventABTab`, `event-simulator-ab-scale`, `event-simulator-calc`. Todos leem `computeTotals` por
+campos de saída (`receitaBebidas`, `receitaAlimentos`, `custoTotal`) — a assinatura de saída não
+muda e os campos legados mantêm-se. Quem constrói inputs sem os campos novos (`ReportDRE` linha
+401, testes) fica com `undefined` → tratado como nulo → comportamento actual byte-a-byte igual.
+
+## Regra de cálculo
+
+Helper único em `event-ab-calc.ts`:
 
 ```text
-suppliers.relacl  → authenticated = awdDxtm   (SEM 'r' = SEM SELECT à tabela inteira)
-grants por coluna → authenticated tem SELECT apenas em:
-  id, name, nif, contact_name, email, phone, address, payment_terms,
-  category, notes, is_active, created_at, updated_at, trade_name,
-  is_partner, company_id            (16 colunas, zero bancárias)
+resolveFaturacao(real, participantes, perCapita):
+  real != null && Number.isFinite(real)  ->  real        (0 é válido)
+  caso contrário                          ->  participantes × perCapita
 ```
 
-Ou seja: a policy `Suppliers viewable by tenant members` autoriza a *linha*, mas o grant
-recusa a *coluna*. Um `select("*")` de um producer devolve erro de permissão; qualquer
-select das 16 colunas funciona. O scanner só lê `pg_policy` e não vê os grants de coluna,
-por isso volta a marcar o mesmo caso.
+Aplicada nos dois modos:
+- `terceirizacao`: `receita = fee + faturacao × repasse%`  (fee/repasse inalterados)
+- `exploracao_propria`: `receita = faturacao`; o **custo** continua
+  `participantes × per_capita_custo + custo_fixo` (o real substitui receita, não custo)
+- `open_bar` / `open_food` continuam a zerar antes de tudo — não mexo em
+  `participantesElegiveisAlimentos` nem no `open_food`
 
-O acesso legítimo ao IBAN passa exclusivamente por
-`get_supplier_bank_details(uuid[])` (SECURITY DEFINER), que já valida:
-- papel via `can_view_supplier_bank_data()` → `admin`, `platform_admin`, `manager`, `editor`, `accountant`
-- empresa via `s.company_id = current_company_id()`
+`nulo ≠ zero`: uso `== null` explícito, nunca `|| 0`, nos novos campos.
 
-## 1. Inventário de leituras de `public.suppliers`
+## Ficheiros
 
-### 1.1 Leituras diretas com colunas bancárias — 1 caminho único
-| Onde | Colunas | Quem chega |
-|---|---|---|
-| RPC `get_supplier_bank_details` (SECURITY DEFINER) | iban×3, swift×3, id, name, nif | admin, platform_admin, manager, editor, accountant + filtro `current_company_id()` |
+| Ficheiro | Mudança |
+|---|---|
+| `supabase/migrations/<ts>_ab_faturacao_real.sql` | 2 colunas nullable + `COMMENT ON COLUMN` |
+| `src/lib/event-ab-calc.ts` | `faturacao_real_bebidas?: number \| null` em `ABZoneInput`, `faturacao_real_alimentos?: number \| null` em `ABFoodConfig`, helper `resolveFaturacao`, uso em `computeZone` e no bloco de alimentos |
+| `src/hooks/useEventABScenarios.ts` | passa os campos reais **apenas** em `scen === "real"`; `null` nos outros |
+| `src/components/EventABTab.tsx` | campo "Facturação real do operador (s/IVA)" no bloco Alimentos e por zona nas Bebidas, com placeholder "vazio = calcular por per capita" e botão para limpar (voltar a nulo); badge de reconciliação |
+| `src/components/EventABRealizedSection.tsx` | badge de divergência espelhado |
+| `src/lib/__tests__/event-ab-calc.test.ts` | casos: real preenchido nos 2 modos, real = 0, real nulo (regressão), open_bar/open_food com real preenchido |
 
-Wrapper de frontend: `src/lib/supplier-bank.ts`
-(`fetchSupplierBankRows/Map`, `mergeSupplierBank`, `mergeEmbeddedSupplierBank`,
-`attachSupplierBankToTxRows`). Degrada em vazio no erro 42501, não parte ecrãs.
-
-Consumidores do wrapper (10 ficheiros, todos já via RPC):
-`pages/Suppliers.tsx`, `pages/contabilidade/AccountantSuppliersTab.tsx`,
-`pages/admin/IbanDuplicates.tsx`, `components/PaymentListsTab.tsx`,
-`components/ReportContasPagar.tsx`, `components/TransactionFormModal.tsx`,
-`components/ReimbursementNoteFormModal.tsx`, `components/ReimbursementNoteDetail.tsx`,
-`components/TransactionPaymentModal.tsx`, `components/camarim/FundHolderPicker.tsx`.
-
-`src/lib/payment-iban.ts` (SEPA/pain.001, elegibilidade, badge "Sem IBAN") **não lê a BD**:
-consome `tx.suppliers.iban*` já hidratado pelo wrapper, ou `transactions.iban_override`,
-ou o IBAN da conta destino (`card-load-destination.ts`).
-
-### 1.2 Leituras diretas sem colunas bancárias
-`pages/Suppliers.tsx` usa `SUPPLIER_BASE_COLUMNS` (as 16 colunas permitidas).
-Selects de `id, name[, trade_name, nif]` em: `GlobalSearch`, `EventPartnersTab`,
-`EventCacheConfig`, `Quotations`, `ReportMovementReconciliation`, `ReportSuppliersPage`,
-`SponsorsImportModal`, `ReimbursementNoteFormModal`, `CacheTransactionModal`,
-`CamarimSessionDetail`, `cards/NewCardExpenseModal`, `supplier-credits/NewSupplierCreditModal`,
-`operacao/suppliers/AddSupplierToEtapaDialog`, `camarim/FundHolderPicker`,
-`TransactionFormModal`.
-
-### 1.3 Embeds PostgREST `suppliers(...)` — ~40 sítios, todos só `name`/`trade_name`/`email`
-Relatórios (DRE, DRE Brasil, DRE Empresarial, Aging, Contas a Pagar, Bank Statement,
-BP×Transações, Partner Settlement, Partner Expenses, Supplier Concentration,
-Ticket Office Audit, Document Pendencies, Accounting Export, Movement Reconciliation),
-ERP (`TransactionRow`, `EventDetail`, `EventFecho`, `FinancialOperationsTab`,
-`OrphanTransactionsModal`, `PaymentListsTab`, `PartnerSettlementTab`,
-`PartnerPaidExpensesPanel`, `PartnerDREDialog`, `ResultsAnalysis`,
-`TransactionPaymentModal`) e Operação (`MinhasTarefas`, `FrenteDetail`, `EtapasList`,
-`EtapaDetail`, `EtapaSuppliersPanel`).
-Nenhum embed pede colunas bancárias — confirmado por grep (`suppliers([^)]*iban` → 0 hits).
-
-### 1.4 Edge functions
-`apply-coala-bp`, `coala-sync-bootstrap`, `classify-coala-tx-with-ai`,
-`test-multi-tenant-isolation` — todas com **service_role**, fora de RLS e de grants;
-nenhuma exporta IBAN para o cliente. Geração SEPA/MT101 corre no frontend a partir
-do RPC, não em edge function.
-
-### 1.5 Views / RPC dependentes
-Nenhuma view pública depende de `suppliers`. RPCs relacionadas:
-`get_supplier_bank_details`, `can_view_supplier_bank_data`, `check_supplier_iban_duplicate`
-(SECURITY DEFINER, devolve booleano/contagem, não expõe IBAN),
-`get_partner_event_*` (só nomes).
-
-### 1.6 Portais
-- **Contabilista** (`AccountantSuppliersTab`): precisa e mantém — `accountant` está em `can_view_supplier_bank_data()`.
-- **Parceiro/sócio**: `partner` não tem SELECT em `suppliers` (ausente da policy) e chega a nomes via RPCs agregadas. Sem impacto.
-- **Produtor/Operação**: só `id, name` — já servido pelos grants de coluna.
-
-## 2. Quem precisa mesmo do IBAN
-| Fluxo | Papéis | Estado |
-|---|---|---|
-| Geração SEPA pain.001 / Santander, MT101 | admin, manager | OK via RPC |
-| Listas de pagamento, badge "Sem IBAN", tesouraria | admin, manager, editor | OK via RPC |
-| Portal do contabilista (ficha + export fiscal) | accountant | OK via RPC |
-| Ficha de fornecedor em edição, auditoria de IBANs duplicados | admin, manager, editor | OK via RPC |
-| Notas de reembolso, camarim (fund holder), pagamentos | admin, manager, editor | OK via RPC |
-| Operação, marketing, viewer, producer, field_producer, partner | — | sem acesso (correto) |
-
-## 3. Proposta
-
-**Opção recomendada: A — endurecer sem mudar superfície (0 ficheiros de frontend).**
-
-Não criar view nem cortar a policy de SELECT (isso partiria os ~40 embeds e a Operação).
-Em vez disso, uma migration puramente defensiva que torna a proteção explícita e
-resistente a regressões:
-
-1. `REVOKE SELECT (iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3)
-   ON public.suppliers FROM authenticated;` — idempotente, reafirma o estado atual
-   (protege contra um futuro `GRANT SELECT ON public.suppliers TO authenticated` genérico).
-2. Renomear/rescrever a policy de SELECT para `suppliers_select_tenant_members` com o
-   mesmo conjunto de papéis (sem alargar nem estreitar) e comentário `COMMENT ON POLICY`
-   a documentar que as colunas bancárias estão cortadas por grant de coluna.
-3. `COMMENT ON COLUMN` nas 6 colunas bancárias: "acesso apenas via get_supplier_bank_details()".
-4. Restrição RESTRICTIVE `company_isolation_suppliers` fica intocada; o RPC continua a
-   filtrar por `current_company_id()`. Isolamento multi-tenant inalterado.
-
-Ficheiros a mudar: **1 migration, 0 ficheiros de `src/`, 0 edge functions.**
-
-**Opção B (não recomendada): view `suppliers_safe` `security_invoker` + SELECT na tabela
-só para admin/manager/accountant.** Obrigaria a reescrever ~40 embeds PostgREST
-(`suppliers(name)` deixa de resolver porque a FK aponta para a tabela, não para a view),
-mais os 15 selects diretos e a Operação inteira. Estimativa: 55+ ficheiros, risco alto,
-ganho de segurança nulo face ao estado atual.
-
-**E o finding?** Continua a aparecer, porque o scanner não lê grants de coluna. Depois da
-migration da opção A, o caminho correto é **ignorar o finding com a justificação
-"colunas bancárias revogadas por column-level grant; acesso só via
-get_supplier_bank_details() com verificação de papel + empresa"**.
-
-## Nada foi aplicado
-Sem migrations, sem publish. À espera de luz verde para escrever a migration da opção A.
+## Fora de âmbito
+Sem publicação, sem escrita no BP, sem alteração a `participantesElegiveisAlimentos`/`open_food`,
+sem alteração de RLS. A migration é aplicada em Test via ferramenta de migração; o Publish para
+Live fica para ti.
