@@ -35,5 +35,31 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Auto-recuperação de ecrã branco: se a app não montar em 8s (service worker
+      // com cache inválido, típico em mobile/PWA), limpa caches, desregista o SW
+      // e recarrega — uma única vez por sessão.
+      (function () {
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && root.childElementCount > 0) return;
+          if (sessionStorage.getItem("mp_sw_recovered") === "1") return;
+          sessionStorage.setItem("mp_sw_recovered", "1");
+          var done = function () { window.location.reload(); };
+          var jobs = [];
+          if ("serviceWorker" in navigator) {
+            jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+              return Promise.all(rs.map(function (r) { return r.unregister(); }));
+            }).catch(function () {}));
+          }
+          if (window.caches) {
+            jobs.push(caches.keys().then(function (ks) {
+              return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+            }).catch(function () {}));
+          }
+          Promise.all(jobs).then(done, done);
+        }, 8000);
+      })();
+    </script>
   </body>
 </html>
