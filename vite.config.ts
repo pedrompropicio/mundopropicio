@@ -59,8 +59,8 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
-            urlPattern: ({ request, url }) =>
-              url.origin === self.location.origin &&
+            urlPattern: ({ request, url, sameOrigin }) =>
+              sameOrigin &&
               ["script", "style", "worker"].includes(request.destination) &&
               /-[A-Za-z0-9_-]{8,}\./.test(url.pathname),
             handler: "CacheFirst",
