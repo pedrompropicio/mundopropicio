@@ -11,6 +11,8 @@ import {
 
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEventCostBasis } from "@/hooks/useEventCostBasis";
+
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator,
