@@ -31,20 +31,25 @@ interface Row {
   reviewed_by: string | null;
   response_note: string | null;
   responded_at: string | null;
+  responded_by: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
   tx_description: string | null;
   tx_amount: number;
   tx_payment_date: string | null;
   supplier_name: string | null;
   reviewer_name: string | null;
+  closer_name: string | null;
 }
 
 export default function AccountantPendencies() {
-  const { user, isAdmin, isManager, hasPermission } = useAuth();
+  const { user, role, isAdmin, isManager, hasPermission } = useAuth();
   const { companyId } = useCompany();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<"pendente" | "conferido" | "all">("pendente");
+  const [filter, setFilter] = useState<"pendente" | "conferido" | "encerrada" | "all">("pendente");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+
 
   const allowed = isAdmin || isManager || hasPermission("manage_transactions");
   if (!allowed) return <Navigate to="/" replace />;
