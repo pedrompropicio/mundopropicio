@@ -145,6 +145,24 @@ const num = (v: any, fb = 0): number => {
   return Number.isFinite(n) ? n : fb;
 };
 
+/**
+ * Facturação a usar: o valor REAL quando informado (não-nulo e finito),
+ * caso contrário a estimativa `participantes × per capita`.
+ * Nulo ≠ zero: 0 informado é um valor legítimo e vence a estimativa.
+ */
+export function resolveFaturacao(
+  real: number | null | undefined,
+  participants: number,
+  perCapita: number,
+): number {
+  if (real != null) {
+    const n = typeof real === "number" ? real : Number(real);
+    if (Number.isFinite(n)) return n;
+  }
+  return participants * num(perCapita);
+}
+
+
 // ── computeZone ───────────────────────────────────────────────────────────────
 
 export function computeZone(zone: ABZoneInput, mode: ABMode = "terceirizacao"): ABZoneResult {
