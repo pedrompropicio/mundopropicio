@@ -13,9 +13,21 @@ const fmtEUR = (n: number) =>
  * Secção "Realizado (fecho)" do módulo A&B — read-only, alimentada pelas
  * transações do evento (ver useEventABRealized). Não substitui o planeamento.
  */
-export default function EventABRealizedSection({ eventId }: { eventId: string }) {
+export default function EventABRealizedSection({
+  eventId,
+  moduleReceita = null,
+}: {
+  eventId: string;
+  /**
+   * Receita A&B calculada pelo módulo no cenário Real, passada apenas quando
+   * há facturação real do operador informada. Serve para uma leitura
+   * informativa de reconciliação — não corrige nem substitui nada.
+   */
+  moduleReceita?: number | null;
+}) {
   const navigate = useNavigate();
   const r = useEventABRealized(eventId);
+
 
   const goToTx = (id: string) => navigate(`/transacoes?highlight=${id}`);
 
