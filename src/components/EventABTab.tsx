@@ -536,6 +536,26 @@ export default function EventABTab({ eventId }: Props) {
                           disabled={!!z.open_bar}
                         />
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          placeholder="estimado"
+                          className="w-28 ml-auto"
+                          disabled={!!z.open_bar}
+                          onChange={() => {}}
+                          defaultValue={z.faturacao_real_bebidas ?? ""}
+                          key={`fr-${z.id}-${z.faturacao_real_bebidas ?? ""}`}
+                          onBlur={(e) => {
+                            const v = e.target.value === "" ? null : Number(e.target.value);
+                            if (v !== (z.faturacao_real_bebidas ?? null)) {
+                              upsertZone.mutate({ ...z, faturacao_real_bebidas: v });
+                            }
+                          }}
+                        />
+                      </TableCell>
+
                       {modeBebidas === "terceirizacao" && (
                         <TableCell className="text-right">
                           <MoneyInput
