@@ -463,6 +463,8 @@ export default function EventABTab({ eventId }: Props) {
                   <TableHead className="text-right">Override manual</TableHead>
                   <TableHead className="text-center">Open Bar</TableHead>
                   <TableHead className="text-right">{labelPerCapitaBebidas}</TableHead>
+                  <TableHead className="text-right">Facturação real (€)</TableHead>
+
                   {modeBebidas === "terceirizacao" && (
                     <TableHead className="text-right">% Repasse</TableHead>
                   )}
