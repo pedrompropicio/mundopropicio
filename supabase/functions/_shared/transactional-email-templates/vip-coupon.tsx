@@ -90,6 +90,10 @@ const VipCouponEmail = ({
           </Section>
         ) : null}
 
+        <Text style={conditions}>
+          Cupom válido exclusivamente para novas compras de bilhetes de {eventName} na bilheteira oficial, até {validUntil}. Não se aplica a bilhetes já adquiridos e não é acumulável com outras promoções.
+        </Text>
+
         <Text style={smallText}>
           Usa o código no momento da compra, no campo de cupom/desconto da bilheteira.
         </Text>
