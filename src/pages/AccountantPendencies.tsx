@@ -179,9 +179,15 @@ export default function AccountantPendencies() {
                 <div className="flex items-center gap-2 text-sm font-medium">
                   {r.status === "pendente"
                     ? <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                    : r.status === "encerrada"
+                      ? <Lock className="h-4 w-4 text-muted-foreground" />
+                      : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
                   <span>{r.tx_description ?? "—"}</span>
+                  {r.status === "encerrada" && (
+                    <Badge variant="outline" className="h-5 px-1 text-[10px] text-muted-foreground">Encerrada</Badge>
+                  )}
                   {r.supplier_name && <span className="text-muted-foreground">· {r.supplier_name}</span>}
+
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span>{r.tx_payment_date ? format(new Date(r.tx_payment_date), "dd/MM/yyyy") : "—"}</span>
