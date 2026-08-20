@@ -9,9 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, MessageSquare } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Lock, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
-import { respondAccountantReview } from "@/lib/accountant-reviews";
+import { closeAccountantReview, respondAccountantReview } from "@/lib/accountant-reviews";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 
 const fmtEUR = (n: number) =>
@@ -26,20 +31,25 @@ interface Row {
   reviewed_by: string | null;
   response_note: string | null;
   responded_at: string | null;
+  responded_by: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
   tx_description: string | null;
   tx_amount: number;
   tx_payment_date: string | null;
   supplier_name: string | null;
   reviewer_name: string | null;
+  closer_name: string | null;
 }
 
 export default function AccountantPendencies() {
-  const { user, isAdmin, isManager, hasPermission } = useAuth();
+  const { user, role, isAdmin, isManager, hasPermission } = useAuth();
   const { companyId } = useCompany();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<"pendente" | "conferido" | "all">("pendente");
+  const [filter, setFilter] = useState<"pendente" | "conferido" | "encerrada" | "all">("pendente");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+
 
   const allowed = isAdmin || isManager || hasPermission("manage_transactions");
   if (!allowed) return <Navigate to="/" replace />;
@@ -57,11 +67,13 @@ export default function AccountantPendencies() {
       const { data: rows, error } = await q;
       if (error) throw error;
 
-      const reviewerIds = [...new Set((rows ?? []).map((r: any) => r.reviewed_by).filter(Boolean))];
+      const peopleIds = [...new Set((rows ?? [])
+        .flatMap((r: any) => [r.reviewed_by, r.closed_by])
+        .filter(Boolean))];
       let names: Record<string, string> = {};
-      if (reviewerIds.length) {
+      if (peopleIds.length) {
         const { data: profs } = await (supabase as any)
-          .from("profiles").select("id, full_name, email").in("id", reviewerIds);
+          .from("profiles").select("id, full_name, email").in("id", peopleIds);
         for (const p of profs ?? []) names[p.id] = p.full_name || p.email || "—";
       }
 
@@ -72,9 +84,19 @@ export default function AccountantPendencies() {
         tx_payment_date: r.transactions?.payment_date ?? null,
         supplier_name: r.transactions?.suppliers?.name ?? null,
         reviewer_name: r.reviewed_by ? names[r.reviewed_by] ?? "—" : "—",
+        closer_name: r.closed_by ? names[r.closed_by] ?? "—" : null,
       }));
     },
   });
+
+  function invalidateAll() {
+    queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-review"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
+    queryClient.invalidateQueries({ queryKey: ["accountant-reviews"] });
+    invalidateTransactionQueries(queryClient);
+  }
 
   const respond = useMutation({
     mutationFn: async (row: Row) => {
@@ -85,14 +107,32 @@ export default function AccountantPendencies() {
     },
     onSuccess: () => {
       toast({ title: "Resposta registada" });
-      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
-      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
-      queryClient.invalidateQueries({ queryKey: ["accountant-review"] });
-      queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
-      invalidateTransactionQueries(queryClient);
+      invalidateAll();
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
+
+  const close = useMutation({
+    mutationFn: async (row: Row) => {
+      if (!user) throw new Error("Sessão inválida.");
+      const text = (drafts[row.id] ?? row.response_note ?? "").trim();
+      if (!text) throw new Error("Justificação obrigatória: escreve o motivo do encerramento na caixa de resposta.");
+      await closeAccountantReview({
+        reviewId: row.id,
+        justification: text,
+        userId: user.id,
+        hasResponder: !!row.responded_by,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Pendência encerrada" });
+      invalidateAll();
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
+  const canClose = isAdmin || isManager || role === "editor";
+
 
   const rows = data ?? [];
   const pendingCount = rows.filter((r) => r.status === "pendente").length;
@@ -115,9 +155,11 @@ export default function AccountantPendencies() {
             <SelectContent>
               <SelectItem value="pendente">Pendentes</SelectItem>
               <SelectItem value="conferido">Conferidas</SelectItem>
+              <SelectItem value="encerrada">Encerradas</SelectItem>
               <SelectItem value="all">Todas</SelectItem>
             </SelectContent>
           </Select>
+
         </div>
       </div>
 
@@ -137,9 +179,15 @@ export default function AccountantPendencies() {
                 <div className="flex items-center gap-2 text-sm font-medium">
                   {r.status === "pendente"
                     ? <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                    : r.status === "encerrada"
+                      ? <Lock className="h-4 w-4 text-muted-foreground" />
+                      : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
                   <span>{r.tx_description ?? "—"}</span>
+                  {r.status === "encerrada" && (
+                    <Badge variant="outline" className="h-5 px-1 text-[10px] text-muted-foreground">Encerrada</Badge>
+                  )}
                   {r.supplier_name && <span className="text-muted-foreground">· {r.supplier_name}</span>}
+
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span>{r.tx_payment_date ? format(new Date(r.tx_payment_date), "dd/MM/yyyy") : "—"}</span>
@@ -167,6 +215,13 @@ export default function AccountantPendencies() {
                 </div>
               )}
 
+              {r.status === "encerrada" && (
+                <p className="text-xs text-muted-foreground">
+                  Encerrada por {r.closer_name ?? "—"}
+                  {r.closed_at ? ` em ${format(new Date(r.closed_at), "dd/MM/yyyy HH:mm")}` : ""} — sem validação da contabilista.
+                </p>
+              )}
+
               {r.status === "pendente" && (
                 <div className="space-y-1.5">
                   <Textarea
@@ -175,12 +230,38 @@ export default function AccountantPendencies() {
                     placeholder="Responder à contabilista…"
                     className="min-h-[60px] text-xs"
                   />
-                  <Button size="sm" onClick={() => respond.mutate(r)} disabled={respond.isPending}>
-                    {respond.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                    {r.response_note ? "Atualizar resposta" : "Responder"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" onClick={() => respond.mutate(r)} disabled={respond.isPending}>
+                      {respond.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {r.response_note ? "Atualizar resposta" : "Responder"}
+                    </Button>
+                    {canClose && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" disabled={close.isPending}>
+                            {close.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Lock className="mr-1 h-3 w-3" />}
+                            Encerrar pendência
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Encerrar esta pendência?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              A pendência sai da lista de pendentes sem validação da contabilista. A justificação escrita
+                              na caixa de resposta fica registada e visível para ela, que pode reabrir.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => close.mutate(r)}>Encerrar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </div>
               )}
+
             </div>
           ))}
         </div>

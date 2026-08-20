@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ReviewStatus = "conferido" | "pendente";
+export type ReviewStatus = "conferido" | "pendente" | "encerrada";
 
 export interface AccountantReview {
   id: string;
@@ -13,8 +13,11 @@ export interface AccountantReview {
   response_note: string | null;
   responded_by: string | null;
   responded_at: string | null
+  closed_by: string | null;
+  closed_at: string | null;
   updated_at: string;
 }
+
 
 /** Lê as conferências de um conjunto de transações (chunked para evitar URLs enormes). */
 export async function fetchReviewsForTransactions(
@@ -74,9 +77,46 @@ export async function respondAccountantReview(params: {
   if (error) throw error;
 }
 
+/** O financeiro (admin/manager/editor) encerra a pendência com justificação obrigatória. */
+export async function closeAccountantReview(params: {
+  reviewId: string;
+  justification: string;
+  userId: string;
+  hasResponder: boolean;
+}) {
+  const text = params.justification.trim();
+  if (!text) throw new Error("Escreve o motivo do encerramento.");
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    status: "encerrada",
+    response_note: text,
+    closed_by: params.userId,
+    closed_at: now,
+  };
+  if (!params.hasResponder) {
+    patch.responded_by = params.userId;
+    patch.responded_at = now;
+  }
+  const { error } = await (supabase as any)
+    .from("accountant_transaction_reviews")
+    .update(patch)
+    .eq("id", params.reviewId);
+  if (error) throw error;
+}
+
+/** A contabilista reabre uma pendência encerrada (mantém o histórico na response_note). */
+export async function reopenAccountantReview(reviewId: string) {
+  const { error } = await (supabase as any)
+    .from("accountant_transaction_reviews")
+    .update({ status: "pendente", closed_by: null, closed_at: null })
+    .eq("id", reviewId);
+  if (error) throw error;
+}
+
 export const REVIEW_QUERY_KEYS = [
   "accountant-reviews",
   "accountant-review",
   "accountant-pendencies",
   "accountant-pendencies-count",
 ];
+
