@@ -15,10 +15,10 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Period } from "./PeriodSelector";
 import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch, type AccountantDoc } from "@/lib/accountant-tx-docs";
-import { fetchReviewsForTransactions, saveAccountantReview, type AccountantReview } from "@/lib/accountant-reviews";
+import { fetchReviewsForTransactions, saveAccountantReview, reopenAccountantReview, type AccountantReview } from "@/lib/accountant-reviews";
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
+import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "lucide-react";
 
 interface Tx {
   id: string;
@@ -50,7 +50,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     k: "payment_date", dir: "desc",
   });
   const [zipLoading, setZipLoading] = useState(false);
-  const [reviewFilter, setReviewFilter] = useState<"all" | "todo" | "conferido" | "pendente">("all");
+  const [reviewFilter, setReviewFilter] = useState<"all" | "todo" | "conferido" | "pendente" | "encerrada">("all");
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -123,6 +123,35 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
 
+  const closerIds = useMemo(
+    () => [...new Set(Object.values(reviewMap).map((r) => r.closed_by).filter(Boolean) as string[])],
+    [reviews],
+  );
+
+  const { data: closerNames } = useQuery({
+    queryKey: ["accountant-review-closers", closerIds.join(",")],
+    enabled: closerIds.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data: profs } = await (supabase as any)
+        .from("profiles").select("id, full_name, email").in("id", closerIds);
+      const out: Record<string, string> = {};
+      for (const p of profs ?? []) out[p.id] = p.full_name || p.email || "—";
+      return out;
+    },
+  });
+
+  const reopenReview = useMutation({
+    mutationFn: (reviewId: string) => reopenAccountantReview(reviewId),
+    onSuccess: () => {
+      toast({ title: "Pendência reaberta" });
+      queryClient.invalidateQueries({ queryKey: ["accountant-reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-reviews-map"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant-pendencies-count"] });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
   const rows = useMemo(() => {
     let r = data ?? [];
     if (attachmentsFilter === "with") r = r.filter((x) => x.doc_count > 0);
@@ -150,14 +179,15 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
 
   const reviewCounts = useMemo(() => {
     const base = data ?? [];
-    let conferidas = 0, pendentes = 0, porConferir = 0;
+    let conferidas = 0, pendentes = 0, encerradas = 0, porConferir = 0;
     for (const t of base) {
       const st = reviewMap[t.id]?.status;
       if (st === "conferido") conferidas++;
       else if (st === "pendente") pendentes++;
+      else if (st === "encerrada") encerradas++;
       else porConferir++;
     }
-    return { conferidas, pendentes, porConferir };
+    return { conferidas, pendentes, encerradas, porConferir };
   }, [data, reviews]);
 
   const totals = useMemo(() => ({
@@ -230,6 +260,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           <div className="mt-1 text-xs">
             <span className="text-emerald-500 font-semibold">{reviewCounts.conferidas}</span> conferidas ·{" "}
             <span className="text-amber-500 font-semibold">{reviewCounts.pendentes}</span> pendentes ·{" "}
+            <span className="font-semibold text-foreground">{reviewCounts.encerradas}</span> encerradas ·{" "}
             <span className="font-semibold text-foreground">{reviewCounts.porConferir}</span> por conferir
           </div>
         </div>
@@ -271,6 +302,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             <SelectItem value="todo">Por conferir</SelectItem>
             <SelectItem value="conferido">Conferidas</SelectItem>
             <SelectItem value="pendente">Pendentes</SelectItem>
+            <SelectItem value="encerrada">Encerradas</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -321,6 +353,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                       review={reviewMap[t.id] ?? null}
                       onSave={(status, note) => saveReview.mutate({ txId: t.id, status, note })}
                       saving={saveReview.isPending}
+                      closerName={(() => { const cb = reviewMap[t.id]?.closed_by; return cb ? closerNames?.[cb] ?? null : null; })()}
+                      onReopen={(id) => reopenReview.mutate(id)}
+                      reopening={reopenReview.isPending}
                     />
                   </td>
                   <td className="p-2">
@@ -413,11 +448,14 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
 
 
 function ReviewCell({
-  review, onSave, saving,
+  review, onSave, saving, closerName, onReopen, reopening,
 }: {
   review: AccountantReview | null;
   onSave: (status: "conferido" | "pendente", note?: string) => void;
   saving: boolean;
+  closerName?: string | null;
+  onReopen?: (reviewId: string) => void;
+  reopening?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(review?.note ?? "");
@@ -469,6 +507,28 @@ function ReviewCell({
       )}
       {review?.status === "conferido" && (
         <Badge variant="outline" className="h-5 border-emerald-500/40 px-1 text-[10px] text-emerald-500">Conferido</Badge>
+      )}
+      {review?.status === "encerrada" && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="inline-flex items-center gap-1 rounded border border-border bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground">
+              <Lock className="h-3 w-3" /> Encerrada
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 space-y-2 text-xs" align="start">
+            <p className="font-medium">
+              Encerrada por {closerName ?? "—"}
+              {review.closed_at ? ` em ${format(new Date(review.closed_at), "dd/MM/yyyy HH:mm")}` : ""}
+            </p>
+            <p className="whitespace-pre-wrap">{review.response_note || "—"}</p>
+            <p className="text-[10px] text-muted-foreground">Fechada pelo financeiro sem a tua validação.</p>
+            {onReopen && (
+              <Button size="sm" variant="outline" disabled={reopening} onClick={() => onReopen(review.id)}>
+                <RotateCcw className="mr-1 h-3 w-3" /> Reabrir
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
       )}
 
       {review?.response_note && (
