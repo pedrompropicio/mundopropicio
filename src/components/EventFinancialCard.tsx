@@ -183,9 +183,15 @@ export function EventFinancialCard(props: Props) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel className="text-xs">Modo</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as CardMode)}>
-                <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>
+              <DropdownMenuRadioGroup value={mode} onValueChange={(v) => handleModeChange(v as CardMode)}>
+                <DropdownMenuRadioItem
+                  value="auto"
+                  title="escolhe o modo pela fase do evento: em planeamento usa Forecast, durante a produção usa Previsto + excedido, depois de concluído usa Realizado"
+                >
+                  Automático (pela fase do evento)
+                </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
+
                 <DropdownMenuRadioItem
                   value="committed"
                   title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
