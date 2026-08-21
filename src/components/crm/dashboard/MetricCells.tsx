@@ -109,6 +109,13 @@ export function MetricCells({
         return (
           <>{agg.hasInitiateCheckout && agg.initiateCheckout > 0 ? formatCompact(agg.initiateCheckout) : "—"}</>
         );
+      case "hookRate":
+        return <>{pct(hook)}</>;
+      case "thumbstop":
+        return <>{pct(thumb)}</>;
+      case "retention75":
+        return <>{pct(ret75)}</>;
+
       default:
         return <>—</>;
     }
