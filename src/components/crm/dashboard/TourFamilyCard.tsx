@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { sortCampaigns } from "@/lib/crm/table-sort";
+import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
 import { aggregate } from "@/lib/crm/aggregate";
 import {
   EVENT_TARGET_ROAS,
@@ -55,6 +57,7 @@ export function TourFamilyCard({
   togglingCampaignId?: string | null;
   onEdited?: () => void;
 }) {
+  const { sort } = useDashboardTableCtx();
   const [open, setOpen] = useState(true);
 
   const allCampaigns = useMemo(() => {
@@ -141,7 +144,7 @@ export function TourFamilyCard({
         <CollapsibleContent>
           <div className="border-t border-border divide-y divide-border">
             {splits.map((s) => {
-              const cs = campaignsBySplit.get(s.id) ?? [];
+              const cs = sortCampaigns(campaignsBySplit.get(s.id) ?? [], insightsByCampaign, sort);
               const splitInsights = cs.flatMap((c) => insightsByCampaign.get(c.external_campaign_id) ?? []);
               const aggSplit = aggregate(splitInsights);
               return (
@@ -217,7 +220,7 @@ export function TourFamilyCard({
                   <table className="w-full">
                     <CampaignTableHeader />
                     <tbody>
-                      {masterCampaigns.map((c) => (
+                      {sortCampaigns(masterCampaigns, insightsByCampaign, sort).map((c) => (
                         <CampaignTableRow
                           key={c.id}
                           c={c}

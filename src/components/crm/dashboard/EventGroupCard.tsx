@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { sortCampaigns } from "@/lib/crm/table-sort";
+import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
 import { aggregate } from "@/lib/crm/aggregate";
 import {
   EVENT_TARGET_ROAS,
@@ -49,12 +51,18 @@ export function EventGroupCard({
   togglingCampaignId?: string | null;
   onEdited?: () => void;
 }) {
+  const { sort } = useDashboardTableCtx();
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
     () => campaigns.flatMap((c) => insightsByCampaign.get(c.external_campaign_id) ?? []),
     [campaigns, insightsByCampaign],
   );
   const agg = aggregate(allInsights);
+  // A ordenação escolhida no cabeçalho aplica-se dentro de cada card.
+  const sortedCampaigns = useMemo(
+    () => sortCampaigns(campaigns, insightsByCampaign, sort),
+    [campaigns, insightsByCampaign, sort],
+  );
   const dailyBudget = campaigns.reduce((s, c) => s + (c.daily_budget_cents ?? 0), 0);
   const lifetimeBudget = campaigns.reduce((s, c) => s + (c.lifetime_budget_cents ?? 0), 0);
 
@@ -170,7 +178,7 @@ export function EventGroupCard({
             <table className="w-full">
               <CampaignTableHeader />
               <tbody>
-                {campaigns.map((c) => (
+                {sortedCampaigns.map((c) => (
                   <CampaignTableRow
                     key={c.id}
                     c={c}

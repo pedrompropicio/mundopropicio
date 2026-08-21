@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow, parseISO, subDays, differenceInDays } from "date-fns";
@@ -65,11 +65,28 @@ import { useDashboardColumns } from "@/lib/crm/columns";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
 import { EventGroupCard } from "@/components/crm/dashboard/EventGroupCard";
 import { TourFamilyCard } from "@/components/crm/dashboard/TourFamilyCard";
-import { aggregate, emptyAgg, deltaPct } from "@/lib/crm/aggregate";
+import { AlertsBar } from "@/components/crm/dashboard/AlertsBar";
+import { DailyPerformanceChart } from "@/components/crm/dashboard/DailyPerformanceChart";
+import {
+  aggregate,
+  emptyAgg,
+  deltaPct,
+  computeCpm,
+  computeCpa,
+  computeTicket,
+  computeCtrAvg,
+} from "@/lib/crm/aggregate";
+import { dataStartISO, previousWindow, safeDelta } from "@/lib/crm/kpi-deltas";
+import { NO_SORT, nextSort, sortCampaigns, type SortKey, type SortState } from "@/lib/crm/table-sort";
+import { computeDashboardAlerts } from "@/lib/crm/alerts";
+import { buildDashboardCsv, downloadCsv, type CsvExportRow } from "@/lib/crm/csv-export";
 import {
   formatCurrency,
+  formatCompact,
   formatRoas,
+  EVENT_TARGET_ROAS,
 } from "@/lib/crm/dashboard-format";
+
 import {
   useCampaignsQuery,
   useAdsetBudgetsQuery,
@@ -266,15 +283,19 @@ export default function CrmCampaigns() {
     return insights.filter((r) => r.date_start >= fromStr && r.date_start <= toStr);
   }, [insights, period]);
 
+  // Janela anterior de igual duração. Só é comparável quando o histórico
+  // carregado cobre a janela inteira (ver src/lib/crm/kpi-deltas.ts).
+  const dataStart = useMemo(() => dataStartISO(insights), [insights]);
+  const prevWindow = useMemo(
+    () => previousWindow(period.from, period.to, dataStart),
+    [period, dataStart],
+  );
   const previousInsights = useMemo(() => {
     if (!insights) return [];
-    const days = differenceInDays(period.to, period.from) + 1;
-    const prevTo = subDays(period.from, 1);
-    const prevFrom = subDays(prevTo, days - 1);
-    const fromStr = format(prevFrom, "yyyy-MM-dd");
-    const toStr = format(prevTo, "yyyy-MM-dd");
+    const fromStr = format(prevWindow.from, "yyyy-MM-dd");
+    const toStr = format(prevWindow.to, "yyyy-MM-dd");
     return insights.filter((r) => r.date_start >= fromStr && r.date_start <= toStr);
-  }, [insights, period]);
+  }, [insights, prevWindow]);
 
   const insightsByCampaign = useMemo(() => {
     const m = new Map<string, InsightRow[]>();
@@ -301,7 +322,11 @@ export default function CrmCampaigns() {
     [period],
   );
 
-  // Contexto da tabela: colunas visíveis + parâmetros do drill-down preguiçoso.
+  // Ordenação do nível de campanha (Fase 2) — partilhada por todas as tabelas.
+  const [sort, setSort] = useState<SortState>(NO_SORT);
+  const handleSort = useCallback((key: SortKey) => setSort((s) => nextSort(s, key)), []);
+
+  // Contexto da tabela: colunas visíveis + drill-down preguiçoso + ordenação.
   const tableCtx = useMemo(
     () => ({
       columns: orderedColumns,
@@ -310,9 +335,12 @@ export default function CrmCampaigns() {
       currency,
       from: format(period.from, "yyyy-MM-dd"),
       to: format(period.to, "yyyy-MM-dd"),
+      sort,
+      onSort: handleSort,
     }),
-    [orderedColumns, companyId, adAccountId, currency, period],
+    [orderedColumns, companyId, adAccountId, currency, period, sort, handleSort],
   );
+
 
   // 14-day spend sparkline per campaign
   const spark14ByCampaign = useMemo(() => {
@@ -342,29 +370,49 @@ export default function CrmCampaigns() {
   // ---------- KPIs ----------
   const aggCurrent = useMemo(() => aggregate(periodInsights), [periodInsights]);
   const aggPrev = useMemo(() => aggregate(previousInsights), [previousInsights]);
+  const comparable = prevWindow.complete;
   const kpis = useMemo(() => {
+    const cpmCur = computeCpm(aggCurrent);
+    const cpmPrev = computeCpm(aggPrev);
+    const cpaCur = computeCpa(aggCurrent);
+    const cpaPrev = computeCpa(aggPrev);
+    const tkCur = computeTicket(aggCurrent);
+    const tkPrev = computeTicket(aggPrev);
     return {
       roas: {
         value: aggCurrent.roas,
-        delta:
-          aggCurrent.roas !== null && aggPrev.roas !== null && aggPrev.roas > 0
-            ? (aggCurrent.roas - aggPrev.roas) / aggPrev.roas
-            : null,
+        delta: safeDelta(aggCurrent.roas, aggPrev.roas, comparable),
       },
       spend: {
         value: aggCurrent.spendCents,
-        delta: deltaPct(aggCurrent.spendCents, aggPrev.spendCents),
+        delta: safeDelta(aggCurrent.spendCents, aggPrev.spendCents, comparable),
       },
       revenue: {
         value: aggCurrent.revenueCents,
-        delta: deltaPct(aggCurrent.revenueCents, aggPrev.revenueCents),
+        delta: safeDelta(aggCurrent.revenueCents, aggPrev.revenueCents, comparable),
       },
       conv: {
         value: aggCurrent.conversions,
-        delta: deltaPct(aggCurrent.conversions, aggPrev.conversions),
+        delta: safeDelta(aggCurrent.conversions, aggPrev.conversions, comparable),
+      },
+      ticket: { value: tkCur, delta: safeDelta(tkCur, tkPrev, comparable) },
+      cpm: { value: cpmCur, delta: safeDelta(cpmCur, cpmPrev, comparable) },
+      cpa: { value: cpaCur, delta: safeDelta(cpaCur, cpaPrev, comparable) },
+      ctr: { value: computeCtrAvg(aggCurrent) },
+      impressions: {
+        value: aggCurrent.impressions,
+        delta: safeDelta(aggCurrent.impressions, aggPrev.impressions, comparable),
+      },
+      reach: {
+        value: aggCurrent.reachSum,
+        delta: safeDelta(aggCurrent.reachSum, aggPrev.reachSum, comparable),
       },
     };
-  }, [aggCurrent, aggPrev]);
+  }, [aggCurrent, aggPrev, comparable]);
+
+  // A série diária é construída dentro do DailyPerformanceChart (recebe os insights).
+
+
 
   // ---------- Group active campaigns by event ----------
   const eventsById = useMemo(() => {
@@ -465,6 +513,69 @@ export default function CrmCampaigns() {
       ),
     [displayedCampaigns, eventsById],
   );
+
+  // ---------- Alertas accionáveis do período ----------
+  const eventsSectionRef = useRef<HTMLElement | null>(null);
+  const alerts = useMemo(
+    () =>
+      computeDashboardAlerts({
+        periodInsights,
+        adsets: adsetBudgetRows ?? [],
+        campaigns: displayedCampaigns,
+        eventsById,
+        insightsByCampaign,
+        currencyFormat: (cents) => formatCurrency(cents, currency),
+        roasFormat: formatRoas,
+      }),
+    [periodInsights, adsetBudgetRows, displayedCampaigns, eventsById, insightsByCampaign, currency],
+  );
+
+  // ---------- Exportação CSV do que está no ecrã ----------
+  const exportCsv = useCallback(() => {
+    const rows: CsvExportRow[] = [];
+    const push = (group: string, city: string | undefined, list: CampaignRow[]) => {
+      for (const c of sortCampaigns(list, insightsByCampaign, sort)) {
+        const insightRows = insightsByCampaign.get(c.external_campaign_id) ?? [];
+        rows.push({
+          group,
+          city,
+          campaign: c.name ?? "",
+          status: c.effective_status ?? c.status ?? "",
+          agg: aggregate(insightRows),
+          rows: insightRows,
+          dailyBudgetCents: c.daily_budget_cents ?? null,
+        });
+      }
+    };
+    for (const g of dashboardGroups) {
+      if (g.kind === "tour") {
+        push(g.master.name ?? "", undefined, g.masterCampaigns);
+        for (const s of g.splits) {
+          push(g.master.name ?? "", s.name ?? "", g.campaignsBySplit.get(s.id) ?? []);
+        }
+      } else {
+        push(g.event.name ?? "", undefined, g.campaigns);
+      }
+    }
+    push("Sem evento activo", undefined, orphanCampaigns);
+
+    const from = format(period.from, "yyyy-MM-dd");
+    const to = format(period.to, "yyyy-MM-dd");
+    downloadCsv(
+      buildDashboardCsv({ rows, columns: orderedColumns, currency, from, to }),
+      `mp-audience-${from}_${to}.csv`,
+    );
+  }, [
+    dashboardGroups,
+    orphanCampaigns,
+    insightsByCampaign,
+    sort,
+    orderedColumns,
+    currency,
+    period,
+  ]);
+
+
 
   // ---------- Header counters ----------
   const lastSyncMeta = useMemo(() => {
@@ -748,41 +859,100 @@ export default function CrmCampaigns() {
           label="ROAS"
           big={formatRoas(kpis.roas.value)}
           delta={kpis.roas.delta}
-          subtitle="Receita / Gasto"
+          subtitle={`Receita / Gasto · meta do evento ${EVENT_TARGET_ROAS}x`}
           accent="primary"
+          direction="up-good"
+          comparable={comparable}
         />
         <KpiCard
-          label="Gasto total"
+          label="Investimento"
           big={formatCurrency(kpis.spend.value, currency)}
           delta={kpis.spend.delta}
           subtitle="Soma do período"
-          invertDelta
+          direction="neutral"
+          comparable={comparable}
         />
         <KpiCard
-          label="Receita total"
+          label="Receita atribuída"
           big={formatCurrency(kpis.revenue.value, currency)}
           delta={kpis.revenue.delta}
           subtitle="Compras × valor"
+          direction="up-good"
+          comparable={comparable}
         />
         <KpiCard
           label="Conversões"
           big={kpis.conv.value > 0 ? String(kpis.conv.value) : "0"}
           delta={kpis.conv.delta}
           subtitle="Compras no período"
+          direction="up-good"
+          comparable={comparable}
+          secondary={`CPA ${formatCurrency(kpis.cpa.value, currency)}`}
+        />
+        <KpiCard
+          label="Ticket médio"
+          big={formatCurrency(kpis.ticket.value, currency)}
+          delta={kpis.ticket.delta}
+          subtitle="Receita / compra"
+          direction="up-good"
+          comparable={comparable}
+        />
+        <KpiCard
+          label="CPM"
+          big={formatCurrency(kpis.cpm.value, currency)}
+          delta={kpis.cpm.delta}
+          subtitle="Custo por mil impressões"
+          direction="up-bad"
+          comparable={comparable}
+          secondary={`CTR ${kpis.ctr.value != null ? (kpis.ctr.value * 100).toFixed(2) + "%" : "—"}`}
+        />
+        <KpiCard
+          label="Impressões"
+          big={formatCompact(kpis.impressions.value)}
+          delta={kpis.impressions.delta}
+          subtitle="Soma do período"
+          direction="neutral"
+          comparable={comparable}
+        />
+        <KpiCard
+          label="Alcance"
+          big={formatCompact(kpis.reach.value)}
+          delta={kpis.reach.delta}
+          subtitle="Soma não deduplicada por dia"
+          direction="neutral"
+          comparable={comparable}
         />
       </div>
+
+      {/* Alertas accionáveis do período */}
+      <AlertsBar
+        alerts={alerts}
+        onReviewBudgets={() =>
+          eventsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      />
+
+      {/* Investimento vs receita por dia + ROAS diário */}
+      <DailyPerformanceChart insights={periodInsights} from={period.from} to={period.to} currency={currency} />
 
       {/* Funil de conversão do período */}
       <ConversionFunnelPanel insights={periodInsights} />
 
       {/* By active event */}
-      <section className="space-y-3">
+      <section className="space-y-3" ref={eventsSectionRef}>
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Por evento ativo
           </h2>
-          <ColumnPicker visible={visibleColumns} onToggle={toggleColumn} onReset={resetColumns} />
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={exportCsv}>
+              <FileDown className="mr-1.5 h-3 w-3" />
+              Exportar CSV
+            </Button>
+            <ColumnPicker visible={visibleColumns} onToggle={toggleColumn} onReset={resetColumns} />
+          </div>
         </div>
+
         {loadingAny ? (
           <div className="space-y-2">
             <Skeleton className="h-20 w-full" />
@@ -871,7 +1041,7 @@ export default function CrmCampaigns() {
               <table className="w-full">
                 <CampaignTableHeader />
                 <tbody>
-                  {orphanCampaigns.map((c) => (
+                  {sortCampaigns(orphanCampaigns, insightsByCampaign, sort).map((c) => (
                     <CampaignTableRow
                       key={c.id}
                       c={c}
