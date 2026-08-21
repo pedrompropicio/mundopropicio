@@ -130,6 +130,7 @@ export function TourFamilyCard({
                     <span className="font-mono tabular-nums text-muted-foreground">
                       {formatRoas(aggAll.roas)} / {targetRoas}x → {progressPct.toFixed(0)}% (blended tour)
                     </span>
+                    <TargetRoasEditor eventId={master.id} value={master.target_roas} onSaved={onEdited} />
                   </div>
                 )}
               </div>
@@ -145,6 +146,13 @@ export function TourFamilyCard({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
+          <div className="border-t border-border p-3">
+            <PlatformBreakdown
+              campaigns={allCampaigns}
+              insightsByCampaign={insightsByCampaign}
+              fallbackCurrency={currency}
+            />
+          </div>
           <div className="border-t border-border divide-y divide-border">
             {splits.map((s) => {
               const cs = sortCampaigns(campaignsBySplit.get(s.id) ?? [], insightsByCampaign, sort);
