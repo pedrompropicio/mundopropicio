@@ -409,8 +409,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "missing_secret_GOOGLE_ADS_DEVELOPER_TOKEN" }, 500);
   }
 
-  // Body opcional: { company_id?, connection_id? }
-  let bodyJson: { company_id?: string; connection_id?: string } = {};
+  // Body opcional: { company_id?, connection_id?, days_back?, mode? }
+  // mode: "incremental" (default, days_back=30) | "full" (backfill: 365 dias)
+  let bodyJson: {
+    company_id?: string;
+    connection_id?: string;
+    days_back?: number;
+    mode?: "incremental" | "full";
+  } = {};
   try {
     if (req.headers.get("content-type")?.includes("application/json")) {
       bodyJson = await req.json();
@@ -418,6 +424,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch (_e) {
     // ignore
   }
+
+  const mode = bodyJson.mode === "full" ? "full" : "incremental";
+  const daysBack = Math.min(
+    1095,
+    Math.max(1, Number(bodyJson.days_back ?? (mode === "full" ? 365 : 30))),
+  );
+  const { since, until } = buildDateRange(daysBack);
+  const gaql = buildGaql(since, until);
+
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
