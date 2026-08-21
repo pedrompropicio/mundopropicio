@@ -53,7 +53,7 @@ Esta integração permite que utilizadores com role `marketing_manager` (ou `adm
 │ Edge: crm-meta-oauth-callback│ ◀───────────┘
 │ - troca code por access_token│
 │ - cifra tokens (AES-GCM)     │
-│ - guarda em crm_ad_accounts  │
+│ - guarda em ad_platform_conn.  │
 └─────────┬───────────────────┘
           │
           │ 3. Token cifrado em DB
@@ -109,9 +109,9 @@ Esta integração permite que utilizadores com role `marketing_manager` (ou `adm
 
 | Secret | Estado | Fonte | Uso |
 |---|---|---|---|
-| `META_APP_ID` | ⏳ Pendente | Meta for Developers → App → Settings | OAuth e CAPI. |
-| `META_APP_SECRET` | ⏳ Pendente | Meta for Developers → App → Settings | OAuth handshake e refresh. |
-| `ENCRYPTION_MASTER_KEY` | ⏳ Pendente | Gerar 32 bytes aleatórios, guardar fora do repo | Cifragem AES-GCM at-rest dos tokens em `crm_ad_accounts`. |
+| `META_APP_ID` | ✅ Configurado | Meta for Developers → App → Settings | OAuth e CAPI. |
+| `META_APP_SECRET` | ✅ Configurado | Meta for Developers → App → Settings | OAuth handshake e refresh. |
+| `ENCRYPTION_MASTER_KEY` | ✅ Configurado | Gerar 32 bytes aleatórios, guardar fora do repo | Cifragem AES-GCM at-rest dos tokens em `crm.ad_platform_connections`. |
 
 **Geração da `ENCRYPTION_MASTER_KEY`:**
 ```bash
@@ -142,14 +142,14 @@ Guardar em gestor de passwords seguro do owner. **Perda = perda de todos os toke
 4. **Validação `state`.** Edge valida assinatura HMAC, extrai `company_id` e `user_id`, confirma que o user pertence a essa company (via `current_company_id()` no JWT do callback).
 5. **Troca de code por short-lived token.** Edge faz POST a `https://graph.facebook.com/v19.0/oauth/access_token`.
 6. **Upgrade para long-lived token** (60 dias). Outra chamada com `grant_type=fb_exchange_token`.
-7. **Cifrar e guardar.** Edge cifra `access_token` com AES-GCM (chave: `ENCRYPTION_MASTER_KEY`, IV aleatório por registo), guarda em `crm_ad_accounts` com `expires_at = now() + 60 days`.
+7. **Cifrar e guardar.** Edge cifra `access_token` com AES-GCM (chave: `ENCRYPTION_MASTER_KEY`, IV aleatório por registo), guarda em `crm.ad_platform_connections` com `expires_at = now() + 60 days`.
 8. **Listar ad accounts.** Edge chama `GET /me/adaccounts` para listar todas as ad accounts a que o utilizador tem acesso. Devolve para o frontend escolher qual associar a esta empresa.
 9. **Confirmação.** Frontend mostra "Conectado: Conta XYZ (id: act_123)" e marca `status='active'`.
 
 ### Refresh
 O cron `crm-refresh-ad-tokens` corre a cada 12h:
 
-1. Seleciona `crm_ad_accounts` com `status='active'` e `expires_at < now() + 7 days`.
+1. Seleciona `crm.ad_platform_connections` com `status='active'` e `expires_at < now() + 7 days`.
 2. Para cada uma, decifra `access_token`, chama Meta `oauth/access_token?grant_type=fb_exchange_token`.
 3. Cifra o novo token, atualiza `access_token_encrypted`, `expires_at`, `last_refreshed_at`.
 4. Em caso de erro (token revogado pelo Meta), marca `status='expired'` e dispara notificação ao utilizador.
@@ -188,7 +188,7 @@ O cron `crm-refresh-ad-tokens` corre a cada 12h:
 ## 6. Decisões fechadas
 
 ### Cifragem de tokens at-rest
-Tokens OAuth da Meta **devem** ser cifrados com AES-GCM em `crm_ad_accounts.access_token_encrypted` e `refresh_token_encrypted`. **Não guardar em claro.** A chave é `ENCRYPTION_MASTER_KEY` (32 bytes), guardada apenas no Lovable Cloud secrets, nunca commitada.
+Tokens OAuth da Meta **devem** ser cifrados com AES-GCM em `crm.ad_platform_connections.access_token_encrypted` e `refresh_token_encrypted`. **Não guardar em claro.** A chave é `ENCRYPTION_MASTER_KEY` (32 bytes), guardada apenas no Lovable Cloud secrets, nunca commitada.
 
 Racional: tokens Meta dão acesso a gasto real em ads. Comprometimento da DB sem cifragem at-rest significaria potencial fraude monetária imediata.
 
@@ -232,6 +232,7 @@ A edge function corre em Deno (Supabase). O SDK oficial da Meta é Node-only e n
 ## 9. Histórico
 
 - **2026-05-12** — Documento criado em estado "em construção" com plano completo. Implementação ainda não iniciada.
+- **2026-08-21** — Reconciliação (Fase 5 do redesenho do dashboard): nomes de tabelas corrigidos para o schema `crm`, edge functions em produção marcadas, §5 e partes do CAPI marcadas como histórico. Dashboard passa a estar documentado em `docs/features/mp-audience-dashboard.md`.
 
 ---
 
@@ -241,6 +242,7 @@ A edge function corre em Deno (Supabase). O SDK oficial da Meta é Node-only e n
 - `CLAUDE.md` (raiz) §10 — permissões e roles, incluindo `marketing_manager`.
 - `INTEGRATIONS.md` (raiz) — catálogo curto de integrações.
 - `lovable-mcp.md` — para inspeção/debug da DB durante implementação.
+- `../features/mp-audience-dashboard.md` — **fonte de verdade do dashboard** `/audience/dashboard`: tabelas de insights, unidades, sync e armadilhas.
 - `meta-creatives-sync.md` — sub-integração que popula criativos sincronizados via Graph API (consumido pelo fluxo de re-design via `crm-meta-campaign-redesign`).
 - [Meta for Developers — Marketing API](https://developers.facebook.com/docs/marketing-apis) — versão Graph API pinada: `v19.0`.
 - [Meta Conversions API](https://developers.facebook.com/docs/marketing-api/conversions-api/).
