@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.24_probe_fragment_intel_2026_08_21";
+const VERSION = "v2.25_probe_js_flow_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1369,7 +1369,7 @@ async function runProbeParams(admin: any, configId?: string) {
     // jQuery com dataType:"script" => Accept text/javascript..., X-Requested-With: XMLHttpRequest,
     // e cache:false (acrescenta `_=<timestamp>`).
     const JS_ACCEPT = "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01";
-    const XHR_HEADERS = { Referer: u1, "X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": (await (async () => extractCsrfToken(e1Html || pageHtml))())! ?? "" };
+    const XHR_HEADERS: Record<string, string> = { Referer: u1, "X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": extractCsrfToken(e1Html || pageHtml) || "" };
     const ts = Date.now();
     const jsVariants: Array<{ label: string; url: string; accept: string; headers: Record<string, string> }> = [
       { label: "g1_js_flow_exact", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
