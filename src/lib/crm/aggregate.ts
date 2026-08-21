@@ -1,5 +1,7 @@
-// Agregação de insights do Dashboard Meta Live + cálculos derivados.
-// Extraído de src/pages/crm/Campaigns.tsx (Fase 0 — lógica idêntica).
+// Agregação de insights do Dashboard (Meta + Google) + cálculos derivados.
+// Fase 3B: a mesma agregação serve as duas plataformas. Métricas que o Google
+// não fornece (alcance, frequência, cliques únicos, funil) ficam marcadas como
+// ausentes através das flags has*, para a UI mostrar "—" em vez de zero.
 import type { InsightRow } from "@/components/crm/dashboard/types";
 
 // ============================================================
@@ -18,11 +20,19 @@ export interface Aggregate {
   viewContent: number;
   addToCart: number;
   initiateCheckout: number;
+  // Fase 3B — presença real do dado (false ⇒ mostrar "—", nunca 0).
+  hasReach: boolean;
+  hasUniqueClicks: boolean;
+  hasViewContent: boolean;
+  hasAddToCart: boolean;
+  hasInitiateCheckout: boolean;
 }
 export function emptyAgg(): Aggregate {
   return {
     spendCents: 0, revenueCents: 0, conversions: 0, impressions: 0, clicks: 0, roas: null,
     reachSum: 0, uniqueClicks: 0, viewContent: 0, addToCart: 0, initiateCheckout: 0,
+    hasReach: false, hasUniqueClicks: false, hasViewContent: false,
+    hasAddToCart: false, hasInitiateCheckout: false,
   };
 }
 export function aggregate(rows: InsightRow[]): Aggregate {
@@ -38,6 +48,11 @@ export function aggregate(rows: InsightRow[]): Aggregate {
     a.viewContent += r.view_content_count ?? 0;
     a.addToCart += r.add_to_cart_count ?? 0;
     a.initiateCheckout += r.initiate_checkout_count ?? 0;
+    if (r.reach != null) a.hasReach = true;
+    if (r.unique_clicks != null) a.hasUniqueClicks = true;
+    if (r.view_content_count != null) a.hasViewContent = true;
+    if (r.add_to_cart_count != null) a.hasAddToCart = true;
+    if (r.initiate_checkout_count != null) a.hasInitiateCheckout = true;
   }
   a.roas = a.spendCents > 0 ? a.revenueCents / a.spendCents : null;
   return a;
@@ -97,12 +112,18 @@ export function computeCpm(agg: Aggregate): number | null {
 
 /** CPP do período (cêntimos por mil pessoas alcançadas — reach é soma não deduplicada). */
 export function computeCpp(agg: Aggregate): number | null {
+  if (!agg.hasReach) return null;
   return agg.reachSum > 0 ? Math.round((agg.spendCents / agg.reachSum) * 1000) : null;
 }
 
-/** CTR único (cliques únicos / impressões). */
+/**
+ * CTR único — cliques únicos ÷ ALCANCE (definição do Meta; a coluna unique_ctr
+ * do Meta bate exactamente com este quociente). Como reachSum é uma soma não
+ * deduplicada por dia, o valor agregado é aproximado.
+ */
 export function computeUniqueCtr(agg: Aggregate): number | null {
-  return agg.impressions > 0 ? agg.uniqueClicks / agg.impressions : null;
+  if (!agg.hasReach || !agg.hasUniqueClicks) return null;
+  return agg.reachSum > 0 ? agg.uniqueClicks / agg.reachSum : null;
 }
 
 /** CPA — investimento por compra (cêntimos). */

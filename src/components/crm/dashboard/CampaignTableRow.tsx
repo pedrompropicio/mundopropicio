@@ -35,6 +35,8 @@ import { BudgetModeContext } from "@/components/crm/dashboard/budget-mode-contex
 import { EditCampaignPopover } from "@/components/crm/dashboard/EditCampaignPopover";
 import { ReassignCampaignToSplit } from "@/components/crm/dashboard/ReassignCampaignToSplit";
 import { Sparkline } from "@/components/crm/dashboard/Sparkline";
+import { PlatformBadge } from "@/components/crm/dashboard/PlatformBadge";
+import { platformOf, singleCurrency } from "@/lib/crm/platform";
 import { AdsetRow } from "@/components/crm/dashboard/AdsetRow";
 import { MetricCells } from "@/components/crm/dashboard/MetricCells";
 import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
@@ -49,7 +51,7 @@ export function CampaignTableRow({
   insights,
   prevInsights,
   days,
-  currency,
+  currency: currencyProp,
   spark,
   onAnalyze,
   onCoach,
@@ -85,6 +87,12 @@ export function CampaignTableRow({
     to: periodTo,
   } = useDashboardTableCtx();
 
+  // Fase 3B — as acções e o drill-down existentes são específicos do Meta.
+  const platform = platformOf(c);
+  const isGoogle = platform === "google";
+  // Moeda da própria linha (a conta Google pode não ser a da conta Meta activa).
+  const rowCurrency = singleCurrency(insights, currencyProp) ?? currencyProp;
+
   // Drill-down (Fase 1): conjuntos só são buscados quando a campanha é expandida.
   const [expanded, setExpanded] = useState(false);
   const { data: adsetData, isLoading: adsetsLoading } = useAdsetsQuery({
@@ -93,7 +101,7 @@ export function CampaignTableRow({
     externalCampaignId: c.external_campaign_id,
     from: periodFrom,
     to: periodTo,
-    enabled: expanded,
+    enabled: expanded && !isGoogle,
   });
 
   const adsetGroups = useMemo(() => {
@@ -158,7 +166,7 @@ export function CampaignTableRow({
   const breakdownText =
     `ROAS ${formatRoas(agg.roas)} → ${score.breakdown.roasPts}pts · ` +
     `CTR ${ctrAvg != null ? (ctrAvg * 100).toFixed(2) + "%" : "—"} → ${score.breakdown.ctrPts}pts · ` +
-    `CPC ${formatCurrency(cpcAvg, currency)} → ${score.breakdown.cpcPts}pts · ` +
+    `CPC ${formatCurrency(cpcAvg, rowCurrency)} → ${score.breakdown.cpcPts}pts · ` +
     `Freq ${freqAvg != null ? freqAvg.toFixed(1) : "—"} → ${score.breakdown.freqPts}pts · ` +
     `Vel ${velRatio != null ? velRatio.toFixed(2) + "x" : "—"} → ${score.breakdown.velPts}pts`;
 
@@ -166,12 +174,19 @@ export function CampaignTableRow({
     <>
     <tr
       className={cn(
-        "border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer",
+        "border-b border-border/40 hover:bg-muted/40 transition-colors",
+        !isGoogle && "cursor-pointer",
         (isPaused || isReplaced) && "opacity-60",
       )}
-      onClick={() => navigate(`/audience/campaigns/${c.external_campaign_id}`)}
+      onClick={() => {
+        if (isGoogle) return;
+        navigate(`/audience/campaigns/${c.external_campaign_id}`);
+      }}
     >
       <td className="py-2.5 px-1 align-middle" onClick={(e) => e.stopPropagation()}>
+        {isGoogle ? (
+          <span className="inline-block w-[18px]" aria-hidden />
+        ) : (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -181,9 +196,11 @@ export function CampaignTableRow({
         >
           {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </button>
+        )}
       </td>
       <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
         <div className="flex items-center gap-1.5 min-w-0">
+          <PlatformBadge platform={platform} />
           {isReplaced && (
             <Badge
               variant="outline"
@@ -214,7 +231,7 @@ export function CampaignTableRow({
               Ver nova strategy →
             </button>
           )}
-          {onAnalyze && (
+          {onAnalyze && !isGoogle && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -226,7 +243,7 @@ export function CampaignTableRow({
               <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
             </button>
           )}
-          {onCoach && (
+          {onCoach && !isGoogle && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -267,12 +284,12 @@ export function CampaignTableRow({
           </TooltipContent>
         </Tooltip>
       </td>
-      <MetricCells columns={columns} agg={agg} rows={insights} currency={currency} />
+      <MetricCells columns={columns} agg={agg} rows={insights} currency={rowCurrency} />
       <td className="py-2.5 px-3">
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex items-center gap-1 text-sm font-mono tabular-nums cursor-help">
-              {formatCurrency(Math.round(spendPerDay), currency)}
+              {formatCurrency(Math.round(spendPerDay), rowCurrency)}
               {velIcon}
             </span>
           </TooltipTrigger>
@@ -289,6 +306,20 @@ export function CampaignTableRow({
         <div className="flex items-center gap-1.5">
           {(() => {
             const eff = c.effective_status ?? c.status ?? null;
+            if (isGoogle) {
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-muted-foreground border border-border rounded px-2 py-0.5 cursor-help">
+                      {eff ?? "—"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Acções sobre campanhas Google fazem-se no Google Ads — aqui só acompanhamento.
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
             const isActive = eff === "ACTIVE";
             const isPaused = eff === "PAUSED";
             if (isReplaced) {
@@ -348,6 +379,7 @@ export function CampaignTableRow({
               </Button>
             );
           })()}
+          {!isGoogle && (
           <Button
             type="button"
             variant="outline"
@@ -361,7 +393,8 @@ export function CampaignTableRow({
           >
             <Target className="h-3 w-3 mr-1" />Testar funil
           </Button>
-          {tourContext && !isReplaced && (
+          )}
+          {tourContext && !isReplaced && !isGoogle && (
             <ReassignCampaignToSplit
               campaign={c}
               master={tourContext.master}
@@ -369,7 +402,7 @@ export function CampaignTableRow({
               onReassigned={tourContext.onReassigned}
             />
           )}
-          {onEdited && (
+          {onEdited && !isGoogle && (
             <EditCampaignPopover
               c={c}
               onSaved={onEdited}

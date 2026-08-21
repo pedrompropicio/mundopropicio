@@ -148,7 +148,8 @@ export function useDashboardEventsQuery(opts: {
     queryKey: ["crm-campaigns-events-tour", linkedEventIds.slice().sort().join(",")],
     enabled: enabled && linkedEventIds.length > 0,
     queryFn: async () => {
-      const eventCols = "id, name, date, status, tickets_total, tickets_sold, event_type, parent_event_id";
+      const eventCols =
+        "id, name, date, status, tickets_total, tickets_sold, event_type, parent_event_id, target_roas";
       // Stage 1: events diretamente linkados às campanhas
       const { data: linkedData, error: err1 } = await supabase
         .from("events").select(eventCols).in("id", linkedEventIds);

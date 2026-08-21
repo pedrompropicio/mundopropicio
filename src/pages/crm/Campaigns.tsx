@@ -84,8 +84,15 @@ import {
   formatCurrency,
   formatCompact,
   formatRoas,
-  EVENT_TARGET_ROAS,
+  DEFAULT_TARGET_ROAS,
 } from "@/lib/crm/dashboard-format";
+import {
+  PLATFORM_COLOR_VAR,
+  PLATFORM_LABEL,
+  matchesPlatform,
+  type PlatformFilter,
+} from "@/lib/crm/platform";
+import { useGoogleCampaignsQuery, useGoogleInsightsQuery } from "@/lib/crm/google-queries";
 
 import {
   useCampaignsQuery,
@@ -112,6 +119,8 @@ export default function CrmCampaigns() {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const lastFetchRef = useRef<number>(Date.now());
   const [statusFilter, setStatusFilter] = useState<"active" | "paused" | "all" | "replaced">("active");
+  // Fase 3B — filtro de plataforma: manda em KPIs, gráficos, funil, cards e tabela.
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
 
   // Reactivate dialog (substitui window.confirm para activate; pause mantém confirm).
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
@@ -212,7 +221,7 @@ export default function CrmCampaigns() {
   };
 
   // ---------- Campaigns / adset budgets (hooks em src/lib/crm/dashboard-queries.ts) ----------
-  const { data: campaigns, isLoading: campaignsLoading } = useCampaignsQuery({
+  const { data: metaCampaigns, isLoading: campaignsLoading } = useCampaignsQuery({
     companyId,
     adAccountId,
     enabled: isAuthorized,
@@ -225,11 +234,11 @@ export default function CrmCampaigns() {
   });
 
   const budgetModeByCampaign = useMemo(
-    () => buildBudgetModeMap(campaigns, adsetBudgetRows),
-    [campaigns, adsetBudgetRows],
+    () => buildBudgetModeMap(metaCampaigns, adsetBudgetRows),
+    [metaCampaigns, adsetBudgetRows],
   );
 
-  const { data: insights, isLoading: insightsLoading } = useInsightsQuery({
+  const { data: metaInsights, isLoading: insightsLoading } = useInsightsQuery({
     companyId,
     adAccountId,
     enabled: isAuthorized,
@@ -238,6 +247,27 @@ export default function CrmCampaigns() {
       setSecondsAgo(0);
     },
   });
+
+  // ---------- Google Ads (Fase 3B) — normalizado para a mesma forma do Meta ----------
+  const { data: googleCampaignsRaw, isLoading: googleCampaignsLoading } = useGoogleCampaignsQuery({
+    companyId,
+    enabled: isAuthorized,
+  });
+  const { data: googleInsightsRaw, isLoading: googleInsightsLoading } = useGoogleInsightsQuery({
+    companyId,
+    enabled: isAuthorized,
+  });
+
+  // Universo unificado das duas plataformas, já filtrado pelo selector de plataforma.
+  const campaigns = useMemo(() => {
+    const all = [...(metaCampaigns ?? []), ...(googleCampaignsRaw ?? [])];
+    return all.filter((c) => matchesPlatform(c, platformFilter));
+  }, [metaCampaigns, googleCampaignsRaw, platformFilter]);
+
+  const insights = useMemo(() => {
+    const all = [...(metaInsights ?? []), ...(googleInsightsRaw ?? [])];
+    return all.filter((r) => matchesPlatform(r, platformFilter));
+  }, [metaInsights, googleInsightsRaw, platformFilter]);
 
   // ---------- Events for displayed campaigns (independente de status filter) ----------
   // Inclui linked_event_ids de TODAS as campanhas (ACTIVE + PAUSED) para que o dashboard
@@ -578,16 +608,27 @@ export default function CrmCampaigns() {
 
 
   // ---------- Header counters ----------
-  const lastSyncMeta = useMemo(() => {
-    if (!insights || insights.length === 0) return null;
-    const latest = insights
-      .map((i) => i.last_synced_at)
-      .filter(Boolean)
-      .sort()
-      .pop();
-    if (!latest) return null;
-    return formatDistanceToNow(parseISO(latest), { locale: ptBR, addSuffix: true });
-  }, [insights]);
+  // Frescura por plataforma: max(last_synced_at) de cada tabela de insights.
+  // >48h ⇒ estado de alerta com o nº de dias. Nunca esconder dados velhos.
+  const freshness = useMemo(() => {
+    const build = (rows: InsightRow[] | undefined, key: "meta" | "google") => {
+      const latest = (rows ?? [])
+        .map((i) => i.last_synced_at)
+        .filter(Boolean)
+        .sort()
+        .pop();
+      if (!latest) return { key, label: "sem dados", stale: false, days: null as number | null };
+      const d = parseISO(latest);
+      const hours = (Date.now() - d.getTime()) / 3_600_000;
+      return {
+        key,
+        label: formatDistanceToNow(d, { locale: ptBR, addSuffix: true }),
+        stale: hours > 48,
+        days: Math.floor(hours / 24),
+      };
+    };
+    return [build(metaInsights, "meta"), build(googleInsightsRaw, "google")];
+  }, [metaInsights, googleInsightsRaw]);
 
   const adAccountsCount = useMemo(() => {
     const set = new Set((campaigns ?? []).map((c) => c.ad_account_id));
@@ -692,12 +733,28 @@ export default function CrmCampaigns() {
       errors.push(`criativos: ${e?.message ?? String(e)}`);
     }
 
+    // Step 6: Google Ads (campanhas + insights diários na mesma função).
+    let gData: any = null;
+    const t6 = toast.loading("A sincronizar Google Ads…");
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-google-sync-campaigns", {
+        body: mode === "full" ? { mode: "full" } : { days_back: 30 },
+      });
+      if (error) throw error;
+      gData = data;
+      toast.success(`${data?.synced_rows ?? data?.synced_count ?? 0} linhas Google`, { id: t6 });
+    } catch (e: any) {
+      console.error("[crm/campaigns] sync google failed:", e);
+      toast.error("Falha em Google Ads", { id: t6, description: e?.message ?? String(e) });
+      errors.push(`google: ${e?.message ?? String(e)}`);
+    }
+
     if (errors.length === 0) {
       const creativesPart = crData
         ? ` · ${crData?.synced_count ?? 0} criativos${(crData?.remaining_to_sync ?? 0) > 0 ? ` (${crData.remaining_to_sync} em fila)` : ""}`
         : "";
       toast.success(`Sync ${modeLabel} completa`, {
-        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${creativesPart}${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
+        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${creativesPart}${gData ? ` · Google: ${gData?.synced_rows ?? 0} linhas` : ""}${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
       });
     } else {
       toast.error(`Sync com ${errors.length} erro(s)`, { description: errors.join(" · ") });
@@ -706,6 +763,8 @@ export default function CrmCampaigns() {
 
     qc.invalidateQueries({ queryKey: ["crm-meta-campaigns"] });
     qc.invalidateQueries({ queryKey: ["crm-meta-insights"] });
+    qc.invalidateQueries({ queryKey: ["crm-google-campaigns"] });
+    qc.invalidateQueries({ queryKey: ["crm-google-insights"] });
     setSyncing(false);
   };
 
@@ -734,7 +793,8 @@ export default function CrmCampaigns() {
   }
   if (!isAuthorized) return <Navigate to="/" replace />;
 
-  const loadingAny = campaignsLoading || insightsLoading;
+  const loadingAny =
+    campaignsLoading || insightsLoading || googleCampaignsLoading || googleInsightsLoading;
 
   return (
     <BudgetModeContext.Provider value={budgetModeByCampaign}>
@@ -757,8 +817,27 @@ export default function CrmCampaigns() {
                 Atualizado há {secondsAgo}s
               </span>
             </div>
+            <div className="mt-1 flex items-center gap-3 flex-wrap text-xs">
+              {freshness.map((f) => (
+                <span
+                  key={f.key}
+                  className={cn(
+                    "inline-flex items-center gap-1.5",
+                    f.stale ? "text-amber-500 font-medium" : "text-muted-foreground",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: PLATFORM_COLOR_VAR[f.key] }}
+                  />
+                  {PLATFORM_LABEL[f.key]}: {f.label}
+                  {f.stale && f.days != null && ` · desactualizado há ${f.days}d`}
+                </span>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Última sync Meta: {lastSyncMeta ?? "—"} · campanhas: {campaigns?.length ?? 0}
+              Campanhas: {campaigns?.length ?? 0}
               {" "}({(campaigns ?? []).filter((c) => c.status === "ACTIVE" && c.replaced_by_strategy_id == null).length} activas,
               {" "}{(campaigns ?? []).filter((c) => c.status === "PAUSED" && c.replaced_by_strategy_id == null).length} pausadas,
               {" "}{(campaigns ?? []).filter((c) => c.replaced_by_strategy_id != null).length} substituídas)
@@ -835,6 +914,25 @@ export default function CrmCampaigns() {
           <span className="text-muted-foreground/40 mx-1">·</span>
 
           {([
+            { k: "all", l: "Todas" },
+            { k: "meta", l: "Meta" },
+            { k: "google", l: "Google" },
+          ] as const).map((p) => (
+            <Button
+              key={`plat-${p.k}`}
+              size="sm"
+              variant={platformFilter === p.k ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setPlatformFilter(p.k)}
+              title="Filtro de plataforma — afecta KPIs, gráficos, funil, cards e tabela"
+            >
+              {p.l}
+            </Button>
+          ))}
+
+          <span className="text-muted-foreground/40 mx-1">·</span>
+
+          {([
             { k: "active", l: "Activas" },
             { k: "paused", l: "Pausadas" },
             { k: "all", l: "Todas" },
@@ -859,7 +957,7 @@ export default function CrmCampaigns() {
           label="ROAS"
           big={formatRoas(kpis.roas.value)}
           delta={kpis.roas.delta}
-          subtitle={`Receita / Gasto · meta do evento ${EVENT_TARGET_ROAS}x`}
+          subtitle={`Receita / Gasto · meta do evento ${DEFAULT_TARGET_ROAS}x por omissão`}
           accent="primary"
           direction="up-good"
           comparable={comparable}

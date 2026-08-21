@@ -1,3 +1,4 @@
 - [Sync nunca escreve no planeamento](mem://constraints/sync-never-writes-planning) — event_ticket_zones/lots são humanos; syncs Ticketline/BOL só criam âncoras sync_generated=true (fora da previsão); réguas do portal vivem em event_marketing.ticket_lots
 - [Composição do custo do evento](mem://features/event-cost-basis) — helper único `event-cost-basis.ts`: IVA linha a linha, overhead por toggle e excesso por rubrica (Σ max(realizado−previsto,0)) SEMPRE incluído na base "Previsto + excedido"; pendência do BP de receita
 - [VIP coupon email](mem://features/vip-coupon-email) — cupom VIP por e-mail: imediato via trigger em lead_capture + lembrete D-3 (cron 08:30 UTC), idempotência em vip_coupon_email_log, base URL via app_secrets, testes só dryRun
+- [Dashboard pago unificado](mem://features/audience-unified-paid-dashboard) — Meta+Google numa tabela: platform flag, "—" para métricas ausentes, consolidação só com moeda igual, target_roas por evento

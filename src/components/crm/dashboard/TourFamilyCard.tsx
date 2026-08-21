@@ -10,13 +10,15 @@ import { sortCampaigns } from "@/lib/crm/table-sort";
 import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
 import { aggregate } from "@/lib/crm/aggregate";
 import {
-  EVENT_TARGET_ROAS,
+  eventTargetRoas,
   formatCurrency,
   formatRoas,
   formatTourDateRange,
   roasBarBgByEvent,
   roasColorByEvent,
 } from "@/lib/crm/dashboard-format";
+import { PlatformBreakdown } from "@/components/crm/dashboard/PlatformBreakdown";
+import { TargetRoasEditor } from "@/components/crm/dashboard/TargetRoasEditor";
 import { CampaignTableHeader } from "@/components/crm/dashboard/CampaignTableHeader";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
 import type { CampaignRow, EventRow, InsightRow } from "@/components/crm/dashboard/types";
@@ -79,8 +81,9 @@ export function TourFamilyCard({
 
   const tourDateLabel = formatTourDateRange(splits);
 
+  const targetRoas = eventTargetRoas(master);
   const progressPct = aggAll.roas != null && Number.isFinite(aggAll.roas)
-    ? Math.min(100, Math.max(0, (aggAll.roas / EVENT_TARGET_ROAS) * 100))
+    ? Math.min(100, Math.max(0, (aggAll.roas / targetRoas) * 100))
     : null;
 
   return (
@@ -125,8 +128,9 @@ export function TourFamilyCard({
                       />
                     </div>
                     <span className="font-mono tabular-nums text-muted-foreground">
-                      {formatRoas(aggAll.roas)} / {EVENT_TARGET_ROAS}x → {progressPct.toFixed(0)}% (blended tour)
+                      {formatRoas(aggAll.roas)} / {targetRoas}x → {progressPct.toFixed(0)}% (blended tour)
                     </span>
+                    <TargetRoasEditor eventId={master.id} value={master.target_roas} onSaved={onEdited} />
                   </div>
                 )}
               </div>
@@ -142,6 +146,13 @@ export function TourFamilyCard({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
+          <div className="border-t border-border p-3">
+            <PlatformBreakdown
+              campaigns={allCampaigns}
+              insightsByCampaign={insightsByCampaign}
+              fallbackCurrency={currency}
+            />
+          </div>
           <div className="border-t border-border divide-y divide-border">
             {splits.map((s) => {
               const cs = sortCampaigns(campaignsBySplit.get(s.id) ?? [], insightsByCampaign, sort);
