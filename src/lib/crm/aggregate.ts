@@ -61,6 +61,15 @@ export function aggregate(rows: InsightRow[]): Aggregate {
     if (r.view_content_count != null) a.hasViewContent = true;
     if (r.add_to_cart_count != null) a.hasAddToCart = true;
     if (r.initiate_checkout_count != null) a.hasInitiateCheckout = true;
+    a.videoPlays += r.video_plays ?? 0;
+    a.video3sViews += r.video_3s_views ?? 0;
+    a.videoThruplays += r.video_thruplays ?? 0;
+    a.videoP75 += r.video_p75_watched ?? 0;
+    if (
+      r.video_plays != null || r.video_3s_views != null ||
+      r.video_thruplays != null || r.video_p75_watched != null
+    ) a.hasVideo = true;
+
   }
   a.roas = a.spendCents > 0 ? a.revenueCents / a.spendCents : null;
   return a;
