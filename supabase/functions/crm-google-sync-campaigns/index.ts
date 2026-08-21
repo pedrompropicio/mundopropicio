@@ -487,9 +487,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         GOOGLE_ADS_DEVELOPER_TOKEN!,
         loginCustomerId,
         customerId,
+        gaql,
       );
       const agg = aggregate(rows);
+      const daily = buildDailyRows(rows);
 
+      // --- 1) Metadados da campanha (equivalente ao meta_campaign_snapshot) ---
       const upsertRows = agg.map((a) => ({
         connection_id: conn.id,
         company_id: conn.company_id,
@@ -515,7 +518,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           cost_micros: a.cost_micros,
           conversions: a.conversions,
           conversions_value: a.conversions_value,
-          period: "LAST_30_DAYS",
+          period: `${since}..${until}`,
         },
         last_synced_at: new Date().toISOString(),
       }));
@@ -530,6 +533,55 @@ Deno.serve(async (req: Request): Promise<Response> => {
           });
         if (upErr) throw new Error("upsert_failed: " + upErr.message);
         upserted = upsertRows.length;
+      }
+
+      // --- 2) Insights diários (chunks de 500 para não estourar o payload) ---
+      let dailyUpserted = 0;
+      const nowIso = new Date().toISOString();
+      const dailyRows = daily.map((d) => ({
+        connection_id: conn.id,
+        company_id: conn.company_id,
+        customer_id: customerId,
+        external_campaign_id: d.external_campaign_id,
+        campaign_name: d.campaign_name,
+        date_start: d.date_start,
+        date_stop: d.date_stop,
+        impressions: d.impressions,
+        clicks: d.clicks,
+        spend_cents: d.spend_cents,
+        conversions: d.conversions,
+        conversions_value_cents: d.conversions_value_cents,
+        cpc_cents: d.cpc_cents,
+        cpm_cents: d.cpm_cents,
+        ctr: d.ctr,
+        currency: d.currency,
+        raw: d.raw,
+        last_synced_at: nowIso,
+        updated_at: nowIso,
+      }));
+      for (let i = 0; i < dailyRows.length; i += 500) {
+        const chunk = dailyRows.slice(i, i + 500);
+        const { error: dErr } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign_insights_daily")
+          .upsert(chunk, {
+            onConflict: "connection_id,external_campaign_id,date_start",
+          });
+        if (dErr) throw new Error("daily_upsert_failed: " + dErr.message);
+        dailyUpserted += chunk.length;
+      }
+
+      // --- 3) Auto-link campanhas → eventos (respeita linked_event_locked) ---
+      let autoLink: unknown = null;
+      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
+        "crm_auto_link_google_campaigns_to_events",
+        { p_company_id: conn.company_id },
+      );
+      if (linkErr) {
+        console.error("[auto-link] failed:", linkErr.message);
+        autoLink = { error: linkErr.message };
+      } else {
+        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
       }
 
       // Marca connection saudável
@@ -551,7 +603,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         campaigns_fetched: agg.length,
         rows_returned: rows.length,
         upserted,
+        daily_rows_upserted: dailyUpserted,
+        auto_link: autoLink,
       });
+
     } catch (e) {
       const msg = (e as Error).message;
       // Tenta extrair errorCode + requestId do body do erro Google (se houver)
