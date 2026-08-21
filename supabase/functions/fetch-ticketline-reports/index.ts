@@ -1838,15 +1838,26 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
 
     const summary = await downloadSummary(creds, cfg.vault_secret_name, sessions, cfg.ticketline_event_id, filterStart, filterEnd);
-    const filesAudit = [
-      { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
-    ];
+    const sourceMode = summary.mode;
+    debug.source_mode = sourceMode;
+    if (summary.mode === "sjr_html") debug.sjr = summary.debug;
+    const filesAudit = summary.mode === "xlsx"
+      ? [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }]
+      : [{ name: `sale_summary_${cfg.ticketline_event_id}.sjr.js`, size: summary.js.length }];
 
     let parseRes;
     try {
-      parseRes = parseTicketlineOperationsXlsx(summary.buffer as ArrayBuffer);
+      if (summary.mode === "xlsx") {
+        parseRes = parseTicketlineOperationsXlsx(summary.bytes.buffer as ArrayBuffer);
+      } else {
+        const sjr = parseTicketlineOperationsSjr(summary.js, {
+          start: filterStart, end: filterEnd, eventName: cfg.events?.name,
+        });
+        debug.sjr_parser = sjr.sjrDebug;
+        parseRes = sjr;
+      }
     } catch (e: any) {
-      throw Object.assign(new Error(`Parser sale_summary: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
+      throw Object.assign(new Error(`Parser sale_summary (${sourceMode}): ${e?.message || e}`), { phase: "parse_failed", filesAudit });
     }
     debug.rows = parseRes.rows.length;
     debug.unique_zones = new Set(parseRes.rows.map(r => r.zone)).size;
