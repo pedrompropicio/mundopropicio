@@ -26,7 +26,14 @@ export interface AdsetBudgetRow {
   external_campaign_id: string;
   daily_budget_cents: number | null;
   lifetime_budget_cents: number | null;
+  // Fase 2 — usados nos alertas (fase de aprendizagem + verba em risco).
+  external_adset_id?: string | null;
+  name?: string | null;
+  status?: string | null;
+  effective_status?: string | null;
+  learning_stage_info?: { status?: string; conversions?: number } | null;
 }
+
 
 // ---------- Campaigns ----------
 export function useCampaignsQuery(opts: {
