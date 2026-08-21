@@ -1417,6 +1417,7 @@ async function runProbeParams(admin: any, configId?: string) {
     ...out.variants.filter((v: any) => v.looksXlsx).map((v: any) => v.label),
     ...((formInfo.attempts || []).filter((a: any) => a.looksXlsx).map((a: any) => a.label)),
     ...((out.pdfCsv || []).filter((p: any) => p.looksPdf || (p.looksCsv && !p.looksHtml)).map((p: any) => p.label)),
+    ...((out.jsFlow || []).filter((g: any) => !g.novaArea && (g.hasTableMarkup || g.looksJs)).map((g: any) => g.label)),
   ];
   return json(200, out);
 }
