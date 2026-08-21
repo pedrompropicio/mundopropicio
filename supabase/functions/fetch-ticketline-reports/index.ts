@@ -6,9 +6,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
+import { parseTicketlineOperationsSjr } from "../_shared/ticketline-sjr-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.25_probe_js_flow_2026_08_21";
+const VERSION = "v2.26_sjr_fallback_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1880,7 +1881,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
         eventId: cfg.event_id,
         ticketlineAccountId: tlAcc.id,
         parseResult: parseRes,
-        filenames: { summary: `sale_summary_${cfg.ticketline_event_id}.xlsx` },
+        filenames: { summary: filesAudit[0].name },
       });
     } catch (e: any) {
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
@@ -1902,7 +1903,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit,
       error_message: warnMsg,
-      import_audit: { ...audit, debug, silentEmpty },
+      import_audit: { ...audit, debug, silentEmpty, source_mode: sourceMode },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
     return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
