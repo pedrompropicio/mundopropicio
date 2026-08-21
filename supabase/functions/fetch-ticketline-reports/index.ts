@@ -1354,7 +1354,36 @@ function extractPageIntel(html: string, baseUrl: string) {
 }
 
 
-async function runProbeParams(admin: any, configId?: string) {
+/** Desescapa HTML embutido em JS (SJR). */
+function unescapeJsHtml(body: string): string {
+  return body
+    .replace(/\\u003c/gi, "<").replace(/\\u003e/gi, ">").replace(/\\u0026/gi, "&")
+    .replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\//g, "/");
+}
+
+/** Conta células numéricas != 0 e devolve uma linha-exemplo. */
+function nonZeroStats(html: string): { nonZeroNumbers: number; nonZeroSampleRow: string | null } {
+  const cellRe = /<t[dh][^>]*>\s*([^<]*?)\s*<\/t[dh]>/gi;
+  let nonZero = 0;
+  let m: RegExpExecArray | null;
+  const isNum = (t: string) => /^[-+()\d\s.,€%]+$/.test(t) && /[1-9]/.test(t.replace(/[^\d]/g, ""));
+  while ((m = cellRe.exec(html)) !== null) {
+    const txt = (m[1] || "").replace(/&nbsp;|\u00a0/g, " ").trim();
+    if (isNum(txt)) nonZero++;
+  }
+  let sampleRow: string | null = null;
+  if (nonZero > 0) {
+    for (const row of html.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi) || []) {
+      const cells = Array.from(row.matchAll(/<t[dh][^>]*>\s*([^<]*?)\s*<\/t[dh]>/gi)).map((c) =>
+        (c[1] || "").replace(/&nbsp;|\u00a0/g, " ").trim(),
+      );
+      if (cells.some(isNum)) { sampleRow = cells.join(" | ").slice(0, 300); break; }
+    }
+  }
+  return { nonZeroNumbers: nonZero, nonZeroSampleRow: sampleRow };
+}
+
+
   if (!configId) return json(400, { error: "probe_params requer configId" });
 
   const { cfg, creds } = await loadCfgAndCreds(admin, configId);
