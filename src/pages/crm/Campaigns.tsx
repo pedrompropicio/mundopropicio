@@ -627,6 +627,7 @@ export default function CrmCampaigns() {
 
   return (
     <BudgetModeContext.Provider value={budgetModeByCampaign}>
+    <DashboardTableContext.Provider value={tableCtx}>
     <div className="space-y-5">
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
@@ -929,6 +930,7 @@ export default function CrmCampaigns() {
         }
       />
     </div>
+    </DashboardTableContext.Provider>
     </BudgetModeContext.Provider>
   );
 }
