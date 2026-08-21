@@ -4,21 +4,25 @@
 
 | | |
 |---|---|
-| **Status** | ⏳ Em construção |
+| **Status** | ✅ Em produção (OAuth, sync e publicação) |
 | **Plataforma alvo** | Meta Business (Facebook + Instagram Ads) |
 | **Módulo cliente** | MP Audience (CRM/Ads) |
-| **Fase atual** | Pré-implementação — schema e plano definidos, secrets pendentes |
-| **Última revisão** | 2026-05-12 |
+| **Fase atual** | Operacional; este doc cobre OAuth/tokens/CAPI |
+| **Última revisão** | 2026-08-21 |
 
-> ⚠️ **Drift de documentação detetado em 2026-05-12.**
-> Entre 10 e 12 de maio o módulo MP Audience evoluiu significativamente no remoto
-> sem este documento ser atualizado. Verificado por inspeção do repo: a edge function
-> `crm-meta-oauth-callback` está implementada (não pendente como diz §3 e §5), e
-> existem ~22 edges adicionais no domínio `crm-meta-*` que este documento ainda não
-> menciona. O conteúdo arquitetural abaixo (cifragem, fluxo OAuth, riscos, role
-> separation) mantém-se válido como **intenção** e referência. **Sessão de
-> reconciliação pendente** antes de tratar este ficheiro como fonte de verdade
-> operacional.
+> ℹ️ **Âmbito deste documento (reconciliado a 2026-08-21).**
+> Este ficheiro cobre o **fluxo OAuth, cifragem e gestão de tokens** da ligação
+> ao Meta. Para o **dashboard de tráfego pago** (`/audience/dashboard`), tabelas
+> de insights, convenções de unidades e sync de métricas, a fonte de verdade é
+> **`docs/features/mp-audience-dashboard.md`**.
+>
+> Correcções aplicadas nesta revisão: os nomes de tabelas `crm_ad_accounts` /
+> `crm_campaigns` **nunca existiram** — o real é o schema `crm` com
+> `crm.ad_platform_connections`, `crm.meta_campaign_snapshot` e
+> `crm.meta_*_insights_daily`. As edge functions do domínio `crm-meta-*` estão
+> em produção há meses (não "pendentes"). Secções mantidas por valor histórico
+> estão marcadas como tal.
+
 
 ---
 
