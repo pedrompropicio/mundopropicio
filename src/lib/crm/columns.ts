@@ -61,7 +61,23 @@ export const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: "viewContent", label: "ViewContent" },
   { id: "addToCart", label: "AddToCart" },
   { id: "initiateCheckout", label: "InitCheckout" },
+  {
+    id: "hookRate",
+    label: "Hook rate",
+    tooltip: "Visualizações de 3s ÷ impressões. Só Meta e só criativos de vídeo — restantes mostram “—”.",
+  },
+  {
+    id: "thumbstop",
+    label: "Thumbstop",
+    tooltip: "ThruPlays (15s ou completo) ÷ impressões. Só criativos de vídeo.",
+  },
+  {
+    id: "retention75",
+    label: "Retenção 75%",
+    tooltip: "Visualizações a 75% ÷ reproduções iniciadas. Só criativos de vídeo.",
+  },
 ];
+
 
 export const DEFAULT_VISIBLE_COLUMNS: MetricColumnId[] = [
   "spend",
