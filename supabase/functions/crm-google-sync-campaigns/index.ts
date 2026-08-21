@@ -657,7 +657,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   return json({
     ok: true,
     api_version: GOOGLE_ADS_API_VERSION,
-    period: "LAST_30_DAYS",
+    mode,
+    days_back: daysBack,
+    date_range: { since, until },
+
     connections_processed: results.length,
     invoked_by: auth.isServiceRole ? "service_role" : `user:${auth.userId}`,
     results,
