@@ -517,6 +517,69 @@ export default function CrmCampaigns() {
     [displayedCampaigns, eventsById],
   );
 
+  // ---------- Alertas accionáveis do período ----------
+  const eventsSectionRef = useRef<HTMLElement | null>(null);
+  const alerts = useMemo(
+    () =>
+      computeDashboardAlerts({
+        periodInsights,
+        adsets: adsetBudgetRows ?? [],
+        campaigns: displayedCampaigns,
+        eventsById,
+        insightsByCampaign,
+        currencyFormat: (cents) => formatCurrency(cents, currency),
+        roasFormat: formatRoas,
+      }),
+    [periodInsights, adsetBudgetRows, displayedCampaigns, eventsById, insightsByCampaign, currency],
+  );
+
+  // ---------- Exportação CSV do que está no ecrã ----------
+  const exportCsv = useCallback(() => {
+    const rows: CsvExportRow[] = [];
+    const push = (group: string, city: string | undefined, list: CampaignRow[]) => {
+      for (const c of sortCampaigns(list, insightsByCampaign, sort)) {
+        const insightRows = insightsByCampaign.get(c.external_campaign_id) ?? [];
+        rows.push({
+          group,
+          city,
+          campaign: c.name ?? "",
+          status: c.effective_status ?? c.status ?? "",
+          agg: aggregate(insightRows),
+          rows: insightRows,
+          dailyBudgetCents: c.daily_budget_cents ?? null,
+        });
+      }
+    };
+    for (const g of dashboardGroups) {
+      if (g.kind === "tour") {
+        push(g.master.name ?? "", undefined, g.masterCampaigns);
+        for (const s of g.splits) {
+          push(g.master.name ?? "", s.city ?? s.name ?? "", g.campaignsBySplit.get(s.id) ?? []);
+        }
+      } else {
+        push(g.event.name ?? "", undefined, g.campaigns);
+      }
+    }
+    push("Sem evento activo", undefined, orphanCampaigns);
+
+    const from = format(period.from, "yyyy-MM-dd");
+    const to = format(period.to, "yyyy-MM-dd");
+    downloadCsv(
+      buildDashboardCsv({ rows, columns: orderedColumns, currency, from, to }),
+      `mp-audience-${from}_${to}.csv`,
+    );
+  }, [
+    dashboardGroups,
+    orphanCampaigns,
+    insightsByCampaign,
+    sort,
+    orderedColumns,
+    currency,
+    period,
+  ]);
+
+
+
   // ---------- Header counters ----------
   const lastSyncMeta = useMemo(() => {
     if (!insights || insights.length === 0) return null;
