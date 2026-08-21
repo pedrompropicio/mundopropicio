@@ -80,7 +80,7 @@ import { buildDailySeries } from "@/lib/crm/daily-series";
 import { dataStartISO, previousWindow, safeDelta } from "@/lib/crm/kpi-deltas";
 import { NO_SORT, nextSort, type SortKey, type SortState } from "@/lib/crm/table-sort";
 import { computeDashboardAlerts } from "@/lib/crm/alerts";
-import { downloadDashboardCsv } from "@/lib/crm/csv-export";
+import { buildDashboardCsv, downloadCsv, type CsvExportRow } from "@/lib/crm/csv-export";
 import {
   formatCurrency,
   formatCompact,
