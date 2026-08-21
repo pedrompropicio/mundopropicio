@@ -1363,6 +1363,49 @@ async function runProbeParams(admin: any, configId?: string) {
     }
     out.fragment = fragOut;
 
+    // ---- g_js_flow: réplica EXACTA do pedido que o bundle da Ticketline faz ----
+    // manager-*.js: Managers.Events.EventSaleSummary#requestPostRender()
+    //   $.get({ url: window.location.href, data: { post_render_content: "data" }, dataType: "script" })
+    // jQuery com dataType:"script" => Accept text/javascript..., X-Requested-With: XMLHttpRequest,
+    // e cache:false (acrescenta `_=<timestamp>`).
+    const JS_ACCEPT = "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01";
+    const XHR_HEADERS = { Referer: u1, "X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": (await (async () => extractCsrfToken(e1Html || pageHtml))())! ?? "" };
+    const ts = Date.now();
+    const jsVariants: Array<{ label: string; url: string; accept: string; headers: Record<string, string> }> = [
+      { label: "g1_js_flow_exact", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "g2_js_flow_no_cachebuster", url: `${u1}&post_render_content=data`, accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "g3_js_format_ext", url: `${actionAbs.replace(/(\/sale_summary)(?=$|\?)/, "$1.js")}?${built.query}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "g4_js_flow_no_xhr_header", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: { Referer: u1 } },
+    ];
+    const jsOut: any[] = [];
+    for (const g of jsVariants) {
+      const r = await probeGet(jar, g.url, g.accept, 3, g.headers);
+      const body = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+      const entry: any = {
+        label: g.label,
+        url: g.url,
+        finalUrl: r.url,
+        status: r.status,
+        contentType: r.contentType,
+        size: r.size ?? null,
+        novaArea: looksLikeNovaArea(r.snippet ?? body),
+        looksJs: /(?:^|\n)\s*(?:\$\(|window\.|Managers\.|jQuery)/.test(body) || /postRender/i.test(body),
+        hasTableMarkup: /<table|<\\\/table>|\\u003ctable/i.test(body),
+        head: body.slice(0, 3000),
+        error: r.error ?? null,
+      };
+      // O SJR devolve JS que injeta HTML escapado; tenta desescapar e extrair tabelas.
+      if (entry.hasTableMarkup) {
+        const unescaped = body
+          .replace(/\\u003c/gi, "<").replace(/\\u003e/gi, ">").replace(/\\u0026/gi, "&")
+          .replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\//g, "/");
+        entry.tables = extractHtmlTables(unescaped);
+      }
+      jsOut.push(entry);
+    }
+    out.jsFlow = jsOut;
+
+
     // ---- pageIntel: como é que a página de 70KB monta o relatório ----
     const intelHtml = e1Html && e1Html.length > 1000 ? e1Html : pageHtml;
     out.pageIntel = { source: intelHtml === e1Html ? "e1_report_page" : "sale_summary_page", ...extractPageIntel(intelHtml, pageUrl) };
