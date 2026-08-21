@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, Plus, Plug } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
+import { extractFnError } from "@/lib/edge-fn-error";
+import { HelpTooltip } from "@/components/HelpTooltip";
 
 const SHARED_SECRET = "bol_master";
 
