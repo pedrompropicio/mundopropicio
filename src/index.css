@@ -42,6 +42,13 @@
 
     --radius: 0.75rem;
 
+    /* Séries de gráficos (MP Audience) — azul vs verde-lima diferem em matiz E
+       luminância, legíveis por quem não distingue cores; cyan só para o ROAS. */
+    --chart-1: 210 70% 42%;
+    --chart-2: 78 60% 34%;
+    --chart-3: 190 80% 35%;
+
+
     --sidebar-background: 210 18% 96%;
     --sidebar-foreground: 215 18% 22%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --sidebar-primary: 210 70% 42%;
