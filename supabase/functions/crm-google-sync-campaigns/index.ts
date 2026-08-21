@@ -123,7 +123,21 @@ async function getGoogleAccessToken(): Promise<string> {
 // campaign.start_date_time / campaign.end_date_time (datetime, ex.: "2026-01-15 00:00:00").
 // Truncamos para YYYY-MM-DD no aggregate() para caber em start_date/end_date (date).
 // Ref: https://developers.google.com/google-ads/api/fields/v24/campaign
-const GAQL_CAMPAIGNS = `
+// FASE 3A: passa a pedir segments.date → uma linha por campanha E por dia,
+// gravada em crm.google_campaign_insights_daily. Intervalo explícito
+// (BETWEEN) em vez de DURING LAST_30_DAYS, com days_back configurável.
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function buildDateRange(daysBack: number): { since: string; until: string } {
+  const until = new Date();
+  const since = new Date(until.getTime() - daysBack * 86400000);
+  return { since: isoDate(since), until: isoDate(until) };
+}
+
+function buildGaql(since: string, until: string): string {
+  return `
   SELECT
     campaign.id,
     campaign.name,
@@ -133,14 +147,18 @@ const GAQL_CAMPAIGNS = `
     campaign.start_date_time,
     campaign.end_date_time,
     campaign_budget.amount_micros,
+    customer.currency_code,
+    segments.date,
     metrics.impressions,
     metrics.clicks,
     metrics.cost_micros,
     metrics.conversions,
     metrics.conversions_value
   FROM campaign
-  WHERE segments.date DURING LAST_30_DAYS
+  WHERE segments.date BETWEEN '${since}' AND '${until}'
 `;
+}
+
 
 interface GAdsCampaignRow {
   campaign?: Record<string, unknown>;
