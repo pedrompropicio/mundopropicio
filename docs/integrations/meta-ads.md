@@ -156,20 +156,30 @@ O cron `crm-refresh-ad-tokens` corre a cada 12h:
 
 ---
 
-## 5. Pendentes (ordenados)
+## 5. Pendentes (ordenados) — 🕰️ histórico, plano original de mai/2026
 
-| # | Tarefa | Bloqueador? |
+> Os pontos 1–3 e 6–8 estão **feitos** (app Meta criada, secrets configurados,
+> OAuth e UI de contas em produção, sync de públicos e publicação a funcionar).
+> A tabela fica como registo do plano original. Continua realmente em aberto:
+> o refresh automático de tokens (`crm-refresh-ad-tokens`, ponto 4) e um cron
+> de insights do Meta — hoje os insights dependem do botão "Sincronizar agora"
+> no dashboard. O CAPI (pontos 9–10) foi resolvido por outra via: o portal faz
+> POST directo ao Graph via `portal_tick_lead_capture` /
+> `portal_tick_redirect_log`, e as métricas vêm do `crm-meta-sync-insights`.
+
+| # | Tarefa | Estado |
 |---|---|---|
-| 1 | Criar app no Meta for Developers (Business + Advanced Access para `ads_management`) | Sim — sem isto não há `META_APP_ID` |
-| 2 | Configurar `META_APP_ID`, `META_APP_SECRET`, `ENCRYPTION_MASTER_KEY` no Lovable Cloud UI | Sim |
-| 3 | Implementar `crm-meta-oauth-callback` (Claude Code → push) | Sim |
-| 4 | Implementar `crm-refresh-ad-tokens` + cron de 12h | Sim |
-| 5 | Teste end-to-end OAuth (conectar, refrescar, revogar, reconectar) | Sim |
-| 6 | Implementar UI `/crm/configuracoes/contas-ads` (ligar, escolher ad account, ver estado) | Não — pode ser feito no Lovable em paralelo |
-| 7 | Implementar `crm-sync-audience` | Não |
-| 8 | Implementar `crm-publish-campaign` | Não |
-| 9 | Implementar `crm-send-conversion-event` (CAPI) | Não |
-| 10 | Implementar `crm-fetch-attribution` | Não |
+| 1 | Criar app no Meta for Developers (Business + Advanced Access para `ads_management`) | ✅ |
+| 2 | Configurar `META_APP_ID`, `META_APP_SECRET`, `ENCRYPTION_MASTER_KEY` no Lovable Cloud UI | ✅ |
+| 3 | Implementar `crm-meta-oauth-callback` | ✅ |
+| 4 | Implementar `crm-refresh-ad-tokens` + cron de 12h | ⏳ em aberto |
+| 5 | Teste end-to-end OAuth (conectar, refrescar, revogar, reconectar) | parcial (sem refresh automático) |
+| 6 | UI de contas de ads (ligar, escolher ad account, ver estado) | ✅ |
+| 7 | Sync de públicos (`crm-meta-audience-sync`) | ✅ |
+| 8 | Publicação de campanhas (`crm-meta-publish-execute`) | ✅ |
+| 9 | CAPI de conversões | ✅ por outra via (crons do portal) |
+| 10 | Leitura de métricas | ✅ via `crm-meta-sync-insights` |
+
 
 > Pixel no deploy: o `crm-meta-strategy-deploy` infere o pixel da campanha-fonte (MVP Meta). Tracker canónico multi-plataforma (Google/TikTok) está em `.lovable/memory/features/multi-platform-tracking-roadmap.md` (tabela `event_trackers`).
 
