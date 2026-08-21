@@ -22,7 +22,7 @@ import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";
 
-const VERSION = "v1.7_daily_tokens";
+const VERSION = "v1.8_login_scope";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
