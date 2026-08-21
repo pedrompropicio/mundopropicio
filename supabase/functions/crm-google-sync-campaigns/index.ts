@@ -278,6 +278,84 @@ function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
   return Array.from(byId.values());
 }
 
+// ---------------- Linhas diárias (espelho do meta_campaign_insights_daily) --
+// UNIDADES: o Google devolve micros (1.000.000 = 1 unidade de moeda) e o Meta
+// cêntimos. Gravamos SEMPRE em cêntimos → micros / 10.000.
+function microsToCents(v: unknown): number {
+  if (v == null) return 0;
+  return Math.round(Number(v) / 10000);
+}
+
+export interface DailyInsightRow {
+  external_campaign_id: string;
+  campaign_name: string | null;
+  date_start: string;
+  date_stop: string;
+  impressions: number;
+  clicks: number;
+  spend_cents: number;
+  conversions: number;
+  conversions_value_cents: number;
+  cpc_cents: number | null;
+  cpm_cents: number | null;
+  ctr: number | null;
+  currency: string | null;
+  raw: unknown;
+}
+
+function buildDailyRows(rows: GAdsCampaignRow[]): DailyInsightRow[] {
+  const byKey = new Map<string, DailyInsightRow>();
+  for (const r of rows) {
+    const c = (r.campaign ?? {}) as Record<string, unknown>;
+    const m = (r.metrics ?? {}) as Record<string, unknown>;
+    const s = (r.segments ?? {}) as Record<string, unknown>;
+    const cust = (r.customer ?? {}) as Record<string, unknown>;
+    const id = c.id != null ? String(c.id) : null;
+    const date = truncToDate(s.date);
+    if (!id || !date) continue;
+
+    const key = `${id}|${date}`;
+    const impressions = m.impressions != null ? Number(m.impressions) : 0;
+    const clicks = m.clicks != null ? Number(m.clicks) : 0;
+    const spend_cents = microsToCents(m.costMicros);
+    const prev = byKey.get(key);
+    const acc: DailyInsightRow = prev ?? {
+      external_campaign_id: id,
+      campaign_name: (c.name as string) ?? null,
+      date_start: date,
+      date_stop: date,
+      impressions: 0,
+      clicks: 0,
+      spend_cents: 0,
+      conversions: 0,
+      conversions_value_cents: 0,
+      cpc_cents: null,
+      cpm_cents: null,
+      ctr: null,
+      currency: (cust.currencyCode as string) ?? null,
+      raw: r,
+    };
+    acc.impressions += impressions;
+    acc.clicks += clicks;
+    acc.spend_cents += spend_cents;
+    acc.conversions += m.conversions != null ? Number(m.conversions) : 0;
+    acc.conversions_value_cents += microsToCents(
+      m.conversionsValue != null ? Number(m.conversionsValue) * 1_000_000 : 0,
+    );
+    byKey.set(key, acc);
+  }
+  // Derivadas depois da soma, para não perder precisão
+  for (const row of byKey.values()) {
+    row.cpc_cents = row.clicks > 0 ? row.spend_cents / row.clicks : null;
+    row.cpm_cents = row.impressions > 0
+      ? (row.spend_cents / row.impressions) * 1000
+      : null;
+    row.ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : null;
+  }
+  return Array.from(byKey.values());
+}
+
+
 // ---------------- Auth da edge function ----------------
 
 interface AuthInfo {
