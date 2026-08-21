@@ -143,6 +143,44 @@ function findFormAction(html: string): string | null {
 function absUrl(base: string, href: string): string {
   try { return new URL(decodeEntities(href), base).toString(); } catch { return href; }
 }
+/**
+ * Devolve o HTML do <form> que contém o input indicado (evita misturar campos
+ * quando a página tem mais do que um form). Fallback: a página inteira.
+ */
+function formScopeContaining(html: string, needle: RegExp): string {
+  const re = /<form\b[\s\S]*?<\/form>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (needle.test(m[0])) return m[0];
+  }
+  return html;
+}
+/** maxlength declarado no input (para detetar utilizador demasiado longo). */
+function inputMaxLength(html: string, name: string): number | null {
+  const re = new RegExp(`<input\\b[^>]*name="${name.replace(/[$]/g, "\\$")}"[^>]*>`, "i");
+  const tag = html.match(re)?.[0];
+  const n = tag?.match(/\bmaxlength="(\d+)"/i)?.[1];
+  return n ? Number(n) : null;
+}
+/**
+ * Mensagens de erro REALMENTE visíveis. Os spans dos RequiredFieldValidator
+ * ("O nome de utilizador é obrigatório.") existem sempre no HTML com
+ * style="display:none;" — nunca validar o login por esse texto.
+ */
+function visibleErrorMessages(html: string): string[] {
+  const out: string[] = [];
+  const re = /<(span|div)\b([^>]*)>([\s\S]{0,400}?)<\/\1>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = m[2];
+    if (!/val-erro|erro|error|alert|mensagem/i.test(attrs)) continue;
+    if (/display\s*:\s*none/i.test(attrs)) continue;
+    const text = stripTags(m[3]);
+    if (text) out.push(text.slice(0, 200));
+  }
+  return out;
+}
+
 
 // --- Login ASP.NET WebForms ---
 async function loginBol(email: string, password: string, returnUrl = "/Relatorios"): Promise<Jar> {
