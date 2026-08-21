@@ -733,12 +733,28 @@ export default function CrmCampaigns() {
       errors.push(`criativos: ${e?.message ?? String(e)}`);
     }
 
+    // Step 6: Google Ads (campanhas + insights diários na mesma função).
+    let gData: any = null;
+    const t6 = toast.loading("A sincronizar Google Ads…");
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-google-sync-campaigns", {
+        body: mode === "full" ? { mode: "full" } : { days_back: 30 },
+      });
+      if (error) throw error;
+      gData = data;
+      toast.success(`${data?.synced_rows ?? data?.synced_count ?? 0} linhas Google`, { id: t6 });
+    } catch (e: any) {
+      console.error("[crm/campaigns] sync google failed:", e);
+      toast.error("Falha em Google Ads", { id: t6, description: e?.message ?? String(e) });
+      errors.push(`google: ${e?.message ?? String(e)}`);
+    }
+
     if (errors.length === 0) {
       const creativesPart = crData
         ? ` · ${crData?.synced_count ?? 0} criativos${(crData?.remaining_to_sync ?? 0) > 0 ? ` (${crData.remaining_to_sync} em fila)` : ""}`
         : "";
       toast.success(`Sync ${modeLabel} completa`, {
-        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${creativesPart}${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
+        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${creativesPart}${gData ? ` · Google: ${gData?.synced_rows ?? 0} linhas` : ""}${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
       });
     } else {
       toast.error(`Sync com ${errors.length} erro(s)`, { description: errors.join(" · ") });
@@ -747,6 +763,8 @@ export default function CrmCampaigns() {
 
     qc.invalidateQueries({ queryKey: ["crm-meta-campaigns"] });
     qc.invalidateQueries({ queryKey: ["crm-meta-insights"] });
+    qc.invalidateQueries({ queryKey: ["crm-google-campaigns"] });
+    qc.invalidateQueries({ queryKey: ["crm-google-insights"] });
     setSyncing(false);
   };
 
