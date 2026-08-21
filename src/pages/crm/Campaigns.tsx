@@ -14,6 +14,7 @@ import {
   Calendar as CalendarIcon,
   AlertCircle,
   Sparkles,
+  Target,
   CheckCircle2,
   FileDown,
   DownloadCloud,
@@ -27,6 +28,7 @@ import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDia
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { DatePicker } from "@/components/ui/date-picker";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -46,6 +48,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/currency";
+import { lisbonToday } from "@/lib/date-lisbon";
 
 import type { PeriodMode, PeriodState } from "@/lib/crm/period";
 import { periodFromMode } from "@/lib/crm/period";
@@ -547,7 +550,7 @@ export default function CrmCampaigns() {
   const spark14ByCampaign = useMemo(() => {
     const m = new Map<string, number[]>();
     if (!insights) return m;
-    const today = startOfDay(new Date());
+    const today = lisbonToday();
     const days: string[] = [];
     for (let i = 13; i >= 0; i--) days.push(format(subDays(today, i), "yyyy-MM-dd"));
     const byKey = new Map<string, Map<string, number>>();

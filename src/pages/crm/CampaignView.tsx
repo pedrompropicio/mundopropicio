@@ -63,7 +63,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
-import { EditCampaignPopover, type CampaignRow } from "@/pages/crm/Campaigns";
+import { EditCampaignPopover } from "@/components/crm/dashboard/EditCampaignPopover";
+import type { CampaignRow } from "@/components/crm/dashboard/types";
 import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDialog";
 import { PeriodSelector } from "@/components/crm/PeriodSelector";
 import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
