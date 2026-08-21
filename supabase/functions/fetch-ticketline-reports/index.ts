@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.22_probe_params_2026_08_21";
+const VERSION = "v2.23_probe_html_table_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1068,6 +1068,95 @@ function buildQueryFromForm(form: any, startDD: string, endDD: string) {
   return { query: params.toString(), granularityOptions, granularityUsed: gran };
 }
 
+/** Limpa texto de célula HTML (tags, entidades, espaços). */
+function cleanCellText(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+/**
+ * Extrai estrutura das tabelas do relatório HTML: headers (<th>), primeiras
+ * linhas de células e marcadores de secção (h2/h3/caption) antes de cada tabela.
+ */
+function extractHtmlTables(html: string, maxTables = 8, maxRows = 6, maxCols = 20) {
+  const tables: any[] = [];
+  const re = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = re.exec(html)) && tables.length < maxTables) {
+    idx++;
+    const inner = m[1];
+    const before = html.slice(Math.max(0, m.index - 1500), m.index);
+    const markers = Array.from(before.matchAll(/<(h1|h2|h3|h4|legend|caption)\b[^>]*>([\s\S]*?)<\/\1>/gi))
+      .map((x) => cleanCellText(x[2]))
+      .filter(Boolean)
+      .slice(-3);
+    const caption = Array.from(inner.matchAll(/<caption\b[^>]*>([\s\S]*?)<\/caption>/gi)).map((x) => cleanCellText(x[1]));
+
+    const trs = Array.from(inner.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((x) => x[1]);
+    const headerRows: string[][] = [];
+    const bodyRows: string[][] = [];
+    for (const tr of trs) {
+      const cells = Array.from(tr.matchAll(/<(th|td)\b([^>]*)>([\s\S]*?)<\/\1>/gi));
+      if (cells.length === 0) continue;
+      const isHeader = cells.every((c) => c[1].toLowerCase() === "th");
+      const vals = cells.slice(0, maxCols).map((c) => {
+        const attrs = c[2] || "";
+        const span = attrs.match(/colspan\s*=\s*["']?(\d+)/i);
+        const txt = cleanCellText(c[3]);
+        return span && Number(span[1]) > 1 ? `${txt}[colspan=${span[1]}]` : txt;
+      });
+      if (isHeader && bodyRows.length === 0) headerRows.push(vals);
+      else if (bodyRows.length < maxRows) bodyRows.push(vals);
+    }
+    const allText = headerRows.concat(bodyRows).flat().join(" ").toUpperCase();
+    tables.push({
+      index: idx,
+      sectionMarkers: markers,
+      caption,
+      totalRows: trs.length,
+      headerRows,
+      firstRows: bodyRows,
+      looksZoneReport: /ZONA|SETOR/.test(allText),
+      looksDaily: /\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2}/.test(headerRows.concat(bodyRows).flat().join(" ")),
+    });
+  }
+  return { tablesFound: idx, tables };
+}
+
+/** Resumo de uma tentativa binária (PDF/CSV) — magic bytes + primeiros bytes. */
+function summarizeBinaryAttempt(label: string, url: string, r: any) {
+  const bytes: Uint8Array | undefined = r.bytes;
+  const head = bytes ? Array.from(bytes.slice(0, 8)).map((b) => b.toString(16).padStart(2, "0")).join(" ") : null;
+  const asText = bytes ? new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, 300)) : "";
+  return {
+    label,
+    url,
+    finalUrl: r.url,
+    status: r.status,
+    contentType: r.contentType,
+    size: r.size ?? null,
+    looksPdf: !!bytes && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46,
+    looksHtml: /<!doctype html|<html/i.test(asText),
+    looksCsv: !/^</.test(asText.trim()) && /[;,]/.test(asText.split("\n")[0] ?? ""),
+    novaArea: looksLikeNovaArea(r.snippet ?? asText),
+    firstBytesHex: head,
+    firstChars: asText.slice(0, 200),
+    chain: (r.chain || []).map((c: any) => `${c.status} ${c.url}${c.location ? ` -> ${c.location}` : ""}`),
+    error: r.error ?? null,
+  };
+}
+
 async function runProbeParams(admin: any, configId?: string) {
   if (!configId) return json(400, { error: "probe_params requer configId" });
 
@@ -1149,12 +1238,40 @@ async function runProbeParams(admin: any, configId?: string) {
     attempts.push(summarizeAttempt("e3_form_query_xlsx_no_utf8", u3, await probeGet(jar, u3, XA, 3, { Referer: pageUrl })));
 
     formInfo.attempts = attempts;
+
+    // ---- htmlTable: estrutura das tabelas do relatório server-rendered (e1) ----
+    const e1 = await probeGet(jar, u1, HTML_ACCEPT, 3, { Referer: pageUrl });
+    const e1Html = e1.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(e1.bytes) : "";
+    out.htmlTable = {
+      url: u1,
+      status: e1.status,
+      contentType: e1.contentType,
+      size: e1.size ?? null,
+      novaArea: looksLikeNovaArea(e1.snippet),
+      ...extractHtmlTables(e1Html),
+    };
+
+    // ---- PDF / CSV: escaparam ao bloqueio do export? ----
+    const pdfCsvBase = actionAbs.replace(/\.(xlsx|html)$/i, "");
+    const binVariants: Array<{ label: string; url: string; accept: string }> = [
+      { label: "pdf_granularity_0", url: `${pdfCsvBase}.pdf?granularity=0`, accept: "application/pdf,*/*" },
+      { label: "pdf_gran2_filters", url: `${pdfCsvBase}.pdf?${built.query}`, accept: "application/pdf,*/*" },
+      { label: "csv_granularity_0", url: `${pdfCsvBase}.csv?granularity=0`, accept: "text/csv,*/*" },
+      { label: "csv_gran2_filters", url: `${pdfCsvBase}.csv?${built.query}`, accept: "text/csv,*/*" },
+    ];
+    const binOut: any[] = [];
+    for (const b of binVariants) {
+      const r = await probeGet(jar, b.url, b.accept, 3, { Referer: pageUrl });
+      binOut.push(summarizeBinaryAttempt(b.label, b.url, r));
+    }
+    out.pdfCsv = binOut;
   }
 
   out.formSubmission = formInfo;
   out.winners = [
     ...out.variants.filter((v: any) => v.looksXlsx).map((v: any) => v.label),
     ...((formInfo.attempts || []).filter((a: any) => a.looksXlsx).map((a: any) => a.label)),
+    ...((out.pdfCsv || []).filter((p: any) => p.looksPdf || (p.looksCsv && !p.looksHtml)).map((p: any) => p.label)),
   ];
   return json(200, out);
 }
