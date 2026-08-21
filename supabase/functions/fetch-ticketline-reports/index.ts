@@ -6,9 +6,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
+import { parseTicketlineOperationsSjr } from "../_shared/ticketline-sjr-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.25_probe_js_flow_2026_08_21";
+const VERSION = "v2.26_sjr_fallback_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -969,6 +970,106 @@ async function getJar(
   return jar;
 }
 
+/** Query comum ao .xlsx e à página do relatório (mesmo contrato do form). */
+function saleSummaryQuery(filterStartDDMMYYYY: string, filterEndDDMMYYYY: string): string {
+  const qs = new URLSearchParams();
+  qs.set("utf8", "✓");
+  qs.set("granularity", "2");
+  qs.set("bulk_event_ids", "");
+  qs.set("filter_start_date", filterStartDDMMYYYY);
+  qs.set("filter_end_date", filterEndDDMMYYYY);
+  return qs.toString();
+}
+
+const SJR_ACCEPT =
+  "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01";
+
+/**
+ * Fallback SJR: para eventos migrados o .xlsx devolve sempre a landing HTML.
+ * Reproduz o pedido do bundle da Ticketline
+ * (Managers.Events.EventSaleSummary#requestPostRender):
+ *   1. GET da página do relatório (HTML) → csrf-token
+ *   2. GET da MESMA URL + post_render_content=data&_=<ts>, Accept text/javascript
+ *      e X-Requested-With: XMLHttpRequest (obrigatório — sem ele volta a landing).
+ */
+async function downloadSummarySjr(
+  jar: Jar,
+  ticketlineEventId: string,
+  filterStartDDMMYYYY: string,
+  filterEndDDMMYYYY: string,
+): Promise<{ js: string; debug: Record<string, any> }> {
+  const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+  const query = saleSummaryQuery(filterStartDDMMYYYY, filterEndDDMMYYYY);
+  const pageUrl = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary?${query}`;
+
+  const pageResp = await fetchWithTimeout(pageUrl, {
+    method: "GET", redirect: "manual",
+    headers: { "User-Agent": ua, Accept: "text/html,application/xhtml+xml,*/*", Cookie: jarToHeader(jar), Referer: `${BASE}/managers` },
+  });
+  ingestSetCookie(jar, pageResp);
+  const pageHtml = await pageResp.text().catch(() => "");
+  if (pageResp.status >= 300 && pageResp.status < 400) {
+    const loc = pageResp.headers.get("location") || "";
+    if (loc.includes("sign_in")) {
+      throw Object.assign(new Error(`SJR: sessão expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(new Error(`SJR: página do relatório 302 → ${loc}`), { phase: "sjr_page_redirect" });
+  }
+  if (!pageResp.ok) {
+    throw Object.assign(new Error(`SJR: página do relatório HTTP ${pageResp.status}`), { phase: `sjr_page_http_${pageResp.status}` });
+  }
+  const csrf = extractCsrfToken(pageHtml) || "";
+
+  const dataUrl = `${pageUrl}&post_render_content=data&_=${Date.now()}`;
+  const dataResp = await fetchWithTimeout(dataUrl, {
+    method: "GET", redirect: "manual",
+    headers: {
+      "User-Agent": ua,
+      Accept: SJR_ACCEPT,
+      Cookie: jarToHeader(jar),
+      Referer: pageUrl,
+      "X-Requested-With": "XMLHttpRequest",
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+    },
+  }, 90000);
+  ingestSetCookie(jar, dataResp);
+  if (dataResp.status >= 300 && dataResp.status < 400) {
+    const loc = dataResp.headers.get("location") || "";
+    await dataResp.text().catch(() => null);
+    if (loc.includes("sign_in")) {
+      throw Object.assign(new Error(`SJR: sessão expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(new Error(`SJR: fragmento 302 → ${loc}`), { phase: "sjr_data_redirect" });
+  }
+  const ct = dataResp.headers.get("content-type") || "";
+  const js = await dataResp.text();
+  if (!dataResp.ok) {
+    throw Object.assign(new Error(`SJR: fragmento HTTP ${dataResp.status}`), { phase: `sjr_data_http_${dataResp.status}` });
+  }
+  const hasTable = /<table|\\u003ctable|<\\\/table>/i.test(js);
+  if (!hasTable) {
+    const { title, snippet, isSignIn } = describeHtml(js);
+    if (isSignIn) {
+      throw Object.assign(new Error("SJR: página de login devolvida (sessão expirada)"), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(
+      new Error(`SJR: resposta sem tabelas (content-type=${ct}, size=${js.length}) — title="${title}" | ${snippet}`),
+      { phase: "sjr_no_tables", sjrDebug: { pageUrl, dataUrl, contentType: ct, size: js.length, csrfFound: !!csrf } },
+    );
+  }
+  return {
+    js,
+    debug: {
+      pageUrl, dataUrl, contentType: ct, size: js.length,
+      csrfFound: !!csrf, pageSize: pageHtml.length,
+    },
+  };
+}
+
+export type SummaryDownload =
+  | { mode: "xlsx"; bytes: Uint8Array }
+  | { mode: "sjr_html"; js: string; debug: Record<string, any> };
+
 async function downloadSummary(
   creds: { email: string; password: string },
   secretName: string,
@@ -976,26 +1077,53 @@ async function downloadSummary(
   ticketlineEventId: string,
   filterStartDDMMYYYY: string,
   filterEndDDMMYYYY: string,
-) {
+): Promise<SummaryDownload> {
   const jar = await getJar(sessions, secretName, creds);
-  const qs = new URLSearchParams();
-  qs.set("utf8", "✓");
-  qs.set("granularity", "2");
-  qs.set("bulk_event_ids", "");
-  qs.set("filter_start_date", filterStartDDMMYYYY);
-  qs.set("filter_end_date", filterEndDDMMYYYY);
+  const qs = new URLSearchParams(saleSummaryQuery(filterStartDDMMYYYY, filterEndDDMMYYYY));
   qs.set("post_render_content", "data");
   qs.set("_", String(Date.now()));
   const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
   try {
-    return await downloadXlsx(jar, url, "sale_summary");
+    return { mode: "xlsx", bytes: await downloadXlsx(jar, url, "sale_summary") };
   } catch (e: any) {
     if (e?.retriable) {
       console.log(`[ticketline] self-heal re-login (sale_summary)`);
       const jar2 = await getJar(sessions, secretName, creds, true);
-      return await downloadXlsx(jar2, url, "sale_summary");
+      try {
+        return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
+      } catch (e2: any) {
+        if (e2?.phase !== "html_response") throw e2;
+        return await sjrFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
+      }
     }
-    throw e;
+    if (e?.phase !== "html_response") throw e;
+    // Evento migrado: export .xlsx bloqueado server-side → ler o relatório por SJR.
+    return await sjrFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
+  }
+}
+
+async function sjrFallback(
+  jar: Jar,
+  ticketlineEventId: string,
+  filterStart: string,
+  filterEnd: string,
+  xlsxError: any,
+): Promise<SummaryDownload> {
+  console.log(`[ticketline] .xlsx devolveu landing HTML — fallback SJR (evento ${ticketlineEventId})`);
+  try {
+    const { js, debug } = await downloadSummarySjr(jar, ticketlineEventId, filterStart, filterEnd);
+    return { mode: "sjr_html", js, debug };
+  } catch (e: any) {
+    if (e?.retriable) throw e;
+    // Fallback também falhou → mantém o erro html_response original + debug.
+    throw Object.assign(new Error(`${xlsxError.message} | fallback SJR falhou: ${e?.message || e}`), {
+      phase: "html_response",
+      retriable: false,
+      htmlTitle: xlsxError.htmlTitle,
+      htmlSnippet: xlsxError.htmlSnippet,
+      sjrPhase: e?.phase || "sjr_failed",
+      sjrDebug: e?.sjrDebug || null,
+    });
   }
 }
 
@@ -1711,15 +1839,26 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
 
     const summary = await downloadSummary(creds, cfg.vault_secret_name, sessions, cfg.ticketline_event_id, filterStart, filterEnd);
-    const filesAudit = [
-      { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
-    ];
+    const sourceMode = summary.mode;
+    debug.source_mode = sourceMode;
+    if (summary.mode === "sjr_html") debug.sjr = summary.debug;
+    const filesAudit = summary.mode === "xlsx"
+      ? [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }]
+      : [{ name: `sale_summary_${cfg.ticketline_event_id}.sjr.js`, size: summary.js.length }];
 
     let parseRes;
     try {
-      parseRes = parseTicketlineOperationsXlsx(summary.buffer as ArrayBuffer);
+      if (summary.mode === "xlsx") {
+        parseRes = parseTicketlineOperationsXlsx(summary.bytes.buffer as ArrayBuffer);
+      } else {
+        const sjr = parseTicketlineOperationsSjr(summary.js, {
+          start: filterStart, end: filterEnd, eventName: cfg.events?.name,
+        });
+        debug.sjr_parser = sjr.sjrDebug;
+        parseRes = sjr;
+      }
     } catch (e: any) {
-      throw Object.assign(new Error(`Parser sale_summary: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
+      throw Object.assign(new Error(`Parser sale_summary (${sourceMode}): ${e?.message || e}`), { phase: "parse_failed", filesAudit });
     }
     debug.rows = parseRes.rows.length;
     debug.unique_zones = new Set(parseRes.rows.map(r => r.zone)).size;
@@ -1742,7 +1881,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
         eventId: cfg.event_id,
         ticketlineAccountId: tlAcc.id,
         parseResult: parseRes,
-        filenames: { summary: `sale_summary_${cfg.ticketline_event_id}.xlsx` },
+        filenames: { summary: filesAudit[0].name },
       });
     } catch (e: any) {
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
@@ -1764,7 +1903,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit,
       error_message: warnMsg,
-      import_audit: { ...audit, debug, silentEmpty },
+      import_audit: { ...audit, debug, silentEmpty, source_mode: sourceMode },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
     return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
