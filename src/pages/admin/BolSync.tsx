@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, Plus, Plug } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
+import { extractFnError } from "@/lib/edge-fn-error";
+import HelpTooltip from "@/components/HelpTooltip";
 
 const SHARED_SECRET = "bol_master";
 
@@ -104,7 +106,10 @@ export default function BolSync() {
       qc.invalidateQueries({ queryKey: ["bol-sync-runs"] });
       qc.invalidateQueries({ queryKey: ["bol-sync-config"] });
     },
-    onError: (e: any) => toast.error(e?.message || "Erro a invocar função"),
+    onError: async (e: any) => {
+      const msg = await extractFnError(e, "Erro a invocar função");
+      toast.error(msg);
+    },
   });
 
   const discoverMut = useMutation({
@@ -120,7 +125,10 @@ export default function BolSync() {
       if (data?.ok) toast.success("Ligação BOL OK — ver inventário.");
       else toast.error(data?.error || "Ligação falhou");
     },
-    onError: (e: any) => toast.error(e?.message || "Erro"),
+    onError: async (e: any) => {
+      const msg = await extractFnError(e, "Erro");
+      toast.error(msg);
+    },
   });
 
   const credsMut = useMutation({
@@ -304,8 +312,19 @@ export default function BolSync() {
           <DialogHeader><DialogTitle>Credenciais BOL ({SHARED_SECRET})</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Email / utilizador do backoffice</Label>
-              <Input value={credsForm.email} onChange={(e) => setCredsForm((s) => ({ ...s, email: e.target.value }))} placeholder="produtor@empresa.pt" />
+              <div className="flex items-center gap-2">
+                <Label>Utilizador BOL</Label>
+                <HelpTooltip text="É o nome de utilizador do login em produtores.bol.pt (máx. 20 caracteres), não o email." />
+              </div>
+              <Input
+                value={credsForm.email}
+                onChange={(e) => setCredsForm((s) => ({ ...s, email: e.target.value }))}
+                placeholder="nome de utilizador"
+                maxLength={20}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Máx. 20 caracteres — o campo "Utilizador" da BOL não aceita email.
+              </p>
             </div>
             <div>
               <Label>Password</Label>
