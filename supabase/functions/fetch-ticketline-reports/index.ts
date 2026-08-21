@@ -1334,7 +1334,40 @@ async function runProbeParams(admin: any, configId?: string) {
       binOut.push(summarizeBinaryAttempt(b.label, b.url, r));
     }
     out.pdfCsv = binOut;
+
+    // ---- fragment: pedido assíncrono (post_render_content=data), com e sem XHR header ----
+    const fragUrl = `${u1}${u1.includes("?") ? "&" : "?"}post_render_content=data`;
+    const fragVariants: Array<{ label: string; headers: Record<string, string> }> = [
+      { label: "f1_fragment_xhr", headers: { Referer: pageUrl, "X-Requested-With": "XMLHttpRequest" } },
+      { label: "f2_fragment_no_xhr", headers: { Referer: pageUrl } },
+    ];
+    const fragOut: any[] = [];
+    for (const f of fragVariants) {
+      const r = await probeGet(jar, fragUrl, `text/html,application/json,text/javascript,*/*`, 3, f.headers);
+      const body = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+      const entry: any = {
+        label: f.label,
+        url: fragUrl,
+        finalUrl: r.url,
+        status: r.status,
+        contentType: r.contentType,
+        size: r.size ?? null,
+        novaArea: looksLikeNovaArea(r.snippet ?? body),
+        hasTable: /<table/i.test(body),
+        looksJson: /^\s*[[{]/.test(body),
+        content: body.slice(0, 4000),
+        error: r.error ?? null,
+      };
+      if (entry.hasTable) entry.tables = extractHtmlTables(body);
+      fragOut.push(entry);
+    }
+    out.fragment = fragOut;
+
+    // ---- pageIntel: como é que a página de 70KB monta o relatório ----
+    const intelHtml = e1Html && e1Html.length > 1000 ? e1Html : pageHtml;
+    out.pageIntel = { source: intelHtml === e1Html ? "e1_report_page" : "sale_summary_page", ...extractPageIntel(intelHtml, pageUrl) };
   }
+
 
   out.formSubmission = formInfo;
   out.winners = [
