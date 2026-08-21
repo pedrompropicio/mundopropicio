@@ -862,41 +862,100 @@ export default function CrmCampaigns() {
           label="ROAS"
           big={formatRoas(kpis.roas.value)}
           delta={kpis.roas.delta}
-          subtitle="Receita / Gasto"
+          subtitle={`Receita / Gasto · meta do evento ${EVENT_TARGET_ROAS}x`}
           accent="primary"
+          direction="up-good"
+          comparable={comparable}
         />
         <KpiCard
-          label="Gasto total"
+          label="Investimento"
           big={formatCurrency(kpis.spend.value, currency)}
           delta={kpis.spend.delta}
           subtitle="Soma do período"
-          invertDelta
+          direction="neutral"
+          comparable={comparable}
         />
         <KpiCard
-          label="Receita total"
+          label="Receita atribuída"
           big={formatCurrency(kpis.revenue.value, currency)}
           delta={kpis.revenue.delta}
           subtitle="Compras × valor"
+          direction="up-good"
+          comparable={comparable}
         />
         <KpiCard
           label="Conversões"
           big={kpis.conv.value > 0 ? String(kpis.conv.value) : "0"}
           delta={kpis.conv.delta}
           subtitle="Compras no período"
+          direction="up-good"
+          comparable={comparable}
+          secondary={`CPA ${formatCurrency(kpis.cpa.value, currency)}`}
+        />
+        <KpiCard
+          label="Ticket médio"
+          big={formatCurrency(kpis.ticket.value, currency)}
+          delta={kpis.ticket.delta}
+          subtitle="Receita / compra"
+          direction="up-good"
+          comparable={comparable}
+        />
+        <KpiCard
+          label="CPM"
+          big={formatCurrency(kpis.cpm.value, currency)}
+          delta={kpis.cpm.delta}
+          subtitle="Custo por mil impressões"
+          direction="up-bad"
+          comparable={comparable}
+          secondary={`CTR ${kpis.ctr.value != null ? (kpis.ctr.value * 100).toFixed(2) + "%" : "—"}`}
+        />
+        <KpiCard
+          label="Impressões"
+          big={formatCompact(kpis.impressions.value)}
+          delta={kpis.impressions.delta}
+          subtitle="Soma do período"
+          direction="neutral"
+          comparable={comparable}
+        />
+        <KpiCard
+          label="Alcance"
+          big={formatCompact(kpis.reach.value)}
+          delta={kpis.reach.delta}
+          subtitle="Soma não deduplicada por dia"
+          direction="neutral"
+          comparable={comparable}
         />
       </div>
+
+      {/* Alertas accionáveis do período */}
+      <AlertsBar
+        alerts={alerts}
+        onReviewBudgets={() =>
+          eventsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      />
+
+      {/* Investimento vs receita por dia + ROAS diário */}
+      <DailyPerformanceChart series={dailySeries} currency={currency} />
 
       {/* Funil de conversão do período */}
       <ConversionFunnelPanel insights={periodInsights} />
 
       {/* By active event */}
-      <section className="space-y-3">
+      <section className="space-y-3" ref={eventsSectionRef}>
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Por evento ativo
           </h2>
-          <ColumnPicker visible={visibleColumns} onToggle={toggleColumn} onReset={resetColumns} />
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={exportCsv}>
+              <FileDown className="mr-1.5 h-3 w-3" />
+              Exportar CSV
+            </Button>
+            <ColumnPicker visible={visibleColumns} onToggle={toggleColumn} onReset={resetColumns} />
+          </div>
         </div>
+
         {loadingAny ? (
           <div className="space-y-2">
             <Skeleton className="h-20 w-full" />
