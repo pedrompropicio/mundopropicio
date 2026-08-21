@@ -48,6 +48,10 @@ export function MetricCells({
   const ticket = computeTicket(agg);
   const uCtr = computeUniqueCtr(agg);
   const freq = computeFreqAvg(rows);
+  const hook = computeHookRate(agg);
+  const thumb = computeThumbstop(agg);
+  const ret75 = computeRetention75(agg);
+
 
   const base = `py-2.5 px-3 text-sm font-mono tabular-nums${muted ? " text-muted-foreground" : ""}`;
 
