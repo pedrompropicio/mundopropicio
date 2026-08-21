@@ -207,7 +207,6 @@ export function parseTicketlineOperationsSjr(
   push(["Operações por dia no período"]);
   push([]);
 
-  const zoneStart = aoa.length; // 0-based index da 1ª linha da tabela de zonas
   for (const row of zoneGrid) push(row.map(cellValue));
 
   const wb = XLSX.utils.book_new();
