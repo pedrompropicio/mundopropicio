@@ -11,6 +11,8 @@ import {
   computeCpcAvg,
   computeCtrAvg,
   computeFreqAvg,
+  computeSpendPerDay,
+  computeVelRatio,
 } from "@/lib/crm/aggregate";
 import {
   formatCompact,
