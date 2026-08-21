@@ -25,6 +25,7 @@ import {
   Target,
   Handshake,
   AlertTriangle,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -88,6 +89,7 @@ const allReportGroups: ReportGroup[] = [
       { to: "/relatorios/bilheteiras", icon: Ticket, label: "Auditoria Bilheteiras", permission: "view_report_ticket_audit" },
       { to: "/relatorios/taxa-ocupacao", icon: BarChart2, label: "Taxa de Ocupação", permission: "view_report_ticket_audit" },
       { to: "/relatorios/curva-vendas", icon: Activity, label: "Curva de Vendas", permission: "view_report_ticket_audit" },
+      { to: "/relatorios/vendas-diarias", icon: CalendarDays, label: "Vendas Diárias", permission: "view_report_ticket_audit" },
       { to: "/relatorios/comparativo-vendas", icon: LineChart, label: "Comparativo Vendas", permission: "view_report_ticket_audit" },
       { to: "/relatorios/mix-receitas", icon: PieChart, label: "Mix Receitas por Canal", permission: "view_report_ticket_audit" },
     ],
