@@ -4,7 +4,7 @@
 // alertas para encher.
 import { differenceInDays, parseISO, startOfDay } from "date-fns";
 import { aggregate } from "@/lib/crm/aggregate";
-import { EVENT_TARGET_ROAS } from "@/lib/crm/dashboard-format";
+import { eventTargetRoas } from "@/lib/crm/dashboard-format";
 import { lisbonToday } from "@/lib/date-lisbon";
 import type { AdsetBudgetRow } from "@/lib/crm/dashboard-queries";
 import type { CampaignRow, EventRow, InsightRow } from "@/components/crm/dashboard/types";
@@ -110,8 +110,9 @@ export function computeDashboardAlerts(input: AlertsInput): DashboardAlert[] {
   const today = lisbonToday();
   for (const [, { event, rows }] of byEvent) {
     const agg = aggregate(rows);
+    const targetRoas = eventTargetRoas(event);
     if (agg.roas == null || agg.spendCents <= 0) continue;
-    if (agg.roas >= EVENT_TARGET_ROAS) continue;
+    if (agg.roas >= targetRoas) continue;
     let projLabel = "";
     if (event.date) {
       const daysUntil = differenceInDays(startOfDay(parseISO(event.date)), startOfDay(today));
@@ -126,8 +127,8 @@ export function computeDashboardAlerts(input: AlertsInput): DashboardAlert[] {
     }
     out.push({
       id: `event-roas:${event.id}`,
-      tone: agg.roas < EVENT_TARGET_ROAS / 2 ? "danger" : "warning",
-      text: `«${event.name}» com ROAS ${input.roasFormat(agg.roas)} — abaixo da meta ${EVENT_TARGET_ROAS}x.${projLabel}`,
+      tone: agg.roas < targetRoas / 2 ? "danger" : "warning",
+      text: `«${event.name}» com ROAS ${input.roasFormat(agg.roas)} — abaixo da meta ${targetRoas}x.${projLabel}`,
       actionLabel: "Simular",
       action: { kind: "simulate", eventId: event.id },
     });
