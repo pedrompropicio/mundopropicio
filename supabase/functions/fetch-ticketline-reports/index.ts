@@ -1238,12 +1238,40 @@ async function runProbeParams(admin: any, configId?: string) {
     attempts.push(summarizeAttempt("e3_form_query_xlsx_no_utf8", u3, await probeGet(jar, u3, XA, 3, { Referer: pageUrl })));
 
     formInfo.attempts = attempts;
+
+    // ---- htmlTable: estrutura das tabelas do relatório server-rendered (e1) ----
+    const e1 = await probeGet(jar, u1, HTML_ACCEPT, 3, { Referer: pageUrl });
+    const e1Html = e1.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(e1.bytes) : "";
+    out.htmlTable = {
+      url: u1,
+      status: e1.status,
+      contentType: e1.contentType,
+      size: e1.size ?? null,
+      novaArea: looksLikeNovaArea(e1.snippet),
+      ...extractHtmlTables(e1Html),
+    };
+
+    // ---- PDF / CSV: escaparam ao bloqueio do export? ----
+    const pdfCsvBase = actionAbs.replace(/\.(xlsx|html)$/i, "");
+    const binVariants: Array<{ label: string; url: string; accept: string }> = [
+      { label: "pdf_granularity_0", url: `${pdfCsvBase}.pdf?granularity=0`, accept: "application/pdf,*/*" },
+      { label: "pdf_gran2_filters", url: `${pdfCsvBase}.pdf?${built.query}`, accept: "application/pdf,*/*" },
+      { label: "csv_granularity_0", url: `${pdfCsvBase}.csv?granularity=0`, accept: "text/csv,*/*" },
+      { label: "csv_gran2_filters", url: `${pdfCsvBase}.csv?${built.query}`, accept: "text/csv,*/*" },
+    ];
+    const binOut: any[] = [];
+    for (const b of binVariants) {
+      const r = await probeGet(jar, b.url, b.accept, 3, { Referer: pageUrl });
+      binOut.push(summarizeBinaryAttempt(b.label, b.url, r));
+    }
+    out.pdfCsv = binOut;
   }
 
   out.formSubmission = formInfo;
   out.winners = [
     ...out.variants.filter((v: any) => v.looksXlsx).map((v: any) => v.label),
     ...((formInfo.attempts || []).filter((a: any) => a.looksXlsx).map((a: any) => a.label)),
+    ...((out.pdfCsv || []).filter((p: any) => p.looksPdf || (p.looksCsv && !p.looksHtml)).map((p: any) => p.label)),
   ];
   return json(200, out);
 }
