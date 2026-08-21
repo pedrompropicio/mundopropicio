@@ -57,6 +57,7 @@ export function TourFamilyCard({
   togglingCampaignId?: string | null;
   onEdited?: () => void;
 }) {
+  const { sort } = useDashboardTableCtx();
   const [open, setOpen] = useState(true);
 
   const allCampaigns = useMemo(() => {
@@ -143,7 +144,7 @@ export function TourFamilyCard({
         <CollapsibleContent>
           <div className="border-t border-border divide-y divide-border">
             {splits.map((s) => {
-              const cs = campaignsBySplit.get(s.id) ?? [];
+              const cs = sortCampaigns(campaignsBySplit.get(s.id) ?? [], insightsByCampaign, sort);
               const splitInsights = cs.flatMap((c) => insightsByCampaign.get(c.external_campaign_id) ?? []);
               const aggSplit = aggregate(splitInsights);
               return (
