@@ -85,6 +85,7 @@ import {
   formatCurrency,
   formatCompact,
   formatRoas,
+  EVENT_TARGET_ROAS,
 } from "@/lib/crm/dashboard-format";
 
 import {
@@ -936,7 +937,7 @@ export default function CrmCampaigns() {
       />
 
       {/* Investimento vs receita por dia + ROAS diário */}
-      <DailyPerformanceChart series={dailySeries} currency={currency} />
+      <DailyPerformanceChart insights={periodInsights} from={period.from} to={period.to} currency={currency} />
 
       {/* Funil de conversão do período */}
       <ConversionFunnelPanel insights={periodInsights} />
