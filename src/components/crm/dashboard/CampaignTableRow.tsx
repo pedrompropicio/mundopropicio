@@ -35,6 +35,8 @@ import { BudgetModeContext } from "@/components/crm/dashboard/budget-mode-contex
 import { EditCampaignPopover } from "@/components/crm/dashboard/EditCampaignPopover";
 import { ReassignCampaignToSplit } from "@/components/crm/dashboard/ReassignCampaignToSplit";
 import { Sparkline } from "@/components/crm/dashboard/Sparkline";
+import { PlatformBadge } from "@/components/crm/dashboard/PlatformBadge";
+import { platformOf } from "@/lib/crm/platform";
 import { AdsetRow } from "@/components/crm/dashboard/AdsetRow";
 import { MetricCells } from "@/components/crm/dashboard/MetricCells";
 import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
@@ -85,6 +87,10 @@ export function CampaignTableRow({
     to: periodTo,
   } = useDashboardTableCtx();
 
+  // Fase 3B — as acções e o drill-down existentes são específicos do Meta.
+  const platform = platformOf(c);
+  const isGoogle = platform === "google";
+
   // Drill-down (Fase 1): conjuntos só são buscados quando a campanha é expandida.
   const [expanded, setExpanded] = useState(false);
   const { data: adsetData, isLoading: adsetsLoading } = useAdsetsQuery({
@@ -93,7 +99,7 @@ export function CampaignTableRow({
     externalCampaignId: c.external_campaign_id,
     from: periodFrom,
     to: periodTo,
-    enabled: expanded,
+    enabled: expanded && !isGoogle,
   });
 
   const adsetGroups = useMemo(() => {
@@ -166,12 +172,19 @@ export function CampaignTableRow({
     <>
     <tr
       className={cn(
-        "border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer",
+        "border-b border-border/40 hover:bg-muted/40 transition-colors",
+        !isGoogle && "cursor-pointer",
         (isPaused || isReplaced) && "opacity-60",
       )}
-      onClick={() => navigate(`/audience/campaigns/${c.external_campaign_id}`)}
+      onClick={() => {
+        if (isGoogle) return;
+        navigate(`/audience/campaigns/${c.external_campaign_id}`);
+      }}
     >
       <td className="py-2.5 px-1 align-middle" onClick={(e) => e.stopPropagation()}>
+        {isGoogle ? (
+          <span className="inline-block w-[18px]" aria-hidden />
+        ) : (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -181,9 +194,11 @@ export function CampaignTableRow({
         >
           {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </button>
+        )}
       </td>
       <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
         <div className="flex items-center gap-1.5 min-w-0">
+          <PlatformBadge platform={platform} />
           {isReplaced && (
             <Badge
               variant="outline"
@@ -214,7 +229,7 @@ export function CampaignTableRow({
               Ver nova strategy →
             </button>
           )}
-          {onAnalyze && (
+          {onAnalyze && !isGoogle && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -226,7 +241,7 @@ export function CampaignTableRow({
               <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
             </button>
           )}
-          {onCoach && (
+          {onCoach && !isGoogle && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
