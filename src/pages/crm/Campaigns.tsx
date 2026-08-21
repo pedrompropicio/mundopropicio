@@ -1041,7 +1041,7 @@ export default function CrmCampaigns() {
               <table className="w-full">
                 <CampaignTableHeader />
                 <tbody>
-                  {orphanCampaigns.map((c) => (
+                  {sortCampaigns(orphanCampaigns, insightsByCampaign, sort).map((c) => (
                     <CampaignTableRow
                       key={c.id}
                       c={c}
