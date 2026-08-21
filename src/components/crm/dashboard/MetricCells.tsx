@@ -6,10 +6,14 @@ import {
   computeCpp,
   computeCtrAvg,
   computeFreqAvg,
+  computeHookRate,
+  computeRetention75,
+  computeThumbstop,
   computeTicket,
   computeUniqueCtr,
   type Aggregate,
 } from "@/lib/crm/aggregate";
+
 import { formatCompact, formatCurrency } from "@/lib/crm/dashboard-format";
 import type { MetricColumnDef } from "@/lib/crm/columns";
 import type { InsightRow } from "@/components/crm/dashboard/types";
