@@ -20,6 +20,12 @@ export interface Aggregate {
   viewContent: number;
   addToCart: number;
   initiateCheckout: number;
+  // Fase 4 — vídeo (has* false ⇒ mostrar "—").
+  videoPlays: number;
+  video3sViews: number;
+  videoThruplays: number;
+  videoP75: number;
+  hasVideo: boolean;
   // Fase 3B — presença real do dado (false ⇒ mostrar "—", nunca 0).
   hasReach: boolean;
   hasUniqueClicks: boolean;
@@ -31,10 +37,12 @@ export function emptyAgg(): Aggregate {
   return {
     spendCents: 0, revenueCents: 0, conversions: 0, impressions: 0, clicks: 0, roas: null,
     reachSum: 0, uniqueClicks: 0, viewContent: 0, addToCart: 0, initiateCheckout: 0,
+    videoPlays: 0, video3sViews: 0, videoThruplays: 0, videoP75: 0, hasVideo: false,
     hasReach: false, hasUniqueClicks: false, hasViewContent: false,
     hasAddToCart: false, hasInitiateCheckout: false,
   };
 }
+
 export function aggregate(rows: InsightRow[]): Aggregate {
   const a = emptyAgg();
   for (const r of rows) {
