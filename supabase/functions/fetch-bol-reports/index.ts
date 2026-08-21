@@ -22,7 +22,7 @@ import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";
 
-const VERSION = "v1.7_daily_tokens";
+const VERSION = "v1.8_login_scope";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -143,6 +143,44 @@ function findFormAction(html: string): string | null {
 function absUrl(base: string, href: string): string {
   try { return new URL(decodeEntities(href), base).toString(); } catch { return href; }
 }
+/**
+ * Devolve o HTML do <form> que contém o input indicado (evita misturar campos
+ * quando a página tem mais do que um form). Fallback: a página inteira.
+ */
+function formScopeContaining(html: string, needle: RegExp): string {
+  const re = /<form\b[\s\S]*?<\/form>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (needle.test(m[0])) return m[0];
+  }
+  return html;
+}
+/** maxlength declarado no input (para detetar utilizador demasiado longo). */
+function inputMaxLength(html: string, name: string): number | null {
+  const re = new RegExp(`<input\\b[^>]*name="${name.replace(/[$]/g, "\\$")}"[^>]*>`, "i");
+  const tag = html.match(re)?.[0];
+  const n = tag?.match(/\bmaxlength="(\d+)"/i)?.[1];
+  return n ? Number(n) : null;
+}
+/**
+ * Mensagens de erro REALMENTE visíveis. Os spans dos RequiredFieldValidator
+ * ("O nome de utilizador é obrigatório.") existem sempre no HTML com
+ * style="display:none;" — nunca validar o login por esse texto.
+ */
+function visibleErrorMessages(html: string): string[] {
+  const out: string[] = [];
+  const re = /<(span|div)\b([^>]*)>([\s\S]{0,400}?)<\/\1>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = m[2];
+    if (!/val-erro|erro|error|alert|mensagem/i.test(attrs)) continue;
+    if (/display\s*:\s*none/i.test(attrs)) continue;
+    const text = stripTags(m[3]);
+    if (text) out.push(text.slice(0, 200));
+  }
+  return out;
+}
+
 
 // --- Login ASP.NET WebForms ---
 async function loginBol(email: string, password: string, returnUrl = "/Relatorios"): Promise<Jar> {
@@ -160,10 +198,15 @@ async function loginBol(email: string, password: string, returnUrl = "/Relatorio
   }
   const html = await getResp.text();
 
-  const fields = parseFormFields(html);
-  const userField = findInputName(html, "\\$UserName");
-  const passField = findInputName(html, "\\$Password");
-  const submitName = html.match(/<input\b[^>]*name="([^"]*submitLoginBtn)"/i)?.[1] ?? null;
+  // Trabalhar só dentro do form que contém o campo de utilizador (a página pode
+  // ter mais do que um form; misturar campos/action leva a HTTP 200 sem login).
+  const scope = formScopeContaining(html, /\$UserName"/i);
+  const fields = parseFormFields(scope);
+  const userField = findInputName(scope, "\\$UserName");
+  const passField = findInputName(scope, "\\$Password");
+  const submitTag = scope.match(/<input\b[^>]*name="([^"]*submitLoginBtn)"[^>]*>/i);
+  const submitName = submitTag?.[1] ?? null;
+  const submitValue = submitTag?.[0].match(/\bvalue="([^"]*)"/i)?.[1] ?? "Entrar";
   if (!userField || !passField) {
     const { title } = describeHtml(html);
     throw Object.assign(
@@ -175,14 +218,29 @@ async function loginBol(email: string, password: string, returnUrl = "/Relatorio
     throw Object.assign(new Error("__VIEWSTATE ausente na página de login BOL"), { phase: "login_viewstate" });
   }
 
+  // O campo é "Utilizador" (maxlength 20), não o email. Se o valor guardado no
+  // Vault não caber no campo, o BOL nunca autentica — falhar cedo e explicar.
+  const maxUser = inputMaxLength(scope, userField);
+  if (maxUser && email.length > maxUser) {
+    throw Object.assign(
+      new Error(
+        `Credenciais BOL inválidas: o campo "Utilizador" aceita no máximo ${maxUser} caracteres ` +
+        `e o valor guardado tem ${email.length} (parece ser um email). ` +
+        `Regravar as credenciais com o nome de utilizador da BOL.`,
+      ),
+      { phase: "creds_invalid" },
+    );
+  }
+
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(fields)) params.set(k, v);
   params.set(userField, email);
   params.set(passField, password);
-  if (submitName) params.set(submitName, "Entrar");
+  if (submitName) params.set(submitName, decodeEntities(submitValue));
 
-  const action = findFormAction(html);
+  const action = findFormAction(scope);
   const postUrl = action ? absUrl(loginUrl, action) : loginUrl;
+
 
   const postResp = await fetchWithTimeout(postUrl, {
     method: "POST", redirect: "manual",
@@ -207,13 +265,22 @@ async function loginBol(email: string, password: string, returnUrl = "/Relatorio
     return jar;
   }
 
-  // Sem redirect e sem cookie de auth → credenciais recusadas (ou validação)
-  const msg = stripTags(postBody).match(/(utilizador|password|inv[áa]lid|incorrect)[^.]{0,120}/i)?.[0]
-    || describeHtml(postBody).snippet.slice(0, 160);
+  // Sem redirect e sem cookie de auth → credenciais recusadas (ou validação).
+  // ATENÇÃO: NUNCA usar o texto dos spans de validação ("O nome de utilizador é
+  // obrigatório.") — esses spans existem sempre no HTML com display:none e
+  // enganam o diagnóstico. Só mensagens visíveis contam.
+  const visible = visibleErrorMessages(postBody);
+  const stillLogin = /\$UserName"/i.test(postBody);
+  const msg = visible.length
+    ? visible.join(" | ")
+    : stillLogin
+      ? "credenciais recusadas pela BOL (voltou à página de login, sem mensagem visível)"
+      : describeHtml(postBody).snippet.slice(0, 160);
   throw Object.assign(
     new Error(`Login BOL falhou (HTTP ${postResp.status}). ${msg}`),
     { phase: "login_post" },
   );
+
 }
 
 // --- Cache de sessão por vault_secret_name ---
