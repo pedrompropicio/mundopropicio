@@ -51,6 +51,8 @@ export interface InsightRow {
   // Presentes nos níveis inferiores (adset/ad)
   external_adset_id?: string | null;
   external_ad_id?: string | null;
+  adset_name?: string | null;
+  ad_name?: string | null;
 }
 
 /** Snapshot de conjunto (crm.meta_adset_snapshot) — subconjunto usado no drill-down. */
