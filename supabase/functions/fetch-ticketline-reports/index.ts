@@ -1157,6 +1157,75 @@ function summarizeBinaryAttempt(label: string, url: string, r: any) {
   };
 }
 
+/** Inteligência sobre a página do relatório: assets próprios, blobs JSON, data-urls, contextos. */
+function extractPageIntel(html: string, baseUrl: string) {
+  const abs = (u: string) => {
+    try { return new URL(u, baseUrl).toString(); } catch { return u; }
+  };
+  const isCdn = (u: string) => /(cdn|googleapis|cloudflare|jquery|bootstrapcdn|unpkg|jsdelivr|gstatic|fontawesome)/i.test(u);
+
+  const scripts = Array.from(html.matchAll(/<script[^>]+src\s*=\s*["']([^"']+)["']/gi))
+    .map((m) => abs(m[1])).filter((u) => !isCdn(u));
+  const styles = Array.from(html.matchAll(/<link[^>]+rel\s*=\s*["']stylesheet["'][^>]*>/gi))
+    .map((m) => m[0].match(/href\s*=\s*["']([^"']+)["']/i)?.[1] ?? "")
+    .filter(Boolean).map(abs).filter((u) => !isCdn(u));
+
+  const jsonBlobs: Array<{ kind: string; preview: string }> = [];
+  const pushBlob = (kind: string, s: string) => {
+    if (!s) return;
+    if (jsonBlobs.length >= 20) return;
+    jsonBlobs.push({ kind, preview: s.slice(0, 1500) });
+  };
+  for (const m of html.matchAll(/window\.(__[A-Za-z0-9_$]+|[A-Za-z0-9_$]+)\s*=\s*(\{[\s\S]{0,4000}?\}|\[[\s\S]{0,4000}?\]);/g)) {
+    pushBlob(`window.${m[1]}`, m[2]);
+  }
+  for (const m of html.matchAll(/<script[^>]+type\s*=\s*["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    pushBlob("script[type=application/json]", m[1].trim());
+  }
+  for (const attr of ["data-react-props", "data-page", "data-props", "data-json"]) {
+    for (const m of html.matchAll(new RegExp(`${attr}\\s*=\\s*["']([\\s\\S]{0,4000}?)["']`, "gi"))) {
+      pushBlob(attr, m[1]);
+    }
+  }
+  for (const m of html.matchAll(/gon\.([A-Za-z0-9_$]+)\s*=\s*([\s\S]{0,2000}?);/g)) {
+    pushBlob(`gon.${m[1]}`, m[2]);
+  }
+  for (const m of html.matchAll(/JSON\.parse\(\s*(['"])([\s\S]{0,4000}?)\1\s*\)/g)) {
+    pushBlob("JSON.parse", m[2]);
+  }
+
+  const dataUrls = Array.from(
+    new Set(
+      Array.from(html.matchAll(/data-(url|endpoint|source|remote|href|path)\s*=\s*["']([^"']+)["']/gi)).map(
+        (m) => `${m[1]}=${m[2]}`,
+      ),
+    ),
+  ).slice(0, 40);
+
+  const contexts: Array<{ needle: string; at: number; text: string }> = [];
+  for (const needle of ["sale_summary", "post_render"]) {
+    let from = 0;
+    let found = 0;
+    while (found < 10) {
+      const i = html.indexOf(needle, from);
+      if (i < 0) break;
+      contexts.push({ needle, at: i, text: html.slice(Math.max(0, i - 80), i + 120).replace(/\s+/g, " ") });
+      from = i + needle.length;
+      found++;
+    }
+  }
+
+  return {
+    size: html.length,
+    ownScripts: Array.from(new Set(scripts)).slice(0, 30),
+    ownStylesheets: Array.from(new Set(styles)).slice(0, 20),
+    jsonBlobs,
+    dataUrls,
+    contexts: contexts.slice(0, 20),
+  };
+}
+
+
 async function runProbeParams(admin: any, configId?: string) {
   if (!configId) return json(400, { error: "probe_params requer configId" });
 
