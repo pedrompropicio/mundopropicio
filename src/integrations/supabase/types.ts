@@ -11476,6 +11476,23 @@ export type Database = {
           kind: string
         }[]
       }
+      get_daily_sales_series: {
+        Args: {
+          p_end: string
+          p_event_ids?: string[]
+          p_provider?: string
+          p_start: string
+        }
+        Returns: {
+          event_date: string
+          event_name: string
+          group_id: string
+          provider: string
+          qty: number
+          sale_date: string
+          value: number
+        }[]
+      }
       get_event_cash_position: {
         Args: { p_company_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
