@@ -266,15 +266,19 @@ export default function CrmCampaigns() {
     return insights.filter((r) => r.date_start >= fromStr && r.date_start <= toStr);
   }, [insights, period]);
 
+  // Janela anterior de igual duração. Só é comparável quando o histórico
+  // carregado cobre a janela inteira (ver src/lib/crm/kpi-deltas.ts).
+  const dataStart = useMemo(() => dataStartISO(insights), [insights]);
+  const prevWindow = useMemo(
+    () => previousWindow(period.from, period.to, dataStart),
+    [period, dataStart],
+  );
   const previousInsights = useMemo(() => {
     if (!insights) return [];
-    const days = differenceInDays(period.to, period.from) + 1;
-    const prevTo = subDays(period.from, 1);
-    const prevFrom = subDays(prevTo, days - 1);
-    const fromStr = format(prevFrom, "yyyy-MM-dd");
-    const toStr = format(prevTo, "yyyy-MM-dd");
+    const fromStr = format(prevWindow.from, "yyyy-MM-dd");
+    const toStr = format(prevWindow.to, "yyyy-MM-dd");
     return insights.filter((r) => r.date_start >= fromStr && r.date_start <= toStr);
-  }, [insights, period]);
+  }, [insights, prevWindow]);
 
   const insightsByCampaign = useMemo(() => {
     const m = new Map<string, InsightRow[]>();
@@ -301,7 +305,11 @@ export default function CrmCampaigns() {
     [period],
   );
 
-  // Contexto da tabela: colunas visíveis + parâmetros do drill-down preguiçoso.
+  // Ordenação do nível de campanha (Fase 2) — partilhada por todas as tabelas.
+  const [sort, setSort] = useState<SortState>(NO_SORT);
+  const handleSort = useCallback((key: SortKey) => setSort((s) => nextSort(s, key)), []);
+
+  // Contexto da tabela: colunas visíveis + drill-down preguiçoso + ordenação.
   const tableCtx = useMemo(
     () => ({
       columns: orderedColumns,
@@ -310,9 +318,12 @@ export default function CrmCampaigns() {
       currency,
       from: format(period.from, "yyyy-MM-dd"),
       to: format(period.to, "yyyy-MM-dd"),
+      sort,
+      onSort: handleSort,
     }),
-    [orderedColumns, companyId, adAccountId, currency, period],
+    [orderedColumns, companyId, adAccountId, currency, period, sort, handleSort],
   );
+
 
   // 14-day spend sparkline per campaign
   const spark14ByCampaign = useMemo(() => {
