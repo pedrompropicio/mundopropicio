@@ -1,9 +1,13 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
 
 export function CampaignTableHeader() {
+  const { columns } = useDashboardTableCtx();
   return (
     <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
       <tr>
+        {/* coluna do chevron de drill-down */}
+        <th className="py-2 px-1 w-6" />
         <th className="py-2 px-3 text-left font-medium">Campanha</th>
         <th className="py-2 px-3 text-left font-medium">
           <Tooltip>
@@ -18,11 +22,22 @@ export function CampaignTableHeader() {
           </Tooltip>
         </th>
         <th className="py-2 px-3 text-left font-medium">Score</th>
-        <th className="py-2 px-3 text-left font-medium">Gasto</th>
-        <th className="py-2 px-3 text-left font-medium">Receita</th>
-        <th className="py-2 px-3 text-left font-medium">CPC</th>
-        <th className="py-2 px-3 text-left font-medium">Impr.</th>
-        <th className="py-2 px-3 text-left font-medium">Conv.</th>
+        {columns.map((col) => (
+          <th key={col.id} className="py-2 px-3 text-left font-medium whitespace-nowrap">
+            {col.tooltip ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-2">
+                    {col.label}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs">{col.tooltip}</TooltipContent>
+              </Tooltip>
+            ) : (
+              col.label
+            )}
+          </th>
+        ))}
         <th className="py-2 px-3 text-left font-medium">Verba/dia</th>
         <th className="py-2 px-3 text-left font-medium">Tend. 14d</th>
         <th className="py-2 px-3 text-left font-medium">Status</th>

@@ -1,6 +1,17 @@
-import { useContext, useMemo } from "react";
+import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowUp, Loader2, Minus, Pause, Play, Sparkles, Target } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Minus,
+  Pause,
+  Play,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,6 +35,10 @@ import { BudgetModeContext } from "@/components/crm/dashboard/budget-mode-contex
 import { EditCampaignPopover } from "@/components/crm/dashboard/EditCampaignPopover";
 import { ReassignCampaignToSplit } from "@/components/crm/dashboard/ReassignCampaignToSplit";
 import { Sparkline } from "@/components/crm/dashboard/Sparkline";
+import { AdsetRow } from "@/components/crm/dashboard/AdsetRow";
+import { MetricCells } from "@/components/crm/dashboard/MetricCells";
+import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
+import { useAdsetsQuery } from "@/lib/crm/dashboard-queries";
 import type { CampaignRow, EventRow, InsightRow } from "@/components/crm/dashboard/types";
 
 // ============================================================
@@ -62,6 +77,50 @@ export function CampaignTableRow({
   const isReplaced = c.replaced_by_strategy_id != null;
   const navigate = useNavigate();
   const budgetModeByCampaign = useContext(BudgetModeContext);
+  const {
+    columns,
+    companyId: ctxCompanyId,
+    adAccountId: ctxAdAccountId,
+    from: periodFrom,
+    to: periodTo,
+  } = useDashboardTableCtx();
+
+  // Drill-down (Fase 1): conjuntos só são buscados quando a campanha é expandida.
+  const [expanded, setExpanded] = useState(false);
+  const { data: adsetData, isLoading: adsetsLoading } = useAdsetsQuery({
+    companyId: ctxCompanyId,
+    adAccountId: ctxAdAccountId,
+    externalCampaignId: c.external_campaign_id,
+    from: periodFrom,
+    to: periodTo,
+    enabled: expanded,
+  });
+
+  const adsetGroups = useMemo(() => {
+    const byId = new Map<string, InsightRow[]>();
+    for (const r of adsetData?.insights ?? []) {
+      const id = r.external_adset_id ?? "";
+      if (!id) continue;
+      const arr = byId.get(id) ?? [];
+      arr.push(r);
+      byId.set(id, arr);
+    }
+    const snapById = new Map((adsetData?.snapshots ?? []).map((s) => [s.external_adset_id, s]));
+    for (const s of adsetData?.snapshots ?? []) {
+      if (!byId.has(s.external_adset_id)) byId.set(s.external_adset_id, []);
+    }
+    return [...byId.entries()]
+      .map(([id, rows]) => ({
+        id,
+        rows,
+        snap: snapById.get(id),
+        name: snapById.get(id)?.name ?? rows[0]?.adset_name ?? id,
+      }))
+      .sort((a, b) => aggregate(b.rows).spendCents - aggregate(a.rows).spendCents);
+  }, [adsetData]);
+
+  // 4 colunas fixas (chevron, nome, ROAS, Score) + métricas + 3 finais.
+  const colSpanTotal = 4 + columns.length + 3;
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
   const cpcAvg = computeCpcAvg(agg);
@@ -104,6 +163,7 @@ export function CampaignTableRow({
     `Vel ${velRatio != null ? velRatio.toFixed(2) + "x" : "—"} → ${score.breakdown.velPts}pts`;
 
   return (
+    <>
     <tr
       className={cn(
         "border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer",
@@ -111,6 +171,17 @@ export function CampaignTableRow({
       )}
       onClick={() => navigate(`/audience/campaigns/${c.external_campaign_id}`)}
     >
+      <td className="py-2.5 px-1 align-middle" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="p-0.5 rounded hover:bg-muted text-muted-foreground"
+          title={expanded ? "Fechar conjuntos" : "Ver conjuntos"}
+          aria-label={expanded ? "Fechar conjuntos" : "Ver conjuntos"}
+        >
+          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
+      </td>
       <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
         <div className="flex items-center gap-1.5 min-w-0">
           {isReplaced && (
@@ -196,21 +267,7 @@ export function CampaignTableRow({
           </TooltipContent>
         </Tooltip>
       </td>
-      <td className="py-2.5 px-3 text-sm font-mono tabular-nums">
-        {formatCurrency(agg.spendCents, currency)}
-      </td>
-      <td className="py-2.5 px-3 text-sm font-mono tabular-nums text-emerald-500/90">
-        {agg.revenueCents > 0 ? formatCurrency(agg.revenueCents, currency) : "—"}
-      </td>
-      <td className="py-2.5 px-3 text-sm font-mono tabular-nums text-muted-foreground">
-        {formatCurrency(cpcAvg, currency)}
-      </td>
-      <td className="py-2.5 px-3 text-sm font-mono tabular-nums text-muted-foreground">
-        {formatCompact(agg.impressions)}
-      </td>
-      <td className="py-2.5 px-3 text-sm font-mono tabular-nums">
-        {agg.conversions > 0 ? agg.conversions : "—"}
-      </td>
+      <MetricCells columns={columns} agg={agg} rows={insights} currency={currency} />
       <td className="py-2.5 px-3">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -322,5 +379,34 @@ export function CampaignTableRow({
         </div>
       </td>
     </tr>
+
+      {expanded && adsetsLoading && (
+        <tr className="bg-muted/20 border-b border-border/30">
+          <td colSpan={colSpanTotal} className="py-2 px-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 pl-7">
+              <Loader2 className="h-3 w-3 animate-spin" /> a carregar conjuntos…
+            </span>
+          </td>
+        </tr>
+      )}
+      {expanded && !adsetsLoading && adsetGroups.length === 0 && (
+        <tr className="bg-muted/20 border-b border-border/30">
+          <td colSpan={colSpanTotal} className="py-2 px-3 text-xs text-muted-foreground pl-7">
+            Sem conjuntos sincronizados nesta campanha.
+          </td>
+        </tr>
+      )}
+      {expanded &&
+        adsetGroups.map((g) => (
+          <AdsetRow
+            key={g.id}
+            snap={g.snap}
+            insights={g.rows}
+            name={g.name}
+            externalAdsetId={g.id}
+            colSpanTotal={colSpanTotal}
+          />
+        ))}
+    </>
   );
 }

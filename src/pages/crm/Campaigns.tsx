@@ -48,6 +48,8 @@ import { lisbonToday } from "@/lib/date-lisbon";
 
 import type { PeriodMode, PeriodState } from "@/lib/crm/period";
 import { periodFromMode } from "@/lib/crm/period";
+import { CampaignAnalysisSheet } from "@/components/crm/dashboard/CampaignAnalysisSheet";
+import { AudienceCoachSheet } from "@/components/crm/dashboard/AudienceCoachSheet";
 import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
 
 // Dashboard Meta Live — composição. Componentes e queries vivem em
@@ -56,6 +58,10 @@ import { BudgetModeContext } from "@/components/crm/dashboard/budget-mode-contex
 import type { CampaignRow, EventRow, InsightRow, DashboardGroup, SimpleGroup, TourGroup } from "@/components/crm/dashboard/types";
 import { KpiCard } from "@/components/crm/dashboard/KpiCard";
 import { CampaignTableHeader } from "@/components/crm/dashboard/CampaignTableHeader";
+import { ColumnPicker } from "@/components/crm/dashboard/ColumnPicker";
+import { ConversionFunnelPanel } from "@/components/crm/dashboard/ConversionFunnelPanel";
+import { DashboardTableContext } from "@/components/crm/dashboard/dashboard-table-context";
+import { useDashboardColumns } from "@/lib/crm/columns";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
 import { EventGroupCard } from "@/components/crm/dashboard/EventGroupCard";
 import { TourFamilyCard } from "@/components/crm/dashboard/TourFamilyCard";
@@ -94,257 +100,20 @@ export default function CrmCampaigns() {
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [reactivateCampaign, setReactivateCampaign] = useState<CampaignRow | null>(null);
 
-  const [analyzeOpen, setAnalyzeOpen] = useState(false);
-  const [analyzeData, setAnalyzeData] = useState<any>(null);
-  const [analyzeLoading, setAnalyzeLoading] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [analyzeCampaignId, setAnalyzeCampaignId] = useState<string | null>(null);
-  const [analyzeCampaignName, setAnalyzeCampaignName] = useState<string>("");
-  const [analyzeHistory, setAnalyzeHistory] = useState<any[]>([]);
-  const [analyzeTab, setAnalyzeTab] = useState<string>("resumo");
-
-  // Audit trail meta_campaign_changes — tab "Mudanças" + apply-action dialog
-  const [changes, setChanges] = useState<any[]>([]);
-  const [changesLoading, setChangesLoading] = useState(false);
-  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
-  const [applyAction, setApplyAction] = useState<{ idx: number; action: any } | null>(null);
-  const [applyMeasureImpact, setApplyMeasureImpact] = useState(false);
-  const [applyActionType, setApplyActionType] = useState<"pause" | "activate">("pause");
-  const [applyAutoDetected, setApplyAutoDetected] = useState(false);
-  const [applyReason, setApplyReason] = useState("");
-  const [applyLoading, setApplyLoading] = useState(false);
-
-  const loadHistory = async (campaignId: string) => {
-    try {
-      const { data } = await (supabase as any)
-        .schema("crm")
-        .from("meta_campaign_diagnoses")
-        .select("id, created_at, overall_score, severity, summary_text, period_from, period_to, ai_model, diagnosis_jsonb")
-        .eq("external_campaign_id", campaignId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setAnalyzeHistory(data ?? []);
-    } catch {
-      setAnalyzeHistory([]);
-    }
-  };
-
-  const loadChanges = async (campaignId: string) => {
-    setChangesLoading(true);
-    try {
-      const { data } = await (supabase as any)
-        .schema("crm")
-        .from("meta_campaign_changes")
-        .select("id, applied_at, change_type, reason_text, triggered_by, applied_action_index, measure_impact_requested, before_jsonb, after_jsonb, impact_measured_at, impact_metrics_jsonb")
-        .eq("external_campaign_id", campaignId)
-        .order("applied_at", { ascending: false })
-        .limit(10);
-      setChanges(data ?? []);
-    } catch {
-      setChanges([]);
-    } finally {
-      setChangesLoading(false);
-    }
-  };
-
-  const openApplyDialog = (idx: number, action: any, measureImpact: boolean) => {
-    setApplyAction({ idx, action });
-    setApplyMeasureImpact(measureImpact);
-    // Auto-detect tipo de acção a partir do texto livre da IA (override no dialog).
-    const txt = String(action?.action ?? "").toLowerCase();
-    const isPause = /pausar|pause|stop|parar|desactivar|desativar/.test(txt);
-    const isActivate = /ativar|activar|reativar|reactivar|activate|resume|retomar/.test(txt);
-    setApplyActionType(isPause ? "pause" : isActivate ? "activate" : "pause");
-    setApplyAutoDetected(isPause || isActivate);
-    setApplyReason("");
-    setApplyDialogOpen(true);
-  };
-
-  const submitApplyAction = async () => {
-    if (!applyAction || !analyzeCampaignId) return;
-    const a = applyAction.action;
-    const entityType: string = a?.target_type;
-    const externalId: string = a?.target_external_id;
-    if (!entityType || !externalId || !["campaign", "adset", "ad"].includes(entityType)) {
-      toast.error("Acção inválida: target_type/target_external_id em falta.");
-      return;
-    }
-    const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
-    const connectionId = camp?.connection_id;
-    if (!connectionId) {
-      toast.error("Connection da campanha não encontrada.");
-      return;
-    }
-    setApplyLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
-        body: {
-          connection_id: connectionId,
-          entity_type: entityType,
-          external_id: externalId,
-          action: applyActionType,
-          diagnosis_id: analyzeData?.diagnosis_id ?? null,
-          applied_action_index: applyAction.idx + 1,
-          triggered_by: "user_manual",
-          reason_text: applyReason.trim() || null,
-          measure_impact_requested: applyMeasureImpact,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.message || data.error);
-      toast.success(
-        applyActionType === "pause"
-          ? (applyMeasureImpact ? "Entidade pausada. Medição de impacto agendada para D+7." : "Entidade pausada.")
-          : (applyMeasureImpact ? "Entidade reactivada. Medição de impacto agendada para D+7." : "Entidade reactivada.")
-      );
-      setApplyDialogOpen(false);
-      await loadChanges(analyzeCampaignId);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha a aplicar acção");
-    } finally {
-      setApplyLoading(false);
-    }
-  };
-
-  const analyzeCampaign = async (campaignId: string, campaignName: string) => {
-    setAnalyzeOpen(true);
-    setAnalyzeLoading(true);
-    setAnalyzeError(null);
-    setAnalyzeData(null);
-    setAnalyzeCampaignId(campaignId);
-    setAnalyzeCampaignName(campaignName);
-    setAnalyzeTab("resumo");
-    void loadHistory(campaignId);
-    void loadChanges(campaignId);
-    try {
-      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
-        body: {
-          campaign_id: campaignId,
-          days_back: periodDays,
-          from: format(period.from, "yyyy-MM-dd"),
-          to: format(period.to, "yyyy-MM-dd"),
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.message || data.error);
-      setAnalyzeData(data);
-      void loadHistory(campaignId);
-    } catch (e: any) {
-      setAnalyzeError(e?.message || "Erro desconhecido");
-    } finally {
-      setAnalyzeLoading(false);
-    }
-  };
-
-  const reanalyzeCampaign = () => {
-    if (analyzeCampaignId) void analyzeCampaign(analyzeCampaignId, analyzeCampaignName);
-  };
-
+  // Painéis de IA (componentes em src/components/crm/dashboard/) — Fase 1.
+  const [analyzeTarget, setAnalyzeTarget] = useState<{ id: string; name: string } | null>(null);
+  const [coachCampaignId, setCoachCampaignId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [redesignLoading, setRedesignLoading] = useState(false);
-  const [redesignDialogOpen, setRedesignDialogOpen] = useState(false);
-  const [rdKeepBudget, setRdKeepBudget] = useState(true);
-  const [rdDailyEur, setRdDailyEur] = useState<string>("");
-  const [rdRoasGoal, setRdRoasGoal] = useState<string>("");
-  const [rdEndTime, setRdEndTime] = useState<string>("");
 
-  const openRedesignDialog = () => {
-    if (!analyzeCampaignId) return;
-    if (!analyzeData?.diagnosis_id) {
-      toast.error("Faz primeiro um diagnóstico desta campanha.");
-      return;
-    }
-    // Pré-popula com valor actual
-    const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
-    const dailyEur = camp?.daily_budget_cents ? (camp.daily_budget_cents / 100).toFixed(2) : "";
-    setRdKeepBudget(true);
-    setRdDailyEur(dailyEur);
-    setRdRoasGoal("");
-    setRdEndTime("");
-    setRedesignDialogOpen(true);
+  const analyzeCampaign = (campaignId: string, campaignName: string) => {
+    setAnalyzeTarget({ id: campaignId, name: campaignName });
   };
+  const coachCampaign = (campaignId: string) => setCoachCampaignId(campaignId);
 
-  const submitRedesign = async () => {
-    if (!analyzeCampaignId) return;
-    const diagId = analyzeData?.diagnosis_id;
-    if (!diagId) {
-      toast.error("Faz primeiro um diagnóstico desta campanha.");
-      return;
-    }
-    const constraints: any = { keep_original_budget: rdKeepBudget };
-    if (!rdKeepBudget && rdDailyEur) {
-      const n = parseFloat(rdDailyEur.replace(",", "."));
-      if (Number.isFinite(n) && n > 0) constraints.daily_budget_cents = Math.round(n * 100);
-    }
-    if (rdRoasGoal) {
-      const r = parseFloat(rdRoasGoal.replace(",", "."));
-      if (Number.isFinite(r) && r > 0) constraints.roas_floor = r;
-    }
-    if (rdEndTime) constraints.end_time = `${rdEndTime}T23:59:59Z`;
+  // Colunas configuráveis da tabela (persistidas em localStorage).
+  const { visible: visibleColumns, ordered: orderedColumns, toggle: toggleColumn, reset: resetColumns } =
+    useDashboardColumns();
 
-    setRedesignLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-redesign", {
-        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays, constraints },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.message || data.error);
-      if (!data?.strategy_id) throw new Error("Resposta inválida do servidor");
-      toast.success("Re-design gerado. A abrir nova estratégia…");
-      setRedesignDialogOpen(false);
-      navigate(`/audience/strategies/${data.strategy_id}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha a re-desenhar campanha");
-    } finally {
-      setRedesignLoading(false);
-    }
-  };
-
-  const loadHistoricalDiagnosis = (h: any) => {
-    // Reconstrói shape compatível com o sheet a partir do registo persistido
-    setAnalyzeData({
-      diagnosis_id: h.id,
-      campaign: { name: analyzeCampaignName, external_campaign_id: analyzeCampaignId },
-      period: { from: h.period_from, to: h.period_to },
-      diagnosis: h.diagnosis_jsonb,
-      severity: h.severity,
-      overall_score: Number(h.overall_score) || 0,
-      ai_model: h.ai_model,
-      generated_at: h.created_at,
-    });
-    setAnalyzeTab("resumo");
-  };
-
-  const [coachOpen, setCoachOpen] = useState(false);
-  const [coachData, setCoachData] = useState<any>(null);
-  const [coachLoading, setCoachLoading] = useState(false);
-  const [coachError, setCoachError] = useState<string | null>(null);
-
-  const coachCampaign = async (campaignId: string) => {
-    setCoachOpen(true);
-    setCoachLoading(true);
-    setCoachError(null);
-    setCoachData(null);
-    try {
-      if (!connectionId || !adAccountId) {
-        throw new Error("Sem ad account ativa.");
-      }
-      const { data, error } = await supabase.functions.invoke("crm-meta-audience-coach", {
-        body: {
-          connection_id: connectionId,
-          ad_account_id: adAccountId,
-          campaign_id: campaignId,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.message || data.error);
-      setCoachData(data);
-    } catch (e: any) {
-      setCoachError(e?.message || "Erro desconhecido");
-    } finally {
-      setCoachLoading(false);
-    }
-  };
 
   const isAuthorized =
     role === "admin" ||
@@ -530,6 +299,19 @@ export default function CrmCampaigns() {
   const periodDays = useMemo(
     () => Math.max(1, differenceInDays(period.to, period.from) + 1),
     [period],
+  );
+
+  // Contexto da tabela: colunas visíveis + parâmetros do drill-down preguiçoso.
+  const tableCtx = useMemo(
+    () => ({
+      columns: orderedColumns,
+      companyId,
+      adAccountId,
+      currency,
+      from: format(period.from, "yyyy-MM-dd"),
+      to: format(period.to, "yyyy-MM-dd"),
+    }),
+    [orderedColumns, companyId, adAccountId, currency, period],
   );
 
   // 14-day spend sparkline per campaign
@@ -845,6 +627,7 @@ export default function CrmCampaigns() {
 
   return (
     <BudgetModeContext.Provider value={budgetModeByCampaign}>
+    <DashboardTableContext.Provider value={tableCtx}>
     <div className="space-y-5">
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
@@ -989,11 +772,17 @@ export default function CrmCampaigns() {
         />
       </div>
 
+      {/* Funil de conversão do período */}
+      <ConversionFunnelPanel insights={periodInsights} />
+
       {/* By active event */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Por evento ativo
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Por evento ativo
+          </h2>
+          <ColumnPicker visible={visibleColumns} onToggle={toggleColumn} onReset={resetColumns} />
+        </div>
         {loadingAny ? (
           <div className="space-y-2">
             <Skeleton className="h-20 w-full" />
@@ -1106,722 +895,29 @@ export default function CrmCampaigns() {
         )}
       </section>
 
-      <Sheet open={analyzeOpen} onOpenChange={setAnalyzeOpen}>
-        <SheetContent className="w-full sm:max-w-3xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-cyan-400" />
-              Diagnóstico IA da Campanha
-            </SheetTitle>
-            <SheetDescription>
-              {analyzeData?.campaign?.name ?? analyzeCampaignName ?? "A processar…"}
-            </SheetDescription>
-          </SheetHeader>
+      <CampaignAnalysisSheet
+        open={!!analyzeTarget}
+        onOpenChange={(o) => {
+          if (!o) setAnalyzeTarget(null);
+        }}
+        campaignId={analyzeTarget?.id ?? null}
+        campaignName={analyzeTarget?.name ?? ""}
+        campaigns={campaigns ?? []}
+        currency={currency}
+        period={period}
+        periodDays={periodDays}
+      />
 
-          {analyzeCampaignId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 mb-1"
-              onClick={() => navigate(`/audience/campaigns/${analyzeCampaignId}`)}
-            >
-              Ver detalhe completo
-            </Button>
-          )}
+      <AudienceCoachSheet
+        open={!!coachCampaignId}
+        onOpenChange={(o) => {
+          if (!o) setCoachCampaignId(null);
+        }}
+        campaignId={coachCampaignId}
+        connectionId={connectionId}
+        adAccountId={adAccountId}
+      />
 
-          <div className="mt-6 space-y-6">
-            {analyzeLoading && (
-              <div className="flex flex-col items-center gap-3 py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-                <p className="text-sm text-muted-foreground">A analisar campanha + adsets + ads + criativos…</p>
-                <p className="text-xs text-muted-foreground/70">Pode demorar 15-30s</p>
-              </div>
-            )}
-
-            {analyzeError && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                <p className="text-sm text-red-400">{analyzeError}</p>
-              </div>
-            )}
-
-            {analyzeData && analyzeData.diagnosis && (() => {
-              const d = analyzeData.diagnosis;
-              const sev: string = analyzeData.severity ?? d.severity ?? "warning";
-              const score: number = Number(analyzeData.overall_score ?? d.overall_score ?? 0);
-              const sevColor =
-                sev === "critical" ? "bg-red-500/15 text-red-400 border-red-500/30" :
-                sev === "warning" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
-                "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-              const sevLabel = sev === "critical" ? "crítica" : sev === "warning" ? "atenção" : "saudável";
-              const verdictColor = (v: string) =>
-                v === "pause" ? "bg-red-500/15 text-red-400" :
-                v === "scale" ? "bg-emerald-500/15 text-emerald-400" :
-                v === "optimize" ? "bg-amber-500/15 text-amber-400" :
-                "bg-muted text-muted-foreground";
-              const prioColor = (p: string) =>
-                p === "high" ? "bg-red-500/15 text-red-400" :
-                p === "medium" ? "bg-amber-500/15 text-amber-400" :
-                "bg-muted text-muted-foreground";
-
-              return (
-                <>
-                  <div className={cn("rounded-lg border p-4 flex flex-col gap-4", sevColor)}>
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                      <div className="text-3xl font-bold tabular-nums">{Math.round(score)}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded border border-current">
-                            {sevLabel}
-                          </span>
-                        </div>
-                        <p className="text-sm break-words">{d.summary_pt ?? ""}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-row gap-2 sm:flex-shrink-0">
-                      <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading || redesignLoading} className="flex-1 sm:flex-initial sm:w-auto">
-                        <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
-                      </Button>
-                      {analyzeData?.diagnosis_id && (() => {
-                        const drawerCampaign = campaigns?.find((cc) => cc.external_campaign_id === analyzeCampaignId);
-                        const drawerIsReplaced = drawerCampaign?.replaced_by_strategy_id != null;
-                        return (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={openRedesignDialog}
-                              disabled={analyzeLoading || redesignLoading || drawerIsReplaced}
-                              className="flex-1 sm:flex-initial sm:w-auto border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-                              title={drawerIsReplaced ? "Campanha já substituída" : "Re-design rápido (defaults da IA)"}
-                            >
-                              {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
-                              Re-desenhar<span className="hidden sm:inline">&nbsp;(rápido)</span>
-                            </Button>
-                            {!drawerIsReplaced && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setAnalyzeOpen(false);
-                                  navigate(`/audience/strategies/redesign/${analyzeCampaignId}`);
-                                }}
-                                disabled={analyzeLoading || redesignLoading}
-                                className="flex-1 sm:flex-initial sm:w-auto border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-                                title="Wizard 4 passos com revisão manual do inventário"
-                              >
-                                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                                Com herança<span className="hidden sm:inline">&nbsp;(wizard)</span>
-                              </Button>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  <Tabs value={analyzeTab} onValueChange={setAnalyzeTab}>
-                    <TabsList className="grid grid-cols-4 w-full">
-                      <TabsTrigger value="resumo">Resumo</TabsTrigger>
-                      <TabsTrigger value="detalhe">Detalhe</TabsTrigger>
-                      <TabsTrigger value="historico">Histórico ({analyzeHistory.length})</TabsTrigger>
-                      <TabsTrigger value="mudancas">Mudanças ({changes.length})</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="resumo" className="space-y-5 mt-4">
-                      {d.landing_concern?.suspected && (
-                        <button
-                          type="button"
-                          onClick={() => { setAnalyzeOpen(false); navigate(`/audience/audit/campaign/${analyzeCampaignId}`); }}
-                          className="w-full text-left rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 hover:bg-amber-500/20 transition-colors flex items-start gap-2"
-                        >
-                          <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-amber-300">⚠️ Possível problema na landing page — Investigar</p>
-                            {d.landing_concern.evidence && (
-                              <p className="text-xs text-amber-200/80 mt-0.5">{d.landing_concern.evidence}</p>
-                            )}
-                          </div>
-                          <span className="text-[10px] uppercase font-bold text-amber-300 self-center">Auditar →</span>
-                        </button>
-                      )}
-                      {Array.isArray(d.top_3_actions) && d.top_3_actions.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                            <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> Top 3 ações prioritárias
-                          </h4>
-                          <div className="grid gap-2">
-                            {d.top_3_actions.map((a: any, i: number) => {
-                              const canApply = ["campaign","adset","ad"].includes(a?.target_type) && !!a?.target_external_id;
-                              return (
-                                <div key={i} className="rounded-lg border border-border bg-card p-3">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">
-                                      #{i + 1}
-                                    </span>
-                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                      {a.target_type}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground/70 truncate">{a.target_external_id}</span>
-                                  </div>
-                                  <p className="text-sm font-medium">{a.action}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">{a.rationale}</p>
-                                  {a.expected_impact && (
-                                    <p className="text-xs text-cyan-400/80 mt-1">→ {a.expected_impact}</p>
-                                  )}
-                                  {canApply && (
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 px-2 text-[11px]"
-                                        onClick={() => openApplyDialog(i, a, false)}
-                                      >
-                                        Aplicar agora
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 px-2 text-[11px] border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-                                        onClick={() => openApplyDialog(i, a, true)}
-                                      >
-                                        Aplicar e medir 7d
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {d.campaign_diagnosis && (
-                        <>
-                          <div>
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Pontos fortes
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {(d.campaign_diagnosis.strengths ?? []).map((s: string, i: number) => (
-                                <li key={i} className="text-sm flex gap-2">
-                                  <span className="text-emerald-400 mt-0.5">•</span><span>{s}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                              <AlertCircle className="h-3.5 w-3.5 text-orange-400" /> Pontos fracos
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {(d.campaign_diagnosis.weaknesses ?? []).map((w: string, i: number) => (
-                                <li key={i} className="text-sm flex gap-2">
-                                  <span className="text-orange-400 mt-0.5">•</span><span>{w}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          {d.campaign_diagnosis.key_metrics_analysis && (
-                            <div className="rounded-lg border border-border bg-card p-3">
-                              <p className="text-xs uppercase text-muted-foreground mb-1">Análise de métricas</p>
-                              <p className="text-sm whitespace-pre-line">{d.campaign_diagnosis.key_metrics_analysis}</p>
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      {d.creative_insights && (
-                        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
-                          <p className="text-xs uppercase text-cyan-400 mb-1">Cruzamento criativos × performance</p>
-                          <p className="text-sm whitespace-pre-line">{d.creative_insights}</p>
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="detalhe" className="space-y-6 mt-4">
-                      {Array.isArray(d.adset_breakdown) && d.adset_breakdown.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                            Adsets ({d.adset_breakdown.length})
-                          </h4>
-                          <div className="rounded-lg border border-border overflow-hidden">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Nome</TableHead>
-                                  <TableHead>Verdict</TableHead>
-                                  <TableHead>Prioridade</TableHead>
-                                  <TableHead>Razão / ações</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {d.adset_breakdown.map((a: any, i: number) => (
-                                  <TableRow key={i}>
-                                    <TableCell className="text-xs font-medium align-top max-w-[180px] truncate" title={a.name}>{a.name}</TableCell>
-                                    <TableCell className="align-top">
-                                      <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded", verdictColor(a.verdict))}>
-                                        {a.verdict}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="align-top">
-                                      <span className={cn("text-[10px] uppercase px-1.5 py-0.5 rounded", prioColor(a.priority))}>
-                                        {a.priority}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-xs align-top">
-                                      <p className="text-foreground">{a.reason}</p>
-                                      {Array.isArray(a.suggested_actions) && a.suggested_actions.length > 0 && (
-                                        <ul className="mt-1 space-y-0.5 text-muted-foreground">
-                                          {a.suggested_actions.map((s: string, j: number) => (
-                                            <li key={j}>→ {s}</li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </div>
-                      )}
-
-                      {Array.isArray(d.ad_breakdown) && d.ad_breakdown.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                            Ads ({d.ad_breakdown.length})
-                          </h4>
-                          <div className="rounded-lg border border-border overflow-hidden">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Nome</TableHead>
-                                  <TableHead>Score criativo</TableHead>
-                                  <TableHead>Verdict</TableHead>
-                                  <TableHead>Razão / ações</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {d.ad_breakdown.map((a: any, i: number) => (
-                                  <TableRow key={i}>
-                                    <TableCell className="text-xs font-medium align-top max-w-[180px] truncate" title={a.name}>{a.name}</TableCell>
-                                    <TableCell className="text-xs align-top tabular-nums">
-                                      {a.creative_score != null ? Math.round(a.creative_score) : "—"}
-                                    </TableCell>
-                                    <TableCell className="align-top">
-                                      <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded", verdictColor(a.verdict))}>
-                                        {a.verdict}
-                                      </span>
-                                      <div className="mt-0.5">
-                                        <span className={cn("text-[10px] uppercase px-1.5 py-0.5 rounded", prioColor(a.priority))}>
-                                          {a.priority}
-                                        </span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-xs align-top">
-                                      <p className="text-foreground">{a.reason}</p>
-                                      {Array.isArray(a.suggested_actions) && a.suggested_actions.length > 0 && (
-                                        <ul className="mt-1 space-y-0.5 text-muted-foreground">
-                                          {a.suggested_actions.map((s: string, j: number) => (
-                                            <li key={j}>→ {s}</li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="historico" className="mt-4">
-                      {analyzeHistory.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Sem diagnósticos anteriores para esta campanha.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {analyzeHistory.map((h) => (
-                            <button
-                              key={h.id}
-                              type="button"
-                              onClick={() => loadHistoricalDiagnosis(h)}
-                              className="w-full text-left rounded-lg border border-border bg-card hover:bg-accent/40 p-3 transition"
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={cn(
-                                  "text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded",
-                                  h.severity === "critical" ? "bg-red-500/15 text-red-400" :
-                                  h.severity === "warning" ? "bg-amber-500/15 text-amber-400" :
-                                  "bg-emerald-500/15 text-emerald-400"
-                                )}>
-                                  {h.severity === "critical" ? "crítica" : h.severity === "warning" ? "atenção" : "saudável"}
-                                </span>
-                                <span className="text-xs font-bold tabular-nums">{Math.round(Number(h.overall_score) || 0)}</span>
-                                <span className="text-xs text-muted-foreground ml-auto">
-                                  {new Date(h.created_at).toLocaleString("pt-PT")}
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground line-clamp-2">{h.summary_text}</p>
-                              <p className="text-[10px] text-muted-foreground/70 mt-1">
-                                {h.period_from} → {h.period_to} · {h.ai_model}
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="mudancas" className="mt-4">
-                      {changesLoading ? (
-                        <div className="py-8 flex justify-center">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : changes.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Sem mudanças registadas para esta campanha (mostra as últimas 10).</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {changes.map((c) => {
-                            const impact = c.impact_metrics_jsonb?.delta;
-                            return (
-                              <div key={c.id} className="rounded-lg border border-border bg-card p-3 text-xs">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">
-                                    {c.change_type}
-                                  </span>
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                    {c.triggered_by}
-                                  </span>
-                                  {c.applied_action_index != null && (
-                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                      acção #{c.applied_action_index}
-                                    </span>
-                                  )}
-                                  <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">
-                                    {new Date(c.applied_at).toLocaleString("pt-PT")}
-                                  </span>
-                                </div>
-                                {c.reason_text && (
-                                  <p className="text-foreground mb-1">{c.reason_text}</p>
-                                )}
-                                <div className="text-[10px] text-muted-foreground/80 font-mono">
-                                  {c.before_jsonb?.status ?? "?"} → {c.after_jsonb?.status ?? "?"}
-                                  {c.before_jsonb?.daily_budget_cents !== c.after_jsonb?.daily_budget_cents && (
-                                    <> · budget {formatMoney(c.before_jsonb?.daily_budget_cents ?? 0, currency, { fromCents: true })} → {formatMoney(c.after_jsonb?.daily_budget_cents ?? 0, currency, { fromCents: true })}</>
-                                  )}
-                                </div>
-                                {impact ? (
-                                  <p className="text-emerald-400 mt-1">
-                                    Impacto D+7: ΔROAS {(impact.roas_abs ?? 0).toFixed(2)}x · ΔSpend {formatMoney(impact.spend_eur ?? 0, currency)} · ΔPurchases {impact.purchases_abs ?? 0}
-                                  </p>
-                                ) : c.measure_impact_requested ? (
-                                  <p className="text-muted-foreground/70 mt-1">A aguardar medição de impacto (D+7)…</p>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-
-                  <div className="pt-4 border-t border-border flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground flex-1">
-                      Gerado {new Date(analyzeData.generated_at).toLocaleString("pt-PT")}
-                      {analyzeData.counts && (
-                        <> · {analyzeData.counts.adsets ?? 0} adsets · {analyzeData.counts.ads ?? 0} ads · {analyzeData.counts.creatives_analyzed ?? 0}/{analyzeData.counts.creatives_total ?? 0} criativos analisados</>
-                      )}
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => printCampaignAnalysis(analyzeData)}
-                    >
-                      <FileDown className="h-4 w-4 mr-2" />
-                      PDF
-                    </Button>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-
-      <Sheet open={coachOpen} onOpenChange={setCoachOpen}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-purple-400" />
-              AI Audience Coach
-            </SheetTitle>
-            <SheetDescription>{coachData?.campaign?.name ?? "A processar..."}</SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-6 space-y-5">
-            {coachLoading && (
-              <div className="flex flex-col items-center gap-3 py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                <p className="text-sm text-muted-foreground">A analisar audiência...</p>
-                <p className="text-xs text-muted-foreground/70">Pode demorar 15-30s</p>
-              </div>
-            )}
-
-            {coachError && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                <p className="text-sm text-red-400">{coachError}</p>
-              </div>
-            )}
-
-            {coachData && coachData.coach && (
-              <>
-                <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground">Artista detetado:</span>
-                    <span className="text-sm font-semibold text-purple-300">{coachData.detected_artist || "—"}</span>
-                    <span className={cn(
-                      "ml-auto text-xs font-semibold uppercase px-2 py-0.5 rounded",
-                      coachData.coach.verdict === "excelente" ? "bg-emerald-500/15 text-emerald-400" :
-                      coachData.coach.verdict === "bom" ? "bg-green-500/15 text-green-400" :
-                      coachData.coach.verdict === "regular" ? "bg-amber-500/15 text-amber-400" :
-                      coachData.coach.verdict === "fraco" ? "bg-orange-500/15 text-orange-400" :
-                      "bg-red-500/15 text-red-400"
-                    )}>{coachData.coach.verdict}</span>
-                  </div>
-                  <p className="text-sm">{coachData.coach.summary}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">🔍 Diagnóstico do targeting atual</h4>
-                  <ul className="space-y-1.5">
-                    {coachData.coach.diagnostic?.map((d: string, i: number) => (
-                      <li key={i} className="text-sm flex gap-2"><span className="text-muted-foreground">•</span><span>{d}</span></li>
-                    ))}
-                  </ul>
-                </div>
-
-                {coachData.coach.missed_opportunities?.length > 0 && (
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">💡 Oportunidades perdidas</h4>
-                    <ul className="space-y-1.5">
-                      {coachData.coach.missed_opportunities.map((o: string, i: number) => (
-                        <li key={i} className="text-sm flex gap-2"><span className="text-amber-400">•</span><span>{o}</span></li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">🎯 Recomendações priorizadas</h4>
-                  <div className="space-y-2">
-                    {coachData.coach.recommendations?.map((r: any, i: number) => (
-                      <div key={i} className="rounded-lg border border-border bg-card p-3">
-                        <div className="flex items-start gap-2 mb-1.5">
-                          <span className={cn(
-                            "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
-                            r.priority === "high" ? "bg-red-500/15 text-red-400" :
-                            r.priority === "medium" ? "bg-amber-500/15 text-amber-400" :
-                            "bg-muted text-muted-foreground"
-                          )}>{r.priority}</span>
-                          <p className="text-sm font-medium flex-1">{r.action}</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-1.5">{r.rationale}</p>
-                        {r.how && (
-                          <details className="text-xs">
-                            <summary className="cursor-pointer text-cyan-400 hover:text-cyan-300">Como implementar →</summary>
-                            <p className="mt-1.5 text-foreground/80 pl-3 border-l-2 border-cyan-500/30">{r.how}</p>
-                          </details>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {coachData.coach.suggested_audiences?.length > 0 && (
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">✨ Audiências sugeridas para testar</h4>
-                    <div className="grid grid-cols-1 gap-2">
-                      {coachData.coach.suggested_audiences.map((a: any, i: number) => (
-                        <div key={i} className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-sm font-semibold">{a.name}</span>
-                            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300">{a.type}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-1">{a.spec}</p>
-                          <p className="text-xs text-cyan-400">{a.estimated_size}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-3 border-t border-border text-xs text-muted-foreground">
-                  Análise baseada em: {coachData.context_used.current_adsets} adsets · {coachData.context_used.top_performers_count} top performers · {coachData.context_used.interests_found} interesses · {coachData.context_used.custom_audiences_count} custom audiences. Gerada {new Date(coachData.generated_at).toLocaleString("pt-PT")}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => printAudienceCoach(coachData)}
-                  className="w-full"
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Exportar análise como PDF
-                </Button>
-              </>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Dialog: constraints pré-redesign */}
-      <Dialog open={redesignDialogOpen} onOpenChange={setRedesignDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Re-desenhar campanha</DialogTitle>
-            <DialogDescription>
-              Define as constraints. A IA vai respeitá-las exactamente em vez de inventar valores.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-center justify-between rounded border border-border p-3">
-              <div>
-                <Label htmlFor="rd-keep" className="text-sm font-medium">Manter verba actual</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Usa a verba diária/lifetime já configurada na campanha original.
-                </p>
-              </div>
-              <Switch id="rd-keep" checked={rdKeepBudget} onCheckedChange={setRdKeepBudget} />
-            </div>
-            {!rdKeepBudget && (
-              <div className="space-y-1.5">
-                <Label htmlFor="rd-daily" className="text-xs">Verba diária ({currency})</Label>
-                <Input
-                  id="rd-daily"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="50.00"
-                  value={rdDailyEur}
-                  onChange={(e) => setRdDailyEur(e.target.value)}
-                />
-              </div>
-            )}
-            {(() => {
-              const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
-              if (camp?.bid_strategy !== "LOWEST_COST_WITH_MIN_ROAS") return null;
-              return (
-                <div className="space-y-1.5">
-                  <Label htmlFor="rd-roas" className="text-xs">ROAS goal (ex: 4.5 = 450%)</Label>
-                  <Input
-                    id="rd-roas"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    placeholder="4.5"
-                    value={rdRoasGoal}
-                    onChange={(e) => setRdRoasGoal(e.target.value)}
-                  />
-                </div>
-              );
-            })()}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data de fim (opcional)</Label>
-              <DatePicker value={rdEndTime} onChange={setRdEndTime} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRedesignDialogOpen(false)} disabled={redesignLoading}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={submitRedesign}
-              disabled={redesignLoading}
-              className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-              variant="outline"
-            >
-              {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
-              Re-desenhar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Aplicar acção #{(applyAction?.idx ?? 0) + 1}</DialogTitle>
-            <DialogDescription className="space-y-1">
-              <span className="block">{applyAction?.action?.action}</span>
-              <span className="block text-[10px] text-muted-foreground/80">
-                Target: {applyAction?.action?.target_type} · {applyAction?.action?.target_external_id}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-xs uppercase text-muted-foreground">Tipo de mudança</Label>
-              <div className="mt-2 flex gap-2">
-                <Button
-                  variant={applyActionType === "pause" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setApplyActionType("pause")}
-                  disabled={applyLoading}
-                >
-                  Pausar
-                </Button>
-                <Button
-                  variant={applyActionType === "activate" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setApplyActionType("activate")}
-                  disabled={applyLoading}
-                >
-                  Reactivar
-                </Button>
-              </div>
-              {!applyAutoDetected && (
-                <p className="text-[10px] text-amber-400 mt-1">
-                  Não foi possível identificar o tipo de acção automaticamente — escolhe acima.
-                </p>
-              )}
-              <p className="text-[10px] text-muted-foreground/80 mt-1">
-                Mudanças mais complexas (verba, end_time, targeting) ainda passam pela tabela de campanhas / re-design.
-              </p>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="apply-measure" className="text-sm">Medir impacto em D+7</Label>
-              <Switch
-                id="apply-measure"
-                checked={applyMeasureImpact}
-                onCheckedChange={setApplyMeasureImpact}
-                disabled={applyLoading}
-              />
-            </div>
-            <div>
-              <Label htmlFor="apply-reason" className="text-xs uppercase text-muted-foreground">Razão (opcional)</Label>
-              <Input
-                id="apply-reason"
-                value={applyReason}
-                onChange={(e) => setApplyReason(e.target.value)}
-                placeholder="ex: ROAS abaixo do floor por 3 dias consecutivos"
-                disabled={applyLoading}
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setApplyDialogOpen(false)} disabled={applyLoading}>
-              Cancelar
-            </Button>
-            <Button size="sm" onClick={submitApplyAction} disabled={applyLoading}>
-              {applyLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Confirmar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ReactivateCampaignDialog
         open={reactivateDialogOpen}
@@ -1834,6 +930,7 @@ export default function CrmCampaigns() {
         }
       />
     </div>
+    </DashboardTableContext.Provider>
     </BudgetModeContext.Provider>
   );
 }

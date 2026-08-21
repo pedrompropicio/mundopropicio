@@ -5,7 +5,22 @@ import { format, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { lisbonToday } from "@/lib/date-lisbon";
 import type { BudgetMode } from "@/components/crm/dashboard/budget-mode-context";
-import type { CampaignRow, EventRow, InsightRow } from "@/components/crm/dashboard/types";
+import type {
+  AdSnapshotRow,
+  AdsetSnapshotRow,
+  CampaignRow,
+  EventRow,
+  InsightRow,
+} from "@/components/crm/dashboard/types";
+
+// Colunas de métricas partilhadas pelos 3 níveis (Fase 1).
+const METRIC_COLS =
+  "date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, " +
+  "frequency, currency, last_synced_at, reach, unique_clicks, unique_ctr, cpm_cents, cpp_cents, " +
+  "view_content_count, add_to_cart_count, initiate_checkout_count";
+const INSIGHT_COLS_CAMPAIGN = `external_campaign_id, ${METRIC_COLS}`;
+const INSIGHT_COLS_ADSET = `external_campaign_id, external_adset_id, adset_name, ${METRIC_COLS}`;
+const INSIGHT_COLS_AD = `external_adset_id, external_ad_id, ad_name, ${METRIC_COLS}`;
 
 export interface AdsetBudgetRow {
   external_campaign_id: string;
@@ -100,7 +115,7 @@ export function useInsightsQuery(opts: {
         .schema("crm")
         .from("meta_campaign_insights_daily")
         .select(
-          "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, frequency, currency, last_synced_at",
+          INSIGHT_COLS_CAMPAIGN,
         )
         .eq("ad_account_id", adAccountId)
         .gte("date_start", format(sixtyAgo, "yyyy-MM-dd"));
@@ -152,6 +167,91 @@ export function useDashboardEventsQuery(opts: {
       const m = new Map<string, EventRow>();
       for (const e of [...linkedRows, ...familyRows]) m.set(e.id, e);
       return [...m.values()];
+    },
+  });
+}
+
+// ============================================================
+// Drill-down (Fase 1) — carregamento PREGUIÇOSO.
+// Só corre quando a campanha/conjunto é expandido (enabled).
+// meta_ad_insights_daily tem milhares de linhas: nunca pré-carregar.
+// ============================================================
+export function useAdsetsQuery(opts: {
+  companyId: string | null | undefined;
+  adAccountId: string | null | undefined;
+  externalCampaignId: string;
+  from: string;
+  to: string;
+  enabled: boolean;
+}) {
+  const { companyId, adAccountId, externalCampaignId, from, to, enabled } = opts;
+  return useQuery({
+    queryKey: ["crm-meta-adsets", companyId, adAccountId, externalCampaignId, from, to],
+    enabled: enabled && !!companyId && !!adAccountId && !!externalCampaignId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const client = (supabase as any).schema("crm");
+      const [ins, snap] = await Promise.all([
+        client
+          .from("meta_adset_insights_daily")
+          .select(INSIGHT_COLS_ADSET)
+          .eq("ad_account_id", adAccountId)
+          .eq("external_campaign_id", externalCampaignId)
+          .gte("date_start", from)
+          .lte("date_start", to),
+        client
+          .from("meta_adset_snapshot")
+          .select(
+            "external_adset_id, external_campaign_id, name, status, effective_status, daily_budget_cents, lifetime_budget_cents, optimization_goal, learning_stage_info, attribution_spec",
+          )
+          .eq("ad_account_id", adAccountId)
+          .eq("external_campaign_id", externalCampaignId),
+      ]);
+      if (ins.error) throw ins.error;
+      if (snap.error) throw snap.error;
+      return {
+        insights: (ins.data ?? []) as InsightRow[],
+        snapshots: (snap.data ?? []) as AdsetSnapshotRow[],
+      };
+    },
+  });
+}
+
+export function useAdsQuery(opts: {
+  companyId: string | null | undefined;
+  adAccountId: string | null | undefined;
+  externalAdsetId: string;
+  from: string;
+  to: string;
+  enabled: boolean;
+}) {
+  const { companyId, adAccountId, externalAdsetId, from, to, enabled } = opts;
+  return useQuery({
+    queryKey: ["crm-meta-ads", companyId, adAccountId, externalAdsetId, from, to],
+    enabled: enabled && !!companyId && !!adAccountId && !!externalAdsetId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const client = (supabase as any).schema("crm");
+      const [ins, snap] = await Promise.all([
+        client
+          .from("meta_ad_insights_daily")
+          .select(INSIGHT_COLS_AD)
+          .eq("ad_account_id", adAccountId)
+          .eq("external_adset_id", externalAdsetId)
+          .gte("date_start", from)
+          .lte("date_start", to),
+        client
+          .from("meta_ad_snapshot")
+          .select("external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id")
+          .eq("ad_account_id", adAccountId)
+          .eq("external_adset_id", externalAdsetId),
+      ]);
+      if (ins.error) throw ins.error;
+      if (snap.error) throw snap.error;
+      return {
+        insights: (ins.data ?? []) as InsightRow[],
+        snapshots: (snap.data ?? []) as AdSnapshotRow[],
+      };
     },
   });
 }

@@ -12,9 +12,18 @@ export interface Aggregate {
   impressions: number;
   clicks: number;
   roas: number | null;
+  // Fase 1
+  reachSum: number;          // soma NÃO deduplicada (ver tooltip na UI)
+  uniqueClicks: number;
+  viewContent: number;
+  addToCart: number;
+  initiateCheckout: number;
 }
 export function emptyAgg(): Aggregate {
-  return { spendCents: 0, revenueCents: 0, conversions: 0, impressions: 0, clicks: 0, roas: null };
+  return {
+    spendCents: 0, revenueCents: 0, conversions: 0, impressions: 0, clicks: 0, roas: null,
+    reachSum: 0, uniqueClicks: 0, viewContent: 0, addToCart: 0, initiateCheckout: 0,
+  };
 }
 export function aggregate(rows: InsightRow[]): Aggregate {
   const a = emptyAgg();
@@ -24,6 +33,11 @@ export function aggregate(rows: InsightRow[]): Aggregate {
     a.conversions += r.purchases_count ?? 0;
     a.impressions += r.impressions ?? 0;
     a.clicks += r.clicks ?? 0;
+    a.reachSum += r.reach ?? 0;
+    a.uniqueClicks += r.unique_clicks ?? 0;
+    a.viewContent += r.view_content_count ?? 0;
+    a.addToCart += r.add_to_cart_count ?? 0;
+    a.initiateCheckout += r.initiate_checkout_count ?? 0;
   }
   a.roas = a.spendCents > 0 ? a.revenueCents / a.spendCents : null;
   return a;
@@ -74,4 +88,29 @@ export function computeSpendPerDay(agg: Aggregate, days: number): number {
 export function computeVelRatio(agg: Aggregate, aggPrev: Aggregate, days: number): number | null {
   const prevSpendPerDay = aggPrev.spendCents / days;
   return prevSpendPerDay > 0 ? agg.spendCents / days / prevSpendPerDay : null;
+}
+
+/** CPM do período (cêntimos por mil impressões). */
+export function computeCpm(agg: Aggregate): number | null {
+  return agg.impressions > 0 ? Math.round((agg.spendCents / agg.impressions) * 1000) : null;
+}
+
+/** CPP do período (cêntimos por mil pessoas alcançadas — reach é soma não deduplicada). */
+export function computeCpp(agg: Aggregate): number | null {
+  return agg.reachSum > 0 ? Math.round((agg.spendCents / agg.reachSum) * 1000) : null;
+}
+
+/** CTR único (cliques únicos / impressões). */
+export function computeUniqueCtr(agg: Aggregate): number | null {
+  return agg.impressions > 0 ? agg.uniqueClicks / agg.impressions : null;
+}
+
+/** CPA — investimento por compra (cêntimos). */
+export function computeCpa(agg: Aggregate): number | null {
+  return agg.conversions > 0 ? Math.round(agg.spendCents / agg.conversions) : null;
+}
+
+/** Ticket médio — receita por compra (cêntimos). */
+export function computeTicket(agg: Aggregate): number | null {
+  return agg.conversions > 0 ? Math.round(agg.revenueCents / agg.conversions) : null;
 }
