@@ -20,6 +20,12 @@ export interface Aggregate {
   viewContent: number;
   addToCart: number;
   initiateCheckout: number;
+  // Fase 4 — vídeo (has* false ⇒ mostrar "—").
+  videoPlays: number;
+  video3sViews: number;
+  videoThruplays: number;
+  videoP75: number;
+  hasVideo: boolean;
   // Fase 3B — presença real do dado (false ⇒ mostrar "—", nunca 0).
   hasReach: boolean;
   hasUniqueClicks: boolean;
@@ -31,10 +37,12 @@ export function emptyAgg(): Aggregate {
   return {
     spendCents: 0, revenueCents: 0, conversions: 0, impressions: 0, clicks: 0, roas: null,
     reachSum: 0, uniqueClicks: 0, viewContent: 0, addToCart: 0, initiateCheckout: 0,
+    videoPlays: 0, video3sViews: 0, videoThruplays: 0, videoP75: 0, hasVideo: false,
     hasReach: false, hasUniqueClicks: false, hasViewContent: false,
     hasAddToCart: false, hasInitiateCheckout: false,
   };
 }
+
 export function aggregate(rows: InsightRow[]): Aggregate {
   const a = emptyAgg();
   for (const r of rows) {
@@ -53,6 +61,15 @@ export function aggregate(rows: InsightRow[]): Aggregate {
     if (r.view_content_count != null) a.hasViewContent = true;
     if (r.add_to_cart_count != null) a.hasAddToCart = true;
     if (r.initiate_checkout_count != null) a.hasInitiateCheckout = true;
+    a.videoPlays += r.video_plays ?? 0;
+    a.video3sViews += r.video_3s_views ?? 0;
+    a.videoThruplays += r.video_thruplays ?? 0;
+    a.videoP75 += r.video_p75_watched ?? 0;
+    if (
+      r.video_plays != null || r.video_3s_views != null ||
+      r.video_thruplays != null || r.video_p75_watched != null
+    ) a.hasVideo = true;
+
   }
   a.roas = a.spendCents > 0 ? a.revenueCents / a.spendCents : null;
   return a;
@@ -134,4 +151,26 @@ export function computeCpa(agg: Aggregate): number | null {
 /** Ticket médio — receita por compra (cêntimos). */
 export function computeTicket(agg: Aggregate): number | null {
   return agg.conversions > 0 ? Math.round(agg.revenueCents / agg.conversions) : null;
+}
+
+// ============================================================
+// Fase 4 — rácios de vídeo (calculados, nunca guardados na BD)
+// ============================================================
+
+/** Hook rate — visualizações de 3s ÷ impressões. Null quando não há vídeo. */
+export function computeHookRate(agg: Aggregate): number | null {
+  if (!agg.hasVideo || agg.impressions <= 0 || agg.video3sViews <= 0) return null;
+  return agg.video3sViews / agg.impressions;
+}
+
+/** Thumbstop — ThruPlays ÷ impressões. Null quando não há vídeo. */
+export function computeThumbstop(agg: Aggregate): number | null {
+  if (!agg.hasVideo || agg.impressions <= 0 || agg.videoThruplays <= 0) return null;
+  return agg.videoThruplays / agg.impressions;
+}
+
+/** Retenção a 75% — video_p75_watched ÷ video_plays. Null quando não há vídeo. */
+export function computeRetention75(agg: Aggregate): number | null {
+  if (!agg.hasVideo || agg.videoPlays <= 0 || agg.videoP75 <= 0) return null;
+  return agg.videoP75 / agg.videoPlays;
 }

@@ -52,6 +52,12 @@ export interface InsightRow {
   view_content_count?: number | null;
   add_to_cart_count?: number | null;
   initiate_checkout_count?: number | null;
+  // Fase 4 — métricas de vídeo (null ⇒ métrica não se aplica, nunca zero).
+  video_plays?: number | null;
+  video_3s_views?: number | null;
+  video_thruplays?: number | null;
+  video_p75_watched?: number | null;
+
   // Presentes nos níveis inferiores (adset/ad)
   external_adset_id?: string | null;
   external_ad_id?: string | null;

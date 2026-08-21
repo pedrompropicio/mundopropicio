@@ -6,10 +6,14 @@ import {
   computeCpp,
   computeCtrAvg,
   computeFreqAvg,
+  computeHookRate,
+  computeRetention75,
+  computeThumbstop,
   computeTicket,
   computeUniqueCtr,
   type Aggregate,
 } from "@/lib/crm/aggregate";
+
 import { formatCompact, formatCurrency } from "@/lib/crm/dashboard-format";
 import type { MetricColumnDef } from "@/lib/crm/columns";
 import type { InsightRow } from "@/components/crm/dashboard/types";
@@ -44,6 +48,10 @@ export function MetricCells({
   const ticket = computeTicket(agg);
   const uCtr = computeUniqueCtr(agg);
   const freq = computeFreqAvg(rows);
+  const hook = computeHookRate(agg);
+  const thumb = computeThumbstop(agg);
+  const ret75 = computeRetention75(agg);
+
 
   const base = `py-2.5 px-3 text-sm font-mono tabular-nums${muted ? " text-muted-foreground" : ""}`;
 
@@ -101,6 +109,13 @@ export function MetricCells({
         return (
           <>{agg.hasInitiateCheckout && agg.initiateCheckout > 0 ? formatCompact(agg.initiateCheckout) : "—"}</>
         );
+      case "hookRate":
+        return <>{pct(hook)}</>;
+      case "thumbstop":
+        return <>{pct(thumb)}</>;
+      case "retention75":
+        return <>{pct(ret75)}</>;
+
       default:
         return <>—</>;
     }

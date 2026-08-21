@@ -82,8 +82,38 @@ async function fetchAllInsightsPages(initialUrl: URL): Promise<any[]> {
 
 type Level = "campaign" | "adset" | "ad";
 
+const VIDEO_FIELDS =
+  "video_play_actions,video_thruplay_watched_actions,video_p25_watched_actions," +
+  "video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions," +
+  "video_avg_time_watched_actions,actions";
+
 const COMMON_FIELDS =
-  "impressions,reach,frequency,clicks,unique_clicks,spend,cpc,cpm,cpp,ctr,unique_ctr,actions,action_values,account_currency";
+  "impressions,reach,frequency,clicks,unique_clicks,spend,cpc,cpm,cpp,ctr,unique_ctr,actions,action_values,account_currency," +
+  VIDEO_FIELDS;
+
+/**
+ * Campos de vídeo do Graph vêm como [{action_type, value}].
+ * Ausência de dados ⇒ null (nunca 0): um anúncio de imagem não tem hook rate.
+ */
+function videoNum(arr: ActionItem[] | undefined, actionType = "video_view"): number | null {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  const hit = arr.find((a) => a.action_type === actionType) ?? arr[0];
+  if (!hit) return null;
+  const n = parseFloat(hit.value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Visualizações de 3 segundos vêm em `actions` como video_view / omni_video_view. */
+function video3sViews(actions: ActionItem[] | undefined): number | null {
+  if (!Array.isArray(actions)) return null;
+  const hit = actions.find(
+    (a) => a.action_type === "video_view" || a.action_type === "omni_video_view",
+  );
+  if (!hit) return null;
+  const n = parseInt(hit.value, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 
 function fieldsForLevel(level: Level): string {
   switch (level) {
@@ -144,6 +174,15 @@ function rowFromItem(it: any, level: Level, ctx: { companyId: string; connection
     initiate_checkout_count: sumActions(it.actions, IC_TYPES),
     view_content_count: sumActions(it.actions, VC_TYPES),
     roas,
+    video_plays: videoNum(it.video_play_actions),
+    video_3s_views: video3sViews(it.actions),
+    video_thruplays: videoNum(it.video_thruplay_watched_actions),
+    video_p25_watched: videoNum(it.video_p25_watched_actions),
+    video_p50_watched: videoNum(it.video_p50_watched_actions),
+    video_p75_watched: videoNum(it.video_p75_watched_actions),
+    video_p100_watched: videoNum(it.video_p100_watched_actions),
+    video_avg_time_watched_sec: videoNum(it.video_avg_time_watched_actions),
+
     currency: it.account_currency || "EUR",
     raw: it,
     last_synced_at: new Date().toISOString(),

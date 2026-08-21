@@ -17,7 +17,8 @@ import type {
 const METRIC_COLS =
   "date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, " +
   "frequency, currency, last_synced_at, reach, unique_clicks, unique_ctr, cpm_cents, cpp_cents, " +
-  "view_content_count, add_to_cart_count, initiate_checkout_count";
+  "view_content_count, add_to_cart_count, initiate_checkout_count, " +
+  "video_plays, video_3s_views, video_thruplays, video_p75_watched";
 const INSIGHT_COLS_CAMPAIGN = `external_campaign_id, ${METRIC_COLS}`;
 const INSIGHT_COLS_ADSET = `external_campaign_id, external_adset_id, adset_name, ${METRIC_COLS}`;
 const INSIGHT_COLS_AD = `external_adset_id, external_ad_id, ad_name, ${METRIC_COLS}`;
