@@ -10,7 +10,8 @@ import type { InsightRow } from "@/components/crm/dashboard/types";
 interface Step {
   key: string;
   label: string;
-  value: number;
+  /** null = a plataforma não fornece a métrica (Google) — mostra "—", nunca 0. */
+  value: number | null;
 }
 
 /**
@@ -27,9 +28,13 @@ export function ConversionFunnelPanel({ insights }: { insights: InsightRow[] }) 
     return [
       { key: "impressions", label: "Impressões", value: a.impressions },
       { key: "clicks", label: "Cliques", value: a.clicks },
-      { key: "view_content", label: "ViewContent", value: a.viewContent },
-      { key: "add_to_cart", label: "AddToCart", value: a.addToCart },
-      { key: "initiate_checkout", label: "InitiateCheckout", value: a.initiateCheckout },
+      { key: "view_content", label: "ViewContent", value: a.hasViewContent ? a.viewContent : null },
+      { key: "add_to_cart", label: "AddToCart", value: a.hasAddToCart ? a.addToCart : null },
+      {
+        key: "initiate_checkout",
+        label: "InitiateCheckout",
+        value: a.hasInitiateCheckout ? a.initiateCheckout : null,
+      },
       { key: "purchases", label: "Compras", value: a.conversions },
     ];
   }, [insights]);
@@ -45,7 +50,10 @@ export function ConversionFunnelPanel({ insights }: { insights: InsightRow[] }) 
         <div className="flex flex-wrap items-stretch gap-1.5">
           {steps.map((s, i) => {
             const prev = i > 0 ? steps[i - 1] : null;
-            const rate = prev && prev.value > 0 ? s.value / prev.value : null;
+            const rate =
+              prev && prev.value != null && prev.value > 0 && s.value != null
+                ? s.value / prev.value
+                : null;
             const impossible =
               rate != null &&
               (rate > 1 || (prev?.key === "initiate_checkout" && s.key === "purchases" && rate > 0.8));
@@ -95,7 +103,7 @@ export function ConversionFunnelPanel({ insights }: { insights: InsightRow[] }) 
                       impossible && "text-red-500",
                     )}
                   >
-                    {s.value > 0 ? formatCompact(s.value) : "—"}
+                    {s.value != null && s.value > 0 ? formatCompact(s.value) : "—"}
                   </div>
                 </div>
               </div>
