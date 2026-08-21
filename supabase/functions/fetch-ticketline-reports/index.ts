@@ -1068,6 +1068,95 @@ function buildQueryFromForm(form: any, startDD: string, endDD: string) {
   return { query: params.toString(), granularityOptions, granularityUsed: gran };
 }
 
+/** Limpa texto de célula HTML (tags, entidades, espaços). */
+function cleanCellText(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+/**
+ * Extrai estrutura das tabelas do relatório HTML: headers (<th>), primeiras
+ * linhas de células e marcadores de secção (h2/h3/caption) antes de cada tabela.
+ */
+function extractHtmlTables(html: string, maxTables = 8, maxRows = 6, maxCols = 20) {
+  const tables: any[] = [];
+  const re = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = re.exec(html)) && tables.length < maxTables) {
+    idx++;
+    const inner = m[1];
+    const before = html.slice(Math.max(0, m.index - 1500), m.index);
+    const markers = Array.from(before.matchAll(/<(h1|h2|h3|h4|legend|caption)\b[^>]*>([\s\S]*?)<\/\1>/gi))
+      .map((x) => cleanCellText(x[2]))
+      .filter(Boolean)
+      .slice(-3);
+    const caption = Array.from(inner.matchAll(/<caption\b[^>]*>([\s\S]*?)<\/caption>/gi)).map((x) => cleanCellText(x[1]));
+
+    const trs = Array.from(inner.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((x) => x[1]);
+    const headerRows: string[][] = [];
+    const bodyRows: string[][] = [];
+    for (const tr of trs) {
+      const cells = Array.from(tr.matchAll(/<(th|td)\b([^>]*)>([\s\S]*?)<\/\1>/gi));
+      if (cells.length === 0) continue;
+      const isHeader = cells.every((c) => c[1].toLowerCase() === "th");
+      const vals = cells.slice(0, maxCols).map((c) => {
+        const attrs = c[2] || "";
+        const span = attrs.match(/colspan\s*=\s*["']?(\d+)/i);
+        const txt = cleanCellText(c[3]);
+        return span && Number(span[1]) > 1 ? `${txt}[colspan=${span[1]}]` : txt;
+      });
+      if (isHeader && bodyRows.length === 0) headerRows.push(vals);
+      else if (bodyRows.length < maxRows) bodyRows.push(vals);
+    }
+    const allText = headerRows.concat(bodyRows).flat().join(" ").toUpperCase();
+    tables.push({
+      index: idx,
+      sectionMarkers: markers,
+      caption,
+      totalRows: trs.length,
+      headerRows,
+      firstRows: bodyRows,
+      looksZoneReport: /ZONA|SETOR/.test(allText),
+      looksDaily: /\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2}/.test(headerRows.concat(bodyRows).flat().join(" ")),
+    });
+  }
+  return { tablesFound: idx, tables };
+}
+
+/** Resumo de uma tentativa binária (PDF/CSV) — magic bytes + primeiros bytes. */
+function summarizeBinaryAttempt(label: string, url: string, r: any) {
+  const bytes: Uint8Array | undefined = r.bytes;
+  const head = bytes ? Array.from(bytes.slice(0, 8)).map((b) => b.toString(16).padStart(2, "0")).join(" ") : null;
+  const asText = bytes ? new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, 300)) : "";
+  return {
+    label,
+    url,
+    finalUrl: r.url,
+    status: r.status,
+    contentType: r.contentType,
+    size: r.size ?? null,
+    looksPdf: !!bytes && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46,
+    looksHtml: /<!doctype html|<html/i.test(asText),
+    looksCsv: !/^</.test(asText.trim()) && /[;,]/.test(asText.split("\n")[0] ?? ""),
+    novaArea: looksLikeNovaArea(r.snippet ?? asText),
+    firstBytesHex: head,
+    firstChars: asText.slice(0, 200),
+    chain: (r.chain || []).map((c: any) => `${c.status} ${c.url}${c.location ? ` -> ${c.location}` : ""}`),
+    error: r.error ?? null,
+  };
+}
+
 async function runProbeParams(admin: any, configId?: string) {
   if (!configId) return json(400, { error: "probe_params requer configId" });
 
