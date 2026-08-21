@@ -163,6 +163,7 @@ function buildGaql(since: string, until: string): string {
 interface GAdsCampaignRow {
   campaign?: Record<string, unknown>;
   campaignBudget?: Record<string, unknown>;
+  customer?: Record<string, unknown>;
   metrics?: Record<string, unknown>;
   segments?: Record<string, unknown>;
 }
@@ -172,6 +173,7 @@ async function searchStreamCampaigns(
   developerToken: string,
   loginCustomerId: string,
   customerId: string,
+  query: string,
 ): Promise<GAdsCampaignRow[]> {
   const url = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerId}/googleAds:searchStream`;
   const resp = await fetch(url, {
@@ -182,8 +184,9 @@ async function searchStreamCampaigns(
       "login-customer-id": loginCustomerId,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query: GAQL_CAMPAIGNS }),
+    body: JSON.stringify({ query }),
   });
+
   const text = await resp.text();
   if (!resp.ok) {
     // Loga corpo COMPLETO no edge function log para diagnóstico
