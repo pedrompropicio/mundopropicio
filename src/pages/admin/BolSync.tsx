@@ -312,8 +312,19 @@ export default function BolSync() {
           <DialogHeader><DialogTitle>Credenciais BOL ({SHARED_SECRET})</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Email / utilizador do backoffice</Label>
-              <Input value={credsForm.email} onChange={(e) => setCredsForm((s) => ({ ...s, email: e.target.value }))} placeholder="produtor@empresa.pt" />
+              <div className="flex items-center gap-2">
+                <Label>Utilizador BOL</Label>
+                <HelpTooltip text="É o nome de utilizador do login em produtores.bol.pt (máx. 20 caracteres), não o email." />
+              </div>
+              <Input
+                value={credsForm.email}
+                onChange={(e) => setCredsForm((s) => ({ ...s, email: e.target.value }))}
+                placeholder="nome de utilizador"
+                maxLength={20}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Máx. 20 caracteres — o campo "Utilizador" da BOL não aceita email.
+              </p>
             </div>
             <div>
               <Label>Password</Label>
