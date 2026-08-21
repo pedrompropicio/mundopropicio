@@ -219,7 +219,7 @@ export function TourFamilyCard({
                   <table className="w-full">
                     <CampaignTableHeader />
                     <tbody>
-                      {masterCampaigns.map((c) => (
+                      {sortCampaigns(masterCampaigns, insightsByCampaign, sort).map((c) => (
                         <CampaignTableRow
                           key={c.id}
                           c={c}

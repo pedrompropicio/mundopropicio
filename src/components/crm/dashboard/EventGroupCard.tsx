@@ -172,7 +172,7 @@ export function EventGroupCard({
             <table className="w-full">
               <CampaignTableHeader />
               <tbody>
-                {campaigns.map((c) => (
+                {sortedCampaigns.map((c) => (
                   <CampaignTableRow
                     key={c.id}
                     c={c}
