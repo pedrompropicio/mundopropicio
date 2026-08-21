@@ -25,6 +25,7 @@ import {
   Target,
   Handshake,
   AlertTriangle,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
