@@ -370,29 +370,52 @@ export default function CrmCampaigns() {
   // ---------- KPIs ----------
   const aggCurrent = useMemo(() => aggregate(periodInsights), [periodInsights]);
   const aggPrev = useMemo(() => aggregate(previousInsights), [previousInsights]);
+  const comparable = prevWindow.complete;
   const kpis = useMemo(() => {
+    const cpmCur = computeCpm(aggCurrent);
+    const cpmPrev = computeCpm(aggPrev);
+    const cpaCur = computeCpa(aggCurrent);
+    const cpaPrev = computeCpa(aggPrev);
+    const tkCur = computeTicket(aggCurrent);
+    const tkPrev = computeTicket(aggPrev);
     return {
       roas: {
         value: aggCurrent.roas,
-        delta:
-          aggCurrent.roas !== null && aggPrev.roas !== null && aggPrev.roas > 0
-            ? (aggCurrent.roas - aggPrev.roas) / aggPrev.roas
-            : null,
+        delta: safeDelta(aggCurrent.roas, aggPrev.roas, comparable),
       },
       spend: {
         value: aggCurrent.spendCents,
-        delta: deltaPct(aggCurrent.spendCents, aggPrev.spendCents),
+        delta: safeDelta(aggCurrent.spendCents, aggPrev.spendCents, comparable),
       },
       revenue: {
         value: aggCurrent.revenueCents,
-        delta: deltaPct(aggCurrent.revenueCents, aggPrev.revenueCents),
+        delta: safeDelta(aggCurrent.revenueCents, aggPrev.revenueCents, comparable),
       },
       conv: {
         value: aggCurrent.conversions,
-        delta: deltaPct(aggCurrent.conversions, aggPrev.conversions),
+        delta: safeDelta(aggCurrent.conversions, aggPrev.conversions, comparable),
+      },
+      ticket: { value: tkCur, delta: safeDelta(tkCur, tkPrev, comparable) },
+      cpm: { value: cpmCur, delta: safeDelta(cpmCur, cpmPrev, comparable) },
+      cpa: { value: cpaCur, delta: safeDelta(cpaCur, cpaPrev, comparable) },
+      ctr: { value: computeCtrAvg(aggCurrent) },
+      impressions: {
+        value: aggCurrent.impressions,
+        delta: safeDelta(aggCurrent.impressions, aggPrev.impressions, comparable),
+      },
+      reach: {
+        value: aggCurrent.reachSum,
+        delta: safeDelta(aggCurrent.reachSum, aggPrev.reachSum, comparable),
       },
     };
-  }, [aggCurrent, aggPrev]);
+  }, [aggCurrent, aggPrev, comparable]);
+
+  // Série diária do período (dias sem dados ficam como lacuna, não zero).
+  const dailySeries = useMemo(
+    () => buildDailySeries(periodInsights, period.from, period.to),
+    [periodInsights, period],
+  );
+
 
   // ---------- Group active campaigns by event ----------
   const eventsById = useMemo(() => {
