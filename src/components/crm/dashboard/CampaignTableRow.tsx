@@ -62,30 +62,11 @@ export function CampaignTableRow({
   const budgetModeByCampaign = useContext(BudgetModeContext);
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
-  const cpcAvg = agg.clicks > 0 ? Math.round(agg.spendCents / agg.clicks) : null;
-  const ctrAvg = agg.impressions > 0 ? agg.clicks / agg.impressions : null;
+  const cpcAvg = computeCpcAvg(agg);
+  const ctrAvg = computeCtrAvg(agg);
 
   // Weighted-average frequency (weighted by impressions); fall back to simple mean.
-  const freqAvg = useMemo(() => {
-    let wf = 0;
-    let wi = 0;
-    let simpleSum = 0;
-    let simpleN = 0;
-    for (const r of insights) {
-      const f = r.frequency;
-      if (f == null || !Number.isFinite(f)) continue;
-      simpleSum += f;
-      simpleN += 1;
-      const imp = r.impressions ?? 0;
-      if (imp > 0) {
-        wf += f * imp;
-        wi += imp;
-      }
-    }
-    if (wi > 0) return wf / wi;
-    if (simpleN > 0) return simpleSum / simpleN;
-    return null;
-  }, [insights]);
+  const freqAvg = useMemo(() => computeFreqAvg(insights), [insights]);
 
   const score = useMemo(
     () =>
@@ -100,9 +81,8 @@ export function CampaignTableRow({
     [agg, aggPrev, ctrAvg, cpcAvg, freqAvg],
   );
 
-  const spendPerDay = agg.spendCents / days;
-  const prevSpendPerDay = aggPrev.spendCents / days;
-  const velRatio = prevSpendPerDay > 0 ? spendPerDay / prevSpendPerDay : null;
+  const spendPerDay = computeSpendPerDay(agg, days);
+  const velRatio = computeVelRatio(agg, aggPrev, days);
   const velIcon =
     velRatio == null ? (
       <Minus className="h-3 w-3 text-muted-foreground" />
