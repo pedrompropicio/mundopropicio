@@ -265,13 +265,22 @@ async function loginBol(email: string, password: string, returnUrl = "/Relatorio
     return jar;
   }
 
-  // Sem redirect e sem cookie de auth → credenciais recusadas (ou validação)
-  const msg = stripTags(postBody).match(/(utilizador|password|inv[áa]lid|incorrect)[^.]{0,120}/i)?.[0]
-    || describeHtml(postBody).snippet.slice(0, 160);
+  // Sem redirect e sem cookie de auth → credenciais recusadas (ou validação).
+  // ATENÇÃO: NUNCA usar o texto dos spans de validação ("O nome de utilizador é
+  // obrigatório.") — esses spans existem sempre no HTML com display:none e
+  // enganam o diagnóstico. Só mensagens visíveis contam.
+  const visible = visibleErrorMessages(postBody);
+  const stillLogin = /\$UserName"/i.test(postBody);
+  const msg = visible.length
+    ? visible.join(" | ")
+    : stillLogin
+      ? "credenciais recusadas pela BOL (voltou à página de login, sem mensagem visível)"
+      : describeHtml(postBody).snippet.slice(0, 160);
   throw Object.assign(
     new Error(`Login BOL falhou (HTTP ${postResp.status}). ${msg}`),
     { phase: "login_post" },
   );
+
 }
 
 // --- Cache de sessão por vault_secret_name ---
