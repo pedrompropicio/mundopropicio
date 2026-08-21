@@ -19,7 +19,11 @@ export type MetricColumnId =
   | "uniqueCtr"
   | "viewContent"
   | "addToCart"
-  | "initiateCheckout";
+  | "initiateCheckout"
+  | "hookRate"
+  | "thumbstop"
+  | "retention75";
+
 
 export interface MetricColumnDef {
   id: MetricColumnId;
