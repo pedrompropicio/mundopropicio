@@ -106,7 +106,10 @@ export default function BolSync() {
       qc.invalidateQueries({ queryKey: ["bol-sync-runs"] });
       qc.invalidateQueries({ queryKey: ["bol-sync-config"] });
     },
-    onError: (e: any) => toast.error(e?.message || "Erro a invocar função"),
+    onError: async (e: any) => {
+      const msg = await extractFnError(e, "Erro a invocar função");
+      toast.error(msg);
+    },
   });
 
   const discoverMut = useMutation({
