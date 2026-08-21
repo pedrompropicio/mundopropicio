@@ -48,8 +48,18 @@ interface SeriesRow {
   value: number;
 }
 
+/**
+ * Data "hoje" em Portugal (Europe/Lisbon) — regra do projeto: janelas de vendas
+ * nunca dependem do fuso do browser nem do servidor.
+ */
+function lisbonToday(): Date {
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function resolveRange(preset: PeriodPreset, custom: { from?: Date; to?: Date }) {
-  const today = new Date();
+  const today = lisbonToday();
   if (preset === "yesterday") {
     const y = addDays(today, -1);
     return { start: toISO(y), end: toISO(y) };
