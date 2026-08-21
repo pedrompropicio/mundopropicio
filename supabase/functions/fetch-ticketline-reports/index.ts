@@ -681,6 +681,225 @@ async function runProbe(admin: any, configId?: string, compareConfigId?: string)
   return new Response(out.slice(0, 60000), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+// ============================================================================
+// PROBE_NOVA_AREA (v2.21) — mapeia a "nova área de Promotores".
+// Fase 1: apenas inventário. NÃO altera o fluxo de sync.
+// ============================================================================
+
+/** Carrega config + credenciais do Vault (helper partilhado pelas probes novas). */
+async function loadCfgAndCreds(admin: any, configId: string) {
+  const { data: cfgs, error } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
+  if (error) throw new Error(error.message);
+  const cfg = (cfgs || [])[0];
+  if (!cfg) throw new Error("config não encontrado");
+  const { data: secRpc } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
+  const raw = (typeof secRpc === "string" ? secRpc : "").trim();
+  if (!raw) throw new Error(`Credenciais em falta no Vault (${cfg.vault_secret_name})`);
+  const creds = JSON.parse(raw) as { email: string; password: string };
+  return { cfg, creds };
+}
+
+const HTML_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+
+/** Inventário completo de uma página HTML: links, forms, redirects JS, hosts externos. */
+function inventoryPage(html: string) {
+  const links: Array<{ href: string; text: string }> = [];
+  const linkRe = /<a\b([^>]*)>([\s\S]{0,400}?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(html)) !== null && links.length < 200) {
+    const href = m[1].match(/href\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!href) continue;
+    links.push({ href: href.slice(0, 400), text: stripTags(m[2]).slice(0, 160) });
+  }
+
+  const forms: Array<{ action: string | null; method: string | null; inputs: string[] }> = [];
+  const formRe = /<form\b([^>]*)>([\s\S]*?)<\/form>/gi;
+  while ((m = formRe.exec(html)) !== null && forms.length < 20) {
+    const attrs = m[1];
+    const inputs: string[] = [];
+    const inRe = /<(?:input|select|textarea)\b[^>]*>/gi;
+    let i: RegExpExecArray | null;
+    while ((i = inRe.exec(m[2])) !== null && inputs.length < 40) inputs.push(i[0].slice(0, 200));
+    forms.push({
+      action: attrs.match(/action\s*=\s*["']([^"']*)["']/i)?.[1] ?? null,
+      method: attrs.match(/method\s*=\s*["']([^"']*)["']/i)?.[1] ?? null,
+      inputs,
+    });
+  }
+
+  const metaRefresh: string[] = [];
+  const mrRe = /<meta\b[^>]*http-equiv\s*=\s*["']refresh["'][^>]*>/gi;
+  while ((m = mrRe.exec(html)) !== null && metaRefresh.length < 5) metaRefresh.push(m[0].slice(0, 300));
+
+  const jsRedirects: string[] = [];
+  const jsRe = /(?:window\.location(?:\.href|\.replace)?\s*(?:=|\()\s*|Turbo\.visit\(\s*|location\.assign\(\s*)["'`]([^"'`]{2,300})["'`]/gi;
+  while ((m = jsRe.exec(html)) !== null && jsRedirects.length < 30) jsRedirects.push(m[1]);
+
+  const externalHosts = new Set<string>();
+  const hostRe = /https?:\/\/([a-z0-9.-]+)/gi;
+  while ((m = hostRe.exec(html)) !== null) {
+    const h = m[1].toLowerCase();
+    if (h !== "manager.ticketline.pt") externalHosts.add(h);
+    if (externalHosts.size > 60) break;
+  }
+
+  const suspects = new Set<string>();
+  const suspectRe = /["'`]?((?:https?:\/\/[a-z0-9.-]*ticketline[a-z0-9.-]*)?\/?(?:promoters|promotores|promotor|v2|novosite|new)[^"'`\s<>]{0,200})["'`]?/gi;
+  while ((m = suspectRe.exec(html)) !== null && suspects.size < 60) suspects.add(m[1].slice(0, 240));
+
+  return {
+    title: html.match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i)?.[1]?.trim() ?? null,
+    links,
+    forms,
+    metaRefresh,
+    jsRedirects,
+    externalHosts: Array.from(externalHosts),
+    suspects: Array.from(suspects),
+    reportUrls: extractReportUrls(html, 60),
+    exportTags: extractExportTags(html),
+  };
+}
+
+/** Heurística: esta página é a landing da "nova área de Promotores"? */
+function looksLikeNovaArea(snippet: string | undefined): boolean {
+  if (!snippet) return false;
+  return /nova\s+[áa]rea\s+de\s+Promotores|encontrar\s+os\s+meus\s+relat[óo]rios|Mais organizada, mais informativa/i.test(snippet);
+}
+
+async function runProbeNovaArea(admin: any, configId?: string) {
+  if (!configId) return json(400, { error: "probe_nova_area requer configId" });
+
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+  const id = String(cfg.ticketline_event_id);
+  const { jar } = await loginDevise(creds.email, creds.password);
+
+  const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+  const endDD = fmtDDMMYYYY(new Date());
+  const query = `granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}&bulk_event_ids=&post_render_content=data`;
+
+  const out: any = {
+    ok: true,
+    version: VERSION,
+    config: { id: cfg.id, ticketline_event_id: id, organization_name: cfg.organization_name, vault_secret_name: cfg.vault_secret_name },
+    window: { startDD, endDD },
+    pages: [] as any[],
+    followed: [] as any[],
+    candidates: [] as any[],
+  };
+
+  // ---- (a) páginas base: /managers/events/<id> e o sale_summary.xlsx ----
+  const basePages: Array<{ label: string; url: string; accept: string }> = [
+    { label: "event_page", url: `${BASE}/managers/events/${encodeURIComponent(id)}`, accept: HTML_ACCEPT },
+    { label: "sale_summary_xlsx", url: `${BASE}/managers/events/${encodeURIComponent(id)}/sale_summary.xlsx?${query}`, accept: `${XLSX_ACCEPT},*/*` },
+    { label: "sale_summary_page", url: `${BASE}/managers/events/${encodeURIComponent(id)}/sale_summary`, accept: HTML_ACCEPT },
+  ];
+
+  const followSeeds = new Map<string, string>(); // url absoluto → texto/motivo
+
+  for (const p of basePages) {
+    const r = await probeGet(jar, p.url, p.accept, 4);
+    const html = r.looksXlsx || !r.bytes ? "" : new TextDecoder("utf-8", { fatal: false }).decode(r.bytes);
+    const entry: any = {
+      label: p.label,
+      requested: p.url,
+      finalUrl: r.url,
+      status: r.status,
+      contentType: r.contentType,
+      size: r.size,
+      looksXlsx: r.looksXlsx,
+      chain: r.chain,
+      novaArea: looksLikeNovaArea(r.snippet ?? html.slice(0, 3000)),
+      htmlFull: html ? html.slice(0, 120000) : null,
+      htmlLength: html.length,
+      inventory: html ? inventoryPage(html) : null,
+    };
+    out.pages.push(entry);
+
+    if (entry.inventory) {
+      const wanted = /promot|relat[óo]ri|report|nova\s+[áa]rea|v2/i;
+      for (const l of entry.inventory.links as Array<{ href: string; text: string }>) {
+        if (!wanted.test(l.href) && !wanted.test(l.text)) continue;
+        if (/^(mailto:|tel:|javascript:|#)/i.test(l.href)) continue;
+        try { followSeeds.set(new URL(l.href, r.url).toString(), l.text || l.href); } catch { /* href inválido */ }
+      }
+      for (const s of entry.inventory.jsRedirects as string[]) {
+        try { followSeeds.set(new URL(s, r.url).toString(), "js-redirect"); } catch { /* ignora */ }
+      }
+    }
+  }
+
+  // ---- (b) seguir 1 nível os links da área nova / relatórios ----
+  let followed = 0;
+  for (const [url, reason] of followSeeds) {
+    if (followed >= 10) break;
+    followed++;
+    const r = await probeGet(jar, url, HTML_ACCEPT, 4);
+    const html = r.looksXlsx || !r.bytes ? "" : new TextDecoder("utf-8", { fatal: false }).decode(r.bytes);
+    out.followed.push({
+      seed: url,
+      reason: reason.slice(0, 160),
+      finalUrl: r.url,
+      status: r.status,
+      contentType: r.contentType,
+      size: r.size,
+      looksXlsx: r.looksXlsx,
+      chain: r.chain,
+      novaArea: looksLikeNovaArea(r.snippet ?? html.slice(0, 3000)),
+      inventory: html ? inventoryPage(html) : null,
+      snippet: r.looksXlsx ? undefined : (r.snippet ?? html.slice(0, 800)),
+    });
+  }
+
+  // ---- (c) candidatos óbvios do caminho novo ----
+  const candidateUrls: Array<{ label: string; url: string; accept: string }> = [
+    { label: "promoters_event_xlsx", url: `${BASE}/promoters/events/${id}/sale_summary.xlsx?${query}`, accept: `${XLSX_ACCEPT},*/*` },
+    { label: "promotores_event_xlsx", url: `${BASE}/promotores/events/${id}/sale_summary.xlsx?${query}`, accept: `${XLSX_ACCEPT},*/*` },
+    { label: "managers_v2_xlsx", url: `${BASE}/managers/v2/events/${id}/sale_summary.xlsx?${query}`, accept: `${XLSX_ACCEPT},*/*` },
+    { label: "v2_managers_xlsx", url: `${BASE}/v2/managers/events/${id}/sale_summary.xlsx?${query}`, accept: `${XLSX_ACCEPT},*/*` },
+    { label: "promoters_reports", url: `${BASE}/promoters/events/${id}/reports`, accept: HTML_ACCEPT },
+    { label: "promoters_event_page", url: `${BASE}/promoters/events/${id}`, accept: HTML_ACCEPT },
+    { label: "promoters_root", url: `${BASE}/promoters`, accept: HTML_ACCEPT },
+    { label: "promotores_root", url: `${BASE}/promotores`, accept: HTML_ACCEPT },
+    { label: "reports_root", url: `${BASE}/managers/reports`, accept: HTML_ACCEPT },
+    { label: "event_reports", url: `${BASE}/managers/events/${id}/reports`, accept: HTML_ACCEPT },
+    { label: "host_promotor", url: `https://promotor.ticketline.pt/events/${id}`, accept: HTML_ACCEPT },
+    { label: "host_promotores", url: `https://promotores.ticketline.pt/events/${id}`, accept: HTML_ACCEPT },
+    { label: "host_promoters", url: `https://promoters.ticketline.pt/events/${id}`, accept: HTML_ACCEPT },
+  ];
+
+  for (const c of candidateUrls) {
+    const r = await probeGet(jar, c.url, c.accept, 3, {}, 20000);
+    out.candidates.push({
+      label: c.label,
+      url: c.url,
+      finalUrl: r.url,
+      status: r.status,
+      contentType: r.contentType,
+      size: r.size,
+      looksXlsx: r.looksXlsx,
+      chain: r.chain,
+      novaArea: looksLikeNovaArea(r.snippet),
+      snippet: r.snippet?.slice(0, 400),
+      error: r.error,
+    });
+  }
+
+  // ---- cap de tamanho (padrão do discover/probe) ----
+  let text = JSON.stringify(out);
+  if (text.length > 90000) {
+    for (const p of out.pages) if (p.htmlFull) p.htmlFull = p.htmlFull.slice(0, 40000);
+    text = JSON.stringify(out);
+  }
+  if (text.length > 90000) {
+    for (const p of out.pages) if (p.htmlFull) p.htmlFull = p.htmlFull.slice(0, 15000);
+    for (const f of out.followed) if (f.inventory) f.inventory.links = (f.inventory.links || []).slice(0, 40);
+    out.truncated = true;
+    text = JSON.stringify(out);
+  }
+  return new Response(text.slice(0, 95000), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+
 
 async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8Array> {
   const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
