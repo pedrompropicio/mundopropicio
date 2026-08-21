@@ -5740,6 +5740,7 @@ export type Database = {
           poster_image_url: string | null
           slug: string | null
           status: string
+          target_roas: number | null
           ticketing_provider: string | null
           ticketing_url: string | null
           ticketline_event_id: string | null
@@ -5790,6 +5791,7 @@ export type Database = {
           poster_image_url?: string | null
           slug?: string | null
           status?: string
+          target_roas?: number | null
           ticketing_provider?: string | null
           ticketing_url?: string | null
           ticketline_event_id?: string | null
@@ -5840,6 +5842,7 @@ export type Database = {
           poster_image_url?: string | null
           slug?: string | null
           status?: string
+          target_roas?: number | null
           ticketing_provider?: string | null
           ticketing_url?: string | null
           ticketline_event_id?: string | null
@@ -11328,6 +11331,13 @@ export type Database = {
       create_vault_secret: {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
+      }
+      crm_auto_link_google_campaigns_to_events: {
+        Args: { p_company_id: string }
+        Returns: {
+          total_active_campaigns: number
+          updated_count: number
+        }[]
       }
       crm_auto_link_meta_campaigns_to_events: {
         Args: { p_company_id: string }

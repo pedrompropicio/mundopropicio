@@ -123,7 +123,21 @@ async function getGoogleAccessToken(): Promise<string> {
 // campaign.start_date_time / campaign.end_date_time (datetime, ex.: "2026-01-15 00:00:00").
 // Truncamos para YYYY-MM-DD no aggregate() para caber em start_date/end_date (date).
 // Ref: https://developers.google.com/google-ads/api/fields/v24/campaign
-const GAQL_CAMPAIGNS = `
+// FASE 3A: passa a pedir segments.date → uma linha por campanha E por dia,
+// gravada em crm.google_campaign_insights_daily. Intervalo explícito
+// (BETWEEN) em vez de DURING LAST_30_DAYS, com days_back configurável.
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function buildDateRange(daysBack: number): { since: string; until: string } {
+  const until = new Date();
+  const since = new Date(until.getTime() - daysBack * 86400000);
+  return { since: isoDate(since), until: isoDate(until) };
+}
+
+function buildGaql(since: string, until: string): string {
+  return `
   SELECT
     campaign.id,
     campaign.name,
@@ -133,18 +147,23 @@ const GAQL_CAMPAIGNS = `
     campaign.start_date_time,
     campaign.end_date_time,
     campaign_budget.amount_micros,
+    customer.currency_code,
+    segments.date,
     metrics.impressions,
     metrics.clicks,
     metrics.cost_micros,
     metrics.conversions,
     metrics.conversions_value
   FROM campaign
-  WHERE segments.date DURING LAST_30_DAYS
+  WHERE segments.date BETWEEN '${since}' AND '${until}'
 `;
+}
+
 
 interface GAdsCampaignRow {
   campaign?: Record<string, unknown>;
   campaignBudget?: Record<string, unknown>;
+  customer?: Record<string, unknown>;
   metrics?: Record<string, unknown>;
   segments?: Record<string, unknown>;
 }
@@ -154,6 +173,7 @@ async function searchStreamCampaigns(
   developerToken: string,
   loginCustomerId: string,
   customerId: string,
+  query: string,
 ): Promise<GAdsCampaignRow[]> {
   const url = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerId}/googleAds:searchStream`;
   const resp = await fetch(url, {
@@ -164,8 +184,9 @@ async function searchStreamCampaigns(
       "login-customer-id": loginCustomerId,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query: GAQL_CAMPAIGNS }),
+    body: JSON.stringify({ query }),
   });
+
   const text = await resp.text();
   if (!resp.ok) {
     // Loga corpo COMPLETO no edge function log para diagnóstico
@@ -257,6 +278,84 @@ function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
   return Array.from(byId.values());
 }
 
+// ---------------- Linhas diárias (espelho do meta_campaign_insights_daily) --
+// UNIDADES: o Google devolve micros (1.000.000 = 1 unidade de moeda) e o Meta
+// cêntimos. Gravamos SEMPRE em cêntimos → micros / 10.000.
+function microsToCents(v: unknown): number {
+  if (v == null) return 0;
+  return Math.round(Number(v) / 10000);
+}
+
+export interface DailyInsightRow {
+  external_campaign_id: string;
+  campaign_name: string | null;
+  date_start: string;
+  date_stop: string;
+  impressions: number;
+  clicks: number;
+  spend_cents: number;
+  conversions: number;
+  conversions_value_cents: number;
+  cpc_cents: number | null;
+  cpm_cents: number | null;
+  ctr: number | null;
+  currency: string | null;
+  raw: unknown;
+}
+
+function buildDailyRows(rows: GAdsCampaignRow[]): DailyInsightRow[] {
+  const byKey = new Map<string, DailyInsightRow>();
+  for (const r of rows) {
+    const c = (r.campaign ?? {}) as Record<string, unknown>;
+    const m = (r.metrics ?? {}) as Record<string, unknown>;
+    const s = (r.segments ?? {}) as Record<string, unknown>;
+    const cust = (r.customer ?? {}) as Record<string, unknown>;
+    const id = c.id != null ? String(c.id) : null;
+    const date = truncToDate(s.date);
+    if (!id || !date) continue;
+
+    const key = `${id}|${date}`;
+    const impressions = m.impressions != null ? Number(m.impressions) : 0;
+    const clicks = m.clicks != null ? Number(m.clicks) : 0;
+    const spend_cents = microsToCents(m.costMicros);
+    const prev = byKey.get(key);
+    const acc: DailyInsightRow = prev ?? {
+      external_campaign_id: id,
+      campaign_name: (c.name as string) ?? null,
+      date_start: date,
+      date_stop: date,
+      impressions: 0,
+      clicks: 0,
+      spend_cents: 0,
+      conversions: 0,
+      conversions_value_cents: 0,
+      cpc_cents: null,
+      cpm_cents: null,
+      ctr: null,
+      currency: (cust.currencyCode as string) ?? null,
+      raw: r,
+    };
+    acc.impressions += impressions;
+    acc.clicks += clicks;
+    acc.spend_cents += spend_cents;
+    acc.conversions += m.conversions != null ? Number(m.conversions) : 0;
+    acc.conversions_value_cents += microsToCents(
+      m.conversionsValue != null ? Number(m.conversionsValue) * 1_000_000 : 0,
+    );
+    byKey.set(key, acc);
+  }
+  // Derivadas depois da soma, para não perder precisão
+  for (const row of byKey.values()) {
+    row.cpc_cents = row.clicks > 0 ? row.spend_cents / row.clicks : null;
+    row.cpm_cents = row.impressions > 0
+      ? (row.spend_cents / row.impressions) * 1000
+      : null;
+    row.ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : null;
+  }
+  return Array.from(byKey.values());
+}
+
+
 // ---------------- Auth da edge function ----------------
 
 interface AuthInfo {
@@ -310,8 +409,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "missing_secret_GOOGLE_ADS_DEVELOPER_TOKEN" }, 500);
   }
 
-  // Body opcional: { company_id?, connection_id? }
-  let bodyJson: { company_id?: string; connection_id?: string } = {};
+  // Body opcional: { company_id?, connection_id?, days_back?, mode? }
+  // mode: "incremental" (default, days_back=30) | "full" (backfill: 365 dias)
+  let bodyJson: {
+    company_id?: string;
+    connection_id?: string;
+    days_back?: number;
+    mode?: "incremental" | "full";
+  } = {};
   try {
     if (req.headers.get("content-type")?.includes("application/json")) {
       bodyJson = await req.json();
@@ -319,6 +424,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch (_e) {
     // ignore
   }
+
+  const mode = bodyJson.mode === "full" ? "full" : "incremental";
+  const daysBack = Math.min(
+    1095,
+    Math.max(1, Number(bodyJson.days_back ?? (mode === "full" ? 365 : 30))),
+  );
+  const { since, until } = buildDateRange(daysBack);
+  const gaql = buildGaql(since, until);
+
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -373,9 +487,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         GOOGLE_ADS_DEVELOPER_TOKEN!,
         loginCustomerId,
         customerId,
+        gaql,
       );
       const agg = aggregate(rows);
+      const daily = buildDailyRows(rows);
 
+      // --- 1) Metadados da campanha (equivalente ao meta_campaign_snapshot) ---
       const upsertRows = agg.map((a) => ({
         connection_id: conn.id,
         company_id: conn.company_id,
@@ -401,7 +518,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           cost_micros: a.cost_micros,
           conversions: a.conversions,
           conversions_value: a.conversions_value,
-          period: "LAST_30_DAYS",
+          period: `${since}..${until}`,
         },
         last_synced_at: new Date().toISOString(),
       }));
@@ -416,6 +533,55 @@ Deno.serve(async (req: Request): Promise<Response> => {
           });
         if (upErr) throw new Error("upsert_failed: " + upErr.message);
         upserted = upsertRows.length;
+      }
+
+      // --- 2) Insights diários (chunks de 500 para não estourar o payload) ---
+      let dailyUpserted = 0;
+      const nowIso = new Date().toISOString();
+      const dailyRows = daily.map((d) => ({
+        connection_id: conn.id,
+        company_id: conn.company_id,
+        customer_id: customerId,
+        external_campaign_id: d.external_campaign_id,
+        campaign_name: d.campaign_name,
+        date_start: d.date_start,
+        date_stop: d.date_stop,
+        impressions: d.impressions,
+        clicks: d.clicks,
+        spend_cents: d.spend_cents,
+        conversions: d.conversions,
+        conversions_value_cents: d.conversions_value_cents,
+        cpc_cents: d.cpc_cents,
+        cpm_cents: d.cpm_cents,
+        ctr: d.ctr,
+        currency: d.currency,
+        raw: d.raw,
+        last_synced_at: nowIso,
+        updated_at: nowIso,
+      }));
+      for (let i = 0; i < dailyRows.length; i += 500) {
+        const chunk = dailyRows.slice(i, i + 500);
+        const { error: dErr } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign_insights_daily")
+          .upsert(chunk, {
+            onConflict: "connection_id,external_campaign_id,date_start",
+          });
+        if (dErr) throw new Error("daily_upsert_failed: " + dErr.message);
+        dailyUpserted += chunk.length;
+      }
+
+      // --- 3) Auto-link campanhas → eventos (respeita linked_event_locked) ---
+      let autoLink: unknown = null;
+      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
+        "crm_auto_link_google_campaigns_to_events",
+        { p_company_id: conn.company_id },
+      );
+      if (linkErr) {
+        console.error("[auto-link] failed:", linkErr.message);
+        autoLink = { error: linkErr.message };
+      } else {
+        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
       }
 
       // Marca connection saudável
@@ -437,7 +603,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         campaigns_fetched: agg.length,
         rows_returned: rows.length,
         upserted,
+        daily_rows_upserted: dailyUpserted,
+        auto_link: autoLink,
       });
+
     } catch (e) {
       const msg = (e as Error).message;
       // Tenta extrair errorCode + requestId do body do erro Google (se houver)
@@ -488,7 +657,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   return json({
     ok: true,
     api_version: GOOGLE_ADS_API_VERSION,
-    period: "LAST_30_DAYS",
+    mode,
+    days_back: daysBack,
+    date_range: { since, until },
+
     connections_processed: results.length,
     invoked_by: auth.isServiceRole ? "service_role" : `user:${auth.userId}`,
     results,
