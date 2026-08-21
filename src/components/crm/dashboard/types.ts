@@ -24,6 +24,10 @@ export interface CampaignRow {
   currency: string | null;
   bid_strategy: string | null;
   replaced_by_strategy_id: string | null; // Sprint 3a-1 — marca campanha substituída por redesign
+  /** Fase 3B — plataforma de origem. Ausente ⇒ "meta" (compatibilidade). */
+  platform?: "meta" | "google";
+  /** Google Ads: tipo de canal (equivalente prático do objective). */
+  channel_type?: string | null;
 }
 
 export interface InsightRow {
@@ -53,6 +57,8 @@ export interface InsightRow {
   external_ad_id?: string | null;
   adset_name?: string | null;
   ad_name?: string | null;
+  /** Fase 3B — plataforma de origem. Ausente ⇒ "meta". */
+  platform?: "meta" | "google";
 }
 
 /** Snapshot de conjunto (crm.meta_adset_snapshot) — subconjunto usado no drill-down. */
@@ -97,6 +103,8 @@ export interface EventRow {
   tickets_sold: number | null;
   event_type: string | null;       // 'simple' | 'tour_master' | 'tour_split'
   parent_event_id: string | null;  // null for simple/master; master id for split
+  /** Meta de ROAS do evento; NULL ⇒ fallback EVENT_TARGET_ROAS (8x). */
+  target_roas?: number | null;
 }
 
 // Dashboard hierárquico: simple events vs tour families (master + splits).
