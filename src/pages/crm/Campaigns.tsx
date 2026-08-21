@@ -78,7 +78,7 @@ import {
 } from "@/lib/crm/aggregate";
 import { buildDailySeries } from "@/lib/crm/daily-series";
 import { dataStartISO, previousWindow, safeDelta } from "@/lib/crm/kpi-deltas";
-import { NO_SORT, nextSort, type SortKey, type SortState } from "@/lib/crm/table-sort";
+import { NO_SORT, nextSort, sortCampaigns, type SortKey, type SortState } from "@/lib/crm/table-sort";
 import { computeDashboardAlerts } from "@/lib/crm/alerts";
 import { buildDashboardCsv, downloadCsv, type CsvExportRow } from "@/lib/crm/csv-export";
 import {
@@ -554,7 +554,7 @@ export default function CrmCampaigns() {
       if (g.kind === "tour") {
         push(g.master.name ?? "", undefined, g.masterCampaigns);
         for (const s of g.splits) {
-          push(g.master.name ?? "", s.city ?? s.name ?? "", g.campaignsBySplit.get(s.id) ?? []);
+          push(g.master.name ?? "", s.name ?? "", g.campaignsBySplit.get(s.id) ?? []);
         }
       } else {
         push(g.event.name ?? "", undefined, g.campaigns);
