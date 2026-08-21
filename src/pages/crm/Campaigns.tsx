@@ -58,6 +58,10 @@ import { BudgetModeContext } from "@/components/crm/dashboard/budget-mode-contex
 import type { CampaignRow, EventRow, InsightRow, DashboardGroup, SimpleGroup, TourGroup } from "@/components/crm/dashboard/types";
 import { KpiCard } from "@/components/crm/dashboard/KpiCard";
 import { CampaignTableHeader } from "@/components/crm/dashboard/CampaignTableHeader";
+import { ColumnPicker } from "@/components/crm/dashboard/ColumnPicker";
+import { ConversionFunnelPanel } from "@/components/crm/dashboard/ConversionFunnelPanel";
+import { DashboardTableContext } from "@/components/crm/dashboard/dashboard-table-context";
+import { useDashboardColumns } from "@/lib/crm/columns";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
 import { EventGroupCard } from "@/components/crm/dashboard/EventGroupCard";
 import { TourFamilyCard } from "@/components/crm/dashboard/TourFamilyCard";
@@ -105,6 +109,10 @@ export default function CrmCampaigns() {
     setAnalyzeTarget({ id: campaignId, name: campaignName });
   };
   const coachCampaign = (campaignId: string) => setCoachCampaignId(campaignId);
+
+  // Colunas configuráveis da tabela (persistidas em localStorage).
+  const { visible: visibleColumns, ordered: orderedColumns, toggle: toggleColumn, reset: resetColumns } =
+    useDashboardColumns();
 
 
   const isAuthorized =
@@ -291,6 +299,19 @@ export default function CrmCampaigns() {
   const periodDays = useMemo(
     () => Math.max(1, differenceInDays(period.to, period.from) + 1),
     [period],
+  );
+
+  // Contexto da tabela: colunas visíveis + parâmetros do drill-down preguiçoso.
+  const tableCtx = useMemo(
+    () => ({
+      columns: orderedColumns,
+      companyId,
+      adAccountId,
+      currency,
+      from: format(period.from, "yyyy-MM-dd"),
+      to: format(period.to, "yyyy-MM-dd"),
+    }),
+    [orderedColumns, companyId, adAccountId, currency, period],
   );
 
   // 14-day spend sparkline per campaign
@@ -750,11 +771,17 @@ export default function CrmCampaigns() {
         />
       </div>
 
+      {/* Funil de conversão do período */}
+      <ConversionFunnelPanel insights={periodInsights} />
+
       {/* By active event */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Por evento ativo
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Por evento ativo
+          </h2>
+          <ColumnPicker visible={visibleColumns} onToggle={toggleColumn} onReset={resetColumns} />
+        </div>
         {loadingAny ? (
           <div className="space-y-2">
             <Skeleton className="h-20 w-full" />
