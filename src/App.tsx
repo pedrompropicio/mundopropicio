@@ -508,6 +508,7 @@ function ProtectedLayout() {
                 <Route path="projecao-tesouraria" element={<ReportTreasuryProjectionPage />} />
                 <Route path="taxa-ocupacao" element={<ReportOccupancyRatePage />} />
                 <Route path="curva-vendas" element={<ReportSalesCurvePage />} />
+                <Route path="vendas-diarias" element={<ReportDailySalesPage />} />
                 <Route path="comparativo-vendas" element={<ReportSalesComparisonPage />} />
                 <Route path="mix-receitas" element={<ReportRevenueMixPage />} />
                 <Route path="acerto-socios" element={<ReportPartnerSettlementPage />} />
