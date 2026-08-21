@@ -6,13 +6,13 @@ import { useState } from "react";
 import { Activity, AlertTriangle, KeyRound, Megaphone, MousePointerClick } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import GoogleCampaignsTable from "@/pages/crm-admin/google-ads/GoogleCampaignsTable";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
-type SecaoId = "campanhas" | "conversoes";
-
+// Fase 3B — a aba "Campanhas" foi removida: as campanhas Google passaram a viver
+// no dashboard unificado (/audience/dashboard), com filtro de plataforma, período
+// e moeda da conta. A tabela antiga tinha o € fixo em EUR e duplicava o dashboard.
 export default function AudienceGoogleAds() {
-  const [secao, setSecao] = useState<SecaoId>("campanhas");
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
@@ -23,8 +23,8 @@ export default function AudienceGoogleAds() {
             Google Ads
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Acompanhamento de campanhas Google Ads e conversões offline. Customer
-            Match / Audiences vive no MP CRM.
+            Conversões offline do Google Ads. As campanhas vivem no dashboard
+            unificado; Customer Match / Audiences vive no MP CRM.
           </p>
         </div>
         <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30">

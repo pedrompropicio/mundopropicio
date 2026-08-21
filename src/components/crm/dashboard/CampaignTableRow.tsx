@@ -306,6 +306,20 @@ export function CampaignTableRow({
         <div className="flex items-center gap-1.5">
           {(() => {
             const eff = c.effective_status ?? c.status ?? null;
+            if (isGoogle) {
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-muted-foreground border border-border rounded px-2 py-0.5 cursor-help">
+                      {eff ?? "—"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Acções sobre campanhas Google fazem-se no Google Ads — aqui só acompanhamento.
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
             const isActive = eff === "ACTIVE";
             const isPaused = eff === "PAUSED";
             if (isReplaced) {
