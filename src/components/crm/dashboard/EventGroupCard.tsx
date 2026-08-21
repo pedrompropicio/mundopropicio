@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { sortCampaigns } from "@/lib/crm/table-sort";
+import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
 import { aggregate } from "@/lib/crm/aggregate";
 import {
   EVENT_TARGET_ROAS,
