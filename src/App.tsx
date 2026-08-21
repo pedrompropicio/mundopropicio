@@ -71,6 +71,7 @@ import ReportSupplierConcentrationPage from "./pages/ReportSupplierConcentration
 import ReportTreasuryProjectionPage from "./pages/ReportTreasuryProjectionPage";
 import ReportOccupancyRatePage from "./pages/ReportOccupancyRatePage";
 import ReportSalesCurvePage from "./pages/ReportSalesCurvePage";
+import ReportDailySalesPage from "./pages/ReportDailySalesPage";
 import ReportSalesComparisonPage from "./pages/ReportSalesComparisonPage";
 import ReportRevenueMixPage from "./pages/ReportRevenueMixPage";
 import ReportPartnerSettlementPage from "./pages/ReportPartnerSettlementPage";
