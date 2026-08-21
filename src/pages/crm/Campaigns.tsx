@@ -411,11 +411,8 @@ export default function CrmCampaigns() {
     };
   }, [aggCurrent, aggPrev, comparable]);
 
-  // Série diária do período (dias sem dados ficam como lacuna, não zero).
-  const dailySeries = useMemo(
-    () => buildDailySeries(periodInsights, period.from, period.to),
-    [periodInsights, period],
-  );
+  // A série diária é construída dentro do DailyPerformanceChart (recebe os insights).
+
 
 
   // ---------- Group active campaigns by event ----------
