@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.24_probe_fragment_intel_2026_08_21";
+const VERSION = "v2.25_probe_js_flow_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1363,6 +1363,49 @@ async function runProbeParams(admin: any, configId?: string) {
     }
     out.fragment = fragOut;
 
+    // ---- g_js_flow: réplica EXACTA do pedido que o bundle da Ticketline faz ----
+    // manager-*.js: Managers.Events.EventSaleSummary#requestPostRender()
+    //   $.get({ url: window.location.href, data: { post_render_content: "data" }, dataType: "script" })
+    // jQuery com dataType:"script" => Accept text/javascript..., X-Requested-With: XMLHttpRequest,
+    // e cache:false (acrescenta `_=<timestamp>`).
+    const JS_ACCEPT = "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01";
+    const XHR_HEADERS: Record<string, string> = { Referer: u1, "X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": extractCsrfToken(e1Html || pageHtml) || "" };
+    const ts = Date.now();
+    const jsVariants: Array<{ label: string; url: string; accept: string; headers: Record<string, string> }> = [
+      { label: "g1_js_flow_exact", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "g2_js_flow_no_cachebuster", url: `${u1}&post_render_content=data`, accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "g3_js_format_ext", url: `${actionAbs.replace(/(\/sale_summary)(?=$|\?)/, "$1.js")}?${built.query}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "g4_js_flow_no_xhr_header", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: { Referer: u1 } },
+    ];
+    const jsOut: any[] = [];
+    for (const g of jsVariants) {
+      const r = await probeGet(jar, g.url, g.accept, 3, g.headers);
+      const body = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+      const entry: any = {
+        label: g.label,
+        url: g.url,
+        finalUrl: r.url,
+        status: r.status,
+        contentType: r.contentType,
+        size: r.size ?? null,
+        novaArea: looksLikeNovaArea(r.snippet ?? body),
+        looksJs: /(?:^|\n)\s*(?:\$\(|window\.|Managers\.|jQuery)/.test(body) || /postRender/i.test(body),
+        hasTableMarkup: /<table|<\\\/table>|\\u003ctable/i.test(body),
+        head: body.slice(0, 3000),
+        error: r.error ?? null,
+      };
+      // O SJR devolve JS que injeta HTML escapado; tenta desescapar e extrair tabelas.
+      if (entry.hasTableMarkup) {
+        const unescaped = body
+          .replace(/\\u003c/gi, "<").replace(/\\u003e/gi, ">").replace(/\\u0026/gi, "&")
+          .replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\//g, "/");
+        entry.tables = extractHtmlTables(unescaped);
+      }
+      jsOut.push(entry);
+    }
+    out.jsFlow = jsOut;
+
+
     // ---- pageIntel: como é que a página de 70KB monta o relatório ----
     const intelHtml = e1Html && e1Html.length > 1000 ? e1Html : pageHtml;
     out.pageIntel = { source: intelHtml === e1Html ? "e1_report_page" : "sale_summary_page", ...extractPageIntel(intelHtml, pageUrl) };
@@ -1374,6 +1417,7 @@ async function runProbeParams(admin: any, configId?: string) {
     ...out.variants.filter((v: any) => v.looksXlsx).map((v: any) => v.label),
     ...((formInfo.attempts || []).filter((a: any) => a.looksXlsx).map((a: any) => a.label)),
     ...((out.pdfCsv || []).filter((p: any) => p.looksPdf || (p.looksCsv && !p.looksHtml)).map((p: any) => p.label)),
+    ...((out.jsFlow || []).filter((g: any) => !g.novaArea && (g.hasTableMarkup || g.looksJs)).map((g: any) => g.label)),
   ];
   return json(200, out);
 }
