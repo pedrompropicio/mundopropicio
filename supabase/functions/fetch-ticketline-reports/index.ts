@@ -1499,11 +1499,25 @@ async function runProbeParams(admin: any, configId?: string) {
     const JS_ACCEPT = "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01";
     const XHR_HEADERS: Record<string, string> = { Referer: u1, "X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": extractCsrfToken(e1Html || pageHtml) || "" };
     const ts = Date.now();
+    // h1/h2/h3: variações do parâmetro bulk_event_ids (hipótese: vazio => grelha a zeros)
+    const withBulk = (mode: "single" | "array" | "absent") => {
+      const q = new URLSearchParams(built.query);
+      q.delete("bulk_event_ids");
+      q.delete("bulk_event_ids[]");
+      if (mode === "single") q.set("bulk_event_ids", String(id));
+      if (mode === "array") q.append("bulk_event_ids[]", String(id));
+      q.set("post_render_content", "data");
+      q.set("_", String(ts));
+      return `${actionAbs}?${q.toString()}`;
+    };
     const jsVariants: Array<{ label: string; url: string; accept: string; headers: Record<string, string> }> = [
       { label: "g1_js_flow_exact", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
       { label: "g2_js_flow_no_cachebuster", url: `${u1}&post_render_content=data`, accept: JS_ACCEPT, headers: XHR_HEADERS },
       { label: "g3_js_format_ext", url: `${actionAbs.replace(/(\/sale_summary)(?=$|\?)/, "$1.js")}?${built.query}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: XHR_HEADERS },
       { label: "g4_js_flow_no_xhr_header", url: `${u1}&post_render_content=data&_=${ts}`, accept: JS_ACCEPT, headers: { Referer: u1 } },
+      { label: "h1_bulk_event_ids_single", url: withBulk("single"), accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "h2_bulk_event_ids_array", url: withBulk("array"), accept: JS_ACCEPT, headers: XHR_HEADERS },
+      { label: "h3_bulk_event_ids_absent", url: withBulk("absent"), accept: JS_ACCEPT, headers: XHR_HEADERS },
     ];
     const jsOut: any[] = [];
     for (const g of jsVariants) {
@@ -1523,15 +1537,36 @@ async function runProbeParams(admin: any, configId?: string) {
         error: r.error ?? null,
       };
       // O SJR devolve JS que injeta HTML escapado; tenta desescapar e extrair tabelas.
-      if (entry.hasTableMarkup) {
-        const unescaped = body
-          .replace(/\\u003c/gi, "<").replace(/\\u003e/gi, ">").replace(/\\u0026/gi, "&")
-          .replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\//g, "/");
-        entry.tables = extractHtmlTables(unescaped);
+      const unescaped = body
+        .replace(/\\u003c/gi, "<").replace(/\\u003e/gi, ">").replace(/\\u0026/gi, "&")
+        .replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\//g, "/");
+      if (entry.hasTableMarkup) entry.tables = extractHtmlTables(unescaped);
+      // ---- nonZeroNumbers: há mesmo números != 0 nas células? ----
+      const cellRe = /<t[dh][^>]*>\s*([^<]*?)\s*<\/t[dh]>/gi;
+      let nonZero = 0;
+      let sampleRow: string | null = null;
+      let m: RegExpExecArray | null;
+      while ((m = cellRe.exec(unescaped)) !== null) {
+        const txt = (m[1] || "").replace(/&nbsp;|\u00a0/g, " ").trim();
+        if (/[1-9]/.test(txt.replace(/[^\d]/g, "")) && /^[-+()\d\s.,€%]+$/.test(txt)) nonZero++;
       }
+      if (nonZero > 0) {
+        for (const row of unescaped.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi) || []) {
+          const cells = Array.from(row.matchAll(/<t[dh][^>]*>\s*([^<]*?)\s*<\/t[dh]>/gi)).map((c) =>
+            (c[1] || "").replace(/&nbsp;|\u00a0/g, " ").trim(),
+          );
+          if (cells.some((t) => /^[-+()\d\s.,€%]+$/.test(t) && /[1-9]/.test(t.replace(/[^\d]/g, "")))) {
+            sampleRow = cells.join(" | ").slice(0, 300);
+            break;
+          }
+        }
+      }
+      entry.nonZeroNumbers = nonZero;
+      entry.nonZeroSampleRow = sampleRow;
       jsOut.push(entry);
     }
     out.jsFlow = jsOut;
+
 
 
     // ---- pageIntel: como é que a página de 70KB monta o relatório ----
