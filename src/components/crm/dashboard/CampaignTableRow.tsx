@@ -36,7 +36,7 @@ import { EditCampaignPopover } from "@/components/crm/dashboard/EditCampaignPopo
 import { ReassignCampaignToSplit } from "@/components/crm/dashboard/ReassignCampaignToSplit";
 import { Sparkline } from "@/components/crm/dashboard/Sparkline";
 import { PlatformBadge } from "@/components/crm/dashboard/PlatformBadge";
-import { platformOf } from "@/lib/crm/platform";
+import { platformOf, singleCurrency } from "@/lib/crm/platform";
 import { AdsetRow } from "@/components/crm/dashboard/AdsetRow";
 import { MetricCells } from "@/components/crm/dashboard/MetricCells";
 import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
@@ -51,7 +51,7 @@ export function CampaignTableRow({
   insights,
   prevInsights,
   days,
-  currency,
+  currency: currencyProp,
   spark,
   onAnalyze,
   onCoach,
@@ -90,6 +90,8 @@ export function CampaignTableRow({
   // Fase 3B — as acções e o drill-down existentes são específicos do Meta.
   const platform = platformOf(c);
   const isGoogle = platform === "google";
+  // Moeda da própria linha (a conta Google pode não ser a da conta Meta activa).
+  const rowCurrency = singleCurrency(insights, currencyProp) ?? currencyProp;
 
   // Drill-down (Fase 1): conjuntos só são buscados quando a campanha é expandida.
   const [expanded, setExpanded] = useState(false);
@@ -164,7 +166,7 @@ export function CampaignTableRow({
   const breakdownText =
     `ROAS ${formatRoas(agg.roas)} → ${score.breakdown.roasPts}pts · ` +
     `CTR ${ctrAvg != null ? (ctrAvg * 100).toFixed(2) + "%" : "—"} → ${score.breakdown.ctrPts}pts · ` +
-    `CPC ${formatCurrency(cpcAvg, currency)} → ${score.breakdown.cpcPts}pts · ` +
+    `CPC ${formatCurrency(cpcAvg, rowCurrency)} → ${score.breakdown.cpcPts}pts · ` +
     `Freq ${freqAvg != null ? freqAvg.toFixed(1) : "—"} → ${score.breakdown.freqPts}pts · ` +
     `Vel ${velRatio != null ? velRatio.toFixed(2) + "x" : "—"} → ${score.breakdown.velPts}pts`;
 
@@ -282,12 +284,12 @@ export function CampaignTableRow({
           </TooltipContent>
         </Tooltip>
       </td>
-      <MetricCells columns={columns} agg={agg} rows={insights} currency={currency} />
+      <MetricCells columns={columns} agg={agg} rows={insights} currency={rowCurrency} />
       <td className="py-2.5 px-3">
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex items-center gap-1 text-sm font-mono tabular-nums cursor-help">
-              {formatCurrency(Math.round(spendPerDay), currency)}
+              {formatCurrency(Math.round(spendPerDay), rowCurrency)}
               {velIcon}
             </span>
           </TooltipTrigger>
@@ -363,6 +365,7 @@ export function CampaignTableRow({
               </Button>
             );
           })()}
+          {!isGoogle && (
           <Button
             type="button"
             variant="outline"
@@ -376,7 +379,8 @@ export function CampaignTableRow({
           >
             <Target className="h-3 w-3 mr-1" />Testar funil
           </Button>
-          {tourContext && !isReplaced && (
+          )}
+          {tourContext && !isReplaced && !isGoogle && (
             <ReassignCampaignToSplit
               campaign={c}
               master={tourContext.master}
@@ -384,7 +388,7 @@ export function CampaignTableRow({
               onReassigned={tourContext.onReassigned}
             />
           )}
-          {onEdited && (
+          {onEdited && !isGoogle && (
             <EditCampaignPopover
               c={c}
               onSaved={onEdited}
