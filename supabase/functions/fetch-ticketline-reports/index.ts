@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.20_postfilter_needle_2026_08_15";
+const VERSION = "v2.21_probe_nova_area_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1405,6 +1405,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, compareConfigId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "probe_nova_area") {
+    try {
+      return await runProbeNovaArea(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "probe_nova_area_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "probe") {
     try {
