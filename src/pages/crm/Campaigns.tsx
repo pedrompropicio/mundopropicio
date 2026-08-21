@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow, parseISO, subDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import {
   Loader2,
   RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  ChevronDown,
-  ChevronRight,
   Calendar as CalendarIcon,
   AlertCircle,
   Sparkles,
@@ -59,7 +55,6 @@ import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/C
 import { BudgetModeContext } from "@/components/crm/dashboard/budget-mode-context";
 import type { CampaignRow, EventRow, InsightRow, DashboardGroup, SimpleGroup, TourGroup } from "@/components/crm/dashboard/types";
 import { KpiCard } from "@/components/crm/dashboard/KpiCard";
-import { Sparkline } from "@/components/crm/dashboard/Sparkline";
 import { CampaignTableHeader } from "@/components/crm/dashboard/CampaignTableHeader";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
 import { EventGroupCard } from "@/components/crm/dashboard/EventGroupCard";
@@ -67,16 +62,7 @@ import { TourFamilyCard } from "@/components/crm/dashboard/TourFamilyCard";
 import { aggregate, emptyAgg, deltaPct } from "@/lib/crm/aggregate";
 import {
   formatCurrency,
-  formatCompact,
-  formatPercent,
   formatRoas,
-  roasColor,
-  roasBadgeClass,
-  roasColorByEvent,
-  roasBadgeClassByEvent,
-  roasBarBgByEvent,
-  EVENT_TARGET_ROAS,
-  formatTourDateRange,
 } from "@/lib/crm/dashboard-format";
 import {
   useCampaignsQuery,
