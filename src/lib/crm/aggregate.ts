@@ -152,3 +152,25 @@ export function computeCpa(agg: Aggregate): number | null {
 export function computeTicket(agg: Aggregate): number | null {
   return agg.conversions > 0 ? Math.round(agg.revenueCents / agg.conversions) : null;
 }
+
+// ============================================================
+// Fase 4 — rácios de vídeo (calculados, nunca guardados na BD)
+// ============================================================
+
+/** Hook rate — visualizações de 3s ÷ impressões. Null quando não há vídeo. */
+export function computeHookRate(agg: Aggregate): number | null {
+  if (!agg.hasVideo || agg.impressions <= 0 || agg.video3sViews <= 0) return null;
+  return agg.video3sViews / agg.impressions;
+}
+
+/** Thumbstop — ThruPlays ÷ impressões. Null quando não há vídeo. */
+export function computeThumbstop(agg: Aggregate): number | null {
+  if (!agg.hasVideo || agg.impressions <= 0 || agg.videoThruplays <= 0) return null;
+  return agg.videoThruplays / agg.impressions;
+}
+
+/** Retenção a 75% — video_p75_watched ÷ video_plays. Null quando não há vídeo. */
+export function computeRetention75(agg: Aggregate): number | null {
+  if (!agg.hasVideo || agg.videoPlays <= 0 || agg.videoP75 <= 0) return null;
+  return agg.videoP75 / agg.videoPlays;
+}
