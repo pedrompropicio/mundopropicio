@@ -79,23 +79,31 @@ Esta integração permite que utilizadores com role `marketing_manager` (ou `adm
 
 ## 3. Componentes
 
-### Tabelas envolvidas
-- `crm_ad_accounts` — uma linha por conta Meta conectada ao tenant. Guarda `access_token_encrypted`, `refresh_token_encrypted`, `expires_at`, `meta_ad_account_id`, `currency`, `status` (`active`, `expired`, `revoked`).
-- `crm_audiences` — públicos definidos no MP Audience.
-- `crm_audience_sync_log` — histórico de syncs para cada audience × ad_account (audit + retry).
-- `crm_campaigns` — campanhas criadas/publicadas.
-- `crm_attribution_events` — eventos de conversão enviados e atribuídos.
+### Tabelas envolvidas (nomes reais, schema `crm`)
+
+- `crm.ad_platform_connections` — uma linha por ligação empresa × plataforma (`platform = 'meta' | 'google'`). Guarda tokens cifrados, `status` (`active`, `expired`, `disconnected`), `selected_ad_account_id`, `selected_ad_account_name`, `selected_ad_account_currency`, `last_validated_at`. **Substitui o `crm_ad_accounts` que este doc descrevia — essa tabela nunca existiu.**
+- `crm.meta_campaign_snapshot`, `crm.meta_adset_snapshot`, `crm.meta_ad_snapshot` — metadados das entidades sincronizadas (o antigo `crm_campaigns` deste doc nunca existiu).
+- `crm.meta_campaign_insights_daily`, `crm.meta_adset_insights_daily`, `crm.meta_ad_insights_daily` — métricas diárias. Ver `docs/features/mp-audience-dashboard.md` para colunas e unidades.
+- `crm.meta_creatives` — criativos sincronizados (inclui `meta_video_id`).
+- `crm.meta_campaign_strategies`, `crm.meta_campaign_diagnoses`, `crm.meta_entity_actions_log` — planos de redesenho, diagnósticos e registo de acções.
 
 ### Edge functions
 
 | Função | Estado | Trigger | Função |
 |---|---|---|---|
-| `crm-meta-oauth-callback` | ⏳ Pendente | Redirect OAuth do browser | Trocar `code` por tokens, cifrar, guardar. |
-| `crm-refresh-ad-tokens` | ⏳ Pendente | Cron a cada 12h | Refrescar tokens próximos de expirar. |
-| `crm-sync-audience` | ❌ Futura | Manual ou cron diário | Sincronizar uma audience com Meta Custom Audiences. |
-| `crm-publish-campaign` | ❌ Futura | Manual | Publicar campanha (objetivo, criativo, budget). |
-| `crm-send-conversion-event` | ❌ Futura | Trigger pós-venda confirmada | Enviar `Purchase` via Conversions API. |
-| `crm-fetch-attribution` | ❌ Futura | Cron diário | Puxar métricas e atualizar `crm_attribution_events`. |
+| `crm-meta-oauth-callback` | ✅ Produção | Redirect OAuth do browser | Trocar `code` por tokens, cifrar, guardar. |
+| `crm-meta-sync-campaigns` | ✅ Produção | Botão manual | Popular `meta_campaign_snapshot`. |
+| `crm-meta-sync-adsets` | ✅ Produção | Botão manual | Popular `meta_adset_snapshot`. |
+| `crm-meta-sync-ads` | ✅ Produção | Botão manual | Popular `meta_ad_snapshot`. |
+| `crm-meta-sync-insights` | ✅ Produção | Botão manual (incremental / histórico) | Métricas diárias dos 3 níveis, incluindo vídeo. |
+| `crm-meta-sync-creatives` | ✅ Produção | Cron diário 06:00 UTC | Criativos + `meta_video_id`. |
+| `crm-meta-audience-sync` | ✅ Produção | Manual | Sincronizar públicos com Custom Audiences. |
+| `crm-meta-publish-execute` | ✅ Produção | Manual | Publicar plano (campanha → adsets → ads). Ver `docs/features/crm-meta-publish-flow.md`. |
+| `crm-meta-campaign-redesign` / `crm-meta-campaign-strategy-generate` | ✅ Produção | Manual | Gerar planos de campanha. |
+| `crm-refresh-ad-tokens` | ❌ Não implementada | — | Refresh automático de tokens (ver §4; hoje a revalidação é feita nos syncs). |
+| `crm-send-conversion-event` | 🕰️ Histórico | — | CAPI de vendas de bilheteira; nunca implementada nesta forma. O CAPI em produção é o do portal (`portal_tick_lead_capture` / `portal_tick_redirect_log`, POST directo ao Graph). |
+| `crm-fetch-attribution` | 🕰️ Histórico | — | Substituída pelo `crm-meta-sync-insights`. |
+
 
 ### Secrets (no Lovable Cloud UI)
 
