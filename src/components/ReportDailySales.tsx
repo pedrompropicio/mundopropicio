@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { exportDailySalesPdf } from "@/lib/export-daily-sales";
+import { lisbonToday } from "@/lib/date-lisbon";
 
 type PeriodPreset = "yesterday" | "7d" | "30d" | "custom";
 
@@ -52,12 +53,6 @@ interface SeriesRow {
  * Data "hoje" em Portugal (Europe/Lisbon) — regra do projeto: janelas de vendas
  * nunca dependem do fuso do browser nem do servidor.
  */
-function lisbonToday(): Date {
-  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 function resolveRange(preset: PeriodPreset, custom: { from?: Date; to?: Date }) {
   const today = lisbonToday();
   if (preset === "yesterday") {
