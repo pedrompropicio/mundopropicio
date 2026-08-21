@@ -76,7 +76,7 @@ export function MetricCells({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-2">
-                {formatCompact(agg.reachSum)}
+                {agg.hasReach ? formatCompact(agg.reachSum) : "—"}
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs text-xs">
@@ -90,15 +90,17 @@ export function MetricCells({
       case "cpp":
         return <>{formatCurrency(cpp, currency)}</>;
       case "uniqueClicks":
-        return <>{formatCompact(agg.uniqueClicks)}</>;
+        return <>{agg.hasUniqueClicks ? formatCompact(agg.uniqueClicks) : "—"}</>;
       case "uniqueCtr":
         return <>{pct(uCtr)}</>;
       case "viewContent":
-        return <>{agg.viewContent > 0 ? formatCompact(agg.viewContent) : "—"}</>;
+        return <>{agg.hasViewContent && agg.viewContent > 0 ? formatCompact(agg.viewContent) : "—"}</>;
       case "addToCart":
-        return <>{agg.addToCart > 0 ? formatCompact(agg.addToCart) : "—"}</>;
+        return <>{agg.hasAddToCart && agg.addToCart > 0 ? formatCompact(agg.addToCart) : "—"}</>;
       case "initiateCheckout":
-        return <>{agg.initiateCheckout > 0 ? formatCompact(agg.initiateCheckout) : "—"}</>;
+        return (
+          <>{agg.hasInitiateCheckout && agg.initiateCheckout > 0 ? formatCompact(agg.initiateCheckout) : "—"}</>
+        );
       default:
         return <>—</>;
     }

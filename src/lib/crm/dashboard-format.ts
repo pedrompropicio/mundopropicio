@@ -42,8 +42,14 @@ export function roasBadgeClass(roas: number | null | undefined): string {
   return "bg-red-500/15 text-red-500 border border-red-500/30";
 }
 
-// Banda do ROAS BLENDED por EVENTO (target Mundo Propício = 8x agregado).
-export const EVENT_TARGET_ROAS = 8;
+// Banda do ROAS BLENDED por EVENTO. A meta vem de public.events.target_roas;
+// quando é NULL usa-se este padrão (Mundo Propício = 8x agregado).
+export const DEFAULT_TARGET_ROAS = 8;
+/** Meta de ROAS efectiva do evento (target_roas do evento ou o padrão). */
+export function eventTargetRoas(event: { target_roas?: number | null } | null | undefined): number {
+  const t = event?.target_roas;
+  return t != null && Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : DEFAULT_TARGET_ROAS;
+}
 export function roasColorByEvent(roas: number | null | undefined): string {
   if (roas === null || roas === undefined) return "text-muted-foreground";
   if (roas >= 8) return "text-emerald-500";

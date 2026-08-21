@@ -38,7 +38,7 @@ export const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: "cpc", label: "CPC" },
   { id: "ctr", label: "CTR" },
   { id: "cpm", label: "CPM", tooltip: "Custo por mil impressões." },
-  { id: "freq", label: "Freq.", tooltip: "Média ponderada por impressões." },
+  { id: "freq", label: "Freq.", tooltip: "Média ponderada por impressões. Google não fornece — mostra “—”." },
   {
     id: "reach",
     label: "Alcance",
@@ -48,7 +48,12 @@ export const METRIC_COLUMNS: MetricColumnDef[] = [
   { id: "impressions", label: "Impr." },
   { id: "cpp", label: "CPP", tooltip: "Custo por mil pessoas alcançadas (alcance não deduplicado)." },
   { id: "uniqueClicks", label: "Cliq. únicos" },
-  { id: "uniqueCtr", label: "CTR único", tooltip: "Cliques únicos ÷ impressões." },
+  {
+    id: "uniqueCtr",
+    label: "CTR único",
+    tooltip:
+      "Cliques únicos ÷ alcance (definição do Meta). Como o alcance somado não é deduplicado, o valor agregado é aproximado. Google não fornece — mostra \u201c\u2014\u201d.",
+  },
   { id: "viewContent", label: "ViewContent" },
   { id: "addToCart", label: "AddToCart" },
   { id: "initiateCheckout", label: "InitCheckout" },
