@@ -16,6 +16,8 @@ interface SalesPositionRow {
   last7_value: number;
   yesterday_qty: number;
   yesterday_value: number;
+  today_qty: number;
+  today_value: number;
   has_bol: boolean;
   daily_missing: boolean;
 }
@@ -29,6 +31,8 @@ interface ProviderRow {
   last7_value: number;
   yesterday_qty: number;
   yesterday_value: number;
+  today_qty: number;
+  today_value: number;
 }
 
 const NO_SERIES_HINT = "Série diária disponível após o próximo sync";
@@ -36,8 +40,31 @@ const NO_SERIES_HINT = "Série diária disponível após o próximo sync";
 const nf = new Intl.NumberFormat("pt-PT");
 const nfNoDecimals = new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 0 });
 
+const LISBON_TZ = "Europe/Lisbon";
+
 function formatFullValue(v: number) {
   return `${nfNoDecimals.format(Math.round(Number(v || 0)))} €`;
+}
+
+/** "Sincronizado às HH:mm" (com dd/MM se não for hoje), em hora de Lisboa. */
+function formatLastSync(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const dayFmt = new Intl.DateTimeFormat("pt-PT", {
+    timeZone: LISBON_TZ,
+    day: "2-digit",
+    month: "2-digit",
+  });
+  const timeFmt = new Intl.DateTimeFormat("pt-PT", {
+    timeZone: LISBON_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const isToday = dayFmt.format(d) === dayFmt.format(new Date());
+  return isToday
+    ? `Sincronizado às ${timeFmt.format(d)}`
+    : `Sincronizado a ${dayFmt.format(d)} às ${timeFmt.format(d)}`;
 }
 
 /** Par "bilhetes · valor" em desktop. */
@@ -109,6 +136,20 @@ export function SalesPositionWidget() {
     },
   });
 
+  const { data: lastSync } = useQuery({
+    queryKey: ["sales_last_sync", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_sales_last_sync" as any);
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+  });
+
+  const lastSyncStale = lastSync
+    ? Date.now() - new Date(lastSync).getTime() > 2 * 60 * 60 * 1000
+    : false;
+
   const totals = rows.reduce(
     (acc, r) => ({
       total_qty: acc.total_qty + Number(r.total_qty || 0),
@@ -117,8 +158,19 @@ export function SalesPositionWidget() {
       last7_value: acc.last7_value + Number(r.last7_value || 0),
       yesterday_qty: acc.yesterday_qty + Number(r.yesterday_qty || 0),
       yesterday_value: acc.yesterday_value + Number(r.yesterday_value || 0),
+      today_qty: acc.today_qty + Number(r.today_qty || 0),
+      today_value: acc.today_value + Number(r.today_value || 0),
     }),
-    { total_qty: 0, total_value: 0, last7_qty: 0, last7_value: 0, yesterday_qty: 0, yesterday_value: 0 },
+    {
+      total_qty: 0,
+      total_value: 0,
+      last7_qty: 0,
+      last7_value: 0,
+      yesterday_qty: 0,
+      yesterday_value: 0,
+      today_qty: 0,
+      today_value: 0,
+    },
   );
 
   const colClass = "w-[110px] shrink-0 text-right sm:w-[170px]";
@@ -141,16 +193,18 @@ export function SalesPositionWidget() {
           {/* Cabeçalho desktop */}
           <div className="hidden items-center gap-2 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:flex">
             <span className="min-w-0 flex-1">Evento</span>
-            <span className={colClass}>Total</span>
-            <span className={colClass}>7 dias</span>
+            <span className={colClass}>Agora</span>
             <span className={colClass}>Ontem</span>
+            <span className={colClass}>7 dias</span>
+            <span className={colClass}>Total</span>
           </div>
 
           {/* Cabeçalho mobile */}
-          <div className="grid grid-cols-3 gap-1 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:hidden">
-            <span className="text-right">Total</span>
-            <span className="text-right">7 dias</span>
+          <div className="grid grid-cols-4 gap-1 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:hidden">
+            <span className="text-right">Agora</span>
             <span className="text-right">Ontem</span>
+            <span className="text-right">7 dias</span>
+            <span className="text-right">Total</span>
           </div>
 
           {rows.map((r) => (
@@ -171,10 +225,11 @@ export function SalesPositionWidget() {
                     {r.event_date ? formatDate(r.event_date) : "—"}
                   </span>
                 </span>
-                <div className="grid grid-cols-3 gap-1">
-                  <MobileCell qty={r.total_qty} value={r.total_value} missing={false} />
-                  <MobileCell qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
+                <div className="grid grid-cols-4 gap-1">
+                  <MobileCell qty={r.today_qty} value={r.today_value} missing={r.daily_missing} />
                   <MobileCell qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
+                  <MobileCell qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
+                  <MobileCell qty={r.total_qty} value={r.total_value} missing={false} />
                 </div>
               </div>
 
@@ -192,13 +247,16 @@ export function SalesPositionWidget() {
                   </span>
                 </span>
                 <span className={colClass}>
-                  <Cell qty={r.total_qty} value={r.total_value} missing={false} />
+                  <Cell qty={r.today_qty} value={r.today_value} missing={r.daily_missing} />
+                </span>
+                <span className={colClass}>
+                  <Cell qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
                 </span>
                 <span className={colClass}>
                   <Cell qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
                 </span>
                 <span className={colClass}>
-                  <Cell qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
+                  <Cell qty={r.total_qty} value={r.total_value} missing={false} />
                 </span>
               </div>
             </div>
@@ -208,10 +266,11 @@ export function SalesPositionWidget() {
             {/* Total mobile */}
             <div className="flex flex-col gap-0.5 sm:hidden">
               <span className="truncate">TOTAL GERAL</span>
-              <div className="grid grid-cols-3 gap-1">
-                <MobileCell qty={totals.total_qty} value={totals.total_value} missing={false} />
-                <MobileCell qty={totals.last7_qty} value={totals.last7_value} missing={false} />
+              <div className="grid grid-cols-4 gap-1">
+                <MobileCell qty={totals.today_qty} value={totals.today_value} missing={false} />
                 <MobileCell qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
+                <MobileCell qty={totals.last7_qty} value={totals.last7_value} missing={false} />
+                <MobileCell qty={totals.total_qty} value={totals.total_value} missing={false} />
               </div>
             </div>
 
@@ -219,13 +278,16 @@ export function SalesPositionWidget() {
             <div className="hidden items-center gap-2 text-sm sm:flex">
               <span className="min-w-0 flex-1 truncate">TOTAL GERAL</span>
               <span className={colClass}>
-                <Cell qty={totals.total_qty} value={totals.total_value} missing={false} />
+                <Cell qty={totals.today_qty} value={totals.today_value} missing={false} />
+              </span>
+              <span className={colClass}>
+                <Cell qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
               </span>
               <span className={colClass}>
                 <Cell qty={totals.last7_qty} value={totals.last7_value} missing={false} />
               </span>
               <span className={colClass}>
-                <Cell qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
+                <Cell qty={totals.total_qty} value={totals.total_value} missing={false} />
               </span>
             </div>
           </div>
@@ -243,10 +305,11 @@ export function SalesPositionWidget() {
                   {/* Mobile */}
                   <div className="flex flex-col gap-0.5 sm:hidden">
                     <span className="min-w-0 truncate font-medium">{p.provider}</span>
-                    <div className="grid grid-cols-3 gap-1">
-                      <MobileCell qty={p.total_qty} value={p.total_value} missing={false} />
-                      <MobileCell qty={p.last7_qty} value={p.last7_value} missing={false} />
+                    <div className="grid grid-cols-4 gap-1">
+                      <MobileCell qty={p.today_qty} value={p.today_value} missing={false} />
                       <MobileCell qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
+                      <MobileCell qty={p.last7_qty} value={p.last7_value} missing={false} />
+                      <MobileCell qty={p.total_qty} value={p.total_value} missing={false} />
                     </div>
                   </div>
 
@@ -254,17 +317,28 @@ export function SalesPositionWidget() {
                   <div className="hidden items-center gap-2 text-sm sm:flex">
                     <span className="min-w-0 flex-1 truncate font-medium">{p.provider}</span>
                     <span className={colClass}>
-                      <Cell qty={p.total_qty} value={p.total_value} missing={false} />
+                      <Cell qty={p.today_qty} value={p.today_value} missing={false} />
+                    </span>
+                    <span className={colClass}>
+                      <Cell qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
                     </span>
                     <span className={colClass}>
                       <Cell qty={p.last7_qty} value={p.last7_value} missing={false} />
                     </span>
                     <span className={colClass}>
-                      <Cell qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
+                      <Cell qty={p.total_qty} value={p.total_value} missing={false} />
                     </span>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {lastSync && (
+            <div className="border-t border-border/60 px-3 py-1 text-right text-[10px]">
+              <span className={lastSyncStale ? "text-amber-500" : "text-muted-foreground"}>
+                {formatLastSync(lastSync)}
+              </span>
             </div>
           )}
         </div>
