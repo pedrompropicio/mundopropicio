@@ -8,7 +8,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.21_probe_nova_area_2026_08_21";
+const VERSION = "v2.22_probe_params_2026_08_21";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -52,7 +52,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1014,6 +1014,151 @@ function salesPerEventUrl(id: string, startDD: string, endDD: string): string {
   return `${BASE}/managers/dashboard/sales_per_event.xlsx?${qs.toString()}`;
 }
 
+// ============================================================================
+// action "probe_params" (v2.22) — matriz de variantes de parâmetros do
+// sale_summary.xlsx no MESMO login. Objetivo: descobrir qual o contrato de
+// parâmetros aceito pelos eventos migrados (que caem na landing "nova área").
+// NÃO altera o fluxo de sync.
+// ============================================================================
+function summarizeAttempt(label: string, url: string, r: any) {
+  const out: any = {
+    label,
+    url,
+    finalUrl: r.url,
+    status: r.status,
+    contentType: r.contentType,
+    size: r.size ?? null,
+    looksXlsx: !!r.looksXlsx,
+    novaArea: looksLikeNovaArea(r.snippet),
+    chain: (r.chain || []).map((c: any) => `${c.status} ${c.url}${c.location ? ` -> ${c.location}` : ""}`),
+    error: r.error ?? null,
+  };
+  if (!r.looksXlsx) out.snippet = (r.snippet || "").slice(0, 400);
+  if (r.looksXlsx && r.bytes) {
+    try {
+      const d = dumpXlsx(r.bytes, 8, 14);
+      out.xlsx = {
+        sheetNames: d.sheetNames,
+        headRows: d.sheets.map((s: any) => ({ name: s.name, ref: s.ref, rows: s.rows.slice(0, 8) })),
+      };
+    } catch (e: any) {
+      out.xlsxParseError = e?.message || String(e);
+    }
+  }
+  return out;
+}
+
+/** Constrói a query tal como o <form> de filtros real da página submete. */
+function buildQueryFromForm(form: any, startDD: string, endDD: string) {
+  const params = new URLSearchParams();
+  const granularityOptions: string[] = (form.options || []).map((o: any) => o.value);
+  for (const f of form.fields || []) {
+    if (!f.name) continue;
+    const t = (f.type || "").toLowerCase();
+    if (t === "submit" || t === "button" || t === "file") continue;
+    let value = f.value ?? "";
+    if (/filter_start_date|start_date/i.test(f.name)) value = startDD;
+    else if (/filter_end_date|end_date/i.test(f.name)) value = endDD;
+    params.set(f.name, String(value));
+  }
+  const numeric = granularityOptions.filter((v) => /^\d+$/.test(v));
+  const gran = numeric.includes("2") ? "2" : (numeric.sort((a, b) => Number(b) - Number(a))[0] ?? "2");
+  params.set("granularity", gran);
+  if (!params.has("utf8")) params.set("utf8", "\u2713");
+  return { query: params.toString(), granularityOptions, granularityUsed: gran };
+}
+
+async function runProbeParams(admin: any, configId?: string) {
+  if (!configId) return json(400, { error: "probe_params requer configId" });
+
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+  const id = String(cfg.ticketline_event_id);
+  const { jar } = await loginDevise(creds.email, creds.password);
+
+  const startDD = salesStartToDDMMYYYY(cfg.sales_start_date);
+  const endDD = fmtDDMMYYYY(new Date());
+  const evBase = `${BASE}/managers/events/${encodeURIComponent(id)}`;
+  const XA = `${XLSX_ACCEPT},*/*`;
+
+  const out: any = {
+    ok: true,
+    version: VERSION,
+    configId,
+    ticketline_event_id: id,
+    organization_name: cfg.organization_name,
+    window: { startDD, endDD, sales_start_date: cfg.sales_start_date ?? null },
+    variants: [] as any[],
+    formSubmission: null as any,
+  };
+
+  const variants: Array<{ label: string; url: string }> = [
+    { label: "a_granularity_0", url: `${evBase}/sale_summary.xlsx?granularity=0` },
+    { label: "b_granularity_2_only", url: `${evBase}/sale_summary.xlsx?granularity=2` },
+    { label: "c_gran2_filters_no_post_render", url: `${evBase}/sale_summary.xlsx?granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}` },
+    { label: "d_gran2_filters_utf8", url: `${evBase}/sale_summary.xlsx?utf8=%E2%9C%93&granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}` },
+    { label: "z_current_sync_request", url: `${evBase}/sale_summary.xlsx?granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}&bulk_event_ids=&post_render_content=data` },
+    { label: "y_granularity_1", url: `${evBase}/sale_summary.xlsx?granularity=1` },
+    { label: "x_gran0_filters", url: `${evBase}/sale_summary.xlsx?granularity=0&filter_start_date=${startDD}&filter_end_date=${endDD}` },
+  ];
+
+  for (const v of variants) {
+    const r = await probeGet(jar, v.url, XA, 3, { Referer: `${evBase}/sale_summary` });
+    out.variants.push(summarizeAttempt(v.label, v.url, r));
+  }
+
+  const pageUrl = `${evBase}/sale_summary`;
+  const page = await probeGet(jar, pageUrl, HTML_ACCEPT, 3);
+  const pageHtml = page.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(page.bytes) : "";
+  const forms = extractForms(pageHtml);
+  const candidate =
+    forms.find((f: any) => (f.fields || []).some((x: any) => /filter_start_date/i.test(x.name || ""))) ??
+    forms.find((f: any) => /sale_summary/i.test(f.action || "")) ??
+    forms[0] ?? null;
+
+  const formInfo: any = {
+    pageUrl,
+    pageStatus: page.status,
+    pageContentType: page.contentType,
+    pageSize: page.size ?? null,
+    pageNovaArea: looksLikeNovaArea(page.snippet),
+    formsFound: forms.length,
+    forms: forms.map((f: any) => ({ action: f.action, method: f.method, fields: f.fields, options: f.options })),
+    xlsxLinksOnPage: Array.from(
+      new Set(Array.from(pageHtml.matchAll(/(?:href|action)\s*=\s*["']([^"']*sale_summary[^"']*)["']/gi)).map((x) => x[1])),
+    ).slice(0, 20),
+  };
+
+  if (candidate) {
+    const built = buildQueryFromForm(candidate, startDD, endDD);
+    const actionPath = candidate.action && candidate.action.trim() ? candidate.action.trim() : `/managers/events/${id}/sale_summary`;
+    const actionAbs = new URL(actionPath, `${BASE}/`).toString();
+    const xlsxAction = /\.xlsx($|\?)/.test(actionAbs) ? actionAbs : actionAbs.replace(/(\/sale_summary)(?=$|\?)/, "$1.xlsx");
+
+    formInfo.chosenForm = { action: candidate.action, method: candidate.method };
+    formInfo.granularityOptions = built.granularityOptions;
+    formInfo.granularityUsed = built.granularityUsed;
+
+    const attempts: any[] = [];
+    const u1 = `${actionAbs}?${built.query}`;
+    attempts.push(summarizeAttempt("e1_form_query_html", u1, await probeGet(jar, u1, HTML_ACCEPT, 3, { Referer: pageUrl })));
+    const u2 = `${xlsxAction}?${built.query}`;
+    attempts.push(summarizeAttempt("e2_form_query_xlsx", u2, await probeGet(jar, u2, XA, 3, { Referer: pageUrl })));
+    const q3 = new URLSearchParams(built.query);
+    q3.delete("utf8");
+    const u3 = `${xlsxAction}?${q3.toString()}`;
+    attempts.push(summarizeAttempt("e3_form_query_xlsx_no_utf8", u3, await probeGet(jar, u3, XA, 3, { Referer: pageUrl })));
+
+    formInfo.attempts = attempts;
+  }
+
+  out.formSubmission = formInfo;
+  out.winners = [
+    ...out.variants.filter((v: any) => v.looksXlsx).map((v: any) => v.label),
+    ...((formInfo.attempts || []).filter((a: any) => a.looksXlsx).map((a: any) => a.label)),
+  ];
+  return json(200, out);
+}
+
 /** Dump de células de um XLSX para calibrar parsers (action "dump"). */
 function dumpXlsx(bytes: Uint8Array, maxRows = 80, maxCols = 24) {
   const wb = XLSX.read(bytes, { type: "array" });
@@ -1405,6 +1550,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, compareConfigId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "probe_params") {
+    try {
+      return await runProbeParams(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "probe_params_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "probe_nova_area") {
     try {
