@@ -76,7 +76,10 @@ export function useAdsetBudgetsQuery(opts: {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_adset_snapshot")
-        .select("external_campaign_id, daily_budget_cents, lifetime_budget_cents")
+        .select(
+          "external_campaign_id, external_adset_id, name, status, effective_status, daily_budget_cents, lifetime_budget_cents, learning_stage_info",
+        )
+
         .eq("ad_account_id", adAccountId);
       if (error) throw error;
       return (data ?? []) as AdsetBudgetRow[];
