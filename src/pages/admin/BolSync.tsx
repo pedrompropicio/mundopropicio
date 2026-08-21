@@ -125,7 +125,10 @@ export default function BolSync() {
       if (data?.ok) toast.success("Ligação BOL OK — ver inventário.");
       else toast.error(data?.error || "Ligação falhou");
     },
-    onError: (e: any) => toast.error(e?.message || "Erro"),
+    onError: async (e: any) => {
+      const msg = await extractFnError(e, "Erro");
+      toast.error(msg);
+    },
   });
 
   const credsMut = useMutation({
