@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { printAudienceCoach } from "@/lib/audience-pdf";
+import { cn } from "@/lib/utils";
 
 /**
  * AI Audience Coach (crm-meta-audience-coach).
