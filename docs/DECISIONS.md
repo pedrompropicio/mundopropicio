@@ -237,3 +237,21 @@ Modelos do duelo: google/gemini-2.5-pro × openai/gpt-5 (grande, agora viável p
 
 **Plano de construção por fases:** (F1) brief v2 ganha modo ref-only/blank sem partir o uso atual; (F2) edge function from-scratch nova com os 3 cenários, reusando helpers; (F3) UI — entrada no menu + formulário; (F4) ligar botões existentes da campanha ao cenário 3. Cada fase verificada por diff/BD antes da seguinte.
 
+
+## DR-2026-08-21 — Dashboard MP Audience unificado: meta de ROAS por evento, escala partilhada, sem conversão de moeda, "—" em vez de zero
+
+Fecho do redesenho do dashboard `/audience/dashboard` (Fases 0–5). Quatro decisões deste ciclo:
+
+**1. Meta de ROAS deixa de ser constante e passa a `public.events.target_roas`.**
+Antes havia um alvo único no código para todas as campanhas. Um festival de 3 dias com bilhete médio alto e um espectáculo de sala não se avaliam pelo mesmo múltiplo: o alvo é do EVENTO, não do módulo. `target_roas` é NULL por omissão e cai no fallback `DEFAULT_TARGET_ROAS` (8×) — 8 era exactamente a constante anterior, logo nenhum evento mudou de leitura com a migração. Editável no card do evento (`TargetRoasEditor.tsx`).
+
+**2. Google e Meta partilham a escala de unidades para poderem ser agregados.**
+Dinheiro em cêntimos inteiros nas duas plataformas; `ctr`/`unique_ctr` como fracção nas duas. O Google devolve micros e CTR já em percentagem — a normalização faz-se no `crm-google-sync-campaigns` (`micros / 10000`) e nas queries de leitura (`google-queries.ts`), NUNCA na UI. Porquê: a alternativa era ramificar `aggregate()` por plataforma, e cada função derivada (CPC, CPM, CPA, ticket) passaria a ter dois caminhos. Com a escala normalizada à entrada, a mesma agregação serve as duas e há um único sítio onde a escala pode estar errada. Foi assim que dois bugs de escala (CTR ×100 do Google, `unique_ctr` sobre impressões em vez de alcance) ficaram corrigidos num só ficheiro.
+
+**3. Nunca converter moedas automaticamente.**
+Quando as moedas das plataformas ou das contas divergem, o consolidado devolve `null` e a UI mostra cada plataforma na sua moeda. Somar exigiria uma taxa de câmbio, e a taxa certa seria a do dia de cada linha de gasto — não a de hoje. Um total "quase certo" em EUR é pior do que dois totais certos, porque ninguém consegue auditá-lo contra o Ads Manager. Vale a mesma regra do multi-currency do financeiro: só se soma o que está na mesma moeda.
+
+**4. Métricas em falta mostram "—", nunca zero.**
+Zero é uma medição ("ninguém clicou"); ausência é outra coisa ("esta plataforma não fornece", "este anúncio é imagem, não tem hook rate", "o pixel não dispara este evento"). Confundir as duas leva a decisões erradas: um anúncio de imagem com "0% de retenção" parece um criativo falhado. Implementação: flags `has*` no `Aggregate` (`hasReach`, `hasUniqueClicks`, `hasViewContent`, `hasAddToCart`, `hasInitiateCheckout`, `hasVideo`) e colunas nullable na BD — as colunas de vídeo gravam NULL, nunca 0, quando o Graph não devolve o campo. A mesma regra na série diária (dias sem dados ficam `null`, o gráfico mostra o buraco) e nos deltas de KPI (sem janela anterior completa, "sem histórico comparável" em vez de uma percentagem inventada).
+
+Documentação: `docs/features/mp-audience-dashboard.md` (fonte de verdade do ecrã); `docs/integrations/meta-ads.md` reconciliado e reduzido ao fluxo OAuth/tokens.
