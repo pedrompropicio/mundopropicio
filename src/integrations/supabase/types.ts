@@ -11553,6 +11553,7 @@ export type Database = {
           tx_type: string
         }[]
       }
+      get_sales_last_sync: { Args: never; Returns: string }
       get_sales_position: {
         Args: never
         Returns: {
@@ -11564,6 +11565,8 @@ export type Database = {
           has_bol: boolean
           last7_qty: number
           last7_value: number
+          today_qty: number
+          today_value: number
           total_qty: number
           total_value: number
           yesterday_qty: number
@@ -11577,6 +11580,8 @@ export type Database = {
           last7_value: number
           provider: string
           sort_order: number
+          today_qty: number
+          today_value: number
           total_qty: number
           total_value: number
           yesterday_qty: number
