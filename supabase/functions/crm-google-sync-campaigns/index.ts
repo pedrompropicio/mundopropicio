@@ -350,7 +350,9 @@ function buildDailyRows(rows: GAdsCampaignRow[]): DailyInsightRow[] {
     row.cpm_cents = row.impressions > 0
       ? (row.spend_cents / row.impressions) * 1000
       : null;
-    row.ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : null;
+    // FRACÇÃO (0,0111 = 1,11%) — mesma escala que crm.meta_campaign_insights_daily.ctr.
+    // Nunca gravar em percentagem aqui: a UI unificada agrega as duas plataformas.
+    row.ctr = row.impressions > 0 ? row.clicks / row.impressions : null;
   }
   return Array.from(byKey.values());
 }
