@@ -198,10 +198,15 @@ async function loginBol(email: string, password: string, returnUrl = "/Relatorio
   }
   const html = await getResp.text();
 
-  const fields = parseFormFields(html);
-  const userField = findInputName(html, "\\$UserName");
-  const passField = findInputName(html, "\\$Password");
-  const submitName = html.match(/<input\b[^>]*name="([^"]*submitLoginBtn)"/i)?.[1] ?? null;
+  // Trabalhar só dentro do form que contém o campo de utilizador (a página pode
+  // ter mais do que um form; misturar campos/action leva a HTTP 200 sem login).
+  const scope = formScopeContaining(html, /\$UserName"/i);
+  const fields = parseFormFields(scope);
+  const userField = findInputName(scope, "\\$UserName");
+  const passField = findInputName(scope, "\\$Password");
+  const submitTag = scope.match(/<input\b[^>]*name="([^"]*submitLoginBtn)"[^>]*>/i);
+  const submitName = submitTag?.[1] ?? null;
+  const submitValue = submitTag?.[0].match(/\bvalue="([^"]*)"/i)?.[1] ?? "Entrar";
   if (!userField || !passField) {
     const { title } = describeHtml(html);
     throw Object.assign(
@@ -213,14 +218,29 @@ async function loginBol(email: string, password: string, returnUrl = "/Relatorio
     throw Object.assign(new Error("__VIEWSTATE ausente na página de login BOL"), { phase: "login_viewstate" });
   }
 
+  // O campo é "Utilizador" (maxlength 20), não o email. Se o valor guardado no
+  // Vault não caber no campo, o BOL nunca autentica — falhar cedo e explicar.
+  const maxUser = inputMaxLength(scope, userField);
+  if (maxUser && email.length > maxUser) {
+    throw Object.assign(
+      new Error(
+        `Credenciais BOL inválidas: o campo "Utilizador" aceita no máximo ${maxUser} caracteres ` +
+        `e o valor guardado tem ${email.length} (parece ser um email). ` +
+        `Regravar as credenciais com o nome de utilizador da BOL.`,
+      ),
+      { phase: "creds_invalid" },
+    );
+  }
+
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(fields)) params.set(k, v);
   params.set(userField, email);
   params.set(passField, password);
-  if (submitName) params.set(submitName, "Entrar");
+  if (submitName) params.set(submitName, decodeEntities(submitValue));
 
-  const action = findFormAction(html);
+  const action = findFormAction(scope);
   const postUrl = action ? absUrl(loginUrl, action) : loginUrl;
+
 
   const postResp = await fetchWithTimeout(postUrl, {
     method: "POST", redirect: "manual",
