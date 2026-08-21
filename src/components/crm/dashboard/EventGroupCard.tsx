@@ -9,12 +9,14 @@ import { sortCampaigns } from "@/lib/crm/table-sort";
 import { useDashboardTableCtx } from "@/components/crm/dashboard/dashboard-table-context";
 import { aggregate } from "@/lib/crm/aggregate";
 import {
-  EVENT_TARGET_ROAS,
+  eventTargetRoas,
   formatCurrency,
   formatRoas,
   roasBarBgByEvent,
   roasColorByEvent,
 } from "@/lib/crm/dashboard-format";
+import { PlatformBreakdown } from "@/components/crm/dashboard/PlatformBreakdown";
+import { TargetRoasEditor } from "@/components/crm/dashboard/TargetRoasEditor";
 import { CampaignTableHeader } from "@/components/crm/dashboard/CampaignTableHeader";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
 import type { CampaignRow, EventRow, InsightRow } from "@/components/crm/dashboard/types";
@@ -95,8 +97,9 @@ export function EventGroupCard({
     return { daysUntilEvent, projectedBlended: projectedRevenue / projectedSpend };
   }, [allInsights, agg.revenueCents, agg.spendCents, event.date]);
 
+  const targetRoas = eventTargetRoas(event);
   const progressPct = agg.roas != null && Number.isFinite(agg.roas)
-    ? Math.min(100, Math.max(0, (agg.roas / EVENT_TARGET_ROAS) * 100))
+    ? Math.min(100, Math.max(0, (agg.roas / targetRoas) * 100))
     : null;
 
   return (
@@ -145,8 +148,13 @@ export function EventGroupCard({
                       />
                     </div>
                     <span className="font-mono tabular-nums text-muted-foreground">
-                      {formatRoas(agg.roas)} / {EVENT_TARGET_ROAS}x → {progressPct.toFixed(0)}%
+                      {formatRoas(agg.roas)} / {targetRoas}x → {progressPct.toFixed(0)}%
                     </span>
+                    <TargetRoasEditor
+                      eventId={event.id}
+                      value={event.target_roas}
+                      onSaved={onEdited}
+                    />
                   </div>
                 )}
                 {projection && (
@@ -156,7 +164,7 @@ export function EventGroupCard({
                       {formatRoas(projection.projectedBlended)}
                     </span>{" "}
                     em {projection.daysUntilEvent}d
-                    {projection.projectedBlended < EVENT_TARGET_ROAS && (
+                    {projection.projectedBlended < targetRoas && (
                       <span className="text-amber-500"> · Risco de não atingir meta — analisar</span>
                     )}
                   </div>
@@ -174,6 +182,13 @@ export function EventGroupCard({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
+          <div className="border-t border-border p-3">
+            <PlatformBreakdown
+              campaigns={campaigns}
+              insightsByCampaign={insightsByCampaign}
+              fallbackCurrency={currency}
+            />
+          </div>
           <div className="overflow-x-auto border-t border-border">
             <table className="w-full">
               <CampaignTableHeader />
