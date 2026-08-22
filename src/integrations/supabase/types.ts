@@ -11191,6 +11191,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      _test_bp_tx_guards: { Args: never; Returns: Json }
       _test_tickets_v2_compute_function: {
         Args: never
         Returns: {
