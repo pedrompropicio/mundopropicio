@@ -1,6 +1,6 @@
 // crm-google-publish-execute — publicador de campanhas de Pesquisa no Google Ads.
 //
-// BUILD_VERSION=google-publish-execute-v2-datetime
+// BUILD_VERSION=google-publish-execute-v3-eu-par
 //
 // Espelho do crm-meta-publish-execute. Regras não-negociáveis:
 //  - Tudo nasce em PAUSA (orçamento/campanha/grupo/anúncio).
