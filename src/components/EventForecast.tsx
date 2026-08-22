@@ -192,6 +192,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
   const [showOrphans, setShowOrphans] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingCommittedPDF, setExportingCommittedPDF] = useState(false);
+
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
