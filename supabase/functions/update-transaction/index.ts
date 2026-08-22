@@ -153,15 +153,49 @@ Deno.serve(async (req) => {
 
     // Write audit log (server-side, tamper-proof)
     const callerName = caller.user_metadata?.full_name ?? caller.email ?? "sistema";
-    if (changes && Array.isArray(changes) && changes.length > 0) {
-      const auditEntries = changes.map((c: any) => ({
-        transaction_id,
-        changed_by: callerName,
-        field_name: String(c.field_name ?? ""),
-        old_value: String(c.old_value ?? ""),
-        new_value: String(c.new_value ?? ""),
-      }));
+    const auditEntries = (changes && Array.isArray(changes) ? changes : []).map((c: any) => ({
+      transaction_id,
+      changed_by: callerName,
+      field_name: String(c.field_name ?? ""),
+      old_value: String(c.old_value ?? ""),
+      new_value: String(c.new_value ?? ""),
+    }));
 
+    // AUDITORIA OBRIGATÓRIA (derivada no servidor, não depende do cliente):
+    // mudança de EVENTO e de DESCRIÇÃO. O incidente do vínculo cruzado BP↔TX
+    // (Anitta → Ivete) não deixou rasto porque estes dois campos podiam ser
+    // alterados sem qualquer entrada no transaction_audit_log.
+    {
+      const alreadyAudited = new Set(auditEntries.map((e) => e.field_name));
+
+      if ("description" in updates && !alreadyAudited.has("Descrição")) {
+        const oldVal = String(transaction.description ?? "");
+        const newVal = String(updates.description ?? "");
+        if (oldVal !== newVal) {
+          auditEntries.push({ transaction_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
+        }
+      }
+
+      if ("event_id" in updates && !alreadyAudited.has("Evento")) {
+        const oldId = transaction.event_id ?? null;
+        const newId = updates.event_id ?? null;
+        if (String(oldId ?? "") !== String(newId ?? "")) {
+          const ids = [oldId, newId].filter(Boolean) as string[];
+          const nameById = new Map<string, string>();
+          if (ids.length > 0) {
+            const { data: evRows } = await adminClient.from("events").select("id, name").in("id", ids);
+            for (const ev of evRows ?? []) nameById.set(ev.id, ev.name);
+          }
+          const label = (id: string | null) => (id ? `${nameById.get(id) ?? id}` : "(sem evento)");
+          auditEntries.push({
+            transaction_id, changed_by: callerName, field_name: "Evento",
+            old_value: label(oldId), new_value: label(newId),
+          });
+        }
+      }
+    }
+
+    if (auditEntries.length > 0) {
       const { error: auditError } = await adminClient
         .from("transaction_audit_log")
         .insert(auditEntries);
@@ -170,6 +204,7 @@ Deno.serve(async (req) => {
         console.error("Audit log error:", auditError);
       }
     }
+
 
     // Build sanitized update object (only allowed fields)
     // SECURITY: `status` removed — status transitions must go through the
