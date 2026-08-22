@@ -11277,6 +11277,15 @@ export type Database = {
         Args: { _edits?: Json; _event_id: string; _version_id?: string }
         Returns: Json
       }
+      bp_tx_link_allowed: {
+        Args: {
+          _fc_company: string
+          _fc_event: string
+          _tx_company: string
+          _tx_event: string
+        }
+        Returns: boolean
+      }
       bp_version_linked_tx_count: {
         Args: { _event_id: string }
         Returns: number
