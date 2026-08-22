@@ -15,6 +15,20 @@
  *    (ver findCategoryOrphanTransactions).
  */
 
+/**
+ * Rótulo do bucket sintético de transações sem linha de BP.
+ * Receita: por desenho não há linhas de BP (vive nos módulos/transações) → rótulo
+ * neutro, sem tratamento de aviso. Despesa: é pendência legítima a resolver.
+ */
+export function orphanBucketLabel(type: string | null | undefined): string {
+  return type === "income" ? "Receita da rubrica" : "Sem linha de BP — a classificar";
+}
+
+/** Só as despesas órfãs são pendência (recebem ícone/cor de aviso). */
+export function orphanBucketIsPending(type: string | null | undefined): boolean {
+  return type !== "income";
+}
+
 export function normalizeMatchText(value: string | null | undefined): string {
   return String(value ?? "")
     .normalize("NFD")
