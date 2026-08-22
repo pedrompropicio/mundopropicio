@@ -1768,7 +1768,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         amount: 0,
         iva_rate: 0,
         status: "n/a",
-        description: "Sem linha específica",
+        description: orphanBucketLabel(type),
         specification: null,
         event_id: eventId,
         account_categories: info ? { code: info.code, name: info.name } : null,
