@@ -1,12 +1,20 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
-import { buildCommittedRows } from "@/lib/export-bp-committed-pdf";
+import { buildCommittedRows, buildCommittedBpDoc } from "@/lib/export-bp-committed-pdf";
+import logo from "@/assets/logo-horizontal.png?inline";
+
 const bundle = JSON.parse(fs.readFileSync("/tmp/anitta-bundle.json", "utf8"));
-describe("dbg", () => { it("2.2.05", () => {
-  const cat = bundle.categories.find((c: any) => c.code === "2.2.05");
-  const txs = bundle.transactions.filter((t: any) => t.category_id === cat.id);
-  const docs = txs.reduce((s: number, t: any) => s + (bundle.txDocs[t.id] ?? 0), 0);
-  console.log("txs no bundle", txs.length, "docs", docs);
-  buildCommittedRows(bundle);
-  expect(1).toBe(1);
-});});
+
+describe("BP previsto+excedido — Anitta", () => {
+  it("valida", () => {
+    const { rows, totals } = buildCommittedRows(bundle);
+    console.log("TOTAL s/IVA", totals.base.toFixed(2), "IVA", totals.iva.toFixed(2), "c/IVA", totals.total.toFixed(2), "docs", totals.docs);
+    const aereo = rows.filter((r: any) => r.code === "2.2.01");
+    const idx = rows.findIndex((r: any) => r.code === "2.2.01");
+    console.log("2.2.01 rubrica", JSON.stringify(aereo));
+    console.log("linhas seguintes", JSON.stringify(rows.slice(idx + 1, idx + 4)));
+    const doc = buildCommittedBpDoc(bundle, { displayName: "Mundo Propício", logoDataUrl: logo as string });
+    fs.writeFileSync("/tmp/bp-anitta.pdf", Buffer.from(doc.output("arraybuffer") as ArrayBuffer));
+    expect(totals.base).toBeGreaterThan(0);
+  });
+});
