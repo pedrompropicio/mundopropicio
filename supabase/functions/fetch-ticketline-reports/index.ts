@@ -6,10 +6,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
-import { parseTicketlineOperationsSjr } from "../_shared/ticketline-sjr-parser.ts";
+// (parser SJR por-evento mantido em _shared para as sondas; o sync usa a série diária do dashboard)
+import {
+  parseDashboardDailySjr,
+  type DashboardDailyResult,
+} from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.28_probe_dashflow_2026_08_21";
+const VERSION = "v2.29_dashboard_daily_2026_08_22";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -25,6 +29,21 @@ function salesStartToDDMMYYYY(salesStart: string | null | undefined): string {
   if (!m) return "01-01-2025";
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
+/** Hoje em Europe/Lisbon como YYYY-MM-DD (regra de timezone do projecto). */
+function lisbonTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Lisbon", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+function isoToDDMMYYYY(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+}
+function ddmmyyyyToIso(s: string): string {
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+}
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1068,7 +1087,7 @@ async function downloadSummarySjr(
 
 export type SummaryDownload =
   | { mode: "xlsx"; bytes: Uint8Array }
-  | { mode: "sjr_html"; js: string; debug: Record<string, any> };
+  | { mode: "dashboard_daily"; series: DashboardDailyResult; debug: Record<string, any> };
 
 async function downloadSummary(
   creds: { email: string; password: string },
@@ -1093,39 +1112,214 @@ async function downloadSummary(
         return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
       } catch (e2: any) {
         if (e2?.phase !== "html_response") throw e2;
-        return await sjrFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
+        return await dashboardDailyFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
       }
     }
     if (e?.phase !== "html_response") throw e;
-    // Evento migrado: export .xlsx bloqueado server-side → ler o relatório por SJR.
-    return await sjrFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
+    // Evento migrado: export .xlsx bloqueado e relatório por-evento vazio →
+    // ler a SÉRIE DIÁRIA no resumo do dashboard (padrão BOL).
+    return await dashboardDailyFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
   }
 }
 
-async function sjrFallback(
+// ============================================================================
+// Fallback dashboard_daily (v2.29)
+// Eventos migrados: /managers/events/<id>/sale_summary vem a zeros (provado nas
+// sondas v2.27) mas /managers/dashboard/sale_summary filtrado por
+// bulk_event_ids tem os números reais. O período do dashboard fixa-se por POST
+// (period=5 + datas); os dados lêem-se por SJR (post_render_content=data).
+// ============================================================================
+const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
+
+function dashSjrUrl(id: string, startDD: string, endDD: string): string {
+  const qs = new URLSearchParams();
+  qs.set("utf8", "✓");
+  qs.set("granularity", "2");
+  qs.set("bulk_event_ids", id);
+  qs.set("filter_start_date", startDD);
+  qs.set("filter_end_date", endDD);
+  qs.set("post_render_content", "data");
+  qs.set("_", String(Date.now()));
+  return `${DASH_URL}?${qs.toString()}`;
+}
+
+async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
+  const resp = await fetchWithTimeout(DASH_URL, {
+    method: "GET", redirect: "manual",
+    headers: { "User-Agent": UA_PROBE, Accept: "text/html,application/xhtml+xml,*/*", Cookie: jarToHeader(jar), Referer: `${BASE}/managers` },
+  }, 60000);
+  ingestSetCookie(jar, resp);
+  const html = await resp.text().catch(() => "");
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    if (loc.includes("sign_in")) {
+      throw Object.assign(new Error(`dashboard: sessão expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(new Error(`dashboard: página 302 → ${loc}`), { phase: "dashboard_page_redirect" });
+  }
+  if (!resp.ok) {
+    throw Object.assign(new Error(`dashboard: página HTTP ${resp.status}`), { phase: `dashboard_page_http_${resp.status}` });
+  }
+  const token = /name="authenticity_token"\s+value="([^"]+)"/.exec(html)?.[1] || extractCsrfToken(html) || "";
+  return { html, token };
+}
+
+/** Fixa o período do dashboard por POST (period=5 + datas). */
+async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string) {
+  const form = new URLSearchParams({
+    utf8: "✓",
+    authenticity_token: token,
+    period: "5",
+    filter_start_date: startDD,
+    filter_end_date: endDD,
+  });
+  const resp = await fetchWithTimeout(DASH_URL, {
+    method: "POST", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,*/*",
+      Cookie: jarToHeader(jar),
+      Referer: DASH_URL,
+      Origin: BASE,
+    },
+    body: form.toString(),
+  }, 90000);
+  ingestSetCookie(jar, resp);
+  await resp.text().catch(() => null);
+  return { status: resp.status, location: resp.headers.get("location") };
+}
+
+/** Lê a série diária do dashboard via SJR. */
+async function dashFetchSeries(
+  jar: Jar,
+  token: string,
+  id: string,
+  startDD: string,
+  endDD: string,
+): Promise<{ series: DashboardDailyResult; url: string; size: number; contentType: string }> {
+  const url = dashSjrUrl(id, startDD, endDD);
+  const resp = await fetchWithTimeout(url, {
+    method: "GET", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      Accept: SJR_ACCEPT,
+      Cookie: jarToHeader(jar),
+      Referer: DASH_URL,
+      "X-Requested-With": "XMLHttpRequest",
+      ...(token ? { "X-CSRF-Token": token } : {}),
+    },
+  }, 110000);
+  ingestSetCookie(jar, resp);
+  const ct = resp.headers.get("content-type") || "";
+  const body = await resp.text().catch(() => "");
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    if (loc.includes("sign_in")) {
+      throw Object.assign(new Error(`dashboard SJR: sessão expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(new Error(`dashboard SJR: 302 → ${loc}`), { phase: "dashboard_sjr_redirect" });
+  }
+  if (!resp.ok) {
+    throw Object.assign(new Error(`dashboard SJR: HTTP ${resp.status}`), { phase: `dashboard_sjr_http_${resp.status}` });
+  }
+  if (!/<table|\\u003ctable/i.test(body)) {
+    const { title, snippet, isSignIn } = describeHtml(body);
+    if (isSignIn) {
+      throw Object.assign(new Error("dashboard SJR: página de login (sessão expirada)"), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(
+      new Error(`dashboard SJR: resposta sem tabelas (ct=${ct}, size=${body.length}) — title="${title}" | ${snippet}`),
+      { phase: "dashboard_sjr_no_tables" },
+    );
+  }
+  const series = parseDashboardDailySjr(body);
+  return { series, url, size: body.length, contentType: ct };
+}
+
+/** O período devolvido cobre o período pedido? Nunca gravar série incompleta. */
+function coverageCheck(series: DashboardDailyResult, startIso: string, endIso: string) {
+  const hr = series.headerRange;
+  const first = series.rows[0]?.sale_date ?? null;
+  const last = series.rows[series.rows.length - 1]?.sale_date ?? null;
+  const days = series.rows.length;
+  const spanDaysRequested = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 86400000) + 1;
+  let ok = true;
+  const reasons: string[] = [];
+  if (hr?.start && hr?.end && /^\d{4}-\d{2}-\d{2}$/.test(hr.start) && /^\d{4}-\d{2}-\d{2}$/.test(hr.end)) {
+    if (hr.start > startIso) { ok = false; reasons.push(`header start ${hr.start} > pedido ${startIso}`); }
+    if (hr.end < endIso) { ok = false; reasons.push(`header end ${hr.end} < pedido ${endIso}`); }
+  } else if (spanDaysRequested > 1 && days <= 1) {
+    ok = false;
+    reasons.push(`só ${days} dia devolvido para um período de ${spanDaysRequested} dias (provável "dia corrente")`);
+  }
+  return { ok, reasons, headerRange: hr, first, last, days, spanDaysRequested };
+}
+
+async function dashboardDailyFallback(
   jar: Jar,
   ticketlineEventId: string,
   filterStart: string,
   filterEnd: string,
   xlsxError: any,
 ): Promise<SummaryDownload> {
-  console.log(`[ticketline] .xlsx devolveu landing HTML — fallback SJR (evento ${ticketlineEventId})`);
+  console.log(`[ticketline] .xlsx devolveu landing — fallback série diária do dashboard (evento ${ticketlineEventId})`);
+  const startIso = ddmmyyyyToIso(filterStart);
+  const endIso = ddmmyyyyToIso(filterEnd);
+  const debug: Record<string, any> = { filterStart, filterEnd, attempts: [] as any[] };
   try {
-    const { js, debug } = await downloadSummarySjr(jar, ticketlineEventId, filterStart, filterEnd);
-    return { mode: "sjr_html", js, debug };
+    const { html, token } = await dashGetHtml(jar);
+    debug.tokenFound = !!token;
+    debug.pageSize = html.length;
+
+    // 1ª tentativa: POST period=5 (fixa o período na sessão) + SJR
+    let post: any = null;
+    try {
+      post = await dashPostPeriod(jar, token, filterStart, filterEnd);
+    } catch (e: any) {
+      if (e?.retriable) throw e;
+      post = { error: e?.message || String(e) };
+    }
+    debug.post = post;
+
+    const a1 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
+    const c1 = coverageCheck(a1.series, startIso, endIso);
+    debug.attempts.push({ label: "post_period5_then_sjr", size: a1.size, contentType: a1.contentType, coverage: c1, parser: a1.series.debug });
+    if (c1.ok) {
+      return { mode: "dashboard_daily", series: a1.series, debug: { ...debug, used: "post_period5_then_sjr" } };
+    }
+
+    // 2ª tentativa: só GET com as datas (sem POST), sessão/csrf novos
+    const { token: token2 } = await dashGetHtml(jar);
+    const a2 = await dashFetchSeries(jar, token2, ticketlineEventId, filterStart, filterEnd);
+    const c2 = coverageCheck(a2.series, startIso, endIso);
+    debug.attempts.push({ label: "get_only_sjr", size: a2.size, contentType: a2.contentType, coverage: c2, parser: a2.series.debug });
+    if (c2.ok) {
+      return { mode: "dashboard_daily", series: a2.series, debug: { ...debug, used: "get_only_sjr" } };
+    }
+
+    throw Object.assign(
+      new Error(
+        `dashboard daily: período devolvido não cobre ${startIso}..${endIso} — ${[...c1.reasons, ...c2.reasons].join(" ; ")}`,
+      ),
+      { phase: "dashboard_daily_incomplete", dashDebug: debug },
+    );
   } catch (e: any) {
     if (e?.retriable) throw e;
+    if (e?.phase === "dashboard_daily_incomplete") throw e;
     // Fallback também falhou → mantém o erro html_response original + debug.
-    throw Object.assign(new Error(`${xlsxError.message} | fallback SJR falhou: ${e?.message || e}`), {
+    throw Object.assign(new Error(`${xlsxError.message} | fallback dashboard daily falhou: ${e?.message || e}`), {
       phase: "html_response",
       retriable: false,
       htmlTitle: xlsxError.htmlTitle,
       htmlSnippet: xlsxError.htmlSnippet,
-      sjrPhase: e?.phase || "sjr_failed",
-      sjrDebug: e?.sjrDebug || null,
+      dashPhase: e?.phase || "dashboard_daily_failed",
+      dashDebug: debug,
     });
   }
 }
+
+
 
 
 // ============================================================================
@@ -1992,7 +2186,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     if (!creds.email || !creds.password) throw Object.assign(new Error("Vault: email/password em falta"), { phase: "creds_invalid" });
 
     const filterStart = salesStartToDDMMYYYY(cfg.sales_start_date);
-    const filterEnd = fmtDDMMYYYY(new Date());
+    const filterEnd = isoToDDMMYYYY(lisbonTodayIso());
     debug.filter_start_date = filterStart;
     debug.filter_end_date = filterEnd;
     debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
@@ -2000,25 +2194,71 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     const summary = await downloadSummary(creds, cfg.vault_secret_name, sessions, cfg.ticketline_event_id, filterStart, filterEnd);
     const sourceMode = summary.mode;
     debug.source_mode = sourceMode;
-    if (summary.mode === "sjr_html") debug.sjr = summary.debug;
-    const filesAudit = summary.mode === "xlsx"
-      ? [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }]
-      : [{ name: `sale_summary_${cfg.ticketline_event_id}.sjr.js`, size: summary.js.length }];
+
+    // -------- Caminho evento migrado: série diária do dashboard --------
+    if (summary.mode === "dashboard_daily") {
+      debug.dashboard_daily = summary.debug;
+      const series = summary.series;
+      const rows = series.rows.filter((r) => r.quantity !== 0 || Number(r.total_value) !== 0);
+      const sums = {
+        qty: rows.reduce((s, r) => s + r.quantity, 0),
+        value: Math.round(rows.reduce((s, r) => s + Number(r.total_value), 0) * 100) / 100,
+      };
+      const filesAuditDash = [{
+        name: `dashboard_sale_summary_${cfg.ticketline_event_id}.sjr.js`,
+        size: Number(summary.debug?.attempts?.[summary.debug.attempts.length - 1]?.size || 0),
+      }];
+
+      const { error: delErr } = await admin.from("ticketline_daily_sales").delete().eq("event_id", cfg.event_id);
+      if (delErr) throw Object.assign(new Error(`Import diário (delete): ${delErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
+      let inserted = 0;
+      if (rows.length > 0) {
+        const payload = rows.map((r) => ({
+          company_id: cfg.company_id,
+          event_id: cfg.event_id,
+          sale_date: r.sale_date,
+          quantity: r.quantity,
+          total_value: r.total_value,
+        }));
+        const { error: insErr } = await admin.from("ticketline_daily_sales").insert(payload);
+        if (insErr) throw Object.assign(new Error(`Import diário (insert): ${insErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
+        inserted = payload.length;
+      }
+      await updateConfig(admin, cfg.id, {
+        daily_fallback_active: true,
+        last_run_at: new Date().toISOString(),
+        last_run_status: "success",
+      });
+      const auditDash = {
+        dataSource: "dashboard_daily",
+        daysParsed: series.rows.length,
+        daysImported: inserted,
+        totalQty: sums.qty,
+        totalValue: sums.value,
+        totalRow: series.totalRow,
+        headerRange: series.headerRange,
+        firstDay: rows[0]?.sale_date ?? null,
+        lastDay: rows[rows.length - 1]?.sale_date ?? null,
+      };
+      await updateRun(admin, runId, {
+        status: "success", finished_at: new Date().toISOString(),
+        files_downloaded: filesAuditDash,
+        error_message: null,
+        import_audit: { ...auditDash, debug, source_mode: "dashboard_daily" },
+      });
+      console.log(`[ticketline ${runId}] dashboard_daily: ${inserted} dias, qty=${sums.qty}, valor=${sums.value}`);
+      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_daily" };
+    }
+
+    const filesAudit = [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }];
 
     let parseRes;
     try {
-      if (summary.mode === "xlsx") {
-        parseRes = parseTicketlineOperationsXlsx(summary.bytes.buffer as ArrayBuffer);
-      } else {
-        const sjr = parseTicketlineOperationsSjr(summary.js, {
-          start: filterStart, end: filterEnd, eventName: cfg.events?.name,
-        });
-        debug.sjr_parser = sjr.sjrDebug;
-        parseRes = sjr;
-      }
+      parseRes = parseTicketlineOperationsXlsx(summary.bytes.buffer as ArrayBuffer);
     } catch (e: any) {
       throw Object.assign(new Error(`Parser sale_summary (${sourceMode}): ${e?.message || e}`), { phase: "parse_failed", filesAudit });
     }
+
     debug.rows = parseRes.rows.length;
     debug.unique_zones = new Set(parseRes.rows.map(r => r.zone)).size;
     debug.section1_days = parseRes.section1Daily.length;
@@ -2064,7 +2304,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       error_message: warnMsg,
       import_audit: { ...audit, debug, silentEmpty, source_mode: sourceMode },
     });
-    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
+    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus, daily_fallback_active: false });
     return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
 
   } catch (e: any) {
