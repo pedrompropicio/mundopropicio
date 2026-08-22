@@ -1202,8 +1202,9 @@ async function dashFetchSeries(
   id: string,
   startDD: string,
   endDD: string,
+  opts?: { period?: boolean },
 ): Promise<{ series: DashboardDailyResult; url: string; size: number; contentType: string }> {
-  const url = dashSjrUrl(id, startDD, endDD);
+  const url = dashSjrUrl(id, startDD, endDD, opts);
   const resp = await fetchWithTimeout(url, {
     method: "GET", redirect: "manual",
     headers: {
