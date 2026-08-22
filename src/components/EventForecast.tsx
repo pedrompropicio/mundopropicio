@@ -3087,7 +3087,43 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering, formalidadeEditable }: {
+/**
+ * Cabeçalho de rubrica (L3) dentro de um grupo L2 — apresentação apenas.
+ * Mostra o código e o NOME da rubrica uma única vez, com previsto/realizado.
+ * As linhas por baixo deixam de repetir o código.
+ */
+function CategoryBandRow({
+  band,
+  colCount,
+}: {
+  band: { code: string; name: string; previsto: number; realizado: number; count: number };
+  colCount: number;
+}) {
+  return (
+    <tr className="bg-secondary/5 border-t border-border/20">
+      <td colSpan={colCount} className="py-1.5 pl-3 pr-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <span className="text-[11px] font-semibold text-foreground">
+            <span className="text-muted-foreground">{band.code}</span>
+            <span className="mx-1 text-muted-foreground/60">·</span>
+            {band.name}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            <span className="font-mono">{formatCurrency(band.previsto)}</span> previsto
+            <span className="mx-1">·</span>
+            <span className="font-mono">{formatCurrency(band.realizado)}</span> realizado
+            {band.count > 0 && <span className="ml-1">({band.count} tx)</span>}
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering, formalidadeEditable, hideCode }: {
+  /** Esconde o código da rubrica na descrição (já vem no cabeçalho da rubrica). */
+  hideCode?: boolean;
+
   /** Permite alterar o ordenador da despesa nesta linha (mesma permissão de edição do BP). */
   canEditOrdering?: boolean;
   /**
