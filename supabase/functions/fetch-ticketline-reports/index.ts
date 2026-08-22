@@ -1087,7 +1087,7 @@ async function downloadSummarySjr(
 
 export type SummaryDownload =
   | { mode: "xlsx"; bytes: Uint8Array }
-  | { mode: "dashboard_daily"; series: DashboardDailyResult; debug: Record<string, any> };
+  | { mode: "dashboard_today"; series: DashboardDailyResult; debug: Record<string, any> };
 
 async function downloadSummary(
   creds: { email: string; password: string },
@@ -1102,6 +1102,13 @@ async function downloadSummary(
   qs.set("post_render_content", "data");
   qs.set("_", String(Date.now()));
   const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
+  // Evento migrado: export .xlsx bloqueado (devolve a landing) → captura
+  // INCREMENTAL do dia corrente no dashboard. A captura exige SESSÃO FRESCA
+  // (period default "Hoje"), por isso pede sempre um login novo.
+  const todayCapture = async (xlsxError: any) => {
+    const freshJar = await getJar(sessions, secretName, creds, true);
+    return await dashboardTodayCapture(freshJar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, xlsxError);
+  };
   try {
     return { mode: "xlsx", bytes: await downloadXlsx(jar, url, "sale_summary") };
   } catch (e: any) {
@@ -1112,15 +1119,14 @@ async function downloadSummary(
         return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
       } catch (e2: any) {
         if (e2?.phase !== "html_response") throw e2;
-        return await dashboardDailyFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
+        return await todayCapture(e2);
       }
     }
     if (e?.phase !== "html_response") throw e;
-    // Evento migrado: export .xlsx bloqueado e relatório por-evento vazio →
-    // ler a SÉRIE DIÁRIA no resumo do dashboard (padrão BOL).
-    return await dashboardDailyFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
+    return await todayCapture(e);
   }
 }
+
 
 // ============================================================================
 // Fallback dashboard_daily (v2.29)
