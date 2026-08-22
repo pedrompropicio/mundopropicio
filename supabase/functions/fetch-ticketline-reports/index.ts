@@ -1260,165 +1260,141 @@ async function dashFetchSeries(
   return { series, url, size: body.length, contentType: ct };
 }
 
-/** O período devolvido cobre o período pedido? Nunca gravar série incompleta. */
-function coverageCheck(series: DashboardDailyResult, startIso: string, endIso: string) {
-  const hr = series.headerRange;
-  const first = series.rows[0]?.sale_date ?? null;
-  const last = series.rows[series.rows.length - 1]?.sale_date ?? null;
-  const days = series.rows.length;
-  const spanDaysRequested = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 86400000) + 1;
-  let ok = true;
-  const reasons: string[] = [];
-  if (hr?.start && hr?.end && /^\d{4}-\d{2}-\d{2}$/.test(hr.start) && /^\d{4}-\d{2}-\d{2}$/.test(hr.end)) {
-    if (hr.start > startIso) { ok = false; reasons.push(`header start ${hr.start} > pedido ${startIso}`); }
-    if (hr.end < endIso) { ok = false; reasons.push(`header end ${hr.end} < pedido ${endIso}`); }
-  } else if (spanDaysRequested > 1 && days <= 1) {
-    ok = false;
-    reasons.push(`só ${days} dia devolvido para um período de ${spanDaysRequested} dias (provável "dia corrente")`);
-  }
-  return { ok, reasons, headerRange: hr, first, last, days, spanDaysRequested };
+/** ISO YYYY-MM-DD do dia anterior (aritmética date-only, segura em UTC). */
+function isoMinusDays(iso: string, days: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) - days * 86400000).toISOString().slice(0, 10);
 }
 
-async function dashboardDailyFallback(
+const TODAY_MAX_DATE_ROWS = 3;
+const TODAY_MAX_QTY_PER_ROW = 5000;
+const TODAY_BASELINE_MIN_QTY = 200;
+
+/**
+ * Captura INCREMENTAL do dia corrente para eventos migrados.
+ *
+ * Requisitos absolutos (v2.33):
+ * - NUNCA fazer POST de `period` — a sessão tem de ficar no default "Hoje";
+ *   qualquer period guardado faz o servidor ignorar `bulk_event_ids`.
+ * - Só um GET SJR filtrado + um GET SJR de baseline (conta inteira) por run.
+ * - Rejeitar (sem gravar nada) se a resposta não parecer o dia corrente do
+ *   evento: datas fora de [hoje−1, hoje], demasiadas linhas, qty absurda, ou
+ *   totais idênticos à conta inteira (filtro ignorado).
+ */
+async function dashboardTodayCapture(
   jar: Jar,
   ticketlineEventId: string,
   filterStart: string,
   filterEnd: string,
   xlsxError: any,
 ): Promise<SummaryDownload> {
-  console.log(`[ticketline] .xlsx devolveu landing — fallback série diária do dashboard (evento ${ticketlineEventId})`);
-  const startIso = ddmmyyyyToIso(filterStart);
-  const endIso = ddmmyyyyToIso(filterEnd);
+  const todayIso = lisbonTodayIso();
+  const yesterdayIso = isoMinusDays(todayIso, 1);
+  console.log(`[ticketline] .xlsx devolveu landing — captura do dia corrente (evento ${ticketlineEventId}, ${todayIso})`);
+
   const debug: Record<string, any> = {
+    strategy: "dashboard_today",
     filterStart,
     filterEnd,
-    used: null,
+    todayIso,
+    acceptedRange: [yesterdayIso, todayIso],
     usedUrl: null,
-    attempts: [] as any[],
+    rows: null,
+    baselineToday: null,
+    validations: {} as Record<string, any>,
   };
+
   try {
     const { html, token } = await dashGetHtml(jar);
     debug.tokenFound = !!token;
     debug.pageSize = html.length;
 
-    const reasons: string[] = [];
-    const rejections: string[] = [];
+    // ---- GET SJR filtrado pelo evento (sessão fresca, period default "Hoje") ----
+    const got = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
+    debug.usedUrl = got.url;
+    debug.size = got.size;
+    debug.contentType = got.contentType;
+    debug.parser = got.series.debug;
+    debug.headerRange = got.series.headerRange;
+    debug.totalRow = got.series.totalRow;
+    debug.rows = got.series.rows;
+    debug.sums = got.series.sums;
 
-    // ---- Passo 0: baseline da CONTA INTEIRA (nunca candidato a gravação) ----
-    const post0 = await dashPostPeriod(jar, token, filterStart, filterEnd);
-    const { token: token0 } = await dashGetHtml(jar);
-    debug.postBaseline = post0;
-    const baselineFetch = await dashFetchSeries(jar, token0, null, filterStart, filterEnd);
-    const baseline = {
+    // ---- Baseline de identidade: mesma sessão, SEM bulk_event_ids ----
+    const baselineFetch = await dashFetchSeries(jar, token, null, filterStart, filterEnd);
+    const baselineToday = {
       url: baselineFetch.url,
+      size: baselineFetch.size,
       days: baselineFetch.series.rows.length,
       sums: baselineFetch.series.sums,
       totalRow: baselineFetch.series.totalRow,
       headerRange: baselineFetch.series.headerRange,
     };
-    debug.baseline = baseline;
+    debug.baselineToday = baselineToday;
 
-    const tryCandidate = (
-      label: string,
-      candidate: Awaited<ReturnType<typeof dashFetchSeries>>,
-    ): SummaryDownload | null => {
-      const coverage = coverageCheck(candidate.series, startIso, endIso);
-      const attempt: any = {
-        label,
-        url: candidate.url,
-        size: candidate.size,
-        contentType: candidate.contentType,
-        coverage,
-        headerRange: candidate.series.headerRange,
-        firstDay: coverage.first,
-        lastDay: coverage.last,
-        days: coverage.days,
-        sums: candidate.series.sums,
-        totalRow: candidate.series.totalRow,
-        parser: candidate.series.debug,
-        rejected: null as string | null,
-        reasons: [] as string[],
-      };
-      debug.attempts.push(attempt);
-      reasons.push(...coverage.reasons.map((r: string) => `${label}: ${r}`));
-
-      if (!coverage.ok) {
-        attempt.rejected = "coverage";
-        attempt.reasons = coverage.reasons;
-        rejections.push("coverage");
-        return null;
-      }
-
-      const eventQty = candidate.series.sums.qty;
-      const eventValue = candidate.series.sums.value;
-
-      // identity_baseline: igual à conta inteira → filtro ignorado.
-      const sameQty = eventQty === baseline.sums.qty;
-      const sameValue = Math.abs(eventValue - baseline.sums.value) < 0.01;
-      const identityRejected = sameQty && sameValue && baseline.sums.qty > 2000;
-      attempt.identityBaseline = { event: { qty: eventQty, value: eventValue }, baseline: baseline.sums, sameQty, sameValue, rejected: identityRejected };
-      if (identityRejected) {
-        attempt.rejected = "identity_baseline";
-        attempt.reasons = [`totais idênticos à conta inteira (qty=${eventQty}, valor=${eventValue})`];
-        rejections.push("identity_baseline");
-        return null;
-      }
-
-      if (eventQty > 20000) {
-        attempt.rejected = "sanity_limit";
-        attempt.reasons = [`total do evento excede o limite de sanidade (${eventQty} > 20000)`];
-        rejections.push("sanity_limit");
-        return null;
-      }
-
-      debug.used = label;
-      debug.usedUrl = candidate.url;
-      return { mode: "dashboard_daily", series: candidate.series, debug };
+    const rows = got.series.rows;
+    const reject = (phase: string, msg: string) => {
+      throw Object.assign(new Error(`dashboard today: ${msg}`), { phase, dashDebug: debug });
     };
 
-    // ---- Candidato B: POST period=5 COM o evento → GET SJR escalar ----
-    const postB = await dashPostPeriod(jar, token0, filterStart, filterEnd, ticketlineEventId);
-    const { token: tokenB } = await dashGetHtml(jar);
-    debug.postWithEvent = postB;
-    const b = await dashFetchSeries(jar, tokenB, ticketlineEventId, filterStart, filterEnd);
-    const acceptedB = tryCandidate("post_period5_with_event_then_get_scalar", b);
-    if (acceptedB) return acceptedB;
+    // (a) todas as datas dentro de [hoje−1, hoje] em Europe/Lisbon
+    const outside = rows.filter((r) => r.sale_date < yesterdayIso || r.sale_date > todayIso).map((r) => r.sale_date);
+    debug.validations.datesOutsideRange = outside;
+    if (outside.length > 0) {
+      reject(
+        "dashboard_today_unexpected_range",
+        `datas fora de [${yesterdayIso}..${todayIso}]: ${outside.join(",")} — sessão contaminada (period aplicado)`,
+      );
+    }
 
-    // ---- Candidato C: GET SJR com bulk_event_ids[] na mesma sessão ----
-    const c = await dashFetchSeries(jar, tokenB, ticketlineEventId, filterStart, filterEnd, { eventParam: "array" });
-    const acceptedC = tryCandidate("get_array_same_session", c);
-    if (acceptedC) return acceptedC;
+    // (b) nº de linhas de data ≤ 3
+    debug.validations.dateRowCount = rows.length;
+    if (rows.length > TODAY_MAX_DATE_ROWS) {
+      reject(
+        "dashboard_today_unexpected_range",
+        `${rows.length} linhas de data (máx ${TODAY_MAX_DATE_ROWS}) — sessão contaminada (period aplicado)`,
+      );
+    }
 
-    // ---- Candidato D: re-render puro do estado da sessão ----
-    const d = await dashFetchSeries(jar, tokenB, null, filterStart, filterEnd, { noDates: true });
-    const acceptedD = tryCandidate("get_session_state_rerender", d);
-    if (acceptedD) return acceptedD;
+    // (c) qty por linha ≤ 5000
+    const insane = rows.filter((r) => r.quantity > TODAY_MAX_QTY_PER_ROW);
+    debug.validations.rowsOverQtyLimit = insane.map((r) => ({ sale_date: r.sale_date, quantity: r.quantity }));
+    if (insane.length > 0) {
+      reject(
+        "dashboard_today_sanity",
+        `qty por dia acima do limite de sanidade (${insane.map((r) => `${r.sale_date}=${r.quantity}`).join(",")} > ${TODAY_MAX_QTY_PER_ROW})`,
+      );
+    }
 
-    const phase = rejections.includes("identity_baseline")
-      ? "dashboard_daily_filter_ignored"
-      : rejections.includes("sanity_limit")
-        ? "dashboard_daily_total_exceeds_limit"
-        : "dashboard_daily_incomplete";
-    throw Object.assign(
-      new Error(
-        `dashboard daily: nenhum candidato aceite (${rejections.join(",") || "sem candidatos"}) para ${startIso}..${endIso}${reasons.length ? ` — ${reasons.join(" ; ")}` : ""}`,
-      ),
-      { phase, dashDebug: debug },
-    );
+    // (d) identidade: totais iguais à conta inteira → filtro ignorado
+    const sameQty = got.series.sums.qty === baselineToday.sums.qty;
+    const sameValue = Math.abs(got.series.sums.value - baselineToday.sums.value) < 0.01;
+    const identityRejected = sameQty && sameValue && baselineToday.sums.qty > TODAY_BASELINE_MIN_QTY;
+    debug.validations.identity = { event: got.series.sums, baseline: baselineToday.sums, sameQty, sameValue, rejected: identityRejected };
+    if (identityRejected) {
+      reject(
+        "dashboard_today_filter_ignored",
+        `totais idênticos à conta inteira (qty=${got.series.sums.qty}, valor=${got.series.sums.value})`,
+      );
+    }
+
+    return { mode: "dashboard_today", series: got.series, debug };
   } catch (e: any) {
     if (e?.retriable) throw e;
-    if (["dashboard_daily_incomplete", "dashboard_daily_filter_ignored", "dashboard_daily_total_exceeds_limit"].includes(e?.phase)) throw e;
-    // Fallback também falhou → mantém o erro html_response original + debug.
-    throw Object.assign(new Error(`${xlsxError.message} | fallback dashboard daily falhou: ${e?.message || e}`), {
+    if (
+      ["dashboard_today_unexpected_range", "dashboard_today_sanity", "dashboard_today_filter_ignored"].includes(e?.phase)
+    ) throw e;
+    // Captura também falhou → mantém o erro html_response original + debug.
+    throw Object.assign(new Error(`${xlsxError.message} | captura dia corrente falhou: ${e?.message || e}`), {
       phase: "html_response",
       retriable: false,
       htmlTitle: xlsxError.htmlTitle,
       htmlSnippet: xlsxError.htmlSnippet,
-      dashPhase: e?.phase || "dashboard_daily_failed",
+      dashPhase: e?.phase || "dashboard_today_failed",
       dashDebug: debug,
     });
   }
 }
+
 
 
 
