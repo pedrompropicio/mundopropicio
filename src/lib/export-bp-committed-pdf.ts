@@ -33,8 +33,8 @@ import { fetchExportBranding, type ExportBranding } from "@/lib/export-header";
 import { calcIvaAmount } from "@/lib/iva";
 import { FECHO_TX_FILTER_COLUMNS, isValidFechoTransaction } from "@/lib/fecho-filters";
 import { EXCESS_EPSILON } from "@/lib/event-cost-basis";
-import { compareHierarchicalCodes } from "@/lib/category-hierarchy";
-import { formatDatePT } from "@/lib/utils";
+import { compareHierarchicalCodes, formatDatePT } from "@/lib/utils";
+
 
 export const SYSTEM_NAME = "MP Gestão Eventos";
 
