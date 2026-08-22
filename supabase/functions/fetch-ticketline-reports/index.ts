@@ -1654,6 +1654,72 @@ function nonZeroStats(html: string): { nonZeroNumbers: number; nonZeroSampleRow:
   return { nonZeroNumbers: nonZero, nonZeroSampleRow: sampleRow };
 }
 
+// ============================================================================
+// action "sjr" (v2.33) — GET cru de URLs do dashboard com os headers SJR.
+// Login FRESCO (sessão no period default "Hoje") + página do dashboard só para
+// o csrf; nenhum POST de period. Serve para testar variantes de parâmetros
+// (ex.: period=1 "Ontem" a conviver com bulk_event_ids) sem gravar nada.
+// ============================================================================
+async function runProbeSjr(admin: any, configId?: string, urls?: string[]) {
+  if (!configId) return json(400, { error: "sjr requer configId" });
+  if (!urls || urls.length === 0) return json(400, { error: "sjr requer urls: string[]" });
+
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+  const { jar } = await loginDevise(creds.email, creds.password);
+  const { html: dashHtml, token } = await dashGetHtml(jar);
+
+  const out: any = {
+    ok: true,
+    version: VERSION,
+    configId,
+    ticketline_event_id: String(cfg.ticketline_event_id),
+    todayIso: lisbonTodayIso(),
+    tokenFound: !!token,
+    dashPageSize: dashHtml.length,
+    results: [] as any[],
+  };
+
+  for (const url of urls) {
+    const entry: any = { url };
+    try {
+      const resp = await fetchWithTimeout(url, {
+        method: "GET", redirect: "manual",
+        headers: {
+          "User-Agent": UA_PROBE,
+          Accept: SJR_ACCEPT,
+          Cookie: jarToHeader(jar),
+          Referer: DASH_URL,
+          "X-Requested-With": "XMLHttpRequest",
+          ...(token ? { "X-CSRF-Token": token } : {}),
+        },
+      }, 110000);
+      ingestSetCookie(jar, resp);
+      const body = await resp.text().catch(() => "");
+      entry.status = resp.status;
+      entry.location = resp.headers.get("location");
+      entry.contentType = resp.headers.get("content-type") || "";
+      entry.size = body.length;
+      const unescaped = unescapeJsHtml(body);
+      entry.novaArea = looksLikeNovaArea(unescaped.slice(0, 3000));
+      entry.hasTableMarkup = /<table/i.test(unescaped);
+      if (entry.hasTableMarkup) {
+        Object.assign(entry, extractHtmlTables(unescaped, 8, 10, 20));
+      } else {
+        const { title, snippet, isSignIn } = describeHtml(body);
+        entry.title = title;
+        entry.snippet = snippet;
+        entry.isSignIn = isSignIn;
+      }
+    } catch (e: any) {
+      entry.error = e?.message || String(e);
+      entry.phase = e?.phase || null;
+    }
+    out.results.push(entry);
+  }
+
+  return new Response(JSON.stringify(out), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 
 async function runProbeParams(admin: any, configId?: string) {
 
