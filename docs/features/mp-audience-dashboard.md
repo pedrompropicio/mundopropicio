@@ -232,3 +232,47 @@ InitiateCheckout→Compra acima de 80%. É diagnóstico de instrumentação em f
 não um número a esconder. Enquanto o passo estiver assinalado, ler o funil de
 InitiateCheckout para trás como indicativo e confiar em Impressões, Cliques e
 Compras.
+
+---
+
+## 9. Painel de impacto nas vendas (por evento)
+
+Ficheiros: `src/components/crm/dashboard/SalesImpactPanel.tsx` +
+`src/lib/crm/sales-impact.ts`. Renderizado dentro de `EventGroupCard`, quando o
+card do evento está expandido.
+
+**Porquê existe.** O ROAS que as plataformas reportam pode enganar. Nas cidades
+da turnê Raphael Ghanem servidas pela Ticketline, o Meta reportava ROAS 1,43x,
+mas as vendas diárias saltaram de ~4/dia para ~32/dia (Almada) no arranque das
+campanhas (06/08). Descontando a linha de base, o Meta via ~40% das compras que
+provavelmente gerou — o `fbc` não chega ao Purchase da Ticketline. Quando a
+atribuição está partida, **a série diária da bilheteira é a fonte de verdade**.
+
+**O que mede.**
+
+- Bilhetes e receita por dia, de `public.ticketline_daily_sales`.
+- Investimento diário por plataforma, de `crm.meta_campaign_insights_daily` e
+  `crm.google_campaign_insights_daily`, através das campanhas com
+  `linked_event_id` = o evento (já agregado pelo card).
+- Marca vertical no primeiro dia com `spend_cents > 0` de cada plataforma.
+- Leitura: média de bilhetes/dia antes e depois do arranque + multiplicador,
+  bilhetes/receita/investimento no período depois, e a percentagem de compras
+  que as plataformas captam (`purchases_count ÷ bilhetes vendidos`).
+
+**O que NÃO mede.** Não mede vendas incrementais. A diferença entre o depois e a
+linha de base é rotulada **"variação após o arranque"** e é correlação, não
+experiência controlada: no mesmo período há imprensa, abertura de vendas e
+outras plataformas. O tooltip do painel diz isso explicitamente. Nunca renomear
+para "incremental" nem "vendas geradas pela campanha".
+
+**Regras de desenho.**
+
+- Dois gráficos empilhados que partilham o eixo de datas — bilhetes (unidades) e
+  investimento (dinheiro). **Nunca dois eixos verticais no mesmo gráfico.**
+- Dias sem registo de venda ficam `null` (lacuna), nunca zero.
+- Cobertura: só os eventos com captura diária da Ticketline têm série (Almada,
+  Estoril, Lisboa, Santarém, Albufeira à data). Sem série, o painel diz "sem
+  série diária de vendas para este evento". **Proibido** reconstruir a série a
+  partir de `ticket_sales`, que é agregado por lote e zona.
+- Janela: `max(período seleccionado, 60 dias)` para haver linha de base antes do
+  arranque; "hoje" vem de `lisbonToday()`.
