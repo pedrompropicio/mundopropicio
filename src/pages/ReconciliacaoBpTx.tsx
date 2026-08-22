@@ -471,11 +471,21 @@ export default function ReconciliacaoBpTx() {
                         <div className="flex gap-2 flex-wrap">
                           <Button
                             size="sm"
-                            onClick={() =>
+                            onClick={() => {
+                              // Criar o vínculo entre rubricas diferentes MUDA a rubrica da TX
+                              // (o trigger propaga a da linha do BP). Confirmar antes.
+                              const from = catLabel(tx.category_id);
+                              const to = catLabel(c.category_id);
+                              if (
+                                !window.confirm(
+                                  `Isto vai mudar a rubrica desta transação de ${from} para ${to} (a rubrica da linha do BP manda).\n\nConfirmar o vínculo?`,
+                                )
+                              )
+                                return;
                               linkAndRecategorize.mutate({
                                 txId: tx.id, forecastId: c.id, newCategoryId: c.category_id,
-                              })
-                            }
+                              });
+                            }}
                             disabled={linkAndRecategorize.isPending}
                           >
                             <ArrowRightLeft className="h-3.5 w-3.5 mr-1" /> Vincular e mudar L3 para {catById.get(c.category_id)?.code}
