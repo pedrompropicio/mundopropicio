@@ -75,8 +75,7 @@ function novoGrupo(): AdGroupDraft & { uid: string } {
 }
 
 export default function GooglePublishPanel({ eventId }: Props) {
-  const { data: company } = useCompany();
-  const companyId = company?.id;
+  const { companyId } = useCompany();
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState<any>(null);
