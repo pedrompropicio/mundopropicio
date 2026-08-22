@@ -80,6 +80,10 @@ export default function GooglePublishPanel({ eventId }: Props) {
   const { companyId } = useCompany();
   const queryClient = useQueryClient();
 
+  // Datas de negócio em Europe/Lisbon (nunca `new Date()` cru).
+  const hojeLisboa = useMemo(() => lisbonTodayISO(), []);
+
+
   const [form, setForm] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<null | "dry" | "publish" | "activate">(null);
