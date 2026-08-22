@@ -2818,8 +2818,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                     </tr>
                                   ))}
                                 </React.Fragment>
-                              )
-                            ))}
+                              ));
+                              return (
+                                <React.Fragment key={`exp-band-${f.id}`}>
+                                  {band && <CategoryBandRow band={band} colCount={8} />}
+                                  {row}
+                                </React.Fragment>
+                              );
+                            })}
+
                           </React.Fragment>
                         );
                       })}
