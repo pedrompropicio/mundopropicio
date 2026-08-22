@@ -2468,8 +2468,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <td />
                               </tr>
                             )}
-                            {group.items.map((f) => (
+                            {group.items.map((f, idx) => {
+                              const band = bands.get(idx);
+                              const row = (
                               f._orphanBucket ? (
+
                                 <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
                               ) : f.is_overhead ? (
                                 <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
