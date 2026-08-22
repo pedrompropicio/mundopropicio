@@ -1085,9 +1085,7 @@ async function downloadSummarySjr(
   };
 }
 
-export type SummaryDownload =
-  | { mode: "xlsx"; bytes: Uint8Array }
-  | { mode: "dashboard_today"; series: DashboardDailyResult; debug: Record<string, any> };
+export type SummaryDownload = { mode: "xlsx"; bytes: Uint8Array };
 
 async function downloadSummary(
   creds: { email: string; password: string },
@@ -1102,30 +1100,21 @@ async function downloadSummary(
   qs.set("post_render_content", "data");
   qs.set("_", String(Date.now()));
   const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
-  // Evento migrado: export .xlsx bloqueado (devolve a landing) → captura
-  // INCREMENTAL do dia corrente no dashboard. A captura exige SESSÃO FRESCA
-  // (period default "Hoje"), por isso pede sempre um login novo.
-  const todayCapture = async (xlsxError: any) => {
-    const freshJar = await getJar(sessions, secretName, creds, true);
-    return await dashboardTodayCapture(freshJar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, xlsxError);
-  };
+  // v2.34: evento migrado (.xlsx devolve landing) → o run falha limpo com
+  // phase html_response. A captura diária desses eventos é responsabilidade
+  // exclusiva da action `capture_day` (relatório sales_per_event do dashboard).
   try {
     return { mode: "xlsx", bytes: await downloadXlsx(jar, url, "sale_summary") };
   } catch (e: any) {
     if (e?.retriable) {
       console.log(`[ticketline] self-heal re-login (sale_summary)`);
       const jar2 = await getJar(sessions, secretName, creds, true);
-      try {
-        return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
-      } catch (e2: any) {
-        if (e2?.phase !== "html_response") throw e2;
-        return await todayCapture(e2);
-      }
+      return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
     }
-    if (e?.phase !== "html_response") throw e;
-    return await todayCapture(e);
+    throw e;
   }
 }
+
 
 
 // ============================================================================
