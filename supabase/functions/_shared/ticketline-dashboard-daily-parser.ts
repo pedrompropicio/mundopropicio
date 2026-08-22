@@ -114,7 +114,7 @@ export function parseDashboardDailySjr(js: string): DashboardDailyResult {
   const rows: DashboardDailyRow[] = [];
   let totalRow: { qty: number | null; value: number | null } | null = null;
   for (const row of grid) {
-    const firstRaw = (row.find((c) => c && c.trim()) || "").trim();
+    const firstRaw = (row.find((c: string) => !!c && !!c.trim()) || "").trim();
     const iso = dateLabelToIso(firstRaw);
     const qty = parseNumberLabel(row[loc.qtCol] || "") ?? 0;
     const value = parseNumberLabel(row[loc.valCol] || "") ?? 0;
