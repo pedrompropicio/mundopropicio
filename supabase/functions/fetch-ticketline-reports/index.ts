@@ -7,9 +7,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { parseTicketlineOperationsSjr } from "../_shared/ticketline-sjr-parser.ts";
+import {
+  parseDashboardDailySjr,
+  type DashboardDailyResult,
+} from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.28_probe_dashflow_2026_08_21";
+const VERSION = "v2.29_dashboard_daily_2026_08_22";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -25,6 +29,21 @@ function salesStartToDDMMYYYY(salesStart: string | null | undefined): string {
   if (!m) return "01-01-2025";
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
+/** Hoje em Europe/Lisbon como YYYY-MM-DD (regra de timezone do projecto). */
+function lisbonTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Lisbon", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+function isoToDDMMYYYY(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+}
+function ddmmyyyyToIso(s: string): string {
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+}
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
