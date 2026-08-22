@@ -71,11 +71,12 @@ export interface ValidationIssue {
   motivo: string;
 }
 
-let segmenter: Intl.Segmenter | null = null;
+let segmenter: { segment(input: string): Iterable<unknown> } | null = null;
 export function graphemeLength(s: string): number {
   const value = (s ?? "").trim();
-  if (typeof Intl !== "undefined" && typeof (Intl as any).Segmenter === "function") {
-    if (!segmenter) segmenter = new Intl.Segmenter("pt", { granularity: "grapheme" });
+  const Seg = (Intl as unknown as { Segmenter?: new (l: string, o: unknown) => { segment(i: string): Iterable<unknown> } }).Segmenter;
+  if (typeof Seg === "function") {
+    if (!segmenter) segmenter = new Seg("pt", { granularity: "grapheme" });
     let n = 0;
     for (const _ of segmenter.segment(value)) n++;
     return n;
