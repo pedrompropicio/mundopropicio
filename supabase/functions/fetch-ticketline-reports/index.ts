@@ -1131,10 +1131,11 @@ async function downloadSummary(
 // ============================================================================
 const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
 
-function dashSjrUrl(id: string, startDD: string, endDD: string): string {
+function dashSjrUrl(id: string, startDD: string, endDD: string, opts?: { period?: boolean }): string {
   const qs = new URLSearchParams();
   qs.set("utf8", "✓");
   qs.set("granularity", "2");
+  if (opts?.period) qs.set("period", "5");
   qs.set("bulk_event_ids", id);
   qs.set("filter_start_date", startDD);
   qs.set("filter_end_date", endDD);
