@@ -51,6 +51,8 @@ import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
+import { exportCommittedBpToPDF } from "@/lib/export-bp-committed-pdf";
+
 import HelpTooltip from "@/components/HelpTooltip";
 
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
@@ -192,6 +194,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
   const [showOrphans, setShowOrphans] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingCommittedPDF, setExportingCommittedPDF] = useState(false);
+
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
@@ -2612,7 +2616,26 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     >
                       <FileText className="h-3.5 w-3.5" /> {exportingPDF ? "A gerar…" : "PDF"}
                     </button>
+                    <button
+                      onClick={async () => {
+                        setExportingCommittedPDF(true);
+                        try {
+                          await exportCommittedBpToPDF({ eventId, includeChildren: true });
+                          toast({ title: "PDF (previsto + excedido) gerado" });
+                        } catch (err: any) {
+                          toast({ title: "Erro ao gerar PDF", description: err?.message ?? String(err), variant: "destructive" });
+                        } finally {
+                          setExportingCommittedPDF(false);
+                        }
+                      }}
+                      disabled={exportingCommittedPDF}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                      title="Exportar o BP com o excedido por rubrica somado às linhas (visão previsto + excedido)"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" /> {exportingCommittedPDF ? "A gerar…" : "PDF (previsto + excedido)"}
+                    </button>
                   </div>
+
                 </div>
 
                 <div className="overflow-x-auto">
