@@ -457,13 +457,13 @@ function drawHeader(doc: jsPDF, branding: ExportBranding, bundle: CommittedBpBun
   return y + 3;
 }
 
-export async function exportCommittedBpToPDF(opts: { eventId: string; includeChildren?: boolean }) {
-  const bundle = await fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true);
-  const branding = await fetchExportBranding();
+/** Constrói o documento (testável fora do browser). */
+export function buildCommittedBpDoc(bundle: CommittedBpBundle, branding: ExportBranding): jsPDF {
   const { rows } = buildCommittedRows(bundle);
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const startY = drawHeader(doc, branding, bundle);
+
 
   const body = rows.map((r) => [
     r.code,
