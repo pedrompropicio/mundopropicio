@@ -15,7 +15,7 @@ import {
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 
-const VERSION = "v2.35_sales_per_event_total_vendas";
+const VERSION = "v2.36_capture_day_code_match";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1448,7 +1448,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
   // Configs-alvo: daily_fallback_active=true da mesma company (independente de enabled).
   const { data: targets, error: tErr } = await admin
     .from("ticketline_sync_config")
-    .select("id, event_id, company_id, ticketline_event_id, organization_name")
+    .select("id, event_id, company_id, ticketline_event_id, organization_name, ticketline_report_codes")
     .eq("company_id", cfg.company_id)
     .eq("daily_fallback_active", true);
   if (tErr) return json(500, { error: tErr.message });
@@ -1527,28 +1527,53 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
       return await fail("capture_day_sanity", `qty acima do limite (${insane.map((r) => `${r.label}=${r.qty}`).join(", ")} > ${CAPTURE_DAY_MAX_QTY})`);
     }
 
-    // 5. mapeamento linha → config
+    // 5. mapeamento linha → config (v2.36: por código quando disponível)
+    const normCodes = (v: any) => String(v ?? "").replace(/\s+/g, "").trim();
+    const codeConfigs = targetList.filter((t: any) => normCodes(t.ticketline_report_codes).length > 0);
+    debug.codeConfigs = codeConfigs.map((t: any) => ({ configId: t.id, codes: normCodes(t.ticketline_report_codes) }));
+
     const mapping: any[] = [];
     const matchedByConfig = new Map<string, string[]>();
+    const matchMethodByConfig = new Map<string, string>();
     for (const row of parsed.rows) {
+      const rowCodes = normCodes(row.codes);
+      let method = "code";
+      let hits: any[] = rowCodes
+        ? codeConfigs.filter((t: any) => normCodes(t.ticketline_report_codes) === rowCodes)
+        : [];
+
       const labelName = row.label.split("|")[0];
       const lk = normKey(labelName.replace(/\[[^\]]*\]/g, ""));
-      const hits = targetList.filter((t: any) => {
-        const keys = eventNameKeys(nameById.get(t.event_id) || t.organization_name || "");
-        return keys.some((k) => k.length >= 3 && (k === lk || lk.includes(k) || k.includes(lk)));
-      });
+
+      if (hits.length === 0) {
+        // fallback por nome — só para configs SEM códigos definidos
+        method = "name";
+        hits = targetList.filter((t: any) => {
+          if (normCodes(t.ticketline_report_codes).length > 0) return false;
+          const keys = eventNameKeys(nameById.get(t.event_id) || t.organization_name || "");
+          return keys.some((k) => k.length >= 3 && (k === lk || lk.includes(k) || k.includes(lk)));
+        });
+      }
+
       mapping.push({
         label: row.label, labelKey: lk, codes: row.codes, qty: row.qty, value: row.value,
+        method: hits.length > 0 ? method : null,
         matched: hits.map((h: any) => ({ configId: h.id, event_id: h.event_id, event_name: nameById.get(h.event_id) || null })),
       });
       if (hits.length > 1) {
         debug.mapping = mapping;
-        return await fail("capture_day_ambiguous_match", `label "${row.label}" casa com ${hits.length} configs`);
+        return await fail(
+          "capture_day_ambiguous_match",
+          method === "code"
+            ? `códigos "${rowCodes}" estão em ${hits.length} configs`
+            : `label "${row.label}" casa com ${hits.length} configs (match por nome)`,
+        );
       }
       if (hits.length === 1) {
         const arr = matchedByConfig.get(hits[0].id) || [];
         arr.push(row.label);
         matchedByConfig.set(hits[0].id, arr);
+        matchMethodByConfig.set(hits[0].id, method);
       }
     }
     debug.mapping = mapping;
@@ -1586,6 +1611,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
       upserted: payload,
       configsTargeted: targetList.length,
       matchedConfigs: matchedByConfig.size,
+      matchMethods: Object.fromEntries(matchMethodByConfig),
     };
     if (runId) {
       await updateRun(admin, runId, {
