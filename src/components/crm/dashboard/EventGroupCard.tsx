@@ -189,6 +189,15 @@ export function EventGroupCard({
               fallbackCurrency={currency}
             />
           </div>
+          <div className="border-t border-border p-3">
+            <SalesImpactPanel
+              eventId={event.id}
+              insights={allInsights}
+              days={days}
+              currency={currency}
+            />
+          </div>
+
           <div className="overflow-x-auto border-t border-border">
             <table className="w-full">
               <CampaignTableHeader />
