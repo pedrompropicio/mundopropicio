@@ -43,13 +43,15 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-        // NÃO usar `navigateFallback`: o workbox registaria uma NavigationRoute
+        // `navigateFallback: ""` desliga o default do vite-plugin-pwa
+        // ("index.html"). Com ele, o workbox registava uma NavigationRoute
         // servida pelo precache (cache-first) ANTES das runtimeCaching, e todas
-        // as navegações passariam a ser servidas do index.html em cache — era
-        // isto que segurava a versão antiga em Safari. O fallback offline é
-        // agora feito por `precacheFallback` na rota NetworkFirst abaixo.
+        // as navegações eram servidas do index.html em cache — era isto que
+        // segurava a versão antiga (Safari/PWA). O fallback offline passa a ser
+        // feito por `precacheFallback` na rota NetworkFirst abaixo.
         // "html" é obrigatório: o index.html tem de estar no precache para
         // servir de fallback offline.
+        navigateFallback: "",
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         importScripts: ["/sw-push.js"],
         runtimeCaching: [
