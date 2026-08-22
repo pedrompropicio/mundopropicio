@@ -1485,27 +1485,30 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
     debug.dashPageSize = html.length;
     const post = await dashPostPeriod(jar, token, dayDD, dayDD);
     debug.postPeriod = post;
-    // 3. GET SJR do relatório por evento (novo csrf da página)
+    // 3. confirmar o período NA SESSÃO via SJR do sale_summary (novo csrf)
     const { token: token2 } = await dashGetHtml(jar);
+    const per = await fetchSessionPeriodRange(jar, token2 || token);
+    debug.periodProbe = { url: per.url, size: per.size, headerText: per.headerText, range: per.range };
+    if (!per.range || per.range.start !== dayIso || per.range.end !== dayIso) {
+      return await fail(
+        "capture_day_period_mismatch",
+        `período da sessão não é ${dayIso} (header="${per.headerText}", range=${JSON.stringify(per.range)}) — o POST de period não pegou`,
+      );
+    }
+
+    // 4. GET SJR do relatório por evento (mesma sessão, período já confirmado)
     const got = await fetchSalesPerEventSjr(jar, token2 || token);
     debug.usedUrl = got.url;
     debug.size = got.size;
     debug.contentType = got.contentType;
 
-    // 4. parse + validações bloqueantes
+    // 5. parse + validações bloqueantes
     const parsed = parseSalesPerEventSjr(got.body);
-    debug.headerRangeText = parsed.headerRangeText;
-    debug.headerRange = { start: parsed.headerRangeStart, end: parsed.headerRangeEnd };
     debug.rows = parsed.rows;
     debug.totalRow = parsed.totalRow;
     debug.tablesFound = parsed.tablesFound;
+    debug.tableChoice = parsed.tableChoice;
 
-    if (parsed.headerRangeStart !== dayIso || parsed.headerRangeEnd !== dayIso) {
-      return await fail(
-        "capture_day_period_mismatch",
-        `período do relatório não é ${dayIso} (header="${parsed.headerRangeText}") — o POST de period não pegou`,
-      );
-    }
     const sumQty = parsed.rows.reduce((s, r) => s + r.qty, 0);
     const sumValue = Math.round(parsed.rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
     debug.sums = { qty: sumQty, value: sumValue };
