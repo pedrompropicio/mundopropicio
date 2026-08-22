@@ -528,6 +528,18 @@ export function buildCommittedBpDoc(bundle: CommittedBpBundle, branding: ExportB
     },
   });
 
-  const safe = bundle.event.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-");
-  doc.save(`BP-previsto-excedido-${safe}.pdf`);
+  return doc;
 }
+
+export function committedBpFileName(eventName: string): string {
+  const safe = eventName.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-");
+  return `BP-previsto-excedido-${safe}.pdf`;
+}
+
+export async function exportCommittedBpToPDF(opts: { eventId: string; includeChildren?: boolean }) {
+  const bundle = await fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true);
+  const branding = await fetchExportBranding();
+  const doc = buildCommittedBpDoc(bundle, branding);
+  doc.save(committedBpFileName(bundle.event.name));
+}
+
