@@ -24,10 +24,6 @@ verify_jwt = true
 [functions.fever-ingest-browser]
 verify_jwt = false
 
-# TEMPORÁRIO — arnês de validação da credencial Google Ads. Apagar após uso.
-[functions.tmp-google-validate]
-verify_jwt = false
-
 # Só é chamada por triggers/cron da BD com a service_role key do Vault.
 [functions.vip-coupon-email]
 verify_jwt = true
