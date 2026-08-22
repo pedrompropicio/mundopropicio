@@ -119,29 +119,48 @@ export function buildCommittedBpWorkbook(
   ws.getCell("A3").value = [longDatePT(bundle.event.date), place].filter(Boolean).join(" · ");
   ws.getCell("A3").font = { name: "Arial", size: 9, color: { argb: "FF6B7280" } };
 
-  ws.getCell("G1").value = branding.displayName || SYSTEM_NAME;
-  ws.getCell("G1").font = { name: "Arial", size: 10, bold: true };
-  ws.getCell("G1").alignment = { horizontal: "right" };
-  ws.getCell("G2").value = "mpgestaoeventos.com";
-  ws.getCell("G2").font = { name: "Arial", size: 8, color: { argb: "FF6B7280" } };
-  ws.getCell("G2").alignment = { horizontal: "right" };
-
-  ws.getRow(1).height = 22;
-
   // Logótipo (opcional — nunca deve fazer a exportação falhar nem pendurar).
   // ATENÇÃO: `wb.addImage({ base64 })` exige base64 REAL. Se lhe passarmos um URL
   // de asset (o fallback do branding é um import de PNG, não um data URL), o
   // jszip rejeita "Invalid base64 input" FORA do fluxo do await e o
   // `writeBuffer()` fica pendente para sempre — foi o bug do botão preso.
+  //
+  // REGRA: o texto do nome da empresa é ALTERNATIVA ao logótipo, nunca
+  // acompanhamento. Com imagem válida, o logo ocupa as linhas 1–2 no canto
+  // superior direito e o endereço desce para a linha 3.
   const logo = logoAsBase64(branding.logoDataUrl);
+  let logoDrawn = false;
   if (logo) {
     try {
       const imgId = wb.addImage({ base64: logo.data, extension: logo.ext as any });
-      ws.addImage(imgId, { tl: { col: 6.05, row: 2.2 }, ext: { width: 150, height: 31 } });
+      ws.addImage(imgId, {
+        tl: { col: 6.05, row: 0.1 },
+        ext: { width: 150, height: 31 }, // proporção original (~0.205)
+        editAs: "oneCell",
+      } as any);
+      logoDrawn = true;
     } catch {
-      /* fallback: texto em G1/G2 já escrito */
+      logoDrawn = false;
     }
   }
+
+  if (!logoDrawn) {
+    ws.getCell("G1").value = branding.displayName || SYSTEM_NAME;
+    ws.getCell("G1").font = { name: "Arial", size: 10, bold: true };
+    ws.getCell("G1").alignment = { horizontal: "right" };
+    ws.getCell("G2").value = "mpgestaoeventos.com";
+    ws.getCell("G2").font = { name: "Arial", size: 8, color: { argb: "FF6B7280" } };
+    ws.getCell("G2").alignment = { horizontal: "right" };
+  } else {
+    ws.getCell("G3").value = "mpgestaoeventos.com";
+    ws.getCell("G3").font = { name: "Arial", size: 8, color: { argb: "FF6B7280" } };
+    ws.getCell("G3").alignment = { horizontal: "right", vertical: "top" };
+  }
+
+  // Espaço vertical para o logótipo (linhas 1–2 ≈ 42px) sem tocar na linha 5.
+  ws.getRow(1).height = 22;
+  ws.getRow(2).height = 14;
+
 
 
   // ── Cabeçalho da tabela (linha 5) ──────────────────────────────────────────
