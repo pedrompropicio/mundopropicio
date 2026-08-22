@@ -113,3 +113,40 @@ Varredura completa da cadeia contra a referência v24:
 O dry-run usa os **mesmos** builders (`budgetPayload`, `campaignPayload`, …), por
 isso a pré-visualização reflete automaticamente qualquer correção destas — nunca
 duplicar o payload só para o dry-run.
+
+## Campos obrigatórios da v24 — EU PAR e varredura (2026-08-22)
+
+Segunda falha real no `campaigns:mutate`, de natureza diferente da primeira (aquela
+era nome de campo errado, esta é **campo obrigatório em falta**):
+
+```
+fieldError: REQUIRED · fieldPath: operations[0].create.contains_eu_political_advertising
+```
+
+Causa: o regulamento europeu de publicidade política (EU PAR) obriga a Google a
+exigir que **toda** a campanha criada pela API declare
+`contains_eu_political_advertising`
+(`developers.google.com/google-ads/api/docs/api-policy/eu-par`). Valores:
+`DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING`, `CONTAINS_EU_POLITICAL_ADVERTISING`.
+
+Decisão: **não fica fixo no código**. É uma auto-declaração legal do anunciante, por
+isso vive em `crm.google_publish_plan.eu_political_advertising`
+(default `DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING`, CHECK nos dois valores) e é um
+campo visível no `GooglePublishPanel`, com nota a explicar o que se está a declarar.
+O `campaignPayload()` lê o plano; o dry-run reflete-o automaticamente.
+
+### Obrigatórios por recurso (v24) vs o que enviamos
+
+| Recurso | Obrigatório na criação | Enviamos |
+|---|---|---|
+| `CampaignBudget` | `amount_micros` (e `name` na prática, para orçamento não partilhado) | `name`, `amountMicros`, `deliveryMethod`, `explicitlyShared` — OK |
+| `Campaign` | `name`, `advertising_channel_type`, `campaign_budget`, estratégia de lance, **`contains_eu_political_advertising`** | todos — OK após esta correção |
+| `AdGroup` | `name`, `campaign` | + `status`, `type`, `cpcBidMicros` — OK |
+| `AdGroupCriterion` (keyword +/−) | `ad_group`, `keyword.text`, `keyword.match_type` (`negative` só na negativa) | todos — OK |
+| `CampaignCriterion` (location/language) | `campaign` + exatamente um de `location.geo_target_constant` / `language.language_constant` | todos — OK |
+| `AdGroupAd` / `ResponsiveSearchAd` | `ad_group`, `ad.final_urls`, 3–15 `headlines`, 2–4 `descriptions` | todos (validados antes do mutate) — OK |
+
+Regra acrescentada à lição anterior: antes de criar um recurso novo, ler na referência
+da v24 não só os **nomes** dos campos, mas a lista de **obrigatórios** — e verificar as
+páginas de política (`api-policy/*`), porque exigências regulatórias como o EU PAR
+aparecem lá e não na referência do recurso.
