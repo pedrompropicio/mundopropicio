@@ -1182,7 +1182,12 @@ async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
   return { html, token };
 }
 
-/** Fixa o período do dashboard por POST (period=5 + datas; evento opcional). */
+/**
+ * Fixa o período do dashboard por POST (period=5 + datas; evento opcional).
+ * ⚠️ v2.33: FORA do caminho de sync. Guardar period na sessão faz o servidor
+ * ignorar `bulk_event_ids` no GET SJR (a resposta passa a ser a conta inteira).
+ * Mantida apenas para sondas manuais.
+ */
 async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string, id?: string) {
   const form = new URLSearchParams({
     utf8: "✓",
