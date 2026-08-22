@@ -529,15 +529,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     try {
-      const rows = await searchStreamCampaigns(
+      // 1ª consulta: metadados de TODAS as campanhas (sem segments.date)
+      const metaRows = await searchStreamCampaigns(
         accessToken,
         GOOGLE_ADS_DEVELOPER_TOKEN!,
         loginCustomerId,
         customerId,
-        gaql,
+        metadataGaql,
       );
-      const agg = aggregate(rows);
-      const daily = buildDailyRows(rows);
+      // 2ª consulta: insights diários (só dias com dados)
+      const insightRows = await searchStreamCampaigns(
+        accessToken,
+        GOOGLE_ADS_DEVELOPER_TOKEN!,
+        loginCustomerId,
+        customerId,
+        dailyGaql,
+      );
+      const agg = aggregate(metaRows);
+      mergeMetricsFromInsights(agg, insightRows);
+      const daily = buildDailyRows(insightRows);
+
 
       // --- 1) Metadados da campanha (equivalente ao meta_campaign_snapshot) ---
       const upsertRows = agg.map((a) => ({
