@@ -1527,28 +1527,53 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
       return await fail("capture_day_sanity", `qty acima do limite (${insane.map((r) => `${r.label}=${r.qty}`).join(", ")} > ${CAPTURE_DAY_MAX_QTY})`);
     }
 
-    // 5. mapeamento linha → config
+    // 5. mapeamento linha → config (v2.36: por código quando disponível)
+    const normCodes = (v: any) => String(v ?? "").replace(/\s+/g, "").trim();
+    const codeConfigs = targetList.filter((t: any) => normCodes(t.ticketline_report_codes).length > 0);
+    debug.codeConfigs = codeConfigs.map((t: any) => ({ configId: t.id, codes: normCodes(t.ticketline_report_codes) }));
+
     const mapping: any[] = [];
     const matchedByConfig = new Map<string, string[]>();
+    const matchMethodByConfig = new Map<string, string>();
     for (const row of parsed.rows) {
+      const rowCodes = normCodes(row.codes);
+      let method = "code";
+      let hits: any[] = rowCodes
+        ? codeConfigs.filter((t: any) => normCodes(t.ticketline_report_codes) === rowCodes)
+        : [];
+
       const labelName = row.label.split("|")[0];
       const lk = normKey(labelName.replace(/\[[^\]]*\]/g, ""));
-      const hits = targetList.filter((t: any) => {
-        const keys = eventNameKeys(nameById.get(t.event_id) || t.organization_name || "");
-        return keys.some((k) => k.length >= 3 && (k === lk || lk.includes(k) || k.includes(lk)));
-      });
+
+      if (hits.length === 0) {
+        // fallback por nome — só para configs SEM códigos definidos
+        method = "name";
+        hits = targetList.filter((t: any) => {
+          if (normCodes(t.ticketline_report_codes).length > 0) return false;
+          const keys = eventNameKeys(nameById.get(t.event_id) || t.organization_name || "");
+          return keys.some((k) => k.length >= 3 && (k === lk || lk.includes(k) || k.includes(lk)));
+        });
+      }
+
       mapping.push({
         label: row.label, labelKey: lk, codes: row.codes, qty: row.qty, value: row.value,
+        method: hits.length > 0 ? method : null,
         matched: hits.map((h: any) => ({ configId: h.id, event_id: h.event_id, event_name: nameById.get(h.event_id) || null })),
       });
       if (hits.length > 1) {
         debug.mapping = mapping;
-        return await fail("capture_day_ambiguous_match", `label "${row.label}" casa com ${hits.length} configs`);
+        return await fail(
+          "capture_day_ambiguous_match",
+          method === "code"
+            ? `códigos "${rowCodes}" estão em ${hits.length} configs`
+            : `label "${row.label}" casa com ${hits.length} configs (match por nome)`,
+        );
       }
       if (hits.length === 1) {
         const arr = matchedByConfig.get(hits[0].id) || [];
         arr.push(row.label);
         matchedByConfig.set(hits[0].id, arr);
+        matchMethodByConfig.set(hits[0].id, method);
       }
     }
     debug.mapping = mapping;
