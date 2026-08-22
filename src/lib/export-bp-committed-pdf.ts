@@ -41,7 +41,14 @@ export const SYSTEM_NAME = "MP Gestão Eventos";
 const HOUSE_ORDERER = "MP";
 
 const nf = (n: number) =>
-  Number(n || 0).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  Number(n || 0).toLocaleString("pt-PT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: true,
+    // força separador de milhares também em 4 dígitos (pt-PT omite por defeito)
+    minimumIntegerDigits: 1,
+  }).replace(/^(\d)(\d{3})(,|$)/, "$1 $2$3");
+
 
 const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
