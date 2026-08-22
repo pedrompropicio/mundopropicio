@@ -32,7 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
-import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
+import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast, orphanBucketLabel, orphanBucketIsPending } from "@/lib/bp-tx-matching";
 import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
