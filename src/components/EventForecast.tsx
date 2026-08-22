@@ -51,6 +51,8 @@ import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
+import { exportCommittedBpToPDF } from "@/lib/export-bp-committed-pdf";
+
 import HelpTooltip from "@/components/HelpTooltip";
 
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
