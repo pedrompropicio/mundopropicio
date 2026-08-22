@@ -1848,6 +1848,27 @@ export type Database = {
         }
         Relationships: []
       }
+      claude_file_transfer: {
+        Row: {
+          chunk_no: number
+          created_at: string
+          data: string
+          file_key: string
+        }
+        Insert: {
+          chunk_no: number
+          created_at?: string
+          data: string
+          file_key: string
+        }
+        Update: {
+          chunk_no?: number
+          created_at?: string
+          data?: string
+          file_key?: string
+        }
+        Relationships: []
+      }
       coala_ai_classification_suggestions: {
         Row: {
           ai_response_raw: Json
