@@ -1208,7 +1208,7 @@ async function dashFetchSeries(
   id: string | null,
   startDD: string,
   endDD: string,
-  opts?: { eventParam?: "scalar" | "array" },
+  opts?: { eventParam?: "scalar" | "array"; noDates?: boolean },
 ): Promise<{ series: DashboardDailyResult; url: string; size: number; contentType: string }> {
   const url = dashSjrUrl(id, startDD, endDD, opts);
   const resp = await fetchWithTimeout(url, {
