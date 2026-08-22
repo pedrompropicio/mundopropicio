@@ -645,7 +645,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, category_id")
+        .select("id, category_id, description, event_id")
         .eq("transaction_id", transaction.id)
         .is("version_id", null)
         .maybeSingle();
