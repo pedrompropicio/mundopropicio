@@ -178,6 +178,41 @@ Ver `.lovable/memory/constraints/timezone-portugal.md`.
 | `crm-meta-sync-creatives` | `meta_creatives` (`meta_video_id` incluído) | **cron diário 06:00 UTC** (`scripts/crm-cron-sync-creatives-live.txt`) |
 | `crm-google-sync-campaigns` | `google_campaign` + `google_campaign_insights_daily`, micros→cêntimos, auto-link ao evento | **cron diário 05:30 UTC**, `mode='incremental'`, `days_back=7` (`supabase/manual/cron_google_sync_campaigns_live.sql`) |
 
+### Regra de ouro: metadados nunca levam `segments.date`
+
+**Consultas de metadados enumeram entidades; consultas de métricas descrevem dias.
+Nunca as junte na mesma query.**
+
+Bug real (corrigido a 2026-08-22): o `crm-google-sync-campaigns` usava **uma só**
+GAQL `FROM campaign WHERE segments.date BETWEEN …` para alimentar
+`crm.google_campaign` (metadados) *e* `crm.google_campaign_insights_daily`
+(métricas). Ao segmentar por `segments.date`, o Google só devolve linhas de dias
+com **entrega** — uma campanha criada hoje, em pausa ou sem impressões não tem
+linhas de data e **desaparece do espelho de metadados**. A lista de campanhas do
+ERP passou a depender de terem gasto dinheiro.
+
+Desenho correcto, agora implementado:
+
+1. `buildMetadataGaql()` — `FROM campaign` **sem** `segments.date` e sem
+   `metrics.*` → upsert em `crm.google_campaign`. Enumera todas as campanhas da
+   conta, independentemente de entrega.
+2. `buildDailyGaql(since, until)` — mantém `segments.date BETWEEN` + `metrics.*`
+   → upsert em `crm.google_campaign_insights_daily`. Aqui queremos mesmo só dias
+   com dados.
+
+O **auto-link ao evento corre depois da 1ª consulta**, antes dos insights: uma
+campanha nova deve poder ligar-se ao evento antes de ter gasto um cêntimo. Os
+totais de período em `crm.google_campaign` são somados a partir das linhas de
+insights (`mergeMetricsFromInsights`) — campanhas sem entrega ficam a zeros mas
+continuam a existir.
+
+Lado Meta: **não sofre do mesmo problema.** Os snapshots
+(`crm-meta-sync-campaigns/adsets/ads`) listam entidades pelas edges
+`/act_<id>/campaigns|adsets|ads`, que não dependem de métricas; filtram por
+`effective_status IN (ACTIVE, PAUSED)`, logo campanhas pausadas ou sem gasto
+aparecem. As métricas vivem numa função separada, `crm-meta-sync-insights`.
+
+
 Honestidade sobre o que falta: **o Meta não tem cron de insights**. Snapshots e
 insights do Meta dependem do botão "Sincronizar agora" no dashboard. O
 backfill histórico é sempre manual nas duas plataformas (Google: `mode='full'`).
