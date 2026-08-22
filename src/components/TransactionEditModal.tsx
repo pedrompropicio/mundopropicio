@@ -659,6 +659,48 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isBpLinked = !!linkedForecast && !unlinkBpRequested;
   const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
 
+  // ─── Rubrica manda-a a linha do BP (vínculo 1:1) ───
+  // Enquanto a TX está vinculada por FK a uma linha do BP, a rubrica é READ-ONLY
+  // aqui: quem corrige, corrige a LINHA e a transação alinha-se sozinha
+  // (triggers sync_tx_category_from_forecast / realign_tx_category_from_forecast).
+  // Sem isto, o realinhamento automático da BD parecia um bug: o utilizador
+  // gravava a rubrica e ela voltava ao valor anterior.
+  const renderBpLockedCategory = () => {
+    const cat = categories.find((c: any) => c.id === bpCategoryId);
+    const fcEventId = (linkedForecast as any)?.event_id ?? form.event_id;
+    return (
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+        <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">
+          {cat ? `${cat.code} ${cat.name}` : "Sem categoria"}
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          🔒 Rubrica definida pela linha do BP vinculada
+          {(linkedForecast as any)?.description ? ` ("${(linkedForecast as any).description}")` : ""} — corrija na
+          linha do BP e a transação alinha-se automaticamente.{" "}
+          {fcEventId && (
+            <a
+              href={`/eventos/${fcEventId}?tab=previsoes`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline font-medium"
+            >
+              Abrir linha do BP
+            </a>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => setUnlinkBpRequested(true)}
+          className="mt-1 text-[10px] text-primary hover:underline font-medium"
+          title="Remove o vínculo desta TX à linha BP. Após gravar, a TX fica órfã (aceita qualquer L3)."
+        >
+          Desvincular do BP para editar a rubrica aqui
+        </button>
+      </div>
+    );
+  };
+
   // ─── Realocação para outra LINHA do BP dentro da mesma L3 ───
   // Mesmas permissões da ferramenta "Alocar realizado".
   const canManageTxAlloc = isAdmin || isManager || hasPermission("manage_transactions");
