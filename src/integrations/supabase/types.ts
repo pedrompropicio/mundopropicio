@@ -9776,10 +9776,49 @@ export type Database = {
           },
         ]
       }
+      ticketline_daily_sales: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          quantity: number
+          sale_date: string
+          total_value: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          quantity?: number
+          sale_date: string
+          total_value?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          quantity?: number
+          sale_date?: string
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticketline_daily_sales_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticketline_sync_config: {
         Row: {
           company_id: string
           created_at: string
+          daily_fallback_active: boolean
           enabled: boolean
           event_id: string
           id: string
@@ -9794,6 +9833,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          daily_fallback_active?: boolean
           enabled?: boolean
           event_id: string
           id?: string
@@ -9808,6 +9848,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          daily_fallback_active?: boolean
           enabled?: boolean
           event_id?: string
           id?: string
