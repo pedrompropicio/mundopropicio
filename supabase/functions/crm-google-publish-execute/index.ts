@@ -1,6 +1,6 @@
 // crm-google-publish-execute — publicador de campanhas de Pesquisa no Google Ads.
 //
-// BUILD_VERSION=google-publish-execute-v2-datetime
+// BUILD_VERSION=google-publish-execute-v3-eu-par
 //
 // Espelho do crm-meta-publish-execute. Regras não-negociáveis:
 //  - Tudo nasce em PAUSA (orçamento/campanha/grupo/anúncio).
@@ -80,6 +80,12 @@ function campaignPayload(plan: Plan, budgetResource: string) {
     status: "PAUSED",
     advertisingChannelType: "SEARCH",
     campaignBudget: budgetResource,
+    // Regulamento europeu de publicidade política (EU PAR): a Google exige que
+    // TODA a campanha criada por API declare este campo. Omitir devolve
+    // FieldError.REQUIRED em operations[0].create.contains_eu_political_advertising.
+    // É uma auto-declaração do anunciante — vem do plano, não está fixa no código.
+    containsEuPoliticalAdvertising:
+      String(plan.eu_political_advertising || "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"),
     networkSettings: {
       targetGoogleSearch: true,
       targetSearchNetwork: false,
