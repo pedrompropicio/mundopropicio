@@ -9,12 +9,13 @@ import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-
 // (parser SJR por-evento mantido em _shared para as sondas; o sync usa a série diária do dashboard)
 import {
   parseDashboardDailySjr,
+  extractHeaderRange,
   type DashboardDailyResult,
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 
-const VERSION = "v2.34_sales_per_event_day_capture";
+const VERSION = "v2.35_sales_per_event_total_vendas";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1307,18 +1308,38 @@ function dayTokenToIso(t: string): string | null {
 
 export interface SalesPerEventRow { label: string; qty: number; value: number; codes: string | null }
 
-/** Parse da tabela simples "Total Vendas" (Evento | Qt. | Valor) do SJR. */
+/**
+ * Parse da tabela SIMPLES "Total Vendas" (Evento | Qt. | Valor) do SJR.
+ *
+ * ⚠️ v2.35: o SJR traz DUAS tabelas — a DETALHADA (~20 colunas, cujo primeiro
+ * par Qt./Valor é "Total Geral" e inclui convites) e a SIMPLES (3 colunas de
+ * dados, header superior "Total Vendas"). Só a simples serve: escolhe-se a
+ * candidata com MENOS colunas (tipicamente a última) e, entre empates, a que
+ * menciona "Total Vendas".
+ */
 export function parseSalesPerEventSjr(body: string) {
   const html = unescapeSjr(body);
   const tables = extractTables(html);
-  let chosen: string[][] | null = null;
-  for (const g of tables) {
-    const flat = g.flat().map((c) => normKey(c));
-    if (flat.includes("evento") && flat.some((c) => c === "qt" || c === "qt.")) { chosen = g; break; }
-  }
-  if (!chosen) throw Object.assign(new Error("sales_per_event: tabela Evento|Qt.|Valor não encontrada"), { phase: "capture_day_no_table" });
 
-  const headerIdx = chosen.findIndex((r) => r.some((c) => normKey(c) === "evento"));
+  type Cand = { grid: string[][]; idx: number; maxCols: number; hasTotalVendas: boolean; headerIdx: number };
+  const cands: Cand[] = [];
+  tables.forEach((g, idx) => {
+    const headerIdx = g.findIndex((r) => r.some((c) => normKey(c) === "evento"));
+    if (headerIdx < 0) return;
+    const flat = g.flat().map((c) => normKey(c));
+    if (!flat.some((c) => c === "qt" || c === "qt.")) return;
+    const maxCols = g.reduce((m, r) => Math.max(m, r.filter((c) => c !== undefined).length), 0);
+    const hasTotalVendas = flat.some((c) => c.includes("total vendas"));
+    cands.push({ grid: g, idx, maxCols, hasTotalVendas, headerIdx });
+  });
+  if (cands.length === 0) {
+    throw Object.assign(new Error("sales_per_event: tabela Evento|Qt.|Valor não encontrada"), { phase: "capture_day_no_table" });
+  }
+  cands.sort((a, b) => (a.maxCols - b.maxCols) || (Number(b.hasTotalVendas) - Number(a.hasTotalVendas)) || (b.idx - a.idx));
+  const pick = cands[0];
+  const chosen = pick.grid;
+  const headerIdx = pick.headerIdx;
+
   const rows: SalesPerEventRow[] = [];
   let totalRow: { qty: number | null; value: number | null } | null = null;
   for (let i = headerIdx + 1; i < chosen.length; i++) {
@@ -1336,15 +1357,53 @@ export function parseSalesPerEventSjr(body: string) {
     const codes = label.match(/\[([^\]]+)\]/)?.[1] ?? null;
     rows.push({ label, qty: qty ?? 0, value: value ?? 0, codes });
   }
-  const headerRange = html.match(/Opera[çc][õo]es de\s*([0-9/\-]{8,10})[^<]*?\ba\s*([0-9/\-]{8,10})/i);
   return {
     rows,
     totalRow,
-    headerRangeText: headerRange ? headerRange[0].replace(/\s+/g, " ").trim() : null,
-    headerRangeStart: headerRange ? dayTokenToIso(headerRange[1]) : null,
-    headerRangeEnd: headerRange ? dayTokenToIso(headerRange[2]) : null,
     tablesFound: tables.length,
+    tableChoice: {
+      pickedIndex: pick.idx,
+      pickedCols: pick.maxCols,
+      pickedHasTotalVendas: pick.hasTotalVendas,
+      candidates: cands.map((c) => ({ idx: c.idx, cols: c.maxCols, totalVendas: c.hasTotalVendas })),
+    },
   };
+}
+
+/**
+ * v2.35 — confirma o período FIXADO NA SESSÃO lendo o SJR do dashboard
+ * sale_summary (o único que traz "Operações de X a Y"). O sales_per_event NÃO
+ * tem esse header.
+ */
+async function fetchSessionPeriodRange(jar: Jar, token: string) {
+  const url = `${DASH_URL}?post_render_content=data&_=${Date.now()}`;
+  const resp = await fetchWithTimeout(url, {
+    method: "GET", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      Accept: SJR_ACCEPT,
+      Cookie: jarToHeader(jar),
+      Referer: DASH_URL,
+      "X-Requested-With": "XMLHttpRequest",
+      ...(token ? { "X-CSRF-Token": token } : {}),
+    },
+  }, 110000);
+  ingestSetCookie(jar, resp);
+  const body = await resp.text().catch(() => "");
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    throw Object.assign(new Error(`sale_summary (período): 302 → ${loc}`), {
+      phase: loc.includes("sign_in") ? "session_expired" : "capture_day_redirect",
+    });
+  }
+  if (!resp.ok) {
+    throw Object.assign(new Error(`sale_summary (período): HTTP ${resp.status}`), { phase: `capture_day_http_${resp.status}` });
+  }
+  const html = unescapeSjr(body);
+  const range = extractHeaderRange(html);
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const headerText = text.match(/Opera[cç][õo]es\s+de\s+[^<]{4,60}/i)?.[0]?.trim() ?? null;
+  return { url, size: body.length, range, headerText };
 }
 
 /** GET SJR do relatório sales_per_event (período vem da sessão). */
@@ -1426,27 +1485,30 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
     debug.dashPageSize = html.length;
     const post = await dashPostPeriod(jar, token, dayDD, dayDD);
     debug.postPeriod = post;
-    // 3. GET SJR do relatório por evento (novo csrf da página)
+    // 3. confirmar o período NA SESSÃO via SJR do sale_summary (novo csrf)
     const { token: token2 } = await dashGetHtml(jar);
+    const per = await fetchSessionPeriodRange(jar, token2 || token);
+    debug.periodProbe = { url: per.url, size: per.size, headerText: per.headerText, range: per.range };
+    if (!per.range || per.range.start !== dayIso || per.range.end !== dayIso) {
+      return await fail(
+        "capture_day_period_mismatch",
+        `período da sessão não é ${dayIso} (header="${per.headerText}", range=${JSON.stringify(per.range)}) — o POST de period não pegou`,
+      );
+    }
+
+    // 4. GET SJR do relatório por evento (mesma sessão, período já confirmado)
     const got = await fetchSalesPerEventSjr(jar, token2 || token);
     debug.usedUrl = got.url;
     debug.size = got.size;
     debug.contentType = got.contentType;
 
-    // 4. parse + validações bloqueantes
+    // 5. parse + validações bloqueantes
     const parsed = parseSalesPerEventSjr(got.body);
-    debug.headerRangeText = parsed.headerRangeText;
-    debug.headerRange = { start: parsed.headerRangeStart, end: parsed.headerRangeEnd };
     debug.rows = parsed.rows;
     debug.totalRow = parsed.totalRow;
     debug.tablesFound = parsed.tablesFound;
+    debug.tableChoice = parsed.tableChoice;
 
-    if (parsed.headerRangeStart !== dayIso || parsed.headerRangeEnd !== dayIso) {
-      return await fail(
-        "capture_day_period_mismatch",
-        `período do relatório não é ${dayIso} (header="${parsed.headerRangeText}") — o POST de period não pegou`,
-      );
-    }
     const sumQty = parsed.rows.reduce((s, r) => s + r.qty, 0);
     const sumValue = Math.round(parsed.rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
     debug.sums = { qty: sumQty, value: sumValue };
@@ -1519,7 +1581,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
       reportRows: parsed.rows,
       totalRow: parsed.totalRow,
       totals: { qty: sumQty, value: sumValue },
-      headerRange: parsed.headerRangeText,
+      headerRange: per.headerText,
       mapping,
       upserted: payload,
       configsTargeted: targetList.length,
