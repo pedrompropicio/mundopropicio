@@ -13,7 +13,7 @@ import {
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.30_dashboard_daily_fix_2026_08_22";
+const VERSION = "v2.31_dashboard_daily_identity_guard_2026_08_22";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1131,12 +1131,16 @@ async function downloadSummary(
 // ============================================================================
 const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
 
-function dashSjrUrl(id: string, startDD: string, endDD: string, opts?: { period?: boolean }): string {
+function dashSjrUrl(
+  id: string | null,
+  startDD: string,
+  endDD: string,
+  opts?: { eventParam?: "scalar" | "array" },
+): string {
   const qs = new URLSearchParams();
   qs.set("utf8", "✓");
   qs.set("granularity", "2");
-  if (opts?.period) qs.set("period", "5");
-  qs.set("bulk_event_ids", id);
+  if (id) qs.set(opts?.eventParam === "array" ? "bulk_event_ids[]" : "bulk_event_ids", id);
   qs.set("filter_start_date", startDD);
   qs.set("filter_end_date", endDD);
   qs.set("post_render_content", "data");
@@ -1165,7 +1169,7 @@ async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
   return { html, token };
 }
 
-/** Fixa o período do dashboard por POST (period=5 + datas + evento). */
+/** Fixa o período do dashboard por POST (period=5 + datas; evento opcional). */
 async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string, id?: string) {
   const form = new URLSearchParams({
     utf8: "✓",
@@ -1199,10 +1203,10 @@ async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: s
 async function dashFetchSeries(
   jar: Jar,
   token: string,
-  id: string,
+  id: string | null,
   startDD: string,
   endDD: string,
-  opts?: { period?: boolean },
+  opts?: { eventParam?: "scalar" | "array" },
 ): Promise<{ series: DashboardDailyResult; url: string; size: number; contentType: string }> {
   const url = dashSjrUrl(id, startDD, endDD, opts);
   const resp = await fetchWithTimeout(url, {
@@ -1272,14 +1276,18 @@ async function dashboardDailyFallback(
   console.log(`[ticketline] .xlsx devolveu landing — fallback série diária do dashboard (evento ${ticketlineEventId})`);
   const startIso = ddmmyyyyToIso(filterStart);
   const endIso = ddmmyyyyToIso(filterEnd);
-  const debug: Record<string, any> = { filterStart, filterEnd, attempts: [] as any[] };
+  const debug: Record<string, any> = {
+    filterStart,
+    filterEnd,
+    used: null,
+    usedUrl: null,
+    attempts: [] as any[],
+  };
   try {
     const { html, token } = await dashGetHtml(jar);
     debug.tokenFound = !!token;
     debug.pageSize = html.length;
 
-    // v2.30: o filtro por evento só sobrevive num ÚNICO GET SJR (o POST
-    // period=5 perdia o bulk_event_ids → devolvia a conta inteira).
     const reasons: string[] = [];
 
     const record = (label: string, a: any, c: any) => {
@@ -1300,38 +1308,71 @@ async function dashboardDailyFallback(
       reasons.push(...c.reasons.map((r: string) => `${label}: ${r}`));
     };
 
-    // (a) GET SJR com period=5 + datas + bulk_event_ids
-    const a1 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd, { period: true });
-    const c1 = coverageCheck(a1.series, startIso, endIso);
-    record("get_sjr_period5", a1, c1);
-    if (c1.ok) {
-      return { mode: "dashboard_daily", series: a1.series, debug: { ...debug, used: "get_sjr_period5", usedUrl: a1.url } };
-    }
+    const validateCandidate = async (
+      label: string,
+      candidate: Awaited<ReturnType<typeof dashFetchSeries>>,
+      csrf: string,
+    ): Promise<SummaryDownload | null> => {
+      const coverage = coverageCheck(candidate.series, startIso, endIso);
+      record(label, candidate, coverage);
+      if (!coverage.ok) return null;
 
-    // (b) GET SJR só com as datas (igual ao d1 da sonda)
-    const a2 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
-    const c2 = coverageCheck(a2.series, startIso, endIso);
-    record("get_sjr_dates_only", a2, c2);
-    if (c2.ok) {
-      return { mode: "dashboard_daily", series: a2.series, debug: { ...debug, used: "get_sjr_dates_only", usedUrl: a2.url } };
-    }
+      const eventQty = candidate.series.sums.qty;
+      const eventValue = candidate.series.sums.value;
+      if (eventQty > 20000) {
+        debug.used = label;
+        debug.usedUrl = candidate.url;
+        throw Object.assign(
+          new Error(`dashboard daily: total do evento excede o limite de sanidade (${eventQty} > 20000)`),
+          { phase: "dashboard_daily_total_exceeds_limit", dashDebug: debug },
+        );
+      }
 
-    // (c) POST period=5 COM bulk_event_ids no corpo + GET SJR (também com evento)
-    let post: any = null;
-    try {
-      post = await dashPostPeriod(jar, token, filterStart, filterEnd, ticketlineEventId);
-    } catch (e: any) {
-      if (e?.retriable) throw e;
-      post = { error: e?.message || String(e) };
-    }
-    debug.post = post;
-    const { token: token3 } = await dashGetHtml(jar);
-    const a3 = await dashFetchSeries(jar, token3, ticketlineEventId, filterStart, filterEnd, { period: true });
-    const c3 = coverageCheck(a3.series, startIso, endIso);
-    record("post_period5_with_event_then_sjr", a3, c3);
-    if (c3.ok) {
-      return { mode: "dashboard_daily", series: a3.series, debug: { ...debug, used: "post_period5_with_event_then_sjr", usedUrl: a3.url } };
-    }
+      // Guarda de identidade: compara a série filtrada com a conta inteira na
+      // mesma sessão/período. Totais grandes idênticos indicam filtro ignorado.
+      const account = await dashFetchSeries(jar, csrf, null, filterStart, filterEnd);
+      const sameQty = eventQty === account.series.sums.qty;
+      const sameValue = Math.abs(eventValue - account.series.sums.value) < 0.01;
+      const identity = {
+        url: account.url,
+        event: { qty: eventQty, value: eventValue },
+        account: account.series.sums,
+        sameQty,
+        sameValue,
+        rejected: sameQty && sameValue && account.series.sums.qty > 2000,
+      };
+      debug.attempts[debug.attempts.length - 1].identityGuard = identity;
+      debug.used = label;
+      debug.usedUrl = candidate.url;
+      if (identity.rejected) {
+        throw Object.assign(
+          new Error(`dashboard daily: filtro ignorado — evento e conta têm totais idênticos (qty=${eventQty}, valor=${eventValue})`),
+          { phase: "dashboard_daily_filter_ignored", dashDebug: debug },
+        );
+      }
+      return { mode: "dashboard_daily", series: candidate.series, debug };
+    };
+
+    // (a) POST período sem evento → novo CSRF → GET filtrado, SEM period no GET.
+    const postA = await dashPostPeriod(jar, token, filterStart, filterEnd);
+    const { token: tokenA } = await dashGetHtml(jar);
+    debug.postWithoutEvent = postA;
+    const a = await dashFetchSeries(jar, tokenA, ticketlineEventId, filterStart, filterEnd);
+    const acceptedA = await validateCandidate("post_period5_then_get_scalar", a, tokenA);
+    if (acceptedA) return acceptedA;
+
+    // (b) POST período também com evento → novo CSRF → GET filtrado sem period.
+    const postB = await dashPostPeriod(jar, tokenA, filterStart, filterEnd, ticketlineEventId);
+    const { token: tokenB } = await dashGetHtml(jar);
+    debug.postWithEvent = postB;
+    const b = await dashFetchSeries(jar, tokenB, ticketlineEventId, filterStart, filterEnd);
+    const acceptedB = await validateCandidate("post_period5_with_event_then_get_scalar", b, tokenB);
+    if (acceptedB) return acceptedB;
+
+    // (c) Variante array, mantendo o período da sessão e sem period no GET.
+    const c = await dashFetchSeries(jar, tokenB, ticketlineEventId, filterStart, filterEnd, { eventParam: "array" });
+    const acceptedC = await validateCandidate("get_array_after_post_period5", c, tokenB);
+    if (acceptedC) return acceptedC;
 
     throw Object.assign(
       new Error(`dashboard daily: período devolvido não cobre ${startIso}..${endIso} — ${reasons.join(" ; ")}`),
@@ -1339,7 +1380,7 @@ async function dashboardDailyFallback(
     );
   } catch (e: any) {
     if (e?.retriable) throw e;
-    if (e?.phase === "dashboard_daily_incomplete") throw e;
+    if (["dashboard_daily_incomplete", "dashboard_daily_filter_ignored", "dashboard_daily_total_exceeds_limit"].includes(e?.phase)) throw e;
     // Fallback também falhou → mantém o erro html_response original + debug.
     throw Object.assign(new Error(`${xlsxError.message} | fallback dashboard daily falhou: ${e?.message || e}`), {
       phase: "html_response",
@@ -2343,6 +2384,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
   } catch (e: any) {
     const phase = e?.phase || "failed";
     const msg = e?.message || String(e);
+    if (e?.dashDebug) debug.dashboard_daily = e.dashDebug;
     await updateRun(admin, runId, {
       status: phase, finished_at: new Date().toISOString(),
       error_message: msg, files_downloaded: e?.filesAudit || null,
