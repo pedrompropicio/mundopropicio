@@ -2272,23 +2272,23 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     const sourceMode = summary.mode;
     debug.source_mode = sourceMode;
 
-    // -------- Caminho evento migrado: série diária do dashboard --------
-    if (summary.mode === "dashboard_daily") {
-      debug.dashboard_daily = summary.debug;
+    // -------- Caminho evento migrado: captura incremental do dia corrente --------
+    if (summary.mode === "dashboard_today") {
+      debug.dashboard_today = summary.debug;
       const series = summary.series;
-      const rows = series.rows.filter((r) => r.quantity !== 0 || Number(r.total_value) !== 0);
+      // Grava TODAS as datas capturadas (incluindo 0/0: um dia pode ser corrigido
+      // para baixo). O histórico anterior vive na mesma tabela e nunca é apagado.
+      const rows = series.rows;
       const sums = {
         qty: rows.reduce((s, r) => s + r.quantity, 0),
         value: Math.round(rows.reduce((s, r) => s + Number(r.total_value), 0) * 100) / 100,
       };
       const filesAuditDash = [{
         name: `dashboard_sale_summary_${cfg.ticketline_event_id}.sjr.js`,
-        size: Number(summary.debug?.attempts?.[summary.debug.attempts.length - 1]?.size || 0),
+        size: Number(summary.debug?.size || 0),
       }];
 
-      const { error: delErr } = await admin.from("ticketline_daily_sales").delete().eq("event_id", cfg.event_id);
-      if (delErr) throw Object.assign(new Error(`Import diário (delete): ${delErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
-      let inserted = 0;
+      let upserted = 0;
       if (rows.length > 0) {
         const payload = rows.map((r) => ({
           company_id: cfg.company_id,
@@ -2297,9 +2297,12 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
           quantity: r.quantity,
           total_value: r.total_value,
         }));
-        const { error: insErr } = await admin.from("ticketline_daily_sales").insert(payload);
-        if (insErr) throw Object.assign(new Error(`Import diário (insert): ${insErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
-        inserted = payload.length;
+        // UPSERT — NUNCA apagar outras datas (histórico backfilled por SQL).
+        const { error: upErr } = await admin
+          .from("ticketline_daily_sales")
+          .upsert(payload, { onConflict: "event_id,sale_date" });
+        if (upErr) throw Object.assign(new Error(`Import diário (upsert): ${upErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
+        upserted = payload.length;
       }
       await updateConfig(admin, cfg.id, {
         daily_fallback_active: true,
@@ -2307,25 +2310,28 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
         last_run_status: "success",
       });
       const auditDash = {
-        dataSource: "dashboard_daily",
-        daysParsed: series.rows.length,
-        daysImported: inserted,
+        dataSource: "dashboard_today",
+        daysParsed: rows.length,
+        daysImported: upserted,
         totalQty: sums.qty,
         totalValue: sums.value,
         totalRow: series.totalRow,
         headerRange: series.headerRange,
+        capturedDates: rows.map((r) => r.sale_date),
         firstDay: rows[0]?.sale_date ?? null,
         lastDay: rows[rows.length - 1]?.sale_date ?? null,
+        baselineToday: summary.debug?.baselineToday ?? null,
       };
       await updateRun(admin, runId, {
         status: "success", finished_at: new Date().toISOString(),
         files_downloaded: filesAuditDash,
         error_message: null,
-        import_audit: { ...auditDash, debug, source_mode: "dashboard_daily" },
+        import_audit: { ...auditDash, debug, source_mode: "dashboard_today" },
       });
-      console.log(`[ticketline ${runId}] dashboard_daily: ${inserted} dias, qty=${sums.qty}, valor=${sums.value}`);
-      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_daily" };
+      console.log(`[ticketline ${runId}] dashboard_today: ${upserted} dia(s), qty=${sums.qty}, valor=${sums.value}`);
+      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_today" };
     }
+
 
     const filesAudit = [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }];
 
