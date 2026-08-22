@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => ({
               networkTimeoutSeconds: 4,
               // Ignora a cache HTTP do browser para o documento: o index.html
               // aponta para os assets com hash e tem de vir sempre fresco.
-              fetchOptions: { cache: "reload" },
+              fetchOptions: { cache: "reload" } as RequestInit,
               // Offline / rede em falha: cai no index.html do precache.
               precacheFallback: { fallbackURL: "/index.html" },
             },
