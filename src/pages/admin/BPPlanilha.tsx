@@ -37,6 +37,7 @@ import { formatCurrencyDecimal } from "@/lib/mock-data";
 import {
   findMatchingTransactionsForForecast,
   findCategoryOrphanTransactions,
+  orphanBucketLabel,
 } from "@/lib/bp-tx-matching";
 import {
   openTransactionDocument,
@@ -519,7 +520,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         if (orphans.length) {
           const cells = new Array(NUM_COLS).fill("");
           cells[COL.CATEGORY] = catLabel(catId);
-          cells[COL.DESCRIPTION] = "Sem linha específica";
+          cells[COL.DESCRIPTION] = orphanBucketLabel("expense");
           cells[COL.AMOUNT] = null;
           cells[COL.IVA] = null;
           cells[COL.ANEXOS] = `🔗 ${orphans.length}`;
@@ -1143,7 +1144,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               const hot = hotRef.current?.hotInstance;
               const desc =
                 m && m.kind === "orphan"
-                  ? "Sem linha específica"
+                  ? orphanBucketLabel("expense")
                   : txt(hot?.getDataAtCell(coords.row, COL.DESCRIPTION)) || "Linha do BP";
               setAnexosPanel({ title: desc, txs });
             }}
