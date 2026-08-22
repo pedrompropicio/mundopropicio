@@ -181,6 +181,7 @@ export default function GooglePublishPanel({ eventId }: Props) {
       link_destino: "",
       start_date: evento.start_date ?? null,
       end_date: evento.end_date ?? null,
+      eu_political_advertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
       geo: { cidade: evento.city ?? null, paises: [evento.country === "Brasil" ? "BR" : "PT"], location_ids: [] },
       idiomas: [evento.country === "Espanha" ? "es" : "pt"],
       ad_groups: [novoGrupo()],
