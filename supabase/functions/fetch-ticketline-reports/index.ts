@@ -2304,7 +2304,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       error_message: warnMsg,
       import_audit: { ...audit, debug, silentEmpty, source_mode: sourceMode },
     });
-    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
+    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus, daily_fallback_active: false });
     return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
 
   } catch (e: any) {
