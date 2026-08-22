@@ -52,6 +52,7 @@ import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import { exportCommittedBpToPDF } from "@/lib/export-bp-committed-pdf";
+import { exportCommittedBpToXLSX } from "@/lib/export-bp-committed-xlsx";
 
 import HelpTooltip from "@/components/HelpTooltip";
 
@@ -195,6 +196,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showOrphans, setShowOrphans] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [exportingCommittedPDF, setExportingCommittedPDF] = useState(false);
+  const [exportingCommittedXLSX, setExportingCommittedXLSX] = useState(false);
 
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2680,6 +2682,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       title="Exportar o BP com o excedido por rubrica somado às linhas (visão previsto + excedido)"
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5" /> {exportingCommittedPDF ? "A gerar…" : "PDF (previsto + excedido)"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExportingCommittedXLSX(true);
+                        try {
+                          await exportCommittedBpToXLSX({ eventId, includeChildren: true });
+                          toast({ title: "Excel (previsto + excedido) gerado" });
+                        } catch (err: any) {
+                          toast({ title: "Erro ao gerar Excel", description: err?.message ?? String(err), variant: "destructive" });
+                        } finally {
+                          setExportingCommittedXLSX(false);
+                        }
+                      }}
+                      disabled={exportingCommittedXLSX}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                      title="Exportar o mesmo relatório (previsto + excedido) em Excel, com fórmulas vivas"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" /> {exportingCommittedXLSX ? "A gerar…" : "Excel"}
                     </button>
                   </div>
 
