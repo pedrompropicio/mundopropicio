@@ -6,7 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
-import { parseTicketlineOperationsSjr } from "../_shared/ticketline-sjr-parser.ts";
+// (parser SJR por-evento mantido em _shared para as sondas; o sync usa a série diária do dashboard)
 import {
   parseDashboardDailySjr,
   type DashboardDailyResult,
