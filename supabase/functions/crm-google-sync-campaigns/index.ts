@@ -593,6 +593,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
         upserted = upsertRows.length;
       }
 
+      // --- 1b) Auto-link campanhas → eventos (respeita linked_event_locked).
+      // Corre DEPOIS dos metadados e ANTES dos insights: uma campanha nova deve
+      // poder ligar-se ao evento antes de ter gasto um cêntimo.
+      let autoLink: unknown = null;
+      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
+        "crm_auto_link_google_campaigns_to_events",
+        { p_company_id: conn.company_id },
+      );
+      if (linkErr) {
+        console.error("[auto-link] failed:", linkErr.message);
+        autoLink = { error: linkErr.message };
+      } else {
+        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
+      }
+
+
+
       // --- 2) Insights diários (chunks de 500 para não estourar o payload) ---
       let dailyUpserted = 0;
       const nowIso = new Date().toISOString();
