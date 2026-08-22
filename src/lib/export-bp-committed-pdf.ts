@@ -484,7 +484,7 @@ export function buildCommittedBpDoc(bundle: CommittedBpBundle, branding: ExportB
     headStyles: { fontStyle: "bold", fontSize: 7.5, fillColor: [31, 41, 55], textColor: [255, 255, 255] },
     columnStyles: {
       0: { cellWidth: 20 },
-      1: { cellWidth: 108 },
+      1: { cellWidth: 116 },
       2: { cellWidth: 38 },
       3: { cellWidth: 22 },
       4: { cellWidth: 28, halign: "right" },
