@@ -1448,7 +1448,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
   // Configs-alvo: daily_fallback_active=true da mesma company (independente de enabled).
   const { data: targets, error: tErr } = await admin
     .from("ticketline_sync_config")
-    .select("id, event_id, company_id, ticketline_event_id, organization_name")
+    .select("id, event_id, company_id, ticketline_event_id, organization_name, ticketline_report_codes")
     .eq("company_id", cfg.company_id)
     .eq("daily_fallback_active", true);
   if (tErr) return json(500, { error: tErr.message });
