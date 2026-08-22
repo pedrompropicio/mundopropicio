@@ -629,19 +629,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         dailyUpserted += chunk.length;
       }
 
-      // --- 3) Auto-link campanhas → eventos (respeita linked_event_locked) ---
-      let autoLink: unknown = null;
-      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
-        "crm_auto_link_google_campaigns_to_events",
-        { p_company_id: conn.company_id },
-      );
-      if (linkErr) {
-        console.error("[auto-link] failed:", linkErr.message);
-        autoLink = { error: linkErr.message };
-      } else {
-        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
-      }
-
       // Marca connection saudável
       await (supabase as any)
         .schema("crm")
