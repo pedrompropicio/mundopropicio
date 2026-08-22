@@ -2704,6 +2704,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
                         const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
                         const showGroupHeader = expenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
+                        const bands = buildCategoryBands(group.items);
                         return (
                           <React.Fragment key={group.groupName}>
                             {showGroupHeader && (
@@ -2721,8 +2722,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <td />
                               </tr>
                             )}
-                            {group.items.map((f) => (
+                            {group.items.map((f, idx) => {
+                              const band = bands.get(idx);
+                              const row = (
                               f._orphanBucket ? (
+
                                 <OrphanBucketRow key={f.id} item={f} isExpense indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
                               ) : f._overhead_via_master ? (
                                 <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
