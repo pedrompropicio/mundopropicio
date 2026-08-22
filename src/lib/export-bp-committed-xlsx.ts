@@ -79,7 +79,10 @@ export function buildCommittedBpWorkbook(
       oddFooter: `&L${SYSTEM_NAME}&RPágina &P de &N`,
       evenFooter: `&L${SYSTEM_NAME}&RPágina &P de &N`,
     },
-    views: [{ state: "frozen", ySplit: 5, topLeftCell: "A1", showGridLines: false }],
+    // ySplit: 5 → painéis fixos em A6 (cabeçalho sempre visível).
+    // Sem xSplit e sem topLeftCell deslocado, o ficheiro abre em A1 e não
+    // "salta" para a direita como acontecia na versão anterior.
+    views: [{ state: "frozen", ySplit: 5, showGridLines: false }],
   });
 
   WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
