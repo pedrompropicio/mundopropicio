@@ -54,6 +54,21 @@ function lineRate(row: OutRow): number {
 
 const fill = (argb: string): ExcelJS.Fill => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 
+/**
+ * Normaliza o logótipo para base64 puro. Só aceita data URLs de imagem: um URL
+ * de asset (`/src/assets/logo.png`) não é base64 e faria o jszip rejeitar fora
+ * do fluxo, pendurando o `writeBuffer()`. Sem base64 válido → sem imagem.
+ */
+export function logoAsBase64(src?: string | null): { data: string; ext: "png" | "jpeg" } | null {
+  if (!src || !src.startsWith("data:image/")) return null;
+  const comma = src.indexOf(",");
+  if (comma < 0 || !src.slice(0, comma).includes(";base64")) return null;
+  const data = src.slice(comma + 1).replace(/\s+/g, "");
+  if (!data || data.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return null;
+  return { data, ext: src.startsWith("data:image/jpeg") ? "jpeg" : "png" };
+}
+
+
 /** Constrói o workbook (testável fora do browser). */
 export function buildCommittedBpWorkbook(
   bundle: CommittedBpBundle,
@@ -111,16 +126,21 @@ export function buildCommittedBpWorkbook(
 
   ws.getRow(1).height = 22;
 
-  // Logótipo (opcional — nunca deve fazer a exportação falhar).
-  if (branding.logoDataUrl) {
+  // Logótipo (opcional — nunca deve fazer a exportação falhar nem pendurar).
+  // ATENÇÃO: `wb.addImage({ base64 })` exige base64 REAL. Se lhe passarmos um URL
+  // de asset (o fallback do branding é um import de PNG, não um data URL), o
+  // jszip rejeita "Invalid base64 input" FORA do fluxo do await e o
+  // `writeBuffer()` fica pendente para sempre — foi o bug do botão preso.
+  const logo = logoAsBase64(branding.logoDataUrl);
+  if (logo) {
     try {
-      const ext = branding.logoDataUrl.startsWith("data:image/jpeg") ? "jpeg" : "png";
-      const imgId = wb.addImage({ base64: branding.logoDataUrl, extension: ext as any });
+      const imgId = wb.addImage({ base64: logo.data, extension: logo.ext as any });
       ws.addImage(imgId, { tl: { col: 6.05, row: 2.2 }, ext: { width: 150, height: 31 } });
     } catch {
       /* fallback: texto em G1/G2 já escrito */
     }
   }
+
 
   // ── Cabeçalho da tabela (linha 5) ──────────────────────────────────────────
   const head = ws.getRow(5);
@@ -255,11 +275,39 @@ export function committedBpXlsxFileName(eventName: string): string {
   return `BP-previsto-excedido-${safe}.xlsx`;
 }
 
+/** Promessa com prazo: nenhuma etapa da exportação pode ficar pendente para sempre. */
+function comPrazo<T>(p: Promise<T>, ms: number, etapa: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`Tempo excedido em "${etapa}" (${ms / 1000}s)`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 export async function exportCommittedBpToXLSX(opts: { eventId: string; includeChildren?: boolean }) {
-  const bundle = await fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true);
-  const branding = await fetchExportBranding();
+  const t0 = Date.now();
+  const marca = (etapa: string) => console.info(`[bp-xlsx] ${etapa} +${Date.now() - t0}ms`);
+
+  const bundle = await comPrazo(
+    fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true),
+    60_000,
+    "leitura dos dados",
+  );
+  marca("bundle");
+
+  // O logótipo é decoração: 3s e segue sem ele.
+  let branding: ExportBranding = { displayName: SYSTEM_NAME, logoDataUrl: null };
+  try {
+    branding = await comPrazo(fetchExportBranding(), 3_000, "branding");
+  } catch {
+    /* segue sem logótipo */
+  }
+  marca("branding");
+
   const wb = buildCommittedBpWorkbook(bundle, branding);
-  const buf = await wb.xlsx.writeBuffer();
+  marca("workbook");
+  const buf = await comPrazo(wb.xlsx.writeBuffer(), 30_000, "escrita do ficheiro");
+  marca("writeBuffer");
+
   const blob = new Blob([buf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
