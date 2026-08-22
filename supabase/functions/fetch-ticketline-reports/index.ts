@@ -13,7 +13,7 @@ import {
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.32_dashboard_daily_session_filter";
+const VERSION = "v2.33_dashboard_today_incremental";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -72,7 +72,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1087,7 +1087,7 @@ async function downloadSummarySjr(
 
 export type SummaryDownload =
   | { mode: "xlsx"; bytes: Uint8Array }
-  | { mode: "dashboard_daily"; series: DashboardDailyResult; debug: Record<string, any> };
+  | { mode: "dashboard_today"; series: DashboardDailyResult; debug: Record<string, any> };
 
 async function downloadSummary(
   creds: { email: string; password: string },
@@ -1102,6 +1102,13 @@ async function downloadSummary(
   qs.set("post_render_content", "data");
   qs.set("_", String(Date.now()));
   const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
+  // Evento migrado: export .xlsx bloqueado (devolve a landing) → captura
+  // INCREMENTAL do dia corrente no dashboard. A captura exige SESSÃO FRESCA
+  // (period default "Hoje"), por isso pede sempre um login novo.
+  const todayCapture = async (xlsxError: any) => {
+    const freshJar = await getJar(sessions, secretName, creds, true);
+    return await dashboardTodayCapture(freshJar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, xlsxError);
+  };
   try {
     return { mode: "xlsx", bytes: await downloadXlsx(jar, url, "sale_summary") };
   } catch (e: any) {
@@ -1112,23 +1119,27 @@ async function downloadSummary(
         return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
       } catch (e2: any) {
         if (e2?.phase !== "html_response") throw e2;
-        return await dashboardDailyFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
+        return await todayCapture(e2);
       }
     }
     if (e?.phase !== "html_response") throw e;
-    // Evento migrado: export .xlsx bloqueado e relatório por-evento vazio →
-    // ler a SÉRIE DIÁRIA no resumo do dashboard (padrão BOL).
-    return await dashboardDailyFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
+    return await todayCapture(e);
   }
 }
 
+
 // ============================================================================
-// Fallback dashboard_daily (v2.29)
-// Eventos migrados: /managers/events/<id>/sale_summary vem a zeros (provado nas
-// sondas v2.27) mas /managers/dashboard/sale_summary filtrado por
-// bulk_event_ids tem os números reais. O período do dashboard fixa-se por POST
-// (period=5 + datas); os dados lêem-se por SJR (post_render_content=data).
+// Captura incremental do dia corrente (v2.33)
+// Eventos migrados: /managers/events/<id>/sale_summary vem a zeros (sondas v2.27)
+// e o export .xlsx devolve a landing. O dashboard global TEM os números reais,
+// mas NÃO combina intervalo de datas com filtro de evento: assim que a sessão
+// guarda um `period`, o GET SJR ignora `bulk_event_ids` e re-renderiza a conta
+// inteira (provado v2.30–v2.32). Em sessão FRESCA (period default "Hoje") o GET
+// SJR com `bulk_event_ids` filtra corretamente e devolve o dia corrente.
+// Desenho: capturar só HOJE, em incremental (UPSERT), e nunca fazer POST de
+// period. O histórico anterior é backfilled por SQL a partir do ticket_sales.
 // ============================================================================
+
 const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
 
 function dashSjrUrl(
@@ -1171,7 +1182,12 @@ async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
   return { html, token };
 }
 
-/** Fixa o período do dashboard por POST (period=5 + datas; evento opcional). */
+/**
+ * Fixa o período do dashboard por POST (period=5 + datas; evento opcional).
+ * ⚠️ v2.33: FORA do caminho de sync. Guardar period na sessão faz o servidor
+ * ignorar `bulk_event_ids` no GET SJR (a resposta passa a ser a conta inteira).
+ * Mantida apenas para sondas manuais.
+ */
 async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string, id?: string) {
   const form = new URLSearchParams({
     utf8: "✓",
@@ -1249,165 +1265,141 @@ async function dashFetchSeries(
   return { series, url, size: body.length, contentType: ct };
 }
 
-/** O período devolvido cobre o período pedido? Nunca gravar série incompleta. */
-function coverageCheck(series: DashboardDailyResult, startIso: string, endIso: string) {
-  const hr = series.headerRange;
-  const first = series.rows[0]?.sale_date ?? null;
-  const last = series.rows[series.rows.length - 1]?.sale_date ?? null;
-  const days = series.rows.length;
-  const spanDaysRequested = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 86400000) + 1;
-  let ok = true;
-  const reasons: string[] = [];
-  if (hr?.start && hr?.end && /^\d{4}-\d{2}-\d{2}$/.test(hr.start) && /^\d{4}-\d{2}-\d{2}$/.test(hr.end)) {
-    if (hr.start > startIso) { ok = false; reasons.push(`header start ${hr.start} > pedido ${startIso}`); }
-    if (hr.end < endIso) { ok = false; reasons.push(`header end ${hr.end} < pedido ${endIso}`); }
-  } else if (spanDaysRequested > 1 && days <= 1) {
-    ok = false;
-    reasons.push(`só ${days} dia devolvido para um período de ${spanDaysRequested} dias (provável "dia corrente")`);
-  }
-  return { ok, reasons, headerRange: hr, first, last, days, spanDaysRequested };
+/** ISO YYYY-MM-DD do dia anterior (aritmética date-only, segura em UTC). */
+function isoMinusDays(iso: string, days: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) - days * 86400000).toISOString().slice(0, 10);
 }
 
-async function dashboardDailyFallback(
+const TODAY_MAX_DATE_ROWS = 3;
+const TODAY_MAX_QTY_PER_ROW = 5000;
+const TODAY_BASELINE_MIN_QTY = 200;
+
+/**
+ * Captura INCREMENTAL do dia corrente para eventos migrados.
+ *
+ * Requisitos absolutos (v2.33):
+ * - NUNCA fazer POST de `period` — a sessão tem de ficar no default "Hoje";
+ *   qualquer period guardado faz o servidor ignorar `bulk_event_ids`.
+ * - Só um GET SJR filtrado + um GET SJR de baseline (conta inteira) por run.
+ * - Rejeitar (sem gravar nada) se a resposta não parecer o dia corrente do
+ *   evento: datas fora de [hoje−1, hoje], demasiadas linhas, qty absurda, ou
+ *   totais idênticos à conta inteira (filtro ignorado).
+ */
+async function dashboardTodayCapture(
   jar: Jar,
   ticketlineEventId: string,
   filterStart: string,
   filterEnd: string,
   xlsxError: any,
 ): Promise<SummaryDownload> {
-  console.log(`[ticketline] .xlsx devolveu landing — fallback série diária do dashboard (evento ${ticketlineEventId})`);
-  const startIso = ddmmyyyyToIso(filterStart);
-  const endIso = ddmmyyyyToIso(filterEnd);
+  const todayIso = lisbonTodayIso();
+  const yesterdayIso = isoMinusDays(todayIso, 1);
+  console.log(`[ticketline] .xlsx devolveu landing — captura do dia corrente (evento ${ticketlineEventId}, ${todayIso})`);
+
   const debug: Record<string, any> = {
+    strategy: "dashboard_today",
     filterStart,
     filterEnd,
-    used: null,
+    todayIso,
+    acceptedRange: [yesterdayIso, todayIso],
     usedUrl: null,
-    attempts: [] as any[],
+    rows: null,
+    baselineToday: null,
+    validations: {} as Record<string, any>,
   };
+
   try {
     const { html, token } = await dashGetHtml(jar);
     debug.tokenFound = !!token;
     debug.pageSize = html.length;
 
-    const reasons: string[] = [];
-    const rejections: string[] = [];
+    // ---- GET SJR filtrado pelo evento (sessão fresca, period default "Hoje") ----
+    const got = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
+    debug.usedUrl = got.url;
+    debug.size = got.size;
+    debug.contentType = got.contentType;
+    debug.parser = got.series.debug;
+    debug.headerRange = got.series.headerRange;
+    debug.totalRow = got.series.totalRow;
+    debug.rows = got.series.rows;
+    debug.sums = got.series.sums;
 
-    // ---- Passo 0: baseline da CONTA INTEIRA (nunca candidato a gravação) ----
-    const post0 = await dashPostPeriod(jar, token, filterStart, filterEnd);
-    const { token: token0 } = await dashGetHtml(jar);
-    debug.postBaseline = post0;
-    const baselineFetch = await dashFetchSeries(jar, token0, null, filterStart, filterEnd);
-    const baseline = {
+    // ---- Baseline de identidade: mesma sessão, SEM bulk_event_ids ----
+    const baselineFetch = await dashFetchSeries(jar, token, null, filterStart, filterEnd);
+    const baselineToday = {
       url: baselineFetch.url,
+      size: baselineFetch.size,
       days: baselineFetch.series.rows.length,
       sums: baselineFetch.series.sums,
       totalRow: baselineFetch.series.totalRow,
       headerRange: baselineFetch.series.headerRange,
     };
-    debug.baseline = baseline;
+    debug.baselineToday = baselineToday;
 
-    const tryCandidate = (
-      label: string,
-      candidate: Awaited<ReturnType<typeof dashFetchSeries>>,
-    ): SummaryDownload | null => {
-      const coverage = coverageCheck(candidate.series, startIso, endIso);
-      const attempt: any = {
-        label,
-        url: candidate.url,
-        size: candidate.size,
-        contentType: candidate.contentType,
-        coverage,
-        headerRange: candidate.series.headerRange,
-        firstDay: coverage.first,
-        lastDay: coverage.last,
-        days: coverage.days,
-        sums: candidate.series.sums,
-        totalRow: candidate.series.totalRow,
-        parser: candidate.series.debug,
-        rejected: null as string | null,
-        reasons: [] as string[],
-      };
-      debug.attempts.push(attempt);
-      reasons.push(...coverage.reasons.map((r: string) => `${label}: ${r}`));
-
-      if (!coverage.ok) {
-        attempt.rejected = "coverage";
-        attempt.reasons = coverage.reasons;
-        rejections.push("coverage");
-        return null;
-      }
-
-      const eventQty = candidate.series.sums.qty;
-      const eventValue = candidate.series.sums.value;
-
-      // identity_baseline: igual à conta inteira → filtro ignorado.
-      const sameQty = eventQty === baseline.sums.qty;
-      const sameValue = Math.abs(eventValue - baseline.sums.value) < 0.01;
-      const identityRejected = sameQty && sameValue && baseline.sums.qty > 2000;
-      attempt.identityBaseline = { event: { qty: eventQty, value: eventValue }, baseline: baseline.sums, sameQty, sameValue, rejected: identityRejected };
-      if (identityRejected) {
-        attempt.rejected = "identity_baseline";
-        attempt.reasons = [`totais idênticos à conta inteira (qty=${eventQty}, valor=${eventValue})`];
-        rejections.push("identity_baseline");
-        return null;
-      }
-
-      if (eventQty > 20000) {
-        attempt.rejected = "sanity_limit";
-        attempt.reasons = [`total do evento excede o limite de sanidade (${eventQty} > 20000)`];
-        rejections.push("sanity_limit");
-        return null;
-      }
-
-      debug.used = label;
-      debug.usedUrl = candidate.url;
-      return { mode: "dashboard_daily", series: candidate.series, debug };
+    const rows = got.series.rows;
+    const reject = (phase: string, msg: string) => {
+      throw Object.assign(new Error(`dashboard today: ${msg}`), { phase, dashDebug: debug });
     };
 
-    // ---- Candidato B: POST period=5 COM o evento → GET SJR escalar ----
-    const postB = await dashPostPeriod(jar, token0, filterStart, filterEnd, ticketlineEventId);
-    const { token: tokenB } = await dashGetHtml(jar);
-    debug.postWithEvent = postB;
-    const b = await dashFetchSeries(jar, tokenB, ticketlineEventId, filterStart, filterEnd);
-    const acceptedB = tryCandidate("post_period5_with_event_then_get_scalar", b);
-    if (acceptedB) return acceptedB;
+    // (a) todas as datas dentro de [hoje−1, hoje] em Europe/Lisbon
+    const outside = rows.filter((r) => r.sale_date < yesterdayIso || r.sale_date > todayIso).map((r) => r.sale_date);
+    debug.validations.datesOutsideRange = outside;
+    if (outside.length > 0) {
+      reject(
+        "dashboard_today_unexpected_range",
+        `datas fora de [${yesterdayIso}..${todayIso}]: ${outside.join(",")} — sessão contaminada (period aplicado)`,
+      );
+    }
 
-    // ---- Candidato C: GET SJR com bulk_event_ids[] na mesma sessão ----
-    const c = await dashFetchSeries(jar, tokenB, ticketlineEventId, filterStart, filterEnd, { eventParam: "array" });
-    const acceptedC = tryCandidate("get_array_same_session", c);
-    if (acceptedC) return acceptedC;
+    // (b) nº de linhas de data ≤ 3
+    debug.validations.dateRowCount = rows.length;
+    if (rows.length > TODAY_MAX_DATE_ROWS) {
+      reject(
+        "dashboard_today_unexpected_range",
+        `${rows.length} linhas de data (máx ${TODAY_MAX_DATE_ROWS}) — sessão contaminada (period aplicado)`,
+      );
+    }
 
-    // ---- Candidato D: re-render puro do estado da sessão ----
-    const d = await dashFetchSeries(jar, tokenB, null, filterStart, filterEnd, { noDates: true });
-    const acceptedD = tryCandidate("get_session_state_rerender", d);
-    if (acceptedD) return acceptedD;
+    // (c) qty por linha ≤ 5000
+    const insane = rows.filter((r) => r.quantity > TODAY_MAX_QTY_PER_ROW);
+    debug.validations.rowsOverQtyLimit = insane.map((r) => ({ sale_date: r.sale_date, quantity: r.quantity }));
+    if (insane.length > 0) {
+      reject(
+        "dashboard_today_sanity",
+        `qty por dia acima do limite de sanidade (${insane.map((r) => `${r.sale_date}=${r.quantity}`).join(",")} > ${TODAY_MAX_QTY_PER_ROW})`,
+      );
+    }
 
-    const phase = rejections.includes("identity_baseline")
-      ? "dashboard_daily_filter_ignored"
-      : rejections.includes("sanity_limit")
-        ? "dashboard_daily_total_exceeds_limit"
-        : "dashboard_daily_incomplete";
-    throw Object.assign(
-      new Error(
-        `dashboard daily: nenhum candidato aceite (${rejections.join(",") || "sem candidatos"}) para ${startIso}..${endIso}${reasons.length ? ` — ${reasons.join(" ; ")}` : ""}`,
-      ),
-      { phase, dashDebug: debug },
-    );
+    // (d) identidade: totais iguais à conta inteira → filtro ignorado
+    const sameQty = got.series.sums.qty === baselineToday.sums.qty;
+    const sameValue = Math.abs(got.series.sums.value - baselineToday.sums.value) < 0.01;
+    const identityRejected = sameQty && sameValue && baselineToday.sums.qty > TODAY_BASELINE_MIN_QTY;
+    debug.validations.identity = { event: got.series.sums, baseline: baselineToday.sums, sameQty, sameValue, rejected: identityRejected };
+    if (identityRejected) {
+      reject(
+        "dashboard_today_filter_ignored",
+        `totais idênticos à conta inteira (qty=${got.series.sums.qty}, valor=${got.series.sums.value})`,
+      );
+    }
+
+    return { mode: "dashboard_today", series: got.series, debug };
   } catch (e: any) {
     if (e?.retriable) throw e;
-    if (["dashboard_daily_incomplete", "dashboard_daily_filter_ignored", "dashboard_daily_total_exceeds_limit"].includes(e?.phase)) throw e;
-    // Fallback também falhou → mantém o erro html_response original + debug.
-    throw Object.assign(new Error(`${xlsxError.message} | fallback dashboard daily falhou: ${e?.message || e}`), {
+    if (
+      ["dashboard_today_unexpected_range", "dashboard_today_sanity", "dashboard_today_filter_ignored"].includes(e?.phase)
+    ) throw e;
+    // Captura também falhou → mantém o erro html_response original + debug.
+    throw Object.assign(new Error(`${xlsxError.message} | captura dia corrente falhou: ${e?.message || e}`), {
       phase: "html_response",
       retriable: false,
       htmlTitle: xlsxError.htmlTitle,
       htmlSnippet: xlsxError.htmlSnippet,
-      dashPhase: e?.phase || "dashboard_daily_failed",
+      dashPhase: e?.phase || "dashboard_today_failed",
       dashDebug: debug,
     });
   }
 }
+
 
 
 
@@ -1665,6 +1657,72 @@ function nonZeroStats(html: string): { nonZeroNumbers: number; nonZeroSampleRow:
     }
   }
   return { nonZeroNumbers: nonZero, nonZeroSampleRow: sampleRow };
+}
+
+// ============================================================================
+// action "sjr" (v2.33) — GET cru de URLs do dashboard com os headers SJR.
+// Login FRESCO (sessão no period default "Hoje") + página do dashboard só para
+// o csrf; nenhum POST de period. Serve para testar variantes de parâmetros
+// (ex.: period=1 "Ontem" a conviver com bulk_event_ids) sem gravar nada.
+// ============================================================================
+async function runProbeSjr(admin: any, configId?: string, urls?: string[]) {
+  if (!configId) return json(400, { error: "sjr requer configId" });
+  if (!urls || urls.length === 0) return json(400, { error: "sjr requer urls: string[]" });
+
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+  const { jar } = await loginDevise(creds.email, creds.password);
+  const { html: dashHtml, token } = await dashGetHtml(jar);
+
+  const out: any = {
+    ok: true,
+    version: VERSION,
+    configId,
+    ticketline_event_id: String(cfg.ticketline_event_id),
+    todayIso: lisbonTodayIso(),
+    tokenFound: !!token,
+    dashPageSize: dashHtml.length,
+    results: [] as any[],
+  };
+
+  for (const url of urls) {
+    const entry: any = { url };
+    try {
+      const resp = await fetchWithTimeout(url, {
+        method: "GET", redirect: "manual",
+        headers: {
+          "User-Agent": UA_PROBE,
+          Accept: SJR_ACCEPT,
+          Cookie: jarToHeader(jar),
+          Referer: DASH_URL,
+          "X-Requested-With": "XMLHttpRequest",
+          ...(token ? { "X-CSRF-Token": token } : {}),
+        },
+      }, 110000);
+      ingestSetCookie(jar, resp);
+      const body = await resp.text().catch(() => "");
+      entry.status = resp.status;
+      entry.location = resp.headers.get("location");
+      entry.contentType = resp.headers.get("content-type") || "";
+      entry.size = body.length;
+      const unescaped = unescapeJsHtml(body);
+      entry.novaArea = looksLikeNovaArea(unescaped.slice(0, 3000));
+      entry.hasTableMarkup = /<table/i.test(unescaped);
+      if (entry.hasTableMarkup) {
+        Object.assign(entry, extractHtmlTables(unescaped, 8, 10, 20));
+      } else {
+        const { title, snippet, isSignIn } = describeHtml(body);
+        entry.title = title;
+        entry.snippet = snippet;
+        entry.isSignIn = isSignIn;
+      }
+    } catch (e: any) {
+      entry.error = e?.message || String(e);
+      entry.phase = e?.phase || null;
+    }
+    out.results.push(entry);
+  }
+
+  return new Response(JSON.stringify(out), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 
@@ -2285,23 +2343,23 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     const sourceMode = summary.mode;
     debug.source_mode = sourceMode;
 
-    // -------- Caminho evento migrado: série diária do dashboard --------
-    if (summary.mode === "dashboard_daily") {
-      debug.dashboard_daily = summary.debug;
+    // -------- Caminho evento migrado: captura incremental do dia corrente --------
+    if (summary.mode === "dashboard_today") {
+      debug.dashboard_today = summary.debug;
       const series = summary.series;
-      const rows = series.rows.filter((r) => r.quantity !== 0 || Number(r.total_value) !== 0);
+      // Grava TODAS as datas capturadas (incluindo 0/0: um dia pode ser corrigido
+      // para baixo). O histórico anterior vive na mesma tabela e nunca é apagado.
+      const rows = series.rows;
       const sums = {
         qty: rows.reduce((s, r) => s + r.quantity, 0),
         value: Math.round(rows.reduce((s, r) => s + Number(r.total_value), 0) * 100) / 100,
       };
       const filesAuditDash = [{
         name: `dashboard_sale_summary_${cfg.ticketline_event_id}.sjr.js`,
-        size: Number(summary.debug?.attempts?.[summary.debug.attempts.length - 1]?.size || 0),
+        size: Number(summary.debug?.size || 0),
       }];
 
-      const { error: delErr } = await admin.from("ticketline_daily_sales").delete().eq("event_id", cfg.event_id);
-      if (delErr) throw Object.assign(new Error(`Import diário (delete): ${delErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
-      let inserted = 0;
+      let upserted = 0;
       if (rows.length > 0) {
         const payload = rows.map((r) => ({
           company_id: cfg.company_id,
@@ -2310,9 +2368,12 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
           quantity: r.quantity,
           total_value: r.total_value,
         }));
-        const { error: insErr } = await admin.from("ticketline_daily_sales").insert(payload);
-        if (insErr) throw Object.assign(new Error(`Import diário (insert): ${insErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
-        inserted = payload.length;
+        // UPSERT — NUNCA apagar outras datas (histórico backfilled por SQL).
+        const { error: upErr } = await admin
+          .from("ticketline_daily_sales")
+          .upsert(payload, { onConflict: "event_id,sale_date" });
+        if (upErr) throw Object.assign(new Error(`Import diário (upsert): ${upErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
+        upserted = payload.length;
       }
       await updateConfig(admin, cfg.id, {
         daily_fallback_active: true,
@@ -2320,25 +2381,28 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
         last_run_status: "success",
       });
       const auditDash = {
-        dataSource: "dashboard_daily",
-        daysParsed: series.rows.length,
-        daysImported: inserted,
+        dataSource: "dashboard_today",
+        daysParsed: rows.length,
+        daysImported: upserted,
         totalQty: sums.qty,
         totalValue: sums.value,
         totalRow: series.totalRow,
         headerRange: series.headerRange,
+        capturedDates: rows.map((r) => r.sale_date),
         firstDay: rows[0]?.sale_date ?? null,
         lastDay: rows[rows.length - 1]?.sale_date ?? null,
+        baselineToday: summary.debug?.baselineToday ?? null,
       };
       await updateRun(admin, runId, {
         status: "success", finished_at: new Date().toISOString(),
         files_downloaded: filesAuditDash,
         error_message: null,
-        import_audit: { ...auditDash, debug, source_mode: "dashboard_daily" },
+        import_audit: { ...auditDash, debug, source_mode: "dashboard_today" },
       });
-      console.log(`[ticketline ${runId}] dashboard_daily: ${inserted} dias, qty=${sums.qty}, valor=${sums.value}`);
-      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_daily" };
+      console.log(`[ticketline ${runId}] dashboard_today: ${upserted} dia(s), qty=${sums.qty}, valor=${sums.value}`);
+      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_today" };
     }
+
 
     const filesAudit = [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }];
 
@@ -2400,7 +2464,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
   } catch (e: any) {
     const phase = e?.phase || "failed";
     const msg = e?.message || String(e);
-    if (e?.dashDebug) debug.dashboard_daily = e.dashDebug;
+    if (e?.dashDebug) debug.dashboard_today = e.dashDebug;
     await updateRun(admin, runId, {
       status: phase, finished_at: new Date().toISOString(),
       error_message: msg, files_downloaded: e?.filesAudit || null,
@@ -2442,6 +2506,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, compareConfigId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "sjr") {
+    try {
+      return await runProbeSjr(admin, configId, body.urls);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "probe_sjr_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "probe_params") {
     try {
