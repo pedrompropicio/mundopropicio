@@ -111,16 +111,21 @@ export function buildCommittedBpWorkbook(
 
   ws.getRow(1).height = 22;
 
-  // Logótipo (opcional — nunca deve fazer a exportação falhar).
-  if (branding.logoDataUrl) {
+  // Logótipo (opcional — nunca deve fazer a exportação falhar nem pendurar).
+  // ATENÇÃO: `wb.addImage({ base64 })` exige base64 REAL. Se lhe passarmos um URL
+  // de asset (o fallback do branding é um import de PNG, não um data URL), o
+  // jszip rejeita "Invalid base64 input" FORA do fluxo do await e o
+  // `writeBuffer()` fica pendente para sempre — foi o bug do botão preso.
+  const logo = logoAsBase64(branding.logoDataUrl);
+  if (logo) {
     try {
-      const ext = branding.logoDataUrl.startsWith("data:image/jpeg") ? "jpeg" : "png";
-      const imgId = wb.addImage({ base64: branding.logoDataUrl, extension: ext as any });
+      const imgId = wb.addImage({ base64: logo.data, extension: logo.ext as any });
       ws.addImage(imgId, { tl: { col: 6.05, row: 2.2 }, ext: { width: 150, height: 31 } });
     } catch {
       /* fallback: texto em G1/G2 já escrito */
     }
   }
+
 
   // ── Cabeçalho da tabela (linha 5) ──────────────────────────────────────────
   const head = ws.getRow(5);
