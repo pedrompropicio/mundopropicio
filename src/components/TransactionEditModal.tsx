@@ -645,7 +645,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, category_id")
+        .select("id, category_id, description, event_id")
         .eq("transaction_id", transaction.id)
         .is("version_id", null)
         .maybeSingle();
@@ -658,6 +658,48 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
   const isBpLinked = !!linkedForecast && !unlinkBpRequested;
   const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
+
+  // ─── Rubrica manda-a a linha do BP (vínculo 1:1) ───
+  // Enquanto a TX está vinculada por FK a uma linha do BP, a rubrica é READ-ONLY
+  // aqui: quem corrige, corrige a LINHA e a transação alinha-se sozinha
+  // (triggers sync_tx_category_from_forecast / realign_tx_category_from_forecast).
+  // Sem isto, o realinhamento automático da BD parecia um bug: o utilizador
+  // gravava a rubrica e ela voltava ao valor anterior.
+  const renderBpLockedCategory = () => {
+    const cat = categories.find((c: any) => c.id === bpCategoryId);
+    const fcEventId = (linkedForecast as any)?.event_id ?? form.event_id;
+    return (
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+        <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">
+          {cat ? `${cat.code} ${cat.name}` : "Sem categoria"}
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          🔒 Rubrica definida pela linha do BP vinculada
+          {(linkedForecast as any)?.description ? ` ("${(linkedForecast as any).description}")` : ""} — corrija na
+          linha do BP e a transação alinha-se automaticamente.{" "}
+          {fcEventId && (
+            <a
+              href={`/eventos/${fcEventId}?tab=previsoes`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline font-medium"
+            >
+              Abrir linha do BP
+            </a>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => setUnlinkBpRequested(true)}
+          className="mt-1 text-[10px] text-primary hover:underline font-medium"
+          title="Remove o vínculo desta TX à linha BP. Após gravar, a TX fica órfã (aceita qualquer L3)."
+        >
+          Desvincular do BP para editar a rubrica aqui
+        </button>
+      </div>
+    );
+  };
 
   // ─── Realocação para outra LINHA do BP dentro da mesma L3 ───
   // Mesmas permissões da ferramenta "Alocar realizado".
@@ -1031,28 +1073,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {!paidLocked && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <SearchableSelect
-                options={categoryOptions}
-                value={form.category_id}
-                onValueChange={(v) => setForm({ ...form, category_id: v })}
-                placeholder="Sem categoria"
-                searchPlaceholder="Pesquisar categoria…"
-              />
-              {bpL2Label && (
-                <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
-                  <span className="text-muted-foreground">
-                    🔒 Categoria limitada pelo BP: <span className="font-mono text-primary/80">{bpL2Label}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setUnlinkBpRequested(true)}
-                    className="text-primary hover:underline font-medium shrink-0"
-                    title="Remove o vínculo desta TX à linha BP. Após gravar, a TX fica órfã (aceita qualquer L3)."
-                  >
-                    Desvincular do BP
-                  </button>
-                </div>
+              {isBpLinked ? renderBpLockedCategory() : (
+                <>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+                  <SearchableSelect
+                    options={categoryOptions}
+                    value={form.category_id}
+                    onValueChange={(v) => setForm({ ...form, category_id: v })}
+                    placeholder="Sem categoria"
+                    searchPlaceholder="Pesquisar categoria…"
+                  />
+                </>
               )}
               {unlinkBpRequested && !!linkedForecast && (
                 <p className="mt-1 text-[10px] text-warning">
@@ -1111,14 +1142,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {/* TX liquidada + admin/gestora: categoria L3 e realocação da linha do BP continuam editáveis. */}
           {paidLocked && canReallocBpWhenPaid && !hasChildren && (
             <div className="rounded-lg border border-border/60 bg-secondary/20 p-3">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <SearchableSelect
-                options={categoryOptions}
-                value={form.category_id}
-                onValueChange={(v) => setForm({ ...form, category_id: v })}
-                placeholder="Sem categoria"
-                searchPlaceholder="Pesquisar categoria…"
-              />
+              {isBpLinked ? renderBpLockedCategory() : (
+                <>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+                  <SearchableSelect
+                    options={categoryOptions}
+                    value={form.category_id}
+                    onValueChange={(v) => setForm({ ...form, category_id: v })}
+                    placeholder="Sem categoria"
+                    searchPlaceholder="Pesquisar categoria…"
+                  />
+                </>
+              )}
               {bpLinesEnabled && !unlinkBpRequested && bpLines.length > 0 && (
                 <div className="mt-2">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Linha do BP</label>

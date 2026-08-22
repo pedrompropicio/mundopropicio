@@ -255,3 +255,19 @@ Quando as moedas das plataformas ou das contas divergem, o consolidado devolve `
 Zero é uma medição ("ninguém clicou"); ausência é outra coisa ("esta plataforma não fornece", "este anúncio é imagem, não tem hook rate", "o pixel não dispara este evento"). Confundir as duas leva a decisões erradas: um anúncio de imagem com "0% de retenção" parece um criativo falhado. Implementação: flags `has*` no `Aggregate` (`hasReach`, `hasUniqueClicks`, `hasViewContent`, `hasAddToCart`, `hasInitiateCheckout`, `hasVideo`) e colunas nullable na BD — as colunas de vídeo gravam NULL, nunca 0, quando o Graph não devolve o campo. A mesma regra na série diária (dias sem dados ficam `null`, o gráfico mostra o buraco) e nos deltas de KPI (sem janela anterior completa, "sem histórico comparável" em vez de uma percentagem inventada).
 
 Documentação: `docs/features/mp-audience-dashboard.md` (fonte de verdade do ecrã); `docs/integrations/meta-ads.md` reconciliado e reduzido ao fluxo OAuth/tokens.
+
+## DR-2026-08-22 — Vínculo BP↔transação: a rubrica da linha do BP manda (L3), com alinhamento em vez de bloqueio
+
+Contexto: existiam dois gatilhos simétricos (`enforce_tx_category_l2_match` / `enforce_forecast_tx_link_l2_match`) que só validavam o **L2** e, quando divergia, **bloqueavam** a gravação. Resultado prático: mover uma linha do BP para outra rubrica L3 deixava a transação vinculada na rubrica antiga (incoerência silenciosa), e mudar a rubrica da transação primeiro dava erro sem explicar o porquê.
+
+**Decisão 1 — Fonte de verdade única: a linha do BP.** Enquanto existe vínculo por FK (`event_forecasts.transaction_id`), a rubrica da linha propaga-se à transação (`sync_tx_category_from_forecast`) e qualquer alteração feita directamente na transação é realinhada de volta (`realign_tx_category_from_forecast`). Alinhar em vez de bloquear porque o utilizador nunca tem duas gravações atómicas à mão: obrigá-lo a acertar as duas pontas na ordem certa é uma armadilha, e o estado incoerente já era o que se queria evitar.
+
+**Decisão 2 — Aperto de L2 para L3.** O BP é comparado ao realizado ao nível L3 (é o único nível seleccionável). Validar só o L2 deixava passar exactamente o erro que interessa apanhar: dois L3 irmãos dentro do mesmo L2.
+
+**Decisão 3 — Anti-recursão explícita.** Os dois gatilhos escrevem na tabela do outro, logo cada um só age em `pg_trigger_depth() = 1`. Linhas de snapshot (`version_id IS NOT NULL`) são ignoradas — não são BP vivo. Realinhamentos automáticos ficam registados em `system_audit_log` (`auto_realign_tx_category`) para o efeito nunca parecer um bug.
+
+**Consequências na UI.** No `TransactionEditModal` a rubrica passa a ser read-only quando há vínculo, com link para a linha do BP e opção de desvincular — sem isto, o realinhamento da BD parecia perda de dados. Nas superfícies que criam vínculos entre rubricas diferentes (`ReconciliacaoBpTx`, botão "Vincular e mudar L3") há confirmação explícita a dizer qual a rubrica de origem e de destino.
+
+**Ressalva conhecida (issue #29).** O vínculo é 1:1 (uma linha, uma transação), pelo que uma linha paga em N documentos só tem FK à primeira; as restantes ficam associadas por rubrica. A coerência aqui só cobre a transação com FK. O modelo N:1 fica para a issue #29 — até lá, a regra "a rubrica da linha manda" aplica-se apenas ao par com FK.
+
+**Guarda de remoção (issue #59).** No mesmo ciclo: uma transação já reclamada por FK por **outra** linha do BP deixa de contar como realizado desta linha e deixa de bloquear a sua remoção (`claimedByOtherForecast` em `src/lib/bp-tx-matching.ts` e `EventForecast.tsx`). Transações órfãs continuam a ser apanhadas por rubrica.

@@ -3103,8 +3103,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
     // (b) Category + description match
     if (!item.category_id) return directTx;
+    // Issue #59: uma transação já RECLAMADA POR FK por OUTRA linha de BP nunca
+    // pode contar como associada a esta linha (nem bloquear a sua remoção).
+    // Só exclui TXs reclamadas por outro forecast — órfãs continuam a entrar.
+    const claimedByOtherForecast = new Set(
+      (allForecasts ?? [])
+        .filter((f: any) => f.transaction_id && f.id !== item.id)
+        .map((f: any) => f.transaction_id)
+    );
     const sameCat = scopedTransactions.filter(
-      (t: any) => t.category_id === item.category_id && t.type === item.type
+      (t: any) =>
+        t.category_id === item.category_id &&
+        t.type === item.type &&
+        !claimedByOtherForecast.has(t.id)
     );
     
     // If only one forecast uses this category, show all transactions for it

@@ -237,18 +237,19 @@ export default function ReconciliacaoBpTx() {
   });
 
   const linkAndRecategorize = useMutation({
-    mutationFn: async ({ txId, forecastId, newCategoryId }: { txId: string; forecastId: string; newCategoryId: string }) => {
-      const { error: e1 } = await supabase
-        .from("transactions")
-        .update({ category_id: newCategoryId })
-        .eq("id", txId);
-      if (e1) throw e1;
-      const { error: e2 } = await supabase
+    // Gesto único: só escrevemos o vínculo na linha do BP. O trigger
+    // sync_tx_category_from_forecast propaga a rubrica para a transação.
+    // (Antes eram duas instruções em ordem obrigatória, porque o trigger
+    // antigo bloqueava a TX enquanto o forecast ainda tinha a rubrica velha.)
+    mutationFn: async ({ txId, forecastId }: { txId: string; forecastId: string; newCategoryId: string }) => {
+      const { data, error } = await supabase
         .from("event_forecasts")
         .update({ transaction_id: txId })
         .eq("id", forecastId)
-        .is("transaction_id", null);
-      if (e2) throw e2;
+        .is("transaction_id", null)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("A linha do BP já está vinculada a outra transação.");
     },
     onSuccess: () => {
       toast.success("Categoria atualizada e vinculada ao BP");
@@ -471,11 +472,21 @@ export default function ReconciliacaoBpTx() {
                         <div className="flex gap-2 flex-wrap">
                           <Button
                             size="sm"
-                            onClick={() =>
+                            onClick={() => {
+                              // Criar o vínculo entre rubricas diferentes MUDA a rubrica da TX
+                              // (o trigger propaga a da linha do BP). Confirmar antes.
+                              const from = catLabel(tx.category_id);
+                              const to = catLabel(c.category_id);
+                              if (
+                                !window.confirm(
+                                  `Isto vai mudar a rubrica desta transação de ${from} para ${to} (a rubrica da linha do BP manda).\n\nConfirmar o vínculo?`,
+                                )
+                              )
+                                return;
                               linkAndRecategorize.mutate({
                                 txId: tx.id, forecastId: c.id, newCategoryId: c.category_id,
-                              })
-                            }
+                              });
+                            }}
                             disabled={linkAndRecategorize.isPending}
                           >
                             <ArrowRightLeft className="h-3.5 w-3.5 mr-1" /> Vincular e mudar L3 para {catById.get(c.category_id)?.code}

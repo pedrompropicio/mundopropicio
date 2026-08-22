@@ -77,8 +77,19 @@ export function findMatchingTransactionsForForecast(
 
   if (!forecast?.category_id) return directTx;
 
+  // Issue #59: TXs já reclamadas por FK por OUTRA linha do BP não pertencem a
+  // esta linha (nem podem bloquear a sua remoção). Órfãs continuam elegíveis.
+  const claimedByOtherForecast = new Set(
+    (allForecasts ?? [])
+      .filter((f: any) => f?.transaction_id && f.id !== forecast?.id)
+      .map((f: any) => f.transaction_id),
+  );
+
   const sameCat = scoped.filter(
-    (t: any) => t.category_id === forecast.category_id && t.type === forecast.type,
+    (t: any) =>
+      t.category_id === forecast.category_id &&
+      t.type === forecast.type &&
+      !claimedByOtherForecast.has(t.id),
   );
   const sameCatForecasts = (allForecasts ?? []).filter(
     (f: any) =>

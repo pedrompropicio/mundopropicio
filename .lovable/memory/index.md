@@ -3,3 +3,4 @@
 - [VIP coupon email](mem://features/vip-coupon-email) — cupom VIP por e-mail: imediato via trigger em lead_capture + lembrete D-3 (cron 08:30 UTC), idempotência em vip_coupon_email_log, base URL via app_secrets, testes só dryRun
 - [Dashboard pago unificado](mem://features/audience-unified-paid-dashboard) — Meta+Google numa tabela: platform flag, "—" para métricas ausentes, consolidação só com moeda igual, target_roas por evento
 - [Ticketline dashboard daily fallback](mem://features/ticketline-dashboard-daily-fallback) — eventos migrados: relatório por-evento vem a zeros → série diária do Resumo do dashboard (POST period=5 + SJR) para ticketline_daily_sales com daily_fallback_active; RPCs de vendas ignoram ticket_sales nesses eventos
+- [Coerência de rubrica BP↔TX](mem://features/bp-tx-category-coherence) — vínculo por FK: rubrica L3 da linha do BP manda; triggers sync/realign com pg_trigger_depth; rubrica read-only na TX; ressalva 1:1 (#29) e guarda de remoção (#59)
