@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
         triggered_by: "manual-validation",
       }),
     });
+    out.keyInfo = { fromVault: typeof keyRow === "string", len: String(cronKey ?? "").length, pref: String(cronKey ?? "").slice(0, 4) };
     out.conn = conn;
     out.status = resp.status;
     out.body = await resp.text();
