@@ -542,6 +542,30 @@ export default function GooglePublishPanel({ eventId }: Props) {
               onChange={(v) => patch({ end_date: v || null })}
             />
           </div>
+          <div className="md:col-span-2">
+            <Label>Publicidade política europeia (declaração ao Google)</Label>
+            <Select
+              value={form.eu_political_advertising ?? "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"}
+              disabled={publicado || bloqueado}
+              onValueChange={(v) => patch({ eu_political_advertising: v })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING">
+                  Não contém publicidade política
+                </SelectItem>
+                <SelectItem value="CONTAINS_EU_POLITICAL_ADVERTISING">
+                  Contém publicidade política
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Declaração obrigatória exigida pelo regulamento europeu de publicidade política
+              (EU PAR): a Google recusa criar a campanha sem ela. Para concertos e eventos
+              culturais, mantém "Não contém publicidade política". Só muda isto se o anúncio
+              promover conteúdo político — é uma declaração legal do anunciante.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
