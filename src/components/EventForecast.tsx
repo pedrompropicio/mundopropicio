@@ -3803,13 +3803,13 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
             type="button"
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 text-left"
-            title="Transações desta categoria sem linha específica do BP"
+            title={pending ? "Despesas desta rubrica sem linha de BP — a classificar" : "Receitas desta rubrica (por desenho não têm linha de BP)"}
           >
             {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
             <div>
-              <p className="text-xs font-medium italic text-muted-foreground">
+              <p className={`text-xs font-medium italic ${pending ? "text-warning" : "text-muted-foreground"}`}>
                 {item.account_categories?.code && <span className="mr-1">{item.account_categories.code}</span>}
-                Sem linha específica
+                {orphanBucketLabel(item.type)}
                 <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium not-italic text-muted-foreground">
                   {txs.length} transação(ões)
                 </span>
