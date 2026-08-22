@@ -1,6 +1,6 @@
 // crm-google-publish-execute — publicador de campanhas de Pesquisa no Google Ads.
 //
-// BUILD_VERSION=google-publish-execute-v1
+// BUILD_VERSION=google-publish-execute-v2-datetime
 //
 // Espelho do crm-meta-publish-execute. Regras não-negociáveis:
 //  - Tudo nasce em PAUSA (orçamento/campanha/grupo/anúncio).
@@ -91,12 +91,16 @@ function campaignPayload(plan: Plan, budgetResource: string) {
     create.targetSpend = {};
   } else {
     create.maximizeConversions = {};
-    if (plan.conversion_action_ref) {
-      create.selectiveOptimization = { conversionActions: [plan.conversion_action_ref] };
-    }
+    // NOTA v24: `selective_optimization` só se aplica a campanhas de app
+    // (advertising_channel_type = MULTI_CHANNEL). Numa campanha SEARCH a Google
+    // rejeita/ignora o campo — a meta de conversão por campanha faz-se em
+    // campaignConversionGoals:mutate (fora do âmbito desta fase).
   }
-  if (plan.start_date) create.startDate = String(plan.start_date).replace(/-/g, "");
-  if (plan.end_date) create.endDate = String(plan.end_date).replace(/-/g, "");
+  // v24: o recurso Campaign NÃO tem start_date/end_date. Tem
+  // start_date_time / end_date_time, string "yyyy-MM-dd HH:mm:ss" no fuso da
+  // conta (sem offset). Granularidade diária => 00:00:00 e 23:59:59.
+  if (plan.start_date) create.startDateTime = `${String(plan.start_date).slice(0, 10)} 00:00:00`;
+  if (plan.end_date) create.endDateTime = `${String(plan.end_date).slice(0, 10)} 23:59:59`;
   return { operations: [{ create }] };
 }
 
@@ -174,7 +178,7 @@ function firstResourceName(resp: any): string | null {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  console.log("[google-publish-execute] BUILD_VERSION=google-publish-execute-v1");
+  console.log("[google-publish-execute] BUILD_VERSION=google-publish-execute-v2-datetime");
 
   let body: { plan_id?: string; company_id?: string; dry_run?: boolean } = {};
   try {
