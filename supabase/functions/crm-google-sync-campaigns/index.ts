@@ -296,6 +296,28 @@ function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
   return Array.from(byId.values());
 }
 
+/**
+ * Os totais de métricas do período vêm da consulta de insights (que leva
+ * segments.date). Somamos por campanha e injectamos nos metadados — campanhas
+ * sem entrega ficam com zeros, mas continuam a existir na lista.
+ */
+function mergeMetricsFromInsights(agg: AggCampaign[], rows: GAdsCampaignRow[]): void {
+  const byId = new Map<string, AggCampaign>(agg.map((a) => [a.external_campaign_id, a]));
+  for (const r of rows) {
+    const c = (r.campaign ?? {}) as Record<string, unknown>;
+    const m = (r.metrics ?? {}) as Record<string, unknown>;
+    const id = c.id != null ? String(c.id) : null;
+    if (!id) continue;
+    const target = byId.get(id);
+    if (!target) continue;
+    target.impressions += m.impressions != null ? Number(m.impressions) : 0;
+    target.clicks += m.clicks != null ? Number(m.clicks) : 0;
+    target.cost_micros += m.costMicros != null ? Number(m.costMicros) : 0;
+    target.conversions += m.conversions != null ? Number(m.conversions) : 0;
+    target.conversions_value += m.conversionsValue != null ? Number(m.conversionsValue) : 0;
+  }
+}
+
 // ---------------- Linhas diárias (espelho do meta_campaign_insights_daily) --
 // UNIDADES: o Google devolve micros (1.000.000 = 1 unidade de moeda) e o Meta
 // cêntimos. Gravamos SEMPRE em cêntimos → micros / 10.000.
