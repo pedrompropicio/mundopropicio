@@ -1611,6 +1611,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
       upserted: payload,
       configsTargeted: targetList.length,
       matchedConfigs: matchedByConfig.size,
+      matchMethods: Object.fromEntries(matchMethodByConfig),
     };
     if (runId) {
       await updateRun(admin, runId, {
