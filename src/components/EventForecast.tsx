@@ -32,7 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
-import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
+import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTransactionsForForecast, orphanBucketLabel, orphanBucketIsPending } from "@/lib/bp-tx-matching";
 import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
@@ -1768,7 +1768,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         amount: 0,
         iva_rate: 0,
         status: "n/a",
-        description: "Sem linha específica",
+        description: orphanBucketLabel(type),
         specification: null,
         event_id: eventId,
         account_categories: info ? { code: info.code, name: info.name } : null,
@@ -3793,6 +3793,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const txs: any[] = item._orphanTx ?? [];
   const colCount = isExpense ? 8 : 7;
+  const pending = orphanBucketIsPending(item.type);
   const realized = txs.reduce((s, t) => s + Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100), 0);
 
   return (
@@ -3803,13 +3804,13 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
             type="button"
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 text-left"
-            title="Transações desta categoria sem linha específica do BP"
+            title={pending ? "Despesas desta rubrica sem linha de BP — a classificar" : "Receitas desta rubrica (por desenho não têm linha de BP)"}
           >
             {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
             <div>
-              <p className="text-xs font-medium italic text-muted-foreground">
+              <p className={`text-xs font-medium italic ${pending ? "text-warning" : "text-muted-foreground"}`}>
                 {item.account_categories?.code && <span className="mr-1">{item.account_categories.code}</span>}
-                Sem linha específica
+                {orphanBucketLabel(item.type)}
                 <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium not-italic text-muted-foreground">
                   {txs.length} transação(ões)
                 </span>
