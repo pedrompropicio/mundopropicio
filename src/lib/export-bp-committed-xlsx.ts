@@ -275,11 +275,39 @@ export function committedBpXlsxFileName(eventName: string): string {
   return `BP-previsto-excedido-${safe}.xlsx`;
 }
 
+/** Promessa com prazo: nenhuma etapa da exportação pode ficar pendente para sempre. */
+function comPrazo<T>(p: Promise<T>, ms: number, etapa: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`Tempo excedido em "${etapa}" (${ms / 1000}s)`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 export async function exportCommittedBpToXLSX(opts: { eventId: string; includeChildren?: boolean }) {
-  const bundle = await fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true);
-  const branding = await fetchExportBranding();
+  const t0 = Date.now();
+  const marca = (etapa: string) => console.info(`[bp-xlsx] ${etapa} +${Date.now() - t0}ms`);
+
+  const bundle = await comPrazo(
+    fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true),
+    60_000,
+    "leitura dos dados",
+  );
+  marca("bundle");
+
+  // O logótipo é decoração: 3s e segue sem ele.
+  let branding: ExportBranding = { displayName: SYSTEM_NAME, logoDataUrl: null };
+  try {
+    branding = await comPrazo(fetchExportBranding(), 3_000, "branding");
+  } catch {
+    /* segue sem logótipo */
+  }
+  marca("branding");
+
   const wb = buildCommittedBpWorkbook(bundle, branding);
-  const buf = await wb.xlsx.writeBuffer();
+  marca("workbook");
+  const buf = await comPrazo(wb.xlsx.writeBuffer(), 30_000, "escrita do ficheiro");
+  marca("writeBuffer");
+
   const blob = new Blob([buf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
