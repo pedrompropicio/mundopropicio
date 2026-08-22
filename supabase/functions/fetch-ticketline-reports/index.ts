@@ -1384,6 +1384,8 @@ function nonZeroStats(html: string): { nonZeroNumbers: number; nonZeroSampleRow:
 }
 
 
+async function runProbeParams(admin: any, configId?: string) {
+
   if (!configId) return json(400, { error: "probe_params requer configId" });
 
   const { cfg, creds } = await loadCfgAndCreds(admin, configId);
