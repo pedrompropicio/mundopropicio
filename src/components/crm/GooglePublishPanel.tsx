@@ -91,21 +91,20 @@ export default function GooglePublishPanel({ eventId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, start_date, end_date, cities(name, country)")
+        .select("id, name, date, cities(name, country)")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
+      if (!data) return null;
       const cidade = (data as any)?.cities ?? null;
-      return data
-        ? {
-            id: data.id,
-            name: data.name,
-            start_date: data.start_date,
-            end_date: data.end_date,
-            city: cidade?.name ?? null,
-            country: cidade?.country ?? null,
-          }
-        : null;
+      return {
+        id: data.id as string,
+        name: data.name as string,
+        start_date: null as string | null,
+        end_date: (data.date as string | null) ?? null,
+        city: (cidade?.name as string | null) ?? null,
+        country: (cidade?.country as string | null) ?? null,
+      };
     },
   });
 
