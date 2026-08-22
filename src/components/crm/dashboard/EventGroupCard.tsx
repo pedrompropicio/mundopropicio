@@ -16,6 +16,7 @@ import {
   roasColorByEvent,
 } from "@/lib/crm/dashboard-format";
 import { PlatformBreakdown } from "@/components/crm/dashboard/PlatformBreakdown";
+import { SalesImpactPanel } from "@/components/crm/dashboard/SalesImpactPanel";
 import { TargetRoasEditor } from "@/components/crm/dashboard/TargetRoasEditor";
 import { CampaignTableHeader } from "@/components/crm/dashboard/CampaignTableHeader";
 import { CampaignTableRow } from "@/components/crm/dashboard/CampaignTableRow";
