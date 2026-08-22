@@ -1606,6 +1606,98 @@ async function runProbeParams(admin: any, configId?: string) {
   }
 
 
+  // -------------------------------------------------------------------------
+  // dashFlow (v2.28) — o relatório do DASHBOARD global da conta
+  // Hipótese: nos eventos migrados o sale_summary POR EVENTO vem a zeros, mas
+  // /managers/dashboard/sale_summary (com bulk_event_ids) continua vivo.
+  // -------------------------------------------------------------------------
+  try {
+    const JS_ACCEPT_D = "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01";
+    const dashBase = `${BASE}/managers/dashboard/sale_summary`;
+    const dashOut: any = { pageUrl: dashBase, variants: [] as any[] };
+
+    // d4 primeiro: página HTML do dashboard → csrf + form real
+    const dPage = await probeGet(jar, dashBase, HTML_ACCEPT, 4);
+    const dHtml = dPage.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(dPage.bytes) : "";
+    const dForms = extractForms(dHtml);
+    dashOut.d4_page = {
+      label: "d4_dashboard_page_html",
+      url: dashBase,
+      finalUrl: dPage.url,
+      status: dPage.status,
+      contentType: dPage.contentType,
+      size: dPage.size ?? null,
+      novaArea: looksLikeNovaArea(dPage.snippet ?? dHtml),
+      hasTableMarkup: /<table/i.test(dHtml),
+      csrfFound: !!extractCsrfToken(dHtml),
+      formsFound: dForms.length,
+      forms: dForms.map((f: any) => ({ action: f.action, method: f.method, fields: f.fields, options: f.options })),
+      saleSummaryLinks: Array.from(
+        new Set(Array.from(dHtml.matchAll(/(?:href|action)\s*=\s*["']([^"']*sale_summary[^"']*)["']/gi)).map((x) => x[1])),
+      ).slice(0, 20),
+      ...nonZeroStats(dHtml),
+      ...(/<table/i.test(dHtml) ? extractHtmlTables(dHtml) : {}),
+      head: dHtml.slice(0, 3000),
+      error: dPage.error ?? null,
+    };
+
+    const dCsrf = extractCsrfToken(dHtml) || "";
+    const DXHR: Record<string, string> = { Referer: dashBase, "X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": dCsrf };
+    const tsD = Date.now();
+    const baseQ = `utf8=%E2%9C%93&granularity=2&filter_start_date=${startDD}&filter_end_date=${endDD}`;
+
+    const dashVariants: Array<{ label: string; url: string }> = [
+      { label: "d1_dash_sjr_single", url: `${dashBase}?${baseQ}&bulk_event_ids=${encodeURIComponent(id)}&post_render_content=data&_=${tsD}` },
+      { label: "d2_dash_sjr_array", url: `${dashBase}?${baseQ}&bulk_event_ids%5B%5D=${encodeURIComponent(id)}&post_render_content=data&_=${tsD}` },
+    ];
+    for (const d of dashVariants) {
+      const r = await probeGet(jar, d.url, JS_ACCEPT_D, 3, DXHR, 90000);
+      const body = r.bytes ? new TextDecoder("utf-8", { fatal: false }).decode(r.bytes) : "";
+      const unescaped = unescapeJsHtml(body);
+      const entry: any = {
+        label: d.label,
+        url: d.url,
+        finalUrl: r.url,
+        status: r.status,
+        contentType: r.contentType,
+        size: r.size ?? null,
+        novaArea: looksLikeNovaArea(r.snippet ?? body),
+        looksXlsx: !!r.looksXlsx,
+        looksJs: /(?:^|\n)\s*(?:\$\(|window\.|Managers\.|jQuery)/.test(body) || /postRender/i.test(body),
+        hasTableMarkup: /<table|<\\\/table>|\\u003ctable/i.test(body),
+        ...nonZeroStats(unescaped),
+        head: body.slice(0, 3000),
+        error: r.error ?? null,
+      };
+      if (entry.hasTableMarkup) entry.tables = extractHtmlTables(unescaped);
+      dashOut.variants.push(entry);
+    }
+
+    // d3: XLSX directo no dashboard
+    const d3Url = `${dashBase}.xlsx?granularity=2&bulk_event_ids=${encodeURIComponent(id)}&filter_start_date=${startDD}&filter_end_date=${endDD}`;
+    const r3 = await probeGet(jar, d3Url, `${XLSX_ACCEPT},*/*`, 3, { Referer: dashBase }, 90000);
+    const d3: any = summarizeBinaryAttempt("d3_dash_xlsx", d3Url, r3);
+    if (r3.looksXlsx && r3.bytes) {
+      try {
+        const d = dumpXlsx(r3.bytes, 8, 24);
+        d3.sheetNames = d.sheetNames;
+        d3.sheets = d.sheets;
+      } catch (e: any) {
+        d3.dumpError = e?.message || String(e);
+      }
+    } else if (r3.bytes) {
+      const t = new TextDecoder("utf-8", { fatal: false }).decode(r3.bytes);
+      Object.assign(d3, nonZeroStats(t), { hasTableMarkup: /<table/i.test(t) });
+      if (/<table/i.test(t)) d3.tables = extractHtmlTables(t);
+    }
+    dashOut.variants.push(d3);
+
+    out.dashFlow = dashOut;
+  } catch (e: any) {
+    out.dashFlow = { error: e?.message || String(e) };
+  }
+
+
   out.formSubmission = formInfo;
   out.winners = [
     ...out.variants.filter((v: any) => v.looksXlsx).map((v: any) => v.label),
