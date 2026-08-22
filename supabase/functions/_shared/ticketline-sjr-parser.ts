@@ -68,6 +68,8 @@ export function parseNumberLabel(txt: string): number | null {
   if (neg) s = s.slice(1, -1);
   if (!/^[-+]?[\d.,]+$/.test(s)) return null;
   if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  // Milhares pt sem decimais: "63.661", "1.234.567" → remover pontos
+  else if (/^[-+]?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
   else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, "");
   const n = Number(s);
   if (!Number.isFinite(n)) return null;

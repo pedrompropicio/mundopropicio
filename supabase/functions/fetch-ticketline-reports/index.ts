@@ -13,7 +13,7 @@ import {
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.29_dashboard_daily_2026_08_22";
+const VERSION = "v2.30_dashboard_daily_fix_2026_08_22";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1131,10 +1131,11 @@ async function downloadSummary(
 // ============================================================================
 const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
 
-function dashSjrUrl(id: string, startDD: string, endDD: string): string {
+function dashSjrUrl(id: string, startDD: string, endDD: string, opts?: { period?: boolean }): string {
   const qs = new URLSearchParams();
   qs.set("utf8", "✓");
   qs.set("granularity", "2");
+  if (opts?.period) qs.set("period", "5");
   qs.set("bulk_event_ids", id);
   qs.set("filter_start_date", startDD);
   qs.set("filter_end_date", endDD);
@@ -1164,8 +1165,8 @@ async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
   return { html, token };
 }
 
-/** Fixa o período do dashboard por POST (period=5 + datas). */
-async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string) {
+/** Fixa o período do dashboard por POST (period=5 + datas + evento). */
+async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string, id?: string) {
   const form = new URLSearchParams({
     utf8: "✓",
     authenticity_token: token,
@@ -1173,6 +1174,10 @@ async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: s
     filter_start_date: startDD,
     filter_end_date: endDD,
   });
+  if (id) {
+    form.set("bulk_event_ids", id);
+    form.append("bulk_event_ids[]", id);
+  }
   const resp = await fetchWithTimeout(DASH_URL, {
     method: "POST", redirect: "manual",
     headers: {
@@ -1197,8 +1202,9 @@ async function dashFetchSeries(
   id: string,
   startDD: string,
   endDD: string,
+  opts?: { period?: boolean },
 ): Promise<{ series: DashboardDailyResult; url: string; size: number; contentType: string }> {
-  const url = dashSjrUrl(id, startDD, endDD);
+  const url = dashSjrUrl(id, startDD, endDD, opts);
   const resp = await fetchWithTimeout(url, {
     method: "GET", redirect: "manual",
     headers: {
@@ -1272,36 +1278,63 @@ async function dashboardDailyFallback(
     debug.tokenFound = !!token;
     debug.pageSize = html.length;
 
-    // 1ª tentativa: POST period=5 (fixa o período na sessão) + SJR
+    // v2.30: o filtro por evento só sobrevive num ÚNICO GET SJR (o POST
+    // period=5 perdia o bulk_event_ids → devolvia a conta inteira).
+    const reasons: string[] = [];
+
+    const record = (label: string, a: any, c: any) => {
+      debug.attempts.push({
+        label,
+        url: a.url,
+        size: a.size,
+        contentType: a.contentType,
+        coverage: c,
+        headerRange: a.series.headerRange,
+        firstDay: c.first,
+        lastDay: c.last,
+        days: c.days,
+        sums: a.series.sums,
+        totalRow: a.series.totalRow,
+        parser: a.series.debug,
+      });
+      reasons.push(...c.reasons.map((r: string) => `${label}: ${r}`));
+    };
+
+    // (a) GET SJR com period=5 + datas + bulk_event_ids
+    const a1 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd, { period: true });
+    const c1 = coverageCheck(a1.series, startIso, endIso);
+    record("get_sjr_period5", a1, c1);
+    if (c1.ok) {
+      return { mode: "dashboard_daily", series: a1.series, debug: { ...debug, used: "get_sjr_period5", usedUrl: a1.url } };
+    }
+
+    // (b) GET SJR só com as datas (igual ao d1 da sonda)
+    const a2 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
+    const c2 = coverageCheck(a2.series, startIso, endIso);
+    record("get_sjr_dates_only", a2, c2);
+    if (c2.ok) {
+      return { mode: "dashboard_daily", series: a2.series, debug: { ...debug, used: "get_sjr_dates_only", usedUrl: a2.url } };
+    }
+
+    // (c) POST period=5 COM bulk_event_ids no corpo + GET SJR (também com evento)
     let post: any = null;
     try {
-      post = await dashPostPeriod(jar, token, filterStart, filterEnd);
+      post = await dashPostPeriod(jar, token, filterStart, filterEnd, ticketlineEventId);
     } catch (e: any) {
       if (e?.retriable) throw e;
       post = { error: e?.message || String(e) };
     }
     debug.post = post;
-
-    const a1 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
-    const c1 = coverageCheck(a1.series, startIso, endIso);
-    debug.attempts.push({ label: "post_period5_then_sjr", size: a1.size, contentType: a1.contentType, coverage: c1, parser: a1.series.debug });
-    if (c1.ok) {
-      return { mode: "dashboard_daily", series: a1.series, debug: { ...debug, used: "post_period5_then_sjr" } };
-    }
-
-    // 2ª tentativa: só GET com as datas (sem POST), sessão/csrf novos
-    const { token: token2 } = await dashGetHtml(jar);
-    const a2 = await dashFetchSeries(jar, token2, ticketlineEventId, filterStart, filterEnd);
-    const c2 = coverageCheck(a2.series, startIso, endIso);
-    debug.attempts.push({ label: "get_only_sjr", size: a2.size, contentType: a2.contentType, coverage: c2, parser: a2.series.debug });
-    if (c2.ok) {
-      return { mode: "dashboard_daily", series: a2.series, debug: { ...debug, used: "get_only_sjr" } };
+    const { token: token3 } = await dashGetHtml(jar);
+    const a3 = await dashFetchSeries(jar, token3, ticketlineEventId, filterStart, filterEnd, { period: true });
+    const c3 = coverageCheck(a3.series, startIso, endIso);
+    record("post_period5_with_event_then_sjr", a3, c3);
+    if (c3.ok) {
+      return { mode: "dashboard_daily", series: a3.series, debug: { ...debug, used: "post_period5_with_event_then_sjr", usedUrl: a3.url } };
     }
 
     throw Object.assign(
-      new Error(
-        `dashboard daily: período devolvido não cobre ${startIso}..${endIso} — ${[...c1.reasons, ...c2.reasons].join(" ; ")}`,
-      ),
+      new Error(`dashboard daily: período devolvido não cobre ${startIso}..${endIso} — ${reasons.join(" ; ")}`),
       { phase: "dashboard_daily_incomplete", dashDebug: debug },
     );
   } catch (e: any) {
