@@ -476,7 +476,7 @@ export function buildCommittedBpDoc(bundle: CommittedBpBundle, branding: ExportB
     r.code,
     r.kind === "line" ? `    ${r.label}` : r.label,
     r.orderer,
-    r.docs > 0 ? `${r.docs} Anexos` : "",
+    r.docs > 0 ? `${r.docs} ${r.docs === 1 ? "Anexo" : "Anexos"}` : "",
     nf(r.base),
     nf(r.iva),
     nf(r.total),
