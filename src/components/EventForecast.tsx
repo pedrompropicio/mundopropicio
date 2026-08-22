@@ -2473,9 +2473,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               const row = (
                               f._orphanBucket ? (
 
-                                <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
+                                <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} hideCode />
                               ) : f.is_overhead ? (
-                                <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                                <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} hideCode />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                                   <td className="py-1.5 pr-2">
@@ -2513,7 +2513,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} hideCode />
                               ));
                               return (
                                 <React.Fragment key={`inc-band-${f.id}`}>
@@ -2727,13 +2727,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               const row = (
                               f._orphanBucket ? (
 
-                                <OrphanBucketRow key={f.id} item={f} isExpense indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} />
+                                <OrphanBucketRow key={f.id} item={f} isExpense indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} hideCode />
                               ) : f._overhead_via_master ? (
-                                <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                                <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} hideCode />
                               ) : f.is_overhead ? (
-                                <ForecastRow key={`overhead-${f.id}`} item={f} colorClass="text-warning/80" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                                <ForecastRow key={`overhead-${f.id}`} item={f} colorClass="text-warning/80" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} hideCode />
                               ) : f._prorated ? (
-                                <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                                <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} hideCode />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                                   <td className="py-1.5 pr-2">
@@ -2774,10 +2774,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : f.cache_config_id ? (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} hideCode />
                               ) : (
                                 <React.Fragment key={f.id}>
-                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canEditOrdering={canEditBP || canEditBPPartial || canEditApprovedBP} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canEditOrdering={canEditBP || canEditBPPartial || canEditApprovedBP} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} hideCode />
                                   {/* Adopted sub-event children */}
                                   {(adoptedByMaster[f.id] ?? []).map((af: any) => (
                                     <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
@@ -3415,7 +3415,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
             )}
             <div>
               <p className="font-medium">
-                {item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
+                {!hideCode && item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
                 {item.description}
                 {!item._readonly && !item._prorated && !item._overhead_via_master && (
                   <span className="ml-2 align-middle">
@@ -3897,7 +3897,9 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
  * reclama (sem back-link e sem ganhar o match de descrição, ou categoria sem BP).
  * Só tem realizado — não é editável, aprovável nem entra no previsto.
  */
-function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, eventId }: {
+function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, eventId, hideCode }: {
+  /** Esconde o código da rubrica (já vem no cabeçalho da rubrica). */
+  hideCode?: boolean;
   item: any;
   isExpense?: boolean;
   indented?: boolean;
@@ -3926,7 +3928,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
             {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
             <div>
               <p className={`text-xs font-medium italic ${pending ? "text-warning" : "text-muted-foreground"}`}>
-                {item.account_categories?.code && <span className="mr-1">{item.account_categories.code}</span>}
+                {!hideCode && item.account_categories?.code && <span className="mr-1">{item.account_categories.code}</span>}
                 {orphanBucketLabel(item.type)}
                 <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium not-italic text-muted-foreground">
                   {txs.length} transação(ões)
