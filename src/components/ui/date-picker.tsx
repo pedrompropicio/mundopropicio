@@ -17,6 +17,10 @@ interface DatePickerProps {
   className?: string;
   disabled?: boolean;
   id?: string;
+  /** Data mínima selecionável (ISO yyyy-MM-dd) */
+  minDate?: string;
+  /** Data máxima selecionável (ISO yyyy-MM-dd) */
+  maxDate?: string;
 }
 
 export function DatePicker({
@@ -26,6 +30,8 @@ export function DatePicker({
   className,
   disabled,
   id,
+  minDate,
+  maxDate,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -34,6 +40,28 @@ export function DatePicker({
     const d = parse(value, "yyyy-MM-dd", new Date());
     return isValid(d) ? d : undefined;
   }, [value]);
+
+  const minObj = React.useMemo(() => {
+    if (!minDate) return undefined;
+    const d = parse(minDate, "yyyy-MM-dd", new Date());
+    return isValid(d) ? d : undefined;
+  }, [minDate]);
+
+  const maxObj = React.useMemo(() => {
+    if (!maxDate) return undefined;
+    const d = parse(maxDate, "yyyy-MM-dd", new Date());
+    return isValid(d) ? d : undefined;
+  }, [maxDate]);
+
+  const isOutOfRange = React.useCallback(
+    (d: Date) => {
+      const iso = format(d, "yyyy-MM-dd");
+      if (minDate && iso < minDate) return true;
+      if (maxDate && iso > maxDate) return true;
+      return false;
+    },
+    [minDate, maxDate],
+  );
 
   const displayValue = dateObj ? format(dateObj, "dd/MM/yyyy") : "";
 
@@ -45,7 +73,7 @@ export function DatePicker({
   }, [value, dateObj]);
 
   const handleSelect = (d: Date | undefined) => {
-    if (d) {
+    if (d && !isOutOfRange(d)) {
       const iso = format(d, "yyyy-MM-dd");
       onChange(iso);
     }
@@ -71,7 +99,7 @@ export function DatePicker({
     // Try to parse when we have a complete date
     if (raw.length === 10) {
       const parsed = parse(raw, "dd/MM/yyyy", new Date());
-      if (isValid(parsed) && parsed.getFullYear() >= 1900 && parsed.getFullYear() <= 2100) {
+      if (isValid(parsed) && parsed.getFullYear() >= 1900 && parsed.getFullYear() <= 2100 && !isOutOfRange(parsed)) {
         const iso = format(parsed, "yyyy-MM-dd");
         onChange(iso);
       }
@@ -82,10 +110,12 @@ export function DatePicker({
     // On blur: if we have a complete valid date, propagate it (safety net)
     if (inputValue.length === 10) {
       const parsed = parse(inputValue, "dd/MM/yyyy", new Date());
-      if (isValid(parsed) && parsed.getFullYear() >= 1900 && parsed.getFullYear() <= 2100) {
+      if (isValid(parsed) && parsed.getFullYear() >= 1900 && parsed.getFullYear() <= 2100 && !isOutOfRange(parsed)) {
         onChange(format(parsed, "yyyy-MM-dd"));
         return;
       }
+      setInputValue(dateObj ? format(dateObj, "dd/MM/yyyy") : "");
+      return;
     }
     // Otherwise reset to current valid value if input is invalid/incomplete
     if (inputValue.length > 0 && inputValue.length < 10) {
@@ -124,6 +154,9 @@ export function DatePicker({
             mode="single"
             selected={dateObj}
             onSelect={handleSelect}
+            disabled={minObj || maxObj ? isOutOfRange : undefined}
+            fromDate={minObj}
+            toDate={maxObj}
             locale={pt}
             initialFocus
             className="p-3 pointer-events-auto"
