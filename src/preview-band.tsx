@@ -1,7 +1,9 @@
 // TEMPORÁRIO — harness visual para validar o cabeçalho de rubrica do BP.
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import { formatCurrency } from "@/lib/utils";
+const formatCurrency = (v: number) =>
+  new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(v);
+
 import { orphanBucketLabel } from "@/lib/bp-tx-matching";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 
