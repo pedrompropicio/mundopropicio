@@ -1087,7 +1087,7 @@ async function downloadSummarySjr(
 
 export type SummaryDownload =
   | { mode: "xlsx"; bytes: Uint8Array }
-  | { mode: "sjr_html"; js: string; debug: Record<string, any> };
+  | { mode: "dashboard_daily"; series: DashboardDailyResult; debug: Record<string, any> };
 
 async function downloadSummary(
   creds: { email: string; password: string },
@@ -1112,39 +1112,214 @@ async function downloadSummary(
         return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
       } catch (e2: any) {
         if (e2?.phase !== "html_response") throw e2;
-        return await sjrFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
+        return await dashboardDailyFallback(jar2, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e2);
       }
     }
     if (e?.phase !== "html_response") throw e;
-    // Evento migrado: export .xlsx bloqueado server-side → ler o relatório por SJR.
-    return await sjrFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
+    // Evento migrado: export .xlsx bloqueado e relatório por-evento vazio →
+    // ler a SÉRIE DIÁRIA no resumo do dashboard (padrão BOL).
+    return await dashboardDailyFallback(jar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, e);
   }
 }
 
-async function sjrFallback(
+// ============================================================================
+// Fallback dashboard_daily (v2.29)
+// Eventos migrados: /managers/events/<id>/sale_summary vem a zeros (provado nas
+// sondas v2.27) mas /managers/dashboard/sale_summary filtrado por
+// bulk_event_ids tem os números reais. O período do dashboard fixa-se por POST
+// (period=5 + datas); os dados lêem-se por SJR (post_render_content=data).
+// ============================================================================
+const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
+
+function dashSjrUrl(id: string, startDD: string, endDD: string): string {
+  const qs = new URLSearchParams();
+  qs.set("utf8", "✓");
+  qs.set("granularity", "2");
+  qs.set("bulk_event_ids", id);
+  qs.set("filter_start_date", startDD);
+  qs.set("filter_end_date", endDD);
+  qs.set("post_render_content", "data");
+  qs.set("_", String(Date.now()));
+  return `${DASH_URL}?${qs.toString()}`;
+}
+
+async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
+  const resp = await fetchWithTimeout(DASH_URL, {
+    method: "GET", redirect: "manual",
+    headers: { "User-Agent": UA_PROBE, Accept: "text/html,application/xhtml+xml,*/*", Cookie: jarToHeader(jar), Referer: `${BASE}/managers` },
+  }, 60000);
+  ingestSetCookie(jar, resp);
+  const html = await resp.text().catch(() => "");
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    if (loc.includes("sign_in")) {
+      throw Object.assign(new Error(`dashboard: sessão expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(new Error(`dashboard: página 302 → ${loc}`), { phase: "dashboard_page_redirect" });
+  }
+  if (!resp.ok) {
+    throw Object.assign(new Error(`dashboard: página HTTP ${resp.status}`), { phase: `dashboard_page_http_${resp.status}` });
+  }
+  const token = /name="authenticity_token"\s+value="([^"]+)"/.exec(html)?.[1] || extractCsrfToken(html) || "";
+  return { html, token };
+}
+
+/** Fixa o período do dashboard por POST (period=5 + datas). */
+async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string) {
+  const form = new URLSearchParams({
+    utf8: "✓",
+    authenticity_token: token,
+    period: "5",
+    filter_start_date: startDD,
+    filter_end_date: endDD,
+  });
+  const resp = await fetchWithTimeout(DASH_URL, {
+    method: "POST", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,*/*",
+      Cookie: jarToHeader(jar),
+      Referer: DASH_URL,
+      Origin: BASE,
+    },
+    body: form.toString(),
+  }, 90000);
+  ingestSetCookie(jar, resp);
+  await resp.text().catch(() => null);
+  return { status: resp.status, location: resp.headers.get("location") };
+}
+
+/** Lê a série diária do dashboard via SJR. */
+async function dashFetchSeries(
+  jar: Jar,
+  token: string,
+  id: string,
+  startDD: string,
+  endDD: string,
+): Promise<{ series: DashboardDailyResult; url: string; size: number; contentType: string }> {
+  const url = dashSjrUrl(id, startDD, endDD);
+  const resp = await fetchWithTimeout(url, {
+    method: "GET", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      Accept: SJR_ACCEPT,
+      Cookie: jarToHeader(jar),
+      Referer: DASH_URL,
+      "X-Requested-With": "XMLHttpRequest",
+      ...(token ? { "X-CSRF-Token": token } : {}),
+    },
+  }, 110000);
+  ingestSetCookie(jar, resp);
+  const ct = resp.headers.get("content-type") || "";
+  const body = await resp.text().catch(() => "");
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    if (loc.includes("sign_in")) {
+      throw Object.assign(new Error(`dashboard SJR: sessão expirada (302 → ${loc})`), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(new Error(`dashboard SJR: 302 → ${loc}`), { phase: "dashboard_sjr_redirect" });
+  }
+  if (!resp.ok) {
+    throw Object.assign(new Error(`dashboard SJR: HTTP ${resp.status}`), { phase: `dashboard_sjr_http_${resp.status}` });
+  }
+  if (!/<table|\\u003ctable/i.test(body)) {
+    const { title, snippet, isSignIn } = describeHtml(body);
+    if (isSignIn) {
+      throw Object.assign(new Error("dashboard SJR: página de login (sessão expirada)"), { phase: "session_expired", retriable: true });
+    }
+    throw Object.assign(
+      new Error(`dashboard SJR: resposta sem tabelas (ct=${ct}, size=${body.length}) — title="${title}" | ${snippet}`),
+      { phase: "dashboard_sjr_no_tables" },
+    );
+  }
+  const series = parseDashboardDailySjr(body);
+  return { series, url, size: body.length, contentType: ct };
+}
+
+/** O período devolvido cobre o período pedido? Nunca gravar série incompleta. */
+function coverageCheck(series: DashboardDailyResult, startIso: string, endIso: string) {
+  const hr = series.headerRange;
+  const first = series.rows[0]?.sale_date ?? null;
+  const last = series.rows[series.rows.length - 1]?.sale_date ?? null;
+  const days = series.rows.length;
+  const spanDaysRequested = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 86400000) + 1;
+  let ok = true;
+  const reasons: string[] = [];
+  if (hr?.start && hr?.end && /^\d{4}-\d{2}-\d{2}$/.test(hr.start) && /^\d{4}-\d{2}-\d{2}$/.test(hr.end)) {
+    if (hr.start > startIso) { ok = false; reasons.push(`header start ${hr.start} > pedido ${startIso}`); }
+    if (hr.end < endIso) { ok = false; reasons.push(`header end ${hr.end} < pedido ${endIso}`); }
+  } else if (spanDaysRequested > 1 && days <= 1) {
+    ok = false;
+    reasons.push(`só ${days} dia devolvido para um período de ${spanDaysRequested} dias (provável "dia corrente")`);
+  }
+  return { ok, reasons, headerRange: hr, first, last, days, spanDaysRequested };
+}
+
+async function dashboardDailyFallback(
   jar: Jar,
   ticketlineEventId: string,
   filterStart: string,
   filterEnd: string,
   xlsxError: any,
 ): Promise<SummaryDownload> {
-  console.log(`[ticketline] .xlsx devolveu landing HTML — fallback SJR (evento ${ticketlineEventId})`);
+  console.log(`[ticketline] .xlsx devolveu landing — fallback série diária do dashboard (evento ${ticketlineEventId})`);
+  const startIso = ddmmyyyyToIso(filterStart);
+  const endIso = ddmmyyyyToIso(filterEnd);
+  const debug: Record<string, any> = { filterStart, filterEnd, attempts: [] as any[] };
   try {
-    const { js, debug } = await downloadSummarySjr(jar, ticketlineEventId, filterStart, filterEnd);
-    return { mode: "sjr_html", js, debug };
+    const { html, token } = await dashGetHtml(jar);
+    debug.tokenFound = !!token;
+    debug.pageSize = html.length;
+
+    // 1ª tentativa: POST period=5 (fixa o período na sessão) + SJR
+    let post: any = null;
+    try {
+      post = await dashPostPeriod(jar, token, filterStart, filterEnd);
+    } catch (e: any) {
+      if (e?.retriable) throw e;
+      post = { error: e?.message || String(e) };
+    }
+    debug.post = post;
+
+    const a1 = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
+    const c1 = coverageCheck(a1.series, startIso, endIso);
+    debug.attempts.push({ label: "post_period5_then_sjr", size: a1.size, contentType: a1.contentType, coverage: c1, parser: a1.series.debug });
+    if (c1.ok) {
+      return { mode: "dashboard_daily", series: a1.series, debug: { ...debug, used: "post_period5_then_sjr" } };
+    }
+
+    // 2ª tentativa: só GET com as datas (sem POST), sessão/csrf novos
+    const { token: token2 } = await dashGetHtml(jar);
+    const a2 = await dashFetchSeries(jar, token2, ticketlineEventId, filterStart, filterEnd);
+    const c2 = coverageCheck(a2.series, startIso, endIso);
+    debug.attempts.push({ label: "get_only_sjr", size: a2.size, contentType: a2.contentType, coverage: c2, parser: a2.series.debug });
+    if (c2.ok) {
+      return { mode: "dashboard_daily", series: a2.series, debug: { ...debug, used: "get_only_sjr" } };
+    }
+
+    throw Object.assign(
+      new Error(
+        `dashboard daily: período devolvido não cobre ${startIso}..${endIso} — ${[...c1.reasons, ...c2.reasons].join(" ; ")}`,
+      ),
+      { phase: "dashboard_daily_incomplete", dashDebug: debug },
+    );
   } catch (e: any) {
     if (e?.retriable) throw e;
+    if (e?.phase === "dashboard_daily_incomplete") throw e;
     // Fallback também falhou → mantém o erro html_response original + debug.
-    throw Object.assign(new Error(`${xlsxError.message} | fallback SJR falhou: ${e?.message || e}`), {
+    throw Object.assign(new Error(`${xlsxError.message} | fallback dashboard daily falhou: ${e?.message || e}`), {
       phase: "html_response",
       retriable: false,
       htmlTitle: xlsxError.htmlTitle,
       htmlSnippet: xlsxError.htmlSnippet,
-      sjrPhase: e?.phase || "sjr_failed",
-      sjrDebug: e?.sjrDebug || null,
+      dashPhase: e?.phase || "dashboard_daily_failed",
+      dashDebug: debug,
     });
   }
 }
+
+
 
 
 // ============================================================================
