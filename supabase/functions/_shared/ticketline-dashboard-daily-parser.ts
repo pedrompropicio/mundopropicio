@@ -90,13 +90,18 @@ export function parseDashboardDailySjr(js: string): DashboardDailyResult {
   if (tables.length === 0) throw new Error("dashboard daily: nenhuma <table> na resposta SJR");
 
   // A tabela diária é a que tem cabeçalho DATA e datas na 1ª coluna.
-  let best: { grid: string[][]; idx: number; dates: number } | null = null;
-  tables.forEach((grid, idx) => {
-    const dates = grid.filter((row) => dateLabelToIso((row.find((c) => c && c.trim()) || "").trim()) !== null).length;
-    if (dates > 0 && (!best || dates > best.dates)) best = { grid, idx, dates };
-  });
+  type Cand = { grid: string[][]; idx: number; dates: number };
+  const candidates: Cand[] = tables.map((grid: string[][], idx: number) => ({
+    grid,
+    idx,
+    dates: grid.filter((row: string[]) => dateLabelToIso((row.find((c: string) => !!c && !!c.trim()) || "").trim()) !== null).length,
+  }));
+  const best: Cand | undefined = candidates
+    .filter((c) => c.dates > 0)
+    .sort((a, b) => b.dates - a.dates)[0];
   if (!best) throw new Error("dashboard daily: nenhuma tabela com datas encontrada");
   const grid = best.grid;
+
 
   let loc = locateColumns(grid, /TOTAL\s*VENDAS/);
   let group = "total_vendas";
