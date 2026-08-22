@@ -136,7 +136,14 @@ function buildDateRange(daysBack: number): { since: string; until: string } {
   return { since: isoDate(since), until: isoDate(until) };
 }
 
-function buildGaql(since: string, until: string): string {
+// ARMADILHA (corrigida em 2026-08-22): consultas de METADADOS nunca levam
+// `segments.date`. Ao segmentar por data, o Google só devolve linhas de dias com
+// entrega — campanhas novas, em pausa ou sem impressões ficam invisíveis e o
+// espelho de metadados passa a depender de terem gasto dinheiro.
+// Por isso há DUAS consultas:
+//   1) buildMetadataGaql() — FROM campaign SEM segments.date → crm.google_campaign
+//   2) buildDailyGaql()    — FROM campaign COM segments.date → crm.google_campaign_insights_daily
+function buildMetadataGaql(): string {
   return `
   SELECT
     campaign.id,
@@ -147,6 +154,16 @@ function buildGaql(since: string, until: string): string {
     campaign.start_date_time,
     campaign.end_date_time,
     campaign_budget.amount_micros,
+    customer.currency_code
+  FROM campaign
+`;
+}
+
+function buildDailyGaql(since: string, until: string): string {
+  return `
+  SELECT
+    campaign.id,
+    campaign.name,
     customer.currency_code,
     segments.date,
     metrics.impressions,
@@ -158,6 +175,7 @@ function buildGaql(since: string, until: string): string {
   WHERE segments.date BETWEEN '${since}' AND '${until}'
 `;
 }
+
 
 
 interface GAdsCampaignRow {
