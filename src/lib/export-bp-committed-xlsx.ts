@@ -55,18 +55,20 @@ function lineRate(row: OutRow): number {
 const fill = (argb: string): ExcelJS.Fill => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 
 /**
- * Normaliza o logótipo para base64 puro. Só aceita data URLs de imagem: um URL
- * de asset (`/src/assets/logo.png`) não é base64 e faria o jszip rejeitar fora
- * do fluxo, pendurando o `writeBuffer()`. Sem base64 válido → sem imagem.
+ * Rede de segurança: extrai base64 puro de um data URL de imagem. O contrato de
+ * `fetchExportBranding()` já garante data URL ou null — aqui só se valida o
+ * essencial (prefixo `data:image/` + `;base64,` + corpo não vazio), para não
+ * rejeitar base64 legítimo. Sem base64 válido → sem imagem (texto em G1/G2).
  */
 export function logoAsBase64(src?: string | null): { data: string; ext: "png" | "jpeg" } | null {
   if (!src || !src.startsWith("data:image/")) return null;
   const comma = src.indexOf(",");
   if (comma < 0 || !src.slice(0, comma).includes(";base64")) return null;
   const data = src.slice(comma + 1).replace(/\s+/g, "");
-  if (!data || data.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return null;
+  if (!data) return null;
   return { data, ext: src.startsWith("data:image/jpeg") ? "jpeg" : "png" };
 }
+
 
 
 /** Constrói o workbook (testável fora do browser). */

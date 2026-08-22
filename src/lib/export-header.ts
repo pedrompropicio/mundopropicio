@@ -38,17 +38,41 @@ async function urlToDataUrl(url: string): Promise<string | null> {
 }
 
 /**
+ * CONTRATO desta camada: `logoDataUrl` é SEMPRE um data URL de imagem válido ou
+ * `null` — nunca um URL de asset. O Vite 5 não inlina `?inline` para imagens
+ * (devolve o URL do ficheiro), pelo que o fallback local também tem de passar
+ * por aqui e ser convertido. Sem isto, `jsPDF.addImage` e `ExcelJS.addImage`
+ * recebem um caminho e a imagem morre silenciosamente (ou pendura o zip).
+ * Nunca lança: o logótipo é decoração.
+ */
+async function ensureDataUrl(candidate: string | null | undefined): Promise<string | null> {
+  if (!candidate) return null;
+  if (candidate.startsWith("data:image/")) return candidate;
+  const converted = await urlToDataUrl(candidate);
+  return converted && converted.startsWith("data:image/") ? converted : null;
+}
+
+/** Guard-rail: 3s no máximo, e nunca rejeita. */
+async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return await Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
+/**
  * Resolve o branding para exportação. Se `companyId` não for dado, usa a
  * empresa ativa (mesmo resolvedor que a RLS usa).
  */
 export async function fetchExportBranding(companyId?: string | null): Promise<ExportBranding> {
+  const localLogo = () => withTimeout(ensureDataUrl(logoHorizontal as string), 3_000, null);
   let id = companyId ?? null;
   try {
     if (!id) {
       const { data } = await supabase.rpc("current_company_id" as any);
       id = (data as string | null) ?? null;
     }
-    if (!id) return { displayName: DEFAULT_NAME, logoDataUrl: logoHorizontal as string };
+    if (!id) return { displayName: DEFAULT_NAME, logoDataUrl: await localLogo() };
 
     const { data: company } = await supabase
       .from("companies" as any)
@@ -57,12 +81,15 @@ export async function fetchExportBranding(companyId?: string | null): Promise<Ex
       .maybeSingle();
     const c = company as any;
     const displayName = c?.display_name || c?.legal_name || DEFAULT_NAME;
-    const logoDataUrl = c?.logo_url ? await urlToDataUrl(String(c.logo_url)) : null;
-    return { displayName, logoDataUrl: logoDataUrl ?? (logoHorizontal as string) };
+    const remote = c?.logo_url
+      ? await withTimeout(ensureDataUrl(String(c.logo_url)), 3_000, null)
+      : null;
+    return { displayName, logoDataUrl: remote ?? (await localLogo()) };
   } catch {
-    return { displayName: DEFAULT_NAME, logoDataUrl: logoHorizontal as string };
+    return { displayName: DEFAULT_NAME, logoDataUrl: await localLogo() };
   }
 }
+
 
 export interface PdfHeaderOptions {
   branding: ExportBranding;
