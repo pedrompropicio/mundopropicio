@@ -1781,7 +1781,42 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return out;
   };
 
+  /**
+   * Bandas de rubrica (L3) dentro de um grupo L2. A rubrica aparece UMA vez
+   * como cabeçalho (código · nome + previsto/realizado) e as linhas ficam por
+   * baixo sem repetir o código. Só apresentação — nenhum cálculo do BP muda.
+   * Os items já vêm ordenados por código, logo as rubricas são contíguas.
+   */
+  const buildCategoryBands = (items: any[]) => {
+    const map = new Map<number, { code: string; name: string; previsto: number; realizado: number; count: number }>();
+    let lastCat: string | null | undefined = "__init__";
+    items.forEach((f, idx) => {
+      const catId = f.category_id ?? null;
+      if (catId === lastCat) return;
+      lastCat = catId;
+      const info = catId ? catLookup[catId] : undefined;
+      const previsto = items
+        .filter((x) => (x.category_id ?? null) === catId && !x._orphanBucket)
+        .reduce((s, x) => s + Number(x.amount || 0), 0);
+      const txs = (transactions as any[]).filter(
+        (t) =>
+          t.category_id === catId &&
+          t.type === f.type &&
+          (t.event_id === eventId || t.event_id === null),
+      );
+      map.set(idx, {
+        code: info?.code ?? "—",
+        name: info?.name ?? "Sem rubrica",
+        previsto,
+        realizado: txs.reduce((s, t) => s + Number(t.amount || 0), 0),
+        count: txs.length,
+      });
+    });
+    return map;
+  };
+
   const incomeGroups = useMemo(
+
     () => groupForecasts([...incomeForecasts, ...buildOrphanBuckets("income")]),
     [incomeForecasts, catLookup, transactions, forecasts, eventId],
   );
