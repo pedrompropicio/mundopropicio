@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public._test_bp_tx_guards();
