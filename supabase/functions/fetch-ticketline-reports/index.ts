@@ -1129,12 +1129,17 @@ async function downloadSummary(
 
 
 // ============================================================================
-// Fallback dashboard_daily (v2.29)
-// Eventos migrados: /managers/events/<id>/sale_summary vem a zeros (provado nas
-// sondas v2.27) mas /managers/dashboard/sale_summary filtrado por
-// bulk_event_ids tem os números reais. O período do dashboard fixa-se por POST
-// (period=5 + datas); os dados lêem-se por SJR (post_render_content=data).
+// Captura incremental do dia corrente (v2.33)
+// Eventos migrados: /managers/events/<id>/sale_summary vem a zeros (sondas v2.27)
+// e o export .xlsx devolve a landing. O dashboard global TEM os números reais,
+// mas NÃO combina intervalo de datas com filtro de evento: assim que a sessão
+// guarda um `period`, o GET SJR ignora `bulk_event_ids` e re-renderiza a conta
+// inteira (provado v2.30–v2.32). Em sessão FRESCA (period default "Hoje") o GET
+// SJR com `bulk_event_ids` filtra corretamente e devolve o dia corrente.
+// Desenho: capturar só HOJE, em incremental (UPSERT), e nunca fazer POST de
+// period. O histórico anterior é backfilled por SQL a partir do ticket_sales.
 // ============================================================================
+
 const DASH_URL = `${BASE}/managers/dashboard/sale_summary`;
 
 function dashSjrUrl(
