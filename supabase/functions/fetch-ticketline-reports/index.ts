@@ -1135,14 +1135,16 @@ function dashSjrUrl(
   id: string | null,
   startDD: string,
   endDD: string,
-  opts?: { eventParam?: "scalar" | "array" },
+  opts?: { eventParam?: "scalar" | "array"; noDates?: boolean },
 ): string {
   const qs = new URLSearchParams();
-  qs.set("utf8", "✓");
+  if (!opts?.noDates) qs.set("utf8", "✓");
   qs.set("granularity", "2");
   if (id) qs.set(opts?.eventParam === "array" ? "bulk_event_ids[]" : "bulk_event_ids", id);
-  qs.set("filter_start_date", startDD);
-  qs.set("filter_end_date", endDD);
+  if (!opts?.noDates) {
+    qs.set("filter_start_date", startDD);
+    qs.set("filter_end_date", endDD);
+  }
   qs.set("post_render_content", "data");
   qs.set("_", String(Date.now()));
   return `${DASH_URL}?${qs.toString()}`;
