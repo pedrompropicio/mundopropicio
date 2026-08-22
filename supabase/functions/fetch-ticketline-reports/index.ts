@@ -2186,7 +2186,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     if (!creds.email || !creds.password) throw Object.assign(new Error("Vault: email/password em falta"), { phase: "creds_invalid" });
 
     const filterStart = salesStartToDDMMYYYY(cfg.sales_start_date);
-    const filterEnd = fmtDDMMYYYY(new Date());
+    const filterEnd = isoToDDMMYYYY(lisbonTodayIso());
     debug.filter_start_date = filterStart;
     debug.filter_end_date = filterEnd;
     debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
@@ -2194,25 +2194,71 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     const summary = await downloadSummary(creds, cfg.vault_secret_name, sessions, cfg.ticketline_event_id, filterStart, filterEnd);
     const sourceMode = summary.mode;
     debug.source_mode = sourceMode;
-    if (summary.mode === "sjr_html") debug.sjr = summary.debug;
-    const filesAudit = summary.mode === "xlsx"
-      ? [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }]
-      : [{ name: `sale_summary_${cfg.ticketline_event_id}.sjr.js`, size: summary.js.length }];
+
+    // -------- Caminho evento migrado: série diária do dashboard --------
+    if (summary.mode === "dashboard_daily") {
+      debug.dashboard_daily = summary.debug;
+      const series = summary.series;
+      const rows = series.rows.filter((r) => r.quantity !== 0 || Number(r.total_value) !== 0);
+      const sums = {
+        qty: rows.reduce((s, r) => s + r.quantity, 0),
+        value: Math.round(rows.reduce((s, r) => s + Number(r.total_value), 0) * 100) / 100,
+      };
+      const filesAuditDash = [{
+        name: `dashboard_sale_summary_${cfg.ticketline_event_id}.sjr.js`,
+        size: Number(summary.debug?.attempts?.[summary.debug.attempts.length - 1]?.size || 0),
+      }];
+
+      const { error: delErr } = await admin.from("ticketline_daily_sales").delete().eq("event_id", cfg.event_id);
+      if (delErr) throw Object.assign(new Error(`Import diário (delete): ${delErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
+      let inserted = 0;
+      if (rows.length > 0) {
+        const payload = rows.map((r) => ({
+          company_id: cfg.company_id,
+          event_id: cfg.event_id,
+          sale_date: r.sale_date,
+          quantity: r.quantity,
+          total_value: r.total_value,
+        }));
+        const { error: insErr } = await admin.from("ticketline_daily_sales").insert(payload);
+        if (insErr) throw Object.assign(new Error(`Import diário (insert): ${insErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
+        inserted = payload.length;
+      }
+      await updateConfig(admin, cfg.id, {
+        daily_fallback_active: true,
+        last_run_at: new Date().toISOString(),
+        last_run_status: "success",
+      });
+      const auditDash = {
+        dataSource: "dashboard_daily",
+        daysParsed: series.rows.length,
+        daysImported: inserted,
+        totalQty: sums.qty,
+        totalValue: sums.value,
+        totalRow: series.totalRow,
+        headerRange: series.headerRange,
+        firstDay: rows[0]?.sale_date ?? null,
+        lastDay: rows[rows.length - 1]?.sale_date ?? null,
+      };
+      await updateRun(admin, runId, {
+        status: "success", finished_at: new Date().toISOString(),
+        files_downloaded: filesAuditDash,
+        error_message: null,
+        import_audit: { ...auditDash, debug, source_mode: "dashboard_daily" },
+      });
+      console.log(`[ticketline ${runId}] dashboard_daily: ${inserted} dias, qty=${sums.qty}, valor=${sums.value}`);
+      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_daily" };
+    }
+
+    const filesAudit = [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }];
 
     let parseRes;
     try {
-      if (summary.mode === "xlsx") {
-        parseRes = parseTicketlineOperationsXlsx(summary.bytes.buffer as ArrayBuffer);
-      } else {
-        const sjr = parseTicketlineOperationsSjr(summary.js, {
-          start: filterStart, end: filterEnd, eventName: cfg.events?.name,
-        });
-        debug.sjr_parser = sjr.sjrDebug;
-        parseRes = sjr;
-      }
+      parseRes = parseTicketlineOperationsXlsx(summary.bytes.buffer as ArrayBuffer);
     } catch (e: any) {
       throw Object.assign(new Error(`Parser sale_summary (${sourceMode}): ${e?.message || e}`), { phase: "parse_failed", filesAudit });
     }
+
     debug.rows = parseRes.rows.length;
     debug.unique_zones = new Set(parseRes.rows.map(r => r.zone)).size;
     debug.section1_days = parseRes.section1Daily.length;
