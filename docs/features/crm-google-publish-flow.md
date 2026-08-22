@@ -79,3 +79,37 @@ Fase 3 do Meta, onde faltavam `ativo/pausado/cancelado`).
 Performance Max, Demand Gen, extensões de anúncio, audiências no grupo, edição/otimização
 de campanhas já publicadas, geração de copy por LLM, orçamentos partilhados, experiências A/B
 e sincronização do plano com o estado real (isso é o `crm-google-sync-campaigns`).
+
+## Nomes de campo da v24 — armadilhas verificadas (2026-08-22)
+
+A primeira publicação real falhou no `campaigns:mutate` com
+`Unknown name "startDate" ... Unknown name "endDate"`. Causa: **na v24 o recurso
+`Campaign` não tem `start_date`/`end_date`** — tem `start_date_time` /
+`end_date_time`, string `"yyyy-MM-dd HH:mm:ss"` no **fuso da conta** (sem
+offset, sem `T`). Granularidade diária ⇒ `00:00:00` no início e `23:59:59` no
+fim (ver `DateErrorEnum.DateError`: `..._MUST_BE_THE_START/END_OF_A_DAY`).
+O orçamento já criado ficou persistido e a retoma saltou-o — comportamento
+desenhado.
+
+Regra: **antes de escrever qualquer payload de criação, confirmar o nome do campo
+na referência RPC da versão em uso** (`.../reference/rpc/v24/<Recurso>`), não na
+memória nem em exemplos de versões antigas. O GAQL do
+`crm-google-sync-campaigns` já usava os nomes certos — o motor de publicação é
+que ficou com os antigos.
+
+Varredura completa da cadeia contra a referência v24:
+
+| Endpoint | Campos enviados | Veredicto |
+| --- | --- | --- |
+| `campaignBudgets:mutate` | `name`, `amountMicros`, `deliveryMethod`, `explicitlyShared` | OK |
+| `campaigns:mutate` | `name`, `status`, `advertisingChannelType`, `campaignBudget`, `networkSettings{targetGoogleSearch,targetSearchNetwork,targetContentNetwork,targetPartnerSearchNetwork}`, `targetSpend`/`maximizeConversions` | OK |
+| `campaigns:mutate` (datas) | ~~`startDate`/`endDate`~~ → `startDateTime`/`endDateTime` | **CORRIGIDO** |
+| `campaigns:mutate` (`selectiveOptimization`) | — | **REMOVIDO**: v24 só o aceita em campanhas de app (`MULTI_CHANNEL`); numa `SEARCH` é inválido. Meta de conversão por campanha faz-se em `campaignConversionGoals:mutate` (fora de âmbito) |
+| `adGroups:mutate` | `name`, `campaign`, `status`, `type`, `cpcBidMicros` | OK |
+| `adGroupCriteria:mutate` | `adGroup`, `status`, `negative`, `keyword{text,matchType}` | OK |
+| `campaignCriteria:mutate` | `campaign`, `location{geoTargetConstant}`, `language{languageConstant}` | OK |
+| `adGroupAds:mutate` | `adGroup`, `status`, `ad{finalUrls,responsiveSearchAd{headlines,descriptions,path1,path2}}` | OK |
+
+O dry-run usa os **mesmos** builders (`budgetPayload`, `campaignPayload`, …), por
+isso a pré-visualização reflete automaticamente qualquer correção destas — nunca
+duplicar o payload só para o dry-run.
