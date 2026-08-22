@@ -1142,14 +1142,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {/* TX liquidada + admin/gestora: categoria L3 e realocação da linha do BP continuam editáveis. */}
           {paidLocked && canReallocBpWhenPaid && !hasChildren && (
             <div className="rounded-lg border border-border/60 bg-secondary/20 p-3">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <SearchableSelect
-                options={categoryOptions}
-                value={form.category_id}
-                onValueChange={(v) => setForm({ ...form, category_id: v })}
-                placeholder="Sem categoria"
-                searchPlaceholder="Pesquisar categoria…"
-              />
+              {isBpLinked ? renderBpLockedCategory() : (
+                <>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
+                  <SearchableSelect
+                    options={categoryOptions}
+                    value={form.category_id}
+                    onValueChange={(v) => setForm({ ...form, category_id: v })}
+                    placeholder="Sem categoria"
+                    searchPlaceholder="Pesquisar categoria…"
+                  />
+                </>
+              )}
               {bpLinesEnabled && !unlinkBpRequested && bpLines.length > 0 && (
                 <div className="mt-2">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Linha do BP</label>
