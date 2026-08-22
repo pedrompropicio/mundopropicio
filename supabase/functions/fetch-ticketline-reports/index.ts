@@ -2393,7 +2393,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
   } catch (e: any) {
     const phase = e?.phase || "failed";
     const msg = e?.message || String(e);
-    if (e?.dashDebug) debug.dashboard_daily = e.dashDebug;
+    if (e?.dashDebug) debug.dashboard_today = e.dashDebug;
     await updateRun(admin, runId, {
       status: phase, finished_at: new Date().toISOString(),
       error_message: msg, files_downloaded: e?.filesAudit || null,
