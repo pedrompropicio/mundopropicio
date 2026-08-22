@@ -477,7 +477,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     Math.max(1, Number(bodyJson.days_back ?? (mode === "full" ? 365 : 30))),
   );
   const { since, until } = buildDateRange(daysBack);
-  const gaql = buildGaql(since, until);
+  const metadataGaql = buildMetadataGaql();
+  const dailyGaql = buildDailyGaql(since, until);
 
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
