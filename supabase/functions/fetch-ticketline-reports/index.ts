@@ -12,8 +12,9 @@ import {
   type DashboardDailyResult,
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
+import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 
-const VERSION = "v2.33_dashboard_today_incremental";
+const VERSION = "v2.34_sales_per_event_day_capture";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -72,7 +73,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" }
+interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1085,9 +1086,7 @@ async function downloadSummarySjr(
   };
 }
 
-export type SummaryDownload =
-  | { mode: "xlsx"; bytes: Uint8Array }
-  | { mode: "dashboard_today"; series: DashboardDailyResult; debug: Record<string, any> };
+export type SummaryDownload = { mode: "xlsx"; bytes: Uint8Array };
 
 async function downloadSummary(
   creds: { email: string; password: string },
@@ -1102,30 +1101,21 @@ async function downloadSummary(
   qs.set("post_render_content", "data");
   qs.set("_", String(Date.now()));
   const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
-  // Evento migrado: export .xlsx bloqueado (devolve a landing) → captura
-  // INCREMENTAL do dia corrente no dashboard. A captura exige SESSÃO FRESCA
-  // (period default "Hoje"), por isso pede sempre um login novo.
-  const todayCapture = async (xlsxError: any) => {
-    const freshJar = await getJar(sessions, secretName, creds, true);
-    return await dashboardTodayCapture(freshJar, ticketlineEventId, filterStartDDMMYYYY, filterEndDDMMYYYY, xlsxError);
-  };
+  // v2.34: evento migrado (.xlsx devolve landing) → o run falha limpo com
+  // phase html_response. A captura diária desses eventos é responsabilidade
+  // exclusiva da action `capture_day` (relatório sales_per_event do dashboard).
   try {
     return { mode: "xlsx", bytes: await downloadXlsx(jar, url, "sale_summary") };
   } catch (e: any) {
     if (e?.retriable) {
       console.log(`[ticketline] self-heal re-login (sale_summary)`);
       const jar2 = await getJar(sessions, secretName, creds, true);
-      try {
-        return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
-      } catch (e2: any) {
-        if (e2?.phase !== "html_response") throw e2;
-        return await todayCapture(e2);
-      }
+      return { mode: "xlsx", bytes: await downloadXlsx(jar2, url, "sale_summary") };
     }
-    if (e?.phase !== "html_response") throw e;
-    return await todayCapture(e);
+    throw e;
   }
 }
+
 
 
 // ============================================================================
@@ -1270,138 +1260,284 @@ function isoMinusDays(iso: string, days: number): string {
   return new Date(Date.parse(`${iso}T00:00:00Z`) - days * 86400000).toISOString().slice(0, 10);
 }
 
-const TODAY_MAX_DATE_ROWS = 3;
-const TODAY_MAX_QTY_PER_ROW = 5000;
-const TODAY_BASELINE_MIN_QTY = 200;
+// v2.34: dashboardTodayCapture REMOVIDO. Provado em produção (sondas sjr/matrix)
+// que o servidor IGNORA SEMPRE `bulk_event_ids` no dashboard sale_summary —
+// respostas byte-a-byte idênticas com evento migrado, não migrado e sem filtro.
+// A captura diária passou para o relatório /managers/dashboard/sales_per_event
+// (uma linha por evento), na action `capture_day`.
+
+
+// ============================================================================
+// v2.34 — captura diária via /managers/dashboard/sales_per_event
+// O relatório devolve UMA LINHA POR EVENTO (incluindo os migrados). O período
+// vem da SESSÃO: fixa-se com POST period=5 + datas em /managers/dashboard/
+// sale_summary (SEM evento no form). Eventos sem movimento no período NÃO
+// aparecem no relatório (ausência = 0).
+// ============================================================================
+const SALES_PER_EVENT_URL = `${BASE}/managers/dashboard/sales_per_event`;
+const CAPTURE_DAY_MAX_QTY = 5000;
+
+/** lowercase + sem acentos + espaços colapsados. */
+function normKey(s: string): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Chaves candidatas de um nome de evento do ERP ("RG - Albufeira" → albufeira). */
+function eventNameKeys(name: string): string[] {
+  const keys = new Set<string>();
+  const full = normKey(name);
+  if (full) keys.add(full);
+  const parts = String(name || "").split(/\s+[-–—]\s+/).map(normKey).filter(Boolean);
+  for (const p of parts) keys.add(p);
+  return Array.from(keys);
+}
+
+function dayTokenToIso(t: string): string | null {
+  const s = t.replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return ddmmyyyyToIso(s);
+  return null;
+}
+
+export interface SalesPerEventRow { label: string; qty: number; value: number; codes: string | null }
+
+/** Parse da tabela simples "Total Vendas" (Evento | Qt. | Valor) do SJR. */
+export function parseSalesPerEventSjr(body: string) {
+  const html = unescapeSjr(body);
+  const tables = extractTables(html);
+  let chosen: string[][] | null = null;
+  for (const g of tables) {
+    const flat = g.flat().map((c) => normKey(c));
+    if (flat.includes("evento") && flat.some((c) => c === "qt" || c === "qt.")) { chosen = g; break; }
+  }
+  if (!chosen) throw Object.assign(new Error("sales_per_event: tabela Evento|Qt.|Valor não encontrada"), { phase: "capture_day_no_table" });
+
+  const headerIdx = chosen.findIndex((r) => r.some((c) => normKey(c) === "evento"));
+  const rows: SalesPerEventRow[] = [];
+  let totalRow: { qty: number | null; value: number | null } | null = null;
+  for (let i = headerIdx + 1; i < chosen.length; i++) {
+    const r = chosen[i];
+    const label = (r.find((c) => c && c.trim()) || "").trim();
+    if (!label) continue;
+    const nums = r.slice(1).map((c) => parseNumberLabel(c || "")).filter((n) => n !== null) as number[];
+    const qty = nums.length > 0 ? nums[0] : null;
+    const value = nums.length > 1 ? nums[1] : null;
+    if (normKey(label) === "total" || normKey(label) === "total geral") {
+      totalRow = { qty, value };
+      continue;
+    }
+    if (qty === null && value === null) continue;
+    const codes = label.match(/\[([^\]]+)\]/)?.[1] ?? null;
+    rows.push({ label, qty: qty ?? 0, value: value ?? 0, codes });
+  }
+  const headerRange = html.match(/Opera[çc][õo]es de\s*([0-9/\-]{8,10})[^<]*?\ba\s*([0-9/\-]{8,10})/i);
+  return {
+    rows,
+    totalRow,
+    headerRangeText: headerRange ? headerRange[0].replace(/\s+/g, " ").trim() : null,
+    headerRangeStart: headerRange ? dayTokenToIso(headerRange[1]) : null,
+    headerRangeEnd: headerRange ? dayTokenToIso(headerRange[2]) : null,
+    tablesFound: tables.length,
+  };
+}
+
+/** GET SJR do relatório sales_per_event (período vem da sessão). */
+async function fetchSalesPerEventSjr(jar: Jar, token: string) {
+  const url = `${SALES_PER_EVENT_URL}?post_render_content=data&_=${Date.now()}`;
+  const resp = await fetchWithTimeout(url, {
+    method: "GET", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      Accept: SJR_ACCEPT,
+      Cookie: jarToHeader(jar),
+      Referer: SALES_PER_EVENT_URL,
+      "X-Requested-With": "XMLHttpRequest",
+      ...(token ? { "X-CSRF-Token": token } : {}),
+    },
+  }, 110000);
+  ingestSetCookie(jar, resp);
+  const body = await resp.text().catch(() => "");
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    throw Object.assign(new Error(`sales_per_event: 302 → ${loc}`), {
+      phase: loc.includes("sign_in") ? "session_expired" : "capture_day_redirect",
+    });
+  }
+  if (!resp.ok) throw Object.assign(new Error(`sales_per_event: HTTP ${resp.status}`), { phase: `capture_day_http_${resp.status}` });
+  return { url, body, size: body.length, contentType: resp.headers.get("content-type") || "" };
+}
 
 /**
- * Captura INCREMENTAL do dia corrente para eventos migrados.
- *
- * Requisitos absolutos (v2.33):
- * - NUNCA fazer POST de `period` — a sessão tem de ficar no default "Hoje";
- *   qualquer period guardado faz o servidor ignorar `bulk_event_ids`.
- * - Só um GET SJR filtrado + um GET SJR de baseline (conta inteira) por run.
- * - Rejeitar (sem gravar nada) se a resposta não parecer o dia corrente do
- *   evento: datas fora de [hoje−1, hoje], demasiadas linhas, qty absurda, ou
- *   totais idênticos à conta inteira (filtro ignorado).
+ * action capture_day — captura o dia `dateISO` (default hoje Europe/Lisbon) para
+ * todos os configs com daily_fallback_active=true da mesma company do configId.
+ * Login FRESCO dedicado (não usa o SessionCache dos syncs xlsx, para não
+ * contaminar essas sessões com um period alterado).
  */
-async function dashboardTodayCapture(
-  jar: Jar,
-  ticketlineEventId: string,
-  filterStart: string,
-  filterEnd: string,
-  xlsxError: any,
-): Promise<SummaryDownload> {
-  const todayIso = lisbonTodayIso();
-  const yesterdayIso = isoMinusDays(todayIso, 1);
-  console.log(`[ticketline] .xlsx devolveu landing — captura do dia corrente (evento ${ticketlineEventId}, ${todayIso})`);
+async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
+  if (!configId) return json(400, { error: "capture_day requer configId" });
+  const dayIso = dateISO && /^\d{4}-\d{2}-\d{2}$/.test(dateISO) ? dateISO : lisbonTodayIso();
+  const dayDD = isoToDDMMYYYY(dayIso);
 
-  const debug: Record<string, any> = {
-    strategy: "dashboard_today",
-    filterStart,
-    filterEnd,
-    todayIso,
-    acceptedRange: [yesterdayIso, todayIso],
-    usedUrl: null,
-    rows: null,
-    baselineToday: null,
-    validations: {} as Record<string, any>,
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+
+  // Configs-alvo: daily_fallback_active=true da mesma company (independente de enabled).
+  const { data: targets, error: tErr } = await admin
+    .from("ticketline_sync_config")
+    .select("id, event_id, company_id, ticketline_event_id, organization_name")
+    .eq("company_id", cfg.company_id)
+    .eq("daily_fallback_active", true);
+  if (tErr) return json(500, { error: tErr.message });
+  const targetList = targets || [];
+  if (targetList.length === 0) return json(200, { ok: true, skipped: true, reason: "nenhum config com daily_fallback_active=true" });
+
+  const { data: evs } = await admin.from("events").select("id, name").in("id", targetList.map((t: any) => t.event_id));
+  const nameById = new Map<string, string>((evs || []).map((e: any) => [e.id, e.name]));
+
+  const { data: run } = await admin.from("ticketline_sync_runs").insert({
+    config_id: cfg.id, company_id: cfg.company_id, status: "started",
+    mode: "manual", triggered_by: `capture_day:${dayIso}`,
+  }).select("id").single();
+  const runId = run?.id || null;
+
+  const debug: Record<string, any> = { version: VERSION, day: dayIso, dayDD, source_mode: "sales_per_event_day" };
+
+  const fail = async (phase: string, message: string) => {
+    if (runId) {
+      await updateRun(admin, runId, {
+        status: phase, finished_at: new Date().toISOString(),
+        error_message: message, import_audit: { debug, source_mode: "sales_per_event_day" },
+      });
+    }
+    return json(500, { ok: false, phase, error: message, runId, debug });
   };
 
   try {
+    // 1. login fresco dedicado
+    const { jar } = await loginDevise(creds.email, creds.password);
+    // 2. csrf + POST do período (start=end=dia alvo, SEM evento)
     const { html, token } = await dashGetHtml(jar);
     debug.tokenFound = !!token;
-    debug.pageSize = html.length;
-
-    // ---- GET SJR filtrado pelo evento (sessão fresca, period default "Hoje") ----
-    const got = await dashFetchSeries(jar, token, ticketlineEventId, filterStart, filterEnd);
+    debug.dashPageSize = html.length;
+    const post = await dashPostPeriod(jar, token, dayDD, dayDD);
+    debug.postPeriod = post;
+    // 3. GET SJR do relatório por evento (novo csrf da página)
+    const { token: token2 } = await dashGetHtml(jar);
+    const got = await fetchSalesPerEventSjr(jar, token2 || token);
     debug.usedUrl = got.url;
     debug.size = got.size;
     debug.contentType = got.contentType;
-    debug.parser = got.series.debug;
-    debug.headerRange = got.series.headerRange;
-    debug.totalRow = got.series.totalRow;
-    debug.rows = got.series.rows;
-    debug.sums = got.series.sums;
 
-    // ---- Baseline de identidade: mesma sessão, SEM bulk_event_ids ----
-    const baselineFetch = await dashFetchSeries(jar, token, null, filterStart, filterEnd);
-    const baselineToday = {
-      url: baselineFetch.url,
-      size: baselineFetch.size,
-      days: baselineFetch.series.rows.length,
-      sums: baselineFetch.series.sums,
-      totalRow: baselineFetch.series.totalRow,
-      headerRange: baselineFetch.series.headerRange,
-    };
-    debug.baselineToday = baselineToday;
+    // 4. parse + validações bloqueantes
+    const parsed = parseSalesPerEventSjr(got.body);
+    debug.headerRangeText = parsed.headerRangeText;
+    debug.headerRange = { start: parsed.headerRangeStart, end: parsed.headerRangeEnd };
+    debug.rows = parsed.rows;
+    debug.totalRow = parsed.totalRow;
+    debug.tablesFound = parsed.tablesFound;
 
-    const rows = got.series.rows;
-    const reject = (phase: string, msg: string) => {
-      throw Object.assign(new Error(`dashboard today: ${msg}`), { phase, dashDebug: debug });
-    };
-
-    // (a) todas as datas dentro de [hoje−1, hoje] em Europe/Lisbon
-    const outside = rows.filter((r) => r.sale_date < yesterdayIso || r.sale_date > todayIso).map((r) => r.sale_date);
-    debug.validations.datesOutsideRange = outside;
-    if (outside.length > 0) {
-      reject(
-        "dashboard_today_unexpected_range",
-        `datas fora de [${yesterdayIso}..${todayIso}]: ${outside.join(",")} — sessão contaminada (period aplicado)`,
+    if (parsed.headerRangeStart !== dayIso || parsed.headerRangeEnd !== dayIso) {
+      return await fail(
+        "capture_day_period_mismatch",
+        `período do relatório não é ${dayIso} (header="${parsed.headerRangeText}") — o POST de period não pegou`,
       );
     }
-
-    // (b) nº de linhas de data ≤ 3
-    debug.validations.dateRowCount = rows.length;
-    if (rows.length > TODAY_MAX_DATE_ROWS) {
-      reject(
-        "dashboard_today_unexpected_range",
-        `${rows.length} linhas de data (máx ${TODAY_MAX_DATE_ROWS}) — sessão contaminada (period aplicado)`,
-      );
+    const sumQty = parsed.rows.reduce((s, r) => s + r.qty, 0);
+    const sumValue = Math.round(parsed.rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
+    debug.sums = { qty: sumQty, value: sumValue };
+    if (parsed.totalRow) {
+      const qtyOk = parsed.totalRow.qty === null || parsed.totalRow.qty === sumQty;
+      const valOk = parsed.totalRow.value === null || Math.abs((parsed.totalRow.value || 0) - sumValue) < 0.005;
+      if (!qtyOk || !valOk) {
+        return await fail(
+          "capture_day_total_mismatch",
+          `TOTAL (${parsed.totalRow.qty}, ${parsed.totalRow.value}) ≠ soma das linhas (${sumQty}, ${sumValue})`,
+        );
+      }
     }
-
-    // (c) qty por linha ≤ 5000
-    const insane = rows.filter((r) => r.quantity > TODAY_MAX_QTY_PER_ROW);
-    debug.validations.rowsOverQtyLimit = insane.map((r) => ({ sale_date: r.sale_date, quantity: r.quantity }));
+    const insane = parsed.rows.filter((r) => r.qty > CAPTURE_DAY_MAX_QTY);
     if (insane.length > 0) {
-      reject(
-        "dashboard_today_sanity",
-        `qty por dia acima do limite de sanidade (${insane.map((r) => `${r.sale_date}=${r.quantity}`).join(",")} > ${TODAY_MAX_QTY_PER_ROW})`,
-      );
+      return await fail("capture_day_sanity", `qty acima do limite (${insane.map((r) => `${r.label}=${r.qty}`).join(", ")} > ${CAPTURE_DAY_MAX_QTY})`);
     }
 
-    // (d) identidade: totais iguais à conta inteira → filtro ignorado
-    const sameQty = got.series.sums.qty === baselineToday.sums.qty;
-    const sameValue = Math.abs(got.series.sums.value - baselineToday.sums.value) < 0.01;
-    const identityRejected = sameQty && sameValue && baselineToday.sums.qty > TODAY_BASELINE_MIN_QTY;
-    debug.validations.identity = { event: got.series.sums, baseline: baselineToday.sums, sameQty, sameValue, rejected: identityRejected };
-    if (identityRejected) {
-      reject(
-        "dashboard_today_filter_ignored",
-        `totais idênticos à conta inteira (qty=${got.series.sums.qty}, valor=${got.series.sums.value})`,
-      );
+    // 5. mapeamento linha → config
+    const mapping: any[] = [];
+    const matchedByConfig = new Map<string, string[]>();
+    for (const row of parsed.rows) {
+      const labelName = row.label.split("|")[0];
+      const lk = normKey(labelName.replace(/\[[^\]]*\]/g, ""));
+      const hits = targetList.filter((t: any) => {
+        const keys = eventNameKeys(nameById.get(t.event_id) || t.organization_name || "");
+        return keys.some((k) => k.length >= 3 && (k === lk || lk.includes(k) || k.includes(lk)));
+      });
+      mapping.push({
+        label: row.label, labelKey: lk, codes: row.codes, qty: row.qty, value: row.value,
+        matched: hits.map((h: any) => ({ configId: h.id, event_id: h.event_id, event_name: nameById.get(h.event_id) || null })),
+      });
+      if (hits.length > 1) {
+        debug.mapping = mapping;
+        return await fail("capture_day_ambiguous_match", `label "${row.label}" casa com ${hits.length} configs`);
+      }
+      if (hits.length === 1) {
+        const arr = matchedByConfig.get(hits[0].id) || [];
+        arr.push(row.label);
+        matchedByConfig.set(hits[0].id, arr);
+      }
+    }
+    debug.mapping = mapping;
+    for (const [cid, labels] of matchedByConfig) {
+      if (labels.length > 1) {
+        return await fail("capture_day_ambiguous_match", `config ${cid} casa com ${labels.length} labels (${labels.join(" / ")})`);
+      }
     }
 
-    return { mode: "dashboard_today", series: got.series, debug };
-  } catch (e: any) {
-    if (e?.retriable) throw e;
-    if (
-      ["dashboard_today_unexpected_range", "dashboard_today_sanity", "dashboard_today_filter_ignored"].includes(e?.phase)
-    ) throw e;
-    // Captura também falhou → mantém o erro html_response original + debug.
-    throw Object.assign(new Error(`${xlsxError.message} | captura dia corrente falhou: ${e?.message || e}`), {
-      phase: "html_response",
-      retriable: false,
-      htmlTitle: xlsxError.htmlTitle,
-      htmlSnippet: xlsxError.htmlSnippet,
-      dashPhase: e?.phase || "dashboard_today_failed",
-      dashDebug: debug,
+    // 6. UPSERT — só a data alvo; configs sem linha ficam a 0/0
+    const payload = targetList.map((t: any) => {
+      const label = (matchedByConfig.get(t.id) || [])[0] || null;
+      const row = label ? parsed.rows.find((r) => r.label === label) : null;
+      return {
+        company_id: t.company_id,
+        event_id: t.event_id,
+        sale_date: dayIso,
+        quantity: row?.qty ?? 0,
+        total_value: row?.value ?? 0,
+      };
     });
+    const { error: upErr } = await admin
+      .from("ticketline_daily_sales")
+      .upsert(payload, { onConflict: "event_id,sale_date" });
+    if (upErr) return await fail("import_failed", `UPSERT ticketline_daily_sales: ${upErr.message}`);
+
+    const audit = {
+      dataSource: "sales_per_event_day",
+      day: dayIso,
+      reportRows: parsed.rows,
+      totalRow: parsed.totalRow,
+      totals: { qty: sumQty, value: sumValue },
+      headerRange: parsed.headerRangeText,
+      mapping,
+      upserted: payload,
+      configsTargeted: targetList.length,
+      matchedConfigs: matchedByConfig.size,
+    };
+    if (runId) {
+      await updateRun(admin, runId, {
+        status: "success", finished_at: new Date().toISOString(),
+        files_downloaded: [{ name: `sales_per_event_${dayIso}.sjr.js`, size: got.size }],
+        error_message: null,
+        import_audit: { ...audit, debug, source_mode: "sales_per_event_day" },
+      });
+    }
+    return json(200, { ok: true, version: VERSION, runId, day: dayIso, audit });
+  } catch (e: any) {
+    return await fail(e?.phase || "capture_day_failed", e?.message || String(e));
   }
 }
-
-
-
 
 
 // ============================================================================
@@ -2343,65 +2479,9 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     const sourceMode = summary.mode;
     debug.source_mode = sourceMode;
 
-    // -------- Caminho evento migrado: captura incremental do dia corrente --------
-    if (summary.mode === "dashboard_today") {
-      debug.dashboard_today = summary.debug;
-      const series = summary.series;
-      // Grava TODAS as datas capturadas (incluindo 0/0: um dia pode ser corrigido
-      // para baixo). O histórico anterior vive na mesma tabela e nunca é apagado.
-      const rows = series.rows;
-      const sums = {
-        qty: rows.reduce((s, r) => s + r.quantity, 0),
-        value: Math.round(rows.reduce((s, r) => s + Number(r.total_value), 0) * 100) / 100,
-      };
-      const filesAuditDash = [{
-        name: `dashboard_sale_summary_${cfg.ticketline_event_id}.sjr.js`,
-        size: Number(summary.debug?.size || 0),
-      }];
+    // v2.34: sem fallback aqui — evento migrado falha com phase html_response.
+    // A série diária desses eventos vem da action `capture_day`.
 
-      let upserted = 0;
-      if (rows.length > 0) {
-        const payload = rows.map((r) => ({
-          company_id: cfg.company_id,
-          event_id: cfg.event_id,
-          sale_date: r.sale_date,
-          quantity: r.quantity,
-          total_value: r.total_value,
-        }));
-        // UPSERT — NUNCA apagar outras datas (histórico backfilled por SQL).
-        const { error: upErr } = await admin
-          .from("ticketline_daily_sales")
-          .upsert(payload, { onConflict: "event_id,sale_date" });
-        if (upErr) throw Object.assign(new Error(`Import diário (upsert): ${upErr.message}`), { phase: "import_failed", filesAudit: filesAuditDash });
-        upserted = payload.length;
-      }
-      await updateConfig(admin, cfg.id, {
-        daily_fallback_active: true,
-        last_run_at: new Date().toISOString(),
-        last_run_status: "success",
-      });
-      const auditDash = {
-        dataSource: "dashboard_today",
-        daysParsed: rows.length,
-        daysImported: upserted,
-        totalQty: sums.qty,
-        totalValue: sums.value,
-        totalRow: series.totalRow,
-        headerRange: series.headerRange,
-        capturedDates: rows.map((r) => r.sale_date),
-        firstDay: rows[0]?.sale_date ?? null,
-        lastDay: rows[rows.length - 1]?.sale_date ?? null,
-        baselineToday: summary.debug?.baselineToday ?? null,
-      };
-      await updateRun(admin, runId, {
-        status: "success", finished_at: new Date().toISOString(),
-        files_downloaded: filesAuditDash,
-        error_message: null,
-        import_audit: { ...auditDash, debug, source_mode: "dashboard_today" },
-      });
-      console.log(`[ticketline ${runId}] dashboard_today: ${upserted} dia(s), qty=${sums.qty}, valor=${sums.value}`);
-      return { ok: true, runId, audit: auditDash, status: "success", source_mode: "dashboard_today" };
-    }
 
 
     const filesAudit = [{ name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.bytes.length }];
@@ -2506,6 +2586,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, compareConfigId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "capture_day") {
+    try {
+      return await runCaptureDay(admin, configId, body.dateISO);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "capture_day_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "sjr") {
     try {
