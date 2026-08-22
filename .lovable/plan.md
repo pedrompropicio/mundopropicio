@@ -1,56 +1,67 @@
-# Guarda de remoção (#59) + coerência de rubrica BP↔TX (apertar o que existe)
+# PDF do BP — "previsto + excedido" (layout validado no Excel)
 
-## 0. Levantamento — o que já existe na BD
+## Trava anti-reinvestigação: o que já existe
 
-Já existem **os dois lados**, não só um:
+- `src/lib/export-event-bp-pdf.ts` (837 linhas) — **relatório de conferência** do BP: cartões de resumo, identidade do evento, tabelas Receitas/Despesas, log de auditoria, comparação com transações. Já é jsPDF + jspdf-autotable, **paisagem A4**, multi-página, com contexto de render partilhado (`RenderContext`) e rodapé. É o botão "PDF" que já está no `EventForecast.tsx`.
+- `src/lib/export-partner-bp-pdf.ts` — versão do sócio: hierárquica L1>L2>L3, mas só 2 colunas (categoria/valor) e sem excedido, sem ordenador, sem anexos.
+- `src/lib/export-header.ts` — já resolve branding (logo de `companies.logo_url` → data URL, fallback para asset local) e desenha cabeçalho institucional em PDF.
 
-- `enforce_tx_category_l2_match()` — `transactions`, valida ao mudar `category_id`; se há forecast a reclamar por FK e o L2 não bate, `RAISE check_violation`.
-- `enforce_forecast_tx_link_l2_match()` — `event_forecasts`, valida ao mudar `transaction_id`/`category_id` com a mesma função; mensagem "Não é possível vincular esta transação ao BP: categorias em grupos L2 diferentes."
-- `validate_tx_category_l2_match(tx_cat, forecast_id)` — resolve o L2 de cada lado e compara.
+**Recomendação: criar um exportador novo** `src/lib/export-bp-committed-pdf.ts`, reaproveitando a infra existente (jsPDF + autoTable + `export-header.ts`). Justificação: o exportador atual é um *relatório de conferência* com propósito e estrutura diferentes (não hierárquico, com auditoria); enxertar-lhe um segundo layout de 7 colunas com 4 níveis tornaria-o difícil de manter. **Nenhuma biblioteca nova** — jsPDF/jspdf-autotable já cobrem cabeçalho repetido, faixas coloridas, zebra e paisagem.
 
-Ou seja a lacuna real é dupla: **granularidade L2 em vez de L3** e **semântica de bloqueio em vez de sincronização**. Ambos os triggers dizem "não", nenhum diz "alinha". É isso que torna a correcção legítima um gesto de dois passos em ordem adivinhada e faz uma CTE única falhar (o trigger lê o snapshot antigo do outro lado).
+## Logo
 
-## 1. Desenho — trocar validação por propagação, mantendo as funções actuais
+O logótipo do ERP é `src/assets/logo-horizontal.png` (usado por `BrandedLogo.tsx` e por `export-header.ts` via `?inline`). O novo exportador usa `fetchExportBranding()`, que já lê `companies.logo_url` da empresa ativa e cai para esse asset quando está NULL — exactamente o comportamento pedido. Preencher o `logo_url` da Mundo Propício fica como acção manual tua no `/admin/empresas` (upload no bucket público `company-logos`); não faz parte deste plano de código.
 
-Direcção única: **a rubrica da linha de BP manda**.
+## Dados
 
-- `event_forecasts` AFTER INSERT/UPDATE OF `category_id`, `transaction_id` → nova função `sync_tx_category_from_forecast()`:
-  `UPDATE transactions SET category_id = NEW.category_id WHERE id = NEW.transaction_id AND category_id IS DISTINCT FROM NEW.category_id`.
-  Substitui `enforce_forecast_tx_link_l2_match` (que passa a ser dropado): mover a linha deixa de ser recusado e passa a arrastar a TX. É isto que torna o gesto único e atómico — uma só instrução `UPDATE event_forecasts …` resolve o par.
-- `transactions` AFTER UPDATE OF `category_id` → `realign_tx_category_from_forecast()`: se existe forecast a reclamar a TX e a rubrica difere, reescreve a TX para a do forecast (silenciosamente, sem erro). Substitui `enforce_tx_category_l2_match`.
+Uma função `fetchCommittedBpBundle(eventId, includeChildren)`:
 
-**Sobre L3 vs L2:** ao propagar, a comparação passa a ser de **igualdade exacta de `category_id`** — L3 exacto por construção, o que resolve os casos `2.6.08` vs `2.6.04`, `2.9.01` vs `2.9.03`, `3.1.01` vs `3.1.06`. `validate_tx_category_l2_match` deixa de ser chamada por triggers; **mantenho-a** (é lida noutros sítios/relatórios) mas sem criar versão L3 ao lado — a igualdade exacta dispensa-a.
+1. `events` (nome, data, recinto/venue, cidade).
+2. `event_forecasts` da versão ativa (`version_id IS NULL`), `type='expense'`, **`status='approved'`** (draft fica fora — é a divergência dos 1.560,00 €), com `account_categories(code, name)` e `ordering_partner_id`.
+3. `account_categories` para reconstruir L1/L2/L3 a partir do código.
+4. `transactions` do evento (+ filhos) com `FECHO_TX_FILTER_COLUMNS`, filtradas por `isValidFechoTransaction` de `fecho-filters.ts`, e `forecast_id`/vínculo FK para saber quais estão reclamadas.
+5. `event_partners` + `suppliers.name` para o ordenador; sem ordenador → `MP`.
+6. Contagens de anexos: `event_forecast_attachments` (por `forecast_id`) e `transaction_documents` (por `transaction_id`).
 
-**Alternativa que descarto:** apertar a validação para L3 e manter o bloqueio. Continuaria a exigir dois passos e a recusar correcções legítimas. Bloquear não serve quando existe uma fonte de verdade clara.
+## Cálculo (reaproveitado, não refeito)
 
-### Anti-recursão — escolha
-`IF pg_trigger_depth() > 1 THEN RETURN NULL; END IF;` no topo de ambas as funções. Local, sem estado de sessão a limpar (uma flag `set_config` fica pendurada se algo falhar a meio) e ambas só precisam de reagir a escritas de nível 1. O `IS DISTINCT FROM` no `WHERE` já garante no-op quando são iguais; o `pg_trigger_depth` é o cinto de segurança.
+- Excedido por rubrica L3: `computeOverrunMap` + `sumExcess` de `src/lib/event-cost-basis.ts`, com previsto = Σ linhas aprovadas da L3 e realizado = Σ transações válidas da L3.
+- IVA do excedido: **taxa ponderada** das transações que compõem o excesso da rubrica (Σ IVA / Σ base dessas transações), não a taxa da linha de BP. Na Anitta dá 0%.
+- IVA por linha de BP = `amount × iva_rate/100`; Total c/IVA = soma.
+- Ordenador: `effectiveTransactionOrderer` / `orderingPartnerInitials` já existem em `ordering-partner.ts`; aqui usamos o **nome do sócio** (não iniciais) e `MP` no vazio.
 
-### `event_id` NULL (Mágicos H&K)
-Os triggers **não referem `event_id` em condição nenhuma** — trabalham só por `transaction_id`. As duas divergências (`22f82b45…`, `37e12a82…`) não rebentam nem são tocadas: só serão realinhadas se alguém voltar a escrever nessas linhas ou transações. **Sem backfill** nesta migração, portanto ficam como estão até decidires o `event_id`.
+## Layout do PDF
 
-### Auditoria
-Sem `updated_at = now()` no realinhamento automático (não é edição de utilizador). Registo em `system_audit_log` com acção `auto_realign_tx_category`, `record_id` da TX e `changes = {from, to, forecast_id, source:'trigger'}`.
+Paisagem A4, margens 10 mm, `autoTable` único com `head` repetido em todas as páginas, `theme: 'plain'` (sem grelha).
 
-## 2. Guarda de remoção — issue #59
+Colunas: `Código` · `Descrição` · `Ordenador` · `Anexos` · `Valor s/IVA` · `IVA` · `Total c/IVA` (3 últimas alinhadas à direita).
 
-Está em `src/components/EventForecast.tsx`:
-- ~3095–3146 `matchingTransactions` (FK `directTx` + `sameCat` por rubrica/tipo + desempate `scoreDescriptionMatch` de `src/lib/bp-tx-matching.ts`);
-- 3151–3161 `paidTransactions` / `unpaidTransactions`;
-- ~4134 `DeleteForecastDialog` ("Remover linha aprovada"), que trava com base nesses arrays.
+Cabeçalho: logo à direita; nome do evento em destaque; subtítulo `Visão previsto + excedido · valores por linha, com totais por nível`; 3.ª linha com data e recinto.
 
-Foi por aqui que `c43d2f43…` entrou na linha errada: mesma rubrica + token "Digital Decor".
+Linhas:
+- **L1** — fundo escuro (#1f2937), texto branco, negrito.
+- **L2** — cinzento médio, negrito.
+- **L3** — cinzento claro, negrito.
+- **Linha de BP** — sem fundo, zebra subtil, descrição indentada, coluna Código vazia.
+- **Excedido** — imediatamente após as linhas da L3: `Excedido — realizado acima do previsto nesta rubrica`, itálico, cor de destaque suave.
+- **Total geral** — faixa de destaque, texto branco.
 
-**Fix:** construir `claimedByOtherForecast = Set(allForecasts.filter(f => f.transaction_id && f.id !== item.id).map(f => f.transaction_id))` e excluir essas TXs de `sameCat` antes do desempate. O `directTx` da própria linha continua incluído via `mergeWithDirect`. Assim uma TX já reclamada por FK por outra linha nunca bloqueia nem aparece na linha errada.
+Sem observações nem rodapé de notas.
 
-## 3. UI — empurrar a correcção para a linha, não para a TX
+## Anexos
 
-Onde a transação está vinculada por FK a uma linha de BP, o campo de rubrica no `TransactionEditModal` passa a read-only com nota "Rubrica definida pela linha do BP vinculada — corrija na linha" e link para a linha. Sem isto, o realinhamento silencioso do trigger parece um bug ao utilizador.
+- Linha de BP: anexos próprios (`event_forecast_attachments`) + `transaction_documents` das transações vinculadas por FK a essa linha.
+- Totais L3/L2/L1 e geral: soma das linhas **+** documentos das transações da rubrica **não vinculadas** a nenhuma linha (senão o total fica abaixo do real). Alvo Anitta: 402.
+- Texto `"XX Anexos"`.
 
-## 4. Ressalva 1:1 (issue #29)
+## UI
 
-No cabeçalho de ambas as funções da migração e em `docs/DECISIONS.md` (secção própria, não enterrada):
-> Assume vínculo **1:1** `event_forecasts.transaction_id → transactions.id`. Com a issue #29 (1 fatura → N linhas de BP, 1 linha → N transações) a rubrica da transação deixa de poder seguir uma única linha e **estes dois triggers têm de ser revistos/substituídos** pela camada de alocação.
+Botão `PDF (previsto + excedido)` em `EventForecast.tsx`, ao lado do PDF existente (mesmo estilo, ícone `FileSpreadsheet`), com estado `exportingCommittedPDF` e toasts iguais.
 
-## Fora de âmbito
-Sem Publish, sem tocar nos 2 pares do Mágicos H&K, sem backfill SQL.
+## Validação
+
+Alvo: total s/IVA da Anitta = **1.657.034,63 €** (bate ao cêntimo com o card Despesas); `2.2.01 Aéreo` com excedido 57.784,01 e rubrica a fechar em 157.694,10; anexos totais 402. QA visual via `pdftoppm` das páginas geradas.
+
+## Nada impraticável
+
+Todos os pontos do layout são suportados por jspdf-autotable. Única nota: "ajustar à largura" é resolvido com larguras fixas de coluna somando a largura útil da folha, não com um flag de impressora.
