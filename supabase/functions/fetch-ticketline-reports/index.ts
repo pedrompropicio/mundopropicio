@@ -13,7 +13,7 @@ import {
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.32_dashboard_daily_session_filter";
+const VERSION = "v2.33_dashboard_today_incremental";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -72,7 +72,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" }
+interface Body { urls?: string[]; configId?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -2501,6 +2501,14 @@ Deno.serve(async (req) => {
   let body: Body = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, compareConfigId, mode = "manual", triggeredBy = null, action = "sync" } = body;
+
+  if (action === "sjr") {
+    try {
+      return await runProbeSjr(admin, configId, body.urls);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "probe_sjr_failed", error: e?.message || String(e) });
+    }
+  }
 
   if (action === "probe_params") {
     try {
