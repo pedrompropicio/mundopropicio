@@ -15,7 +15,7 @@ import {
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 
-const VERSION = "v2.35_sales_per_event_total_vendas";
+const VERSION = "v2.36_capture_day_code_match";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
