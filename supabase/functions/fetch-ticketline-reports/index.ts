@@ -1581,7 +1581,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
       reportRows: parsed.rows,
       totalRow: parsed.totalRow,
       totals: { qty: sumQty, value: sumValue },
-      headerRange: parsed.headerRangeText,
+      headerRange: per.headerText,
       mapping,
       upserted: payload,
       configsTargeted: targetList.length,
