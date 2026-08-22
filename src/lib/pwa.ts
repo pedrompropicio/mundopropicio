@@ -1,6 +1,6 @@
 import { registerSW } from "virtual:pwa-register";
 
-const PWA_UPDATE_INTERVAL_MS = 15 * 60_000;
+const PWA_UPDATE_INTERVAL_MS = 60_000;
 
 type ControllerChangeListener = () => void;
 

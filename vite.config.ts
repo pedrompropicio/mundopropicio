@@ -43,19 +43,30 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/~oauth/],
-        // "html" é obrigatório: sem index.html no precache, o navigateFallback
-        // do SW não resolve e a app abre em ecrã branco (PWA/mobile).
+        // `navigateFallback: ""` desliga o default do vite-plugin-pwa
+        // ("index.html"). Com ele, o workbox registava uma NavigationRoute
+        // servida pelo precache (cache-first) ANTES das runtimeCaching, e todas
+        // as navegações eram servidas do index.html em cache — era isto que
+        // segurava a versão antiga (Safari/PWA). O fallback offline passa a ser
+        // feito por `precacheFallback` na rota NetworkFirst abaixo.
+        // "html" é obrigatório: o index.html tem de estar no precache para
+        // servir de fallback offline.
+        navigateFallback: "",
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         importScripts: ["/sw-push.js"],
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ request, url }) =>
+              request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
             handler: "NetworkFirst",
             options: {
               cacheName: "app-navigations",
               networkTimeoutSeconds: 4,
+              // Ignora a cache HTTP do browser para o documento: o index.html
+              // aponta para os assets com hash e tem de vir sempre fresco.
+              fetchOptions: { cache: "reload" } as RequestInit,
+              // Offline / rede em falha: cai no index.html do precache.
+              precacheFallback: { fallbackURL: "/index.html" },
             },
           },
           {
