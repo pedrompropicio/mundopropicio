@@ -50,7 +50,7 @@ function cleanText(raw: string): string {
 }
 
 /** "01 Jan 2026" (PT ou EN) → "01 Jan 2026" normalizado em PT (aceite pelo parser XLSX). */
-function normalizeDateLabel(txt: string): string | null {
+export function normalizeDateLabel(txt: string): string | null {
   const m = txt.match(/^(\d{1,2})\s+([A-Za-zÀ-ÿ]{3,})\.?\s+(\d{4})$/);
   if (!m) return null;
   const key = m[2].toLowerCase().slice(0, 3);
@@ -61,7 +61,7 @@ function normalizeDateLabel(txt: string): string | null {
 }
 
 /** "1 234,56€" / "1.234,56" / "12" → número. Devolve null se não for numérico. */
-function parseNumberLabel(txt: string): number | null {
+export function parseNumberLabel(txt: string): number | null {
   let s = txt.replace(/[€\s\u00a0]/g, "");
   if (!s || s === "-" || s === "—") return null;
   const neg = /^\(.*\)$/.test(s);
@@ -75,7 +75,7 @@ function parseNumberLabel(txt: string): number | null {
 }
 
 /** Converte uma <table> em grelha rectangular, expandindo colspan/rowspan. */
-function tableToGrid(inner: string, maxCols = 40): string[][] {
+export function tableToGrid(inner: string, maxCols = 40): string[][] {
   const trs = Array.from(inner.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((x) => x[1]);
   const grid: string[][] = [];
   // pendências de rowspan: col → { text, remaining }
@@ -128,7 +128,7 @@ function tableToGrid(inner: string, maxCols = 40): string[][] {
   return grid;
 }
 
-function extractTables(html: string): string[][][] {
+export function extractTables(html: string): string[][][] {
   const out: string[][][] = [];
   const re = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
   let m: RegExpExecArray | null;
