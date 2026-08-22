@@ -9,12 +9,13 @@ import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-
 // (parser SJR por-evento mantido em _shared para as sondas; o sync usa a série diária do dashboard)
 import {
   parseDashboardDailySjr,
+  extractHeaderRange,
   type DashboardDailyResult,
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 
-const VERSION = "v2.34_sales_per_event_day_capture";
+const VERSION = "v2.35_sales_per_event_total_vendas";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
