@@ -17,17 +17,21 @@
 
 /**
  * Rótulo do bucket sintético de transações sem linha de BP.
- * Receita: por desenho não há linhas de BP (vive nos módulos/transações) → rótulo
- * neutro, sem tratamento de aviso. Despesa: é pendência legítima a resolver.
+ * Não é defeito: a rubrica está correcta, o valor entra no fecho e o excedido é
+ * calculado por rubrica (não por linha). Daí o rótulo neutro.
  */
 export function orphanBucketLabel(type: string | null | undefined): string {
-  return type === "income" ? "Receita da rubrica" : "Sem linha de BP — a classificar";
+  return type === "income" ? "Receita da rubrica" : "Outras transações da rubrica";
 }
 
-/** Só as despesas órfãs são pendência (recebem ícone/cor de aviso). */
-export function orphanBucketIsPending(type: string | null | undefined): boolean {
-  return type !== "income";
+/**
+ * Tratamento de pendência (ícone/cor de aviso) — desligado por decisão de
+ * 2026-08-22: o balde é informativo, não uma pendência.
+ */
+export function orphanBucketIsPending(_type: string | null | undefined): boolean {
+  return false;
 }
+
 
 export function normalizeMatchText(value: string | null | undefined): string {
   return String(value ?? "")
