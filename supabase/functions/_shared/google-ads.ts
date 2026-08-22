@@ -127,7 +127,8 @@ export async function googleAdsSearch(
     const page = await googleAdsPost<{ results?: any[]; nextPageToken?: string }>(
       ctx,
       `/customers/${ctx.customerId}/googleAds:search`,
-      { query, pageSize: 1000, pageToken },
+      // v24: pageSize não é suportado em googleAds:search (fixo em 10000).
+      { query, pageToken },
     );
     for (const r of page.results ?? []) out.push(r);
     pageToken = page.nextPageToken;
