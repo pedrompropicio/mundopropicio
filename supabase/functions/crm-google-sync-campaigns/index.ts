@@ -370,7 +370,11 @@ async function authenticateRequest(req: Request): Promise<AuthInfo> {
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) throw new Error("missing_authorization");
 
-  // Detecta service_role pelo payload
+  // Service role no formato novo (sb_secret_…), que não é JWT
+  const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (svc && token === svc) return { isServiceRole: true, userId: null };
+
+  // Detecta service_role pelo payload (chave legacy em JWT)
   try {
     const parts = token.split(".");
     if (parts.length >= 2) {
