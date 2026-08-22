@@ -2514,8 +2514,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 </tr>
                               ) : (
                                 <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
-                              )
-                            ))}
+                              ));
+                              return (
+                                <React.Fragment key={`inc-band-${f.id}`}>
+                                  {band && <CategoryBandRow band={band} colCount={7} />}
+                                  {row}
+                                </React.Fragment>
+                              );
+                            })}
+
                           </React.Fragment>
                         );
                       })}
