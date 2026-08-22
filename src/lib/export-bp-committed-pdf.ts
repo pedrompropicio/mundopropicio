@@ -174,7 +174,17 @@ export function committedBpFileName(eventName: string): string {
 
 export async function exportCommittedBpToPDF(opts: { eventId: string; includeChildren?: boolean }) {
   const bundle = await fetchCommittedBpBundle(opts.eventId, opts.includeChildren ?? true);
-  const branding = await fetchExportBranding();
+  // O logótipo é decoração: 3s e segue sem ele (nunca pendura a exportação).
+  let branding: ExportBranding = { displayName: SYSTEM_NAME, logoDataUrl: null };
+  try {
+    branding = await new Promise<ExportBranding>((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("branding: tempo excedido")), 3_000);
+      fetchExportBranding().then((b) => { clearTimeout(t); resolve(b); }, (e) => { clearTimeout(t); reject(e); });
+    });
+  } catch {
+    /* segue sem logótipo */
+  }
   const doc = buildCommittedBpDoc(bundle, branding);
   doc.save(committedBpFileName(bundle.event.name));
 }
+
