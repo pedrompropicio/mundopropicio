@@ -3793,6 +3793,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const txs: any[] = item._orphanTx ?? [];
   const colCount = isExpense ? 8 : 7;
+  const pending = orphanBucketIsPending(item.type);
   const realized = txs.reduce((s, t) => s + Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100), 0);
 
   return (
