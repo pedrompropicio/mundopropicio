@@ -136,7 +136,14 @@ function buildDateRange(daysBack: number): { since: string; until: string } {
   return { since: isoDate(since), until: isoDate(until) };
 }
 
-function buildGaql(since: string, until: string): string {
+// ARMADILHA (corrigida em 2026-08-22): consultas de METADADOS nunca levam
+// `segments.date`. Ao segmentar por data, o Google só devolve linhas de dias com
+// entrega — campanhas novas, em pausa ou sem impressões ficam invisíveis e o
+// espelho de metadados passa a depender de terem gasto dinheiro.
+// Por isso há DUAS consultas:
+//   1) buildMetadataGaql() — FROM campaign SEM segments.date → crm.google_campaign
+//   2) buildDailyGaql()    — FROM campaign COM segments.date → crm.google_campaign_insights_daily
+function buildMetadataGaql(): string {
   return `
   SELECT
     campaign.id,
@@ -147,6 +154,16 @@ function buildGaql(since: string, until: string): string {
     campaign.start_date_time,
     campaign.end_date_time,
     campaign_budget.amount_micros,
+    customer.currency_code
+  FROM campaign
+`;
+}
+
+function buildDailyGaql(since: string, until: string): string {
+  return `
+  SELECT
+    campaign.id,
+    campaign.name,
     customer.currency_code,
     segments.date,
     metrics.impressions,
@@ -158,6 +175,7 @@ function buildGaql(since: string, until: string): string {
   WHERE segments.date BETWEEN '${since}' AND '${until}'
 `;
 }
+
 
 
 interface GAdsCampaignRow {
@@ -276,6 +294,28 @@ function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
     byId.set(id, prev);
   }
   return Array.from(byId.values());
+}
+
+/**
+ * Os totais de métricas do período vêm da consulta de insights (que leva
+ * segments.date). Somamos por campanha e injectamos nos metadados — campanhas
+ * sem entrega ficam com zeros, mas continuam a existir na lista.
+ */
+function mergeMetricsFromInsights(agg: AggCampaign[], rows: GAdsCampaignRow[]): void {
+  const byId = new Map<string, AggCampaign>(agg.map((a) => [a.external_campaign_id, a]));
+  for (const r of rows) {
+    const c = (r.campaign ?? {}) as Record<string, unknown>;
+    const m = (r.metrics ?? {}) as Record<string, unknown>;
+    const id = c.id != null ? String(c.id) : null;
+    if (!id) continue;
+    const target = byId.get(id);
+    if (!target) continue;
+    target.impressions += m.impressions != null ? Number(m.impressions) : 0;
+    target.clicks += m.clicks != null ? Number(m.clicks) : 0;
+    target.cost_micros += m.costMicros != null ? Number(m.costMicros) : 0;
+    target.conversions += m.conversions != null ? Number(m.conversions) : 0;
+    target.conversions_value += m.conversionsValue != null ? Number(m.conversionsValue) : 0;
+  }
 }
 
 // ---------------- Linhas diárias (espelho do meta_campaign_insights_daily) --
@@ -437,7 +477,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     Math.max(1, Number(bodyJson.days_back ?? (mode === "full" ? 365 : 30))),
   );
   const { since, until } = buildDateRange(daysBack);
-  const gaql = buildGaql(since, until);
+  const metadataGaql = buildMetadataGaql();
+  const dailyGaql = buildDailyGaql(since, until);
 
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -488,15 +529,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     try {
-      const rows = await searchStreamCampaigns(
+      // 1ª consulta: metadados de TODAS as campanhas (sem segments.date)
+      const metaRows = await searchStreamCampaigns(
         accessToken,
         GOOGLE_ADS_DEVELOPER_TOKEN!,
         loginCustomerId,
         customerId,
-        gaql,
+        metadataGaql,
       );
-      const agg = aggregate(rows);
-      const daily = buildDailyRows(rows);
+      // 2ª consulta: insights diários (só dias com dados)
+      const insightRows = await searchStreamCampaigns(
+        accessToken,
+        GOOGLE_ADS_DEVELOPER_TOKEN!,
+        loginCustomerId,
+        customerId,
+        dailyGaql,
+      );
+      const agg = aggregate(metaRows);
+      mergeMetricsFromInsights(agg, insightRows);
+      const daily = buildDailyRows(insightRows);
+
 
       // --- 1) Metadados da campanha (equivalente ao meta_campaign_snapshot) ---
       const upsertRows = agg.map((a) => ({
@@ -541,6 +593,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
         upserted = upsertRows.length;
       }
 
+      // --- 1b) Auto-link campanhas → eventos (respeita linked_event_locked).
+      // Corre DEPOIS dos metadados e ANTES dos insights: uma campanha nova deve
+      // poder ligar-se ao evento antes de ter gasto um cêntimo.
+      let autoLink: unknown = null;
+      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
+        "crm_auto_link_google_campaigns_to_events",
+        { p_company_id: conn.company_id },
+      );
+      if (linkErr) {
+        console.error("[auto-link] failed:", linkErr.message);
+        autoLink = { error: linkErr.message };
+      } else {
+        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
+      }
+
+
+
       // --- 2) Insights diários (chunks de 500 para não estourar o payload) ---
       let dailyUpserted = 0;
       const nowIso = new Date().toISOString();
@@ -577,19 +646,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         dailyUpserted += chunk.length;
       }
 
-      // --- 3) Auto-link campanhas → eventos (respeita linked_event_locked) ---
-      let autoLink: unknown = null;
-      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
-        "crm_auto_link_google_campaigns_to_events",
-        { p_company_id: conn.company_id },
-      );
-      if (linkErr) {
-        console.error("[auto-link] failed:", linkErr.message);
-        autoLink = { error: linkErr.message };
-      } else {
-        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
-      }
-
       // Marca connection saudável
       await (supabase as any)
         .schema("crm")
@@ -607,7 +663,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         customer_id: customerId,
         ok: true,
         campaigns_fetched: agg.length,
-        rows_returned: rows.length,
+        metadata_rows_returned: metaRows.length,
+        insight_rows_returned: insightRows.length,
         upserted,
         daily_rows_upserted: dailyUpserted,
         auto_link: autoLink,
