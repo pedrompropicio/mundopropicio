@@ -1165,8 +1165,8 @@ async function dashGetHtml(jar: Jar): Promise<{ html: string; token: string }> {
   return { html, token };
 }
 
-/** Fixa o período do dashboard por POST (period=5 + datas). */
-async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string) {
+/** Fixa o período do dashboard por POST (period=5 + datas + evento). */
+async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: string, id?: string) {
   const form = new URLSearchParams({
     utf8: "✓",
     authenticity_token: token,
@@ -1174,6 +1174,10 @@ async function dashPostPeriod(jar: Jar, token: string, startDD: string, endDD: s
     filter_start_date: startDD,
     filter_end_date: endDD,
   });
+  if (id) {
+    form.set("bulk_event_ids", id);
+    form.append("bulk_event_ids[]", id);
+  }
   const resp = await fetchWithTimeout(DASH_URL, {
     method: "POST", redirect: "manual",
     headers: {
