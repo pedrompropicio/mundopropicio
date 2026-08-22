@@ -2455,6 +2455,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
                         const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
                         const showGroupHeader = incomeGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
+                        const bands = buildCategoryBands(group.items);
+
                         return (
                           <React.Fragment key={group.groupName}>
                             {showGroupHeader && (
