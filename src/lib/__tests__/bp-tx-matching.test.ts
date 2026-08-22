@@ -82,3 +82,33 @@ describe("findCategoryOrphanTransactions", () => {
     expect(findCategoryOrphanTransactions({ ...base, transactions: txs, allForecasts: [fa] })).toEqual([]);
   });
 });
+
+describe("issue #59 — TX reclamada por FK por OUTRA linha não conta nem bloqueia", () => {
+  it("exclui a TX reclamada por outra linha, mesmo com descrição semelhante", () => {
+    // Caso real: linha "Digital Decor - estrutura metálica" (2.5.03) não pode
+    // reclamar a TX "Digital Decor - telas pórtico", cujo FK pertence a outra linha.
+    const alvo = f({ id: "f-estrutura", description: "Digital Decor - estrutura metálica" });
+    const outra = f({ id: "f-telas", description: "Tecido - Telas Porticos", transaction_id: "t-telas" });
+    const tTelas = tx({ id: "t-telas", description: "Digital Decor - telas portico" });
+    expect(
+      findMatchingTransactionsForForecast(alvo, [tTelas], [alvo, outra]).map((t) => t.id),
+    ).toEqual([]);
+  });
+
+  it("REGRESSÃO Anitta 2.6.04: linha mantém a sua TX por FK + a órfã da rubrica", () => {
+    // "Mobiliário Camarins - Anitta e Family and Friends" (2.977,00) =
+    // 2.145,00 vinculada por FK + 832,00 órfã. A exclusão só apanha TXs de OUTRA linha.
+    const linha = f({
+      id: "f-mob",
+      description: "Mobiliário Camarins - Anitta e Family and Friends",
+      transaction_id: "t-2145",
+    });
+    const outraLinha = f({ id: "f-outra", description: "Outra coisa qualquer" });
+    const t2145 = tx({ id: "t-2145", description: "Mobiliario camarins Anitta", amount: 2145 });
+    const t832 = tx({ id: "t-832", description: "Mobiliario camarins family friends", amount: 832 });
+    const got = findMatchingTransactionsForForecast(linha, [t2145, t832], [linha, outraLinha]).map((t) => t.id);
+    expect(got).toContain("t-2145");
+    expect(got).toContain("t-832");
+    expect(got).toHaveLength(2);
+  });
+});
