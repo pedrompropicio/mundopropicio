@@ -3,7 +3,7 @@
 // parser de operações por dia × zona → import zonas/lotes/vendas reais.
 // Multi-evento: se body.configId vier, corre só esse; senão corre todos os configs enabled=true.
 // Auth: aceita SERVICE_ROLE (cron) OU JWT de admin/manager/editor/platform_admin (UI).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 // (parser SJR por-evento mantido em _shared para as sondas; o sync usa a série diária do dashboard)

@@ -1,5 +1,5 @@
 // onboarding-preview — público. Lê token e devolve nome + email mascarado + branding da empresa.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -1,5 +1,5 @@
 // accept-invitation — público (não requer JWT). Cria conta a partir de um convite válido.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

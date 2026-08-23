@@ -1,5 +1,5 @@
 // onboarding-complete — público. Define password do user via token e devolve sessão.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

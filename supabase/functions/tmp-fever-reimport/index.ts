@@ -1,5 +1,5 @@
 // Temp one-off: re-import Fever XLSX via base64 payload.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseFeverXlsxBuffers, groupFeverLots } from "../_shared/fever-parser.ts";
 import { runFeverImport } from "../_shared/fever-import-server.ts";
 

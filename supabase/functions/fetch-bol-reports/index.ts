@@ -17,7 +17,7 @@
 // MapasProdutor.aspx (hidden fields, selects/options, botões, links) para
 // depuração caso o postback falhe.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";

@@ -2,7 +2,7 @@
 // Ingestão disparada do browser do Pedro (bookmarklet no FeverZone).
 // A Fever bloqueia a API a partir de IPs de datacenter (issue #48): o browser entrega
 // apenas o JWT do Metabase; o servidor descarrega os XLSX e corre o parser/importador.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { downloadFeverXlsx, runFeverPipeline, FEVER_CLIENT_VERSION_FALLBACK } from "../_shared/fever-metabase.ts";
 
 const VERSION = "v1_browser_ingest_2026_08_16";

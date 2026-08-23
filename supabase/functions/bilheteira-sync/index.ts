@@ -14,7 +14,7 @@
 //  - HTML inesperado / preços estranhos / preço 0 → não escreve, loga erro.
 //  - Zonas de mobilidade condicionada/reduzida são ignoradas.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   findTicketlineSessionUrl,
   parseTicketlineSession,
