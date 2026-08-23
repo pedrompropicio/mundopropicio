@@ -54,6 +54,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+/** Placeholder estável (evita novo objeto por render nas deps do card). */
+const EMPTY_TICKET_SALES = { net: 0, gross: 0 };
+
 const PIE_COLORS = [
   "hsl(262 80% 60%)",
   "hsl(170 70% 45%)",
@@ -448,7 +451,6 @@ export default function EventDetail() {
 
 
   // Receita de bilheteira em PAR {net, gross} — o card resolve conforme o seletor c/IVA.
-  const EMPTY_TICKET_SALES = { net: 0, gross: 0 };
   const { data: ticketSales = EMPTY_TICKET_SALES } = useQuery({
     queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
     queryFn: async () => {
