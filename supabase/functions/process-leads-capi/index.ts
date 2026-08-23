@@ -178,7 +178,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const items: any[] = Array.isArray(data) ? data : [];
     batches++;
 
-    if (items.length === 0) { stop_reason = "drained"; break; }
+    if (items.length === 0) {
+      // A RPC pode consumir um batch inteiro só com skipped_old/skipped_no_pixel
+      // (marca e faz CONTINUE, sem devolver linhas). Nesse caso a fila NÃO está
+      // drenada — confirmar por contagem antes de parar.
+      const { count } = await supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .or("capi_status.is.null,capi_status.eq.retry");
+      if (!count || count === 0) { stop_reason = "drained"; break; }
+      skipped_only_batches++;
+      continue;
+    }
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
