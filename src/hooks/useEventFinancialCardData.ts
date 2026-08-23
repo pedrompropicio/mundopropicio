@@ -20,8 +20,8 @@ export interface UseEventFinancialCardDataArgs {
   scenario?: RevenueScenario; // só usado em forecast+income
   eventStatus?: string | null;
   primaryEventDate?: string | null;
-  /** Receita já calculada de ticket_sales (vem do EventDetail). */
-  ticketSalesRevenue?: number;
+  /** Receita de ticket_sales em par {net, gross} (vem do EventDetail). */
+  ticketSales?: { net: number; gross: number };
   /** TX do Master rateadas (÷ N siblings). */
   masterExpenseShare?: number;
   /** Forecasts overhead do Master rateados (÷ N siblings). Só aplicado em committed/forecast. */
@@ -63,6 +63,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   // Valor da linha c/ ou s/IVA — arredondamento ao cêntimo LINHA A LINHA (Art.º 18 CIVA).
   const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) =>
     lineValue(amount, ivaRate, withVat);
+
+  // Bilheteira obedece ao MESMO seletor das transações: bruto com c/IVA, líquido s/IVA.
+  const ticketRevenue = withVat
+    ? Number(args.ticketSales?.gross ?? 0)
+    : Number(args.ticketSales?.net ?? 0);
+  const ticketNet = Number(args.ticketSales?.net ?? 0);
 
   // ── transactions (paid + approved, NÃO inclui pending para alinhar com Cards/Análise) ──
   const { data: txs = [] } = useQuery({
@@ -130,7 +136,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       (t.status === "paid" || t.status === "approved" || t.status === "partially_paid") && !t.is_transitory
     );
     const hasTx = realizedTx.length > 0;
-    const hasSales = (args.ticketSalesRevenue ?? 0) > 0;
+    const hasSales = ticketNet > 0;
     const phase = detectPhase({
       eventStatus,
       lastDate: primaryEventDate,
@@ -148,11 +154,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const nonTicket = incomeTx.filter((t: any) => t.account_categories?.code !== "1.1.01");
         const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
         const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
-        const hasSalesNow = (args.ticketSalesRevenue ?? 0) > 0;
-        const display = hasSalesNow ? (args.ticketSalesRevenue ?? 0) + nonTicketSum : allIncomeSum;
+        const hasSalesNow = ticketNet > 0;
+        const display = hasSalesNow ? ticketRevenue + nonTicketSum : allIncomeSum;
 
         // Subtotais por rubrica exata
-        const buckets = { bilheteira: hasSalesNow ? (args.ticketSalesRevenue ?? 0) : 0, patrocinio: 0, ab: 0, outros: 0 };
+        const buckets = { bilheteira: hasSalesNow ? ticketRevenue : 0, patrocinio: 0, ab: 0, outros: 0 };
         const source = hasSalesNow ? nonTicket : incomeTx;
         for (const t of source) {
           const code = t.account_categories?.code ?? "";
@@ -400,6 +406,6 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
       includeOverhead,
-      args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
+      args.ticketSales, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 
 }
