@@ -1726,6 +1726,7 @@ async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: st
     const wb = XLSX.read(got.buf, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as Grid;
+    debug.gridPreview = grid.slice(0, 18).map((r: any[], i: number) => `${i}: ` + (r || []).map((c, j) => (c === null || c === undefined || String(c).trim() === "" ? "" : `${j}=${String(c).slice(0, 40)}`)).filter(Boolean).join(" | "));
     const parsed = parseTicketTypesGrid(grid);
     debug.parse = parsed.debug;
     debug.headerRange = parsed.headerRange;
