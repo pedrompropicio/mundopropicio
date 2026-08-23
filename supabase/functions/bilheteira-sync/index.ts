@@ -246,7 +246,9 @@ async function sendDigest(
   };
 
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-  const recipients = cc ? [to, cc] : [to];
+  // dedup preservando a ordem (TO primeiro, depois CC)
+  const recipients = [...new Set([...toList, ...ccList].map((e) => e.toLowerCase()))];
+
   let sent = false;
   let reason: string | undefined;
 
