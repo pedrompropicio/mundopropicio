@@ -161,3 +161,75 @@ Se `dateISO` omitido, assume o dia corrente em `Europe/Lisbon`.
 | v2.34 | 2026-08 | Action `capture_day` usando `/managers/dashboard/sales_per_event`. |
 | v2.35 | 2026-08 | Sonda de período via `sale_summary` SJR; parse escolhe tabela simples "Total Vendas". |
 | **v2.36** | **2026-08-22** | Matching por `ticketline_report_codes`; validado em produção de ponta a ponta. |
+
+---
+
+## Corte por Tipo de Bilhete — `capture_ticket_types` (v2.37, issue #73)
+
+Série diária **por tipo de bilhete** (`Normal`, `VIP-Portal Mundo Propício`,
+`Exclusivo FNAC | Portador Cartão FNAC`, …), que mede diretamente o funil do
+portal (cupão MP15) por dia.
+
+### Endpoint
+
+```text
+GET /managers/events/{ticketline_event_id}/ticket_type.xlsx
+    ?period=5&filter_start_date=DD-MM-YYYY&filter_end_date=DD-MM-YYYY
+```
+
+- **É por evento** (provado 23/08/2026: `65077` devolve 3 tipos, `68024` só
+  `Normal`, `63653` vazio). Ao contrário do `sale_summary`, não devolve a conta
+  inteira — não há aqui o problema do `bulk_event_ids` ignorado.
+- **Aceita um só dia**: `filter_start_date = filter_end_date`. Não é preciso o
+  POST de período do `sale_summary` — o filtro vai na query string.
+- Login **fresco dedicado**, sem reutilizar o `SessionCache` dos syncs XLSX.
+- Há também a versão SJR (`/managers/events/{id}/ticket_type` com
+  `post_render_content=data`), usada apenas nas sondas.
+
+### Action
+
+`capture_ticket_types`, payload `{ configId, dateISO? }`. Sem `dateISO`, assume
+o dia corrente em `Europe/Lisbon` (igual à `capture_day`).
+
+### Regras de parsing (não relaxar)
+
+1. **Coluna VENDAS, nunca TOTAL GERAL.** Em 20→23/08/2026 o Total Geral dá 87 e
+   Vendas dá 83 — o Geral inclui vales, convites, cativos e bloqueados.
+2. **O nome do tipo é texto opaco.** `Exclusivo FNAC | Portador Cartão FNAC`
+   contém ` | `, que no parser de zonas é separador de variante. Aqui **nunca**
+   se parte por `|`.
+3. **Período confirmado antes de gravar**: cabeçalho `Operações de DD-MM-YYYY a
+   DD-MM-YYYY` tem de ser exatamente o dia pedido; senão falha
+   `ticket_types_period_mismatch` e não escreve nada.
+4. **Validações bloqueantes**: cada linha `SOMA` tem de bater com as linhas de
+   PVP do tipo, e a linha `TOTAL` com a soma dos tipos → `ticket_types_total_mismatch`.
+5. **UPSERT só da data capturada**, por `(event_id, sale_date, ticket_type)`.
+   Nunca apaga nem regrava outras datas.
+6. Relatório vazio ("Não há dados referentes ao período seleccionado") → grava
+   **zero linhas** e devolve sucesso. Ausência é 0, não é erro.
+7. **`!ref` mentiroso**: o XLSX declara `A1:D30` apesar de ter 26 colunas. A
+   grelha é reconstruída a partir dos endereços reais das células — usar
+   `sheet_to_json` diretamente corta as colunas de VENDAS.
+
+### Destino: `ticketline_daily_ticket_types`
+
+| Coluna | Notas |
+|---|---|
+| `company_id` | **NOT NULL, sem default `current_company_id()` e sem o trigger `set_company_id_on_insert()`** — a função escreve-o explicitamente a partir de `ticketline_sync_config.company_id`. Sob service_role `auth.uid()` é NULL, o que rebentava o insert (issue #71, corrigida em 23/08/2026). |
+| `event_id` | FK evento MP, `on delete cascade` |
+| `sale_date` | dia da operação |
+| `ticket_type` | nome exato do tipo, texto opaco |
+| `quantity`, `total_value` | base **Vendas** |
+
+`UNIQUE (event_id, sale_date, ticket_type)` + índice `(event_id, sale_date)`.
+RLS: leitura por empresa (`current_company_id()`), escrita para
+admin/manager/editor/platform_admin; service_role escreve sempre.
+
+### Validação de referência (Ivete Clareou 2026, config `b9348d39…`, evento 65077)
+
+- Backfill 01→23/08/2026 corrido dia a dia.
+- 20→23/08: **83 bilhetes / 7.235,00 €** (Normal 67 / 6.045,00, VIP-Portal 10 /
+  807,50, FNAC 6 / 382,50).
+- 22/08 isolado: **26 bilhetes / 2.025,00 €**.
+
+Cron ainda **não** criado — a captura corre por invocação manual até o Pedro dar ok.
