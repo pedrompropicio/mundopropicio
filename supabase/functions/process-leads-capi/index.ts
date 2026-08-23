@@ -98,6 +98,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Recuperação de estados intermédios: 'processing' é um lock temporal.
+  // Se ficou preso (edge morreu a meio), passados 30 min volta a 'retry'.
+  let recovered_stale = 0;
+  {
+    const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
+    const { data: stale, error: staleErr } = await supabase
+      .from("leads")
+      .update({ capi_status: "retry", capi_sent_at: null })
+      .eq("capi_status", "processing")
+      .lt("capi_sent_at", cutoff)
+      .select("id");
+    if (staleErr) console.warn("[process-leads-capi] recover stale falhou", staleErr.message);
+    else recovered_stale = stale?.length ?? 0;
+    if (recovered_stale > 0) console.log("[process-leads-capi] recuperados de processing:", recovered_stale);
+  }
+
   const t0 = Date.now();
   let batches = 0;
   let processed = 0;
