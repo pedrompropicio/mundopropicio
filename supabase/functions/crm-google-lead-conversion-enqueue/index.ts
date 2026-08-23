@@ -301,11 +301,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
+  // 5) Backfill secundário de crm.google_click.lead_capture_id (não bloqueia).
+  let backfilled = 0;
+  for (const b of backfill) {
+    const { error: upErr } = await admin
+      .schema("crm")
+      .from("google_click")
+      .update({ lead_capture_id: b.leadId })
+      .eq("id", b.clickId)
+      .is("lead_capture_id", null);
+    if (upErr) {
+      console.error("[backfill lead_capture_id] falhou", b.clickId, upErr.message);
+      continue;
+    }
+    backfilled++;
+  }
+
   return json({
     candidates: candidates.length,
     enqueued,
     skipped_existing: skippedExisting,
+    lead_capture_id_backfilled: backfilled,
     errors,
+
     company_id: MP_COMPANY_ID,
     conversion_action_ref: actionRef,
     conversion_value: conversionValue,
