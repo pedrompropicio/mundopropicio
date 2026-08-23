@@ -24,6 +24,11 @@ verify_jwt = true
 [functions.fever-ingest-browser]
 verify_jwt = false
 
+# Endpoint público chamado pelo portal (mundopropicio.com) com utilizadores
+# anónimos: autorização é feita por allowlist de Origin dentro da função.
+[functions.crm-google-click-ingest]
+verify_jwt = false
+
 # Só é chamada por triggers/cron da BD com a service_role key do Vault.
 [functions.vip-coupon-email]
 verify_jwt = true
