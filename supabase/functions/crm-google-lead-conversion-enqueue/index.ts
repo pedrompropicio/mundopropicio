@@ -54,6 +54,7 @@ function readSettingScalar(value: unknown): string | number | null {
 interface ClickRow {
   id: string;
   lead_capture_id: string | null;
+  client_event_id: string | null;
   gclid: string | null;
   gbraid: string | null;
   wbraid: string | null;
