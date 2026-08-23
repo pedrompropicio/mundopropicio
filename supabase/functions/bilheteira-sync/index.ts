@@ -23,6 +23,9 @@ import {
   buildTicketLots,
   looksSane,
   parseEventInfo,
+  findBolSeatSectorUrls,
+  parseBolSeatMap,
+  MIN_SEAT_MAP_CAPACITY,
   type ParseResult,
   type ParsedEventInfo,
   type TicketLotItem,
@@ -40,7 +43,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_5_2026_08_12";
+const VERSION = "v1_6_2026_08_23";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -575,6 +578,7 @@ Deno.serve(async (req) => {
 
   const results: unknown[] = [];
   const digest: DigestEvent[] = [];
+  const zoneAlerts: ZoneAlert[] = [];
   // Logs adiados: só são inseridos depois de sabermos se o e-mail seguiu.
   const pendingLogs: Record<string, unknown>[] = [];
 
@@ -622,6 +626,18 @@ Deno.serve(async (req) => {
         results.push({ event: ev.name, status: "insane_values" });
         await admin.from("bilheteira_sync_log").insert(logRow);
         continue;
+      }
+
+      // v1.6 — captura de disponibilidade por zona (nunca quebra a sync)
+      try {
+        const cap = await captureZoneAvailability(admin, ev, provider, parsed, dryRun);
+        (logRow.raw_summary as Record<string, unknown>).zone_snapshots = cap.snapshots;
+        if (cap.errors.length > 0) {
+          (logRow.raw_summary as Record<string, unknown>).zone_capture_errors = cap.errors;
+        }
+        zoneAlerts.push(...cap.alerts);
+      } catch (e) {
+        console.error("[bilheteira-sync] captura de zonas falhou:", e);
       }
 
       const built = buildTicketLots(parsed.zones);
@@ -701,6 +717,20 @@ Deno.serve(async (req) => {
     }
 
     pendingLogs.push(logRow);
+  }
+
+  // ---- v1.6: seção "Zonas perto de esgotar" no digest ----
+  if (zoneAlerts.length > 0) {
+    digest.push({
+      eventId: "zone-alerts",
+      name: "⚠ Zonas perto de esgotar",
+      portalUrl: null,
+      crmUrl: `${APP_BASE}/crm/eventos`,
+      lines: zoneAlerts.map(
+        (a) =>
+          `${a.eventName} — ${a.zoneLabel}: ${a.seatsAvailable}/${a.capacity} restantes (${a.pct}%)`,
+      ),
+    });
   }
 
   // ---- Rotação do destaque da home (v1.5) ----
@@ -786,6 +816,7 @@ Deno.serve(async (req) => {
     triggered_by: body.triggeredBy ?? "manual",
     dry_run: dryRun,
     scanned: (events ?? []).length,
+    zone_alerts: zoneAlerts,
     email_sent: email.sent,
     email_reason: email.sent ? undefined : email.reason,
     featured_rotation: featured
