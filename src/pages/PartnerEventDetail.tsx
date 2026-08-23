@@ -1355,6 +1355,7 @@ export default function PartnerEventDetail() {
               ticketsNet={ticketRevenueNet}
               sponsorshipNet={sponsorshipRealNet}
               barsNet={barsRealNet}
+              otherNet={otherIncomeRealNet}
               bpExpenseGross={bpTotalExpenseAdjusted}
               bpExpenseRealized={bpTotalRealizedExpense}
               showRealized={canSeeComparative}
@@ -1858,6 +1859,8 @@ export default function PartnerEventDetail() {
                 ticketsNet={ticketRevenueNet}
                 sponsorshipNet={sponsorshipRealNet}
                 barsNet={barsRealNet}
+                otherNet={otherIncomeRealNet}
+              otherNet={otherIncomeRealNet}
                 bpExpenseGross={bpTotalExpenseAdjusted}
                 showRealized={canSeeComparative}
                 adjustedRubricsCount={bpAdjustedCount}

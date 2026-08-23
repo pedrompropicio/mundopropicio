@@ -14,6 +14,8 @@ export interface PartnerFinancialCardsProps {
   ticketsNet: number;
   sponsorshipNet: number;
   barsNet: number;
+  /** Restantes rubricas de receita (ex. 1.3.04 Revenue Share). */
+  otherNet?: number;
   bpExpenseGross: number;
   bpExpenseRealized?: number | null;
   showRealized?: boolean;
@@ -27,11 +29,11 @@ export interface PartnerFinancialCardsProps {
 }
 
 export function PartnerFinancialCards({
-  ticketsNet, sponsorshipNet, barsNet, bpExpenseGross,
+  ticketsNet, sponsorshipNet, barsNet, otherNet = 0, bpExpenseGross,
   bpExpenseRealized = 0, showRealized = false, realizedError = false,
   adjustedRubricsCount = 0,
 }: PartnerFinancialCardsProps) {
-  const incomeNet = ticketsNet + sponsorshipNet + barsNet;
+  const incomeNet = ticketsNet + sponsorshipNet + barsNet + otherNet;
   const result = incomeNet - bpExpenseGross;
   const pct = showRealized && bpExpenseGross > 0
     ? (bpExpenseRealized ?? 0) / bpExpenseGross * 100
@@ -55,6 +57,9 @@ export function PartnerFinancialCards({
           <span><span className="font-medium text-foreground/70">Bilheteira:</span> {formatCurrency(ticketsNet)}</span>
           <span><span className="font-medium text-foreground/70">Patrocínio:</span> {formatCurrency(sponsorshipNet)}</span>
           <span><span className="font-medium text-foreground/70">Bares:</span> {formatCurrency(barsNet)}</span>
+          {otherNet !== 0 && (
+            <span><span className="font-medium text-foreground/70">Outras:</span> {formatCurrency(otherNet)}</span>
+          )}
         </div>
       </div>
 
