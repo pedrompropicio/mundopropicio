@@ -54,6 +54,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+/** Placeholder estável (evita novo objeto por render nas deps do card). */
+const EMPTY_TICKET_SALES = { net: 0, gross: 0 };
+
 const PIE_COLORS = [
   "hsl(262 80% 60%)",
   "hsl(170 70% 45%)",
@@ -447,8 +450,8 @@ export default function EventDetail() {
 
 
 
-  // Fetch ticket sales revenue for the event(s) in net terms (s/IVA)
-  const { data: ticketSalesRevenue = 0 } = useQuery({
+  // Receita de bilheteira em PAR {net, gross} — o card resolve conforme o seletor c/IVA.
+  const { data: ticketSales = EMPTY_TICKET_SALES } = useQuery({
     queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
     queryFn: async () => {
       // Get zones for all relevant event IDs
@@ -456,7 +459,7 @@ export default function EventDetail() {
         .from("event_ticket_zones")
         .select("id")
         .in("event_id", transactionEventIds);
-      if (!zones || zones.length === 0) return 0;
+      if (!zones || zones.length === 0) return { net: 0, gross: 0 };
 
       const zoneIds = zones.map(z => z.id);
       // Get lots for those zones
@@ -465,7 +468,7 @@ export default function EventDetail() {
         .select("id, iva_rate")
         .in("zone_id", zoneIds);
 
-      if (!lots || lots.length === 0) return 0;
+      if (!lots || lots.length === 0) return { net: 0, gross: 0 };
 
       const lotIvaMap = new Map(lots.map((lot: any) => [lot.id, Number(lot.iva_rate || 0)]));
 
@@ -475,18 +478,21 @@ export default function EventDetail() {
         .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lots.map(l => l.id));
 
-      if (!sales || sales.length === 0) return 0;
+      if (!sales || sales.length === 0) return { net: 0, gross: 0 };
 
-      // Calculate net revenue from ticket sales (s/IVA), using exact imported totals when available
-      return sales.reduce((sum, s: any) => {
+      // Bruto = valor importado; líquido = bruto / (1 + iva/100), linha a linha.
+      return sales.reduce((acc, s: any) => {
         const gross = s.total_value != null ? Number(s.total_value) : Number(s.quantity || 0) * Number(s.unit_price || 0);
         const ivaRate = lotIvaMap.get(s.lot_id) ?? 0;
         const net = ivaRate > 0 ? gross / (1 + ivaRate / 100) : gross;
-        return sum + net;
-      }, 0);
+        return { net: acc.net + net, gross: acc.gross + gross };
+      }, { net: 0, gross: 0 });
     },
     enabled: !!id,
   });
+  /** Compatibilidade: o resto do ecrã continua a trabalhar em base líquida. */
+  const ticketSalesRevenue = ticketSales.net;
+
 
   // Bilhetes vendidos calculados a partir de ticket_sales (events.tickets_sold não é sincronizado).
   const { data: ticketSalesQty = 0 } = useQuery({
@@ -1021,7 +1027,7 @@ export default function EventDetail() {
           isMasterView={isGlobalView}
           eventStatus={event.status}
           primaryEventDate={event.date}
-          ticketSalesRevenue={Number(ticketSalesRevenue || 0)}
+          ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
         />
         <EventFinancialCard

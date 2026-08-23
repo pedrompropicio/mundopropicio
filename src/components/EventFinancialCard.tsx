@@ -28,7 +28,8 @@ interface Props {
   isMasterView?: boolean;
   eventStatus?: string | null;
   primaryEventDate?: string | null;
-  ticketSalesRevenue?: number;
+  /** Receita de bilheteira em par: líquido e bruto. O seletor c/IVA escolhe qual entra. */
+  ticketSales?: { net: number; gross: number };
   /** TX do Master rateadas (÷ N siblings). */
   masterExpenseShare?: number;
   /** Forecasts overhead do Master rateados (÷ N siblings, anti-dup vs masterExpenseShare). */
@@ -115,7 +116,7 @@ export function EventFinancialCard(props: Props) {
     scenario,
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
-    ticketSalesRevenue: props.ticketSalesRevenue,
+    ticketSales: props.ticketSales,
     masterExpenseShare: props.masterExpenseShare,
     masterForecastShare: props.masterForecastShare,
     cacheImpact: props.cacheImpact,
