@@ -54,6 +54,7 @@ function readSettingScalar(value: unknown): string | number | null {
 interface ClickRow {
   id: string;
   lead_capture_id: string | null;
+  client_event_id: string | null;
   gclid: string | null;
   gbraid: string | null;
   wbraid: string | null;
@@ -176,10 +177,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: clicks, error: clicksErr } = await admin
     .schema("crm")
     .from("google_click")
-    .select("id, lead_capture_id, gclid, gbraid, wbraid, captured_at, consent_granted")
+    .select(
+      "id, lead_capture_id, client_event_id, gclid, gbraid, wbraid, captured_at, consent_granted",
+    )
     .eq("company_id", MP_COMPANY_ID)
     .eq("consent_granted", true)
-    .not("lead_capture_id", "is", null)
+    .or("client_event_id.not.is.null,lead_capture_id.not.is.null")
     .or("gclid.not.is.null,gbraid.not.is.null,wbraid.not.is.null")
     .order("captured_at", { ascending: true })
     .limit(MAX_BATCH);
@@ -195,13 +198,57 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const rowsToInsert: Array<Record<string, unknown>> = [];
   let skippedExisting = 0;
 
+  // 3b) Resolução em LOTE de lead_capture por client_event_id (o portal não
+  //     consegue devolver o id do insert anónimo sob RLS; client_event_id é a chave).
+  const clientEventIds = Array.from(
+    new Set(
+      candidates
+        .filter((c) => !c.lead_capture_id && c.client_event_id)
+        .map((c) => c.client_event_id as string),
+    ),
+  );
+  const leadByClientEventId = new Map<string, string>();
+  if (clientEventIds.length > 0) {
+    for (let i = 0; i < clientEventIds.length; i += 500) {
+      const chunk = clientEventIds.slice(i, i + 500);
+      const { data: leads, error: leadsErr } = await admin
+        .from("lead_capture")
+        .select("id, client_event_id")
+        .in("client_event_id", chunk);
+      if (leadsErr) {
+        return json(
+          { error: "leads_read_failed", detail: leadsErr.message },
+          500,
+        );
+      }
+      for (const l of (leads ?? []) as Array<{ id: string; client_event_id: string }>) {
+        if (l.client_event_id && !leadByClientEventId.has(l.client_event_id)) {
+          leadByClientEventId.set(l.client_event_id, l.id);
+        }
+      }
+    }
+  }
+
+  const backfill: Array<{ clickId: string; leadId: string }> = [];
+
   for (const c of candidates) {
-    const orderId = c.lead_capture_id;
-    if (!orderId) continue;
+    let orderId = c.lead_capture_id;
+    if (!orderId && c.client_event_id) {
+      const resolved = leadByClientEventId.get(c.client_event_id);
+      if (resolved) {
+        orderId = resolved;
+        backfill.push({ clickId: c.id, leadId: resolved });
+      }
+    }
+    if (!orderId) {
+      errors.push({ google_click_id: c.id, reason: "lead_nao_encontrado" });
+      continue;
+    }
     if (alreadyEnqueued.has(orderId)) {
       skippedExisting++;
       continue;
     }
+
     // Identificador de clique (prioridade gclid > gbraid > wbraid; exatamente um)
     const ident = c.gclid
       ? { gclid: c.gclid, gbraid: null, wbraid: null }
@@ -254,11 +301,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
+  // 5) Backfill secundário de crm.google_click.lead_capture_id (não bloqueia).
+  let backfilled = 0;
+  for (const b of backfill) {
+    const { error: upErr } = await admin
+      .schema("crm")
+      .from("google_click")
+      .update({ lead_capture_id: b.leadId })
+      .eq("id", b.clickId)
+      .is("lead_capture_id", null);
+    if (upErr) {
+      console.error("[backfill lead_capture_id] falhou", b.clickId, upErr.message);
+      continue;
+    }
+    backfilled++;
+  }
+
   return json({
     candidates: candidates.length,
     enqueued,
     skipped_existing: skippedExisting,
+    lead_capture_id_backfilled: backfilled,
     errors,
+
     company_id: MP_COMPANY_ID,
     conversion_action_ref: actionRef,
     conversion_value: conversionValue,
