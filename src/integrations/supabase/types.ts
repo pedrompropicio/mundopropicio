@@ -9340,7 +9340,7 @@ export type Database = {
       }
       suppressed_emails: {
         Row: {
-          company_id: string
+          company_id: string | null
           created_at: string
           email: string
           id: string
@@ -9348,7 +9348,7 @@ export type Database = {
           reason: string
         }
         Insert: {
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           email: string
           id?: string
@@ -9356,7 +9356,7 @@ export type Database = {
           reason: string
         }
         Update: {
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           email?: string
           id?: string
