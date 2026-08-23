@@ -14,8 +14,9 @@ import {
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
+import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.36_capture_day_code_match";
+const VERSION = "v2.37_ticket_types";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -74,7 +75,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" }
+interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1627,6 +1628,175 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
   }
 }
 
+// ============================================================================
+// v2.37 — action `capture_ticket_types` (issue #73)
+// Série diária POR TIPO DE BILHETE a partir do relatório POR EVENTO:
+//   GET /managers/events/{id}/ticket_type.xlsx?period=5&filter_start_date=…&filter_end_date=…
+// Provado a 23/08/2026: é event-scoped (ao contrário do sale_summary, que ignora
+// bulk_event_ids), aceita intervalo de UM dia e o filtro vai na query string —
+// não é preciso o POST de período do sale_summary.
+// Regras: coluna VENDAS (nunca TOTAL GERAL); nome do tipo é texto opaco (há
+// tipos com " | " no nome); company_id escrito explicitamente (issue #71).
+// ============================================================================
+function ticketTypeXlsxUrl(id: string, dayDD: string): string {
+  const qs = new URLSearchParams();
+  qs.set("period", "5");
+  qs.set("filter_start_date", dayDD);
+  qs.set("filter_end_date", dayDD);
+  return `${BASE}/managers/events/${id}/ticket_type.xlsx?${qs.toString()}`;
+}
+
+async function fetchTicketTypeXlsx(jar: Jar, id: string, dayDD: string) {
+  const url = ticketTypeXlsxUrl(id, dayDD);
+  const resp = await fetchWithTimeout(url, {
+    method: "GET", redirect: "manual",
+    headers: {
+      "User-Agent": UA_PROBE,
+      Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*",
+      Cookie: jarToHeader(jar),
+      Referer: `${BASE}/managers/events/${id}/ticket_type`,
+    },
+  }, 110000);
+  ingestSetCookie(jar, resp);
+  if (resp.status >= 300 && resp.status < 400) {
+    const loc = resp.headers.get("location") || "";
+    await resp.body?.cancel().catch(() => {});
+    throw Object.assign(new Error(`ticket_type.xlsx: ${resp.status} → ${loc}`), {
+      phase: loc.includes("sign_in") ? "session_expired" : "ticket_types_redirect",
+    });
+  }
+  if (!resp.ok) {
+    await resp.body?.cancel().catch(() => {});
+    throw Object.assign(new Error(`ticket_type.xlsx: HTTP ${resp.status}`), { phase: `ticket_types_http_${resp.status}` });
+  }
+  const ct = resp.headers.get("content-type") || "";
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  if (/text\/html/i.test(ct)) {
+    throw Object.assign(new Error(`ticket_type.xlsx: devolveu HTML (size=${buf.length})`), { phase: "ticket_types_html_response" });
+  }
+  return { url, buf, contentType: ct };
+}
+
+/**
+ * action capture_ticket_types — captura o corte por tipo de bilhete do dia
+ * `dateISO` (default hoje Europe/Lisbon) para o evento do `configId`.
+ * Login FRESCO dedicado (não usa o SessionCache dos syncs xlsx).
+ */
+async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: string) {
+  if (!configId) return json(400, { error: "capture_ticket_types requer configId" });
+  const dayIso = dateISO && /^\d{4}-\d{2}-\d{2}$/.test(dateISO) ? dateISO : lisbonTodayIso();
+  const dayDD = isoToDDMMYYYY(dayIso);
+
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+  if (!cfg.ticketline_event_id) return json(400, { error: "config sem ticketline_event_id" });
+
+  const { data: run } = await admin.from("ticketline_sync_runs").insert({
+    config_id: cfg.id, company_id: cfg.company_id, status: "started",
+    mode: "manual", triggered_by: `capture_ticket_types:${dayIso}`,
+  }).select("id").single();
+  const runId = run?.id || null;
+
+  const debug: Record<string, any> = {
+    version: VERSION, day: dayIso, dayDD,
+    source_mode: "ticket_type_xlsx",
+    ticketline_event_id: cfg.ticketline_event_id,
+  };
+
+  const fail = async (phase: string, message: string) => {
+    if (runId) {
+      await updateRun(admin, runId, {
+        status: phase, finished_at: new Date().toISOString(),
+        error_message: message, import_audit: { debug, source_mode: "ticket_type_xlsx" },
+      });
+    }
+    return json(500, { ok: false, phase, error: message, runId, debug });
+  };
+
+  try {
+    // 1. login fresco dedicado
+    const { jar } = await loginDevise(creds.email, creds.password);
+
+    // 2. XLSX do relatório por tipo de bilhete (filtro na query string)
+    const got = await fetchTicketTypeXlsx(jar, String(cfg.ticketline_event_id), dayDD);
+    debug.usedUrl = got.url;
+    debug.size = got.buf.length;
+    debug.contentType = got.contentType;
+
+    // 3. grid + parse (coluna VENDAS; tipo é texto opaco)
+    const wb = XLSX.read(got.buf, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    // ATENÇÃO: o XLSX da Ticketline declara um `!ref` demasiado curto (A1:D30),
+    // o que faria `sheet_to_json` cortar as colunas de VENDAS. Reconstruímos a
+    // grelha a partir dos endereços reais das células, ignorando o `!ref`.
+    const grid: Grid = [];
+    for (const addr of Object.keys(sheet)) {
+      if (addr.startsWith("!")) continue;
+      const rc = XLSX.utils.decode_cell(addr);
+      if (!rc || rc.r < 0 || rc.c < 0) continue;
+      while (grid.length <= rc.r) grid.push([]);
+      const row = grid[rc.r];
+      while (row.length <= rc.c) row.push(null);
+      row[rc.c] = (sheet as any)[addr]?.v ?? null;
+    }
+    debug.gridPreview = grid.slice(0, 18).map((r: any[], i: number) => `${i}: ` + (r || []).map((c, j) => (c === null || c === undefined || String(c).trim() === "" ? "" : `${j}=${String(c).slice(0, 40)}`)).filter(Boolean).join(" | "));
+    const parsed = parseTicketTypesGrid(grid);
+    debug.parse = parsed.debug;
+    debug.headerRange = parsed.headerRange;
+    debug.rows = parsed.rows;
+    debug.totalRow = parsed.totalRow;
+    debug.sums = parsed.sums;
+
+    // 4. o período tem de ser EXACTAMENTE o dia pedido — senão não escreve nada
+    if (!parsed.headerRange || parsed.headerRange.start !== dayIso || parsed.headerRange.end !== dayIso) {
+      return await fail(
+        "ticket_types_period_mismatch",
+        `período do relatório não é ${dayIso} (range=${JSON.stringify(parsed.headerRange)})`,
+      );
+    }
+
+    // 5. relatório vazio → 0 linhas, sucesso (ausência = 0)
+    let upserted = 0;
+    if (!parsed.empty && parsed.rows.length > 0) {
+      const payload = parsed.rows.map((r) => ({
+        company_id: cfg.company_id, // explícito — issue #71 (service_role não tem current_company_id())
+        event_id: cfg.event_id,
+        sale_date: dayIso,
+        ticket_type: r.ticket_type,
+        quantity: r.quantity,
+        total_value: r.total_value,
+        updated_at: new Date().toISOString(),
+      }));
+      const { error: upErr } = await admin
+        .from("ticketline_daily_ticket_types")
+        .upsert(payload, { onConflict: "event_id,sale_date,ticket_type" });
+      if (upErr) return await fail("import_failed", `UPSERT ticketline_daily_ticket_types: ${upErr.message}`);
+      upserted = payload.length;
+    }
+
+    const audit = {
+      dataSource: "ticket_type_xlsx",
+      day: dayIso,
+      headerRange: parsed.headerRange,
+      reportRows: parsed.rows,
+      totalRow: parsed.totalRow,
+      totals: parsed.sums,
+      upserted,
+      empty: parsed.empty,
+    };
+    if (runId) {
+      await updateRun(admin, runId, {
+        status: "success", finished_at: new Date().toISOString(),
+        files_downloaded: [{ name: `ticket_type_${cfg.ticketline_event_id}_${dayIso}.xlsx`, size: got.buf.length }],
+        error_message: null,
+        import_audit: { ...audit, debug, source_mode: "ticket_type_xlsx" },
+      });
+    }
+    return json(200, { ok: true, version: VERSION, runId, day: dayIso, audit });
+  } catch (e: any) {
+    return await fail(e?.phase || "capture_ticket_types_failed", e?.message || String(e));
+  }
+}
+
 
 // ============================================================================
 // Área nova de Promotores — relatório sales_per_event.xlsx
@@ -2680,6 +2850,14 @@ Deno.serve(async (req) => {
       return await runCaptureDay(admin, configId, body.dateISO);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "capture_day_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "capture_ticket_types") {
+    try {
+      return await runCaptureTicketTypes(admin, configId, body.dateISO);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "capture_ticket_types_failed", error: e?.message || String(e) });
     }
   }
 
