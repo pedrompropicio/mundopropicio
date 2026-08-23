@@ -6,3 +6,4 @@
 - [Coerência de rubrica BP↔TX](mem://features/bp-tx-category-coherence) — vínculo por FK: rubrica L3 da linha do BP manda; triggers sync/realign com pg_trigger_depth; rubrica read-only na TX; ressalva 1:1 (#29) e guarda de remoção (#59)
 - [Guardas BP↔TX cross-event](mem://security/bp-tx-cross-event-guards) — vínculo forecast↔TX recusado entre eventos/empresas, auto-desvínculo ao mover TX, guarda nos triggers de rubrica e auditoria de Evento/Descrição
 - [Google Ads service account auth](mem://integrations/google-ads-service-account-auth) — Service accounts são utilizadores válidos no Google Ads (sem DWD), nível máx "Padrão"; NOT_ADS_USER, PAGE_SIZE_NOT_SUPPORTED e service role sb_secret_
+- [Edge fn: nunca esm.sh para supabase-js](mem://constraints/edge-fn-esm-sh-supabase-js) — esm.sh quebrou boot (WORKER_ERROR) e parou o CAPI 16 dias; usar npm:@supabase/supabase-js@2, POST directo ao Graph, retoma de 'processing', alarme leads-capi-health
