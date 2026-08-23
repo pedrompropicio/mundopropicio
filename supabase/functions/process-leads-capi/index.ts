@@ -154,6 +154,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let sent = 0;
   let retried = 0;
   let failed_final = 0;
+  let skipped_only_batches = 0;
   let stop_reason: "drained" | "wall_time" | "max_batches" | "rpc_error" = "drained";
 
   while (true) {
@@ -241,6 +242,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     sent,
     retried,
     failed_final,
+    skipped_only_batches,
     recovered_stale,
     stop_reason,
     wall_ms: Date.now() - t0,
