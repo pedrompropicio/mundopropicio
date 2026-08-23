@@ -1725,7 +1725,19 @@ async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: st
     // 3. grid + parse (coluna VENDAS; tipo é texto opaco)
     const wb = XLSX.read(got.buf, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as Grid;
+    // ATENÇÃO: o XLSX da Ticketline declara um `!ref` demasiado curto (A1:D30),
+    // o que faria `sheet_to_json` cortar as colunas de VENDAS. Reconstruímos a
+    // grelha a partir dos endereços reais das células, ignorando o `!ref`.
+    const grid: Grid = [];
+    for (const addr of Object.keys(sheet)) {
+      if (addr.startsWith("!")) continue;
+      const rc = XLSX.utils.decode_cell(addr);
+      if (!rc || rc.r < 0 || rc.c < 0) continue;
+      while (grid.length <= rc.r) grid.push([]);
+      const row = grid[rc.r];
+      while (row.length <= rc.c) row.push(null);
+      row[rc.c] = (sheet as any)[addr]?.v ?? null;
+    }
     debug.gridPreview = grid.slice(0, 18).map((r: any[], i: number) => `${i}: ` + (r || []).map((c, j) => (c === null || c === undefined || String(c).trim() === "" ? "" : `${j}=${String(c).slice(0, 40)}`)).filter(Boolean).join(" | "));
     const parsed = parseTicketTypesGrid(grid);
     debug.parse = parsed.debug;
