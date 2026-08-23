@@ -370,6 +370,39 @@ export type Database = {
           },
         ]
       }
+      bilheteira_zone_snapshots: {
+        Row: {
+          capacity: number | null
+          captured_at: string
+          event_id: string
+          id: string
+          provider: string | null
+          seats_available: number | null
+          source: string | null
+          zone_label: string
+        }
+        Insert: {
+          capacity?: number | null
+          captured_at?: string
+          event_id: string
+          id?: string
+          provider?: string | null
+          seats_available?: number | null
+          source?: string | null
+          zone_label: string
+        }
+        Update: {
+          capacity?: number | null
+          captured_at?: string
+          event_id?: string
+          id?: string
+          provider?: string | null
+          seats_available?: number | null
+          source?: string | null
+          zone_label?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           author_id: string | null
@@ -5703,6 +5736,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      event_zone_capacities: {
+        Row: {
+          capacity: number
+          created_at: string
+          event_id: string
+          id: string
+          notes: string | null
+          updated_at: string
+          zone_label: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          zone_label: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          zone_label?: string
+        }
+        Relationships: []
       }
       events: {
         Row: {
