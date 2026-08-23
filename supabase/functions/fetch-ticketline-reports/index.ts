@@ -14,6 +14,7 @@ import {
 } from "../_shared/ticketline-dashboard-daily-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
+import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
 const VERSION = "v2.37_ticket_types";
 
