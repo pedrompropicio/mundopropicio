@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-28-loop
+// cache-buster: 2026-08-23-npm-specifier
 // process-leads-capi — wrapper HTTP que invoca a RPC SECURITY DEFINER
 // public.process_leads_capi_batch e dispara CAPI 'ViewContent' por cada
 // payload retornado.
@@ -20,7 +20,7 @@
 //
 // verify_jwt = false (default Lovable): cron-only.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
