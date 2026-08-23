@@ -1061,17 +1061,24 @@ export default function PartnerEventDetail() {
   const transactionResult = transactionIncome - transactionExpense;
 
   // ─── Cards do sócio (visão única e fixa) ───
-  // Receitas realizadas NET = bilhetes vendidos + patrocínios confirmados (1.2*) + bares (1.1.03*)
+  // Receitas realizadas NET = bilhetes vendidos (ticket_sales) + TODAS as restantes
+  // rubricas de receita. NUNCA por lista de prefixos incluídos: uma lista fechada
+  // volta a esconder receita a cada rubrica nova (foi o que aconteceu com a 1.3.04
+  // Revenue Share). Só se exclui, explicitamente, a bilheteira transaccional —
+  // porque já vem substituída por ticketRevenueNet e duplicaria.
   // Despesas = bpTotalExpense (BP aprovado c/IVA, já inclui overhead).
   const categoryCodeById: Record<string, string> = {};
   allCategories.forEach((c: any) => { categoryCodeById[c.id] = c.code; });
-  const incomeTxNet = (kindPrefix: string) => transactions
-    .filter((t: any) => t.type === "income" && (categoryCodeById[t.category_id] ?? "").startsWith(kindPrefix))
-
+  const EXCLUDED_INCOME_CODES = ["1.1.01"]; // bilheteira: substituída por ticket_sales
+  const incomeTxNetByCode = (predicate: (code: string) => boolean) => transactions
+    .filter((t: any) => t.type === "income" && predicate(categoryCodeById[t.category_id] ?? ""))
     .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-  const sponsorshipRealNet = incomeTxNet("1.2");
-  const barsRealNet = incomeTxNet("1.1.03");
-  const incomeRealNet = ticketRevenueNet + sponsorshipRealNet + barsRealNet;
+  const sponsorshipRealNet = incomeTxNetByCode((c) => c.startsWith("1.2"));
+  const barsRealNet = incomeTxNetByCode((c) => c.startsWith("1.1.03"));
+  const otherIncomeRealNet = incomeTxNetByCode(
+    (c) => !EXCLUDED_INCOME_CODES.includes(c) && !c.startsWith("1.2") && !c.startsWith("1.1.03"),
+  );
+  const incomeRealNet = ticketRevenueNet + sponsorshipRealNet + barsRealNet + otherIncomeRealNet;
   const partnerResultValue = incomeRealNet - bpTotalExpenseAdjusted;
 
   return (
