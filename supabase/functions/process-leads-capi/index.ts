@@ -131,6 +131,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Recuperação de estados intermédios: 'processing' é um lock temporal.
   // Se ficou preso (edge morreu a meio), passados 30 min volta a 'retry'.
+  const accessToken = await loadCapiToken();
+  if (!accessToken) return json({ error: "missing_capi_token" }, 500);
+
   let recovered_stale = 0;
   {
     const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
@@ -185,7 +188,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const payload = item?.payload;
       if (!leadId || !pixelId || !payload) continue;
 
-      const res = await callCapi(String(pixelId), payload);
+      const res = await callCapi(String(pixelId), payload, accessToken);
 
       if (res.ok) {
         sent++;
