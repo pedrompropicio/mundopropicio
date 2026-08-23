@@ -369,3 +369,101 @@ export function parseEventInfo(html: string): ParsedEventInfo {
 
   return { ageRating, doorsTime };
 }
+
+// ───────── v1.6 — capacidades exatas por zona (mapa de lugares BOL) ─────────
+
+export interface BolSeatSector {
+  /** Nome do sector tal como aparece na página de Sectores */
+  name: string;
+  /** URL da subpágina .../<setorId>/Lugares */
+  url: string;
+}
+
+/**
+ * A partir da página de Sectores da BOL, devolve os sectores com mapa de lugares
+ * marcados (link para `/Lugares`). Sectores de pé/sem mapa não aparecem.
+ * Tolerante: se não conseguir emparelhar nome↔link, devolve o que conseguiu.
+ */
+export function findBolSeatSectorUrls(html: string, baseUrl: string): BolSeatSector[] {
+  const out: BolSeatSector[] = [];
+  const seen = new Set<string>();
+  const abs = (href: string): string | null => {
+    try {
+      return new URL(decodeEntities(href), baseUrl).toString();
+    } catch {
+      return null;
+    }
+  };
+
+  // Estratégia 1: elemento com data-sector que contenha (ou esteja perto de) um href /Lugares
+  const secRe = /data-sector=['"]([\s\S]*?)['"]\s*(?:\/?>|style=)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = secRe.exec(html))) {
+    let info: Record<string, unknown>;
+    try {
+      info = JSON.parse(decodeEntities(m[1]));
+    } catch {
+      continue;
+    }
+    const name = String(info["Sector:"] ?? "").replace(/\s+/g, " ").trim();
+    if (!name) continue;
+    const window = html.slice(Math.max(0, m.index - 900), m.index + (m[0]?.length ?? 0) + 900);
+    const href = window.match(/href=['"]([^'"]*\/Lugares[^'"]*)['"]/i);
+    if (!href) continue;
+    const u = abs(href[1]);
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    out.push({ name, url: u });
+  }
+
+  // Estratégia 2 (fallback): todos os links /Lugares sem nome de sector conhecido
+  if (out.length === 0) {
+    const re = /href=['"]([^'"]*\/Lugares[^'"]*)['"]/gi;
+    let l: RegExpExecArray | null;
+    while ((l = re.exec(html))) {
+      const u = abs(l[1]);
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      const idM = u.match(/\/(\d+)\/Lugares/i);
+      out.push({ name: idM ? `Setor ${idM[1]}` : u, url: u });
+    }
+  }
+
+  return out;
+}
+
+export interface SeatMapCounts {
+  free: number;
+  taken: number;
+  notActive: number;
+  /** free + taken + notActive */
+  capacity: number;
+}
+
+/** Capacidade mínima plausível de um mapa de lugares (abaixo disto = parse suspeito). */
+export const MIN_SEAT_MAP_CAPACITY = 10;
+
+/**
+ * Conta os lugares de um mapa BOL pelas classes CSS.
+ * `lugar livre` / `lugar ocupado` / `not-active` (ordem das classes é irrelevante).
+ * Devolve null quando o HTML não parece um mapa de lugares.
+ */
+export function parseBolSeatMap(html: string): SeatMapCounts | null {
+  let free = 0;
+  let taken = 0;
+  let notActive = 0;
+
+  const clsRe = /class=['"]([^'"]*)['"]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = clsRe.exec(html))) {
+    const cls = m[1].toLowerCase();
+    if (!/\blugar\b|\bseat\b/.test(cls)) continue;
+    if (/\bnot-active\b|\binactiv|\bnaoactiv/.test(cls)) notActive++;
+    else if (/\bocupad|\bvendid|\breservad|\btaken\b|\bunavailable\b/.test(cls)) taken++;
+    else if (/\blivre\b|\bdisponivel\b|\bdispon[íi]vel\b|\bfree\b|\bavailable\b/.test(cls)) free++;
+  }
+
+  const capacity = free + taken + notActive;
+  if (capacity < MIN_SEAT_MAP_CAPACITY) return null;
+  return { free, taken, notActive, capacity };
+}

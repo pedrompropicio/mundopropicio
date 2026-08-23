@@ -23,6 +23,9 @@ import {
   buildTicketLots,
   looksSane,
   parseEventInfo,
+  findBolSeatSectorUrls,
+  parseBolSeatMap,
+  MIN_SEAT_MAP_CAPACITY,
   type ParseResult,
   type ParsedEventInfo,
   type TicketLotItem,
@@ -40,7 +43,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_5_2026_08_12";
+const VERSION = "v1_6_2026_08_23";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -363,6 +366,163 @@ async function rotateFeatured(
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// v1.6 — captura de disponibilidade por zona + alerta "zona perto de esgotar".
+//  - SÓ capacidades EXATAS: mapa de lugares da BOL ou event_zone_capacities.
+//  - Alerta apenas na TRANSIÇÃO para <=10% (não repete nos dias seguintes).
+//  - Zonas de mobilidade reduzida ficam fora (já vêm com ignored=true).
+//  - Tolerante a falhas: erro num setor → ignora o setor, nunca quebra a sync.
+// ---------------------------------------------------------------------------
+const ALERT_THRESHOLD = 0.10;
+
+interface ZoneSnapshot {
+  event_id: string;
+  provider: string;
+  zone_label: string;
+  seats_available: number | null;
+  capacity: number | null;
+  source: "bol_map" | "ticketline_json" | "manual";
+}
+
+interface ZoneAlert {
+  eventName: string;
+  zoneLabel: string;
+  seatsAvailable: number;
+  capacity: number;
+  pct: number;
+}
+
+const normLabel = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+async function captureZoneAvailability(
+  admin: any,
+  ev: { id: string; name: string },
+  provider: Provider,
+  parsed: ParseResult,
+  dryRun: boolean,
+): Promise<{ snapshots: ZoneSnapshot[]; alerts: ZoneAlert[]; errors: string[] }> {
+  const errors: string[] = [];
+  const snapshots: ZoneSnapshot[] = [];
+
+  // capacidades cadastradas manualmente (allotments Ticketline)
+  const { data: caps } = await admin
+    .from("event_zone_capacities")
+    .select("zone_label, capacity")
+    .eq("event_id", ev.id);
+  const capByLabel = new Map<string, number>(
+    ((caps ?? []) as Array<{ zone_label: string; capacity: number }>).map((c) => [
+      normLabel(c.zone_label),
+      Number(c.capacity),
+    ]),
+  );
+
+  const relevant = parsed.zones.filter((z) => !z.ignored);
+
+  if (provider === "ticketline") {
+    for (const z of relevant) {
+      if (z.seatsAvailable === null) continue;
+      const manual = capByLabel.get(normLabel(z.name)) ?? capByLabel.get(normLabel(z.zone)) ?? null;
+      snapshots.push({
+        event_id: ev.id,
+        provider,
+        zone_label: z.name,
+        seats_available: z.seatsAvailable,
+        capacity: manual,
+        source: "ticketline_json",
+      });
+    }
+  } else {
+    // BOL — mapa de lugares por setor (1 request extra por setor)
+    let sectors: Array<{ name: string; url: string }> = [];
+    try {
+      const page = await fetchHtml(parsed.url);
+      if (page.ok) sectors = findBolSeatSectorUrls(page.html, page.url);
+    } catch (e) {
+      errors.push(`sectores: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const ignoredSet = new Set(parsed.zones.filter((z) => z.ignored).map((z) => normLabel(z.name)));
+
+    for (const s of sectors) {
+      if (ignoredSet.has(normLabel(s.name))) continue;
+      try {
+        const seatPage = await fetchHtml(s.url);
+        if (!seatPage.ok) {
+          errors.push(`${s.name}: HTTP ${seatPage.status}`);
+          continue;
+        }
+        const counts = parseBolSeatMap(seatPage.html);
+        if (!counts) {
+          errors.push(`${s.name}: mapa de lugares suspeito (capacidade < ${MIN_SEAT_MAP_CAPACITY}) — descartado`);
+          continue;
+        }
+        snapshots.push({
+          event_id: ev.id,
+          provider,
+          zone_label: s.name,
+          seats_available: counts.free,
+          capacity: counts.capacity,
+          source: "bol_map",
+        });
+      } catch (e) {
+        errors.push(`${s.name}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
+    // Setores sem mapa mas com capacidade cadastrada manualmente
+    const already = new Set(snapshots.map((s) => normLabel(s.zone_label)));
+    for (const z of relevant) {
+      if (already.has(normLabel(z.name))) continue;
+      if (z.seatsAvailable === null) continue;
+      const manual = capByLabel.get(normLabel(z.name)) ?? capByLabel.get(normLabel(z.zone)) ?? null;
+      snapshots.push({
+        event_id: ev.id,
+        provider,
+        zone_label: z.name,
+        seats_available: z.seatsAvailable,
+        capacity: manual,
+        source: "manual",
+      });
+    }
+  }
+
+  // ---- alerta de transição para <=10% (só com capacidade exata) ----
+  const alerts: ZoneAlert[] = [];
+  for (const snap of snapshots) {
+    if (!snap.capacity || snap.capacity <= 0 || snap.seats_available === null) continue;
+    const ratio = snap.seats_available / snap.capacity;
+    if (ratio > ALERT_THRESHOLD) continue;
+
+    const { data: prev } = await admin
+      .from("bilheteira_zone_snapshots")
+      .select("seats_available, capacity")
+      .eq("event_id", snap.event_id)
+      .eq("zone_label", snap.zone_label)
+      .order("captured_at", { ascending: false })
+      .limit(1);
+
+    const p = ((prev ?? []) as Array<{ seats_available: number | null; capacity: number | null }>)[0];
+    if (!p || p.seats_available === null) continue; // sem histórico → sem alerta (evita falso 1º dia)
+    const prevCap = p.capacity && p.capacity > 0 ? p.capacity : snap.capacity;
+    const prevRatio = p.seats_available / prevCap;
+    if (prevRatio <= ALERT_THRESHOLD) continue; // já estava ≤10% → não repete
+
+    alerts.push({
+      eventName: ev.name,
+      zoneLabel: snap.zone_label,
+      seatsAvailable: snap.seats_available,
+      capacity: snap.capacity,
+      pct: Math.round(ratio * 1000) / 10,
+    });
+  }
+
+  if (!dryRun && snapshots.length > 0) {
+    const { error } = await admin.from("bilheteira_zone_snapshots").insert(snapshots);
+    if (error) errors.push(`insert snapshots: ${error.message}`);
+  }
+
+  return { snapshots, alerts, errors };
+}
 
 
 Deno.serve(async (req) => {
@@ -418,6 +578,7 @@ Deno.serve(async (req) => {
 
   const results: unknown[] = [];
   const digest: DigestEvent[] = [];
+  const zoneAlerts: ZoneAlert[] = [];
   // Logs adiados: só são inseridos depois de sabermos se o e-mail seguiu.
   const pendingLogs: Record<string, unknown>[] = [];
 
@@ -465,6 +626,18 @@ Deno.serve(async (req) => {
         results.push({ event: ev.name, status: "insane_values" });
         await admin.from("bilheteira_sync_log").insert(logRow);
         continue;
+      }
+
+      // v1.6 — captura de disponibilidade por zona (nunca quebra a sync)
+      try {
+        const cap = await captureZoneAvailability(admin, ev, provider, parsed, dryRun);
+        (logRow.raw_summary as Record<string, unknown>).zone_snapshots = cap.snapshots;
+        if (cap.errors.length > 0) {
+          (logRow.raw_summary as Record<string, unknown>).zone_capture_errors = cap.errors;
+        }
+        zoneAlerts.push(...cap.alerts);
+      } catch (e) {
+        console.error("[bilheteira-sync] captura de zonas falhou:", e);
       }
 
       const built = buildTicketLots(parsed.zones);
@@ -544,6 +717,20 @@ Deno.serve(async (req) => {
     }
 
     pendingLogs.push(logRow);
+  }
+
+  // ---- v1.6: seção "Zonas perto de esgotar" no digest ----
+  if (zoneAlerts.length > 0) {
+    digest.push({
+      eventId: "zone-alerts",
+      name: "⚠ Zonas perto de esgotar",
+      portalUrl: null,
+      crmUrl: `${APP_BASE}/crm/eventos`,
+      lines: zoneAlerts.map(
+        (a) =>
+          `${a.eventName} — ${a.zoneLabel}: ${a.seatsAvailable}/${a.capacity} restantes (${a.pct}%)`,
+      ),
+    });
   }
 
   // ---- Rotação do destaque da home (v1.5) ----
@@ -629,6 +816,7 @@ Deno.serve(async (req) => {
     triggered_by: body.triggeredBy ?? "manual",
     dry_run: dryRun,
     scanned: (events ?? []).length,
+    zone_alerts: zoneAlerts,
     email_sent: email.sent,
     email_reason: email.sent ? undefined : email.reason,
     featured_rotation: featured
