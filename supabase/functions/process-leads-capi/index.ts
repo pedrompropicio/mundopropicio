@@ -196,6 +196,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     sent,
     retried,
     failed_final,
+    recovered_stale,
     stop_reason,
     wall_ms: Date.now() - t0,
   });
