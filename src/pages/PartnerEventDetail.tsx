@@ -1860,7 +1860,6 @@ export default function PartnerEventDetail() {
                 sponsorshipNet={sponsorshipRealNet}
                 barsNet={barsRealNet}
                 otherNet={otherIncomeRealNet}
-              otherNet={otherIncomeRealNet}
                 bpExpenseGross={bpTotalExpenseAdjusted}
                 showRealized={canSeeComparative}
                 adjustedRubricsCount={bpAdjustedCount}
