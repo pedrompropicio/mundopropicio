@@ -1,6 +1,6 @@
 // accept-staff-invite — público. Valida token, cria role field_producer, devolve sessão.
 // Estratégia de sessão: redefinir password via admin, depois signInWithPassword.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

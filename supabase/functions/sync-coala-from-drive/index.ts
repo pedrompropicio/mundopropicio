@@ -11,7 +11,7 @@
 //   - manual: JWT do utilizador (admin/manager)
 //   - cron: header X-Cron-Secret = COALA_SYNC_CRON_SECRET (ou service-role direto)
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   parseCoalaXlsx,
   buildValidationReport,

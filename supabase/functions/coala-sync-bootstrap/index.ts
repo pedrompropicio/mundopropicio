@@ -13,7 +13,7 @@
 //   Empate no topo (2+ com score igual): needs_manual_link=true.
 //   Sem candidato: row_state gravado sem forecast_id (ainda assim cobre identity_key).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseCoalaXlsx } from "../_shared/coalaParser.ts";
 
 const corsHeaders = {

@@ -1,7 +1,7 @@
 // fetch-fever-reports
 // v24 — fetch() directo à API Fever + Metabase Embedded. Sem Browserless.
 // Fluxo: B2bToken (Vault) → POST /graphs → JWT Metabase → 2× GET xlsx → parser → import.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   METABASE_PARAMS,
   FEVER_CLIENT_VERSION_FALLBACK,

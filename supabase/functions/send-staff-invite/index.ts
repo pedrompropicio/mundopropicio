@@ -1,5 +1,5 @@
 // send-staff-invite — reenvia convite WhatsApp para um profile field_staff existente.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {

@@ -1,6 +1,6 @@
 // update-fever-b2b-token
 // Guarda no Vault o B2bToken Fever (JWT) usado pela edge fetch-fever-reports.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -1,6 +1,6 @@
 // Grava/actualiza o segredo Vault com as credenciais BOL (produtores.bol.pt).
 // Padrão da update-ticketline-credentials.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

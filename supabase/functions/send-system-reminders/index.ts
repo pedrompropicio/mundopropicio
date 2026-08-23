@@ -1,6 +1,6 @@
 // Sends WhatsApp reminders for due system_reminders rows.
 // Triggered daily by pg_cron at 09:00 Lisbon (08:00 UTC summer / 09:00 UTC winter).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {
