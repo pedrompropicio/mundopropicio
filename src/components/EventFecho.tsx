@@ -249,9 +249,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     ? computeOutsideBpExcess(operationalForecasts as any[], expenseTx as any[], basis.withVat)
     : 0;
 
-  const revenue = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
+  // VISTA (ecrã + PDF): o seletor c/IVA move também a receita.
+  const revenue = basis.withVat ? revenueGross : revenueNet;
+  // BASE CONTRATUAL do apuramento dos sócios: segue SEMPRE `events.partner_calc_basis`.
+  // O seletor é uma vista e NUNCA pode mudar o que se apura a cada sócio.
+  const revenueForSettlement = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
   const expensesOp = (useGrossExpenses ? expenseGross : expenseNet) + outsideBp;
   const resultWithoutOverhead = revenue - expensesOp;
+  const resultWithoutOverheadForSettlement = revenueForSettlement - expensesOp;
 
 
   // Overheads (próprios + via master)
@@ -263,15 +268,19 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadExpenseGross = overheadExpense.reduce((s, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
   const overheadExpenseNet = overheadExpense.reduce((s, o: any) => s + Number(o.amount), 0);
 
-  // Overhead segue a mesma base do resto do Fecho.
-  const overheadIncomeFinal = calcBasis === "gross_revenue" ? overheadIncomeGross : overheadIncomeNet;
+  // Overhead segue a mesma base do resto do Fecho (vista) e a contratual no acerto.
+  const overheadIncomeFinal = basis.withVat ? overheadIncomeGross : overheadIncomeNet;
+  const overheadIncomeForSettlement = calcBasis === "gross_revenue" ? overheadIncomeGross : overheadIncomeNet;
   const overheadExpenseFinal = useGrossExpenses ? overheadExpenseGross : overheadExpenseNet;
   const overheadNet = basis.includeOverhead ? overheadIncomeFinal - overheadExpenseFinal : 0;
+  const overheadNetForSettlement = basis.includeOverhead ? overheadIncomeForSettlement - overheadExpenseFinal : 0;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
+  const resultWithOverheadForSettlement = resultWithoutOverheadForSettlement + overheadNetForSettlement;
 
-  // Acerto com sócios — base = resultado COM overhead (overhead entra no acerto, mas não na empresa)
+  // Acerto com sócios — base = resultado COM overhead na BASE CONTRATUAL (não a vista).
   const settlements = partners.map((p: any) => {
-    const result = resultWithOverhead;
+    const result = resultWithOverheadForSettlement;
+
     const effectivePct = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = roundCents(result * (effectivePct / 100));
 
