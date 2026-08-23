@@ -1025,7 +1025,7 @@ export default function EventDetail() {
           isMasterView={isGlobalView}
           eventStatus={event.status}
           primaryEventDate={event.date}
-          ticketSalesRevenue={Number(ticketSalesRevenue || 0)}
+          ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
         />
         <EventFinancialCard
