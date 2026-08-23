@@ -11302,6 +11302,7 @@ export type Database = {
         Returns: boolean
       }
       can_view_supplier_bank_data: { Args: never; Returns: boolean }
+      check_leads_capi_health: { Args: never; Returns: Json }
       check_supplier_iban_duplicate: {
         Args: { p_iban: string; p_supplier_id?: string }
         Returns: Json

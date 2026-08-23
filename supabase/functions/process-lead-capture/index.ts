@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-04c
+// cache-buster: 2026-08-23-npm-specifier
 // process-lead-capture — wrapper HTTP que invoca a RPC SECURITY DEFINER
 // public.process_lead_captures_batch e dispara CAPI 'Lead' por cada payload
 // retornado. Toda a lógica de bypass-RLS está na RPC; supabase-js só precisa
@@ -7,7 +7,7 @@
 //
 // verify_jwt = false (config.toml): cron-only.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
