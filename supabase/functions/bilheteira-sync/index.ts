@@ -217,12 +217,19 @@ async function sendDigest(
   },
   events: DigestEvent[],
 ): Promise<{ sent: boolean; reason?: string; recipients?: string[] }> {
-  const to = (Deno.env.get("BILHETEIRA_SYNC_NOTIFY_TO") ?? "").trim();
-  const cc = (Deno.env.get("BILHETEIRA_SYNC_NOTIFY_CC") ?? "").trim();
-  if (!to) {
+  // Secrets aceitam 1 ou N e-mails separados por vírgula (ou ponto-e-vírgula).
+  const parseList = (raw: string | undefined): string[] =>
+    (raw ?? "")
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  const toList = parseList(Deno.env.get("BILHETEIRA_SYNC_NOTIFY_TO"));
+  const ccList = parseList(Deno.env.get("BILHETEIRA_SYNC_NOTIFY_CC"));
+  if (toList.length === 0) {
     console.log("[bilheteira-sync] BILHETEIRA_SYNC_NOTIFY_TO não configurado — e-mail não enviado");
     return { sent: false, reason: "no_recipient_secret" };
   }
+
 
   const runAt = new Date().toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" });
   const templateData = {
@@ -239,7 +246,9 @@ async function sendDigest(
   };
 
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-  const recipients = cc ? [to, cc] : [to];
+  // dedup preservando a ordem (TO primeiro, depois CC)
+  const recipients = [...new Set([...toList, ...ccList].map((e) => e.toLowerCase()))];
+
   let sent = false;
   let reason: string | undefined;
 
