@@ -42,49 +42,80 @@ function json(body: unknown, status = 200) {
   });
 }
 
+const GRAPH_API_VERSION = "v25.0";
+
 type CapiResult =
   | { ok: true }
   | { ok: false; final: boolean; detail: string };
 
-async function callCapi(pixelId: string, payload: Record<string, any>): Promise<CapiResult> {
-  const body = {
-    pixel_id: pixelId,
-    event_name: payload.event_name,
-    event_id: payload.event_id,
-    event_time: payload.event_time,
-    event_source_url: payload.event_source_url,
-    user_data: payload.user_data,
-    custom_data: payload.custom_data,
-  };
+/** Token CAPI: env primeiro, senão vault via RPC (fetch directo devolve scalar). */
+async function loadCapiToken(): Promise<string | null> {
+  const envTok = Deno.env.get("META_CAPI_ACCESS_TOKEN");
+  if (envTok) return envTok;
   try {
-    const r = await fetch(`${SUPABASE_URL}/functions/v1/capi-meta-events`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_vault_secret`, {
       method: "POST",
       headers: {
+        apikey: SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-        "apikey": SERVICE_ROLE_KEY,
+        Accept: "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ _name: "META_CAPI_ACCESS_TOKEN" }),
+    });
+    const raw = await r.text();
+    if (!r.ok || !raw) return null;
+    let parsed: any = raw;
+    try { parsed = JSON.parse(raw); } catch { /* raw text */ }
+    if (Array.isArray(parsed) && parsed.length) return String(parsed[0]);
+    if (typeof parsed === "string") return parsed;
+    if (parsed && typeof parsed === "object" && "get_vault_secret" in parsed) {
+      return String(parsed.get_vault_secret);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST directo ao Graph da Meta. Antes passava por capi-meta-events
+ * (function-to-function), o que batia no rate limit do gateway edge
+ * (RateLimitError) e marcava tudo como retry. Padrão igual ao portal_tick_*.
+ */
+async function callCapi(pixelId: string, payload: Record<string, any>, accessToken: string): Promise<CapiResult> {
+  const metaBody = {
+    data: [{
+      event_name: payload.event_name,
+      event_time: payload.event_time ?? Math.floor(Date.now() / 1000),
+      event_id: payload.event_id ?? undefined,
+      event_source_url: payload.event_source_url ?? undefined,
+      action_source: "website",
+      user_data: payload.user_data ?? {},
+      custom_data: payload.custom_data ?? {},
+    }],
+    access_token: accessToken,
+  };
+  try {
+    const r = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pixelId}/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(metaBody),
     });
     const text = await r.text();
     let parsed: any = null;
     try { parsed = text ? JSON.parse(text) : null; } catch { /* não-JSON */ }
 
-    const metaStatus: number | undefined = parsed?.meta_status;
-    const metaErr = parsed?.meta_response?.error;
+    if (r.ok) return { ok: true };
 
-    if (r.ok && typeof metaStatus === "number" && metaStatus >= 200 && metaStatus < 300) {
-      return { ok: true };
-    }
-
-    if (metaStatus === 400 && metaErr?.error_subcode === 2804050) {
+    const metaErr = parsed?.error;
+    if (r.status === 400 && metaErr?.error_subcode === 2804050) {
       return { ok: false, final: true, detail: "insufficient_customer_data" };
     }
-
     return {
       ok: false,
       final: false,
-      detail: `edge_http=${r.status} meta_status=${metaStatus ?? "?"} ${metaErr?.message ?? ""}`.trim(),
+      detail: `meta_status=${r.status} ${metaErr?.message ?? text.slice(0, 200)}`.trim(),
     };
   } catch (e) {
     return { ok: false, final: false, detail: String(e) };
