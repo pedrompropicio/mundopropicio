@@ -15,7 +15,7 @@ import {
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 
-const VERSION = "v2.36_capture_day_code_match";
+const VERSION = "v2.37_ticket_types";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
