@@ -29,7 +29,7 @@ const corsHeaders = {
 };
 
 const BATCH_LIMIT = 25;
-const THROTTLE_MS = 80;
+const THROTTLE_MS = 25;
 const MAX_WALL_MS = 27_000;   // teto de tempo (~27s, bem dentro do limite da edge)
 const MAX_BATCHES = 40;       // teto de iterações (40 * 25 = 1000 leads/invocação)
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
