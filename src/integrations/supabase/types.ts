@@ -2738,6 +2738,45 @@ export type Database = {
           },
         ]
       }
+      consent_log: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          decision: string
+          device: string | null
+          functional_granted: boolean | null
+          id: string
+          locale: string | null
+          marketing_granted: boolean | null
+          ms_to_decision: number | null
+          path: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          decision: string
+          device?: string | null
+          functional_granted?: boolean | null
+          id?: string
+          locale?: string | null
+          marketing_granted?: boolean | null
+          ms_to_decision?: number | null
+          path?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          decision?: string
+          device?: string | null
+          functional_granted?: boolean | null
+          id?: string
+          locale?: string | null
+          marketing_granted?: boolean | null
+          ms_to_decision?: number | null
+          path?: string | null
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           company_id: string
