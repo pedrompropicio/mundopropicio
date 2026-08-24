@@ -16,7 +16,7 @@ import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.37_ticket_types";
+const VERSION = "v2.38_probe_limits";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1834,7 +1834,7 @@ function summarizeAttempt(label: string, url: string, r: any) {
   if (!r.looksXlsx) out.snippet = (r.snippet || "").slice(0, 400);
   if (r.looksXlsx && r.bytes) {
     try {
-      const d = dumpXlsx(r.bytes, 8, 14);
+      const d = dumpXlsx(r.bytes, 200, 20);
       out.xlsx = {
         sheetNames: d.sheetNames,
         headRows: d.sheets.map((s: any) => ({ name: s.name, ref: s.ref, rows: s.rows.slice(0, 8) })),
@@ -1886,7 +1886,7 @@ function cleanCellText(s: string): string {
  * Extrai estrutura das tabelas do relatório HTML: headers (<th>), primeiras
  * linhas de células e marcadores de secção (h2/h3/caption) antes de cada tabela.
  */
-function extractHtmlTables(html: string, maxTables = 8, maxRows = 6, maxCols = 20) {
+function extractHtmlTables(html: string, maxTables = 8, maxRows = 200, maxCols = 20) {
   const tables: any[] = [];
   const re = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
   let m: RegExpExecArray | null;
@@ -2102,7 +2102,7 @@ async function runProbeSjr(admin: any, configId?: string, urls?: string[]) {
       entry.novaArea = looksLikeNovaArea(unescaped.slice(0, 3000));
       entry.hasTableMarkup = /<table/i.test(unescaped);
       if (entry.hasTableMarkup) {
-        Object.assign(entry, extractHtmlTables(unescaped, 8, 10, 20));
+        Object.assign(entry, extractHtmlTables(unescaped, 8, 200, 20));
       } else {
         const { title, snippet, isSignIn } = describeHtml(body);
         entry.title = title;
@@ -2415,7 +2415,7 @@ async function runProbeParams(admin: any, configId?: string) {
     const d3: any = summarizeBinaryAttempt("d3_dash_xlsx", d3Url, r3);
     if (r3.looksXlsx && r3.bytes) {
       try {
-        const d = dumpXlsx(r3.bytes, 8, 24);
+        const d = dumpXlsx(r3.bytes, 200, 24);
         d3.sheetNames = d.sheetNames;
         d3.sheets = d.sheets;
       } catch (e: any) {
@@ -2507,7 +2507,7 @@ async function runDump(admin: any, configId?: string, compareConfigId?: string) 
     const ss = await probeGet(jar, `${BASE}/managers/events/${cfg.ticketline_event_id}/sale_summary.xlsx?${qs.toString()}`, `${XLSX_ACCEPT},*/*`, 3);
     entry.sale_summary = { status: ss.status, contentType: ss.contentType, size: ss.size, looksXlsx: ss.looksXlsx, snippet: ss.snippet };
     if (ss.looksXlsx && ss.bytes) {
-      try { entry.sale_summary.dump = dumpXlsx(ss.bytes, 40, 20); }
+      try { entry.sale_summary.dump = dumpXlsx(ss.bytes, 200, 20); }
       catch (e: any) { entry.sale_summary.parseError = e?.message || String(e); }
     }
     out.push(entry);
@@ -2551,7 +2551,7 @@ async function runMatrix(admin: any, configId?: string, customUrls?: string[]) {
     const entry: any = { url, status: r.status, contentType: r.contentType, size: r.size, looksXlsx: r.looksXlsx };
     if (r.looksXlsx && r.bytes) {
       try {
-        const d = dumpXlsx(r.bytes, 26, 12);
+        const d = dumpXlsx(r.bytes, 200, 20);
         entry.sheetNames = d.sheetNames;
         entry.ref = d.sheets[0]?.ref;
         entry.rows = d.sheets[0]?.rows;
