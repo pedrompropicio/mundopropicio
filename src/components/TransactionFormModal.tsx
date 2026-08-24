@@ -18,6 +18,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { computeInstallmentNets } from "@/lib/installment-nets";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -1281,8 +1282,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // são criadas a seguir, partilhando todos os metadados.
         const ivaMultiplier = 1 + Number(data.iva_rate || 0) / 100;
         const totalSuffix = useInstallments ? ` (1/${installmentRows.length})` : "";
+        // Bases das parcelas a 4 casas decimais: soma == base da factura e
+        // c/IVA de cada parcela reproduz exactamente a divisão do wizard.
+        const installmentNets = useInstallments
+          ? computeInstallmentNets(
+              installmentRows.map((r) => Number(r.amount) || 0),
+              parseFloat(data.amount),
+              ivaMultiplier,
+            )
+          : [];
         const firstParcelNet = useInstallments
-          ? +(Number(installmentRows[0]?.amount || 0) / ivaMultiplier).toFixed(2)
+          ? installmentNets[0] ?? 0
           : parseFloat(data.amount);
         const firstParcelDueDate = useInstallments
           ? installmentRows[0]?.scheduled_date || parseDueDateForDb(data.due_date)
@@ -1385,7 +1395,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
           for (let i = 1; i < n; i++) {
             const inst = installmentRows[i];
-            const netAmt = +(Number(inst.amount || 0) / ivaMultiplier).toFixed(2);
+            const netAmt = installmentNets[i] ?? 0;
             const { data: siblingTx, error: sErr } = await supabase.from("transactions").insert({
               description: `${data.description} (${i + 1}/${n})`,
               type: data.type,
@@ -1443,7 +1453,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               changed_by: callerName,
               field_name: "Parcelamento",
               old_value: null,
-              new_value: `Parcelamento gerado: ${n} parcelas, total ${totalGross.toFixed(2)} €`,
+              new_value: `Parcelamento gerado: ${n} parcelas, total ${totalGross.toFixed(2)} € (c/IVA)`,
             },
           ] as any);
         }
