@@ -5739,29 +5739,50 @@ export type Database = {
       }
       event_zone_capacities: {
         Row: {
+          available: number | null
+          blocked: number | null
           capacity: number
+          capacity_kind: string
           created_at: string
           event_id: string
           id: string
+          is_premium: boolean | null
           notes: string | null
+          observed_on: string
+          occupied: number | null
+          source: string | null
           updated_at: string
           zone_label: string
         }
         Insert: {
+          available?: number | null
+          blocked?: number | null
           capacity: number
+          capacity_kind?: string
           created_at?: string
           event_id: string
           id?: string
+          is_premium?: boolean | null
           notes?: string | null
+          observed_on?: string
+          occupied?: number | null
+          source?: string | null
           updated_at?: string
           zone_label: string
         }
         Update: {
+          available?: number | null
+          blocked?: number | null
           capacity?: number
+          capacity_kind?: string
           created_at?: string
           event_id?: string
           id?: string
+          is_premium?: boolean | null
           notes?: string | null
+          observed_on?: string
+          occupied?: number | null
+          source?: string | null
           updated_at?: string
           zone_label?: string
         }
