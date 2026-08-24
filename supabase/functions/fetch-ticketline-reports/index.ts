@@ -2446,14 +2446,36 @@ async function runProbeParams(admin: any, configId?: string) {
 }
 
 /** Dump de células de um XLSX para calibrar parsers (action "dump"). */
-function dumpXlsx(bytes: Uint8Array, maxRows = 80, maxCols = 24) {
+function dumpXlsx(bytes: Uint8Array, maxRows = 200, maxCols = 24) {
   const wb = XLSX.read(bytes, { type: "array" });
   const sheets = wb.SheetNames.map((name) => {
     const ws = wb.Sheets[name];
-    const rows = (XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, blankrows: true }) as any[][])
-      .slice(0, maxRows)
-      .map((row) => (row || []).slice(0, maxCols).map((c) => (c == null ? "" : String(c).slice(0, 80))));
-    return { name, ref: ws["!ref"] ?? null, merges: (ws["!merges"] || []).length, rows };
+    // ATENÇÃO: o XLSX da Ticketline declara um `!ref` demasiado curto (ex. A1:D30),
+    // o que faz `sheet_to_json` cortar linhas e colunas. Reconstruímos a grelha a
+    // partir dos endereços reais das células, ignorando o `!ref` (igual à issue #73).
+    const grid: any[][] = [];
+    let maxR = -1, maxC = -1;
+    for (const addr of Object.keys(ws)) {
+      if (addr.startsWith("!")) continue;
+      const rc = XLSX.utils.decode_cell(addr);
+      if (!rc || rc.r < 0 || rc.c < 0) continue;
+      if (rc.r > maxR) maxR = rc.r;
+      if (rc.c > maxC) maxC = rc.c;
+      if (rc.r >= maxRows || rc.c >= maxCols) continue;
+      while (grid.length <= rc.r) grid.push([]);
+      const row = grid[rc.r];
+      while (row.length <= rc.c) row.push("");
+      const v = (ws as any)[addr]?.v;
+      row[rc.c] = v == null ? "" : String(v).slice(0, 80);
+    }
+    const rows = grid.map((row) => (row || []).map((c) => (c == null ? "" : c)));
+    return {
+      name,
+      ref: ws["!ref"] ?? null,
+      realRange: maxR >= 0 ? `rows=${maxR + 1} cols=${maxC + 1}` : null,
+      merges: (ws["!merges"] || []).length,
+      rows,
+    };
   });
   return { sheetNames: wb.SheetNames, sheets };
 }
