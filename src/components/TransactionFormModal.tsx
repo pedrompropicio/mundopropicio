@@ -1395,7 +1395,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
           for (let i = 1; i < n; i++) {
             const inst = installmentRows[i];
-            const netAmt = +(Number(inst.amount || 0) / ivaMultiplier).toFixed(2);
+            const netAmt = installmentNets[i] ?? 0;
             const { data: siblingTx, error: sErr } = await supabase.from("transactions").insert({
               description: `${data.description} (${i + 1}/${n})`,
               type: data.type,
