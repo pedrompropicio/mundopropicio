@@ -18,6 +18,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { computeInstallmentNets } from "@/lib/installment-nets";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
