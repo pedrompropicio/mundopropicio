@@ -1453,7 +1453,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               changed_by: callerName,
               field_name: "Parcelamento",
               old_value: null,
-              new_value: `Parcelamento gerado: ${n} parcelas, total ${totalGross.toFixed(2)} €`,
+              new_value: `Parcelamento gerado: ${n} parcelas, total ${totalGross.toFixed(2)} € (c/IVA)`,
             },
           ] as any);
         }
