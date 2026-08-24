@@ -1857,7 +1857,7 @@ function parseOccupationGrid(grid: Grid) {
       blocked: occNum(row[cBloq]) ?? 0,
       occupied: occNum(row[cOcc]) ?? 0,
     };
-    if (/^totais?$/i.test(label) || /^total\s+geral$/i.test(label)) { total = rec; break; }
+    if (/^(total|totais|total\s+geral)$/i.test(label)) { total = rec; break; }
     rows.push(rec);
   }
   return { rows, total, empty: rows.length === 0, debug: { headerRow, zoneCol, dataRows: rows.length } };
