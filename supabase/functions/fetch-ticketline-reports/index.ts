@@ -75,7 +75,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" }
+interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" | "capture_occupation" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -3045,6 +3045,14 @@ Deno.serve(async (req) => {
       return await runCaptureTicketTypes(admin, configId, body.dateISO);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "capture_ticket_types_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "capture_occupation") {
+    try {
+      return await runCaptureOccupation(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "capture_occupation_failed", error: e?.message || String(e) });
     }
   }
 
