@@ -1281,8 +1281,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // são criadas a seguir, partilhando todos os metadados.
         const ivaMultiplier = 1 + Number(data.iva_rate || 0) / 100;
         const totalSuffix = useInstallments ? ` (1/${installmentRows.length})` : "";
+        // Bases das parcelas a 4 casas decimais: soma == base da factura e
+        // c/IVA de cada parcela reproduz exactamente a divisão do wizard.
+        const installmentNets = useInstallments
+          ? computeInstallmentNets(
+              installmentRows.map((r) => Number(r.amount) || 0),
+              parseFloat(data.amount),
+              ivaMultiplier,
+            )
+          : [];
         const firstParcelNet = useInstallments
-          ? +(Number(installmentRows[0]?.amount || 0) / ivaMultiplier).toFixed(2)
+          ? installmentNets[0] ?? 0
           : parseFloat(data.amount);
         const firstParcelDueDate = useInstallments
           ? installmentRows[0]?.scheduled_date || parseDueDateForDb(data.due_date)
