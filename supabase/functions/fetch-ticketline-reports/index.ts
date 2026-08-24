@@ -16,7 +16,7 @@ import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.38_probe_limits";
+const VERSION = "v2.39_capture_occupation";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -75,7 +75,7 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" }
+interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" | "capture_occupation" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1797,6 +1797,171 @@ async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: st
   }
 }
 
+// ============================================================================
+// v2.39 — action `capture_occupation`
+// Lotação por zona a partir do MAPA DE OCUPAÇÃO:
+//   GET /managers/events/{id}/occupation.xlsx
+// Grelha (colunas reais, ignorando o `!ref` curto):
+//   2=ZONA  3=OCUP. MÁX.  4=DISP.  5=BLOQ.  6=Qt. ocupada
+// Escreve em public.event_zone_capacities com capacity_kind='released',
+// uma linha por zona por dia (observed_on em Europe/Lisbon), UPSERT pela
+// chave (event_id, zone_label, capacity_kind, observed_on).
+// Regras: NUNCA gravar a linha "Total" como zona; validar que a soma das
+// zonas bate com o TOTAL (falha sem escrever se não bater); aceitar
+// disponibilidade NEGATIVA (sobrevenda é dado real); relatório vazio → 0
+// linhas e sucesso.
+// ============================================================================
+type OccupationRow = {
+  zone_label: string;
+  capacity: number;
+  available: number;
+  blocked: number;
+  occupied: number;
+};
+
+function occNum(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim().replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseOccupationGrid(grid: Grid) {
+  let headerRow = -1;
+  let zoneCol = -1;
+  for (let r = 0; r < grid.length && headerRow < 0; r++) {
+    const row = grid[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const t = String(row[c] ?? "").trim().toUpperCase();
+      if (t === "ZONA") { headerRow = r; zoneCol = c; break; }
+    }
+  }
+  if (headerRow < 0) {
+    return { rows: [] as OccupationRow[], total: null as OccupationRow | null, empty: true, debug: { reason: "header ZONA não encontrado" } };
+  }
+  const cCap = zoneCol + 1, cDisp = zoneCol + 2, cBloq = zoneCol + 3, cOcc = zoneCol + 4;
+
+  const rows: OccupationRow[] = [];
+  let total: OccupationRow | null = null;
+  for (let r = headerRow + 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const label = String(row[zoneCol] ?? "").trim();
+    if (!label) continue;
+    const capacity = occNum(row[cCap]);
+    if (capacity === null) continue;
+    const rec: OccupationRow = {
+      zone_label: label,
+      capacity,
+      available: occNum(row[cDisp]) ?? 0,
+      blocked: occNum(row[cBloq]) ?? 0,
+      occupied: occNum(row[cOcc]) ?? 0,
+    };
+    if (/^(total|totais|total\s+geral)$/i.test(label)) { total = rec; break; }
+    rows.push(rec);
+  }
+  return { rows, total, empty: rows.length === 0, debug: { headerRow, zoneCol, dataRows: rows.length } };
+}
+
+async function runCaptureOccupation(admin: any, configId?: string) {
+  if (!configId) return json(400, { error: "capture_occupation requer configId" });
+  const dayIso = lisbonTodayIso();
+
+  const { cfg, creds } = await loadCfgAndCreds(admin, configId);
+  if (!cfg.ticketline_event_id) return json(400, { error: "config sem ticketline_event_id" });
+  const tlId = String(cfg.ticketline_event_id);
+
+  const debug: Record<string, any> = { version: VERSION, observed_on: dayIso, ticketline_event_id: tlId, source_mode: "occupation_xlsx" };
+
+  try {
+    const { jar } = await loginDevise(creds.email, creds.password);
+    const url = `${BASE}/managers/events/${tlId}/occupation.xlsx`;
+    const r = await probeGet(jar, url, `${XLSX_ACCEPT},*/*`, 3);
+    debug.usedUrl = url;
+    debug.status = r.status;
+    debug.contentType = r.contentType;
+    debug.size = r.size;
+    if (!r.looksXlsx || !r.bytes) {
+      return json(500, { ok: false, phase: "occupation_not_xlsx", error: `resposta não é XLSX (status=${r.status}, ct=${r.contentType})`, debug });
+    }
+
+    // grelha pelos endereços reais das células (o `!ref` da Ticketline é curto)
+    const wb = XLSX.read(r.bytes, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const grid: Grid = [];
+    for (const addr of Object.keys(sheet)) {
+      if (addr.startsWith("!")) continue;
+      const rc = XLSX.utils.decode_cell(addr);
+      if (!rc || rc.r < 0 || rc.c < 0) continue;
+      while (grid.length <= rc.r) grid.push([]);
+      const row = grid[rc.r];
+      while (row.length <= rc.c) row.push(null);
+      row[rc.c] = (sheet as any)[addr]?.v ?? null;
+    }
+
+    const parsed = parseOccupationGrid(grid);
+    debug.parse = parsed.debug;
+    debug.total = parsed.total;
+
+    // relatório vazio → não escreve, sucesso com contagem zero
+    if (parsed.empty) {
+      return json(200, { ok: true, version: VERSION, observed_on: dayIso, upserted: 0, empty: true, debug });
+    }
+
+    // validação: soma das zonas tem de bater com a linha TOTAL
+    const sums = parsed.rows.reduce(
+      (a, z) => ({
+        capacity: a.capacity + z.capacity,
+        available: a.available + z.available,
+        blocked: a.blocked + z.blocked,
+        occupied: a.occupied + z.occupied,
+      }),
+      { capacity: 0, available: 0, blocked: 0, occupied: 0 },
+    );
+    debug.sums = sums;
+    if (!parsed.total) {
+      return json(500, { ok: false, phase: "occupation_total_missing", error: "linha TOTAL não encontrada — não escrevi nada", debug });
+    }
+    const mism = (["capacity", "available", "blocked", "occupied"] as const).filter((k) => sums[k] !== (parsed.total as any)[k]);
+    if (mism.length > 0) {
+      return json(500, {
+        ok: false, phase: "occupation_total_mismatch",
+        error: `soma das zonas não bate com o TOTAL em ${mism.join(", ")} — não escrevi nada`,
+        sums, total: parsed.total, debug,
+      });
+    }
+
+    const readAt = new Date().toISOString();
+    const payload = parsed.rows.map((z) => ({
+      event_id: cfg.event_id,
+      zone_label: z.zone_label,
+      capacity_kind: "released",
+      observed_on: dayIso,
+      capacity: z.capacity,
+      available: z.available,
+      blocked: z.blocked,
+      occupied: z.occupied,
+      source: "ticketline_occupation",
+      notes: `ticketline_event_id=${tlId}; occupation.xlsx; lido ${readAt}`,
+      updated_at: readAt,
+    }));
+    const { error: upErr } = await admin
+      .from("event_zone_capacities")
+      .upsert(payload, { onConflict: "event_id,zone_label,capacity_kind,observed_on" });
+    if (upErr) return json(500, { ok: false, phase: "occupation_upsert_failed", error: upErr.message, debug });
+
+    return json(200, {
+      ok: true, version: VERSION, observed_on: dayIso,
+      ticketline_event_id: tlId, upserted: payload.length,
+      total: parsed.total, sums, zones: parsed.rows, debug,
+    });
+  } catch (e: any) {
+    return json(500, { ok: false, phase: e?.phase || "capture_occupation_failed", error: e?.message || String(e), debug });
+  }
+}
+
+
+
 
 // ============================================================================
 // Área nova de Promotores — relatório sales_per_event.xlsx
@@ -2880,6 +3045,14 @@ Deno.serve(async (req) => {
       return await runCaptureTicketTypes(admin, configId, body.dateISO);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "capture_ticket_types_failed", error: e?.message || String(e) });
+    }
+  }
+
+  if (action === "capture_occupation") {
+    try {
+      return await runCaptureOccupation(admin, configId);
+    } catch (e: any) {
+      return json(500, { ok: false, phase: e?.phase || "capture_occupation_failed", error: e?.message || String(e) });
     }
   }
 
