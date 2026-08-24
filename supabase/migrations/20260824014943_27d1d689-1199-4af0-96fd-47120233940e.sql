@@ -1,0 +1,2 @@
+alter table public.event_zone_capacities
+  drop constraint if exists event_zone_capacities_event_id_zone_label_key;
