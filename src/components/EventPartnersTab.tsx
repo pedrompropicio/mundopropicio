@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { Trash2, Plus, Users, Info, Pencil, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,11 +30,15 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [percentage, setPercentage] = useState("");
   const [lossPercentage, setLossPercentage] = useState("");
   const [notes, setNotes] = useState("");
+  const [canOrder, setCanOrder] = useState(false);
+  const [canPay, setCanPay] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editPercentage, setEditPercentage] = useState("");
   const [editLossPercentage, setEditLossPercentage] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editCanOrder, setEditCanOrder] = useState(false);
+  const [editCanPay, setEditCanPay] = useState(false);
 
   const { data: event } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -87,6 +92,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         percentage: Number(percentage),
         loss_percentage: lossPercentage ? Number(lossPercentage) : null,
         notes: notes || null,
+        can_order: canOrder,
+        can_pay: canPay,
       });
       if (error) throw error;
     },
@@ -97,6 +104,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setPercentage("");
       setLossPercentage("");
       setNotes("");
+      setCanOrder(false);
+      setCanPay(false);
       toast({ title: "Sócio adicionado" });
     },
     onError: (err: any) => {
@@ -116,8 +125,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   });
 
   const updatePartner = useMutation({
-    mutationFn: async ({ id, supplier_id, name, percentage: pct, loss_percentage: lp, notes: n, originalName }: { id: string; supplier_id: string; name: string; percentage: number; loss_percentage: number | null; notes: string; originalName: string }) => {
-      const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null }).eq("id", id);
+    mutationFn: async ({ id, supplier_id, name, percentage: pct, loss_percentage: lp, notes: n, originalName, can_order, can_pay }: { id: string; supplier_id: string; name: string; percentage: number; loss_percentage: number | null; notes: string; originalName: string; can_order: boolean; can_pay: boolean }) => {
+      const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null, can_order, can_pay }).eq("id", id);
       if (error) throw error;
       const trimmed = name.trim();
       if (trimmed && trimmed !== originalName) {
@@ -197,6 +206,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <TableHead>Sócio</TableHead>
                 <TableHead className="text-right">% Lucro</TableHead>
                 <TableHead className="text-right">% Prejuízo</TableHead>
+                <TableHead>BP</TableHead>
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-20" />}
               </TableRow>
@@ -254,6 +264,29 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {isEditing ? (
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 text-xs text-foreground">
+                            <Switch checked={editCanOrder} onCheckedChange={setEditCanOrder} />
+                            Pode ser ordenador de despesas
+                          </label>
+                          <label className="flex items-center gap-2 text-xs text-foreground">
+                            <Switch checked={editCanPay} onCheckedChange={setEditCanPay} />
+                            Pode ser pagador de despesas
+                          </label>
+                          <p className="text-[10px] leading-tight text-muted-foreground">
+                            Não confundir com "Pago pelo Sócio" nas transações: esse é o registo pontual de um desembolso e continua disponível para qualquer sócio, mesmo sem esta opção ligada.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {p.can_order && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Ordenador</span>}
+                          {p.can_pay && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Pagador</span>}
+                          {!p.can_order && !p.can_pay && <span className="text-xs text-muted-foreground">—</span>}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {isEditing ? (
                         <Input
                           value={editNotes}
                           onChange={(e) => setEditNotes(e.target.value)}
@@ -270,7 +303,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           {isEditing ? (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => updatePartner.mutate({ id: p.id, supplier_id: p.supplier_id, name: editName, originalName: p.suppliers?.name || "", percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes })}
+                                onClick={() => updatePartner.mutate({ id: p.id, supplier_id: p.supplier_id, name: editName, originalName: p.suppliers?.name || "", percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes, can_order: editCanOrder, can_pay: editCanPay })}
                                 disabled={!editName.trim() || !editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
                               >
                                 <Check className="h-3.5 w-3.5 text-green-600" />
@@ -282,7 +315,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           ) : (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => { setEditingId(p.id); setEditName(p.suppliers?.name || ""); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); }}
+                                onClick={() => { setEditingId(p.id); setEditName(p.suppliers?.name || ""); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); setEditCanOrder(!!p.can_order); setEditCanPay(!!p.can_pay); }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
@@ -296,7 +329,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     )}
                   </TableRow>
                   <TableRow>
-                    <TableCell colSpan={canEdit ? 5 : 4} className="pt-0 pb-2 px-2">
+                    <TableCell colSpan={canEdit ? 6 : 5} className="pt-0 pb-2 px-2">
                       <PartnerExtrasPanel
                         partnerId={p.id}
                         partnerName={p.suppliers?.name || "Sócio"}
@@ -377,6 +410,19 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
             <div className="space-y-1.5">
               <Label className="text-xs">Notas (opcional)</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações..." />
+            </div>
+            <div className="space-y-2 rounded-lg border border-border/50 p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={canOrder} onCheckedChange={setCanOrder} />
+                Pode ser ordenador de despesas
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={canPay} onCheckedChange={setCanPay} />
+                Pode ser pagador de despesas
+              </label>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Não confundir com "Pago pelo Sócio" nas transações: esse é o registo pontual de um desembolso e continua disponível para qualquer sócio, mesmo sem esta opção ligada.
+              </p>
             </div>
             <div className="flex gap-2 justify-end">
               <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>
