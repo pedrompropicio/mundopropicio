@@ -2179,7 +2179,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="all">Todos</option>
-                  <option value="company">Empresa (Mundo Propício)</option>
+                  <option value="company">Empresa ({houseLabel})</option>
                   {eventPartners.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name} ({p.percentage}%)</option>
                   ))}
