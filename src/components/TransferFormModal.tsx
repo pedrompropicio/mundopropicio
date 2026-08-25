@@ -211,9 +211,18 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
             />
             {fromAccountId && sourceBalance !== undefined && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>
-                  €{sourceBalance.toFixed(2)}
-                </span>
+                {fromAccountSkip ? (
+                  <>
+                    Saldo: <span className="font-mono font-semibold">€{sourceBalance.toFixed(2)}</span>
+                    {" · conta sem controlo de saldo"}
+                  </>
+                ) : (
+                  <>
+                    Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>
+                      €{sourceBalance.toFixed(2)}
+                    </span>
+                  </>
+                )}
               </p>
             )}
           </div>

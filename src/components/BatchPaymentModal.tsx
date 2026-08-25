@@ -172,6 +172,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const allIncomes = computed.every((i) => i.type === "income");
 
   const selectedBalance = accountId ? computeAccountBalance(accountId) : null;
+  const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
   const accountOptions = financialAccounts.map((a: any) => ({
     value: a.id,
     label: a.name,
@@ -586,11 +587,20 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             />
             {selectedBalance !== null && (
               <p className="mt-1 text-[10px] text-muted-foreground">
-                Saldo atual: {formatCurrency(selectedBalance)}
-                {allExpenses && totalRemaining > selectedBalance && (
-                  <span className="ml-1 text-destructive font-semibold">
-                    — Saldo insuficiente!
-                  </span>
+                {selectedAccount?.skip_balance_check ? (
+                  <>
+                    Saldo: {formatCurrency(selectedBalance)}
+                    {" · conta sem controlo de saldo"}
+                  </>
+                ) : (
+                  <>
+                    Saldo atual: {formatCurrency(selectedBalance)}
+                    {allExpenses && totalRemaining > selectedBalance && (
+                      <span className="ml-1 text-destructive font-semibold">
+                        — Saldo insuficiente!
+                      </span>
+                    )}
+                  </>
                 )}
               </p>
             )}
