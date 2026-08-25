@@ -4165,6 +4165,7 @@ export type Database = {
           notes: string | null
           ordering_partner_id: string | null
           original_amount: number | null
+          paying_partner_id: string | null
           specification: string | null
           status: string
           transaction_id: string | null
@@ -4203,6 +4204,7 @@ export type Database = {
           notes?: string | null
           ordering_partner_id?: string | null
           original_amount?: number | null
+          paying_partner_id?: string | null
           specification?: string | null
           status?: string
           transaction_id?: string | null
@@ -4241,6 +4243,7 @@ export type Database = {
           notes?: string | null
           ordering_partner_id?: string | null
           original_amount?: number | null
+          paying_partner_id?: string | null
           specification?: string | null
           status?: string
           transaction_id?: string | null
@@ -4294,6 +4297,13 @@ export type Database = {
           {
             foreignKeyName: "event_forecasts_ordering_partner_id_fkey"
             columns: ["ordering_partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_paying_partner_id_fkey"
+            columns: ["paying_partner_id"]
             isOneToOne: false
             referencedRelation: "event_partners"
             referencedColumns: ["id"]
