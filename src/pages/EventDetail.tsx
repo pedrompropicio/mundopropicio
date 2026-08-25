@@ -31,11 +31,18 @@ import { useCompany } from "@/hooks/useCompany";
 import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
-  ORDERING_HOUSE_LABEL,
   buildInheritedOrdererMap,
   effectiveTransactionOrderer,
   matchesOrderingPartnerFilter,
 } from "@/lib/ordering-partner";
+import {
+  PAYING_FILTER_ALL,
+  PAYING_FILTER_HOUSE,
+  buildInheritedPayerMap,
+  effectiveTransactionPayer,
+  matchesPayingPartnerFilter,
+} from "@/lib/paying-partner";
+import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
@@ -259,6 +266,9 @@ export default function EventDetail() {
 
   // --- Ordenador de despesas (opcional; sem ordenador = MP/comum) ---
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  // --- Pagador de despesas (opcional; sem pagador = empresa configurada) ---
+  const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
+  const houseLabel = useEventHouseLabel(id);
   const { data: orderingPartners = [] } = useQuery({
     queryKey: ["event-ordering-partners", id],
     queryFn: async () => {
@@ -276,7 +286,7 @@ export default function EventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, category_id, type, description, transaction_id, ordering_partner_id")
+        .select("id, event_id, category_id, type, description, transaction_id, ordering_partner_id, paying_partner_id")
         .eq("event_id", id!)
         .eq("type", "expense")
         .is("version_id", null);
@@ -776,14 +786,21 @@ export default function EventDetail() {
 
   // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
   const inheritedOrdererMap = buildInheritedOrdererMap(orderingForecasts, eventTransactions);
-  const visibleTransactions =
-    orderingFilter === ORDERING_FILTER_ALL
-      ? eventTransactions
-      : eventTransactions.filter((t: any) =>
-          t.type !== "expense"
-            ? false
-            : matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter),
-        );
+  // Pagador efectivo = próprio da TX > herdado da linha BP vinculada.
+  const inheritedPayerMap = buildInheritedPayerMap(orderingForecasts, eventTransactions);
+  const visibleTransactions = eventTransactions.filter((t: any) => {
+    if (orderingFilter !== ORDERING_FILTER_ALL) {
+      if (t.type !== "expense") return false;
+      if (!matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter))
+        return false;
+    }
+    if (payingFilter !== PAYING_FILTER_ALL) {
+      if (t.type !== "expense") return false;
+      if (!matchesPayingPartnerFilter(effectiveTransactionPayer(t, inheritedPayerMap), payingFilter))
+        return false;
+    }
+    return true;
+  });
 
   const statusLabels: Record<string, string> = {
     pending: "Aguardando",
@@ -1167,7 +1184,21 @@ export default function EventDetail() {
                     className="rounded-lg border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
-                    <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</option>
+                    <option value={ORDERING_FILTER_HOUSE}>{houseLabel} (sem ordenador)</option>
+                    {orderingPartners.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+                {orderingPartners.length > 0 && (
+                  <select
+                    value={payingFilter}
+                    onChange={(e) => setPayingFilter(e.target.value)}
+                    title="Pagador da despesa — quem desembolsa. Aplica-se só a despesas."
+                    className="rounded-lg border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value={PAYING_FILTER_ALL}>Pagador: todos</option>
+                    <option value={PAYING_FILTER_HOUSE}>{houseLabel} (sem pagador)</option>
                     {orderingPartners.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
