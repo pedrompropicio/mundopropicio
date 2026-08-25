@@ -10412,6 +10412,7 @@ export type Database = {
           original_amount: number | null
           paid_amount: number
           parent_transaction_id: string | null
+          paying_partner_id: string | null
           payment_date: string | null
           payment_entity: string | null
           payment_method: string
@@ -10462,6 +10463,7 @@ export type Database = {
           original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
+          paying_partner_id?: string | null
           payment_date?: string | null
           payment_entity?: string | null
           payment_method?: string
@@ -10512,6 +10514,7 @@ export type Database = {
           original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
+          paying_partner_id?: string | null
           payment_date?: string | null
           payment_entity?: string | null
           payment_method?: string
@@ -10581,6 +10584,13 @@ export type Database = {
             columns: ["parent_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_paying_partner_id_fkey"
+            columns: ["paying_partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
             referencedColumns: ["id"]
           },
           {
