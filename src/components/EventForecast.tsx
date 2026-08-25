@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus, Wallet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
@@ -36,7 +36,6 @@ import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTran
 import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
-  ORDERING_HOUSE_LABEL,
   buildInheritedOrdererMap,
   effectiveTransactionOrderer,
   matchesOrderingPartnerFilter,
@@ -399,6 +398,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }));
     },
   });
+
+  // Rótulo da empresa configurada no evento (pagador/ordenador vazio).
+  const houseLabel = useEventHouseLabel(eventId);
 
   // Fetch forecast-partner assignments
   const { data: forecastPartners = [] } = useQuery({
@@ -3220,6 +3222,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 }) {
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
+  const rowHouseLabel = useEventHouseLabel(item.event_id ?? eventId);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
