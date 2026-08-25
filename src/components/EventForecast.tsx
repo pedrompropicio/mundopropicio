@@ -193,7 +193,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
   // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
-  // Ordenador da despesa: "all" | "house" (MP/comum, sem ordenador) | event_partners.id
+  // Ordenador da despesa: "all" | "house" (empresa configurada, sem ordenador) | event_partners.id
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
   // Pagador da despesa: "all" | "house" (empresa configurada, sem pagador) | event_partners.id
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);

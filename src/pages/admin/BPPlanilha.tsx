@@ -1210,7 +1210,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
                 return { readOnly: true, className: "bpv2-orphan" };
               }
               if ("tempId" in m) {
-                // Linhas novas: ordenador só depois de gravar (não há id ainda).
+                // Linhas novas: ordenador/pagador seguem no insert via RPC.
                 return {};
               }
               if (m.locked) {

@@ -24,7 +24,7 @@ interface Props {
 
 /**
  * Badge discreto do ordenador da despesa numa linha do BP. Clicável (para quem
- * edita o BP): abre popover com os sócios do evento + opção "— (MP/comum)".
+ * edita o BP): abre popover com os sócios do evento + opção da empresa.
  * Só deve ser renderizado em linhas de DESPESA de eventos com sócios.
  */
 export function OrderingPartnerBadge({ forecastId, eventId, current, partners, houseLabel, readOnly = false }: Props) {

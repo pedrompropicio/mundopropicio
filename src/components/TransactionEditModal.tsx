@@ -889,7 +889,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = MP/comum.
+          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = empresa configurada.
               A edição manual prevalece sobre a herança da linha BP. */}
           {isExpense && form.event_id && eventPartnersForExtra.length > 0 && (
             <div>

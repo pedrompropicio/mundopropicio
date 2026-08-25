@@ -65,7 +65,7 @@ interface TransactionForm {
   /** Retenção IRS já declarada na fatura. Pré-preenche o modal de pagamento. */
   declared_withholding_rate: string;
   declared_withholding_amount: string;
-  /** Sócio ordenador da despesa (event_partners.id). "" = MP/comum. Só despesas. */
+  /** Sócio ordenador da despesa (event_partners.id). "" = empresa configurada. Só despesas. */
   ordering_partner_id: string;
   /** Sócio pagador da despesa (event_partners.id). "" = empresa configurada. Só despesas. */
   paying_partner_id: string;
@@ -2600,7 +2600,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
-          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = MP/comum. */}
+          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = empresa configurada. */}
           {form.type === "expense" && eventPartners.length > 0 && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Ordenador da despesa</label>

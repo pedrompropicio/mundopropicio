@@ -264,7 +264,7 @@ export default function EventDetail() {
       : [id!];
 
 
-  // --- Ordenador de despesas (opcional; sem ordenador = MP/comum) ---
+  // --- Ordenador de despesas (opcional; sem ordenador = empresa configurada) ---
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
   // --- Pagador de despesas (opcional; sem pagador = empresa configurada) ---
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
