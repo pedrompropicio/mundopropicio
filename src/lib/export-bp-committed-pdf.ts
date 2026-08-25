@@ -99,7 +99,7 @@ export function drawExpenseSection(doc: jsPDF, section: ReportSection, startY: n
   const body = rows.map((r) => [
     r.code,
     r.kind === "line" ? `    ${r.label}` : r.label,
-    r.orderer,
+    r.payer,
     r.docs > 0 ? `${r.docs} ${r.docs === 1 ? "Anexo" : "Anexos"}` : "",
     nf(r.base),
     nf(r.iva),
@@ -108,7 +108,7 @@ export function drawExpenseSection(doc: jsPDF, section: ReportSection, startY: n
 
   autoTable(doc, {
     startY,
-    head: [["Código", "Descrição", "Ordenador", "Anexos", "Valor s/IVA", "IVA", "Total c/IVA"]],
+    head: [["Código", "Descrição", "Pagador", "Anexos", "Valor s/IVA", "IVA", "Total c/IVA"]],
     body,
     theme: "plain",
     styles: { fontSize: 7.5, cellPadding: { top: 1.2, right: 2, bottom: 1.2, left: 2 }, textColor: [20, 20, 20], lineWidth: 0 },

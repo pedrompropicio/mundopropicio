@@ -99,6 +99,8 @@ export interface CommittedBpBundle {
   transactions: any[];
   categories: CategoryNode[];
   partnerNames: Record<string, string>;
+  /** Nome da empresa configurada no evento (rótulo do pagador NULL). */
+  houseLabel: string;
   forecastDocs: Record<string, number>;
   txDocs: Record<string, number>;
 }
@@ -110,7 +112,7 @@ export async function fetchCommittedBpBundle(
 ): Promise<CommittedBpBundle> {
   const { data: evt, error: evtErr } = await supabase
     .from("events")
-    .select("id, name, date, location, cities:city_id(name), venues:venue_id(name)")
+    .select("id, name, date, location, cities:city_id(name), venues:venue_id(name), companies:company_id(display_name, legal_name)")
     .eq("id", eventId)
     .maybeSingle();
   if (evtErr) throw evtErr;
@@ -197,6 +199,10 @@ export async function fetchCommittedBpBundle(
       cityName: (evt as any).cities?.name ?? null,
     },
     eventIds,
+    houseLabel:
+      (evt as any).companies?.display_name ||
+      (evt as any).companies?.legal_name ||
+      HOUSE_PAYER_FALLBACK,
     forecasts,
     transactions,
     categories: (catRes.data ?? []) as any,
@@ -284,6 +290,7 @@ export function distributeExcess(previstos: number[], excess: number): number[] 
 
 export function buildCommittedRows(bundle: CommittedBpBundle): { rows: OutRow[]; totals: SectionTotals } {
   const { forecasts, transactions, categories, partnerNames, forecastDocs, txDocs } = bundle;
+  const houseLabel = bundle.houseLabel || HOUSE_PAYER_FALLBACK;
 
   const byId: Record<string, CategoryNode> = {};
   categories.forEach((c) => { byId[c.id] = c; });
