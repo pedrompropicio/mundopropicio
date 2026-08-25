@@ -2183,7 +2183,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
-                  <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL} (sem ordenador)</option>
+                  <option value={ORDERING_FILTER_HOUSE}>{houseLabel} (sem ordenador)</option>
+                  {eventPartners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Pagador da despesa (só eventos com sócios) */}
+            {eventPartners.length > 0 && (
+              <div className="flex items-center gap-1.5" title="Pagador da despesa — quem desembolsa. Aplica-se só a despesas.">
+                <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={payingFilter}
+                  onChange={(e) => setPayingFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value={PAYING_FILTER_ALL}>Pagador: todos</option>
+                  <option value={PAYING_FILTER_HOUSE}>{houseLabel} (sem pagador)</option>
                   {eventPartners.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -3489,6 +3506,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.ordering_partner_id}
                       partners={eventPartners as any}
+                      readOnly={readOnly || !canEditOrdering}
+                    />
+                  </span>
+                )}
+                {/* Pagador — só despesas de eventos com sócios. Receitas não têm. */}
+                {item.type === "expense" && eventPartners.length > 0 && !item._prorated && !item._overhead_via_master && !item._synthetic_orphan && (
+                  <span className="ml-2 align-middle">
+                    <PayingPartnerBadge
+                      forecastId={item.id}
+                      eventId={item.event_id ?? eventId ?? ""}
+                      current={item.paying_partner_id}
+                      partners={eventPartners as any}
+                      houseLabel={rowHouseLabel}
                       readOnly={readOnly || !canEditOrdering}
                     />
                   </span>
