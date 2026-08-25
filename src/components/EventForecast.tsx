@@ -193,7 +193,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
   // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
-  // Ordenador da despesa: "all" | "house" (MP/comum, sem ordenador) | event_partners.id
+  // Ordenador da despesa: "all" | "house" (empresa configurada, sem ordenador) | event_partners.id
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
   // Pagador da despesa: "all" | "house" (empresa configurada, sem pagador) | event_partners.id
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
@@ -388,16 +388,27 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers:supplier_id(name)")
+        .select("id, percentage, can_order, can_pay, suppliers:supplier_id(name)")
         .eq("event_id", partnersSourceId);
       if (error) throw error;
       return (data ?? []).map((p: any) => ({
         id: p.id,
         percentage: p.percentage,
+        can_order: p.can_order ?? false,
+        can_pay: p.can_pay ?? false,
         name: (p.suppliers as any)?.name ?? "Sócio",
       }));
     },
   });
+
+  const ordererOptions = useMemo(
+    () => (eventPartners as any[]).filter((p) => p.can_order),
+    [eventPartners],
+  );
+  const payerOptions = useMemo(
+    () => (eventPartners as any[]).filter((p) => p.can_pay),
+    [eventPartners],
+  );
 
   // Rótulo da empresa configurada no evento (pagador/ordenador vazio).
   const houseLabel = useEventHouseLabel(eventId);
@@ -2168,7 +2179,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="all">Todos</option>
-                  <option value="company">Empresa (Mundo Propício)</option>
+                  <option value="company">Empresa ({houseLabel})</option>
                   {eventPartners.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name} ({p.percentage}%)</option>
                   ))}
@@ -2186,7 +2197,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
                   <option value={ORDERING_FILTER_HOUSE}>{houseLabel} (sem ordenador)</option>
-                  {eventPartners.map((p: any) => (
+                  {ordererOptions.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
@@ -2203,7 +2214,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <option value={PAYING_FILTER_ALL}>Pagador: todos</option>
                   <option value={PAYING_FILTER_HOUSE}>{houseLabel} (sem pagador)</option>
-                  {eventPartners.map((p: any) => (
+                  {payerOptions.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
@@ -3212,7 +3223,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   isEligibleForGen?: boolean;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
-  assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
+  assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number; can_order?: boolean | null; can_pay?: boolean | null }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
   canDeleteAlways?: boolean; allForecasts?: any[];
   onDistributeToSplits?: (item: any) => void;
@@ -3220,6 +3231,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   adoptedChildren?: any[];
   onScheduleInstallments?: (item: any) => void;
 }) {
+  const ordererOptions = useMemo(() => eventPartners.filter((p) => !!p.can_order), [eventPartners]);
+  const payerOptions = useMemo(() => eventPartners.filter((p) => !!p.can_pay), [eventPartners]);
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
   const rowHouseLabel = useEventHouseLabel(item.event_id ?? eventId);
@@ -3508,7 +3521,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       forecastId={item.id}
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.ordering_partner_id}
-                      partners={eventPartners as any}
+                      partners={ordererOptions as any}
+                      houseLabel={rowHouseLabel}
                       readOnly={readOnly || !canEditOrdering}
                     />
                   </span>
@@ -3520,7 +3534,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       forecastId={item.id}
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.paying_partner_id}
-                      partners={eventPartners as any}
+                      partners={payerOptions as any}
                       houseLabel={rowHouseLabel}
                       readOnly={readOnly || !canEditOrdering}
                     />

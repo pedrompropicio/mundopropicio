@@ -264,7 +264,7 @@ export default function EventDetail() {
       : [id!];
 
 
-  // --- Ordenador de despesas (opcional; sem ordenador = MP/comum) ---
+  // --- Ordenador de despesas (opcional; sem ordenador = empresa configurada) ---
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
   // --- Pagador de despesas (opcional; sem pagador = empresa configurada) ---
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
@@ -274,10 +274,15 @@ export default function EventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, suppliers(name)")
+        .select("id, can_order, can_pay, suppliers(name)")
         .eq("event_id", id!);
       if (error) throw error;
-      return (data ?? []).map((p: any) => ({ id: p.id, name: p.suppliers?.name ?? "Sócio" }));
+      return (data ?? []).map((p: any) => ({
+        id: p.id,
+        name: p.suppliers?.name ?? "Sócio",
+        can_order: p.can_order ?? false,
+        can_pay: p.can_pay ?? false,
+      }));
     },
     enabled: !!id,
   });
@@ -1185,7 +1190,7 @@ export default function EventDetail() {
                   >
                     <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
                     <option value={ORDERING_FILTER_HOUSE}>{houseLabel} (sem ordenador)</option>
-                    {orderingPartners.map((p) => (
+                    {orderingPartners.filter((p: any) => p.can_order).map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
@@ -1199,7 +1204,7 @@ export default function EventDetail() {
                   >
                     <option value={PAYING_FILTER_ALL}>Pagador: todos</option>
                     <option value={PAYING_FILTER_HOUSE}>{houseLabel} (sem pagador)</option>
-                    {orderingPartners.map((p) => (
+                    {orderingPartners.filter((p: any) => p.can_pay).map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>

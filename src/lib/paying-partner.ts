@@ -34,6 +34,7 @@ export interface PayingPartnerOption {
   id: string;
   name: string;
   percentage?: number | string | null;
+  can_pay?: boolean | null;
 }
 
 /** Iniciais compactas para o badge da linha. */

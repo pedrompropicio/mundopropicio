@@ -65,7 +65,7 @@ interface TransactionForm {
   /** Retenção IRS já declarada na fatura. Pré-preenche o modal de pagamento. */
   declared_withholding_rate: string;
   declared_withholding_amount: string;
-  /** Sócio ordenador da despesa (event_partners.id). "" = MP/comum. Só despesas. */
+  /** Sócio ordenador da despesa (event_partners.id). "" = empresa configurada. Só despesas. */
   ordering_partner_id: string;
   /** Sócio pagador da despesa (event_partners.id). "" = empresa configurada. Só despesas. */
   paying_partner_id: string;
@@ -463,7 +463,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // 1) Try the event itself
       const { data: own, error: ownErr } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, suppliers(name)")
         .eq("event_id", partnersLookupEventId)
         .order("created_at");
       if (ownErr) throw ownErr;
@@ -480,7 +480,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
       const { data: inherited, error: inhErr } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, suppliers(name)")
         .eq("event_id", ev.parent_event_id)
         .order("created_at");
       if (inhErr) throw inhErr;
@@ -2600,7 +2600,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
-          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = MP/comum. */}
+          {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = empresa configurada. */}
           {form.type === "expense" && eventPartners.length > 0 && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Ordenador da despesa</label>
@@ -2610,7 +2610,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">— {houseLabel}</option>
-                {eventPartners.map((p: any) => (
+                {eventPartners.filter((p: any) => p.can_order).map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>
@@ -2630,7 +2630,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">— {houseLabel}</option>
-                {eventPartners.map((p: any) => (
+                {eventPartners.filter((p: any) => p.can_pay).map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>

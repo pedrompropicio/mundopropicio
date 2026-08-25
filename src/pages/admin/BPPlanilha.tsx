@@ -53,6 +53,13 @@ import {
   matchesOrderingPartnerFilter,
   type OrderingPartnerOption,
 } from "@/lib/ordering-partner";
+import {
+  PAYING_FILTER_ALL,
+  PAYING_FILTER_HOUSE,
+  buildInheritedPayerMap,
+  effectiveTransactionPayer,
+  matchesPayingPartnerFilter,
+} from "@/lib/paying-partner";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 
 
@@ -118,6 +125,7 @@ interface Entry {
   status?: string;
   transaction_id?: string | null;
   ordering_partner_id?: string | null;
+  paying_partner_id?: string | null;
   /** Overhead/rateio: valor é calculado — só a formalidade é editável nesta linha. */
   is_overhead?: boolean | null;
   exclude_from_result?: boolean | null;
@@ -146,14 +154,13 @@ const COL = {
   TOTAL: 5,
   FORMALIDADE: 6,
   ORDERER: 7,
-  ANEXOS: 8,
+  PAYER: 8,
+  ANEXOS: 9,
 };
-const NUM_COLS = 9;
+const NUM_COLS = 10;
 
 interface DiffResult {
   edits: { id: string; fields: Record<string, unknown>; label: string }[];
-  /** Ordenador grava-se direto (fora da RPC), tal como na visão agrupada. */
-  ordererEdits: { id: string; ordering_partner_id: string | null; label: string }[];
   inserts: {
     category_id: string | null;
     description: string;
@@ -161,6 +168,8 @@ interface DiffResult {
     amount: number;
     iva_rate: number;
     formalidade: string;
+    ordering_partner_id: string | null;
+    paying_partner_id: string | null;
   }[];
   deletes: string[];
 }
@@ -203,6 +212,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   /* Ordenador de despesas por sócio (mesma semântica da visão agrupada). */
   const [partners, setPartners] = useState<OrderingPartnerOption[]>([]);
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
   const [transactions, setTransactions] = useState<any[]>([]);
   /** Painel read-only de "anexos" (transações vinculadas a uma linha/bucket). */
   const [anexosPanel, setAnexosPanel] = useState<{ title: string; txs: any[] } | null>(null);
@@ -297,7 +307,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         supabase
           .from("event_forecasts")
           .select(
-            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override",
+            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, paying_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override",
           )
           .eq("event_id", eventId)
           .is("version_id", null)
@@ -306,12 +316,12 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         eventCompanyId ? catQuery.eq("company_id", eventCompanyId) : catQuery,
         supabase
           .from("event_partners")
-          .select("id, percentage, suppliers:supplier_id(name)")
+          .select("id, percentage, can_order, can_pay, suppliers:supplier_id(name)")
           .eq("event_id", partnersSourceId),
         supabase
           .from("transactions")
           .select(
-            "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, ordering_partner_id",
+            "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, ordering_partner_id, paying_partner_id",
           )
           .eq("event_id", eventId)
           .eq("type", "expense"),
@@ -325,6 +335,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         ((pRes.data ?? []) as any[]).map((p) => ({
           id: p.id,
           percentage: p.percentage,
+          can_order: p.can_order ?? false,
+          can_pay: p.can_pay ?? false,
           name: (p.suppliers as any)?.name ?? "Sócio",
         })),
       );
@@ -374,22 +386,32 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   }, [partners]);
 
   const ordererLabels = useMemo(
-    () => [ORDERING_HOUSE_LABEL, ...partners.map((p) => p.name)],
+    () => [ORDERING_HOUSE_LABEL, ...partners.filter((p) => p.can_order).map((p) => p.name)],
+    [partners, ORDERING_HOUSE_LABEL],
+  );
+
+  const payerLabels = useMemo(
+    () => [ORDERING_HOUSE_LABEL, ...partners.filter((p) => (p as any).can_pay).map((p) => p.name)],
     [partners, ORDERING_HOUSE_LABEL],
   );
 
   const labelToPartnerId = useCallback(
-    (label: unknown): string | null => {
+    (label: unknown, role: "orderer" | "payer"): string | null => {
       const v = txt(label);
       if (!v || v === ORDERING_HOUSE_LABEL) return null;
-      const hit = partners.find((p) => p.name === v);
+      const hit = partners.find((p) => p.name === v && (role === "orderer" ? p.can_order : (p as any).can_pay));
       return hit ? hit.id : null;
     },
-    [partners],
+    [partners, ORDERING_HOUSE_LABEL],
   );
 
   const inheritedOrdererMap = useMemo(
     () => buildInheritedOrdererMap(entries as any[], transactions),
+    [entries, transactions],
+  );
+
+  const inheritedPayerMap = useMemo(
+    () => buildInheritedPayerMap(entries as any[], transactions),
     [entries, transactions],
   );
 
@@ -419,7 +441,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     const visible = entries.filter(
       (e) =>
         !pendingDeletes.includes(e.id) &&
-        matchesOrderingPartnerFilter(e.ordering_partner_id ?? null, orderingFilter),
+        matchesOrderingPartnerFilter(e.ordering_partner_id ?? null, orderingFilter) &&
+        matchesPayingPartnerFilter(e.paying_partner_id ?? null, payingFilter),
     );
     for (const e of visible) {
       const key = e.category_id ?? "__none__";
@@ -452,7 +475,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
 
     const filterTxs = (list: any[]) =>
       list.filter((t) =>
-        matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter),
+        matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter) &&
+        matchesPayingPartnerFilter(effectiveTransactionPayer(t, inheritedPayerMap), payingFilter),
       );
 
     const shown = new Set<string>();
@@ -495,6 +519,9 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               row.entry.ordering_partner_id
                 ? partnerNameById.get(row.entry.ordering_partner_id) ?? ORDERING_HOUSE_LABEL
                 : ORDERING_HOUSE_LABEL,
+              row.entry.paying_partner_id
+                ? partnerNameById.get(row.entry.paying_partner_id) ?? ORDERING_HOUSE_LABEL
+                : ORDERING_HOUSE_LABEL,
               txs.length ? `🔗 ${txs.length}` : "",
             ],
             txs,
@@ -502,7 +529,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         } else {
           pushFormulaRow(
             { kind: "entry", tempId: row.tempId!, categoryId: catId, categoryLabel: label },
-            [label, "", "", 0, Number(defaultRate), "", enumToLabel("estimado"), ORDERING_HOUSE_LABEL, ""],
+            [label, "", "", 0, Number(defaultRate), "", enumToLabel("estimado"), ORDERING_HOUSE_LABEL, ORDERING_HOUSE_LABEL, ""],
             null,
           );
         }
@@ -541,8 +568,10 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     defaultRate,
     dataVersion,
     orderingFilter,
+    payingFilter,
     transactions,
     inheritedOrdererMap,
+    inheritedPayerMap,
     partnerNameById,
     eventId,
   ]);
@@ -562,7 +591,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const buildDiff = useCallback((): DiffResult => {
     const hot = hotRef.current?.hotInstance;
     const meta = metaRef.current;
-    const res: DiffResult = { edits: [], ordererEdits: [], inserts: [], deletes: [...pendingDeletes] };
+    const res: DiffResult = { edits: [], inserts: [], deletes: [...pendingDeletes] };
     if (!hot) return res;
 
     meta.forEach((m, r) => {
@@ -572,7 +601,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const amount = round2(parseAmountPT(hot.getDataAtCell(r, COL.AMOUNT)) ?? 0);
       const iva_rate = parseAmountPT(hot.getDataAtCell(r, COL.IVA)) ?? 0;
       const formalidade = labelToEnum(hot.getDataAtCell(r, COL.FORMALIDADE)) ?? "estimado";
-      const ordering_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.ORDERER));
+      const ordering_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.ORDERER), "orderer");
+      const paying_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.PAYER), "payer");
 
       if ("tempId" in m) {
         res.inserts.push({
@@ -582,6 +612,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
           amount,
           iva_rate,
           formalidade,
+          ordering_partner_id,
+          paying_partner_id,
         });
         return;
       }
@@ -604,16 +636,11 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       if (round2(Number(orig.amount ?? 0)) !== amount) fields.amount = amount;
       if (Number(orig.iva_rate ?? 0) !== iva_rate) fields.iva_rate = iva_rate;
       if ((orig.formalidade ?? "estimado") !== formalidade) fields.formalidade = formalidade;
+      if ((orig.ordering_partner_id ?? null) !== ordering_partner_id) fields.ordering_partner_id = ordering_partner_id;
+      if ((orig.paying_partner_id ?? null) !== paying_partner_id) fields.paying_partner_id = paying_partner_id;
       // poda de no-ops: só entra no diff se sobrou pelo menos um campo real
       if (Object.keys(fields).length) {
         res.edits.push({ id: m.id, fields, label: description || orig.description || m.id });
-      }
-      if ((orig.ordering_partner_id ?? null) !== ordering_partner_id) {
-        res.ordererEdits.push({
-          id: m.id,
-          ordering_partner_id,
-          label: description || orig.description || m.id,
-        });
       }
     });
     return res;
@@ -622,7 +649,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const recount = useCallback(() => {
     const d = buildDiff();
     setCounts({
-      edits: d.edits.length + d.ordererEdits.length,
+      edits: d.edits.length,
       inserts: d.inserts.length,
       deletes: d.deletes.length,
     });
@@ -789,7 +816,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const handleSave = async () => {
     if (saving) return;
     const diff = buildDiff();
-    if (!diff.edits.length && !diff.ordererEdits.length && !diff.inserts.length && !diff.deletes.length) {
+    if (!diff.edits.length && !diff.inserts.length && !diff.deletes.length) {
       toast.info("Sem alterações para gravar.");
       return;
     }
@@ -829,20 +856,12 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         } as any);
         if (error) throw error;
       }
-      // Ordenador grava direto (a RPC não cobre este campo), tal como na visão agrupada.
-      for (const o of diff.ordererEdits) {
-        const { error } = await supabase
-          .from("event_forecasts")
-          .update({ ordering_partner_id: o.ordering_partner_id })
-          .eq("id", o.id);
-        if (error) throw error;
-      }
       if (diff.deletes.length) {
         const { error } = await supabase.from("event_forecasts").delete().in("id", diff.deletes);
         if (error) throw error;
       }
       toast.success(
-        `${diff.edits.length + diff.ordererEdits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
+        `${diff.edits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
       );
 
       // Refresh das vistas que leem event_forecasts + cards financeiros do evento
@@ -985,9 +1004,17 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         width: 150,
         renderer: ordererRenderer as any,
       },
+      {
+        data: COL.PAYER,
+        type: "dropdown",
+        source: payerLabels,
+        allowInvalid: false,
+        width: 150,
+        renderer: ordererRenderer as any,
+      },
       { data: COL.ANEXOS, readOnly: true, width: 90, renderer: anexosRenderer as any },
     ],
-    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer, ordererLabels, ordererRenderer, anexosRenderer],
+    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer, ordererLabels, payerLabels, ordererRenderer, anexosRenderer],
   );
 
 
@@ -1017,7 +1044,23 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             <SelectContent>
               <SelectItem value={ORDERING_FILTER_ALL}>Todos os ordenadores</SelectItem>
               <SelectItem value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</SelectItem>
-              {partners.map((p) => (
+              {partners.filter((p) => p.can_order).map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {partners.length > 0 && (
+          <Select value={payingFilter} onValueChange={setPayingFilter}>
+            <SelectTrigger className="h-8 w-[190px] text-xs">
+              <SelectValue placeholder="Pagador" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={PAYING_FILTER_ALL}>Todos os pagadores</SelectItem>
+              <SelectItem value={PAYING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</SelectItem>
+              {partners.filter((p) => (p as any).can_pay).map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
@@ -1125,6 +1168,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               "Total c/IVA",
               "Formalidade",
               "Ordenador",
+              "Pagador",
               "Anexos",
             ]}
             rowHeaders
@@ -1166,7 +1210,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
                 return { readOnly: true, className: "bpv2-orphan" };
               }
               if ("tempId" in m) {
-                // Linhas novas: ordenador só depois de gravar (não há id ainda).
+                // Linhas novas: ordenador/pagador seguem no insert via RPC.
                 return {};
               }
               if (m.locked) {
