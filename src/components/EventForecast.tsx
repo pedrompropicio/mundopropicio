@@ -3223,7 +3223,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   isEligibleForGen?: boolean;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
-  assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
+  assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number; can_order?: boolean | null; can_pay?: boolean | null }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
   canDeleteAlways?: boolean; allForecasts?: any[];
   onDistributeToSplits?: (item: any) => void;
@@ -3231,6 +3231,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   adoptedChildren?: any[];
   onScheduleInstallments?: (item: any) => void;
 }) {
+  const ordererOptions = useMemo(() => eventPartners.filter((p) => !!p.can_order), [eventPartners]);
+  const payerOptions = useMemo(() => eventPartners.filter((p) => !!p.can_pay), [eventPartners]);
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
   const rowHouseLabel = useEventHouseLabel(item.event_id ?? eventId);

@@ -649,7 +649,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const recount = useCallback(() => {
     const d = buildDiff();
     setCounts({
-      edits: d.edits.length + d.ordererEdits.length,
+      edits: d.edits.length,
       inserts: d.inserts.length,
       deletes: d.deletes.length,
     });
@@ -816,7 +816,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const handleSave = async () => {
     if (saving) return;
     const diff = buildDiff();
-    if (!diff.edits.length && !diff.ordererEdits.length && !diff.inserts.length && !diff.deletes.length) {
+    if (!diff.edits.length && !diff.inserts.length && !diff.deletes.length) {
       toast.info("Sem alterações para gravar.");
       return;
     }
@@ -856,20 +856,12 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         } as any);
         if (error) throw error;
       }
-      // Ordenador grava direto (a RPC não cobre este campo), tal como na visão agrupada.
-      for (const o of diff.ordererEdits) {
-        const { error } = await supabase
-          .from("event_forecasts")
-          .update({ ordering_partner_id: o.ordering_partner_id })
-          .eq("id", o.id);
-        if (error) throw error;
-      }
       if (diff.deletes.length) {
         const { error } = await supabase.from("event_forecasts").delete().in("id", diff.deletes);
         if (error) throw error;
       }
       toast.success(
-        `${diff.edits.length + diff.ordererEdits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
+        `${diff.edits.length} editada(s) · ${diff.inserts.length} inserida(s) · ${diff.deletes.length} removida(s).`,
       );
 
       // Refresh das vistas que leem event_forecasts + cards financeiros do evento
@@ -1012,9 +1004,17 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         width: 150,
         renderer: ordererRenderer as any,
       },
+      {
+        data: COL.PAYER,
+        type: "dropdown",
+        source: payerLabels,
+        allowInvalid: false,
+        width: 150,
+        renderer: ordererRenderer as any,
+      },
       { data: COL.ANEXOS, readOnly: true, width: 90, renderer: anexosRenderer as any },
     ],
-    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer, ordererLabels, ordererRenderer, anexosRenderer],
+    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer, ordererLabels, payerLabels, ordererRenderer, anexosRenderer],
   );
 
 
@@ -1044,7 +1044,23 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             <SelectContent>
               <SelectItem value={ORDERING_FILTER_ALL}>Todos os ordenadores</SelectItem>
               <SelectItem value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</SelectItem>
-              {partners.map((p) => (
+              {partners.filter((p) => p.can_order).map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {partners.length > 0 && (
+          <Select value={payingFilter} onValueChange={setPayingFilter}>
+            <SelectTrigger className="h-8 w-[190px] text-xs">
+              <SelectValue placeholder="Pagador" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={PAYING_FILTER_ALL}>Todos os pagadores</SelectItem>
+              <SelectItem value={PAYING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL}</SelectItem>
+              {partners.filter((p) => (p as any).can_pay).map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
@@ -1152,6 +1168,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               "Total c/IVA",
               "Formalidade",
               "Ordenador",
+              "Pagador",
               "Anexos",
             ]}
             rowHeaders
