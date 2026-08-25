@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
@@ -454,6 +455,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // - Single transaction: read partners from the selected event, inheriting from Master if empty
   // - Split (multi-event): read partners from the Master event of the tour (splitMasterEventId)
   const partnersLookupEventId = form.event_id || splitMasterEventId;
+  const houseLabel = useEventHouseLabel(partnersLookupEventId);
   const { data: eventPartners = [] } = useQuery({
     queryKey: ["event-partners-for-tx", partnersLookupEventId],
     queryFn: async () => {
