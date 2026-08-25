@@ -19,7 +19,13 @@ export type OrderingPartnerFilter = string;
 
 export const ORDERING_FILTER_ALL = "all";
 export const ORDERING_FILTER_HOUSE = "house";
-export const ORDERING_HOUSE_LABEL = "MP / comum";
+/**
+ * Fallback do rótulo da "casa" (sem ordenador = empresa configurada no evento).
+ * O valor real resolve-se por `events.company_id → companies.display_name`
+ * (ver `useEventHouseLabel`) — nunca hardcodar o nome de um cliente.
+ */
+export const ORDERING_HOUSE_LABEL = "Empresa";
+
 
 export interface OrderingPartnerOption {
   id: string;

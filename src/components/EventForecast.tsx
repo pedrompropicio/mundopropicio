@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus, Wallet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
@@ -36,12 +36,20 @@ import { scoreDescriptionMatch, findCategoryOrphanTransactions, findMatchingTran
 import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
-  ORDERING_HOUSE_LABEL,
   buildInheritedOrdererMap,
   effectiveTransactionOrderer,
   matchesOrderingPartnerFilter,
 } from "@/lib/ordering-partner";
+import {
+  PAYING_FILTER_ALL,
+  PAYING_FILTER_HOUSE,
+  buildInheritedPayerMap,
+  effectiveTransactionPayer,
+  matchesPayingPartnerFilter,
+} from "@/lib/paying-partner";
 import { OrderingPartnerBadge } from "@/components/bp/OrderingPartnerBadge";
+import { PayingPartnerBadge } from "@/components/bp/PayingPartnerBadge";
+import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
@@ -187,6 +195,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
   // Ordenador da despesa: "all" | "house" (MP/comum, sem ordenador) | event_partners.id
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  // Pagador da despesa: "all" | "house" (empresa configurada, sem pagador) | event_partners.id
+  const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
   // Tipo: "all" | "income" | "expense" — controla se mostramos só Receitas, só Despesas ou Ambos
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
@@ -388,6 +398,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }));
     },
   });
+
+  // Rótulo da empresa configurada no evento (pagador/ordenador vazio).
+  const houseLabel = useEventHouseLabel(eventId);
 
   // Fetch forecast-partner assignments
   const { data: forecastPartners = [] } = useQuery({
@@ -1658,14 +1671,27 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return matchesOrderingPartnerFilter(f?.ordering_partner_id ?? null, orderingFilter);
   };
 
+  // Pagador da despesa — filtro aplica-se SÓ a despesas (receitas não têm pagador).
+  const matchesPayingFilter = (f: any) => {
+    if (payingFilter === PAYING_FILTER_ALL) return true;
+    if (f?.type !== "expense") return true;
+    return matchesPayingPartnerFilter(f?.paying_partner_id ?? null, payingFilter);
+  };
+
   // Herança: TX de despesa sem ordenador próprio herda o da linha BP que a reclama.
   const inheritedOrdererMap = useMemo(
     () => buildInheritedOrdererMap([...forecasts, ...adoptedForecasts], transactions),
     [forecasts, adoptedForecasts, transactions],
   );
 
+  // Herança: TX de despesa sem pagador próprio herda o da linha BP que a reclama.
+  const inheritedPayerMap = useMemo(
+    () => buildInheritedPayerMap([...forecasts, ...adoptedForecasts], transactions),
+    [forecasts, adoptedForecasts, transactions],
+  );
+
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter).filter(matchesPayingFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
@@ -1700,12 +1726,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Ordenador da despesa — mesma regra das linhas locais.
       if (!matchesOrderingPartnerFilter(forecast?.ordering_partner_id ?? null, orderingFilter)) return false;
 
+      // Pagador da despesa — mesma regra das linhas locais.
+      if (!matchesPayingPartnerFilter(forecast?.paying_partner_id ?? null, payingFilter)) return false;
+
       if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, orderingFilter, adoptedForecasts, eventId, hasTxForForecast]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, orderingFilter, payingFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -1860,9 +1889,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (!includeSubsInBP && parentEventId == null && f.event_id !== eventId) return false;
       // Filtro de ordenador (só despesas) — previsto e realizado ficam coerentes.
       if (f.type === "expense" && !matchesOrderingPartnerFilter(f.ordering_partner_id ?? null, orderingFilter)) return false;
+      // Filtro de pagador (só despesas) — previsto e realizado ficam coerentes.
+      if (f.type === "expense" && !matchesPayingPartnerFilter(f.paying_partner_id ?? null, payingFilter)) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter, payingFilter]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
@@ -1892,9 +1923,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         t.type === "expense" &&
         !matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter)
       ) return false;
+      // Pagador efectivo (próprio ou herdado da linha BP) — só despesas.
+      if (
+        t.type === "expense" &&
+        !matchesPayingPartnerFilter(effectiveTransactionPayer(t, inheritedPayerMap), payingFilter)
+      ) return false;
       return true;
     });
-  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap]);
+  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap, payingFilter, inheritedPayerMap]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   // Alinha os cards do BP ao mesmo perímetro estrito da vista "Previsão vs Real",
@@ -2149,7 +2185,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
-                  <option value={ORDERING_FILTER_HOUSE}>{ORDERING_HOUSE_LABEL} (sem ordenador)</option>
+                  <option value={ORDERING_FILTER_HOUSE}>{houseLabel} (sem ordenador)</option>
+                  {eventPartners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Pagador da despesa (só eventos com sócios) */}
+            {eventPartners.length > 0 && (
+              <div className="flex items-center gap-1.5" title="Pagador da despesa — quem desembolsa. Aplica-se só a despesas.">
+                <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={payingFilter}
+                  onChange={(e) => setPayingFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value={PAYING_FILTER_ALL}>Pagador: todos</option>
+                  <option value={PAYING_FILTER_HOUSE}>{houseLabel} (sem pagador)</option>
                   {eventPartners.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -3169,6 +3222,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 }) {
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
+  const rowHouseLabel = useEventHouseLabel(item.event_id ?? eventId);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
@@ -3455,6 +3509,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.ordering_partner_id}
                       partners={eventPartners as any}
+                      readOnly={readOnly || !canEditOrdering}
+                    />
+                  </span>
+                )}
+                {/* Pagador — só despesas de eventos com sócios. Receitas não têm. */}
+                {item.type === "expense" && eventPartners.length > 0 && !item._prorated && !item._overhead_via_master && !item._synthetic_orphan && (
+                  <span className="ml-2 align-middle">
+                    <PayingPartnerBadge
+                      forecastId={item.id}
+                      eventId={item.event_id ?? eventId ?? ""}
+                      current={item.paying_partner_id}
+                      partners={eventPartners as any}
+                      houseLabel={rowHouseLabel}
                       readOnly={readOnly || !canEditOrdering}
                     />
                   </span>

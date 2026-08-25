@@ -23,7 +23,7 @@ export const SYSTEM_NAME = "MP Gestão Eventos";
 const SHEET_NAME = "BP Previsto + Excedido";
 const MONEY_FMT = '#,##0.00';
 
-const HEADER = ["Código", "Descrição", "Ordenador", "Anexos", "Valor s/IVA", "IVA", "Total c/IVA"];
+const HEADER = ["Código", "Descrição", "Pagador", "Anexos", "Valor s/IVA", "IVA", "Total c/IVA"];
 const WIDTHS = [11, 62, 17, 13, 16, 14, 16];
 
 /** Data por extenso em pt-PT, tolerante a data inválida. */
@@ -200,7 +200,7 @@ export function buildCommittedBpWorkbook(
 
     row.getCell(1).value = r.code || null;
     row.getCell(2).value = r.kind === "line" ? `      ${r.label}` : r.label;
-    row.getCell(3).value = r.orderer || null;
+    row.getCell(3).value = r.payer || null;
     row.getCell(4).value = r.docs > 0 ? `${r.docs} ${r.docs === 1 ? "Anexo" : "Anexos"}` : null;
 
     if (r.kind === "line") {

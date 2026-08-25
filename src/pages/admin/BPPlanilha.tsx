@@ -48,12 +48,12 @@ import {
 import {
   ORDERING_FILTER_ALL,
   ORDERING_FILTER_HOUSE,
-  ORDERING_HOUSE_LABEL,
   buildInheritedOrdererMap,
   effectiveTransactionOrderer,
   matchesOrderingPartnerFilter,
   type OrderingPartnerOption,
 } from "@/lib/ordering-partner";
+import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 
 
 registerAllModules();
@@ -178,6 +178,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const allowed = canEdit;
 
   const { rates: validIva, defaultRate } = useEventIvaCountry(eventId || null);
+  /** Rótulo da empresa configurada no evento (ordenador vazio). */
+  const ORDERING_HOUSE_LABEL = useEventHouseLabel(eventId);
 
   const hotRef = useRef<any>(null);
   const metaRef = useRef<RowMeta[]>([]);
@@ -373,7 +375,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
 
   const ordererLabels = useMemo(
     () => [ORDERING_HOUSE_LABEL, ...partners.map((p) => p.name)],
-    [partners],
+    [partners, ORDERING_HOUSE_LABEL],
   );
 
   const labelToPartnerId = useCallback(
@@ -942,7 +944,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       dropdownRenderer(inst, td as any, r, c, p, text, cellProps);
       td.style.color = text === ORDERING_HOUSE_LABEL ? "hsl(var(--muted-foreground))" : "";
     },
-    [],
+    [ORDERING_HOUSE_LABEL],
   );
 
 

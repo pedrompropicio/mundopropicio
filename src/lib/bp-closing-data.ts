@@ -33,8 +33,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcIvaAmount } from "@/lib/iva";
 import { FECHO_TX_FILTER_COLUMNS, isValidFechoTransaction } from "@/lib/fecho-filters";
 import { EXCESS_EPSILON } from "@/lib/event-cost-basis";
+import { payerIdFromRow } from "@/lib/paying-partner";
 
-export const HOUSE_ORDERER = "MP";
+/**
+ * Fallback do rótulo da empresa (pagador NULL). O nome real vem de
+ * `events.company_id → companies.display_name` — ver `houseLabel` no bundle.
+ */
+export const HOUSE_PAYER_FALLBACK = "Empresa";
 
 export const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -83,7 +88,8 @@ interface ForecastLine {
   transaction_id: string | null;
   event_id: string;
   is_overhead: boolean;
-  ordering_partner_id: string | null;
+  /** Pagador (quem desembolsa). NULL = empresa configurada no evento. */
+  paying_partner_id: string | null;
 }
 
 export interface CommittedBpBundle {
@@ -93,6 +99,8 @@ export interface CommittedBpBundle {
   transactions: any[];
   categories: CategoryNode[];
   partnerNames: Record<string, string>;
+  /** Nome da empresa configurada no evento (rótulo do pagador NULL). */
+  houseLabel: string;
   forecastDocs: Record<string, number>;
   txDocs: Record<string, number>;
 }
@@ -104,7 +112,7 @@ export async function fetchCommittedBpBundle(
 ): Promise<CommittedBpBundle> {
   const { data: evt, error: evtErr } = await supabase
     .from("events")
-    .select("id, name, date, location, cities:city_id(name), venues:venue_id(name)")
+    .select("id, name, date, location, cities:city_id(name), venues:venue_id(name), companies:company_id(display_name, legal_name)")
     .eq("id", eventId)
     .maybeSingle();
   if (evtErr) throw evtErr;
@@ -120,7 +128,7 @@ export async function fetchCommittedBpBundle(
     supabase
       .from("event_forecasts")
       .select(
-        "id, description, specification, amount, iva_rate, category_id, transaction_id, event_id, is_overhead, ordering_partner_id, type, status",
+        "id, description, specification, amount, iva_rate, category_id, transaction_id, event_id, is_overhead, paying_partner_id, ordering_partner_id, type, status",
       )
       .in("event_id", eventIds)
       .is("version_id", null)
@@ -129,7 +137,7 @@ export async function fetchCommittedBpBundle(
     supabase
       .from("transactions")
       .select(
-        `id, description, amount, iva_rate, category_id, type, event_id, ordering_partner_id, ${FECHO_TX_FILTER_COLUMNS}`,
+        `id, description, amount, iva_rate, category_id, type, event_id, paying_partner_id, ordering_partner_id, ${FECHO_TX_FILTER_COLUMNS}`,
       )
       .in("event_id", eventIds)
       .eq("type", "expense"),
@@ -151,7 +159,7 @@ export async function fetchCommittedBpBundle(
     transaction_id: f.transaction_id ?? null,
     event_id: f.event_id,
     is_overhead: !!f.is_overhead,
-    ordering_partner_id: f.ordering_partner_id ?? null,
+    paying_partner_id: payerIdFromRow(f),
   }));
 
   const transactions = ((txRes.data ?? []) as any[]).filter(isValidFechoTransaction);
@@ -191,6 +199,10 @@ export async function fetchCommittedBpBundle(
       cityName: (evt as any).cities?.name ?? null,
     },
     eventIds,
+    houseLabel:
+      (evt as any).companies?.display_name ||
+      (evt as any).companies?.legal_name ||
+      HOUSE_PAYER_FALLBACK,
     forecasts,
     transactions,
     categories: (catRes.data ?? []) as any,
@@ -208,7 +220,8 @@ export interface OutRow {
   kind: RowKind;
   code: string;
   label: string;
-  orderer: string;
+  /** Nome do pagador (sócio ou empresa configurada). */
+  payer: string;
   docs: number;
   base: number;
   iva: number;
@@ -277,6 +290,7 @@ export function distributeExcess(previstos: number[], excess: number): number[] 
 
 export function buildCommittedRows(bundle: CommittedBpBundle): { rows: OutRow[]; totals: SectionTotals } {
   const { forecasts, transactions, categories, partnerNames, forecastDocs, txDocs } = bundle;
+  const houseLabel = bundle.houseLabel || HOUSE_PAYER_FALLBACK;
 
   const byId: Record<string, CategoryNode> = {};
   categories.forEach((c) => { byId[c.id] = c; });
@@ -378,7 +392,7 @@ export function buildCommittedRows(bundle: CommittedBpBundle): { rows: OutRow[];
         transaction_id: null,
         event_id: bundle.event.id,
         is_overhead: false,
-        ordering_partner_id: null,
+        paying_partner_id: null,
       },
       base: s.amount,
       iva: calcIvaAmount(s.amount, rate),
@@ -412,7 +426,9 @@ export function buildCommittedRows(bundle: CommittedBpBundle): { rows: OutRow[];
             kind: "line",
             code: "",
             label: l.fc.specification ? `${l.fc.description} — ${l.fc.specification}` : l.fc.description,
-            orderer: l.fc.ordering_partner_id ? partnerNames[l.fc.ordering_partner_id] ?? HOUSE_ORDERER : HOUSE_ORDERER,
+            payer: l.fc.paying_partner_id
+              ? partnerNames[l.fc.paying_partner_id] ?? houseLabel
+              : houseLabel,
             docs: l.docs,
             base: l.base,
             iva: l.iva,
@@ -429,19 +445,19 @@ export function buildCommittedRows(bundle: CommittedBpBundle): { rows: OutRow[];
           .filter((t) => !linkedTxIds.has(t.id))
           .reduce((acc, t) => acc + (txDocs[t.id] ?? 0), 0);
         const l3Docs = s3.docs + unlinkedDocs;
-        g2Rows.push({ kind: "l3", code: g3.code, label: g3.name, orderer: "", docs: l3Docs, base: s3.base, iva: s3.iva, total: s3.base + s3.iva });
+        g2Rows.push({ kind: "l3", code: g3.code, label: g3.name, payer: "", docs: l3Docs, base: s3.base, iva: s3.iva, total: s3.base + s3.iva });
         g2Rows.push(...lineRows);
         s2.base += s3.base;
         s2.iva += s3.iva;
         s2.docs += l3Docs;
       }
-      g1Rows.push({ kind: "l2", code: g2.code, label: g2.name, orderer: "", docs: s2.docs, base: s2.base, iva: s2.iva, total: s2.base + s2.iva });
+      g1Rows.push({ kind: "l2", code: g2.code, label: g2.name, payer: "", docs: s2.docs, base: s2.base, iva: s2.iva, total: s2.base + s2.iva });
       g1Rows.push(...g2Rows);
       s1.base += s2.base;
       s1.iva += s2.iva;
       s1.docs += s2.docs;
     }
-    rows.push({ kind: "l1", code: g1.code, label: g1.name, orderer: "", docs: s1.docs, base: s1.base, iva: s1.iva, total: s1.base + s1.iva });
+    rows.push({ kind: "l1", code: g1.code, label: g1.name, payer: "", docs: s1.docs, base: s1.base, iva: s1.iva, total: s1.base + s1.iva });
     rows.push(...g1Rows);
     grand.base += s1.base;
     grand.iva += s1.iva;
@@ -449,7 +465,7 @@ export function buildCommittedRows(bundle: CommittedBpBundle): { rows: OutRow[];
   }
   grand.total = grand.base + grand.iva;
 
-  rows.push({ kind: "total", code: "", label: "TOTAL GERAL", orderer: "", docs: grand.docs, base: grand.base, iva: grand.iva, total: grand.total });
+  rows.push({ kind: "total", code: "", label: "TOTAL GERAL", payer: "", docs: grand.docs, base: grand.base, iva: grand.iva, total: grand.total });
 
   return { rows, totals: grand };
 }

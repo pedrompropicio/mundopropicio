@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { X, Building, FileText, Landmark, AlertTriangle, Repeat } from "lucide-react";
@@ -68,6 +69,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     reimbursement_to: transaction.reimbursement_to ?? "",
     reimbursement_note_id: "",
     ordering_partner_id: transaction.ordering_partner_id ?? "",
+    paying_partner_id: (transaction as any).paying_partner_id ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager, hasPermission } = useAuth();
@@ -338,6 +340,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     enabled: !!form.event_id,
   });
 
+  const houseLabel = useEventHouseLabel(form.event_id);
+
   // UI state — conversão e reversão parciais
   const [convertPartnerId, setConvertPartnerId] = useState<string>("");
   const [convertIsPartial, setConvertIsPartial] = useState(false);
@@ -371,9 +375,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_reimbursement: "Reembolso",
         reimbursement_to: "Colaborador (reembolso)",
         ordering_partner_id: "Ordenador da despesa",
+        paying_partner_id: "Pagador da despesa",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id",
+        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id", "paying_partner_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -408,6 +413,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
 
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
+        paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
       } : {
@@ -428,6 +434,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
+        paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         currency,
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
@@ -892,11 +899,30 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 onChange={(e) => setForm({ ...form, ordering_partner_id: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                <option value="">— MP / comum</option>
+                <option value="">— {houseLabel}</option>
                 {eventPartnersForExtra.map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">Quem especifica/define a despesa.</p>
+            </div>
+          )}
+
+          {/* Pagador da despesa — quem desembolsa. Vazio = empresa configurada no evento. */}
+          {isExpense && form.event_id && eventPartnersForExtra.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Pagador da despesa</label>
+              <select
+                value={form.paying_partner_id}
+                onChange={(e) => setForm({ ...form, paying_partner_id: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">— {houseLabel}</option>
+                {eventPartnersForExtra.map((p: any) => (
+                  <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">Quem desembolsa. Vazio significa {houseLabel}.</p>
             </div>
           )}
 
