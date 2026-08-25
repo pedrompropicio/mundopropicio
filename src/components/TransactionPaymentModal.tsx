@@ -196,6 +196,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   }
 
   const selectedAccountBalance = accountId ? computeAccountBalance(accountId) : null;
+  const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
 
   const baseAmount = Number(transaction.amount);
   const ivaRate = Number(transaction.iva_rate ?? 0);
@@ -785,9 +786,18 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               searchPlaceholder="Pesquisar conta…"
             />
             {accountId && selectedAccountBalance !== null && (
-              <p className={`mt-1 text-xs font-medium ${selectedAccountBalance <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                Saldo disponível: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
-                {selectedAccountBalance <= 0 && " — Sem saldo!"}
+              <p className={`mt-1 text-xs font-medium ${selectedAccount?.skip_balance_check ? "text-muted-foreground" : selectedAccountBalance <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                {selectedAccount?.skip_balance_check ? (
+                  <>
+                    Saldo: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
+                    {" · conta sem controlo de saldo"}
+                  </>
+                ) : (
+                  <>
+                    Saldo disponível: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
+                    {selectedAccountBalance <= 0 && " — Sem saldo!"}
+                  </>
+                )}
               </p>
             )}
           </div>
