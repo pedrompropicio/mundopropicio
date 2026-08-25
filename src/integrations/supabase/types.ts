@@ -4635,6 +4635,8 @@ export type Database = {
       }
       event_partners: {
         Row: {
+          can_order: boolean
+          can_pay: boolean
           company_id: string
           created_at: string
           event_id: string
@@ -4647,6 +4649,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          can_order?: boolean
+          can_pay?: boolean
           company_id?: string
           created_at?: string
           event_id: string
@@ -4659,6 +4663,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          can_order?: boolean
+          can_pay?: boolean
           company_id?: string
           created_at?: string
           event_id?: string

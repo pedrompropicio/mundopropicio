@@ -463,7 +463,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // 1) Try the event itself
       const { data: own, error: ownErr } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, suppliers(name)")
         .eq("event_id", partnersLookupEventId)
         .order("created_at");
       if (ownErr) throw ownErr;
@@ -480,7 +480,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
       const { data: inherited, error: inhErr } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, suppliers(name)")
         .eq("event_id", ev.parent_event_id)
         .order("created_at");
       if (inhErr) throw inhErr;
@@ -2610,7 +2610,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">— {houseLabel}</option>
-                {eventPartners.map((p: any) => (
+                {eventPartners.filter((p: any) => p.can_order).map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>
@@ -2630,7 +2630,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">— {houseLabel}</option>
-                {eventPartners.map((p: any) => (
+                {eventPartners.filter((p: any) => p.can_pay).map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>

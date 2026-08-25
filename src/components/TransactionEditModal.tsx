@@ -332,7 +332,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       if (!form.event_id) return [];
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, suppliers(name)")
         .eq("event_id", form.event_id);
       if (error) throw error;
       return data ?? [];
@@ -900,7 +900,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">— {houseLabel}</option>
-                {eventPartnersForExtra.map((p: any) => (
+                {eventPartnersForExtra.filter((p: any) => p.can_order).map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>
@@ -918,7 +918,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">— {houseLabel}</option>
-                {eventPartnersForExtra.map((p: any) => (
+                {eventPartnersForExtra.filter((p: any) => p.can_pay).map((p: any) => (
                   <option key={p.id} value={p.id}>{(p.suppliers as any)?.name ?? "Sócio"}</option>
                 ))}
               </select>

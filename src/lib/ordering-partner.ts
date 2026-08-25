@@ -3,7 +3,7 @@
  *
  * Regras de negócio (decisões fechadas):
  * 1. O ordenador é escolhido ENTRE OS SÓCIOS DO EVENTO (`event_partners.id`).
- * 2. É OPCIONAL. Sem ordenador = "MP / comum" (a maioria dos eventos).
+ * 2. É OPCIONAL. Sem ordenador = empresa configurada no evento.
  * 3. Aplica-se SÓ A DESPESAS (linhas BP `type='expense'` e transações de despesa).
  *
  * Herança: uma transação de despesa sem ordenador próprio herda o ordenador da
@@ -14,7 +14,7 @@
 
 import { findMatchingTransactionsForForecast } from "./bp-tx-matching";
 
-/** Valor do filtro: "all" = todos, "house" = sem ordenador (MP/comum), ou o event_partners.id. */
+/** Valor do filtro: "all" = todos, "house" = sem ordenador (empresa), ou o event_partners.id. */
 export type OrderingPartnerFilter = string;
 
 export const ORDERING_FILTER_ALL = "all";
@@ -31,6 +31,7 @@ export interface OrderingPartnerOption {
   id: string;
   name: string;
   percentage?: number | string | null;
+  can_order?: boolean | null;
 }
 
 /** Iniciais compactas para o badge da linha (ex.: "Anitta Prod." -> "AP"). */
@@ -46,7 +47,7 @@ export function orderingPartnerInitials(name: string | null | undefined): string
     .join("");
 }
 
-/** Aplica o filtro a um valor de ordenador (null = MP/comum). */
+/** Aplica o filtro a um valor de ordenador (null = empresa configurada). */
 export function matchesOrderingPartnerFilter(
   ordererId: string | null | undefined,
   filter: OrderingPartnerFilter,
@@ -77,7 +78,7 @@ export function buildInheritedOrdererMap(
   return map;
 }
 
-/** Ordenador efectivo de uma transação: próprio > herdado da linha BP > null (MP/comum). */
+/** Ordenador efectivo de uma transação: próprio > herdado da linha BP > null (empresa configurada). */
 export function effectiveTransactionOrderer(
   tx: any,
   inheritedMap?: Map<string, string>,

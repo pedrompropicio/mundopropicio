@@ -16,6 +16,8 @@ interface Props {
   eventId: string;
   current: string | null | undefined;
   partners: OrderingPartnerOption[];
+  /** Nome da empresa configurada no evento (rótulo de "sem ordenador"). */
+  houseLabel?: string;
   /** Quando true não é clicável (snapshots, cenários, linhas via Master). */
   readOnly?: boolean;
 }
@@ -25,9 +27,10 @@ interface Props {
  * edita o BP): abre popover com os sócios do evento + opção "— (MP/comum)".
  * Só deve ser renderizado em linhas de DESPESA de eventos com sócios.
  */
-export function OrderingPartnerBadge({ forecastId, eventId, current, partners, readOnly = false }: Props) {
+export function OrderingPartnerBadge({ forecastId, eventId, current, partners, houseLabel, readOnly = false }: Props) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+  const house = houseLabel || ORDERING_HOUSE_LABEL;
   const selected = partners.find((p) => p.id === current) ?? null;
 
   const updateMutation = useMutation({
@@ -45,7 +48,7 @@ export function OrderingPartnerBadge({ forecastId, eventId, current, partners, r
         title: "Ordenador atualizado",
         description: next
           ? `Linha atribuída a ${partners.find((p) => p.id === next)?.name ?? "sócio"}.`
-          : `Linha marcada como ${ORDERING_HOUSE_LABEL}.`,
+          : `Linha marcada como ${house}.`,
       });
       setOpen(false);
     },
@@ -62,10 +65,10 @@ export function OrderingPartnerBadge({ forecastId, eventId, current, partners, r
     readOnly ? "cursor-default" : "cursor-pointer",
   );
 
-  const label = selected ? orderingPartnerInitials(selected.name) : "MP";
+  const label = selected ? orderingPartnerInitials(selected.name) : orderingPartnerInitials(house);
   const title = selected
     ? `Ordenador: ${selected.name}`
-    : `Ordenador: ${ORDERING_HOUSE_LABEL}`;
+    : `Ordenador: ${house}`;
 
   if (readOnly) {
     if (!selected) return null;
@@ -96,7 +99,7 @@ export function OrderingPartnerBadge({ forecastId, eventId, current, partners, r
           Ordenador da despesa
         </div>
         <div className="space-y-0.5">
-          {[{ id: "", name: `— ${ORDERING_HOUSE_LABEL}` }, ...partners].map((opt) => {
+          {[{ id: "", name: `— ${house}` }, ...partners].map((opt) => {
             const isCurrent = (opt.id || null) === (current || null);
             return (
               <button

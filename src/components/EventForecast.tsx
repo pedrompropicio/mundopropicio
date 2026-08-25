@@ -388,16 +388,27 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, percentage, suppliers:supplier_id(name)")
+        .select("id, percentage, can_order, can_pay, suppliers:supplier_id(name)")
         .eq("event_id", partnersSourceId);
       if (error) throw error;
       return (data ?? []).map((p: any) => ({
         id: p.id,
         percentage: p.percentage,
+        can_order: p.can_order ?? false,
+        can_pay: p.can_pay ?? false,
         name: (p.suppliers as any)?.name ?? "Sócio",
       }));
     },
   });
+
+  const ordererOptions = useMemo(
+    () => (eventPartners as any[]).filter((p) => p.can_order),
+    [eventPartners],
+  );
+  const payerOptions = useMemo(
+    () => (eventPartners as any[]).filter((p) => p.can_pay),
+    [eventPartners],
+  );
 
   // Rótulo da empresa configurada no evento (pagador/ordenador vazio).
   const houseLabel = useEventHouseLabel(eventId);
@@ -2186,7 +2197,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <option value={ORDERING_FILTER_ALL}>Ordenador: todos</option>
                   <option value={ORDERING_FILTER_HOUSE}>{houseLabel} (sem ordenador)</option>
-                  {eventPartners.map((p: any) => (
+                  {ordererOptions.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
@@ -2203,7 +2214,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <option value={PAYING_FILTER_ALL}>Pagador: todos</option>
                   <option value={PAYING_FILTER_HOUSE}>{houseLabel} (sem pagador)</option>
-                  {eventPartners.map((p: any) => (
+                  {payerOptions.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
@@ -3508,7 +3519,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       forecastId={item.id}
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.ordering_partner_id}
-                      partners={eventPartners as any}
+                      partners={ordererOptions as any}
+                      houseLabel={rowHouseLabel}
                       readOnly={readOnly || !canEditOrdering}
                     />
                   </span>
@@ -3520,7 +3532,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       forecastId={item.id}
                       eventId={item.event_id ?? eventId ?? ""}
                       current={item.paying_partner_id}
-                      partners={eventPartners as any}
+                      partners={payerOptions as any}
                       houseLabel={rowHouseLabel}
                       readOnly={readOnly || !canEditOrdering}
                     />
