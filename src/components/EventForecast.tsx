@@ -41,7 +41,16 @@ import {
   effectiveTransactionOrderer,
   matchesOrderingPartnerFilter,
 } from "@/lib/ordering-partner";
+import {
+  PAYING_FILTER_ALL,
+  PAYING_FILTER_HOUSE,
+  buildInheritedPayerMap,
+  effectiveTransactionPayer,
+  matchesPayingPartnerFilter,
+} from "@/lib/paying-partner";
 import { OrderingPartnerBadge } from "@/components/bp/OrderingPartnerBadge";
+import { PayingPartnerBadge } from "@/components/bp/PayingPartnerBadge";
+import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
@@ -187,6 +196,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
   // Ordenador da despesa: "all" | "house" (MP/comum, sem ordenador) | event_partners.id
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
+  // Pagador da despesa: "all" | "house" (empresa configurada, sem pagador) | event_partners.id
+  const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
   // Tipo: "all" | "income" | "expense" — controla se mostramos só Receitas, só Despesas ou Ambos
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
@@ -1658,14 +1669,27 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return matchesOrderingPartnerFilter(f?.ordering_partner_id ?? null, orderingFilter);
   };
 
+  // Pagador da despesa — filtro aplica-se SÓ a despesas (receitas não têm pagador).
+  const matchesPayingFilter = (f: any) => {
+    if (payingFilter === PAYING_FILTER_ALL) return true;
+    if (f?.type !== "expense") return true;
+    return matchesPayingPartnerFilter(f?.paying_partner_id ?? null, payingFilter);
+  };
+
   // Herança: TX de despesa sem ordenador próprio herda o da linha BP que a reclama.
   const inheritedOrdererMap = useMemo(
     () => buildInheritedOrdererMap([...forecasts, ...adoptedForecasts], transactions),
     [forecasts, adoptedForecasts, transactions],
   );
 
+  // Herança: TX de despesa sem pagador próprio herda o da linha BP que a reclama.
+  const inheritedPayerMap = useMemo(
+    () => buildInheritedPayerMap([...forecasts, ...adoptedForecasts], transactions),
+    [forecasts, adoptedForecasts, transactions],
+  );
+
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter).filter(matchesPayingFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
@@ -1700,12 +1724,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Ordenador da despesa — mesma regra das linhas locais.
       if (!matchesOrderingPartnerFilter(forecast?.ordering_partner_id ?? null, orderingFilter)) return false;
 
+      // Pagador da despesa — mesma regra das linhas locais.
+      if (!matchesPayingPartnerFilter(forecast?.paying_partner_id ?? null, payingFilter)) return false;
+
       if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, orderingFilter, adoptedForecasts, eventId, hasTxForForecast]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, orderingFilter, payingFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -1860,9 +1887,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (!includeSubsInBP && parentEventId == null && f.event_id !== eventId) return false;
       // Filtro de ordenador (só despesas) — previsto e realizado ficam coerentes.
       if (f.type === "expense" && !matchesOrderingPartnerFilter(f.ordering_partner_id ?? null, orderingFilter)) return false;
+      // Filtro de pagador (só despesas) — previsto e realizado ficam coerentes.
+      if (f.type === "expense" && !matchesPayingPartnerFilter(f.paying_partner_id ?? null, payingFilter)) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter, payingFilter]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
@@ -1892,9 +1921,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         t.type === "expense" &&
         !matchesOrderingPartnerFilter(effectiveTransactionOrderer(t, inheritedOrdererMap), orderingFilter)
       ) return false;
+      // Pagador efectivo (próprio ou herdado da linha BP) — só despesas.
+      if (
+        t.type === "expense" &&
+        !matchesPayingPartnerFilter(effectiveTransactionPayer(t, inheritedPayerMap), payingFilter)
+      ) return false;
       return true;
     });
-  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap]);
+  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap, payingFilter, inheritedPayerMap]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   // Alinha os cards do BP ao mesmo perímetro estrito da vista "Previsão vs Real",
