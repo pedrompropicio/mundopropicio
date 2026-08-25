@@ -631,8 +631,6 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         }
         return;
       }
-      const ordering_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.ORDERER), "orderer");
-      const paying_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.PAYER), "payer");
       if (!sameTxt(orig.description, description)) fields.description = description || null;
       if (!sameTxt(orig.specification, specification)) fields.specification = specification || null;
       if (round2(Number(orig.amount ?? 0)) !== amount) fields.amount = amount;
