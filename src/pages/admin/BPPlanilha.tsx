@@ -375,7 +375,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
 
   const ordererLabels = useMemo(
     () => [ORDERING_HOUSE_LABEL, ...partners.map((p) => p.name)],
-    [partners],
+    [partners, ORDERING_HOUSE_LABEL],
   );
 
   const labelToPartnerId = useCallback(
@@ -944,7 +944,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       dropdownRenderer(inst, td as any, r, c, p, text, cellProps);
       td.style.color = text === ORDERING_HOUSE_LABEL ? "hsl(var(--muted-foreground))" : "";
     },
-    [],
+    [ORDERING_HOUSE_LABEL],
   );
 
 
