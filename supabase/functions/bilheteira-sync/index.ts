@@ -43,7 +43,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const VERSION = "v1_6_2026_08_23";
+const VERSION = "v1_7_2026_08_26";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -221,11 +221,27 @@ async function sendDigest(
   events: DigestEvent[],
 ): Promise<{ sent: boolean; reason?: string; recipients?: string[] }> {
   // Secrets aceitam 1 ou N e-mails separados por vírgula (ou ponto-e-vírgula).
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const sanitizeEmail = (raw: string): string | null => {
+    let v = raw.trim();
+    v = v.replace(/^mailto:/i, "");
+    const q = v.indexOf("?");
+    if (q >= 0) v = v.slice(0, q);
+    v = v.trim().toLowerCase();
+    if (!EMAIL_RE.test(v)) {
+      console.error(`[bilheteira-sync] destinatário inválido ignorado: ${JSON.stringify(raw)}`);
+      return null;
+    }
+    return v;
+  };
   const parseList = (raw: string | undefined): string[] =>
     (raw ?? "")
       .split(/[,;]/)
       .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+      .filter((s) => s.length > 0)
+      .map(sanitizeEmail)
+      .filter((s): s is string => s !== null);
+
   const toList = parseList(Deno.env.get("BILHETEIRA_SYNC_NOTIFY_TO"));
   const ccList = parseList(Deno.env.get("BILHETEIRA_SYNC_NOTIFY_CC"));
   if (toList.length === 0) {
