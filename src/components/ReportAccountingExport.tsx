@@ -172,6 +172,63 @@ export default function ReportAccountingExport() {
     URL.revokeObjectURL(url);
   }
 
+  // Mapa de transações em CSV (todas as transações do período, sem filtrar as
+  // transitórias — a contabilidade quer ver tudo, só precisa de distinguir).
+  function handleExportCsv() {
+    if (lines.length === 0) {
+      toast.error("Nenhuma transação no período selecionado.");
+      return;
+    }
+    const sep = ";";
+    const esc = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = [
+      "Data",
+      "Descrição",
+      "Categoria (código)",
+      "Categoria (nome)",
+      "Evento",
+      "Fornecedor",
+      "Conta",
+      "Tipo",
+      "Estado",
+      "Valor (€)",
+      "Docs contábeis",
+      "Transitório",
+      "Excluído do resultado",
+    ];
+    const rows = lines.map((l: any) => [
+      l.date,
+      l.description,
+      l.account_categories?.code ?? "",
+      l.account_categories?.name ?? "",
+      l.events?.name ?? "",
+      l.suppliers?.name ?? "",
+      l.financial_accounts?.name ?? "",
+      l.type === "income" ? "Receita" : "Despesa",
+      l.status,
+      String(Number(l.amount).toFixed(2)).replace(".", ","),
+      l.accountingDocs,
+      l.is_transitory ? "Sim" : "Não",
+      l.exclude_from_result ? "Sim" : "Não",
+    ]);
+    const note =
+      'Nota: "Transitório = Sim" indica movimento de capital/caução — não é proveito nem custo do resultado.';
+    const csv =
+      "\uFEFF" +
+      [note, header.join(sep), ...rows.map((r) => r.map(esc).join(sep))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mapa-contabilidade_${dateFromStr}_${dateToStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Mapa exportado: ${lines.length} transação(ões).`);
+  }
+
   // Export all accounting docs as individual downloads + register
   async function handleExport() {
     if (withDocs.length === 0) {
