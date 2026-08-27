@@ -10,6 +10,8 @@ import { capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
 
 export interface EventPartnerOption {
   id: string;
+  /** Entidade do sócio em `suppliers` — sócios e fornecedores partilham cadastro. */
+  supplier_id: string | null;
   percentage: number | null;
   suppliers?: { name?: string | null } | null;
 }
