@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Check, X, Clock, Calendar, Copy, Sparkles } from "lucide-react";
+import { Plus, Trash2, Check, X, Clock, Calendar, Copy, Sparkles, CalendarDays } from "lucide-react";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { toast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
@@ -23,6 +24,20 @@ interface SessionForm {
 
 const emptyForm: SessionForm = { date: "", label: "", start_time: "" };
 
+const toISODate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Label automático coerente com o padrão manual: "Sex 20/11 21h30". */
+function autoSessionLabel(isoDate: string, time: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const wd = dt.toLocaleDateString("pt-PT", { weekday: "short" }).replace(".", "");
+  const wdCap = wd.charAt(0).toUpperCase() + wd.slice(1);
+  const dm = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+  const hh = time ? ` ${time.slice(0, 5).replace(":", "h")}` : "";
+  return `${wdCap} ${dm}${hh}`;
+}
+
 export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const { isAdmin, isManager } = useAuth();
@@ -31,6 +46,9 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
   const canManage = (isAdmin || isManager) && (eventStatus !== "completed" || isScenarioMode);
 
   const [adding, setAdding] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchDates, setBatchDates] = useState<Date[]>([]);
+  const [batchTime, setBatchTime] = useState("21:30");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm);
 
@@ -87,6 +105,39 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Sessão eliminada" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  // Criação em LOTE por calendário: 1 sessão por data marcada, com hora padrão.
+  // Anti-duplicado: datas que já têm sessão são ignoradas (e reportadas no toast).
+  const batchMutation = useMutation({
+    mutationFn: async ({ dates, time }: { dates: string[]; time: string }) => {
+      const existing = new Set(sessions.map((s: any) => s.date));
+      const toCreate = dates.filter((d) => !existing.has(d)).sort();
+      const skipped = dates.length - toCreate.length;
+      if (toCreate.length === 0) return { created: 0, skipped };
+      const baseOrder = sessions.reduce((max: number, s: any) => Math.max(max, s.sort_order ?? 0), 0);
+      const rows = toCreate.map((d, i) => ({
+        event_id: eventId,
+        date: d,
+        label: autoSessionLabel(d, time),
+        start_time: time || null,
+        sort_order: baseOrder + i + 1,
+        version_id: selectedVersionId,
+      }));
+      const { error } = await supabase.from("event_sessions" as any).insert(rows);
+      if (error) throw error;
+      return { created: rows.length, skipped };
+    },
+    onSuccess: ({ created, skipped }) => {
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
+      toast({
+        title: created > 0 ? `${created} sessão${created !== 1 ? "ões" : ""} criada${created !== 1 ? "s" : ""}` : "Nenhuma sessão criada",
+        description: skipped > 0 ? `${skipped} data${skipped !== 1 ? "s" : ""} ignorada${skipped !== 1 ? "s" : ""} (já tinha sessão).` : undefined,
+      });
+      setBatchOpen(false);
+      setBatchDates([]);
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -309,6 +360,13 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
           )}
         </h3>
         {canManage && (
+          <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => { setBatchOpen((v) => !v); setAdding(false); setEditingId(null); }}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+          >
+            <CalendarDays className="h-3.5 w-3.5" /> Criar por calendário
+          </button>
           <button
             onClick={startAdd}
             disabled={adding}
@@ -316,8 +374,54 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
           >
             <Plus className="h-3.5 w-3.5" /> Nova Sessão
           </button>
+          </div>
         )}
       </div>
+
+      {canManage && batchOpen && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <CalendarPicker
+              mode="multiple"
+              selected={batchDates}
+              onSelect={(d) => setBatchDates((d as Date[]) ?? [])}
+              className="pointer-events-auto rounded-lg border border-border/50 bg-background"
+            />
+            <div className="space-y-3 sm:pt-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Hora padrão</label>
+                <input
+                  type="time"
+                  value={batchTime}
+                  onChange={(e) => setBatchTime(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground max-w-[220px]">
+                  Aplicada a todas as datas marcadas. Depois podes ajustar a hora de cada sessão individualmente.
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {batchDates.length} data{batchDates.length !== 1 ? "s" : ""} marcada{batchDates.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => batchMutation.mutate({ dates: batchDates.map(toISODate), time: batchTime })}
+                  disabled={batchDates.length === 0 || batchMutation.isPending}
+                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  {batchMutation.isPending ? "A criar…" : "Criar sessões"}
+                </button>
+                <button
+                  onClick={() => { setBatchOpen(false); setBatchDates([]); }}
+                  className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <p className="py-4 text-center text-sm text-muted-foreground">A carregar…</p>

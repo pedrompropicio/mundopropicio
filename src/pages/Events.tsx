@@ -13,6 +13,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { formatCityLabel } from "@/lib/country";
 import { createSubEventInTour } from "@/lib/create-sub-event";
+import { eventFormatLabel, type EventFormat } from "@/lib/event-format";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -58,6 +59,8 @@ interface EventForm {
   tickets_total: string;
   status: string;
   event_type: EventType;
+  /** Rótulo cosmético (só festival): festival | residencia */
+  format: EventFormat;
   pl_mode: "active" | "passive";
   festival_dates: string[];
   sessions: SessionDraft[];
@@ -73,6 +76,7 @@ const emptyForm: EventForm = {
   tickets_total: "",
   status: "planning",
   event_type: "simple",
+  format: "festival",
   pl_mode: "passive",
   festival_dates: [],
   sessions: [],
@@ -245,6 +249,8 @@ export default function Events() {
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
         event_type: data.event_type,
+        // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
+        format: data.event_type === "festival" ? data.format : null,
         pl_mode: data.pl_mode,
         city_id: data.city_id || null,
         venue_id: data.venue_id || null,
@@ -381,7 +387,7 @@ export default function Events() {
     setForm({ ...form, festival_dates: form.festival_dates.filter(d => d !== date) });
   };
 
-  const EventTypeBadge = ({ type }: { type: EventType }) => {
+  const EventTypeBadge = ({ type, format }: { type: EventType; format?: string | null }) => {
     const Icon = eventTypeIcons[type] ?? Calendar;
     const colors: Record<EventType, string> = {
       simple: "bg-blue-500/15 text-blue-400",
@@ -394,7 +400,7 @@ export default function Events() {
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[type]}`}>
         <Icon className="h-3 w-3" />
-        {eventTypeLabels[type]}
+        {type === "festival" ? eventFormatLabel({ event_type: type, format }) : eventTypeLabels[type]}
       </span>
     );
   };
@@ -523,6 +529,29 @@ export default function Events() {
                   })}
                 </div>
               </div>
+
+              {form.event_type === "festival" && (
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">Formato (apresentação)</label>
+                  <div className="inline-flex rounded-lg border border-border p-0.5">
+                    {(["festival", "residencia"] as EventFormat[]).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setForm({ ...form, format: f })}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                          form.format === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {f === "residencia" ? "Residência" : "Festival"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Apenas nomenclatura — a mecânica é sempre a de festival (1 evento, N sessões).
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -894,7 +923,7 @@ export default function Events() {
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
-                  <EventTypeBadge type={eventType} />
+                  <EventTypeBadge type={eventType} format={event.format} />
                   {((eventType === "multi_day" || eventType === "master") && event.subEvents?.length > 0) && (
                     <span className="text-[10px] text-muted-foreground">{event.subEvents.length} datas</span>
                   )}
@@ -984,7 +1013,7 @@ export default function Events() {
                         <Link to={`/eventos/${event.id}`} className="group">
                           <div className="flex items-center gap-2">
                             <span className="font-medium group-hover:text-primary transition-colors">{event.name}</span>
-                            <EventTypeBadge type={eventType} />
+                            <EventTypeBadge type={eventType} format={event.format} />
                             {isMultiDay && (
                               <span className="text-[10px] text-muted-foreground">{event.subEvents.length} datas</span>
                             )}

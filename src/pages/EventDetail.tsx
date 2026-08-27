@@ -45,6 +45,7 @@ import {
 } from "@/lib/paying-partner";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 
+import { eventFormatLabel } from "@/lib/event-format";
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
 
@@ -274,8 +275,9 @@ export default function EventDetail() {
       eventDate: event?.date ?? null,
       extraDates: festivalDates as any[],
       subEvents: subEvents as any[],
+      sessions: eventSessions as any[],
     }) ?? event?.date ?? null;
-  }, [event?.date, festivalDates, subEvents, selectedSubEvent]);
+  }, [event?.date, festivalDates, subEvents, eventSessions, selectedSubEvent]);
 
 
 
@@ -857,7 +859,7 @@ export default function EventDetail() {
           <EventStatusBadge status={event.status as any} />
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             <EventTypeIcon className="h-3 w-3" />
-            {eventTypeLabels[eventType]}
+            {eventType === "festival" ? eventFormatLabel(event) : eventTypeLabels[eventType]}
           </span>
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
             event.pl_mode === "active" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
@@ -958,6 +960,7 @@ export default function EventDetail() {
           eventDate: event.date,
           extraDates: festivalDates as any[],
           subEvents: subEvents as any[],
+          sessions: eventSessions as any[],
         }) ?? event.date;
         if (today > latestDate) {
 

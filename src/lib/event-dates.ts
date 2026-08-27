@@ -14,13 +14,15 @@
 
 type DateLike = string | { date?: string | null } | null | undefined;
 
-/** Devolve a maior data ISO (YYYY-MM-DD) entre `eventDate`, `event_dates` e sub-eventos. */
+/** Devolve a maior data ISO (YYYY-MM-DD) entre `eventDate`, `event_dates`, sub-eventos e `event_sessions`. */
 export function computeEventLastDate(opts: {
   eventDate?: string | null;
   /** linhas de event_dates filtradas pelo event_id (ou array de strings). */
   extraDates?: DateLike[];
   /** sub-eventos do mesmo evento (filtrados por parent_event_id). */
   subEvents?: DateLike[];
+  /** linhas de event_sessions do evento (ou array de strings). Opcional. */
+  sessions?: DateLike[];
 }): string | null {
   const collect: string[] = [];
   const push = (d: DateLike) => {
@@ -30,9 +32,11 @@ export function computeEventLastDate(opts: {
   push(opts.eventDate ?? null);
   (opts.extraDates ?? []).forEach(push);
   (opts.subEvents ?? []).forEach(push);
+  (opts.sessions ?? []).forEach(push);
   if (collect.length === 0) return null;
   return collect.reduce((max, d) => (d > max ? d : max));
 }
+
 
 /**
  * Builder para datasets de Dashboard: indexa `event_dates` e sub-eventos por
@@ -41,6 +45,8 @@ export function computeEventLastDate(opts: {
 export function makeLastDateResolver(opts: {
   eventDates?: Array<{ event_id: string; date: string }>;
   allEvents?: Array<{ id: string; date?: string | null; parent_event_id?: string | null }>;
+  /** linhas de event_sessions (event_id + date). Opcional. */
+  sessions?: Array<{ event_id: string; date: string }>;
 }) {
   const datesByEvent = new Map<string, string[]>();
   for (const ed of opts.eventDates ?? []) {
@@ -48,6 +54,13 @@ export function makeLastDateResolver(opts: {
     const arr = datesByEvent.get(ed.event_id) ?? [];
     arr.push(ed.date.slice(0, 10));
     datesByEvent.set(ed.event_id, arr);
+  }
+  const sessionsByEvent = new Map<string, string[]>();
+  for (const s of opts.sessions ?? []) {
+    if (!s?.event_id || !s?.date) continue;
+    const arr = sessionsByEvent.get(s.event_id) ?? [];
+    arr.push(s.date.slice(0, 10));
+    sessionsByEvent.set(s.event_id, arr);
   }
   const childrenByParent = new Map<string, string[]>();
   for (const e of opts.allEvents ?? []) {
@@ -62,5 +75,7 @@ export function makeLastDateResolver(opts: {
       eventDate: event.date ?? null,
       extraDates: datesByEvent.get(event.id) ?? [],
       subEvents: childrenByParent.get(event.id) ?? [],
+      sessions: sessionsByEvent.get(event.id) ?? [],
     });
 }
+
