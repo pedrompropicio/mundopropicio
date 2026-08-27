@@ -2588,8 +2588,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             )}
           </div>
 
+          {/* Ramo Capital: trânsito de capital, isento de justificação */}
+          {selectedCategoryIsCapital && (
+            <p className="text-[10px] text-muted-foreground">
+              Ramo 10.1 · Capital — trânsito de capital. Não entra no resultado do evento (fica
+              transitória) e não precisa de justificação nem de linha do BP.
+            </p>
+          )}
+
           {/* Justification field when BP override is active */}
-          {plOverride && (
+          {plOverride && !selectedCategoryIsCapital && (
             <div>
               <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
               <input
