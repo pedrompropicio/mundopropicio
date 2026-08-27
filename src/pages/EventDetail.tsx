@@ -1,6 +1,6 @@
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { moveToTrash } from "@/lib/trash";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -264,6 +264,20 @@ export default function EventDetail() {
       ? [selectedSubEvent]
       : [id!];
 
+  // Data EFETIVA do evento (não a data genérica/criação de events.date):
+  // max(events.date, event_dates, sub-eventos). Usada na detecção de fase dos cards.
+  const effectiveEventDate = useMemo(() => {
+    if (selectedSubEvent) {
+      return subEvents.find((s: any) => s.id === selectedSubEvent)?.date ?? event?.date ?? null;
+    }
+    return computeEventLastDate({
+      eventDate: event?.date ?? null,
+      extraDates: festivalDates as any[],
+      subEvents: subEvents as any[],
+    }) ?? event?.date ?? null;
+  }, [event?.date, festivalDates, subEvents, selectedSubEvent]);
+
+
 
   // --- Ordenador de despesas (opcional; sem ordenador = empresa configurada) ---
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
@@ -314,6 +328,9 @@ export default function EventDetail() {
 
       // On the Master/tour cover (no sub-event selected), replace split children
       // with their Master transaction so we show only one consolidated line per rateio.
+      // ATENÇÃO: só substituir quando a mãe está NOUTRO event_id (rateio verdadeiro
+      // Master→filho). Se a mãe está no MESMO evento (parcelamento interno 1/2, 2/2),
+      // as parcelas ficam como estão — senão a 2/2 desaparecia e a 1/2 duplicava.
       if (isMultiEvent && !selectedSubEvent) {
         const childRows = rows.filter((r: any) => r.parent_transaction_id);
         const masterIds = [...new Set(childRows.map((r: any) => r.parent_transaction_id))];
@@ -322,10 +339,22 @@ export default function EventDetail() {
             .from("transactions")
             .select("*, account_categories(code, name), suppliers(name)")
             .in("id", masterIds);
-          const nonChildren = rows.filter((r: any) => !r.parent_transaction_id);
-          rows = [...nonChildren, ...(masters ?? [])];
+          const masterMap = new Map((masters ?? []).map((m: any) => [m.id, m]));
+          const kept = rows.filter((r: any) => {
+            if (!r.parent_transaction_id) return true;
+            const m = masterMap.get(r.parent_transaction_id);
+            if (!m) return true; // mãe desconhecida → manter a linha
+            return m.event_id === r.event_id; // parcelamento interno → manter
+          });
+          const keptIds = new Set(kept.map((r: any) => r.id));
+          const extraMasters = (masters ?? []).filter((m: any) =>
+            !keptIds.has(m.id) &&
+            rows.some((r: any) => r.parent_transaction_id === m.id && r.event_id !== m.event_id)
+          );
+          rows = [...kept, ...extraMasters];
         }
       }
+
 
       // Em visão de sub-evento, despesas vindas de um rateio/lançamento Master
       // podem ficar com o child em "approved" enquanto o Master já está "paid".
@@ -1049,7 +1078,7 @@ export default function EventDetail() {
           kind="income"
           isMasterView={isGlobalView}
           eventStatus={event.status}
-          primaryEventDate={event.date}
+          primaryEventDate={effectiveEventDate}
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
         />
@@ -1059,7 +1088,7 @@ export default function EventDetail() {
           kind="expense"
           isMasterView={isGlobalView}
           eventStatus={event.status}
-          primaryEventDate={event.date}
+          primaryEventDate={effectiveEventDate}
           partnerCalcBasis={event.partner_calc_basis}
           masterExpenseShare={Number(masterExpenseShare || 0)}
           masterForecastShare={Number(masterForecastShare || 0)}
