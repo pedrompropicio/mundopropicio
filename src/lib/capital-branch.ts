@@ -13,9 +13,21 @@
  */
 export const CAPITAL_BRANCH_PREFIX = "10.1.";
 
+export type CapitalKind = "aporte" | "devolucao" | "distribuicao";
+
 export function isCapitalCategoryCode(code: string | null | undefined): boolean {
   return String(code ?? "").startsWith(CAPITAL_BRANCH_PREFIX);
 }
+
+/** Deriva o tipo de movimento a partir do CÓDIGO da categoria (nunca por UUID). */
+export function capitalKindFromCode(code: string | null | undefined): CapitalKind | null {
+  const c = String(code ?? "");
+  if (c.startsWith("10.1.01")) return "aporte";
+  if (c.startsWith("10.1.02")) return "devolucao";
+  if (c.startsWith("10.1.03")) return "distribuicao";
+  return null;
+}
+
 
 /** True se o id corresponde a uma categoria do ramo Capital. */
 export function isCapitalCategoryId(

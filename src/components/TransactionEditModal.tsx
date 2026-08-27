@@ -26,6 +26,15 @@ import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import { fetchBpLinesForCategory, relinkTransactionToForecast } from "@/lib/bp-line-relink";
+import { isCapitalCategoryCode } from "@/lib/capital-branch";
+import {
+  deletePartnerCapitalMove,
+  fetchEventPartnersWithInheritance,
+  fetchPartnerCapitalMove,
+  partnerLabel,
+  upsertPartnerCapitalMove,
+} from "@/lib/partner-capital";
+
 
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
@@ -342,6 +351,41 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   const houseLabel = useEventHouseLabel(form.event_id);
 
+  // ===== Capital do Sócio (AEP) — ramo 10.1.* =====
+  const selectedCategoryCode: string | null =
+    (categories as any[]).find((c: any) => c.id === form.category_id)?.code ?? null;
+  const isCapitalCategory = isCapitalCategoryCode(selectedCategoryCode);
+  const wasCapitalCategory = isCapitalCategoryCode(
+    (categories as any[]).find((c: any) => c.id === (transaction.category_id ?? ""))?.code ?? null,
+  );
+
+  // Sócios do evento (com herança do Master) — usados só pelo campo de capital.
+  const { data: capitalPartners = [] } = useQuery({
+    queryKey: ["event-partners-capital", form.event_id],
+    queryFn: () => fetchEventPartnersWithInheritance(form.event_id),
+    enabled: !!form.event_id && isCapitalCategory,
+  });
+
+  // Vínculo já existente (partner_capital_moves) desta transação.
+  const { data: capitalLink } = useQuery({
+    queryKey: ["partner-capital-move", transaction.id],
+    queryFn: () => fetchPartnerCapitalMove(transaction.id),
+    enabled: isCapitalCategory || wasCapitalCategory,
+  });
+
+  const [capitalPartnerId, setCapitalPartnerId] = useState<string>("");
+  const [capitalTouched, setCapitalTouched] = useState(false);
+  useEffect(() => {
+    if (!capitalTouched) setCapitalPartnerId(capitalLink?.partner_id ?? "");
+  }, [capitalLink?.partner_id, capitalTouched]);
+  // Vínculo de capital a criar/alterar (ou a remover, se a categoria saiu do ramo 10.1).
+  const capitalLinkDirty = isCapitalCategory
+    ? !!capitalPartnerId && capitalPartnerId !== (capitalLink?.partner_id ?? "")
+    : !!capitalLink;
+
+
+
+
   // UI state — conversão e reversão parciais
   const [convertPartnerId, setConvertPartnerId] = useState<string>("");
   const [convertIsPartial, setConvertIsPartial] = useState(false);
@@ -393,7 +437,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
       // Zero campos alterados = no-op de fecho (não é erro).
-      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty) {
+      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty && !capitalLinkDirty) {
         return { data: null, snapshot: null, changesCount: 0, noop: true as const };
       }
 
@@ -595,7 +639,43 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
       }
 
+      // ===== Capital do Sócio (AEP) — criar/atualizar/remover o vínculo =====
+      if (isCapitalCategory && capitalPartnerId) {
+        try {
+          await upsertPartnerCapitalMove({
+            eventId: form.event_id,
+            transactionId: transaction.id,
+            partnerId: capitalPartnerId,
+            categoryCode: selectedCategoryCode,
+          });
+        } catch (capErr: any) {
+          console.error("[capital link] failed", capErr);
+          toast({
+            title: "TX atualizada, mas falhou vincular o sócio (capital)",
+            description: `${capErr?.message ?? "erro desconhecido"} — vincule no painel "Capital do Sócio (AEP)".`,
+            variant: "destructive",
+          });
+        }
+      } else if (!isCapitalCategory && capitalLink) {
+        // Categoria saiu do ramo 10.1 → o vínculo de capital deixa de fazer sentido.
+        try {
+          await deletePartnerCapitalMove(transaction.id);
+          toast({
+            title: "Vínculo de capital removido",
+            description: "A categoria já não pertence ao ramo 10.1 · Capital, pelo que o sócio foi desvinculado.",
+          });
+        } catch (capErr: any) {
+          console.error("[capital unlink] failed", capErr);
+          toast({
+            title: "TX atualizada, mas falhou remover o vínculo de capital",
+            description: capErr?.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       return { data, snapshot, changesCount: changes.length, noop: false as const };
+
     },
     onSuccess: async (result) => {
       invalidateTransactionQueries(queryClient);
@@ -610,6 +690,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-check", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-move", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-moves"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-txs"] });
+
       onClose();
       if (result?.noop) {
         toast({ title: "Sem outras alterações" });
@@ -798,7 +882,34 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "A soma dos splits deve igualar o valor total", variant: "destructive" });
       return;
     }
+    // Ramo 10.1 · Capital (AEP): sócio obrigatório.
+    if (isCapitalCategory) {
+      if (!form.event_id) {
+        toast({
+          title: "Selecione o evento primeiro",
+          description: "Um movimento de capital (ramo 10.1) exige um evento, para identificar os sócios.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (capitalPartners.length === 0) {
+        toast({
+          title: "Este evento não tem sócios cadastrados",
+          description: "Adicione o sócio no separador Sócios do evento antes de lançar movimentos de capital.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!capitalPartnerId) {
+        toast({
+          title: "Selecione o sócio para este movimento de capital (Associação em Participação).",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     editMutation.mutate();
+
   };
 
   const filteredCategories = categories.filter((c) => {
@@ -925,6 +1036,44 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <p className="mt-1 text-[11px] text-muted-foreground">Quem desembolsa. Vazio significa {houseLabel}.</p>
             </div>
           )}
+
+          {/* Sócio (AEP) — ramo 10.1 · Capital. Obrigatório; o vínculo é gerido ao gravar. */}
+          {isCapitalCategory && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <label className="mb-1 block text-xs font-medium text-primary">
+                Sócio (Associação em Participação) *
+              </label>
+              {!form.event_id ? (
+                <p className="text-[11px] text-warning">
+                  Selecione o evento primeiro — um movimento de capital exige um evento para identificar os sócios.
+                </p>
+              ) : capitalPartners.length === 0 ? (
+                <p className="text-[11px] text-warning">
+                  Este evento não tem sócios cadastrados. Adicione o sócio no separador Sócios do evento.
+                </p>
+              ) : (
+                <>
+                  <SearchableSelect
+                    options={(capitalPartners as any[]).map((p: any) => ({
+                      value: p.id,
+                      label: partnerLabel(p),
+                    }))}
+                    value={capitalPartnerId}
+                    onValueChange={(v) => {
+                      setCapitalTouched(true);
+                      setCapitalPartnerId(v);
+                    }}
+                    placeholder="Selecionar sócio…"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Movimento de capital (aporte / devolução / distribuição). O vínculo é atualizado ao gravar.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+
 
           {!paidLocked && valueLocked && !isInstallmentGroup && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">

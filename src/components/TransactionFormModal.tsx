@@ -33,6 +33,8 @@ import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { isCapitalCategoryCode, isCapitalCategoryId } from "@/lib/capital-branch";
+import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
+
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 import { findExistingInstallments, existingInstallmentsMessage, type ExistingInstallment } from "@/lib/installment-guard";
 import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
@@ -132,6 +134,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
 
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
+  // Sócio do movimento de capital (AEP) — obrigatório quando a categoria é do ramo 10.1.*
+  const [capitalPartnerId, setCapitalPartnerId] = useState<string>("");
+
   // Multi-currency state
   const [currency, setCurrency] = useState<CurrencyCode>("EUR");
   const [originalAmount, setOriginalAmount] = useState<string>("");
@@ -1382,6 +1387,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
+        // ===== Capital do Sócio (AEP) — vínculo automático =====
+        // Sequência: transação criada → id obtido → insere partner_capital_moves.
+        // Se o vínculo falhar, avisa (a TX existe; pode ligar-se no painel).
+        if (insertedTx?.id && selectedCategoryIsCapital && capitalPartnerId) {
+          try {
+            await upsertPartnerCapitalMove({
+              eventId: data.event_id,
+              transactionId: insertedTx.id,
+              partnerId: capitalPartnerId,
+              categoryCode: selectedCategoryCode,
+            });
+          } catch (capErr: any) {
+            console.error("[capital link] failed", capErr);
+            toast({
+              title: "TX criada, mas não foi possível vincular o sócio (capital)",
+              description: `${capErr?.message ?? "erro desconhecido"} — vincule no painel "Capital do Sócio (AEP)" na aba Sócios do evento.`,
+              variant: "destructive",
+            });
+          }
+        }
+
+
+
         // ===== Parcelamento — N transações irmãs (uma por vencimento) =====
         // A 1ª parcela é a TX já criada acima. Aqui criamos as restantes (2..N)
         // partilhando todos os metadados (categoria, evento, fornecedor, IVA, etc.)
@@ -1584,6 +1612,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
       queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-moves"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-txs"] });
+
       // Single-tx path: anexa fatura lida pelo OCR (IVA médio ou OCR só com 1 taxa).
       // No path multi-IVA, attachAfterCreateFile fica null e o anexo é gerido pelo loop.
       if (newTxId && attachAfterCreateFile) {
@@ -1869,6 +1900,45 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
+    // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
+    // Um movimento de capital tem sempre um sócio associado (associado da
+    // Associação em Participação). Sem sócio, o dado fica incompleto.
+    if (selectedCategoryIsCapital) {
+      if (isSplit) {
+        toast({
+          title: "Movimento de capital não pode ser rateado",
+          description: "Aportes/devoluções/distribuições lançam-se num único evento, ligados a um sócio.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!capitalEventId) {
+        toast({
+          title: "Selecione o evento primeiro",
+          description: "Um movimento de capital (ramo 10.1) exige um evento, para identificar os sócios.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (eventPartners.length === 0) {
+        toast({
+          title: "Este evento não tem sócios cadastrados",
+          description: "Adicione o sócio no separador Sócios do evento antes de lançar movimentos de capital.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!capitalPartnerId) {
+        toast({
+          title: "Selecione o sócio para este movimento de capital (Associação em Participação).",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+
+
     // Split validation — bypassed para Caução/Transitória, que sempre vai
     // como lançamento único no Master, ignorando o rateio.
     if (isSplit && !isTransitory) {
@@ -1956,6 +2026,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   // Ramo Capital (10.1.*): isento da restrição do BP e da justificação.
   const selectedCategoryIsCapital = isCapitalCategoryId(form.category_id, categories as any[]);
+  const selectedCategoryCode: string | null =
+    (categories as any[]).find((c) => c.id === form.category_id)?.code ?? null;
+  // Sócio (AEP) é obrigatório para o ramo 10.1.* → exige evento com sócios.
+  const capitalEventId = form.event_id || splitMasterEventId || "";
+  const capitalNeedsPartner = selectedCategoryIsCapital;
+  // Sai do ramo Capital (ou muda de evento) → limpa o sócio escolhido.
+  useEffect(() => {
+    if (!selectedCategoryIsCapital) setCapitalPartnerId("");
+  }, [selectedCategoryIsCapital]);
+  useEffect(() => {
+    setCapitalPartnerId("");
+  }, [capitalEventId]);
+
+
 
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
@@ -2608,6 +2692,44 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               />
             </div>
           )}
+
+          {/* Sócio (AEP) — só para o ramo 10.1 · Capital. Obrigatório: o vínculo em
+              partner_capital_moves é criado automaticamente ao gravar. */}
+          {capitalNeedsPartner && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <label className="mb-1 block text-xs font-medium text-primary">
+                Sócio (Associação em Participação) *
+              </label>
+              {!capitalEventId ? (
+                <p className="text-[11px] text-warning">
+                  Selecione o evento primeiro — um movimento de capital exige um evento para identificar os sócios.
+                </p>
+              ) : eventPartners.length === 0 ? (
+                <p className="text-[11px] text-warning">
+                  Este evento não tem sócios cadastrados. Adicione o sócio no separador Sócios do evento antes de
+                  lançar movimentos de capital.
+                </p>
+              ) : (
+                <>
+                  <SearchableSelect
+                    options={(eventPartners as any[]).map((p: any) => ({
+                      value: p.id,
+                      label: partnerLabel(p),
+                    }))}
+                    value={capitalPartnerId}
+                    onValueChange={setCapitalPartnerId}
+                    placeholder="Selecionar sócio…"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Movimento de capital (aporte / devolução de aporte / distribuição de resultado). O vínculo ao
+                    sócio é criado automaticamente ao gravar.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
