@@ -515,7 +515,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const isActivePL = effectiveEvent?.pl_mode === "active";
   const hasPL = effectiveEvent?.pl_mode === "active" || effectiveEvent?.pl_mode === "passive";
   const hasPLRestriction = hasPL;
-  const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
+  const eventIsMultiDayType = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
 
   // Taxas de IVA aplicáveis = país da cidade do evento (PT por defeito).
@@ -541,6 +541,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     });
     return map;
   }, [events]);
+
+  // Rateio só existe quando o evento é REALMENTE Master (multi_day COM sub-eventos).
+  // Antes bastava event_type === "multi_day", pelo que eventos simples marcados
+  // como multi_day sem splits ofereciam rateio por "0 datas".
+  const isParentMultiDay =
+    eventIsMultiDayType && (subEventsByParent[effectiveEventId] || []).length > 0;
 
   // For parent multi_day events, fetch parent's own BP + child BPs for aggregation
   // For child (split) events, also include parent's BP lines (shared/prorated costs)
@@ -1849,7 +1855,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
 
     // Caução / Transitória nunca é rateada — vai sempre direto ao Master sem confirmação
-    if (isParentMultiDay && !showProrationConfirm && !isTransitory) {
+    if (isParentMultiDay && !showProrationConfirm && !isTransitory && !selectedCategoryIsCapital) {
       setShowProrationConfirm(true);
       return;
     }
@@ -2013,7 +2019,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
     // Skip duplicate check if already confirmed
     if (showDuplicateConfirm) {
-      if (isParentMultiDay && !showProrationConfirm && !isTransitory) {
+      if (isParentMultiDay && !showProrationConfirm && !isTransitory && !selectedCategoryIsCapital) {
         setShowProrationConfirm(true);
         return;
       }
@@ -3004,7 +3010,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 <button
                   type="button"
                   onClick={() => {
-                    if (isParentMultiDay && !isTransitory) {
+                    if (isParentMultiDay && !isTransitory && !selectedCategoryIsCapital) {
                       setShowDuplicateConfirm(false);
                       setShowProrationConfirm(true);
                     } else {
@@ -3028,7 +3034,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* Proration confirmation for multi_day parent */}
-          {showProrationConfirm && isParentMultiDay && !isTransitory && (
+          {showProrationConfirm && isParentMultiDay && !isTransitory && !selectedCategoryIsCapital && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
