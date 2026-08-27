@@ -959,6 +959,7 @@ export default function EventDetail() {
           eventDate: event.date,
           extraDates: festivalDates as any[],
           subEvents: subEvents as any[],
+          sessions: eventSessions as any[],
         }) ?? event.date;
         if (today > latestDate) {
 
