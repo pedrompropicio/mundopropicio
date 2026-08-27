@@ -437,7 +437,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
       // Zero campos alterados = no-op de fecho (não é erro).
-      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty) {
+      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty && !capitalLinkDirty) {
         return { data: null, snapshot: null, changesCount: 0, noop: true as const };
       }
 
