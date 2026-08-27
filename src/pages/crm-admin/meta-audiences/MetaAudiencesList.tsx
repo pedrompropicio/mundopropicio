@@ -49,6 +49,44 @@ function statusBadge(status: string | null) {
   return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />erro</Badge>;
 }
 
+// ---- Dimensão real dos públicos (filters.delivery_estimate) ----
+const SUBTYPE_LABELS: Record<string, string> = {
+  WEBSITE: "Site",
+  CUSTOM: "Lista",
+  LOOKALIKE: "Semelhante",
+  ENGAGEMENT: "Envolvimento",
+  IG_BUSINESS: "Instagram",
+  VIDEO: "Envolvimento",
+  APP: "App",
+  OFFLINE_CONVERSION: "Offline",
+  CLAIM: "Lista",
+};
+function subtypeLabel(subtype: string | null | undefined): string {
+  if (!subtype) return "—";
+  return SUBTYPE_LABELS[subtype] ?? subtype;
+}
+const nf = (n: number) => n.toLocaleString("pt-PT");
+function estimateOf(filters: any): { lower: number | null; upper: number | null; checked_at: string | null; error: string | null } | null {
+  const e = filters?.delivery_estimate;
+  if (!e || typeof e !== "object") return null;
+  return { lower: e.lower ?? null, upper: e.upper ?? null, checked_at: e.checked_at ?? null, error: e.error ?? null };
+}
+function sizeValue(filters: any): number {
+  const e = estimateOf(filters);
+  if (!e) return -1;
+  return e.upper ?? e.lower ?? -1;
+}
+function SizeCell({ filters }: { filters: any }) {
+  const e = estimateOf(filters);
+  if (!e || (e.lower == null && e.upper == null)) {
+    return <span className="text-muted-foreground" title={e?.error ?? "Sem estimativa disponível"}>—</span>;
+  }
+  if (e.lower != null && e.upper != null && e.lower !== e.upper) {
+    return <span className="font-medium tabular-nums">{nf(e.lower)} – {nf(e.upper)}</span>;
+  }
+  return <span className="font-medium tabular-nums">{nf((e.upper ?? e.lower) as number)}</span>;
+}
+
 export default function MetaAudiencesList() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
