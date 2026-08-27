@@ -26,6 +26,15 @@ import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import { fetchBpLinesForCategory, relinkTransactionToForecast } from "@/lib/bp-line-relink";
+import { isCapitalCategoryCode } from "@/lib/capital-branch";
+import {
+  deletePartnerCapitalMove,
+  fetchEventPartnersWithInheritance,
+  fetchPartnerCapitalMove,
+  partnerLabel,
+  upsertPartnerCapitalMove,
+} from "@/lib/partner-capital";
+
 
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
