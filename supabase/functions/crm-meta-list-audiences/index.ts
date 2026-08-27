@@ -59,9 +59,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   try {
-    let body: { company_id?: string } = {};
+    let body: { company_id?: string; only_audience_ids?: string[]; skip_estimates?: boolean } = {};
     try { body = await req.json(); } catch {}
     const companyId = body.company_id;
+    const onlyIds = Array.isArray(body.only_audience_ids) ? body.only_audience_ids.map(String) : null;
+    const skipEstimates = body.skip_estimates === true;
+    const startedAt = Date.now();
+    const TIME_BUDGET_MS = 50_000;
     if (!companyId) return bizErr({ error: "missing_params", detail: "company_id" });
 
     // 1) Conexão Meta ativa
