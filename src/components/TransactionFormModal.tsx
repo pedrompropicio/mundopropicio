@@ -3121,6 +3121,40 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
+          {/* Entidade (origem da receita) — opcional. Escondido no ramo 10.1.* (capital),
+              onde o campo "Sócio (AEP)" é que manda no supplier_id. */}
+          {form.type === "income" && !selectedCategoryIsCapital && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={supplierOptions}
+                    value={form.supplier_id}
+                    onValueChange={(v) => setForm({ ...form, supplier_id: v })}
+                    placeholder="Selecionar entidade…"
+                    searchPlaceholder="Pesquisar entidade…"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNewSupplier(true)}
+                  className="rounded-lg border border-border bg-background p-2 hover:bg-secondary transition-colors"
+                  title="Cadastrar nova entidade"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <SupplierFormModal
+                open={showNewSupplier}
+                onOpenChange={setShowNewSupplier}
+                onCreated={(id) => setForm((prev) => ({ ...prev, supplier_id: id }))}
+                overlayClassName="z-[110]"
+                contentClassName="z-[111]"
+              />
+            </div>
+          )}
+
           {form.type === "expense" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor *</label>

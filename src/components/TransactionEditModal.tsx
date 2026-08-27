@@ -1377,6 +1377,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          {/* Entidade (origem da receita) — opcional. Escondido no ramo 10.1.* (capital),
+              onde o campo "Sócio (AEP)" é que manda no supplier_id. */}
+          {!isExpense && !isCapitalCategory && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
+              <SearchableSelect
+                options={supplierOptions}
+                value={form.supplier_id}
+                onValueChange={(v) => setForm({ ...form, supplier_id: v })}
+                placeholder="Sem entidade"
+                searchPlaceholder="Pesquisar entidade…"
+              />
+            </div>
+          )}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
             <input value={form.invoice_ref} onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
