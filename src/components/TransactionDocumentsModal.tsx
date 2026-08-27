@@ -273,7 +273,21 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
 
   const toggleAccounting = async (doc: any) => {
     const newVal = !doc.is_accounting;
-    await supabase.from("transaction_documents").update({ is_accounting: newVal } as any).eq("id", doc.id);
+    // .select() devolve as linhas afetadas: se o RLS filtrar o UPDATE não há erro,
+    // vem só um array vazio — daí o aviso explícito em vez de falhar em silêncio.
+    const { data, error } = await supabase
+      .from("transaction_documents")
+      .update({ is_accounting: newVal } as any)
+      .eq("id", doc.id)
+      .select("id, is_accounting");
+    if (error || !data || data.length === 0) {
+      toast({
+        title: "Não foi possível gravar",
+        description: error?.message ?? "Sem permissão para alterar a marcação contábil deste documento.",
+        variant: "destructive",
+      });
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
     queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
     toast({ title: newVal ? "Marcado como contábil" : "Removida marcação contábil" });
