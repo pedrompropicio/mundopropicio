@@ -45,6 +45,8 @@ export function computeEventLastDate(opts: {
 export function makeLastDateResolver(opts: {
   eventDates?: Array<{ event_id: string; date: string }>;
   allEvents?: Array<{ id: string; date?: string | null; parent_event_id?: string | null }>;
+  /** linhas de event_sessions (event_id + date). Opcional. */
+  sessions?: Array<{ event_id: string; date: string }>;
 }) {
   const datesByEvent = new Map<string, string[]>();
   for (const ed of opts.eventDates ?? []) {
@@ -52,6 +54,13 @@ export function makeLastDateResolver(opts: {
     const arr = datesByEvent.get(ed.event_id) ?? [];
     arr.push(ed.date.slice(0, 10));
     datesByEvent.set(ed.event_id, arr);
+  }
+  const sessionsByEvent = new Map<string, string[]>();
+  for (const s of opts.sessions ?? []) {
+    if (!s?.event_id || !s?.date) continue;
+    const arr = sessionsByEvent.get(s.event_id) ?? [];
+    arr.push(s.date.slice(0, 10));
+    sessionsByEvent.set(s.event_id, arr);
   }
   const childrenByParent = new Map<string, string[]>();
   for (const e of opts.allEvents ?? []) {
@@ -66,5 +75,7 @@ export function makeLastDateResolver(opts: {
       eventDate: event.date ?? null,
       extraDates: datesByEvent.get(event.id) ?? [],
       subEvents: childrenByParent.get(event.id) ?? [],
+      sessions: sessionsByEvent.get(event.id) ?? [],
     });
 }
+
