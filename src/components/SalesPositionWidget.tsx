@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { formatDate } from "@/lib/mock-data";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { lisbonToday } from "@/lib/date-lisbon";
 
 interface SalesPositionRow {
   group_id: string;
@@ -18,6 +19,8 @@ interface SalesPositionRow {
   yesterday_value: number;
   today_qty: number;
   today_value: number;
+  fortnight_qty: number;
+  fortnight_value: number;
   has_bol: boolean;
   daily_missing: boolean;
 }
@@ -33,6 +36,8 @@ interface ProviderRow {
   yesterday_value: number;
   today_qty: number;
   today_value: number;
+  fortnight_qty: number;
+  fortnight_value: number;
 }
 
 const NO_SERIES_HINT = "Série diária disponível após o próximo sync";
@@ -41,6 +46,21 @@ const nf = new Intl.NumberFormat("pt-PT");
 const nfNoDecimals = new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 0 });
 
 const LISBON_TZ = "Europe/Lisbon";
+
+/**
+ * Rótulo da quinzena de CALENDÁRIO corrente (Europe/Lisbon):
+ * dias 1..15 -> "1–15/MM"; dias 16..fim -> "16–<último dia>/MM".
+ * Mesma definição usada nas RPCs get_sales_position*.
+ */
+function fortnightLabel(): string {
+  const today = lisbonToday();
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const day = today.getDate();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const mm = String(m + 1).padStart(2, "0");
+  return day <= 15 ? `1–15/${mm}` : `16–${lastDay}/${mm}`;
+}
 
 function formatFullValue(v: number) {
   return `${nfNoDecimals.format(Math.round(Number(v || 0)))} €`;
@@ -113,6 +133,26 @@ function MobileCell({ qty, value, missing }: { qty: number; value: number; missi
   );
 }
 
+/** Métrica mobile com rótulo próprio — máx. 3 por linha na grelha. */
+function MobileMetric({
+  label,
+  qty,
+  value,
+  missing,
+}: {
+  label: string;
+  qty: number;
+  value: number;
+  missing: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-end">
+      <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <MobileCell qty={qty} value={value} missing={missing} />
+    </div>
+  );
+}
+
 export function SalesPositionWidget() {
   const { companyId } = useCompany();
 
@@ -160,6 +200,8 @@ export function SalesPositionWidget() {
       yesterday_value: acc.yesterday_value + Number(r.yesterday_value || 0),
       today_qty: acc.today_qty + Number(r.today_qty || 0),
       today_value: acc.today_value + Number(r.today_value || 0),
+      fortnight_qty: acc.fortnight_qty + Number(r.fortnight_qty || 0),
+      fortnight_value: acc.fortnight_value + Number(r.fortnight_value || 0),
     }),
     {
       total_qty: 0,
@@ -170,10 +212,13 @@ export function SalesPositionWidget() {
       yesterday_value: 0,
       today_qty: 0,
       today_value: 0,
+      fortnight_qty: 0,
+      fortnight_value: 0,
     },
   );
 
-  const colClass = "w-[110px] shrink-0 text-right sm:w-[170px]";
+  const colClass = "w-[92px] shrink-0 text-right sm:w-[132px]";
+  const fnLabel = fortnightLabel();
 
   return (
     <section>
@@ -196,15 +241,8 @@ export function SalesPositionWidget() {
             <span className={colClass}>Agora</span>
             <span className={colClass}>Ontem</span>
             <span className={colClass}>7 dias</span>
+            <span className={colClass}>Quinzena {fnLabel}</span>
             <span className={colClass}>Total</span>
-          </div>
-
-          {/* Cabeçalho mobile */}
-          <div className="grid grid-cols-4 gap-1 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:hidden">
-            <span className="text-right">Agora</span>
-            <span className="text-right">Ontem</span>
-            <span className="text-right">7 dias</span>
-            <span className="text-right">Total</span>
           </div>
 
           {rows.map((r) => (
@@ -225,11 +263,12 @@ export function SalesPositionWidget() {
                     {r.event_date ? formatDate(r.event_date) : "—"}
                   </span>
                 </span>
-                <div className="grid grid-cols-4 gap-1">
-                  <MobileCell qty={r.today_qty} value={r.today_value} missing={r.daily_missing} />
-                  <MobileCell qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
-                  <MobileCell qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
-                  <MobileCell qty={r.total_qty} value={r.total_value} missing={false} />
+                <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                  <MobileMetric label="Agora" qty={r.today_qty} value={r.today_value} missing={r.daily_missing} />
+                  <MobileMetric label="Ontem" qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
+                  <MobileMetric label="7 dias" qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
+                  <MobileMetric label={`Quinz. ${fnLabel}`} qty={r.fortnight_qty} value={r.fortnight_value} missing={r.daily_missing} />
+                  <MobileMetric label="Total" qty={r.total_qty} value={r.total_value} missing={false} />
                 </div>
               </div>
 
@@ -256,6 +295,9 @@ export function SalesPositionWidget() {
                   <Cell qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
                 </span>
                 <span className={colClass}>
+                  <Cell qty={r.fortnight_qty} value={r.fortnight_value} missing={r.daily_missing} />
+                </span>
+                <span className={colClass}>
                   <Cell qty={r.total_qty} value={r.total_value} missing={false} />
                 </span>
               </div>
@@ -266,11 +308,12 @@ export function SalesPositionWidget() {
             {/* Total mobile */}
             <div className="flex flex-col gap-0.5 sm:hidden">
               <span className="truncate">TOTAL GERAL</span>
-              <div className="grid grid-cols-4 gap-1">
-                <MobileCell qty={totals.today_qty} value={totals.today_value} missing={false} />
-                <MobileCell qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
-                <MobileCell qty={totals.last7_qty} value={totals.last7_value} missing={false} />
-                <MobileCell qty={totals.total_qty} value={totals.total_value} missing={false} />
+              <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                <MobileMetric label="Agora" qty={totals.today_qty} value={totals.today_value} missing={false} />
+                <MobileMetric label="Ontem" qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
+                <MobileMetric label="7 dias" qty={totals.last7_qty} value={totals.last7_value} missing={false} />
+                <MobileMetric label={`Quinz. ${fnLabel}`} qty={totals.fortnight_qty} value={totals.fortnight_value} missing={false} />
+                <MobileMetric label="Total" qty={totals.total_qty} value={totals.total_value} missing={false} />
               </div>
             </div>
 
@@ -285,6 +328,9 @@ export function SalesPositionWidget() {
               </span>
               <span className={colClass}>
                 <Cell qty={totals.last7_qty} value={totals.last7_value} missing={false} />
+              </span>
+              <span className={colClass}>
+                <Cell qty={totals.fortnight_qty} value={totals.fortnight_value} missing={false} />
               </span>
               <span className={colClass}>
                 <Cell qty={totals.total_qty} value={totals.total_value} missing={false} />
@@ -305,11 +351,12 @@ export function SalesPositionWidget() {
                   {/* Mobile */}
                   <div className="flex flex-col gap-0.5 sm:hidden">
                     <span className="min-w-0 truncate font-medium">{p.provider}</span>
-                    <div className="grid grid-cols-4 gap-1">
-                      <MobileCell qty={p.today_qty} value={p.today_value} missing={false} />
-                      <MobileCell qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
-                      <MobileCell qty={p.last7_qty} value={p.last7_value} missing={false} />
-                      <MobileCell qty={p.total_qty} value={p.total_value} missing={false} />
+                    <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                      <MobileMetric label="Agora" qty={p.today_qty} value={p.today_value} missing={false} />
+                      <MobileMetric label="Ontem" qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
+                      <MobileMetric label="7 dias" qty={p.last7_qty} value={p.last7_value} missing={false} />
+                      <MobileMetric label={`Quinz. ${fnLabel}`} qty={p.fortnight_qty} value={p.fortnight_value} missing={false} />
+                      <MobileMetric label="Total" qty={p.total_qty} value={p.total_value} missing={false} />
                     </div>
                   </div>
 
@@ -324,6 +371,9 @@ export function SalesPositionWidget() {
                     </span>
                     <span className={colClass}>
                       <Cell qty={p.last7_qty} value={p.last7_value} missing={false} />
+                    </span>
+                    <span className={colClass}>
+                      <Cell qty={p.fortnight_qty} value={p.fortnight_value} missing={false} />
                     </span>
                     <span className={colClass}>
                       <Cell qty={p.total_qty} value={p.total_value} missing={false} />
