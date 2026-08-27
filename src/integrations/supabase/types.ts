@@ -7896,6 +7896,68 @@ export type Database = {
           },
         ]
       }
+      partner_capital_moves: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          kind: string
+          partner_id: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          kind: string
+          partner_id: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          kind?: string
+          partner_id?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_capital_moves_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_capital_moves_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_capital_moves_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_capital_moves_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_event_access: {
         Row: {
           can_edit_bp: boolean

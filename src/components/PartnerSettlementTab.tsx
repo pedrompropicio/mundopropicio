@@ -31,6 +31,9 @@ import {
   HOUSE_PARTNER_NAME,
   computeHousePercentage,
 } from "@/lib/house-partner";
+import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
+
+
 
 interface Props {
   eventId: string;
@@ -1796,6 +1799,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </Table>
         </div>
       )}
+
+      {/* Capital do Sócio (AEP) — bloco INFORMATIVO, fora de qualquer soma do acerto */}
+      <PartnerCapitalPanel eventId={eventId} summaryOnly />
+
+
 
       {/* Per-partner cards */}
       {settlements.map((s) => (

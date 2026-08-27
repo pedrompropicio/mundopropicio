@@ -24,6 +24,7 @@ import { EventScenarioProvider } from "@/contexts/EventScenarioContext";
 import { ScenarioModeBanner } from "@/components/bp-versions/ScenarioModeBanner";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
+import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
@@ -1424,6 +1425,12 @@ export default function EventDetail() {
                 <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas pagas pelos Sócios</h2>
                 <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
               </div>
+              {(isAdmin || isManager) && (
+                <div className="glass rounded-xl p-5">
+                  <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Capital do Sócio (AEP)</h2>
+                  <PartnerCapitalPanel eventId={event.id} eventStatus={event.status} />
+                </div>
+              )}
               {isAdmin && (
                 <PartnerAccessManager
                   eventId={event.id}
