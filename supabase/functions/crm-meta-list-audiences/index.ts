@@ -9,7 +9,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const BUILD_VERSION = "list-audiences-v1 2026-06-24";
+const BUILD_VERSION = "list-audiences-v2 2026-08-27 (delivery_estimate)";
 const GRAPH_API_VERSION = "v21.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
