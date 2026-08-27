@@ -1954,6 +1954,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     checkDuplicatesAndSubmit();
   };
 
+  // Ramo Capital (10.1.*): isento da restrição do BP e da justificação.
+  const selectedCategoryIsCapital = isCapitalCategoryId(form.category_id, categories as any[]);
+
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
