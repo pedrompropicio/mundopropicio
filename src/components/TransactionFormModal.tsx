@@ -1911,7 +1911,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
       // • "master" → expense consumes Master BP rateio (sub-event BP not required)
       const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -1922,7 +1922,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       }
     }
-    if (plOverride && !form.pl_override_note.trim()) {
+    if (plOverride && !selectedCategoryIsCapital && !form.pl_override_note.trim()) {
       toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
