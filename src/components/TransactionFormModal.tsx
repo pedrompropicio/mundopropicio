@@ -542,6 +542,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     return map;
   }, [events]);
 
+  // Rateio só existe quando o evento é REALMENTE Master (multi_day COM sub-eventos).
+  // Antes bastava event_type === "multi_day", pelo que eventos simples marcados
+  // como multi_day sem splits ofereciam rateio por "0 datas".
+  const isParentMultiDay =
+    eventIsMultiDayType && (subEventsByParent[effectiveEventId] || []).length > 0;
+
   // For parent multi_day events, fetch parent's own BP + child BPs for aggregation
   // For child (split) events, also include parent's BP lines (shared/prorated costs)
   // For split auto-configured (Master selected), use splitMasterEventId
