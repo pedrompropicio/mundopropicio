@@ -351,22 +351,33 @@ export default function ReportAccountingExport() {
             <div className="glass rounded-xl p-8 text-center">
               <p className="text-muted-foreground">A carregar…</p>
             </div>
-          ) : withDocs.length > 0 ? (
-            <div className="flex items-center justify-end gap-2">
-              <Button onClick={handleExport} disabled={registerExport.isPending}>
-                {registerExport.isPending ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-1.5 h-4 w-4" />
-                )}
-                Exportar {totalDocsCount} documento(s) contábil(eis)
-                {uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s)` : ""}
-              </Button>
-            </div>
           ) : (
-            <div className="glass rounded-xl p-8 text-center space-y-2">
-              <AlertTriangle className="mx-auto h-10 w-10 text-warning" />
-              <p className="text-muted-foreground font-medium">Nenhum documento contábil encontrado no período selecionado.</p>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {lines.length > 0 && (
+                  <Button variant="outline" onClick={handleExportCsv}>
+                    <Download className="mr-1.5 h-4 w-4" />
+                    Exportar mapa CSV ({lines.length} transações)
+                  </Button>
+                )}
+                {withDocs.length > 0 && (
+                  <Button onClick={handleExport} disabled={registerExport.isPending}>
+                    {registerExport.isPending ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-1.5 h-4 w-4" />
+                    )}
+                    Exportar {totalDocsCount} documento(s) contábil(eis)
+                    {uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s)` : ""}
+                  </Button>
+                )}
+              </div>
+              {withDocs.length === 0 && (
+                <div className="glass rounded-xl p-8 text-center space-y-2">
+                  <AlertTriangle className="mx-auto h-10 w-10 text-warning" />
+                  <p className="text-muted-foreground font-medium">Nenhum documento contábil encontrado no período selecionado.</p>
+                </div>
+              )}
             </div>
           )}
 
