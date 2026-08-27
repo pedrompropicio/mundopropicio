@@ -274,8 +274,9 @@ export default function EventDetail() {
       eventDate: event?.date ?? null,
       extraDates: festivalDates as any[],
       subEvents: subEvents as any[],
+      sessions: eventSessions as any[],
     }) ?? event?.date ?? null;
-  }, [event?.date, festivalDates, subEvents, selectedSubEvent]);
+  }, [event?.date, festivalDates, subEvents, eventSessions, selectedSubEvent]);
 
 
 
