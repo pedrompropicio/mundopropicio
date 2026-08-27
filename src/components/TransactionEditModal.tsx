@@ -837,7 +837,34 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "A soma dos splits deve igualar o valor total", variant: "destructive" });
       return;
     }
+    // Ramo 10.1 · Capital (AEP): sócio obrigatório.
+    if (isCapitalCategory) {
+      if (!form.event_id) {
+        toast({
+          title: "Selecione o evento primeiro",
+          description: "Um movimento de capital (ramo 10.1) exige um evento, para identificar os sócios.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (capitalPartners.length === 0) {
+        toast({
+          title: "Este evento não tem sócios cadastrados",
+          description: "Adicione o sócio no separador Sócios do evento antes de lançar movimentos de capital.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!capitalPartnerId) {
+        toast({
+          title: "Selecione o sócio para este movimento de capital (Associação em Participação).",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     editMutation.mutate();
+
   };
 
   const filteredCategories = categories.filter((c) => {
