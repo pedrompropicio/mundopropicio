@@ -690,6 +690,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-check", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-move", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-moves"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-txs"] });
+
       onClose();
       if (result?.noop) {
         toast({ title: "Sem outras alterações" });
