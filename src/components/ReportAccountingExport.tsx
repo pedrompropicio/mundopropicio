@@ -35,7 +35,7 @@ export default function ReportAccountingExport() {
       if (!dateFromStr || !dateToStr) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, events(name), suppliers(name), financial_accounts:account_id(name)")
+        .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, category_id, is_transitory, exclude_from_result, events(name), suppliers(name), account_categories:category_id(code, name), financial_accounts:account_id(name)")
         .gte("date", dateFromStr)
         .lte("date", dateToStr)
         .not("account_id", "is", null)
@@ -172,6 +172,63 @@ export default function ReportAccountingExport() {
     URL.revokeObjectURL(url);
   }
 
+  // Mapa de transações em CSV (todas as transações do período, sem filtrar as
+  // transitórias — a contabilidade quer ver tudo, só precisa de distinguir).
+  function handleExportCsv() {
+    if (lines.length === 0) {
+      toast.error("Nenhuma transação no período selecionado.");
+      return;
+    }
+    const sep = ";";
+    const esc = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = [
+      "Data",
+      "Descrição",
+      "Categoria (código)",
+      "Categoria (nome)",
+      "Evento",
+      "Fornecedor",
+      "Conta",
+      "Tipo",
+      "Estado",
+      "Valor (€)",
+      "Docs contábeis",
+      "Transitório",
+      "Excluído do resultado",
+    ];
+    const rows = lines.map((l: any) => [
+      l.date,
+      l.description,
+      l.account_categories?.code ?? "",
+      l.account_categories?.name ?? "",
+      l.events?.name ?? "",
+      l.suppliers?.name ?? "",
+      l.financial_accounts?.name ?? "",
+      l.type === "income" ? "Receita" : "Despesa",
+      l.status,
+      String(Number(l.amount).toFixed(2)).replace(".", ","),
+      l.accountingDocs,
+      l.is_transitory ? "Sim" : "Não",
+      l.exclude_from_result ? "Sim" : "Não",
+    ]);
+    const note =
+      'Nota: "Transitório = Sim" indica movimento de capital/caução — não é proveito nem custo do resultado.';
+    const csv =
+      "\uFEFF" +
+      [note, header.join(sep), ...rows.map((r) => r.map(esc).join(sep))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mapa-contabilidade_${dateFromStr}_${dateToStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Mapa exportado: ${lines.length} transação(ões).`);
+  }
+
   // Export all accounting docs as individual downloads + register
   async function handleExport() {
     if (withDocs.length === 0) {
@@ -294,22 +351,33 @@ export default function ReportAccountingExport() {
             <div className="glass rounded-xl p-8 text-center">
               <p className="text-muted-foreground">A carregar…</p>
             </div>
-          ) : withDocs.length > 0 ? (
-            <div className="flex items-center justify-end gap-2">
-              <Button onClick={handleExport} disabled={registerExport.isPending}>
-                {registerExport.isPending ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-1.5 h-4 w-4" />
-                )}
-                Exportar {totalDocsCount} documento(s) contábil(eis)
-                {uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s)` : ""}
-              </Button>
-            </div>
           ) : (
-            <div className="glass rounded-xl p-8 text-center space-y-2">
-              <AlertTriangle className="mx-auto h-10 w-10 text-warning" />
-              <p className="text-muted-foreground font-medium">Nenhum documento contábil encontrado no período selecionado.</p>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {lines.length > 0 && (
+                  <Button variant="outline" onClick={handleExportCsv}>
+                    <Download className="mr-1.5 h-4 w-4" />
+                    Exportar mapa CSV ({lines.length} transações)
+                  </Button>
+                )}
+                {withDocs.length > 0 && (
+                  <Button onClick={handleExport} disabled={registerExport.isPending}>
+                    {registerExport.isPending ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-1.5 h-4 w-4" />
+                    )}
+                    Exportar {totalDocsCount} documento(s) contábil(eis)
+                    {uniqueReceipts.length > 0 ? ` + ${uniqueReceipts.length} comprovativo(s)` : ""}
+                  </Button>
+                )}
+              </div>
+              {withDocs.length === 0 && (
+                <div className="glass rounded-xl p-8 text-center space-y-2">
+                  <AlertTriangle className="mx-auto h-10 w-10 text-warning" />
+                  <p className="text-muted-foreground font-medium">Nenhum documento contábil encontrado no período selecionado.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -327,9 +395,13 @@ export default function ReportAccountingExport() {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Descrição</TableHead>
+                    <TableHead>Categoria</TableHead>
                     <TableHead>Evento</TableHead>
                     <TableHead className="text-right">Valor (€)</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
+                    <TableHead className="text-center">Transit.</TableHead>
+                    <TableHead className="text-center">Excl. result.</TableHead>
+
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -344,6 +416,11 @@ export default function ReportAccountingExport() {
                           <p className="text-xs text-muted-foreground">{line.suppliers.name}</p>
                         )}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {line.account_categories?.code
+                          ? `${line.account_categories.code} · ${line.account_categories.name}`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{line.events?.name ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         <span className={line.type === "income" ? "text-success" : "text-foreground"}>
@@ -353,6 +430,13 @@ export default function ReportAccountingExport() {
                       <TableCell className="text-center">
                         <Badge variant="secondary" className="text-xs">{line.accountingDocs}</Badge>
                       </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {line.is_transitory ? "Sim" : "Não"}
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {line.exclude_from_result ? "Sim" : "Não"}
+                      </TableCell>
+
                     </TableRow>
                   ))}
                 </TableBody>
