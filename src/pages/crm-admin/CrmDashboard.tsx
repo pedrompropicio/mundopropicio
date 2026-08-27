@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Users, Inbox, Target } from "lucide-react";
+import { CalendarDays, Users, MousePointerClick, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -155,18 +155,16 @@ export default function CrmDashboard() {
     queryKey: ["crm-stats", "contacts", companyId],
     enabled: !!companyId,
     queryFn: () =>
-      safeCount("contacts", (q) =>
-        q.eq("is_active", true).eq("company_id", companyId),
-      ),
+      safeCount("crm_contactos", (q) => q.eq("company_id", companyId)),
     staleTime: 60_000,
     refetchOnMount: "always",
   });
-  const { data: leads } = useQuery({
-    queryKey: ["crm-stats", "leads-30d", companyId],
+  const { data: traffic } = useQuery({
+    queryKey: ["crm-stats", "trafego-30d", companyId],
     enabled: !!companyId,
     queryFn: () => {
       const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-      return safeCount("leads", (q) =>
+      return safeCount("crm_eventos_trafego", (q) =>
         q.gte("created_at", since).eq("company_id", companyId),
       );
     },
@@ -182,7 +180,7 @@ export default function CrmDashboard() {
   });
 
   const { data: geoStats } = useQuery({
-    queryKey: ["crm-stats", "leads-geo", geoPeriod, companyId],
+    queryKey: ["crm-stats", "trafego-geo", geoPeriod, companyId],
     enabled: !!companyId,
     staleTime: 0,
     refetchOnMount: "always",
@@ -222,7 +220,7 @@ export default function CrmDashboard() {
   const stats: Stat[] = [
     { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
     { to: "/crm/contactos", key: "contacts", label: "Contactos", icon: Users, value: contacts ?? null },
-    { to: "/crm/leads", key: "leads", label: "Leads (30 dias)", icon: Inbox, value: leads ?? null },
+    { to: "/crm/leads?tab=trafego", key: "trafego", label: "Eventos de tráfego (30 dias)", icon: MousePointerClick, value: traffic ?? null },
     { to: "/crm/audiences", key: "audiences", label: "Audiências", icon: Target, value: audiences ?? null },
   ];
 
@@ -265,7 +263,7 @@ export default function CrmDashboard() {
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 px-1">
           <h2 className="text-sm font-medium text-muted-foreground">
-            Geografia dos leads
+            Geografia do tráfego
           </h2>
           <ToggleGroup
             type="single"
@@ -288,7 +286,7 @@ export default function CrmDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Leads por país
+                Tráfego por país
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -305,7 +303,7 @@ export default function CrmDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Leads por cidade
+                Tráfego por cidade
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -321,7 +319,7 @@ export default function CrmDashboard() {
         </div>
 
         <p className="text-[11px] leading-relaxed text-muted-foreground px-1">
-          A localização é estimada por IP e só é registada para leads que aceitaram
+          A localização é estimada por IP e só é registada para visitantes que aceitaram
           cookies. A cidade é aproximada — em tráfego móvel pode refletir a localização
           da operadora, não a do utilizador. O país é fiável.
         </p>
