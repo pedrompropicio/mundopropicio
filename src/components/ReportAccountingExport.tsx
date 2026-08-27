@@ -416,6 +416,11 @@ export default function ReportAccountingExport() {
                           <p className="text-xs text-muted-foreground">{line.suppliers.name}</p>
                         )}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {line.account_categories?.code
+                          ? `${line.account_categories.code} · ${line.account_categories.name}`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{line.events?.name ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         <span className={line.type === "income" ? "text-success" : "text-foreground"}>
@@ -425,6 +430,13 @@ export default function ReportAccountingExport() {
                       <TableCell className="text-center">
                         <Badge variant="secondary" className="text-xs">{line.accountingDocs}</Badge>
                       </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {line.is_transitory ? "Sim" : "Não"}
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {line.exclude_from_result ? "Sim" : "Não"}
+                      </TableCell>
+
                     </TableRow>
                   ))}
                 </TableBody>
