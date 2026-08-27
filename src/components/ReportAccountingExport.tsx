@@ -395,9 +395,13 @@ export default function ReportAccountingExport() {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Descrição</TableHead>
+                    <TableHead>Categoria</TableHead>
                     <TableHead>Evento</TableHead>
                     <TableHead className="text-right">Valor (€)</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
+                    <TableHead className="text-center">Transit.</TableHead>
+                    <TableHead className="text-center">Excl. result.</TableHead>
+
                   </TableRow>
                 </TableHeader>
                 <TableBody>
