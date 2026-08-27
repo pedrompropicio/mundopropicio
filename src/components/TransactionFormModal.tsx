@@ -1612,6 +1612,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
       queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-moves"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-capital-txs"] });
+
       // Single-tx path: anexa fatura lida pelo OCR (IVA médio ou OCR só com 1 taxa).
       // No path multi-IVA, attachAfterCreateFile fica null e o anexo é gerido pelo loop.
       if (newTxId && attachAfterCreateFile) {
