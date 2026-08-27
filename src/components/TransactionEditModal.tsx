@@ -1037,6 +1037,44 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          {/* Sócio (AEP) — ramo 10.1 · Capital. Obrigatório; o vínculo é gerido ao gravar. */}
+          {isCapitalCategory && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <label className="mb-1 block text-xs font-medium text-primary">
+                Sócio (Associação em Participação) *
+              </label>
+              {!form.event_id ? (
+                <p className="text-[11px] text-warning">
+                  Selecione o evento primeiro — um movimento de capital exige um evento para identificar os sócios.
+                </p>
+              ) : capitalPartners.length === 0 ? (
+                <p className="text-[11px] text-warning">
+                  Este evento não tem sócios cadastrados. Adicione o sócio no separador Sócios do evento.
+                </p>
+              ) : (
+                <>
+                  <SearchableSelect
+                    options={(capitalPartners as any[]).map((p: any) => ({
+                      value: p.id,
+                      label: partnerLabel(p),
+                    }))}
+                    value={capitalPartnerId}
+                    onValueChange={(v) => {
+                      setCapitalTouched(true);
+                      setCapitalPartnerId(v);
+                    }}
+                    placeholder="Selecionar sócio…"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Movimento de capital (aporte / devolução / distribuição). O vínculo é atualizado ao gravar.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+
+
           {!paidLocked && valueLocked && !isInstallmentGroup && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
               Transação aprovada — valor e IVA não podem ser alterados.
