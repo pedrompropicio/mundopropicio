@@ -137,14 +137,14 @@ export default function ContactosList() {
     onSuccess: (r) => {
       if (r.ok > 0) {
         toast.success(
-          `${r.ok} contacto(s) apagado(s) (RGPD). ${r.leads} lead(s) e ${r.captures} captura(s) removidas.`,
+          `${r.ok} contacto(s) apagado(s) (RGPD). ${r.leads} interação(ões) e ${r.captures} captura(s) removidas.`,
         );
       }
       if (r.failed > 0) {
         toast.error(`${r.failed} falha(s): ${r.errors.slice(0, 3).join(" · ")}`);
       }
       qc.invalidateQueries({ queryKey: ["crm-contactos-list"] });
-      qc.invalidateQueries({ queryKey: ["crm-leads-list"] });
+      qc.invalidateQueries({ queryKey: ["crm-contactos-view"] });
       setChecked(new Set());
       setDeleteOpen(false);
       setConfirmText("");

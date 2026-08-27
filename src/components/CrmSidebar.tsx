@@ -31,7 +31,7 @@ export function CrmSidebar() {
     { to: "/crm", icon: LayoutDashboard, label: "Dashboard", end: true },
     { to: "/crm/eventos", icon: CalendarDays, label: "Eventos" },
     { to: "/crm/contactos", icon: Users, label: "Contactos" },
-    { to: "/crm/leads", icon: Inbox, label: "Leads" },
+    { to: "/crm/leads", icon: Inbox, label: "Contactos & tráfego" },
     { to: "/crm/audiences", icon: Target, label: "Audiências" },
     { to: "/crm/blog", icon: FileText, label: "Blog" },
     { to: "/crm/paginas", icon: FilePen, label: "Páginas" },
