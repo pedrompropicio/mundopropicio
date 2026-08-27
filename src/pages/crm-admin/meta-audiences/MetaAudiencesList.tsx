@@ -49,10 +49,49 @@ function statusBadge(status: string | null) {
   return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />erro</Badge>;
 }
 
+// ---- Dimensão real dos públicos (filters.delivery_estimate) ----
+const SUBTYPE_LABELS: Record<string, string> = {
+  WEBSITE: "Site",
+  CUSTOM: "Lista",
+  LOOKALIKE: "Semelhante",
+  ENGAGEMENT: "Envolvimento",
+  IG_BUSINESS: "Instagram",
+  VIDEO: "Envolvimento",
+  APP: "App",
+  OFFLINE_CONVERSION: "Offline",
+  CLAIM: "Lista",
+};
+function subtypeLabel(subtype: string | null | undefined): string {
+  if (!subtype) return "—";
+  return SUBTYPE_LABELS[subtype] ?? subtype;
+}
+const nf = (n: number) => n.toLocaleString("pt-PT");
+function estimateOf(filters: any): { lower: number | null; upper: number | null; checked_at: string | null; error: string | null } | null {
+  const e = filters?.delivery_estimate;
+  if (!e || typeof e !== "object") return null;
+  return { lower: e.lower ?? null, upper: e.upper ?? null, checked_at: e.checked_at ?? null, error: e.error ?? null };
+}
+function sizeValue(filters: any): number {
+  const e = estimateOf(filters);
+  if (!e) return -1;
+  return e.upper ?? e.lower ?? -1;
+}
+function SizeCell({ filters }: { filters: any }) {
+  const e = estimateOf(filters);
+  if (!e || (e.lower == null && e.upper == null)) {
+    return <span className="text-muted-foreground" title={e?.error ?? "Sem estimativa disponível"}>—</span>;
+  }
+  if (e.lower != null && e.upper != null && e.lower !== e.upper) {
+    return <span className="font-medium tabular-nums">{nf(e.lower)} – {nf(e.upper)}</span>;
+  }
+  return <span className="font-medium tabular-nums">{nf((e.upper ?? e.lower) as number)}</span>;
+}
+
 export default function MetaAudiencesList() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [logsAudience, setLogsAudience] = useState<DashboardAudience | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["meta-audiences-dashboard"],
@@ -61,6 +100,41 @@ export default function MetaAudiencesList() {
       if (error) throw error;
       return data as unknown as DashboardData;
     },
+  });
+
+  // O RPC do dashboard não devolve `filters`; a dimensão real vive em filters.delivery_estimate.
+  const { data: filtersById } = useQuery({
+    queryKey: ["meta-audiences-filters"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("meta_custom_audiences" as any).select("id, filters");
+      if (error) throw error;
+      const m: Record<string, any> = {};
+      for (const r of (data ?? []) as any[]) m[r.id] = r.filters;
+      return m;
+    },
+  });
+
+  const listFromMeta = useMutation({
+    mutationFn: async () => {
+      const { data: userRes } = await supabase.auth.getUser();
+      const { data: prof } = await supabase.from("profiles").select("active_company_id, company_id").eq("id", userRes.user!.id).maybeSingle();
+      const companyId = (prof as any)?.active_company_id ?? (prof as any)?.company_id;
+      if (!companyId) throw new Error("Sem empresa activa");
+      const { data, error } = await supabase.functions.invoke("crm-meta-list-audiences", { body: { company_id: companyId } });
+      if (error) throw error;
+      if (data?.ok === false) throw new Error(data?.detail ?? data?.error ?? "falhou");
+      return data;
+    },
+    onSuccess: (res: any) => {
+      const pend = res?.pending_estimates ?? 0;
+      toast.success(
+        `${res?.count ?? 0} públicos lidos · ${res?.estimated ?? 0} com dimensão estimada` +
+          (pend ? ` · ${pend} por estimar (corre outra vez)` : ""),
+      );
+      qc.invalidateQueries({ queryKey: ["meta-audiences-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["meta-audiences-filters"] });
+    },
+    onError: (e: any) => toast.error(`Leitura da Meta falhou: ${e.message}`),
   });
 
   const syncMut = useMutation({
@@ -103,16 +177,25 @@ export default function MetaAudiencesList() {
   if (isLoading) return <div className="p-6 space-y-4"><Skeleton className="h-8 w-64" /><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
 
   const stats = data?.stats;
-  const audiences = data?.audiences ?? [];
+  const allAudiences = data?.audiences ?? [];
+  const s = search.trim().toLowerCase();
+  const audiences = allAudiences
+    .filter((a) => !s || a.name?.toLowerCase().includes(s))
+    .slice()
+    .sort((x, y) => sizeValue(filtersById?.[y.id]) - sizeValue(filtersById?.[x.id]));
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6 text-emerald-600" />Meta Custom Audiences</h1>
-          <p className="text-sm text-muted-foreground mt-1">Audiências de leads sincronizadas para Meta Marketing API (retargeting + lookalikes).</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6 text-emerald-600" />Públicos Meta</h1>
+          <p className="text-sm text-muted-foreground mt-1">Inventário de públicos personalizados com a dimensão real estimada pela Meta.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" disabled={listFromMeta.isPending} onClick={() => listFromMeta.mutate()}>
+            <RefreshCw className={`h-4 w-4 ${listFromMeta.isPending ? "animate-spin" : ""}`} />
+            {listFromMeta.isPending ? "A ler da Meta…" : "Sincronizar da Meta"}
+          </Button>
           <Button variant="outline" asChild className="gap-2"><Link to="/crm/meta-audiences/upload"><Upload className="h-4 w-4" />Carregar lista</Link></Button>
           <Button onClick={() => setCreateOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Nova audience</Button>
         </div>
@@ -126,36 +209,69 @@ export default function MetaAudiencesList() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Audiências ({audiences.length})</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardTitle>Audiências ({audiences.length})</CardTitle>
+          <Input
+            placeholder="Pesquisar por nome…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-xs"
+          />
+        </CardHeader>
         <CardContent>
           {audiences.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma audience. Clica "Nova audience" para começar.</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              {allAudiences.length === 0 ? 'Nenhuma audience. Clica "Sincronizar da Meta" ou "Nova audience".' : "Nenhum público corresponde à pesquisa."}
+            </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Ad Account</TableHead>
-                  <TableHead>Meta ID</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Dimensão</TableHead>
+                  <TableHead>Estado de entrega</TableHead>
                   <TableHead className="text-right">Local / Meta</TableHead>
                   <TableHead>Sync</TableHead>
-                  <TableHead>Última</TableHead>
+                  <TableHead>Última leitura</TableHead>
                   <TableHead>Activa</TableHead>
                   <TableHead className="text-right">Acções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {audiences.map((a) => (
-                  <TableRow key={a.id}>
+                {audiences.map((a) => {
+                  const f = filtersById?.[a.id];
+                  const est = estimateOf(f);
+                  const dcode = f?.delivery_status?.code ?? null;
+                  const ddesc = f?.delivery_status?.description ?? null;
+                  const tooSmall = dcode === 300;
+                  const noEstimate = !est || (est.lower == null && est.upper == null);
+                  return (
+                  <TableRow key={a.id} className={tooSmall ? "bg-muted/40" : undefined}>
                     <TableCell>
                       <div className="font-medium">{a.name}</div>
-                      {a.description && <div className="text-xs text-muted-foreground line-clamp-1 max-w-xs">{a.description}</div>}
+                      <div className="text-xs text-muted-foreground font-mono">{a.audience_id_meta ?? "não criada"}</div>
                     </TableCell>
-                    <TableCell className="text-xs">{a.ad_account_label}<div className="text-muted-foreground">{a.ad_account_id}</div></TableCell>
-                    <TableCell className="text-xs font-mono">{a.audience_id_meta ? a.audience_id_meta.slice(0, 12) + "…" : <Badge variant="outline">não criada</Badge>}</TableCell>
+                    <TableCell className="text-xs">{subtypeLabel(f?.subtype)}</TableCell>
+                    <TableCell className="text-right text-sm"><SizeCell filters={f} /></TableCell>
+                    <TableCell className="text-xs max-w-[16rem]">
+                      {tooSmall ? (
+                        <Badge variant="outline" className="border-amber-500/40 text-amber-600">demasiado pequeno</Badge>
+                      ) : noEstimate ? (
+                        <span className="text-muted-foreground">sem estimativa</span>
+                      ) : (
+                        <span className="text-muted-foreground line-clamp-2">{ddesc ?? "—"}</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right text-sm">{(a.total_records_local ?? 0).toLocaleString()} / {a.total_records_meta?.toLocaleString() ?? "—"}</TableCell>
                     <TableCell>{statusBadge(a.last_sync_status)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{a.last_synced_at ? formatDistanceToNow(new Date(a.last_synced_at), { addSuffix: true, locale: pt }) : "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {est?.checked_at
+                        ? formatDistanceToNow(new Date(est.checked_at), { addSuffix: true, locale: pt })
+                        : a.last_synced_at
+                          ? formatDistanceToNow(new Date(a.last_synced_at), { addSuffix: true, locale: pt })
+                          : "—"}
+                    </TableCell>
                     <TableCell><Switch checked={a.enabled} onCheckedChange={(v) => toggleEnabled.mutate({ id: a.id, enabled: v })} /></TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
@@ -166,7 +282,8 @@ export default function MetaAudiencesList() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

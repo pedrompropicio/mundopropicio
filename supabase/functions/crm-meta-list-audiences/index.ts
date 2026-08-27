@@ -182,6 +182,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     for (const a of all) {
       const idMeta = a?.id ? String(a.id) : null;
       if (!idMeta) continue;
+      // Modo alvo: só processa (e só escreve) os públicos pedidos.
+      if (onlyIds && !onlyIds.includes(idMeta)) continue;
       const upper = a?.approximate_count_upper_bound;
       const lower = a?.approximate_count_lower_bound;
       const total = (upper ?? lower ?? null) as number | null;
