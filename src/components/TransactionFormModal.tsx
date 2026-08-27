@@ -32,6 +32,7 @@ import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
+import { isCapitalCategoryCode, isCapitalCategoryId } from "@/lib/capital-branch";
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 import { findExistingInstallments, existingInstallmentsMessage, type ExistingInstallment } from "@/lib/installment-guard";
 import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
@@ -1888,7 +1889,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
         return;
       }
-      if (plOverride && !form.pl_override_note.trim()) {
+      if (plOverride && !selectedCategoryIsCapital && !form.pl_override_note.trim()) {
         toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
         return;
       }
@@ -1910,7 +1911,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
       // • "master" → expense consumes Master BP rateio (sub-event BP not required)
       const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -1921,7 +1922,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       }
     }
-    if (plOverride && !form.pl_override_note.trim()) {
+    if (plOverride && !selectedCategoryIsCapital && !form.pl_override_note.trim()) {
       toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
@@ -1953,6 +1954,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     checkDuplicatesAndSubmit();
   };
 
+  // Ramo Capital (10.1.*): isento da restrição do BP e da justificação.
+  const selectedCategoryIsCapital = isCapitalCategoryId(form.category_id, categories as any[]);
+
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
@@ -1965,6 +1969,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const l2Id = parent && parent.parent_id ? parent.id : c.id;
       if (l2Id !== selectedForecastL2Id) return false;
     }
+    // Ramo 10.1 · Capital (aportes/devoluções/distribuição — Associação em
+    // Participação): trânsito de capital, por definição nunca está no BP.
+    // Fica sempre disponível, mesmo em modo "Do BP".
+    if (isCapitalCategoryCode(c.code)) return true;
     if (hasPLRestriction && effectiveEventId && !plOverride) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
@@ -2522,15 +2530,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </button>
           )}
 
-          {/* BP Override toggle — only when restriction is active */}
-          {hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && (
-            <div className="flex items-center gap-2">
+          {/* Alternador do âmbito da categoria — sempre visível quando o evento tem BP */}
+          {hasPLRestriction && effectiveEventId && (
+            <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-secondary/20 p-1 w-fit">
               <button
                 type="button"
-                onClick={() => { setPlOverride(!plOverride); setForm({ ...form, category_id: "", pl_override_note: "" }); }}
-                className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => { if (plOverride) { setPlOverride(false); setForm({ ...form, category_id: "", pl_override_note: "" }); } }}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!plOverride ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {plOverride ? "⚠️ Categoria fora do BP — Clique para reverter" : "Categoria não prevista? Clique aqui"}
+                Do BP
+              </button>
+              <button
+                type="button"
+                onClick={() => { if (!plOverride) { setPlOverride(true); setForm({ ...form, category_id: "", pl_override_note: "" }); } }}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${plOverride ? "bg-warning/20 text-warning" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Plano de Contas completo
               </button>
             </div>
           )}
@@ -2573,8 +2588,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             )}
           </div>
 
+          {/* Ramo Capital: trânsito de capital, isento de justificação */}
+          {selectedCategoryIsCapital && (
+            <p className="text-[10px] text-muted-foreground">
+              Ramo 10.1 · Capital — trânsito de capital. Não entra no resultado do evento (fica
+              transitória) e não precisa de justificação nem de linha do BP.
+            </p>
+          )}
+
           {/* Justification field when BP override is active */}
-          {plOverride && (
+          {plOverride && !selectedCategoryIsCapital && (
             <div>
               <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
               <input
