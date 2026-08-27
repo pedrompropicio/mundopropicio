@@ -1,0 +1,2 @@
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS format text;
+COMMENT ON COLUMN public.events.format IS 'Rótulo cosmético de apresentação (festival|residencia). NÃO usar em lógica: event_type manda na mecânica.';

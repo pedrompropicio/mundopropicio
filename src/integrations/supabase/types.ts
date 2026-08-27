@@ -5871,6 +5871,7 @@ export type Database = {
           description_en: string | null
           description_pt: string | null
           event_type: string
+          format: string | null
           hero_image_url: string | null
           id: string
           import_template: string | null
@@ -5922,6 +5923,7 @@ export type Database = {
           description_en?: string | null
           description_pt?: string | null
           event_type?: string
+          format?: string | null
           hero_image_url?: string | null
           id?: string
           import_template?: string | null
@@ -5973,6 +5975,7 @@ export type Database = {
           description_en?: string | null
           description_pt?: string | null
           event_type?: string
+          format?: string | null
           hero_image_url?: string | null
           id?: string
           import_template?: string | null
