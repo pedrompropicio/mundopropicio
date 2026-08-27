@@ -378,6 +378,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   useEffect(() => {
     if (!capitalTouched) setCapitalPartnerId(capitalLink?.partner_id ?? "");
   }, [capitalLink?.partner_id, capitalTouched]);
+  // Sócio escolhido → preenche a Entidade (supplier_id) da transação de capital.
+  // Sócios e fornecedores partilham o cadastro `suppliers`.
+  useEffect(() => {
+    if (!isCapitalCategory || !capitalPartnerId) return;
+    const sid = (capitalPartners as any[]).find((p: any) => p.id === capitalPartnerId)?.supplier_id;
+    if (sid) setForm((prev: any) => (prev.supplier_id === sid ? prev : { ...prev, supplier_id: sid }));
+  }, [isCapitalCategory, capitalPartnerId, capitalPartners]);
   // Vínculo de capital a criar/alterar (ou a remover, se a categoria saiu do ramo 10.1).
   const capitalLinkDirty = isCapitalCategory
     ? !!capitalPartnerId && capitalPartnerId !== (capitalLink?.partner_id ?? "")

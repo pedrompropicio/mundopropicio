@@ -10,6 +10,8 @@ import { capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
 
 export interface EventPartnerOption {
   id: string;
+  /** Entidade do sócio em `suppliers` — sócios e fornecedores partilham cadastro. */
+  supplier_id: string | null;
   percentage: number | null;
   suppliers?: { name?: string | null } | null;
 }
@@ -26,7 +28,7 @@ export function partnerLabel(p: EventPartnerOption): string {
  */
 export async function fetchEventPartnersWithInheritance(eventId: string | null | undefined) {
   if (!eventId) return [] as EventPartnerOption[];
-  const cols = "id, percentage, suppliers(name)";
+  const cols = "id, supplier_id, percentage, suppliers(name)";
   const { data: own, error: ownErr } = await supabase
     .from("event_partners").select(cols).eq("event_id", eventId).order("created_at");
   if (ownErr) throw ownErr;
