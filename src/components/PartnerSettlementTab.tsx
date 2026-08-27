@@ -1797,6 +1797,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         </div>
       )}
 
+      {/* Capital do Sócio (AEP) — bloco INFORMATIVO, fora de qualquer soma do acerto */}
+      <PartnerCapitalPanel eventId={eventId} summaryOnly />
+
+
+
       {/* Per-partner cards */}
       {settlements.map((s) => (
         <div key={s.partnerId} className="glass rounded-xl overflow-hidden">

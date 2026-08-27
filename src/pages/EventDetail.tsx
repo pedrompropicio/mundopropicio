@@ -24,6 +24,7 @@ import { EventScenarioProvider } from "@/contexts/EventScenarioContext";
 import { ScenarioModeBanner } from "@/components/bp-versions/ScenarioModeBanner";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
+import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
