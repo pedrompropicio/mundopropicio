@@ -1961,6 +1961,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   // Ramo Capital (10.1.*): isento da restrição do BP e da justificação.
   const selectedCategoryIsCapital = isCapitalCategoryId(form.category_id, categories as any[]);
+  const selectedCategoryCode: string | null =
+    (categories as any[]).find((c) => c.id === form.category_id)?.code ?? null;
+  // Sócio (AEP) é obrigatório para o ramo 10.1.* → exige evento com sócios.
+  const capitalEventId = form.event_id || splitMasterEventId || "";
+  const capitalNeedsPartner = selectedCategoryIsCapital;
+
 
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
