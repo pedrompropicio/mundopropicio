@@ -264,6 +264,20 @@ export default function EventDetail() {
       ? [selectedSubEvent]
       : [id!];
 
+  // Data EFETIVA do evento (não a data genérica/criação de events.date):
+  // max(events.date, event_dates, sub-eventos). Usada na detecção de fase dos cards.
+  const effectiveEventDate = useMemo(() => {
+    if (selectedSubEvent) {
+      return subEvents.find((s: any) => s.id === selectedSubEvent)?.date ?? event?.date ?? null;
+    }
+    return computeEventLastDate({
+      eventDate: event?.date ?? null,
+      extraDates: festivalDates as any[],
+      subEvents: subEvents as any[],
+    }) ?? event?.date ?? null;
+  }, [event?.date, festivalDates, subEvents, selectedSubEvent]);
+
+
 
   // --- Ordenador de despesas (opcional; sem ordenador = empresa configurada) ---
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
