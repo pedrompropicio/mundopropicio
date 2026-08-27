@@ -378,6 +378,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   useEffect(() => {
     if (!capitalTouched) setCapitalPartnerId(capitalLink?.partner_id ?? "");
   }, [capitalLink?.partner_id, capitalTouched]);
+  // Vínculo de capital a criar/alterar (ou a remover, se a categoria saiu do ramo 10.1).
+  const capitalLinkDirty = isCapitalCategory
+    ? !!capitalPartnerId && capitalPartnerId !== (capitalLink?.partner_id ?? "")
+    : !!capitalLink;
+
 
 
 
