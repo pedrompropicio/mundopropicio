@@ -2031,6 +2031,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // Sócio (AEP) é obrigatório para o ramo 10.1.* → exige evento com sócios.
   const capitalEventId = form.event_id || splitMasterEventId || "";
   const capitalNeedsPartner = selectedCategoryIsCapital;
+  // Sai do ramo Capital (ou muda de evento) → limpa o sócio escolhido.
+  useEffect(() => {
+    if (!selectedCategoryIsCapital) setCapitalPartnerId("");
+  }, [selectedCategoryIsCapital]);
+  useEffect(() => {
+    setCapitalPartnerId("");
+  }, [capitalEventId]);
+
 
 
   const filteredCategories = categories.filter((c) => {
