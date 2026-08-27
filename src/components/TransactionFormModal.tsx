@@ -515,7 +515,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const isActivePL = effectiveEvent?.pl_mode === "active";
   const hasPL = effectiveEvent?.pl_mode === "active" || effectiveEvent?.pl_mode === "passive";
   const hasPLRestriction = hasPL;
-  const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
+  const eventIsMultiDayType = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
 
   // Taxas de IVA aplicáveis = país da cidade do evento (PT por defeito).
