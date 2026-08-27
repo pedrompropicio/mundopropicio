@@ -1681,7 +1681,7 @@ export default function Transactions() {
                     )}
                     <th className="pb-2 pr-2 text-left font-medium">Descrição</th>
                     <th className="hidden pb-2 pr-2 text-left font-medium sm:table-cell">Evento</th>
-                    <th className="hidden pb-2 pr-2 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium md:table-cell">Entidade</th>
                     <th className="hidden pb-2 pr-2 text-left font-medium lg:table-cell">Categoria</th>
                     <th className="pb-2 pr-2 text-left font-medium">Estado</th>
                     <th className="pb-2 pr-2 text-left font-medium">Data Vcto</th>
@@ -1750,7 +1750,7 @@ export default function Transactions() {
                   <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                     <th className="pb-2 pr-2 text-left font-medium">Descrição</th>
                     <th className="hidden pb-2 pr-2 text-left font-medium sm:table-cell">Evento</th>
-                    <th className="hidden pb-2 pr-2 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium md:table-cell">Entidade</th>
                     <th className="hidden pb-2 pr-2 text-left font-medium lg:table-cell">Categoria</th>
                     <th className="pb-2 pr-2 text-left font-medium">Estado</th>
                     <th className="pb-2 pr-2 text-left font-medium">Data Pgto</th>
