@@ -351,6 +351,36 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   const houseLabel = useEventHouseLabel(form.event_id);
 
+  // ===== Capital do Sócio (AEP) — ramo 10.1.* =====
+  const selectedCategoryCode: string | null =
+    (categories as any[]).find((c: any) => c.id === form.category_id)?.code ?? null;
+  const isCapitalCategory = isCapitalCategoryCode(selectedCategoryCode);
+  const wasCapitalCategory = isCapitalCategoryCode(
+    (categories as any[]).find((c: any) => c.id === (transaction.category_id ?? ""))?.code ?? null,
+  );
+
+  // Sócios do evento (com herança do Master) — usados só pelo campo de capital.
+  const { data: capitalPartners = [] } = useQuery({
+    queryKey: ["event-partners-capital", form.event_id],
+    queryFn: () => fetchEventPartnersWithInheritance(form.event_id),
+    enabled: !!form.event_id && isCapitalCategory,
+  });
+
+  // Vínculo já existente (partner_capital_moves) desta transação.
+  const { data: capitalLink } = useQuery({
+    queryKey: ["partner-capital-move", transaction.id],
+    queryFn: () => fetchPartnerCapitalMove(transaction.id),
+    enabled: isCapitalCategory || wasCapitalCategory,
+  });
+
+  const [capitalPartnerId, setCapitalPartnerId] = useState<string>("");
+  const [capitalTouched, setCapitalTouched] = useState(false);
+  useEffect(() => {
+    if (!capitalTouched) setCapitalPartnerId(capitalLink?.partner_id ?? "");
+  }, [capitalLink?.partner_id, capitalTouched]);
+
+
+
   // UI state — conversão e reversão parciais
   const [convertPartnerId, setConvertPartnerId] = useState<string>("");
   const [convertIsPartial, setConvertIsPartial] = useState(false);
