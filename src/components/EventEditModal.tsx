@@ -290,7 +290,13 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           )}
 
           {/* Festival dates */}
-          {eventType === "festival" && (
+          {eventType === "festival" && format === "residencia" && (
+            <p className="text-[11px] text-muted-foreground">
+              As datas da residência criam-se em Bilheteira → Sessões (botão "Criar por calendário").
+            </p>
+          )}
+
+          {eventType === "festival" && format !== "residencia" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Datas Adicionais do Festival</label>
               <div className="flex gap-2 mb-2">
