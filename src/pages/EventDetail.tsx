@@ -1078,7 +1078,7 @@ export default function EventDetail() {
           kind="income"
           isMasterView={isGlobalView}
           eventStatus={event.status}
-          primaryEventDate={event.date}
+          primaryEventDate={effectiveEventDate}
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
         />
@@ -1088,7 +1088,7 @@ export default function EventDetail() {
           kind="expense"
           isMasterView={isGlobalView}
           eventStatus={event.status}
-          primaryEventDate={event.date}
+          primaryEventDate={effectiveEventDate}
           partnerCalcBasis={event.partner_calc_basis}
           masterExpenseShare={Number(masterExpenseShare || 0)}
           masterForecastShare={Number(masterForecastShare || 0)}
