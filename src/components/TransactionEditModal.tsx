@@ -639,7 +639,43 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
       }
 
+      // ===== Capital do Sócio (AEP) — criar/atualizar/remover o vínculo =====
+      if (isCapitalCategory && capitalPartnerId) {
+        try {
+          await upsertPartnerCapitalMove({
+            eventId: form.event_id,
+            transactionId: transaction.id,
+            partnerId: capitalPartnerId,
+            categoryCode: selectedCategoryCode,
+          });
+        } catch (capErr: any) {
+          console.error("[capital link] failed", capErr);
+          toast({
+            title: "TX atualizada, mas falhou vincular o sócio (capital)",
+            description: `${capErr?.message ?? "erro desconhecido"} — vincule no painel "Capital do Sócio (AEP)".`,
+            variant: "destructive",
+          });
+        }
+      } else if (!isCapitalCategory && capitalLink) {
+        // Categoria saiu do ramo 10.1 → o vínculo de capital deixa de fazer sentido.
+        try {
+          await deletePartnerCapitalMove(transaction.id);
+          toast({
+            title: "Vínculo de capital removido",
+            description: "A categoria já não pertence ao ramo 10.1 · Capital, pelo que o sócio foi desvinculado.",
+          });
+        } catch (capErr: any) {
+          console.error("[capital unlink] failed", capErr);
+          toast({
+            title: "TX atualizada, mas falhou remover o vínculo de capital",
+            description: capErr?.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       return { data, snapshot, changesCount: changes.length, noop: false as const };
+
     },
     onSuccess: async (result) => {
       invalidateTransactionQueries(queryClient);
