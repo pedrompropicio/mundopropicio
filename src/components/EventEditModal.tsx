@@ -8,6 +8,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
 import { formatCityLabel } from "@/lib/country";
 import { useBackdropClose } from "@/lib/backdropClose";
+import type { EventFormat } from "@/lib/event-format";
 
 interface EventEditModalProps {
   event: any;
@@ -25,6 +26,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
+  const [format, setFormat] = useState<EventFormat>(event.format === "residencia" ? "residencia" : "festival");
   const [absorbsAdminCosts, setAbsorbsAdminCosts] = useState<boolean>(!!event.absorbs_admin_costs);
   const [adminWindowStart, setAdminWindowStart] = useState<string>(event.admin_window_start || "");
   const [adminWindowEnd, setAdminWindowEnd] = useState<string>(event.admin_window_end || "");
@@ -96,6 +98,8 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
           pl_mode: plMode,
+          // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
+          format: eventType === "festival" ? format : null,
           // Absorção de custos administrativos (só Single/Master)
           absorbs_admin_costs: canAbsorb ? absorbsAdminCosts : false,
           admin_window_start: canAbsorb && absorbsAdminCosts && adminWindowStart ? adminWindowStart : null,
@@ -219,6 +223,29 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               </select>
             </div>
           </div>
+
+          {eventType === "festival" && (
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">Formato (apresentação)</label>
+              <div className="inline-flex rounded-lg border border-border p-0.5">
+                {(["festival", "residencia"] as EventFormat[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFormat(f)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      format === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {f === "residencia" ? "Residência" : "Festival"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Apenas nomenclatura — a mecânica é sempre a de festival (1 evento, N sessões).
+              </p>
+            </div>
+          )}
 
           {/* BP Mode */}
           <div>
