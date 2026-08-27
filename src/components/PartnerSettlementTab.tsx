@@ -31,6 +31,9 @@ import {
   HOUSE_PARTNER_NAME,
   computeHousePercentage,
 } from "@/lib/house-partner";
+import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
+
+
 
 interface Props {
   eventId: string;
