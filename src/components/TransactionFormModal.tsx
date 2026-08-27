@@ -1965,6 +1965,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const l2Id = parent && parent.parent_id ? parent.id : c.id;
       if (l2Id !== selectedForecastL2Id) return false;
     }
+    // Ramo 10.1 · Capital (aportes/devoluções/distribuição — Associação em
+    // Participação): trânsito de capital, por definição nunca está no BP.
+    // Fica sempre disponível, mesmo em modo "Do BP".
+    if (isCapitalCategoryCode(c.code)) return true;
     if (hasPLRestriction && effectiveEventId && !plOverride) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
