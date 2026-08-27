@@ -108,8 +108,9 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
         .eq("id", event.id);
       if (error) throw error;
 
-      // Update festival dates if applicable
-      if (eventType === "festival") {
+      // Update festival dates if applicable.
+      // Em modo Residência o bloco de datas não é renderizado → NÃO tocar em event_dates.
+      if (eventType === "festival" && format !== "residencia") {
         // Delete existing
         await supabase.from("event_dates" as any).delete().eq("event_id", event.id);
         // Insert new
