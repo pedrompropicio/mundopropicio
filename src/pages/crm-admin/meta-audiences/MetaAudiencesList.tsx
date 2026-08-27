@@ -91,6 +91,7 @@ export default function MetaAudiencesList() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [logsAudience, setLogsAudience] = useState<DashboardAudience | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["meta-audiences-dashboard"],
@@ -99,6 +100,41 @@ export default function MetaAudiencesList() {
       if (error) throw error;
       return data as unknown as DashboardData;
     },
+  });
+
+  // O RPC do dashboard não devolve `filters`; a dimensão real vive em filters.delivery_estimate.
+  const { data: filtersById } = useQuery({
+    queryKey: ["meta-audiences-filters"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("meta_custom_audiences" as any).select("id, filters");
+      if (error) throw error;
+      const m: Record<string, any> = {};
+      for (const r of (data ?? []) as any[]) m[r.id] = r.filters;
+      return m;
+    },
+  });
+
+  const listFromMeta = useMutation({
+    mutationFn: async () => {
+      const { data: userRes } = await supabase.auth.getUser();
+      const { data: prof } = await supabase.from("profiles").select("active_company_id, company_id").eq("id", userRes.user!.id).maybeSingle();
+      const companyId = (prof as any)?.active_company_id ?? (prof as any)?.company_id;
+      if (!companyId) throw new Error("Sem empresa activa");
+      const { data, error } = await supabase.functions.invoke("crm-meta-list-audiences", { body: { company_id: companyId } });
+      if (error) throw error;
+      if (data?.ok === false) throw new Error(data?.detail ?? data?.error ?? "falhou");
+      return data;
+    },
+    onSuccess: (res: any) => {
+      const pend = res?.pending_estimates ?? 0;
+      toast.success(
+        `${res?.count ?? 0} públicos lidos · ${res?.estimated ?? 0} com dimensão estimada` +
+          (pend ? ` · ${pend} por estimar (corre outra vez)` : ""),
+      );
+      qc.invalidateQueries({ queryKey: ["meta-audiences-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["meta-audiences-filters"] });
+    },
+    onError: (e: any) => toast.error(`Leitura da Meta falhou: ${e.message}`),
   });
 
   const syncMut = useMutation({
