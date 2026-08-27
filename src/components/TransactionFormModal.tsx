@@ -2044,6 +2044,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   useEffect(() => {
     setCapitalPartnerId("");
   }, [capitalEventId]);
+  // Sócio escolhido → preenche a Entidade (supplier_id) da transação de capital.
+  // Sócios e fornecedores partilham o cadastro `suppliers`, logo a lista mostra o nome.
+  useEffect(() => {
+    if (!selectedCategoryIsCapital || !capitalPartnerId) return;
+    const sid = (eventPartners as any[]).find((p: any) => p.id === capitalPartnerId)?.supplier_id;
+    if (sid) setForm((prev) => (prev.supplier_id === sid ? prev : { ...prev, supplier_id: sid }));
+  }, [selectedCategoryIsCapital, capitalPartnerId, eventPartners]);
 
 
 
