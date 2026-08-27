@@ -37,6 +37,41 @@ function normalizeAdAccountId(raw: string): string {
   return v.startsWith("act_") ? v.slice(4) : v;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Estimativa de alcance mensal (MAU) de uma custom audience via delivery_estimate.
+// Os campos approximate_count_* já não são reportados pela Meta para públicos de site/pixel.
+async function fetchDeliveryEstimate(adAccountId: string, token: string, audienceId: string) {
+  const checkedAt = new Date().toISOString();
+  try {
+    const targeting = {
+      geo_locations: { countries: ["PT"] },
+      custom_audiences: [{ id: audienceId }],
+    };
+    const url =
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/act_${adAccountId}/delivery_estimate` +
+      `?optimization_goal=REACH&targeting_spec=${encodeURIComponent(JSON.stringify(targeting))}` +
+      `&access_token=${encodeURIComponent(token)}`;
+    const resp = await fetch(url);
+    const j: any = await resp.json().catch(() => ({}));
+    if (!resp.ok || j?.error) {
+      const msg = j?.error?.message ?? `http_${resp.status}`;
+      console.log("[list-audiences] delivery_estimate_error", audienceId, msg);
+      return { lower: null, upper: null, checked_at: checkedAt, error: String(msg).slice(0, 300) };
+    }
+    const d = Array.isArray(j?.data) ? j.data[0] : null;
+    const rawLower = d?.estimate_mau_lower_bound ?? d?.estimate_mau ?? null;
+    const rawUpper = d?.estimate_mau_upper_bound ?? d?.estimate_mau ?? null;
+    const norm = (v: unknown) => {
+      const n = typeof v === "number" ? v : (v == null ? NaN : Number(v));
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
+    return { lower: norm(rawLower), upper: norm(rawUpper), checked_at: checkedAt, error: null };
+  } catch (e) {
+    return { lower: null, upper: null, checked_at: checkedAt, error: (e as Error).message.slice(0, 300) };
+  }
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 200);
@@ -125,15 +160,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
       url = j?.paging?.next ?? null;
     }
 
+    // 4b) Filters já existentes em BD (para preservar delivery_estimate quando não re-estimamos)
+    const prevFilters = new Map<string, any>();
+    {
+      const { data: prevRows } = await admin
+        .from("meta_custom_audiences")
+        .select("audience_id_meta, filters")
+        .eq("company_id", companyId);
+      for (const r of (prevRows ?? []) as any[]) {
+        if (r?.audience_id_meta) prevFilters.set(String(r.audience_id_meta), r.filters ?? null);
+      }
+    }
+
     // 5) Upsert por audiência (chave: company_id, audience_id_meta)
     const nowIso = new Date().toISOString();
     const out: any[] = [];
+    let estimated = 0;
+    let estimateErrors = 0;
+    let pendingEstimates = 0;
+
     for (const a of all) {
       const idMeta = a?.id ? String(a.id) : null;
       if (!idMeta) continue;
       const upper = a?.approximate_count_upper_bound;
       const lower = a?.approximate_count_lower_bound;
       const total = (upper ?? lower ?? null) as number | null;
+
+      const prev = prevFilters.get(idMeta);
+      let deliveryEstimate: any = (prev && typeof prev === "object") ? (prev.delivery_estimate ?? null) : null;
+
+      const wantEstimate = !skipEstimates && (!onlyIds || onlyIds.includes(idMeta));
+      if (wantEstimate) {
+        if (Date.now() - startedAt > TIME_BUDGET_MS) {
+          pendingEstimates++;
+        } else {
+          const est = await fetchDeliveryEstimate(adAccountId, token, idMeta);
+          deliveryEstimate = est;
+          if (est.error) estimateErrors++; else estimated++;
+          await sleep(120);
+        }
+      }
 
       const filters = {
         subtype: a?.subtype ?? null,
@@ -145,6 +211,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         time_updated: a?.time_updated ?? null,
         approximate_count_lower_bound: lower ?? null,
         approximate_count_upper_bound: upper ?? null,
+        delivery_estimate: deliveryEstimate,
         source: "meta_list",
       };
 
@@ -177,10 +244,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
         subtype: a?.subtype ?? null,
         total_records_meta: total,
         delivery_status: a?.delivery_status ?? null,
+        delivery_estimate: deliveryEstimate,
       });
     }
 
-    return json({ ok: true, count: out.length, audiences: out });
+    return json({ ok: true, count: out.length, estimated, estimate_errors: estimateErrors, pending_estimates: pendingEstimates, audiences: out });
   } catch (e) {
     return bizErr({ error: "threw", detail: (e as Error).message });
   }
