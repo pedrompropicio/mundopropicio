@@ -1387,6 +1387,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
+        // ===== Capital do Sócio (AEP) — vínculo automático =====
+        // Sequência: transação criada → id obtido → insere partner_capital_moves.
+        // Se o vínculo falhar, avisa (a TX existe; pode ligar-se no painel).
+        if (insertedTx?.id && selectedCategoryIsCapital && capitalPartnerId) {
+          try {
+            await upsertPartnerCapitalMove({
+              eventId: data.event_id,
+              transactionId: insertedTx.id,
+              partnerId: capitalPartnerId,
+              categoryCode: selectedCategoryCode,
+            });
+          } catch (capErr: any) {
+            console.error("[capital link] failed", capErr);
+            toast({
+              title: "TX criada, mas não foi possível vincular o sócio (capital)",
+              description: `${capErr?.message ?? "erro desconhecido"} — vincule no painel "Capital do Sócio (AEP)" na aba Sócios do evento.`,
+              variant: "destructive",
+            });
+          }
+        }
+
+
+
         // ===== Parcelamento — N transações irmãs (uma por vencimento) =====
         // A 1ª parcela é a TX já criada acima. Aqui criamos as restantes (2..N)
         // partilhando todos os metadados (categoria, evento, fornecedor, IVA, etc.)
