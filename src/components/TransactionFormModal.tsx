@@ -1874,6 +1874,45 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
+    // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
+    // Um movimento de capital tem sempre um sócio associado (associado da
+    // Associação em Participação). Sem sócio, o dado fica incompleto.
+    if (selectedCategoryIsCapital) {
+      if (isSplit) {
+        toast({
+          title: "Movimento de capital não pode ser rateado",
+          description: "Aportes/devoluções/distribuições lançam-se num único evento, ligados a um sócio.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!capitalEventId) {
+        toast({
+          title: "Selecione o evento primeiro",
+          description: "Um movimento de capital (ramo 10.1) exige um evento, para identificar os sócios.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (eventPartners.length === 0) {
+        toast({
+          title: "Este evento não tem sócios cadastrados",
+          description: "Adicione o sócio no separador Sócios do evento antes de lançar movimentos de capital.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!capitalPartnerId) {
+        toast({
+          title: "Selecione o sócio para este movimento de capital (Associação em Participação).",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+
+
     // Split validation — bypassed para Caução/Transitória, que sempre vai
     // como lançamento único no Master, ignorando o rateio.
     if (isSplit && !isTransitory) {
