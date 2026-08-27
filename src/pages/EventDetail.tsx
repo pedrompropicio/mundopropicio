@@ -45,6 +45,7 @@ import {
 } from "@/lib/paying-partner";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 
+import { eventFormatLabel } from "@/lib/event-format";
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
 
