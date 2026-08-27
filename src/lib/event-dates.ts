@@ -14,13 +14,15 @@
 
 type DateLike = string | { date?: string | null } | null | undefined;
 
-/** Devolve a maior data ISO (YYYY-MM-DD) entre `eventDate`, `event_dates` e sub-eventos. */
+/** Devolve a maior data ISO (YYYY-MM-DD) entre `eventDate`, `event_dates`, sub-eventos e `event_sessions`. */
 export function computeEventLastDate(opts: {
   eventDate?: string | null;
   /** linhas de event_dates filtradas pelo event_id (ou array de strings). */
   extraDates?: DateLike[];
   /** sub-eventos do mesmo evento (filtrados por parent_event_id). */
   subEvents?: DateLike[];
+  /** linhas de event_sessions do evento (ou array de strings). Opcional. */
+  sessions?: DateLike[];
 }): string | null {
   const collect: string[] = [];
   const push = (d: DateLike) => {
@@ -30,9 +32,11 @@ export function computeEventLastDate(opts: {
   push(opts.eventDate ?? null);
   (opts.extraDates ?? []).forEach(push);
   (opts.subEvents ?? []).forEach(push);
+  (opts.sessions ?? []).forEach(push);
   if (collect.length === 0) return null;
   return collect.reduce((max, d) => (d > max ? d : max));
 }
+
 
 /**
  * Builder para datasets de Dashboard: indexa `event_dates` e sub-eventos por
