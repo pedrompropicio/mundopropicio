@@ -108,8 +108,9 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
         .eq("id", event.id);
       if (error) throw error;
 
-      // Update festival dates if applicable
-      if (eventType === "festival") {
+      // Update festival dates if applicable.
+      // Em modo Residência o bloco de datas não é renderizado → NÃO tocar em event_dates.
+      if (eventType === "festival" && format !== "residencia") {
         // Delete existing
         await supabase.from("event_dates" as any).delete().eq("event_id", event.id);
         // Insert new
@@ -289,7 +290,13 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           )}
 
           {/* Festival dates */}
-          {eventType === "festival" && (
+          {eventType === "festival" && format === "residencia" && (
+            <p className="text-[11px] text-muted-foreground">
+              As datas da residência criam-se em Bilheteira → Sessões (botão "Criar por calendário").
+            </p>
+          )}
+
+          {eventType === "festival" && format !== "residencia" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Datas Adicionais do Festival</label>
               <div className="flex gap-2 mb-2">
