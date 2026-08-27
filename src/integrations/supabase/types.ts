@@ -229,6 +229,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "audience_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contactos"
+            referencedColumns: ["contact_id"]
+          },
+          {
             foreignKeyName: "audience_members_snapshot_id_fkey"
             columns: ["snapshot_id"]
             isOneToOne: false
@@ -2575,6 +2582,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contactos"
+            referencedColumns: ["contact_id"]
           },
         ]
       }
@@ -6572,6 +6586,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contactos"
+            referencedColumns: ["contact_id"]
           },
           {
             foreignKeyName: "leads_event_id_fkey"
@@ -11021,6 +11042,106 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      crm_contactos: {
+        Row: {
+          company_id: string | null
+          consent_email: boolean | null
+          consent_email_at: string | null
+          consent_whatsapp: boolean | null
+          consent_whatsapp_at: string | null
+          contact_id: string | null
+          created_at: string | null
+          email: string | null
+          first_contact_at: string | null
+          interactions: number | null
+          is_active: boolean | null
+          last_contact_at: string | null
+          last_event_id: string | null
+          last_kind: string | null
+          name: string | null
+          phone_e164: string | null
+          source: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_eventos_trafego: {
+        Row: {
+          capi_sent_at: string | null
+          capi_status: string | null
+          company_id: string | null
+          created_at: string | null
+          event_id: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
+          id: string | null
+          mp_click_id: string | null
+          source: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          capi_sent_at?: string | null
+          capi_status?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          event_id?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
+          id?: string | null
+          mp_click_id?: string | null
+          source?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          capi_sent_at?: string | null
+          capi_status?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          event_id?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
+          id?: string | null
+          mp_click_id?: string | null
+          source?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_faqs_public: {
         Row: {
