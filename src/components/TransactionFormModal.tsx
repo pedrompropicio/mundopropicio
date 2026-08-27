@@ -2530,15 +2530,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </button>
           )}
 
-          {/* BP Override toggle — only when restriction is active */}
-          {hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && (
-            <div className="flex items-center gap-2">
+          {/* Alternador do âmbito da categoria — sempre visível quando o evento tem BP */}
+          {hasPLRestriction && effectiveEventId && (
+            <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-secondary/20 p-1 w-fit">
               <button
                 type="button"
-                onClick={() => { setPlOverride(!plOverride); setForm({ ...form, category_id: "", pl_override_note: "" }); }}
-                className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => { if (plOverride) { setPlOverride(false); setForm({ ...form, category_id: "", pl_override_note: "" }); } }}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!plOverride ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {plOverride ? "⚠️ Categoria fora do BP — Clique para reverter" : "Categoria não prevista? Clique aqui"}
+                Do BP
+              </button>
+              <button
+                type="button"
+                onClick={() => { if (!plOverride) { setPlOverride(true); setForm({ ...form, category_id: "", pl_override_note: "" }); } }}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${plOverride ? "bg-warning/20 text-warning" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Plano de Contas completo
               </button>
             </div>
           )}
