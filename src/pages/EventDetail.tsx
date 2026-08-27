@@ -1424,6 +1424,12 @@ export default function EventDetail() {
                 <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas pagas pelos Sócios</h2>
                 <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
               </div>
+              {(isAdmin || isManager) && (
+                <div className="glass rounded-xl p-5">
+                  <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Capital do Sócio (AEP)</h2>
+                  <PartnerCapitalPanel eventId={event.id} eventStatus={event.status} />
+                </div>
+              )}
               {isAdmin && (
                 <PartnerAccessManager
                   eventId={event.id}
