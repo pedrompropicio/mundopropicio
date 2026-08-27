@@ -134,6 +134,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
 
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
+  // Sócio do movimento de capital (AEP) — obrigatório quando a categoria é do ramo 10.1.*
+  const [capitalPartnerId, setCapitalPartnerId] = useState<string>("");
+
   // Multi-currency state
   const [currency, setCurrency] = useState<CurrencyCode>("EUR");
   const [originalAmount, setOriginalAmount] = useState<string>("");
