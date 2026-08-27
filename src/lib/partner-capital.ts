@@ -28,7 +28,7 @@ export function partnerLabel(p: EventPartnerOption): string {
  */
 export async function fetchEventPartnersWithInheritance(eventId: string | null | undefined) {
   if (!eventId) return [] as EventPartnerOption[];
-  const cols = "id, percentage, suppliers(name)";
+  const cols = "id, supplier_id, percentage, suppliers(name)";
   const { data: own, error: ownErr } = await supabase
     .from("event_partners").select(cols).eq("event_id", eventId).order("created_at");
   if (ownErr) throw ownErr;
