@@ -174,10 +174,10 @@ export default function ContactDetailsSheet({ contactId, open, onOpenChange }: P
 
             <section>
               <h3 className="text-sm font-semibold mb-2">
-                Leads associados {leads ? `(${leads.length})` : ""}
+                Interações registadas {leads ? `(${leads.length})` : ""}
               </h3>
               {leads && leads.length === 0 && (
-                <p className="text-xs text-muted-foreground">Sem leads.</p>
+                <p className="text-xs text-muted-foreground">Sem interações.</p>
               )}
               <div className="space-y-1">
                 {(leads ?? []).map((l: any) => (
@@ -201,7 +201,7 @@ export default function ContactDetailsSheet({ contactId, open, onOpenChange }: P
                   to={`/crm/leads?contact=${contactId}`}
                   className="text-xs text-emerald-600 hover:underline inline-flex items-center gap-1 mt-2"
                 >
-                  Ver todos os leads <ExternalLink className="h-3 w-3" />
+                  Ver ficha completa <ExternalLink className="h-3 w-3" />
                 </Link>
               )}
             </section>
