@@ -2682,6 +2682,44 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
+          {/* Sócio (AEP) — só para o ramo 10.1 · Capital. Obrigatório: o vínculo em
+              partner_capital_moves é criado automaticamente ao gravar. */}
+          {capitalNeedsPartner && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <label className="mb-1 block text-xs font-medium text-primary">
+                Sócio (Associação em Participação) *
+              </label>
+              {!capitalEventId ? (
+                <p className="text-[11px] text-warning">
+                  Selecione o evento primeiro — um movimento de capital exige um evento para identificar os sócios.
+                </p>
+              ) : eventPartners.length === 0 ? (
+                <p className="text-[11px] text-warning">
+                  Este evento não tem sócios cadastrados. Adicione o sócio no separador Sócios do evento antes de
+                  lançar movimentos de capital.
+                </p>
+              ) : (
+                <>
+                  <SearchableSelect
+                    options={(eventPartners as any[]).map((p: any) => ({
+                      value: p.id,
+                      label: partnerLabel(p),
+                    }))}
+                    value={capitalPartnerId}
+                    onValueChange={setCapitalPartnerId}
+                    placeholder="Selecionar sócio…"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Movimento de capital (aporte / devolução de aporte / distribuição de resultado). O vínculo ao
+                    sócio é criado automaticamente ao gravar.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+
+
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
