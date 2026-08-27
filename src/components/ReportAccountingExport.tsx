@@ -35,7 +35,7 @@ export default function ReportAccountingExport() {
       if (!dateFromStr || !dateToStr) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, events(name), suppliers(name), financial_accounts:account_id(name)")
+        .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, category_id, is_transitory, exclude_from_result, events(name), suppliers(name), account_categories:category_id(code, name), financial_accounts:account_id(name)")
         .gte("date", dateFromStr)
         .lte("date", dateToStr)
         .not("account_id", "is", null)
