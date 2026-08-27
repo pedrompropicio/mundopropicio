@@ -9,18 +9,12 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
-import { isCapitalCategoryCode } from "@/lib/capital-branch";
+import { isCapitalCategoryCode, capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
 
-export type CapitalKind = "aporte" | "devolucao" | "distribuicao";
+// Re-export para não quebrar importadores existentes (SSoT vive em lib/capital-branch).
+export { capitalKindFromCode };
+export type { CapitalKind };
 
-/** Deriva o tipo de movimento a partir do CÓDIGO da categoria (nunca por UUID). */
-export function capitalKindFromCode(code: string | null | undefined): CapitalKind | null {
-  const c = String(code ?? "");
-  if (c.startsWith("10.1.01")) return "aporte";
-  if (c.startsWith("10.1.02")) return "devolucao";
-  if (c.startsWith("10.1.03")) return "distribuicao";
-  return null;
-}
 
 const KIND_LABEL: Record<CapitalKind, string> = {
   aporte: "Aporte",
