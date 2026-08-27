@@ -1889,7 +1889,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
         return;
       }
-      if (plOverride && !form.pl_override_note.trim()) {
+      if (plOverride && !selectedCategoryIsCapital && !form.pl_override_note.trim()) {
         toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
         return;
       }
