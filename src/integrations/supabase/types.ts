@@ -12011,6 +12011,8 @@ export type Database = {
           daily_missing: boolean
           event_date: string
           event_name: string
+          fortnight_qty: number
+          fortnight_value: number
           group_id: string
           has_bol: boolean
           last7_qty: number
@@ -12026,6 +12028,8 @@ export type Database = {
       get_sales_position_by_provider: {
         Args: never
         Returns: {
+          fortnight_qty: number
+          fortnight_value: number
           last7_qty: number
           last7_value: number
           provider: string
