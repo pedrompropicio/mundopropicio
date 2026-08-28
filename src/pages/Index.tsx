@@ -158,22 +158,10 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const aggQtyYesterday = children.reduce((s, c) => s + c.qtyYesterday, 0);
     const aggQtyLast7d = children.reduce((s, c) => s + c.qtyLast7d, 0);
 
-    // Aggregate zones across children (and parent's own) by name
-    const zoneMap: Record<string, ZoneBreakdown> = {};
-    const addZones = (zs: ZoneBreakdown[]) => {
-      zs.forEach((z) => {
-        if (!zoneMap[z.name]) {
-          zoneMap[z.name] = { name: z.name, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
-        }
-        zoneMap[z.name].qty += z.qty;
-        zoneMap[z.name].qtyYesterday += z.qtyYesterday;
-        zoneMap[z.name].qty7d += z.qty7d;
-        zoneMap[z.name].revenue += z.revenue;
-        zoneMap[z.name].revYesterday += z.revYesterday;
-        zoneMap[z.name].rev7d += z.rev7d;
-      });
-    };
-    children.forEach((c) => addZones(c.zones));
+    // Zonas NÃO são agregadas na linha-mãe: o nome de uma zona só é único
+    // dentro de uma sala, pelo que somar por nome entre cidades inventa zonas.
+    // A tabela "Por zona" mostra-se apenas nas linhas-filhas.
+
 
     // If the parent itself has own data (from parentInList), add it
     const ownIncome = parentInList ? parentInList.totalIncome : 0;
@@ -187,7 +175,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const ownLast7d = parentInList ? parentInList.salesLast7d : 0;
     const ownQtyYesterday = parentInList ? parentInList.qtyYesterday : 0;
     const ownQtyLast7d = parentInList ? parentInList.qtyLast7d : 0;
-    if (parentInList) addZones(parentInList.zones);
+    
 
     const totalCapacity = aggCapacity + ownCapacity;
     const totalSold = aggSold + ownSold;
@@ -224,7 +212,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
       qtyLast7d: aggQtyLast7d + ownQtyLast7d,
       lastSaleAmount: lastSale?.amount ?? null,
       lastSaleDate: lastSale?.date ?? null,
-      zones: Object.values(zoneMap).sort((a, b) => b.revenue - a.revenue),
+      zones: [],
       isParent: true,
       isChild: false,
       childCount: children.length,
@@ -710,7 +698,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {event.zones.length > 0 && (
+                      {!event.isParent && event.zones.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/20">
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Vendas atribuídas à zona de origem do lote, igual ao reporte da bilheteira (Fever).">Por zona (vendas)</p>
                           <div className="overflow-x-auto">
