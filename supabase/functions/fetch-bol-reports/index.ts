@@ -22,7 +22,7 @@ import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";
 
-const VERSION = "v1.8_login_scope";
+const VERSION = "v1.9_zone_occupation_snapshot";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1032,6 +1032,43 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       });
     } catch (e: any) {
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
+    }
+
+    // --- Snapshot diário de ocupação por zona (event_zone_capacities, source='bol_m2') ---
+    // Uma linha por zona por dia; o cron horário faz upsert e a leitura mais
+    // recente do dia substitui a anterior. NUNCA falha o run.
+    let zoneSnapshotRows = 0;
+    let zoneSnapshotWarning: string | null = null;
+    try {
+      const observedOn = audit?.saleDate
+        || new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
+      const nowIso = new Date().toISOString();
+      const snapPayload = parseRes.rows.map((r: any) => ({
+        event_id: cfg.event_id,
+        zone_label: r.sector,
+        capacity: r.capacity ?? null,
+        available: r.available ?? null,
+        occupied: r.occupied ?? null,
+        blocked: r.blocked ?? null,
+        observed_on: observedOn,
+        capacity_kind: "released",
+        source: "bol_m2",
+        notes: "BOL • Ocupação Sessões M2",
+        updated_at: nowIso,
+      }));
+      if (snapPayload.length > 0) {
+        const { error: snapErr } = await admin
+          .from("event_zone_capacities")
+          .upsert(snapPayload, {
+            onConflict: "event_id,zone_label,observed_on,source",
+            ignoreDuplicates: false,
+          });
+        if (snapErr) throw new Error(snapErr.message);
+        zoneSnapshotRows = snapPayload.length;
+      }
+    } catch (e: any) {
+      zoneSnapshotWarning = `Snapshot de ocupação por zona não gravado: ${e?.message || e}`;
+      console.warn(`[bol ${runId}] ${zoneSnapshotWarning}`);
     }
 
     // --- Série diária (Mapa Diário de Vendas por Sessão) ---
