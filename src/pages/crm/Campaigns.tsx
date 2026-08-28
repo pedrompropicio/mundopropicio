@@ -269,6 +269,16 @@ export default function CrmCampaigns() {
     return all.filter((r) => matchesPlatform(r, platformFilter));
   }, [metaInsights, googleInsightsRaw, platformFilter]);
 
+  // Sinal para a dialog de activação: campanha já gastou no período seleccionado?
+  const reactivateHasRunBefore = useMemo(() => {
+    if (!reactivateCampaign) return true;
+    const rows = (insights ?? []).filter(
+      (r) => r.external_campaign_id === reactivateCampaign.external_campaign_id,
+    );
+    return rows.some((r) => (r.spend_cents ?? 0) > 0);
+  }, [insights, reactivateCampaign]);
+
+
   // ---------- Events for displayed campaigns (independente de status filter) ----------
   // Inclui linked_event_ids de TODAS as campanhas (ACTIVE + PAUSED) para que o dashboard
   // possa mostrar paused via statusFilter sem ter de re-fetch events.
