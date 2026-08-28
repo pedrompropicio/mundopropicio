@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
+import CoalaApplyButton from "@/components/coala/CoalaApplyButton";
+
 
 type Cfg = {
   id: string;
@@ -52,6 +54,8 @@ const statusColor = (s: string) => {
   if (s === "success") return "default";
   if (s === "skipped_unchanged") return "secondary";
   if (s === "blocked") return "destructive";
+  if (s === "blocked_disabled") return "destructive";
+
   if (s === "failed") return "destructive";
   if (s === "running") return "outline";
   return "secondary";
@@ -277,16 +281,14 @@ export default function CoalaSync() {
                         >
                           <RefreshCw className="h-3 w-3 mr-1" /> Dry-run
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (!confirm("Aplicar sync? Vai reescrever o BP/TX a partir do ficheiro do Drive (snapshot automático antes).")) return;
-                            runMut.mutate({ configId: c.id, mode: "apply" });
-                          }}
-                          disabled={runMut.isPending}
-                        >
-                          <Play className="h-3 w-3 mr-1" /> Apply
-                        </Button>
+                        <CoalaApplyButton
+                          eventId={c.event_id}
+                          enabled={c.enabled}
+                          autoApplyEnabled={c.auto_apply_enabled !== false}
+                          pending={runMut.isPending}
+                          onConfirm={() => runMut.mutate({ configId: c.id, mode: "apply" })}
+                        />
+
                       </TableCell>
                     </TableRow>
                   );

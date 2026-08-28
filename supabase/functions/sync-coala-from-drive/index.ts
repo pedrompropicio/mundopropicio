@@ -261,6 +261,27 @@ Deno.serve(async (req) => {
       if (!baseRun) return json({ error: "Run base não encontrada" }, 404);
       const { data: cfg } = await admin.from("coala_sync_config").select("*").eq("id", baseRun.config_id).maybeSingle();
       if (!cfg) return json({ error: "Config não encontrada" }, 404);
+      // P0 — guarda de `enabled` também neste caminho (retorna antes da guarda geral).
+      if (cfg.enabled === false) {
+        await admin.from("coala_sync_runs").insert({
+          config_id: cfg.id,
+          event_id: cfg.event_id,
+          company_id: cfg.company_id,
+          mode,
+          triggered_by: triggeredBy,
+          status: "blocked_disabled",
+          triggered_user_id: authedUserId,
+          finished_at: new Date().toISOString(),
+          error_message: "Config desativada (enabled = false) — auto_apply não executado",
+          diff: { blocked: true, reason: "config_disabled", entry: "auto_apply", basedOnRunId },
+        });
+        await admin.from("coala_sync_config").update({
+          last_run_at: new Date().toISOString(),
+          last_run_status: "blocked_disabled",
+        }).eq("id", cfg.id);
+        return json({ ok: true, status: "blocked_disabled", reason: "config_disabled" });
+      }
+
       const tok = await getDriveAccessToken();
       const buf = await downloadDriveXlsx(cfg.drive_file_id, tok);
       const fileBase64 = arrayBufferToBase64(buf);
@@ -350,6 +371,46 @@ Deno.serve(async (req) => {
     }
 
     if (configs.length === 0) return json({ ok: true, message: "Nenhuma config a processar", runs: [] });
+
+    // ─────────────────────────────────────────────────────────────
+    // P0 — GUARDA DE `enabled`, para QUALQUER caminho de entrada
+    // (configId, cron, manual). O ramo `configId` carregava a config sem
+    // olhar ao `enabled`, e o pg_cron entra por aí (Bearer service-role, sem
+    // x-cron-secret). Falha em VOZ ALTA: grava uma run `blocked_disabled`
+    // (`blocked` já existe e significa "conflitos") e escreve o mesmo valor
+    // em `coala_sync_config.last_run_status`.
+    // ─────────────────────────────────────────────────────────────
+    const disabledCfgs = configs.filter((c: any) => c.enabled === false);
+    configs = configs.filter((c: any) => c.enabled !== false);
+    const blockedRuns: any[] = [];
+    for (const cfg of disabledCfgs) {
+      const { data: runIns } = await admin.from("coala_sync_runs").insert({
+        config_id: cfg.id,
+        event_id: cfg.event_id,
+        company_id: cfg.company_id,
+        mode,
+        triggered_by: triggeredBy,
+        status: "blocked_disabled",
+        triggered_user_id: authedUserId,
+        finished_at: new Date().toISOString(),
+        error_message: "Config desativada (enabled = false) — sync não executado",
+        diff: { blocked: true, reason: "config_disabled", entry: configId ? "configId" : (isCron ? "cron" : "manual") },
+      }).select("id").maybeSingle();
+      await admin.from("coala_sync_config").update({
+        last_run_at: new Date().toISOString(),
+        last_run_status: "blocked_disabled",
+      }).eq("id", cfg.id);
+      blockedRuns.push({ runId: runIns?.id ?? null, configId: cfg.id, status: "blocked_disabled", reason: "config_disabled" });
+    }
+
+    if (configs.length === 0) {
+      return json({
+        ok: true,
+        message: blockedRuns.length ? "Config(s) desativada(s) — sync bloqueado" : "Nenhuma config a processar",
+        runs: blockedRuns,
+      });
+    }
+
 
     const runs: any[] = [];
     const driveToken = await getDriveAccessToken();
@@ -782,7 +843,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: true, runs });
+    return json({ ok: true, runs: [...blockedRuns, ...runs] });
   } catch (err) {
     console.error("sync-coala-from-drive error:", err);
     return json({ error: (err as Error).message }, 500);
