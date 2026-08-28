@@ -95,7 +95,7 @@ async function fetchEventBundle(eventId: string) {
       .eq("event_id", eventId),
     supabase
       .from("transactions")
-      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, parent_transaction_id, invoice_ref, suppliers:supplier_id(name)")
+      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, forecast_id, parent_transaction_id, invoice_ref, suppliers:supplier_id(name)")
       .or(`event_id.eq.${eventId},event_id.is.null`),
   ]);
 

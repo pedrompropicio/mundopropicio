@@ -3375,13 +3375,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
   };
 
-  // Find transactions matching this forecast line.
-  // Strategy: union of (a) direct transaction_id back-link and
-  // (b) category + description match. This is critical for installment
-  // schedules where ONE BP line generates N transactions but only the
-  // first is back-linked via event_forecasts.transaction_id — the
-  // remaining N-1 must still appear here so balance, paid checks and
-  // cascade delete work correctly.
+  // Matching Transações ↔ linha do BP: SSoT em src/lib/bp-tx-matching.ts.
+  // (Fase 2) união de (a) vínculo directo — transactions.forecast_id, N por
+  // linha, ∪ âncora legada event_forecasts.transaction_id — e (b) match por
+  // rubrica + descrição. Sem cópias locais (foi o que fez o PDF divergir).
   const matchingTransactions = useMemo(
     () => findMatchingTransactionsForForecast(item, eventTransactions ?? [], allForecasts ?? []),
     [eventTransactions, item, allForecasts],

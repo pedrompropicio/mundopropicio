@@ -321,7 +321,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         supabase
           .from("transactions")
           .select(
-            "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, ordering_partner_id, paying_partner_id",
+            "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, forecast_id, ordering_partner_id, paying_partner_id",
           )
           .eq("event_id", eventId)
           .eq("type", "expense"),
