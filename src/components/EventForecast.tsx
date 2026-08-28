@@ -1207,7 +1207,12 @@ const descRef = useRef<HTMLInputElement>(null);
         description: inst.description || `${forecast.description} (${i + 1}/${installments.length})`,
       }));
 
-      if (forecast.transaction_id) {
+      // Fase 2: a exclusividade deixa de ser a âncora — basta existir ALGUMA TX
+      // vinculada a esta linha (transactions.forecast_id) ou a âncora legada.
+      const alreadyLinked =
+        !!forecast.transaction_id ||
+        (transactions ?? []).some((t: any) => t.forecast_id === forecast.id);
+      if (alreadyLinked) {
         throw new Error("Esta linha do BP já tem transações/parcelas programadas.");
       }
 
@@ -1337,6 +1342,7 @@ const descRef = useRef<HTMLInputElement>(null);
         !isMasterDerivedOnSplit &&
         !isMasterControlledLocalLine &&
         !f.transaction_id &&
+        !(transactions ?? []).some((t: any) => t.forecast_id === f.id) &&
         findMatchingTransactionsForForecast(f, transactions, forecasts).length === 0
       );
     },
@@ -3376,75 +3382,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   // first is back-linked via event_forecasts.transaction_id — the
   // remaining N-1 must still appear here so balance, paid checks and
   // cascade delete work correctly.
-  const matchingTransactions = useMemo(() => {
-    if (!eventTransactions) return [];
-
-    // Scope transactions to the same event as the forecast (or null for master splits)
-    // This prevents sub-event transactions from appearing under master forecasts
-    const allowedEventIds = new Set([item.event_id, null, item._master_event_id].filter(Boolean));
-    const scopedTransactions = eventTransactions.filter(
-      (t: any) => allowedEventIds.has(t.event_id)
-    );
-
-    // (a) Direct back-link (always include, even if event scope would have excluded it)
-    const directTx = item.transaction_id
-      ? eventTransactions.filter((t: any) => t.id === item.transaction_id)
-      : [];
-
-    // (b) Category + description match
-    if (!item.category_id) return directTx;
-    // Issue #59: uma transação já RECLAMADA POR FK por OUTRA linha de BP nunca
-    // pode contar como associada a esta linha (nem bloquear a sua remoção).
-    // Só exclui TXs reclamadas por outro forecast — órfãs continuam a entrar.
-    const claimedByOtherForecast = new Set(
-      (allForecasts ?? [])
-        .filter((f: any) => f.transaction_id && f.id !== item.id)
-        .map((f: any) => f.transaction_id)
-    );
-    const sameCat = scopedTransactions.filter(
-      (t: any) =>
-        t.category_id === item.category_id &&
-        t.type === item.type &&
-        !claimedByOtherForecast.has(t.id)
-    );
-    
-    // If only one forecast uses this category, show all transactions for it
-    // Otherwise, try to match by description
-    const forecastsWithSameCat = allForecasts?.filter(
-      (f: any) => f.category_id === item.category_id && f.type === item.type && f.event_id === item.event_id
-    ) ?? [];
-    
-    // Helper to merge directTx with another list, de-duplicated by id
-    const mergeWithDirect = (list: any[]) => {
-      if (directTx.length === 0) return list;
-      const ids = new Set(list.map((t: any) => t.id));
-      return [...list, ...directTx.filter((t: any) => !ids.has(t.id))];
-    };
-
-    if (forecastsWithSameCat.length <= 1) return mergeWithDirect(sameCat);
-
-    // Multiple forecasts share this category — assign each transaction to the
-    // forecast with the BEST description match, so a transaction is never shown
-    // under more than one BP line.
-    // Score normalizado (NFD sem acentos, lowercase, sem caracteres especiais)
-    // — SSoT em src/lib/bp-tx-matching.ts. Empates ou score 0 deixam a TX órfã,
-    // que aparece no bucket "Sem linha específica" da categoria.
-    const scoreMatch = scoreDescriptionMatch;
-
-    const matched = sameCat.filter((t: any) => {
-      const myScore = scoreMatch(item.description, t.description);
-      if (myScore <= 0) return false;
-      // Must beat every other forecast that shares this category
-      const bestOther = forecastsWithSameCat.reduce((max: number, f: any) => {
-        if (f.id === item.id) return max;
-        const s = scoreMatch(f.description, t.description);
-        return s > max ? s : max;
-      }, 0);
-      return myScore > bestOther;
-    });
-
-    return mergeWithDirect(matched);
-  }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, item.event_id, item.id, allForecasts]);
+  const matchingTransactions = useMemo(
+    () => findMatchingTransactionsForForecast(item, eventTransactions ?? [], allForecasts ?? []),
+    [eventTransactions, item, allForecasts],
+  );
 
   const hasMatchingTx = matchingTransactions.length > 0;
 
