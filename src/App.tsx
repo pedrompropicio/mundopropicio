@@ -222,7 +222,10 @@ function MobileNavSheet() {
           <Menu className="h-5 w-5" />
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[17rem] p-0">
+      <SheetContent
+        side="left"
+        className="w-[17rem] px-0 pb-0 pt-[max(1.5rem,calc(env(safe-area-inset-top)+1rem))]"
+      >
         <SheetHeader className="sr-only">
           <SheetTitle>Navegação</SheetTitle>
         </SheetHeader>
@@ -454,7 +457,7 @@ function ProtectedLayout() {
         </div>
       </header>
       <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
-        <AppSidebar />
+        {!isMobileViewport && <AppSidebar />}
         <main className="min-w-0 flex-1 pl-0 md:pl-16 lg:pl-56">
           <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
