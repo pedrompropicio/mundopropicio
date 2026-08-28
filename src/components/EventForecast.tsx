@@ -1586,6 +1586,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   };
 
   const handleInlineSave = () => {
+    if (saveMutation.isPending) return;
     if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
