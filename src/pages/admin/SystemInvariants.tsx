@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, RefreshCw, ChevronDown, ChevronRight, XCircle } from "lucide-react";
-import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface InvariantRow {
   code: string;
@@ -24,7 +24,7 @@ interface SmokeRow {
 }
 
 export default function SystemInvariants() {
-  const { role } = useCompany();
+  const { role } = useAuth();
   const allowed = role === "admin" || role === "manager" || role === "platform_admin";
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
