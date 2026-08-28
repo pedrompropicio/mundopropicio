@@ -3,6 +3,20 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
+import fs from "fs";
+
+const BUILD_ID = String(Date.now());
+
+// Escreve dist/version.json com o mesmo buildId injetado no bundle, para
+// permitir deteção de nova versão sem depender do service worker.
+const buildVersionPlugin = () => ({
+  name: "build-version-json",
+  apply: "build" as const,
+  closeBundle() {
+    fs.mkdirSync("dist", { recursive: true });
+    fs.writeFileSync("dist/version.json", JSON.stringify({ buildId: BUILD_ID }));
+  },
+});
 
 export default defineConfig(({ mode }) => ({
   server: {
@@ -12,8 +26,12 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
+    buildVersionPlugin(),
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
