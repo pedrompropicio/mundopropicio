@@ -87,7 +87,7 @@ async function checkVersion() {
     const data = (await response.json()) as { buildId?: string };
     const remoteBuildId = data?.buildId;
 
-    if (!remoteBuildId || remoteBuildId === __BUILD_ID__ || alreadyReloadedFor(remoteBuildId)) {
+    if (!remoteBuildId || remoteBuildId === __BUILD_ID__) {
       return;
     }
 
