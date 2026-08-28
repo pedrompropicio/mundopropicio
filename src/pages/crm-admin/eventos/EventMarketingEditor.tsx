@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, Save, ExternalLink, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -71,8 +73,13 @@ const emptyForm = (eventId: string, companyId: string): FormState => ({
   age_rating: null,
   ticket_lots: [],
   doors_time: null,
-
+  hook_es: null,
+  description_long_es: null,
+  meta_description_es: null,
+  cta_primary_label_es: null,
+  urgency_message_es: null,
 });
+
 
 export default function EventMarketingEditor() {
   const { eventId = "" } = useParams();
@@ -86,7 +93,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id, title_es, description_es, location_es")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -355,7 +362,28 @@ export default function EventMarketingEditor() {
                 />
               </Field>
             </div>
+            <EsSection>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Hook (ES)">
+                  <Textarea
+                    value={form!.hook_es ?? ""}
+                    onChange={(e) => set("hook_es", e.target.value || null)}
+                    rows={2}
+                    placeholder={ph(inherited?.hook_es)}
+                  />
+                </Field>
+                <Field label="Descripción larga (ES)">
+                  <Textarea
+                    value={form!.description_long_es ?? ""}
+                    onChange={(e) => set("description_long_es", e.target.value || null)}
+                    rows={8}
+                    placeholder={ph(inherited?.description_long_es)}
+                  />
+                </Field>
+              </div>
+            </EsSection>
           </Card>
+
         </TabsContent>
 
         <TabsContent value="imagens">
@@ -463,7 +491,27 @@ export default function EventMarketingEditor() {
                 />
               </Field>
             </div>
+            <EsSection>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="CTA primario (ES)">
+                  <Input
+                    value={form!.cta_primary_label_es ?? ""}
+                    onChange={(e) => set("cta_primary_label_es", e.target.value || null)}
+                    placeholder={ph(inherited?.cta_primary_label_es)}
+                  />
+                </Field>
+                <Field label="Mensaje de urgencia (ES)">
+                  <Textarea
+                    value={form!.urgency_message_es ?? ""}
+                    onChange={(e) => set("urgency_message_es", e.target.value || null)}
+                    rows={2}
+                    placeholder={ph(inherited?.urgency_message_es)}
+                  />
+                </Field>
+              </div>
+            </EsSection>
           </Card>
+
         </TabsContent>
 
         <TabsContent value="imprensa">
@@ -633,7 +681,22 @@ export default function EventMarketingEditor() {
                 />
               </Field>
             </div>
+            <EsSection>
+              <Field
+                label="Meta description (ES)"
+                hint={`${(form!.meta_description_es ?? "").length}/160`}
+              >
+                <Textarea
+                  rows={3}
+                  maxLength={200}
+                  value={form!.meta_description_es ?? ""}
+                  onChange={(e) => set("meta_description_es", e.target.value || null)}
+                  placeholder={ph(inherited?.meta_description_es)}
+                />
+              </Field>
+            </EsSection>
           </Card>
+
         </TabsContent>
       </Tabs>
 
@@ -657,7 +720,35 @@ export default function EventMarketingEditor() {
   );
 }
 
+/**
+ * Acordeão colapsado com os campos em espanhol. Fica fechado por defeito para
+ * não poluir a UI dos eventos portugueses.
+ */
+function EsSection({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border border-border">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/40"
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          Espanhol (opcional — para espetáculos em Espanha)
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-4 border-t border-border p-3">
+        <p className="text-xs text-muted-foreground">
+          Sem preenchimento, o portal /es mostra a versão EN (ou PT).
+        </p>
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function Field({
+
   label,
   hint,
   children,
@@ -795,6 +886,10 @@ function TicketLotsEditor({
             <Field label="Name (EN)">
               <Input value={it.label_en} onChange={(e) => update(idx, { label_en: e.target.value })} placeholder="e.g.: 2nd Batch" />
             </Field>
+            <Field label="Label ES" hint="opcional">
+              <Input value={it.label_es ?? ""} onChange={(e) => update(idx, { label_es: e.target.value })} placeholder="ej.: 2ª Tanda" />
+            </Field>
+
             <Field label="Preço €" hint="opcional">
               <Input
                 type="number"
@@ -886,6 +981,9 @@ function GestaoTab({
   const [mgmt, setMgmt] = useState<string>(ev?.management_type ?? "own");
   const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");
   const [location, setLocation] = useState<string>(ev?.location ?? "");
+  const [titleEs, setTitleEs] = useState<string>(ev?.title_es ?? "");
+  const [descriptionEs, setDescriptionEs] = useState<string>(ev?.description_es ?? "");
+  const [locationEs, setLocationEs] = useState<string>(ev?.location_es ?? "");
   const [ticketingUrl, setTicketingUrl] = useState<string>(ev?.ticketing_url ?? "");
   const [adDestinationUrl, setAdDestinationUrl] = useState<string>(ev?.ad_destination_url ?? "");
   const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
@@ -919,6 +1017,9 @@ function GestaoTab({
     setMgmt(ev?.management_type ?? "own");
     setPartnerName(ev?.partner_name ?? "");
     setLocation(ev?.location ?? "");
+    setTitleEs(ev?.title_es ?? "");
+    setDescriptionEs(ev?.description_es ?? "");
+    setLocationEs(ev?.location_es ?? "");
     setTicketingUrl(ev?.ticketing_url ?? "");
     setAdDestinationUrl(ev?.ad_destination_url ?? "");
     setTicketingProvider(ev?.ticketing_provider ?? "");
@@ -954,6 +1055,9 @@ function GestaoTab({
           management_type: mgmt,
           partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
           location: location.trim() || null,
+          title_es: titleEs.trim() || null,
+          description_es: descriptionEs.trim() || null,
+          location_es: locationEs.trim() || null,
           ticketing_url: ticketingUrl.trim() || null,
           ad_destination_url: adDestinationUrl.trim() || null,
           ticketing_provider: ticketingProvider.trim() || null,
@@ -1071,6 +1175,26 @@ function GestaoTab({
           </p>
         </>
       )}
+
+      <EsSection>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Título (ES)">
+            <Input value={titleEs} onChange={(e) => setTitleEs(e.target.value)} disabled={disabled} />
+          </Field>
+          <Field label="Localización (ES)">
+            <Input value={locationEs} onChange={(e) => setLocationEs(e.target.value)} disabled={disabled} />
+          </Field>
+        </div>
+        <Field label="Descripción (ES)">
+          <Textarea
+            value={descriptionEs}
+            onChange={(e) => setDescriptionEs(e.target.value)}
+            rows={4}
+            disabled={disabled}
+          />
+        </Field>
+      </EsSection>
+
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Localização">

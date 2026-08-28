@@ -17,9 +17,12 @@ export type TicketLotStatus = "esgotado" | "a_venda" | "brevemente";
 export interface TicketLot {
   label_pt: string;
   label_en: string;
+  /** Opcional — usado no portal /es. Formato livre (jsonb, sem DDL). */
+  label_es?: string;
   price: number | null;
   status: TicketLotStatus;
 }
+
 
 export interface EventMarketingRow {
   event_id: string;
@@ -55,6 +58,12 @@ export interface EventMarketingRow {
   age_rating: string | null;
   ticket_lots: TicketLot[] | null;
   doors_time: string | null;
+  hook_es: string | null;
+  description_long_es: string | null;
+  meta_description_es: string | null;
+  cta_primary_label_es: string | null;
+  urgency_message_es: string | null;
+
 
   created_by: string | null;
   updated_by: string | null;
