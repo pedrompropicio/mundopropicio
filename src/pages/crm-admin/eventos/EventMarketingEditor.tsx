@@ -679,7 +679,22 @@ export default function EventMarketingEditor() {
                 />
               </Field>
             </div>
+            <EsSection>
+              <Field
+                label="Meta description (ES)"
+                hint={`${(form!.meta_description_es ?? "").length}/160`}
+              >
+                <Textarea
+                  rows={3}
+                  maxLength={200}
+                  value={form!.meta_description_es ?? ""}
+                  onChange={(e) => set("meta_description_es", e.target.value || null)}
+                  placeholder={ph(inherited?.meta_description_es)}
+                />
+              </Field>
+            </EsSection>
           </Card>
+
         </TabsContent>
       </Tabs>
 
