@@ -11731,9 +11731,29 @@ export type Database = {
       }
       can_view_supplier_bank_data: { Args: never; Returns: boolean }
       check_leads_capi_health: { Args: never; Returns: Json }
+      check_rpc_smoke: {
+        Args: never
+        Returns: {
+          checked_at: string
+          code: string
+          error: string
+          ok: boolean
+        }[]
+      }
       check_supplier_iban_duplicate: {
         Args: { p_iban: string; p_supplier_id?: string }
         Returns: Json
+      }
+      check_system_invariants: {
+        Args: never
+        Returns: {
+          checked_at: string
+          code: string
+          offenders: number
+          sample: Json
+          severity: string
+          title: string
+        }[]
       }
       cleanup_old_backups: {
         Args: never
