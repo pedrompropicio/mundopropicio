@@ -3059,6 +3059,39 @@ const descRef = useRef<HTMLInputElement>(null);
         </AlertDialog>
       )}
 
+      {/* Confirmação de queda acentuada de valor em linha aprovada */}
+      <AlertDialog open={!!dropConfirm} onOpenChange={(open) => { if (!open) setDropConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar redução de valor</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dropConfirm && (
+                <>
+                  Vai baixar «{dropConfirm.description}» de {formatCurrency(dropConfirm.oldAmount)} para {formatCurrency(dropConfirm.newAmount)}.{" "}
+                  {dropConfirm.newAmount === 0
+                    ? "Esta linha continua no BP, mas deixa de contar para o resultado."
+                    : "Esta é uma redução acentuada do valor aprovado."}{" "}
+                  Confirma?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDropConfirm(null);
+                handleInlineSave({ confirmedDrop: true });
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
+
       {/* Adopt forecasts modals */}
       {adoptTarget && childEventIds && (
         <AdoptForecastsModal
