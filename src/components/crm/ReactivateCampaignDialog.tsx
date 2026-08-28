@@ -16,16 +16,21 @@ interface ReactivateCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaignName?: string | null;
+  /** true se a campanha já esteve activa alguma vez (já gastou). Default true (conservador). */
+  hasRunBefore?: boolean;
   /** Faz o toggle real (ACTIVE). reasonText vai para reason_text em meta_campaign_changes. */
   onConfirm: (reasonText?: string) => Promise<void>;
 }
+
 
 export function ReactivateCampaignDialog({
   open,
   onOpenChange,
   campaignName,
+  hasRunBefore = true,
   onConfirm,
 }: ReactivateCampaignDialogProps) {
+
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -48,12 +53,17 @@ export function ReactivateCampaignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Reactivar campanha?</DialogTitle>
+          <DialogTitle>{hasRunBefore ? "Reactivar campanha?" : "Activar campanha?"}</DialogTitle>
           <DialogDescription>
             <span className="block">{campaignName ?? ""}</span>
-            <span className="block mt-1">Vai voltar a gastar verba do Meta. Confirmar?</span>
+            <span className="block mt-1">
+              {hasRunBefore
+                ? "Vai voltar a gastar verba do Meta. Confirmar?"
+                : "A campanha vai começar a gastar verba do Meta. Confirmar?"}
+            </span>
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-4">
           <p className="text-[11px] text-muted-foreground">
             Para ajustar verba diária antes, usa o botão de editar (✎) primeiro.
@@ -78,8 +88,9 @@ export function ReactivateCampaignDialog({
           </Button>
           <Button size="sm" onClick={handleConfirm} disabled={loading}>
             {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            Reactivar
+            {hasRunBefore ? "Reactivar" : "Activar"}
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>

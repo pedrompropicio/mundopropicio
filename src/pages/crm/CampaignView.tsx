@@ -806,6 +806,17 @@ export default function CrmCampaignView() {
     return { spend, revenue, conversions, roas, currency };
   }, [insights, displayCurrency]);
 
+  // A campanha já esteve activa alguma vez? Sinal forte: acção de ativação bem-sucedida
+  // registada na plataforma. Fallback: gasto > 0 no período seleccionado (proxy de que já correu).
+  const hasRunBefore = useMemo(() => {
+    const activatedByPlatform = (actions ?? []).some(
+      (a) => a.success && a.new_status === "ACTIVE",
+    );
+    const spentInPeriod = metrics.spend > 0;
+    return activatedByPlatform || spentInPeriod;
+  }, [actions, metrics.spend]);
+
+
   // Agregação por entidade (mesma lógica do `metrics` da mãe, replicada um
   // nível abaixo). Divisões protegidas: numerador/denominador inválido → null
   // (renderiza "—") em vez de 0/NaN, para distinguir "sem dados" de "zero real".
@@ -996,8 +1007,9 @@ export default function CrmCampaignView() {
           label: opts.label,
           triggered_by: "user_manual",
         }],
-        { title: `Ativar ${opts.entity_type}`, description: `${opts.label} vai começar a gastar.` },
+        { title: `Ativar ${opts.entity_type}`, description: `${opts.label} vai começar a gastar verba do Meta.` },
       );
+
       if (result.ok > 0) {
         qc.invalidateQueries({
           queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
@@ -1059,8 +1071,9 @@ export default function CrmCampaignView() {
           triggered_by: "user_manual",
           reason_text: reasonText ?? null,
         }],
-        { title: "Ativar campanha", description: "A campanha vai começar a gastar imediatamente." },
+        { title: "Ativar campanha", description: "A campanha vai começar a gastar verba do Meta." },
       );
+
       if (r.ok > 0) qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] });
       return;
     }
@@ -2680,8 +2693,10 @@ export default function CrmCampaignView() {
         open={reactivateOpen}
         onOpenChange={setReactivateOpen}
         campaignName={campaign.name}
+        hasRunBefore={hasRunBefore}
         onConfirm={(reason) => runToggle("ACTIVE", reason)}
       />
+
 
       {editAdsetBudget && (
         <EditAdsetBudgetDialog

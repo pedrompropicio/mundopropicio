@@ -173,7 +173,7 @@ export default function CrmCampaigns() {
           triggered_by: "user_manual",
           reason_text: reasonText ?? null,
         }],
-        { title: "Ativar campanha", description: "A campanha vai começar a gastar imediatamente." },
+        { title: "Ativar campanha", description: "A campanha vai começar a gastar verba do Meta." },
       );
       if (r.ok > 0) {
         qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
@@ -268,6 +268,16 @@ export default function CrmCampaigns() {
     const all = [...(metaInsights ?? []), ...(googleInsightsRaw ?? [])];
     return all.filter((r) => matchesPlatform(r, platformFilter));
   }, [metaInsights, googleInsightsRaw, platformFilter]);
+
+  // Sinal para a dialog de activação: campanha já gastou no período seleccionado?
+  const reactivateHasRunBefore = useMemo(() => {
+    if (!reactivateCampaign) return true;
+    const rows = (insights ?? []).filter(
+      (r) => r.external_campaign_id === reactivateCampaign.external_campaign_id,
+    );
+    return rows.some((r) => (r.spend_cents ?? 0) > 0);
+  }, [insights, reactivateCampaign]);
+
 
   // ---------- Events for displayed campaigns (independente de status filter) ----------
   // Inclui linked_event_ids de TODAS as campanhas (ACTIVE + PAUSED) para que o dashboard
@@ -1191,12 +1201,14 @@ export default function CrmCampaigns() {
         open={reactivateDialogOpen}
         onOpenChange={setReactivateDialogOpen}
         campaignName={reactivateCampaign?.name}
+        hasRunBefore={reactivateHasRunBefore}
         onConfirm={(reason) =>
           reactivateCampaign
             ? toggleCampaignStatus(reactivateCampaign, "ACTIVE", reason)
             : Promise.resolve()
         }
       />
+
     </div>
     </DashboardTableContext.Provider>
     </BudgetModeContext.Provider>
