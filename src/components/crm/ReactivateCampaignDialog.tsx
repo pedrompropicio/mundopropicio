@@ -16,9 +16,12 @@ interface ReactivateCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaignName?: string | null;
+  /** true se a campanha já esteve activa alguma vez (já gastou). Default true (conservador). */
+  hasRunBefore?: boolean;
   /** Faz o toggle real (ACTIVE). reasonText vai para reason_text em meta_campaign_changes. */
   onConfirm: (reasonText?: string) => Promise<void>;
 }
+
 
 export function ReactivateCampaignDialog({
   open,
