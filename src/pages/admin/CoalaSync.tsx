@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
+import CoalaApplyButton from "@/components/coala/CoalaApplyButton";
+
 
 type Cfg = {
   id: string;
