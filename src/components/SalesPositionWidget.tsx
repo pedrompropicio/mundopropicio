@@ -5,6 +5,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { formatDate } from "@/lib/mock-data";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { lisbonToday } from "@/lib/date-lisbon";
+import { cn } from "@/lib/utils";
 
 interface SalesPositionRow {
   group_id: string;
@@ -125,28 +126,32 @@ function MobileCell({ qty, value, missing }: { qty: number; value: number; missi
     );
   }
   return (
-    <span className="inline-flex items-baseline justify-end gap-0.5 whitespace-nowrap font-mono tabular-nums text-[10px] sm:text-[11px]">
-      <span>{nf.format(Math.round(Number(qty || 0)))}</span>
-      <span className="text-muted-foreground">·</span>
-      <span className="text-muted-foreground">{formatFullValue(value)}</span>
+    <span className="inline-flex flex-wrap items-baseline justify-end gap-x-1 font-mono tabular-nums text-[10px] leading-tight sm:text-[11px]">
+      <span className="whitespace-nowrap">
+        {nf.format(Math.round(Number(qty || 0)))}
+        <span className="text-muted-foreground"> ·</span>
+      </span>
+      <span className="whitespace-nowrap text-muted-foreground">{formatFullValue(value)}</span>
     </span>
   );
 }
 
-/** Métrica mobile com rótulo próprio — máx. 3 por linha na grelha. */
+/** Métrica mobile com rótulo próprio — grelha 2 colunas + Total em linha própria. */
 function MobileMetric({
   label,
   qty,
   value,
   missing,
+  className,
 }: {
   label: string;
   qty: number;
   value: number;
   missing: boolean;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col items-end">
+    <div className={cn("flex min-w-0 flex-col items-end", className)}>
       <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <MobileCell qty={qty} value={value} missing={missing} />
     </div>
@@ -217,7 +222,8 @@ export function SalesPositionWidget() {
     },
   );
 
-  const colClass = "w-[92px] shrink-0 text-right sm:w-[132px]";
+  // Só usado no ramo >= sm (abaixo disso a linha está `hidden`).
+  const colClass = "w-[104px] shrink-0 text-right md:w-[120px] lg:w-[132px]";
   const fnLabel = fortnightLabel();
 
   return (
@@ -234,7 +240,8 @@ export function SalesPositionWidget() {
       ) : rows.length === 0 ? (
         <p className="py-2 text-center text-xs text-muted-foreground">Sem vendas de bilheteira para mostrar.</p>
       ) : (
-        <div className="glass overflow-hidden rounded-lg">
+        <div className="glass overflow-x-auto rounded-lg">
+          <div className="min-w-full sm:min-w-[660px]">
           {/* Cabeçalho desktop */}
           <div className="hidden items-center gap-2 border-b border-border/50 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground sm:flex">
             <span className="min-w-0 flex-1">Evento</span>
@@ -263,12 +270,12 @@ export function SalesPositionWidget() {
                     {r.event_date ? formatDate(r.event_date) : "—"}
                   </span>
                 </span>
-                <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                   <MobileMetric label="Agora" qty={r.today_qty} value={r.today_value} missing={r.daily_missing} />
                   <MobileMetric label="Ontem" qty={r.yesterday_qty} value={r.yesterday_value} missing={r.daily_missing} />
                   <MobileMetric label="7 dias" qty={r.last7_qty} value={r.last7_value} missing={r.daily_missing} />
                   <MobileMetric label={`Quinz. ${fnLabel}`} qty={r.fortnight_qty} value={r.fortnight_value} missing={r.daily_missing} />
-                  <MobileMetric label="Total" qty={r.total_qty} value={r.total_value} missing={false} />
+                  <MobileMetric label="Total" qty={r.total_qty} value={r.total_value} missing={false} className="col-span-2 border-t border-border/30 pt-1" />
                 </div>
               </div>
 
@@ -308,12 +315,12 @@ export function SalesPositionWidget() {
             {/* Total mobile */}
             <div className="flex flex-col gap-0.5 sm:hidden">
               <span className="truncate">TOTAL GERAL</span>
-              <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                 <MobileMetric label="Agora" qty={totals.today_qty} value={totals.today_value} missing={false} />
                 <MobileMetric label="Ontem" qty={totals.yesterday_qty} value={totals.yesterday_value} missing={false} />
                 <MobileMetric label="7 dias" qty={totals.last7_qty} value={totals.last7_value} missing={false} />
                 <MobileMetric label={`Quinz. ${fnLabel}`} qty={totals.fortnight_qty} value={totals.fortnight_value} missing={false} />
-                <MobileMetric label="Total" qty={totals.total_qty} value={totals.total_value} missing={false} />
+                <MobileMetric label="Total" qty={totals.total_qty} value={totals.total_value} missing={false} className="col-span-2 border-t border-border/30 pt-1" />
               </div>
             </div>
 
@@ -351,12 +358,12 @@ export function SalesPositionWidget() {
                   {/* Mobile */}
                   <div className="flex flex-col gap-0.5 sm:hidden">
                     <span className="min-w-0 truncate font-medium">{p.provider}</span>
-                    <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                       <MobileMetric label="Agora" qty={p.today_qty} value={p.today_value} missing={false} />
                       <MobileMetric label="Ontem" qty={p.yesterday_qty} value={p.yesterday_value} missing={false} />
                       <MobileMetric label="7 dias" qty={p.last7_qty} value={p.last7_value} missing={false} />
                       <MobileMetric label={`Quinz. ${fnLabel}`} qty={p.fortnight_qty} value={p.fortnight_value} missing={false} />
-                      <MobileMetric label="Total" qty={p.total_qty} value={p.total_value} missing={false} />
+                      <MobileMetric label="Total" qty={p.total_qty} value={p.total_value} missing={false} className="col-span-2 border-t border-border/30 pt-1" />
                     </div>
                   </div>
 
@@ -391,6 +398,7 @@ export function SalesPositionWidget() {
               </span>
             </div>
           )}
+          </div>
         </div>
       )}
     </section>

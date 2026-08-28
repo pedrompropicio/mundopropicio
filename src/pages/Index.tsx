@@ -613,7 +613,7 @@ export default function Dashboard() {
                   event.isParent
                     ? "border-2 border-primary/40 bg-primary/5"
                     : event.isChild
-                    ? "border border-primary/10 ml-6 lg:ml-10"
+                    ? "border border-primary/10 ml-3 sm:ml-6 lg:ml-10"
                     : "border border-primary/20"
                 }`}
               >
@@ -692,7 +692,7 @@ export default function Dashboard() {
                     )
                   ) : (
                     <>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <div>
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ontem</p>
                           <p className="font-mono font-semibold">{formatCurrency(event.salesYesterday)}</p>
@@ -703,7 +703,7 @@ export default function Dashboard() {
                           <p className="font-mono font-semibold">{formatCurrency(event.salesLast7d)}</p>
                           <p className="text-[10px] text-muted-foreground">{event.qtyLast7d.toLocaleString()} bilh.</p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
                           <p className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</p>
                           <p className="text-[10px] text-muted-foreground">{event.sold.toLocaleString()} bilh.</p>
@@ -714,7 +714,7 @@ export default function Dashboard() {
                         <div className="mt-2 pt-2 border-t border-border/20">
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Vendas atribuídas à zona de origem do lote, igual ao reporte da bilheteira (Fever).">Por zona (vendas)</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-[11px]">
+                            <table className="w-max min-w-full text-[11px]">
                               <thead>
                                 <tr className="text-muted-foreground">
                                   <th className="text-left font-normal pb-1">Zona</th>
@@ -726,7 +726,7 @@ export default function Dashboard() {
                               <tbody>
                                 {event.zones.map((z) => (
                                   <tr key={z.name} className="border-t border-border/10">
-                                    <td className="py-0.5 pr-2 truncate max-w-[120px]" title={z.name}>{z.name}</td>
+                                    <td className="py-0.5 pr-3 truncate max-w-[180px]" title={z.name}>{z.name}</td>
                                     <td className="py-0.5 text-right font-mono">
                                       {z.qtyYesterday > 0 ? (
                                         <>

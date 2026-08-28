@@ -42,7 +42,16 @@ import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
 
-export function AppSidebar() {
+export function AppSidebar({
+  variant = "rail",
+  onNavigate,
+}: {
+  /** "rail" = barra fixa (>= md). "panel" = conteúdo dentro do Sheet mobile. */
+  variant?: "rail" | "panel";
+  onNavigate?: () => void;
+} = {}) {
+  const isPanel = variant === "panel";
+  const labelCls = isPanel ? "block" : "hidden lg:block";
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -115,14 +124,23 @@ export function AppSidebar() {
     { to: "/ajuda", icon: HelpCircle, label: "Manual", show: true },
   ];
 
+  const Container = isPanel ? "div" : "aside";
+  const containerProps = isPanel
+    ? {
+        className:
+          "flex h-full w-full flex-col overflow-y-auto overscroll-contain bg-sidebar py-4 [touch-action:pan-y] [-webkit-overflow-scrolling:touch]",
+      }
+    : {
+        className:
+          "fixed left-0 z-40 hidden w-16 flex-col items-center overflow-y-auto overscroll-contain border-r border-border bg-sidebar py-4 md:flex lg:w-56 lg:overflow-hidden [touch-action:pan-y] [-webkit-overflow-scrolling:touch]",
+        style: {
+          top: "calc(3.5rem + env(safe-area-inset-top))",
+          height: "calc(100dvh - 3.5rem - env(safe-area-inset-top))",
+        } as any,
+      };
+
   return (
-    <aside
-      className="fixed left-0 z-40 flex w-16 flex-col items-center overflow-y-auto overscroll-contain border-r border-border bg-sidebar py-4 lg:w-56 lg:overflow-hidden [touch-action:pan-y] [-webkit-overflow-scrolling:touch]"
-      style={{
-        top: "calc(3.5rem + env(safe-area-inset-top))",
-        height: "calc(100dvh - 3.5rem - env(safe-area-inset-top))",
-      }}
-    >
+    <Container {...(containerProps as any)}>
 
       <nav className="flex w-full shrink-0 flex-col gap-1 px-2 pb-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3">
         {(inOperacao ? operacaoItems : fullNavItems)
@@ -141,6 +159,7 @@ export function AppSidebar() {
             <RouterNavLink
               key={item.to}
               to={item.to}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                 "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -151,7 +170,7 @@ export function AppSidebar() {
               title={item.label}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="hidden lg:block flex-1">{item.label}</span>
+              <span className={cn(labelCls, "flex-1")}>{item.label}</span>
               {item.badge > 0 && (
                 <span className="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
                   {item.badge > 99 ? "99+" : item.badge}
@@ -172,7 +191,7 @@ export function AppSidebar() {
             title={activeOpEventId ? "Gerar Relatório PDF" : "Seleciona um evento ativo primeiro"}
           >
             <FileDown className="h-5 w-5 shrink-0" />
-            <span className="hidden lg:block flex-1 text-left">Relatório PDF</span>
+            <span className={cn(labelCls, "flex-1 text-left")}>Relatório PDF</span>
           </button>
         )}
       </nav>
@@ -181,40 +200,44 @@ export function AppSidebar() {
       <div className="mt-3 w-full shrink-0 space-y-1 px-2 lg:mt-auto lg:px-3">
         {(isAdmin || inOperacao) && (
           <button
-            onClick={() => navigate("/modulos")}
+            onClick={() => {
+              onNavigate?.();
+              navigate("/modulos");
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             title="Trocar módulo"
           >
             <Grid3x3 className="h-5 w-5 shrink-0" />
-            <span className="hidden lg:block">Trocar módulo</span>
+            <span className={labelCls}>Trocar módulo</span>
           </button>
         )}
-        <div className="hidden lg:flex items-center justify-between mb-2 px-3">
+        <div className={cn(isPanel ? "flex" : "hidden lg:flex", "items-center justify-between mb-2 px-3")}>
           <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
         </div>
-        <div className="flex justify-center lg:justify-start px-1">
+        <div className={cn("flex px-1", isPanel ? "justify-start" : "justify-center lg:justify-start")}>
           <PushNotificationToggle />
         </div>
         <RouterNavLink
           to="/perfil"
+          onClick={onNavigate}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <Bell className="h-5 w-5 shrink-0" />
-          <span className="hidden lg:block">Preferências</span>
+          <span className={labelCls}>Preferências</span>
         </RouterNavLink>
         <button
           onClick={() => setShowChangePassword(true)}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <KeyRound className="h-5 w-5 shrink-0" />
-          <span className="hidden lg:block">Alterar Senha</span>
+          <span className={labelCls}>Alterar Senha</span>
         </button>
         <button
           onClick={signOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          <span className="hidden lg:block">Sair</span>
+          <span className={labelCls}>Sair</span>
         </button>
       </div>
 
@@ -227,6 +250,6 @@ export function AppSidebar() {
         />
       )}
 
-    </aside>
+    </Container>
   );
 }
