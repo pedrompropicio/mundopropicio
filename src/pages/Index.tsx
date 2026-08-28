@@ -158,9 +158,9 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const aggQtyYesterday = children.reduce((s, c) => s + c.qtyYesterday, 0);
     const aggQtyLast7d = children.reduce((s, c) => s + c.qtyLast7d, 0);
 
-    // Zonas NÃO são agregadas na linha-mãe: o nome de uma zona só é único
+    // Zonas dos filhos NÃO são agregadas na mãe: o nome de uma zona só é único
     // dentro de uma sala, pelo que somar por nome entre cidades inventa zonas.
-    // A tabela "Por zona" mostra-se apenas nas linhas-filhas.
+    // A mãe mostra apenas as suas próprias zonas (se as tiver).
 
 
     // If the parent itself has own data (from parentInList), add it
@@ -212,7 +212,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
       qtyLast7d: aggQtyLast7d + ownQtyLast7d,
       lastSaleAmount: lastSale?.amount ?? null,
       lastSaleDate: lastSale?.date ?? null,
-      zones: [],
+      zones: parentInList ? parentInList.zones : [],
       isParent: true,
       isChild: false,
       childCount: children.length,
@@ -698,7 +698,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {!event.isParent && event.zones.length > 0 && (
+                      {event.zones.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/20">
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Vendas atribuídas à zona de origem do lote, igual ao reporte da bilheteira (Fever).">Por zona (vendas)</p>
                           <div className="overflow-x-auto">
