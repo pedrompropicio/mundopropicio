@@ -208,9 +208,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [exportingCommittedPDF, setExportingCommittedPDF] = useState(false);
   const [exportingCommittedXLSX, setExportingCommittedXLSX] = useState(false);
 
-  const descRef = useRef<HTMLInputElement>(null);
+const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
   const [attachingLinks, setAttachingLinks] = useState(false);
   
   const [showImportMode, setShowImportMode] = useState(false);
@@ -1586,12 +1587,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   };
 
   const handleInlineSave = () => {
-    if (saveMutation.isPending) return;
+if (savingRef.current || saveMutation.isPending) return;
     if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
     }
-    saveMutation.mutate({ form: inlineForm, id: editingId });
+    savingRef.current = true;
+    saveMutation.mutate(
+      { form: inlineForm, id: editingId },
+      {
+        onSettled: () => {
+          savingRef.current = false;
+        },
+      }
+    );
   };
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
