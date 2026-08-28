@@ -27,8 +27,10 @@ export function ReactivateCampaignDialog({
   open,
   onOpenChange,
   campaignName,
+  hasRunBefore = true,
   onConfirm,
 }: ReactivateCampaignDialogProps) {
+
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
