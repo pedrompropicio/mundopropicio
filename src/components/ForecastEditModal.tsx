@@ -11,6 +11,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Props {
   forecast: any;
@@ -234,6 +235,24 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   });
 
   const isExpense = forecast.type === "expense";
+  const [dropConfirm, setDropConfirm] = useState(false);
+
+  // Confirmação adicional quando uma linha aprovada cai a 0 ou >= 70%.
+  const attemptSave = () => {
+    if (editMutation.isPending) return;
+    const oldAmount = Number(forecast.amount) || 0;
+    const newAmount = Math.round(eurAmount * 100) / 100;
+    if (
+      forecast.status === "approved" &&
+      oldAmount > 0 &&
+      (newAmount === 0 || newAmount <= oldAmount * 0.3)
+    ) {
+      setDropConfirm(true);
+      return;
+    }
+    editMutation.mutate();
+  };
+
   const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
   const backdrop = useBackdropClose(onClose);
 
@@ -332,12 +351,34 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         </div>
 
         <button
-          onClick={() => editMutation.mutate()}
+          onClick={attemptSave}
           disabled={editMutation.isPending}
           className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {editMutation.isPending ? "A guardar…" : "Guardar Alteração"}
         </button>
+
+        <AlertDialog open={dropConfirm} onOpenChange={(open) => { if (!open) setDropConfirm(false); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar redução de valor</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vai baixar «{description.trim() || forecast.description}» de {formatCurrency(Number(forecast.amount))} para {formatCurrency(Math.round(eurAmount * 100) / 100)}.{" "}
+                {Math.round(eurAmount * 100) / 100 === 0
+                  ? "Esta linha continua no BP, mas deixa de contar para o resultado."
+                  : "Esta é uma redução acentuada do valor aprovado."}{" "}
+                Confirma?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setDropConfirm(false); editMutation.mutate(); }}>
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
 
         {/* Audit history */}
         {auditLogs.length > 0 && (

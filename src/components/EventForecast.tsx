@@ -212,6 +212,7 @@ const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const savingRef = useRef(false);
+  const [dropConfirm, setDropConfirm] = useState<{ description: string; oldAmount: number; newAmount: number } | null>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
   
   const [showImportMode, setShowImportMode] = useState(false);
@@ -846,11 +847,15 @@ const descRef = useRef<HTMLInputElement>(null);
         if (error) throw error;
         return;
       }
+      const parsedAmount = parseFloat(form.amount);
+      if (!Number.isFinite(parsedAmount)) {
+        throw new Error("Valor inválido. Introduza um número.");
+      }
       const payload: any = {
         event_id: eventId,
         type: form.type,
         description: form.description,
-        amount: parseFloat(form.amount) || 0,
+        amount: parsedAmount,
         iva_rate: form.iva_rate !== "" ? parseInt(form.iva_rate) : 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
@@ -1586,11 +1591,31 @@ const descRef = useRef<HTMLInputElement>(null);
     });
   };
 
-  const handleInlineSave = () => {
-if (savingRef.current || saveMutation.isPending) return;
+  const handleInlineSave = (opts?: { confirmedDrop?: boolean }) => {
+    if (savingRef.current || saveMutation.isPending) return;
     if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
+    }
+    const parsedAmount = parseFloat(inlineForm.amount);
+    if (!Number.isFinite(parsedAmount)) {
+      toast({ title: "Valor inválido", description: "Introduza um valor numérico válido.", variant: "destructive" });
+      return;
+    }
+    // Confirmação de queda: só em EDIÇÃO de linha aprovada, valor antigo > 0
+    // e valor novo 0 ou queda >= 70%. O latch NÃO é armado aqui — só depois
+    // de confirmar — para que cancelar não bloqueie a gravação.
+    if (!opts?.confirmedDrop && editingId) {
+      const existing = forecasts.find((f: any) => f.id === editingId);
+      const oldAmount = Number(existing?.amount ?? 0);
+      if (existing?.status === "approved" && oldAmount > 0 && (parsedAmount === 0 || parsedAmount <= oldAmount * 0.3)) {
+        setDropConfirm({
+          description: existing.description || inlineForm.description,
+          oldAmount,
+          newAmount: parsedAmount,
+        });
+        return;
+      }
     }
     savingRef.current = true;
     saveMutation.mutate(
@@ -1602,6 +1627,7 @@ if (savingRef.current || saveMutation.isPending) return;
       }
     );
   };
+
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -2071,7 +2097,7 @@ if (savingRef.current || saveMutation.isPending) return;
               </button>
             )}
             <button
-              onClick={handleInlineSave}
+              onClick={() => handleInlineSave()}
               disabled={saveMutation.isPending}
               className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
               title="Guardar (Enter)"
@@ -2582,7 +2608,7 @@ if (savingRef.current || saveMutation.isPending) return;
                                   </td>
                                   <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
-                                      <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => handleInlineSave()} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                                       <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
                                     </div>
                                   </td>
@@ -2861,7 +2887,7 @@ if (savingRef.current || saveMutation.isPending) return;
                                   </td>
                                   <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
-                                      <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => handleInlineSave()} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                                       <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
                                     </div>
                                   </td>
@@ -3032,6 +3058,39 @@ if (savingRef.current || saveMutation.isPending) return;
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Confirmação de queda acentuada de valor em linha aprovada */}
+      <AlertDialog open={!!dropConfirm} onOpenChange={(open) => { if (!open) setDropConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar redução de valor</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dropConfirm && (
+                <>
+                  Vai baixar «{dropConfirm.description}» de {formatCurrency(dropConfirm.oldAmount)} para {formatCurrency(dropConfirm.newAmount)}.{" "}
+                  {dropConfirm.newAmount === 0
+                    ? "Esta linha continua no BP, mas deixa de contar para o resultado."
+                    : "Esta é uma redução acentuada do valor aprovado."}{" "}
+                  Confirma?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDropConfirm(null);
+                handleInlineSave({ confirmedDrop: true });
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
 
       {/* Adopt forecasts modals */}
       {adoptTarget && childEventIds && (
