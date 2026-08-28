@@ -53,12 +53,17 @@ export function ReactivateCampaignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Reactivar campanha?</DialogTitle>
+          <DialogTitle>{hasRunBefore ? "Reactivar campanha?" : "Activar campanha?"}</DialogTitle>
           <DialogDescription>
             <span className="block">{campaignName ?? ""}</span>
-            <span className="block mt-1">Vai voltar a gastar verba do Meta. Confirmar?</span>
+            <span className="block mt-1">
+              {hasRunBefore
+                ? "Vai voltar a gastar verba do Meta. Confirmar?"
+                : "A campanha vai começar a gastar verba do Meta. Confirmar?"}
+            </span>
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-4">
           <p className="text-[11px] text-muted-foreground">
             Para ajustar verba diária antes, usa o botão de editar (✎) primeiro.
