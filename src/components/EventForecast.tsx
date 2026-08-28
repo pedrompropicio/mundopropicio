@@ -2037,7 +2037,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
             className={`${inputClass} w-28 text-right font-mono`}
             placeholder="0,00"
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
           />
         </td>
         <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
