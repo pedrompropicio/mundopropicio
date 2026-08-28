@@ -5,6 +5,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { formatDate } from "@/lib/mock-data";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { lisbonToday } from "@/lib/date-lisbon";
+import { cn } from "@/lib/utils";
 
 interface SalesPositionRow {
   group_id: string;
