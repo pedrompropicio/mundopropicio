@@ -822,7 +822,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: true, runs });
+    return json({ ok: true, runs: [...blockedRuns, ...runs] });
   } catch (err) {
     console.error("sync-coala-from-drive error:", err);
     return json({ error: (err as Error).message }, 500);
