@@ -698,7 +698,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {event.zones.length > 0 && (
+                      {!event.isParent && event.zones.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/20">
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Vendas atribuídas à zona de origem do lote, igual ao reporte da bilheteira (Fever).">Por zona (vendas)</p>
                           <div className="overflow-x-auto">
