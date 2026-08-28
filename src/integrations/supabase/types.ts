@@ -4465,8 +4465,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           cta_primary_label_en: string | null
+          cta_primary_label_es: string | null
           cta_primary_label_pt: string | null
           description_long_en: string | null
+          description_long_es: string | null
           description_long_pt: string | null
           doors_time: string | null
           event_id: string
@@ -4474,9 +4476,11 @@ export type Database = {
           hero_image_url: string | null
           hero_video_url: string | null
           hook_en: string | null
+          hook_es: string | null
           hook_pt: string | null
           lots_locked: boolean
           meta_description_en: string | null
+          meta_description_es: string | null
           meta_description_pt: string | null
           music_embed_url: string | null
           offer_availability: string | null
@@ -4497,6 +4501,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           urgency_message_en: string | null
+          urgency_message_es: string | null
           urgency_message_pt: string | null
         }
         Insert: {
@@ -4505,8 +4510,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cta_primary_label_en?: string | null
+          cta_primary_label_es?: string | null
           cta_primary_label_pt?: string | null
           description_long_en?: string | null
+          description_long_es?: string | null
           description_long_pt?: string | null
           doors_time?: string | null
           event_id: string
@@ -4514,9 +4521,11 @@ export type Database = {
           hero_image_url?: string | null
           hero_video_url?: string | null
           hook_en?: string | null
+          hook_es?: string | null
           hook_pt?: string | null
           lots_locked?: boolean
           meta_description_en?: string | null
+          meta_description_es?: string | null
           meta_description_pt?: string | null
           music_embed_url?: string | null
           offer_availability?: string | null
@@ -4537,6 +4546,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           urgency_message_en?: string | null
+          urgency_message_es?: string | null
           urgency_message_pt?: string | null
         }
         Update: {
@@ -4545,8 +4555,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cta_primary_label_en?: string | null
+          cta_primary_label_es?: string | null
           cta_primary_label_pt?: string | null
           description_long_en?: string | null
+          description_long_es?: string | null
           description_long_pt?: string | null
           doors_time?: string | null
           event_id?: string
@@ -4554,9 +4566,11 @@ export type Database = {
           hero_image_url?: string | null
           hero_video_url?: string | null
           hook_en?: string | null
+          hook_es?: string | null
           hook_pt?: string | null
           lots_locked?: boolean
           meta_description_en?: string | null
+          meta_description_es?: string | null
           meta_description_pt?: string | null
           music_embed_url?: string | null
           offer_availability?: string | null
@@ -4577,6 +4591,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           urgency_message_en?: string | null
+          urgency_message_es?: string | null
           urgency_message_pt?: string | null
         }
         Relationships: [
@@ -5869,6 +5884,7 @@ export type Database = {
           created_at: string
           date: string
           description_en: string | null
+          description_es: string | null
           description_pt: string | null
           event_type: string
           format: string | null
@@ -5878,6 +5894,7 @@ export type Database = {
           last_sales_date: string | null
           location: string | null
           location_en: string | null
+          location_es: string | null
           location_pt: string | null
           management_type: string
           meta_audience_id: string | null
@@ -5901,6 +5918,7 @@ export type Database = {
           tickets_sold: number
           tickets_total: number
           title_en: string | null
+          title_es: string | null
           title_pt: string | null
           updated_at: string
           venue_directions_url: string | null
@@ -5921,6 +5939,7 @@ export type Database = {
           created_at?: string
           date: string
           description_en?: string | null
+          description_es?: string | null
           description_pt?: string | null
           event_type?: string
           format?: string | null
@@ -5930,6 +5949,7 @@ export type Database = {
           last_sales_date?: string | null
           location?: string | null
           location_en?: string | null
+          location_es?: string | null
           location_pt?: string | null
           management_type?: string
           meta_audience_id?: string | null
@@ -5953,6 +5973,7 @@ export type Database = {
           tickets_sold?: number
           tickets_total?: number
           title_en?: string | null
+          title_es?: string | null
           title_pt?: string | null
           updated_at?: string
           venue_directions_url?: string | null
@@ -5973,6 +5994,7 @@ export type Database = {
           created_at?: string
           date?: string
           description_en?: string | null
+          description_es?: string | null
           description_pt?: string | null
           event_type?: string
           format?: string | null
@@ -5982,6 +6004,7 @@ export type Database = {
           last_sales_date?: string | null
           location?: string | null
           location_en?: string | null
+          location_es?: string | null
           location_pt?: string | null
           management_type?: string
           meta_audience_id?: string | null
@@ -6005,6 +6028,7 @@ export type Database = {
           tickets_sold?: number
           tickets_total?: number
           title_en?: string | null
+          title_es?: string | null
           title_pt?: string | null
           updated_at?: string
           venue_directions_url?: string | null
@@ -11260,10 +11284,13 @@ export type Database = {
           city_id: string | null
           city_name: string | null
           cta_primary_label_en: string | null
+          cta_primary_label_es: string | null
           cta_primary_label_pt: string | null
           date: string | null
           description_en: string | null
+          description_es: string | null
           description_long_en: string | null
+          description_long_es: string | null
           description_long_pt: string | null
           description_pt: string | null
           doors_time: string | null
@@ -11276,13 +11303,16 @@ export type Database = {
           hero_image_url: string | null
           hero_video_url: string | null
           hook_en: string | null
+          hook_es: string | null
           hook_pt: string | null
           id: string | null
           is_endorsement: boolean | null
           is_past: boolean | null
           location_en: string | null
+          location_es: string | null
           location_pt: string | null
           meta_description_en: string | null
+          meta_description_es: string | null
           meta_description_pt: string | null
           meta_pixel_id: string | null
           music_embed_url: string | null
@@ -11305,8 +11335,10 @@ export type Database = {
           ticket_lots: Json | null
           ticketing_url: string | null
           title_en: string | null
+          title_es: string | null
           title_pt: string | null
           urgency_message_en: string | null
+          urgency_message_es: string | null
           urgency_message_pt: string | null
           venue_directions_url: string | null
           venue_map_url: string | null
