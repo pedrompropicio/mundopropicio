@@ -54,6 +54,8 @@ const statusColor = (s: string) => {
   if (s === "success") return "default";
   if (s === "skipped_unchanged") return "secondary";
   if (s === "blocked") return "destructive";
+  if (s === "blocked_disabled") return "destructive";
+
   if (s === "failed") return "destructive";
   if (s === "running") return "outline";
   return "secondary";
