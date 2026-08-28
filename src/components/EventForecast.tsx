@@ -212,6 +212,7 @@ const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const savingRef = useRef(false);
+  const [showBPChanges, setShowBPChanges] = useState(false);
   const [dropConfirm, setDropConfirm] = useState<{ description: string; oldAmount: number; newAmount: number } | null>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
   
