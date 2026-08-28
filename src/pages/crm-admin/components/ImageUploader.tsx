@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { MARKETING_BUCKET } from "../constants";
 import { randomId } from "../lib/slug";
+import { getCurrentCompanyId } from "@/hooks/useCompany";
 
 interface Props {
   value: string | null;
@@ -44,8 +45,10 @@ export function ImageUploader({ value, onChange, label, aspectRatio = "16/9", hi
     }
     setUploading(true);
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error("Sem empresa ativa — não é possível carregar imagens.");
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
-      const path = `${randomId()}-${Date.now()}-${safeName}`;
+      const path = `${companyId}/${randomId()}-${Date.now()}-${safeName}`;
       const { error } = await supabase.storage
         .from(MARKETING_BUCKET)
         .upload(path, file, { contentType: file.type, upsert: false });

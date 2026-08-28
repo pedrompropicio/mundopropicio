@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { MARKETING_BUCKET } from "../constants";
 import { randomId } from "../lib/slug";
+import { getCurrentCompanyId } from "@/hooks/useCompany";
 
 interface Props {
   value: string[];
@@ -22,6 +23,11 @@ export function MultiImageUploader({ value, onChange, label, hint }: Props) {
     setUploading(true);
     const next: string[] = [...value];
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        toast.error("Sem empresa ativa — não é possível carregar imagens.");
+        return;
+      }
       for (const picked of Array.from(files)) {
         let file = picked;
         if (isHeicFile(picked)) {
@@ -42,7 +48,7 @@ export function MultiImageUploader({ value, onChange, label, hint }: Props) {
           continue;
         }
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
-        const path = `${randomId()}-${Date.now()}-${safeName}`;
+        const path = `${companyId}/${randomId()}-${Date.now()}-${safeName}`;
         const { error } = await supabase.storage
           .from(MARKETING_BUCKET)
           .upload(path, file, { contentType: file.type, upsert: false });
