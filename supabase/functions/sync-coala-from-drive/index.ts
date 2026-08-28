@@ -261,6 +261,27 @@ Deno.serve(async (req) => {
       if (!baseRun) return json({ error: "Run base não encontrada" }, 404);
       const { data: cfg } = await admin.from("coala_sync_config").select("*").eq("id", baseRun.config_id).maybeSingle();
       if (!cfg) return json({ error: "Config não encontrada" }, 404);
+      // P0 — guarda de `enabled` também neste caminho (retorna antes da guarda geral).
+      if (cfg.enabled === false) {
+        await admin.from("coala_sync_runs").insert({
+          config_id: cfg.id,
+          event_id: cfg.event_id,
+          company_id: cfg.company_id,
+          mode,
+          triggered_by: triggeredBy,
+          status: "blocked_disabled",
+          triggered_user_id: authedUserId,
+          finished_at: new Date().toISOString(),
+          error_message: "Config desativada (enabled = false) — auto_apply não executado",
+          diff: { blocked: true, reason: "config_disabled", entry: "auto_apply", basedOnRunId },
+        });
+        await admin.from("coala_sync_config").update({
+          last_run_at: new Date().toISOString(),
+          last_run_status: "blocked_disabled",
+        }).eq("id", cfg.id);
+        return json({ ok: true, status: "blocked_disabled", reason: "config_disabled" });
+      }
+
       const tok = await getDriveAccessToken();
       const buf = await downloadDriveXlsx(cfg.drive_file_id, tok);
       const fileBase64 = arrayBufferToBase64(buf);
