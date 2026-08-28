@@ -88,8 +88,9 @@ export function ReactivateCampaignDialog({
           </Button>
           <Button size="sm" onClick={handleConfirm} disabled={loading}>
             {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            Reactivar
+            {hasRunBefore ? "Reactivar" : "Activar"}
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
