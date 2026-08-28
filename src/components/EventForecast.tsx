@@ -1590,11 +1590,31 @@ const descRef = useRef<HTMLInputElement>(null);
     });
   };
 
-  const handleInlineSave = () => {
-if (savingRef.current || saveMutation.isPending) return;
+  const handleInlineSave = (opts?: { confirmedDrop?: boolean }) => {
+    if (savingRef.current || saveMutation.isPending) return;
     if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
+    }
+    const parsedAmount = parseFloat(inlineForm.amount);
+    if (!Number.isFinite(parsedAmount)) {
+      toast({ title: "Valor inválido", description: "Introduza um valor numérico válido.", variant: "destructive" });
+      return;
+    }
+    // Confirmação de queda: só em EDIÇÃO de linha aprovada, valor antigo > 0
+    // e valor novo 0 ou queda >= 70%. O latch NÃO é armado aqui — só depois
+    // de confirmar — para que cancelar não bloqueie a gravação.
+    if (!opts?.confirmedDrop && editingId) {
+      const existing = forecasts.find((f: any) => f.id === editingId);
+      const oldAmount = Number(existing?.amount ?? 0);
+      if (existing?.status === "approved" && oldAmount > 0 && (parsedAmount === 0 || parsedAmount <= oldAmount * 0.3)) {
+        setDropConfirm({
+          description: existing.description || inlineForm.description,
+          oldAmount,
+          newAmount: parsedAmount,
+        });
+        return;
+      }
     }
     savingRef.current = true;
     saveMutation.mutate(
@@ -1606,6 +1626,7 @@ if (savingRef.current || saveMutation.isPending) return;
       }
     );
   };
+
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
