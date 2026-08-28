@@ -2097,7 +2097,7 @@ const descRef = useRef<HTMLInputElement>(null);
               </button>
             )}
             <button
-              onClick={handleInlineSave}
+              onClick={() => handleInlineSave()}
               disabled={saveMutation.isPending}
               className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
               title="Guardar (Enter)"
@@ -2608,7 +2608,7 @@ const descRef = useRef<HTMLInputElement>(null);
                                   </td>
                                   <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
-                                      <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => handleInlineSave()} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                                       <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
                                     </div>
                                   </td>
@@ -2887,7 +2887,7 @@ const descRef = useRef<HTMLInputElement>(null);
                                   </td>
                                   <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
-                                      <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => handleInlineSave()} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                                       <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
                                     </div>
                                   </td>
