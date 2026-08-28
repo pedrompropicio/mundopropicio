@@ -886,6 +886,10 @@ function TicketLotsEditor({
             <Field label="Name (EN)">
               <Input value={it.label_en} onChange={(e) => update(idx, { label_en: e.target.value })} placeholder="e.g.: 2nd Batch" />
             </Field>
+            <Field label="Label ES" hint="opcional">
+              <Input value={it.label_es ?? ""} onChange={(e) => update(idx, { label_es: e.target.value })} placeholder="ej.: 2ª Tanda" />
+            </Field>
+
             <Field label="Preço €" hint="opcional">
               <Input
                 type="number"
