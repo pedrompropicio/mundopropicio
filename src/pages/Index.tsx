@@ -158,9 +158,9 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const aggQtyYesterday = children.reduce((s, c) => s + c.qtyYesterday, 0);
     const aggQtyLast7d = children.reduce((s, c) => s + c.qtyLast7d, 0);
 
-    // Zonas NÃO são agregadas na linha-mãe: o nome de uma zona só é único
+    // Zonas dos filhos NÃO são agregadas na mãe: o nome de uma zona só é único
     // dentro de uma sala, pelo que somar por nome entre cidades inventa zonas.
-    // A tabela "Por zona" mostra-se apenas nas linhas-filhas.
+    // A mãe mostra apenas as suas próprias zonas (se as tiver).
 
 
     // If the parent itself has own data (from parentInList), add it
