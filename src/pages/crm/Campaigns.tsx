@@ -173,7 +173,7 @@ export default function CrmCampaigns() {
           triggered_by: "user_manual",
           reason_text: reasonText ?? null,
         }],
-        { title: "Ativar campanha", description: "A campanha vai começar a gastar imediatamente." },
+        { title: "Ativar campanha", description: "A campanha vai começar a gastar verba do Meta." },
       );
       if (r.ok > 0) {
         qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
