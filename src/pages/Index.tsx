@@ -613,7 +613,7 @@ export default function Dashboard() {
                   event.isParent
                     ? "border-2 border-primary/40 bg-primary/5"
                     : event.isChild
-                    ? "border border-primary/10 ml-6 lg:ml-10"
+                    ? "border border-primary/10 ml-3 sm:ml-6 lg:ml-10"
                     : "border border-primary/20"
                 }`}
               >
