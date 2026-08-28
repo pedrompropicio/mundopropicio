@@ -58,6 +58,12 @@ export interface EventMarketingRow {
   age_rating: string | null;
   ticket_lots: TicketLot[] | null;
   doors_time: string | null;
+  hook_es: string | null;
+  description_long_es: string | null;
+  meta_description_es: string | null;
+  cta_primary_label_es: string | null;
+  urgency_message_es: string | null;
+
 
   created_by: string | null;
   updated_by: string | null;
