@@ -11700,6 +11700,11 @@ export type Database = {
           oldest_kept: string
         }[]
       }
+      coala_send_early_bird_batch: {
+        Args: { p_dry_run?: boolean; p_limit?: number }
+        Returns: Json
+      }
+      coala_unsub_token: { Args: { p_email: string }; Returns: string }
       compute_ticket_type_for_lot: {
         Args: {
           p_applies_to_days: number
