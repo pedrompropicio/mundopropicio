@@ -15,3 +15,21 @@ export function lisbonToday(): Date {
   const [y, m, d] = lisbonTodayISO().split("-").map(Number);
   return new Date(y, m - 1, d);
 }
+
+/**
+ * Formata um timestamp (ISO/UTC) como data e hora em Europe/Lisbon,
+ * no formato pt-PT `DD/MM/YYYY, HH:mm`.
+ */
+export function formatLisbonDateTime(value?: string | Date | null): string {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("pt-PT", {
+    timeZone: "Europe/Lisbon",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
