@@ -360,7 +360,28 @@ export default function EventMarketingEditor() {
                 />
               </Field>
             </div>
+            <EsSection>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Hook (ES)">
+                  <Textarea
+                    value={form!.hook_es ?? ""}
+                    onChange={(e) => set("hook_es", e.target.value || null)}
+                    rows={2}
+                    placeholder={ph(inherited?.hook_es)}
+                  />
+                </Field>
+                <Field label="Descripción larga (ES)">
+                  <Textarea
+                    value={form!.description_long_es ?? ""}
+                    onChange={(e) => set("description_long_es", e.target.value || null)}
+                    rows={8}
+                    placeholder={ph(inherited?.description_long_es)}
+                  />
+                </Field>
+              </div>
+            </EsSection>
           </Card>
+
         </TabsContent>
 
         <TabsContent value="imagens">
