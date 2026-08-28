@@ -1571,17 +1571,83 @@ Deno.serve(async (req) => {
       );
       const hasLinkedTx = (f: any) => !!f?.transaction_id || txLinkedFcIds.has(f?.id);
 
-      // Apagar transações (excepto as ligadas a patrocínios e as de A&B)
-      const txIds = (existingTxs || [])
-        .filter((t: any) => !isAbRow(t))
-        .map((t: any) => t.id)
-        .filter((id: string) => !protectedTxIds.has(id));
+      // P0: uma transação com SINAIS DE VIDA REAL nunca é apagada por um
+      // reimport. Não existe marca de proveniência na própria transação
+      // (`transactions` não tem `import_batch_id`; só `coala_import_runs`
+      // guarda arrays `created_transaction_ids` por run, o que não cobre
+      // transações criadas por scripts/rebuilds/mão humana). Logo aplica-se a
+      // regra conservadora: protege-se tudo o que tenha vida.
+      // LIDO ANTES DE QUALQUER DELETE — o ON DELETE SET NULL de `forecast_id`
+      // faria a proteção (1) evaporar-se a meio da limpeza.
+      const { data: txLifeRows } = await admin
+        .from("transactions")
+        .select("id, amount, status, paid_amount, forecast_id, settlement_id, invoice_group_id, parent_transaction_id")
+        .eq("event_id", eventId);
+      const anchorTxIds = new Set<string>(
+        ((existingFcs || []) as any[])
+          .map((f) => f.transaction_id)
+          .filter((x: unknown): x is string => typeof x === "string"),
+      );
+      const parentTxIds = new Set<string>(
+        ((txLifeRows || []) as any[])
+          .map((t) => t.parent_transaction_id)
+          .filter((x: unknown): x is string => typeof x === "string"),
+      );
+      const candidateIds = ((existingTxs || []) as any[])
+        .filter((t) => !isAbRow(t))
+        .map((t) => t.id as string)
+        .filter((id) => !protectedTxIds.has(id));
+      const docTxIds = new Set<string>();
+      for (let i = 0; i < candidateIds.length; i += 200) {
+        const { data: docs } = await admin
+          .from("transaction_documents")
+          .select("transaction_id")
+          .in("transaction_id", candidateIds.slice(i, i + 200));
+        for (const d of (docs || []) as any[]) {
+          if (d.transaction_id) docTxIds.add(d.transaction_id as string);
+        }
+      }
+      const txLifeById = new Map<string, any>(((txLifeRows || []) as any[]).map((t) => [t.id as string, t]));
+      const preservedReasons = {
+        forecast_link: 0,
+        bp_anchor: 0,
+        paid: 0,
+        settlement_or_invoice_group: 0,
+        has_children: 0,
+        has_documents: 0,
+      };
+      const preservedTx: Array<{ id: string; amount: number; reasons: string[] }> = [];
+      const txIds: string[] = [];
+      for (const id of candidateIds) {
+        const t = txLifeById.get(id) ?? {};
+        const reasons: string[] = [];
+        if (t.forecast_id) reasons.push("forecast_link");
+        if (anchorTxIds.has(id)) reasons.push("bp_anchor");
+        if (t.status === "paid" || Number(t.paid_amount ?? 0) > 0) reasons.push("paid");
+        if (t.settlement_id || t.invoice_group_id) reasons.push("settlement_or_invoice_group");
+        if (parentTxIds.has(id)) reasons.push("has_children");
+        if (docTxIds.has(id)) reasons.push("has_documents");
+        if (reasons.length === 0) {
+          txIds.push(id);
+          continue;
+        }
+        for (const r of reasons) (preservedReasons as any)[r] += 1;
+        preservedTx.push({ id, amount: Number(t.amount ?? 0), reasons });
+      }
+      const preservedTxSum = +preservedTx.reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2);
+      if (preservedTx.length > 0) {
+        console.log(
+          `reset_reimport: ${preservedTx.length} transações PRESERVADAS (${preservedTxSum} €) por sinais de vida real`,
+          preservedReasons,
+        );
+      }
       if (txIds.length > 0) {
         const { error: delTxErr } = await admin.from("transactions").delete().in("id", txIds);
         if (delTxErr) {
           return json({ error: `Falha a apagar transações: ${delTxErr.message}` }, 500);
         }
       }
+
 
       // Apagar event_forecasts (excepto patrocínios, A&B e linhas com TX vinculada)
       const fcIdsToDelete = (existingFcs || [])
