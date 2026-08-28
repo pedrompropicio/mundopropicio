@@ -846,11 +846,15 @@ const descRef = useRef<HTMLInputElement>(null);
         if (error) throw error;
         return;
       }
+      const parsedAmount = parseFloat(form.amount);
+      if (!Number.isFinite(parsedAmount)) {
+        throw new Error("Valor inválido. Introduza um número.");
+      }
       const payload: any = {
         event_id: eventId,
         type: form.type,
         description: form.description,
-        amount: parseFloat(form.amount) || 0,
+        amount: parsedAmount,
         iva_rate: form.iva_rate !== "" ? parseInt(form.iva_rate) : 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
