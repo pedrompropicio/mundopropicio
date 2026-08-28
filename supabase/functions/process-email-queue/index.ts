@@ -118,13 +118,17 @@ async function moveToDlq(
   reason: string
 ): Promise<void> {
   const payload = msg.message
-  await supabase.from('email_send_log').insert({
+  const { error: logError } = await supabase.from('email_send_log').insert({
     message_id: payload.message_id,
     template_name: (payload.label || queue) as string,
     recipient_email: payload.to,
     status: 'dlq',
     error_message: reason,
+    company_id: payload.company_id ?? null,
   })
+  if (logError) {
+    console.error('Failed to log DLQ move', { queue, msg_id: msg.msg_id, reason, error: logError })
+  }
   const { error } = await supabase.rpc('move_to_dlq', {
     source_queue: queue,
     dlq_name: `${queue}_dlq`,
@@ -303,6 +307,48 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Guarda de supressão: nunca enviar para quem cancelou, deu bounce ou foi
+      // suprimido manualmente. A lista é por empresa; sem company_id no payload,
+      // verificamos o email em qualquer empresa (conservador).
+      if (payload.to) {
+        const recipient = String(payload.to).toLowerCase().trim()
+        let suppressionQuery = supabase
+          .from('suppressed_emails')
+          .select('reason')
+          .eq('email', recipient)
+        if (payload.company_id) {
+          suppressionQuery = suppressionQuery.eq('company_id', payload.company_id)
+        }
+        const { data: suppressed, error: suppressionError } = await suppressionQuery.maybeSingle()
+
+        if (suppressionError) {
+          console.error('Suppression check failed', { queue, msg_id: msg.msg_id, error: suppressionError })
+          // Em caso de erro na verificação, não enviamos: falhar em silêncio para o
+          // lado do envio seria pior do que atrasar a mensagem.
+          continue
+        }
+
+        if (suppressed) {
+          console.warn('Skipping suppressed recipient', { queue, msg_id: msg.msg_id, reason: suppressed.reason })
+          const { error: logError } = await supabase.from('email_send_log').insert({
+            message_id: payload.message_id,
+            template_name: payload.label || queue,
+            recipient_email: payload.to,
+            status: 'suppressed',
+            error_message: `Recipient is suppressed (${suppressed.reason})`,
+            company_id: payload.company_id ?? null,
+          })
+          if (logError) console.error('Failed to log suppressed send', { error: logError })
+
+          const { error: delError } = await supabase.rpc('delete_email', {
+            queue_name: queue,
+            message_id: msg.msg_id,
+          })
+          if (delError) console.error('Failed to delete suppressed message from queue', { queue, msg_id: msg.msg_id, error: delError })
+          continue
+        }
+      }
+
       const senderDomain = typeof payload.sender_domain === 'string' ? payload.sender_domain : ''
       const resendEnvVar = RESEND_DOMAINS[senderDomain]
 
@@ -337,12 +383,14 @@ Deno.serve(async (req) => {
         }
 
         // Log success
-        await supabase.from('email_send_log').insert({
+        const { error: logError } = await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
+          company_id: payload.company_id ?? null,
         })
+        if (logError) console.error('Failed to log sent email', { queue, msg_id: msg.msg_id, error: logError })
 
         // Delete from queue
         const { error: delError } = await supabase.rpc('delete_email', {
@@ -364,13 +412,15 @@ Deno.serve(async (req) => {
         })
 
         if (isRateLimited(error)) {
-          await supabase.from('email_send_log').insert({
+          const { error: logError } = await supabase.from('email_send_log').insert({
             message_id: payload.message_id,
             template_name: payload.label || queue,
             recipient_email: payload.to,
             status: 'rate_limited',
             error_message: errorMsg.slice(0, 1000),
+            company_id: payload.company_id ?? null,
           })
+          if (logError) console.error('Failed to log rate_limited email', { queue, msg_id: msg.msg_id, error: logError })
 
           const retryAfterSecs = getRetryAfterSeconds(error)
           await supabase
@@ -404,13 +454,15 @@ Deno.serve(async (req) => {
         }
 
         // Log non-429 failures to track real retry attempts.
-        await supabase.from('email_send_log').insert({
+        const { error: logError } = await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'failed',
           error_message: errorMsg.slice(0, 1000),
+          company_id: payload.company_id ?? null,
         })
+        if (logError) console.error('Failed to log failed email', { queue, msg_id: msg.msg_id, error: logError })
         if (payload?.message_id && typeof payload.message_id === 'string') {
           failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
         }

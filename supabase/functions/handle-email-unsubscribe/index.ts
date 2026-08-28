@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     .from('suppressed_emails')
     .upsert(
       { email: tokenRecord.email.toLowerCase(), reason: 'unsubscribe', company_id: tokenRecord.company_id },
-      { onConflict: 'email' },
+      { onConflict: 'email,company_id' },
     )
 
   if (suppressError) {
