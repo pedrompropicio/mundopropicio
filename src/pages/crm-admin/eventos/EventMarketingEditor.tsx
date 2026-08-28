@@ -489,7 +489,27 @@ export default function EventMarketingEditor() {
                 />
               </Field>
             </div>
+            <EsSection>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="CTA primario (ES)">
+                  <Input
+                    value={form!.cta_primary_label_es ?? ""}
+                    onChange={(e) => set("cta_primary_label_es", e.target.value || null)}
+                    placeholder={ph(inherited?.cta_primary_label_es)}
+                  />
+                </Field>
+                <Field label="Mensaje de urgencia (ES)">
+                  <Textarea
+                    value={form!.urgency_message_es ?? ""}
+                    onChange={(e) => set("urgency_message_es", e.target.value || null)}
+                    rows={2}
+                    placeholder={ph(inherited?.urgency_message_es)}
+                  />
+                </Field>
+              </div>
+            </EsSection>
           </Card>
+
         </TabsContent>
 
         <TabsContent value="imprensa">
