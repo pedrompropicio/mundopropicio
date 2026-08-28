@@ -58,6 +58,7 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
+import { BPRecentChangesSheet } from "@/components/bp/BPRecentChangesSheet";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import { exportCommittedBpToPDF } from "@/lib/export-bp-committed-pdf";
 import { exportCommittedBpToXLSX } from "@/lib/export-bp-committed-xlsx";
@@ -3135,6 +3136,9 @@ const descRef = useRef<HTMLInputElement>(null);
           masterEventId={eventId}
           childEventIds={childEventIds}
         />
+      )}
+      {(isAdmin || isManager) && (
+        <BPRecentChangesSheet eventId={eventId} open={showBPChanges} onOpenChange={setShowBPChanges} />
       )}
       <BPImportModeDialog
         open={showImportMode}
