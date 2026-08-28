@@ -277,16 +277,14 @@ export default function CoalaSync() {
                         >
                           <RefreshCw className="h-3 w-3 mr-1" /> Dry-run
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (!confirm("Aplicar sync? Vai reescrever o BP/TX a partir do ficheiro do Drive (snapshot automático antes).")) return;
-                            runMut.mutate({ configId: c.id, mode: "apply" });
-                          }}
-                          disabled={runMut.isPending}
-                        >
-                          <Play className="h-3 w-3 mr-1" /> Apply
-                        </Button>
+                        <CoalaApplyButton
+                          eventId={c.event_id}
+                          enabled={c.enabled}
+                          autoApplyEnabled={c.auto_apply_enabled !== false}
+                          pending={runMut.isPending}
+                          onConfirm={() => runMut.mutate({ configId: c.id, mode: "apply" })}
+                        />
+
                       </TableCell>
                     </TableRow>
                   );
