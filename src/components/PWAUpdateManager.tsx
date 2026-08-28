@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useIsMutating } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { subscribeToPWAControllerChange } from "@/lib/pwa";
-import { applyUpdate, subscribeToNewVersion } from "@/lib/versionCheck";
+import { applyUpdate, claimReloadGuard, subscribeToNewVersion } from "@/lib/versionCheck";
 
 const UPDATE_TOAST_ID = "pwa-update-available";
 
@@ -13,12 +13,13 @@ function hasOpenDialog() {
 export function PWAUpdateManager() {
   const activeMutations = useIsMutating();
 
-  // Ponto ÚNICO de decisão de recarregamento: tanto o service worker como o
-  // poller do version.json passam por aqui.
-  const handleNewVersion = useCallback(
-    (buildId?: string) => {
-      if (activeMutations === 0 && !hasOpenDialog()) {
-        void applyUpdate(buildId);
+  const isBusy = activeMutations > 0 || hasOpenDialog();
+
+  // Ponto ÚNICO de decisão: recarrega agora, ou oferece o toast.
+  const requestReload = useCallback(
+    (reload: () => void) => {
+      if (!isBusy) {
+        reload();
         return;
       }
 
@@ -27,20 +28,29 @@ export function PWAUpdateManager() {
         duration: Infinity,
         action: {
           label: "Atualizar",
-          onClick: () => void applyUpdate(buildId),
+          onClick: reload,
         },
       });
     },
-    [activeMutations],
+    [isBusy],
   );
 
+  // Service worker: os assets já estão frescos, basta um reload simples.
   useEffect(() => {
-    return subscribeToPWAControllerChange(() => handleNewVersion());
-  }, [handleNewVersion]);
+    return subscribeToPWAControllerChange(() =>
+      requestReload(() => {
+        if (claimReloadGuard()) {
+          window.location.reload();
+        }
+      }),
+    );
+  }, [requestReload]);
 
+  // Poller do version.json: precisa do cache-busting agressivo.
   useEffect(() => {
-    return subscribeToNewVersion((buildId) => handleNewVersion(buildId));
-  }, [handleNewVersion]);
+    return subscribeToNewVersion((buildId) => requestReload(() => void applyUpdate(buildId)));
+  }, [requestReload]);
 
   return null;
 }
+

@@ -2,7 +2,9 @@
 declare const __BUILD_ID__: string;
 
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
-const RELOADED_BUILD_KEY = "mp_reloaded_build_id";
+// Chave baseada no build EM EXECUÇÃO: cada versão só pode provocar um
+// recarregamento por sessão, venha ele do service worker ou do version.json.
+const RELOAD_GUARD_KEY = `mp_reloaded_from_${__BUILD_ID__}`;
 
 type NewVersionListener = (buildId: string) => void;
 
@@ -23,17 +25,32 @@ export function subscribeToNewVersion(listener: NewVersionListener) {
 }
 
 /**
- * Único caminho de recarregamento da app. Fura a cache do documento (Safari
- * serve o index.html da própria cache HTTP) apagando caches, desregistando
- * service workers e navegando com um parâmetro de cache-busting.
+ * Marca (uma única vez por sessão e por build em execução) que já provocámos um
+ * recarregamento. Devolve false se já tinha sido marcado — nesse caso NÃO se
+ * deve recarregar, para tornar impossível um ciclo.
  */
-export async function applyUpdate(buildId?: string) {
+export function claimReloadGuard() {
   try {
-    if (buildId) {
-      sessionStorage.setItem(RELOADED_BUILD_KEY, buildId);
+    if (sessionStorage.getItem(RELOAD_GUARD_KEY)) {
+      return false;
     }
+    sessionStorage.setItem(RELOAD_GUARD_KEY, "1");
   } catch {
     // sessionStorage indisponível — segue em frente.
+  }
+  return true;
+}
+
+/**
+ * Recarregamento com cache-busting agressivo (usado pelo poller do
+ * version.json). Fura a cache do documento (Safari serve o index.html da
+ * própria cache HTTP) apagando caches e navegando com um parâmetro `?v=`.
+ * NÃO desregista service workers — isso provocaria um ciclo de
+ * registo/controllerchange.
+ */
+export async function applyUpdate(buildId?: string) {
+  if (!claimReloadGuard()) {
+    return;
   }
 
   try {
@@ -45,27 +62,11 @@ export async function applyUpdate(buildId?: string) {
     // ignora
   }
 
-  try {
-    if ("serviceWorker" in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
-    }
-  } catch {
-    // ignora
-  }
-
   const url = new URL(window.location.href);
   url.searchParams.set("v", buildId ?? String(Date.now()));
   window.location.replace(url.toString());
 }
 
-function alreadyReloadedFor(buildId: string) {
-  try {
-    return sessionStorage.getItem(RELOADED_BUILD_KEY) === buildId;
-  } catch {
-    return false;
-  }
-}
 
 function notify(buildId: string) {
   pendingBuildId = buildId;
@@ -86,7 +87,7 @@ async function checkVersion() {
     const data = (await response.json()) as { buildId?: string };
     const remoteBuildId = data?.buildId;
 
-    if (!remoteBuildId || remoteBuildId === __BUILD_ID__ || alreadyReloadedFor(remoteBuildId)) {
+    if (!remoteBuildId || remoteBuildId === __BUILD_ID__) {
       return;
     }
 
