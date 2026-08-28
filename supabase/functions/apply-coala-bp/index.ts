@@ -1552,6 +1552,25 @@ Deno.serve(async (req) => {
           .filter((x: unknown): x is string => typeof x === "string"),
       );
 
+      // P0: linhas de BP COM TRANSAÇÃO VINCULADA nunca são apagadas por um
+      // reimport (mesma proteção que o caminho `syncMode === "replace"` aplica
+      // em `if (f.transaction_id) return false;`).
+      // Cobre OS DOIS LADOS do vínculo:
+      //  (a) âncora legada `event_forecasts.transaction_id`;
+      //  (b) coluna canónica `transactions.forecast_id` (N TX por linha de BP,
+      //      onde a âncora pode estar a NULL).
+      // Calculado ANTES de apagar transações — apagar a TX faria
+      // `forecast_id` cair a NULL (ON DELETE SET NULL) e a proteção evaporava.
+      const { data: txFcLinks } = await admin
+        .from("transactions")
+        .select("forecast_id")
+        .eq("event_id", eventId)
+        .not("forecast_id", "is", null);
+      const txLinkedFcIds = new Set<string>(
+        (txFcLinks || []).map((t: any) => t.forecast_id).filter((x: unknown): x is string => typeof x === "string"),
+      );
+      const hasLinkedTx = (f: any) => !!f?.transaction_id || txLinkedFcIds.has(f?.id);
+
       // Apagar transações (excepto as ligadas a patrocínios e as de A&B)
       const txIds = (existingTxs || [])
         .filter((t: any) => !isAbRow(t))
@@ -1564,11 +1583,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Apagar event_forecasts (excepto os ligados a patrocínios e os de A&B)
+      // Apagar event_forecasts (excepto patrocínios, A&B e linhas com TX vinculada)
       const fcIdsToDelete = (existingFcs || [])
         .filter((f: any) => !isAbRow(f))
+        .filter((f: any) => !hasLinkedTx(f))
         .map((f: any) => f.id)
         .filter((id: string) => !protectedFcIds.has(id));
+
 
       if (fcIdsToDelete.length > 0) {
         const { error: delFcErr } = await admin
