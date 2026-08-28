@@ -212,7 +212,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
       qtyLast7d: aggQtyLast7d + ownQtyLast7d,
       lastSaleAmount: lastSale?.amount ?? null,
       lastSaleDate: lastSale?.date ?? null,
-      zones: Object.values(zoneMap).sort((a, b) => b.revenue - a.revenue),
+      zones: [],
       isParent: true,
       isChild: false,
       childCount: children.length,
