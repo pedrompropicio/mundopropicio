@@ -117,7 +117,7 @@ export function useGlobalModalScrollLock() {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ["class", "style", "data-state"],
+      attributeFilter: ["class", "style", "data-state", "data-scroll-locked"],
     });
 
     syncScrollLock();
