@@ -208,9 +208,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [exportingCommittedPDF, setExportingCommittedPDF] = useState(false);
   const [exportingCommittedXLSX, setExportingCommittedXLSX] = useState(false);
 
-  const descRef = useRef<HTMLInputElement>(null);
+const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
   const [attachingLinks, setAttachingLinks] = useState(false);
   
   const [showImportMode, setShowImportMode] = useState(false);
