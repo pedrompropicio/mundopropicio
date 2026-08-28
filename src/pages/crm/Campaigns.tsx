@@ -1201,12 +1201,14 @@ export default function CrmCampaigns() {
         open={reactivateDialogOpen}
         onOpenChange={setReactivateDialogOpen}
         campaignName={reactivateCampaign?.name}
+        hasRunBefore={reactivateHasRunBefore}
         onConfirm={(reason) =>
           reactivateCampaign
             ? toggleCampaignStatus(reactivateCampaign, "ACTIVE", reason)
             : Promise.resolve()
         }
       />
+
     </div>
     </DashboardTableContext.Provider>
     </BudgetModeContext.Provider>
