@@ -235,6 +235,24 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   });
 
   const isExpense = forecast.type === "expense";
+  const [dropConfirm, setDropConfirm] = useState(false);
+
+  // Confirmação adicional quando uma linha aprovada cai a 0 ou >= 70%.
+  const attemptSave = () => {
+    if (editMutation.isPending) return;
+    const oldAmount = Number(forecast.amount) || 0;
+    const newAmount = Math.round(eurAmount * 100) / 100;
+    if (
+      forecast.status === "approved" &&
+      oldAmount > 0 &&
+      (newAmount === 0 || newAmount <= oldAmount * 0.3)
+    ) {
+      setDropConfirm(true);
+      return;
+    }
+    editMutation.mutate();
+  };
+
   const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
   const backdrop = useBackdropClose(onClose);
 
