@@ -71,8 +71,13 @@ const emptyForm = (eventId: string, companyId: string): FormState => ({
   age_rating: null,
   ticket_lots: [],
   doors_time: null,
-
+  hook_es: null,
+  description_long_es: null,
+  meta_description_es: null,
+  cta_primary_label_es: null,
+  urgency_message_es: null,
 });
+
 
 export default function EventMarketingEditor() {
   const { eventId = "" } = useParams();
