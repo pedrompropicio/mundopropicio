@@ -1587,12 +1587,20 @@ const descRef = useRef<HTMLInputElement>(null);
   };
 
   const handleInlineSave = () => {
-    if (saveMutation.isPending) return;
+if (savingRef.current || saveMutation.isPending) return;
     if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
     }
-    saveMutation.mutate({ form: inlineForm, id: editingId });
+    savingRef.current = true;
+    saveMutation.mutate(
+      { form: inlineForm, id: editingId },
+      {
+        onSettled: () => {
+          savingRef.current = false;
+        },
+      }
+    );
   };
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
