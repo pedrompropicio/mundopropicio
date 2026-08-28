@@ -38,6 +38,11 @@ verify_jwt = false
 [functions.vip-coupon-email]
 verify_jwt = true
 
+# Importação de imagens por URL para o portal. Só é chamada com a service_role
+# key (via net.http_post/manual); a função compara o Bearer com a service key.
+[functions.portal-media-import]
+verify_jwt = true
+
 # Chamada pelo destinatário a partir do próprio email (one-click RFC 8058, sem
 # JWT) e pela página /unsubscribe do portal. A autorização é o token opaco de
 # 32 bytes que vem no URL — não há dados expostos sem ele.
