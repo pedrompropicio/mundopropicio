@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { linkTransactionToForecast } from "@/lib/bp-line-relink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -26,6 +27,7 @@ interface Tx {
   supplier_id: string | null;
   date: string | null;
   due_date: string | null;
+  forecast_id?: string | null;
 }
 interface Forecast {
   id: string;
@@ -38,8 +40,9 @@ interface Forecast {
 }
 
 function classify(tx: Tx, eventForecasts: Forecast[], cats: CatNode[]): "ambig" | "l2only" | "outside" | null {
+  // Fase 2: uma linha do BP aceita N transações — não há "linha livre".
   const sameCatFree = eventForecasts.filter(
-    (f) => f.category_id === tx.category_id && f.type === tx.type && f.transaction_id === null,
+    (f) => f.category_id === tx.category_id && f.type === tx.type,
   );
   if (sameCatFree.length >= 2) return "ambig";
   if (sameCatFree.length === 1) return "ambig"; // 1:1 should already be backfilled; treat residual as ambig
@@ -111,7 +114,7 @@ export default function ReconciliacaoBpTx() {
     queryFn: async () => {
       let q = supabase
         .from("transactions")
-        .select("id, description, amount, type, event_id, category_id, supplier_id, date, due_date")
+        .select("id, description, amount, type, event_id, category_id, supplier_id, date, due_date, forecast_id")
         .eq("company_id", companyId!)
         .not("event_id", "is", null)
         .not("category_id", "is", null);
@@ -120,8 +123,9 @@ export default function ReconciliacaoBpTx() {
       if (dateTo) q = q.lte("date", dateTo);
       const { data, error } = await q.limit(2000);
       if (error) throw error;
-      // Excluir TXs já ligadas
-      const txs = (data ?? []) as Tx[];
+      // Excluir TXs já ligadas (coluna canónica forecast_id ∪ âncora legada)
+      const all = (data ?? []) as Tx[];
+      const txs = all.filter((t) => !t.forecast_id);
       if (txs.length === 0) return txs;
       const { data: linked, error: e2 } = await supabase
         .from("event_forecasts")
@@ -221,12 +225,7 @@ export default function ReconciliacaoBpTx() {
   // Mutations
   const linkMutation = useMutation({
     mutationFn: async ({ txId, forecastId }: { txId: string; forecastId: string }) => {
-      const { error } = await supabase
-        .from("event_forecasts")
-        .update({ transaction_id: txId })
-        .eq("id", forecastId)
-        .is("transaction_id", null);
-      if (error) throw error;
+      await linkTransactionToForecast({ transactionId: txId, forecastId });
     },
     onSuccess: () => {
       toast.success("Vinculado ao BP");
@@ -242,14 +241,7 @@ export default function ReconciliacaoBpTx() {
     // (Antes eram duas instruções em ordem obrigatória, porque o trigger
     // antigo bloqueava a TX enquanto o forecast ainda tinha a rubrica velha.)
     mutationFn: async ({ txId, forecastId }: { txId: string; forecastId: string; newCategoryId: string }) => {
-      const { data, error } = await supabase
-        .from("event_forecasts")
-        .update({ transaction_id: txId })
-        .eq("id", forecastId)
-        .is("transaction_id", null)
-        .select("id");
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error("A linha do BP já está vinculada a outra transação.");
+      await linkTransactionToForecast({ transactionId: txId, forecastId });
     },
     onSuccess: () => {
       toast.success("Categoria atualizada e vinculada ao BP");
@@ -276,6 +268,12 @@ export default function ReconciliacaoBpTx() {
         .select("id")
         .single();
       if (error) throw error;
+      // Escrita dupla: a coluna canónica na transação.
+      const { error: e2 } = await supabase
+        .from("transactions")
+        .update({ forecast_id: (ins as any).id } as any)
+        .eq("id", tx.id);
+      if (e2) throw e2;
       return ins;
     },
     onSuccess: () => {
@@ -390,7 +388,7 @@ export default function ReconciliacaoBpTx() {
             )}
             {classified.ambig.map((tx) => {
               const candidates = (forecastsQuery.data ?? []).filter(
-                (f) => f.event_id === tx.event_id && f.category_id === tx.category_id && f.type === tx.type && f.transaction_id === null,
+                (f) => f.event_id === tx.event_id && f.category_id === tx.category_id && f.type === tx.type,
               );
               const ranked = candidates
                 .map((c) => ({ c, score: similarity(c.description, tx.description) }))
@@ -448,7 +446,6 @@ export default function ReconciliacaoBpTx() {
                 (f) =>
                   f.event_id === tx.event_id &&
                   f.type === tx.type &&
-                  f.transaction_id === null &&
                   getL2Id(f.category_id, catsQuery.data ?? []) === txL2,
               );
               return (

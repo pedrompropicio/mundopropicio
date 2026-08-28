@@ -32,6 +32,7 @@ import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
+import { linkTransactionToForecast } from "@/lib/bp-line-relink";
 import { isCapitalCategoryCode, isCapitalCategoryId } from "@/lib/capital-branch";
 import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 
@@ -610,7 +611,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, category_id, amount, event_id")
+        .select("id, type, category_id, amount, event_id, forecast_id")
         .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
@@ -624,13 +625,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: masterLinkedTxIds = [] } = useQuery({
     queryKey: ["master_linked_tx_ids", effectiveEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fase 2: TXs vinculadas a linhas do Master contam por transactions.forecast_id
+      // (N por linha) em UNIÃO com a âncora legada event_forecasts.transaction_id.
+      const { data: fcs, error } = await supabase
         .from("event_forecasts")
-        .select("transaction_id")
+        .select("id, transaction_id")
         .eq("event_id", effectiveEventId!)
-        .not("transaction_id", "is", null).is("version_id", null);
+        .is("version_id", null);
       if (error) throw error;
-      return (data ?? []).map((r: any) => r.transaction_id as string);
+      const ids = new Set<string>();
+      for (const r of fcs ?? []) if ((r as any).transaction_id) ids.add((r as any).transaction_id);
+      const forecastIds = (fcs ?? []).map((r: any) => r.id);
+      if (forecastIds.length > 0) {
+        const { data: linkedTx, error: e2 } = await supabase
+          .from("transactions")
+          .select("id")
+          .in("forecast_id", forecastIds as any);
+        if (e2) throw e2;
+        for (const t of linkedTx ?? []) ids.add((t as any).id);
+      }
+      return [...ids];
     },
     enabled: !!effectiveEventId && hasPL && effectiveEvent?.event_type === "multi_day",
   });
@@ -1356,11 +1370,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
         // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
         if (insertedTx?.id && selectedForecastId) {
-          const { error: fkErr } = await supabase
-            .from("event_forecasts")
-            .update({ transaction_id: insertedTx.id } as any)
-            .eq("id", selectedForecastId)
-            .is("transaction_id", null); // não sobrepor vínculo existente
+          // Fase 2: escrita dupla — transactions.forecast_id (canónico, N:1) +
+          // âncora legada event_forecasts.transaction_id só se ainda estiver livre.
+          let fkErr: any = null;
+          try {
+            await linkTransactionToForecast({
+              transactionId: insertedTx.id,
+              forecastId: selectedForecastId,
+            });
+          } catch (e: any) {
+            fkErr = e;
+          }
           if (fkErr) {
             console.error("[BP FK link] failed", fkErr);
             toast({

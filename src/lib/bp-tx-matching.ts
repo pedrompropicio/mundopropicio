@@ -78,9 +78,22 @@ export function findMatchingTransactionsForForecast(
 ): any[] {
   if (!eventTransactions) return [];
 
-  const directTx = forecast?.transaction_id
-    ? eventTransactions.filter((t: any) => t.id === forecast.transaction_id)
-    : [];
+  // Fase 2 (2026-08-28): a chave canónica é transactions.forecast_id (N TXs por
+  // linha de BP). A âncora legada event_forecasts.transaction_id continua a ser
+  // escrita e lida (escrita dupla) — as duas fontes coexistem, de-duplicadas.
+  const directTx = (() => {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    for (const t of eventTransactions) {
+      const byNew = forecast?.id && t?.forecast_id === forecast.id;
+      const byLegacy = forecast?.transaction_id && t?.id === forecast.transaction_id;
+      if ((byNew || byLegacy) && !seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
+    }
+    return out;
+  })();
 
   const allowedEventIds = new Set(
     [forecast?.event_id, null, forecast?._master_event_id].filter((v) => v !== undefined),
@@ -107,7 +120,9 @@ export function findMatchingTransactionsForForecast(
     (t: any) =>
       t.category_id === forecast.category_id &&
       t.type === forecast.type &&
-      !claimedByOtherForecast.has(t.id),
+      !claimedByOtherForecast.has(t.id) &&
+      // TX explicitamente atribuída a OUTRA linha (coluna nova) não é reclamável.
+      !(t.forecast_id && t.forecast_id !== forecast?.id),
   );
   const sameCatForecasts = (allForecasts ?? []).filter(
     (f: any) =>
@@ -161,6 +176,11 @@ export function findCategoryOrphanTransactions(params: {
   // Back-links directos de QUALQUER linha (mesmo de outra categoria) contam como visíveis.
   for (const f of allForecasts ?? []) {
     if (f?.transaction_id) claimed.add(f.transaction_id);
+  }
+  // Vínculo directo pela coluna nova (transactions.forecast_id) também conta
+  // como visível — sem isto as TXs da Fase 2 caíam no balde de órfãs.
+  for (const t of transactions) {
+    if (t?.forecast_id) claimed.add(t.id);
   }
   for (const f of forecastsInCat) {
     for (const t of findMatchingTransactionsForForecast(f, transactions, allForecasts ?? [])) {

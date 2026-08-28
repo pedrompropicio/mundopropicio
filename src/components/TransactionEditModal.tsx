@@ -25,7 +25,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
-import { fetchBpLinesForCategory, relinkTransactionToForecast } from "@/lib/bp-line-relink";
+import { fetchBpLinesForCategory, relinkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
 import { isCapitalCategoryCode } from "@/lib/capital-branch";
 import {
   deletePartnerCapitalMove,
@@ -632,10 +632,15 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
       // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
       if (unlinkBpRequested && (linkedForecast as any)?.id) {
-        const { error: unlinkErr } = await supabase
-          .from("event_forecasts")
-          .update({ transaction_id: null } as any)
-          .eq("id", (linkedForecast as any).id);
+        let unlinkErr: any = null;
+        try {
+          await unlinkTransactionFromForecast({
+            transactionId: transaction.id,
+            forecastId: (linkedForecast as any).id,
+          });
+        } catch (e: any) {
+          unlinkErr = e;
+        }
         if (unlinkErr) {
           console.error("[BP unlink] failed", unlinkErr);
           toast({
@@ -741,11 +746,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: linkedForecast } = useQuery({
     queryKey: ["linked-forecast", transaction.id],
     queryFn: async () => {
+      // Fase 2: a linha vinculada resolve-se por transactions.forecast_id (N:1).
+      // Fallback para a âncora legada event_forecasts.transaction_id enquanto
+      // existirem TXs anteriores à Fase 1 sem a coluna nova preenchida.
+      const fid = (transaction as any).forecast_id as string | null | undefined;
+      if (fid) {
+        const { data, error } = await supabase
+          .from("event_forecasts")
+          .select("id, category_id, description, event_id")
+          .eq("id", fid)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) return data;
+      }
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, category_id, description, event_id")
         .eq("transaction_id", transaction.id)
         .is("version_id", null)
+        .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -1282,14 +1301,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
                     <option value="">— Sem linha específica (via rubrica)</option>
-                    {bpLines.map((l) => {
-                      const busy = !!l.transaction_id && l.transaction_id !== transaction.id;
-                      return (
-                        <option key={l.id} value={l.id} disabled={busy}>
-                          {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€{busy ? " (ocupada)" : ""}
-                        </option>
-                      );
-                    })}
+                    {bpLines.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€
+                      </option>
+                    ))}
                   </select>
                   {categoryChangedFromOriginal && !!linkedForecastId && linkedForecastCat !== form.category_id && (
                     <p className="mt-1 text-[10px] text-muted-foreground">
@@ -1345,14 +1361,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
                     <option value="">— Sem linha específica (via rubrica)</option>
-                    {bpLines.map((l) => {
-                      const busy = !!l.transaction_id && l.transaction_id !== transaction.id;
-                      return (
-                        <option key={l.id} value={l.id} disabled={busy}>
-                          {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€{busy ? " (ocupada)" : ""}
-                        </option>
-                      );
-                    })}
+                    {bpLines.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
