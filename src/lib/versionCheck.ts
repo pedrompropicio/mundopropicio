@@ -1,3 +1,6 @@
+// Injetado por `define` no vite.config.ts (um valor por build).
+declare const __BUILD_ID__: string;
+
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
 const RELOADED_BUILD_KEY = "mp_reloaded_build_id";
 
