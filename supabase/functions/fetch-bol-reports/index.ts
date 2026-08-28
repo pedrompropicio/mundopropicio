@@ -1117,6 +1117,8 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
         daily_total_value: dailyAudit?.daily_total_value ?? 0,
         daily: dailyAudit,
         daily_debug: dailyDebug,
+        zone_snapshot_rows: zoneSnapshotRows,
+        zone_snapshot_warning: zoneSnapshotWarning,
         debug,
         silentEmpty,
       },
