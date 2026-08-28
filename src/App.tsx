@@ -4,6 +4,7 @@ import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useGlobalModalScrollLock } from "@/hooks/useGlobalModalScrollLock";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 // Logo agora vem de BrandedLogo (suporta multi-empresa)
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -240,6 +241,7 @@ function ProtectedLayout() {
   const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
+  const isMobileViewport = useIsMobile();
   const isSwitchingCompany = useIsMutating({ mutationKey: ["set-active-company"] }) > 0;
   const location = useLocation();
   // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
