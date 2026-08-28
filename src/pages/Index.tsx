@@ -175,7 +175,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const ownLast7d = parentInList ? parentInList.salesLast7d : 0;
     const ownQtyYesterday = parentInList ? parentInList.qtyYesterday : 0;
     const ownQtyLast7d = parentInList ? parentInList.qtyLast7d : 0;
-    if (parentInList) addZones(parentInList.zones);
+    
 
     const totalCapacity = aggCapacity + ownCapacity;
     const totalSold = aggSold + ownSold;
