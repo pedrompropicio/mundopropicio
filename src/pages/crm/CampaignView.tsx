@@ -806,6 +806,17 @@ export default function CrmCampaignView() {
     return { spend, revenue, conversions, roas, currency };
   }, [insights, displayCurrency]);
 
+  // A campanha já esteve activa alguma vez? Sinal forte: acção de ativação bem-sucedida
+  // registada na plataforma. Fallback: gasto > 0 no período seleccionado (proxy de que já correu).
+  const hasRunBefore = useMemo(() => {
+    const activatedByPlatform = (actions ?? []).some(
+      (a) => a.success && a.new_status === "ACTIVE",
+    );
+    const spentInPeriod = metrics.spend > 0;
+    return activatedByPlatform || spentInPeriod;
+  }, [actions, metrics.spend]);
+
+
   // Agregação por entidade (mesma lógica do `metrics` da mãe, replicada um
   // nível abaixo). Divisões protegidas: numerador/denominador inválido → null
   // (renderiza "—") em vez de 0/NaN, para distinguir "sem dados" de "zero real".
