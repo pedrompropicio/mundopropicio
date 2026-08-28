@@ -25,7 +25,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
-import { fetchBpLinesForCategory, relinkTransactionToForecast } from "@/lib/bp-line-relink";
+import { fetchBpLinesForCategory, relinkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
 import { isCapitalCategoryCode } from "@/lib/capital-branch";
 import {
   deletePartnerCapitalMove,
