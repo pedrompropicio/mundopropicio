@@ -93,7 +93,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id, title_es, description_es, location_es")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -981,6 +981,9 @@ function GestaoTab({
   const [mgmt, setMgmt] = useState<string>(ev?.management_type ?? "own");
   const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");
   const [location, setLocation] = useState<string>(ev?.location ?? "");
+  const [titleEs, setTitleEs] = useState<string>(ev?.title_es ?? "");
+  const [descriptionEs, setDescriptionEs] = useState<string>(ev?.description_es ?? "");
+  const [locationEs, setLocationEs] = useState<string>(ev?.location_es ?? "");
   const [ticketingUrl, setTicketingUrl] = useState<string>(ev?.ticketing_url ?? "");
   const [adDestinationUrl, setAdDestinationUrl] = useState<string>(ev?.ad_destination_url ?? "");
   const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
@@ -1014,6 +1017,9 @@ function GestaoTab({
     setMgmt(ev?.management_type ?? "own");
     setPartnerName(ev?.partner_name ?? "");
     setLocation(ev?.location ?? "");
+    setTitleEs(ev?.title_es ?? "");
+    setDescriptionEs(ev?.description_es ?? "");
+    setLocationEs(ev?.location_es ?? "");
     setTicketingUrl(ev?.ticketing_url ?? "");
     setAdDestinationUrl(ev?.ad_destination_url ?? "");
     setTicketingProvider(ev?.ticketing_provider ?? "");
@@ -1049,6 +1055,9 @@ function GestaoTab({
           management_type: mgmt,
           partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
           location: location.trim() || null,
+          title_es: titleEs.trim() || null,
+          description_es: descriptionEs.trim() || null,
+          location_es: locationEs.trim() || null,
           ticketing_url: ticketingUrl.trim() || null,
           ad_destination_url: adDestinationUrl.trim() || null,
           ticketing_provider: ticketingProvider.trim() || null,
