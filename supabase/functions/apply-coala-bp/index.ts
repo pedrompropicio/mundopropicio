@@ -2046,11 +2046,23 @@ Deno.serve(async (req) => {
       incomingFcKeys.add(`${normTxt(r.description)}|${moneyKey(r.netAmount)}`);
     }
     if (syncMode === "replace") {
+      // Mesma proteção dos dois lados do vínculo (ver reset_reimport):
+      // âncora legada + `transactions.forecast_id`.
+      const { data: txFcLinksRepl } = await admin
+        .from("transactions")
+        .select("forecast_id")
+        .eq("event_id", eventId)
+        .not("forecast_id", "is", null);
+      const txLinkedFcIdsRepl = new Set<string>(
+        (txFcLinksRepl || []).map((t: any) => t.forecast_id).filter((x: unknown): x is string => typeof x === "string"),
+      );
       const toDelete = (existingFcs || []).filter((f: any) => {
         if (f.transaction_id) return false;
+        if (txLinkedFcIdsRepl.has(f.id)) return false;
         const k = `${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`;
         return !incomingFcKeys.has(k);
       }).map((f: any) => f.id);
+
       if (toDelete.length > 0) {
         await admin.from("event_forecasts").delete().in("id", toDelete);
       }
