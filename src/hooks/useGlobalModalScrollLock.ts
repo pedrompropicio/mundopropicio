@@ -5,12 +5,35 @@ const FULLSCREEN_OVERLAY_SELECTOR = [
   '[class*="fixed"][class*="inset-0"][class*="bg-black/80"]',
 ].join(", ");
 
+/**
+ * O react-remove-scroll (usado pelos componentes Radix: Dialog, Sheet, Drawer...)
+ * marca o <body> com este atributo enquanto gere ele próprio o scroll.
+ * Nunca podemos estar os dois a escrever no body.
+ */
+const RADIX_LOCK_ATTRIBUTE = "data-scroll-locked";
+
+function isRadixOverlay(el: HTMLElement) {
+  // Overlays do Radix vivem dentro de um portal do Radix e/ou têm attrs data-radix-*
+  if (el.closest("[data-radix-portal]")) return true;
+  let node: Element | null = el;
+  while (node) {
+    for (const attr of Array.from(node.attributes)) {
+      if (attr.name.startsWith("data-radix-")) return true;
+    }
+    node = node.parentElement;
+  }
+  return false;
+}
+
 function hasOpenFullscreenOverlay() {
   const overlays = Array.from(
     document.querySelectorAll<HTMLElement>(FULLSCREEN_OVERLAY_SELECTOR),
   );
 
   return overlays.some((overlay) => {
+    // Overlays do Radix governam-se sozinhos (react-remove-scroll).
+    if (isRadixOverlay(overlay)) return false;
+
     const style = window.getComputedStyle(overlay);
     const rect = overlay.getBoundingClientRect();
 
@@ -56,7 +79,9 @@ export function useGlobalModalScrollLock() {
     };
 
     const unlockScroll = () => {
+      // Só restauramos se fomos nós a bloquear.
       if (!isLocked) return;
+      isLocked = false;
 
       body.style.position = originalBodyPosition;
       body.style.top = originalBodyTop;
@@ -65,11 +90,20 @@ export function useGlobalModalScrollLock() {
       body.style.overscrollBehavior = originalBodyOverscroll;
       html.style.overflow = originalHtmlOverflow;
       html.style.overscrollBehavior = originalHtmlOverscroll;
-      window.scrollTo(0, lockedScrollY);
-      isLocked = false;
+      try {
+        window.scrollTo(0, lockedScrollY);
+      } catch {
+        /* noop */
+      }
     };
 
     const syncScrollLock = () => {
+      // Se o Radix já está a bloquear o scroll, não tocamos em nada.
+      if (body.hasAttribute(RADIX_LOCK_ATTRIBUTE)) {
+        unlockScroll();
+        return;
+      }
+
       if (hasOpenFullscreenOverlay()) {
         lockScroll();
         return;
@@ -83,7 +117,7 @@ export function useGlobalModalScrollLock() {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ["class", "style", "data-state"],
+      attributeFilter: ["class", "style", "data-state", "data-scroll-locked"],
     });
 
     syncScrollLock();

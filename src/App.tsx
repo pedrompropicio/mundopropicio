@@ -4,6 +4,7 @@ import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useGlobalModalScrollLock } from "@/hooks/useGlobalModalScrollLock";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 // Logo agora vem de BrandedLogo (suporta multi-empresa)
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -222,7 +223,10 @@ function MobileNavSheet() {
           <Menu className="h-5 w-5" />
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[17rem] p-0">
+      <SheetContent
+        side="left"
+        className="w-[17rem] px-0 pb-0 pt-[max(1.5rem,calc(env(safe-area-inset-top)+1rem))]"
+      >
         <SheetHeader className="sr-only">
           <SheetTitle>Navegação</SheetTitle>
         </SheetHeader>
@@ -237,6 +241,7 @@ function ProtectedLayout() {
   const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
+  const isMobileViewport = useIsMobile();
   const isSwitchingCompany = useIsMutating({ mutationKey: ["set-active-company"] }) > 0;
   const location = useLocation();
   // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
@@ -454,7 +459,7 @@ function ProtectedLayout() {
         </div>
       </header>
       <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
-        <AppSidebar />
+        {!isMobileViewport && <AppSidebar />}
         <main className="min-w-0 flex-1 pl-0 md:pl-16 lg:pl-56">
           <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
