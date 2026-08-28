@@ -6,7 +6,10 @@
 //
 // Autorização: só service_role. A função é chamada por net.http_post (trigger/cron
 // com a key do Vault) ou manualmente. Nenhum acesso anónimo — `verify_jwt = true`
-// no config.toml e comparação explícita do Bearer com SUPABASE_SERVICE_ROLE_KEY.
+// no config.toml. Dentro da função validamos o claim `role` do JWT (a key do Vault
+// é um service_role JWT emitido noutro momento, por isso NÃO é byte-igual à env
+// key — a comparação estrita falharia). Aceitamos também o caso em que o bearer
+// é byte-igual à env key (keys novas não-JWT).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -51,9 +54,23 @@ Deno.serve(async (req) => {
     return json({ error: 'Server configuration error' }, 500)
   }
 
-  // Só service_role.
+// Só service_role. O verify_jwt=true da plataforma já validou a assinatura antes
+  // de esta função correr; aqui validamos apenas o claim `role` do JWT. Se o bearer
+  // não for um JWT mas for byte-igual à env key, também é aceite (key nova não-JWT).
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  if (bearer !== serviceKey) {
+  const isServiceRole = ((): boolean => {
+    if (serviceKey && bearer === serviceKey) return true
+    const parts = bearer.split('.')
+    if (parts.length !== 3) return false
+    try {
+      const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+      const payload = JSON.parse(payloadJson) as { role?: unknown }
+      return payload.role === 'service_role'
+    } catch {
+      return false
+    }
+  })()
+  if (!isServiceRole) {
     return json({ error: 'Não autorizado — esta função só aceita a service_role key.' }, 401)
   }
 
