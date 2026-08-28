@@ -32,6 +32,7 @@ import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
+import { linkTransactionToForecast } from "@/lib/bp-line-relink";
 import { isCapitalCategoryCode, isCapitalCategoryId } from "@/lib/capital-branch";
 import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 
