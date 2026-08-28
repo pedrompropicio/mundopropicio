@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { formatTransactionStatusPT } from "@/lib/transaction-status";
 import { scoreDescriptionMatch } from "@/lib/bp-tx-matching";
+import { linkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
 import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag, Wand2, Check, X } from "lucide-react";
 
 interface Props {
@@ -128,7 +129,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, date, description, amount, iva_rate, category_id, status, supplier_id")
+        .select("id, date, description, amount, iva_rate, category_id, status, supplier_id, forecast_id")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .is("reversed_at", null)
@@ -205,9 +206,16 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
 
   const forecastByTxId = useMemo(() => {
     const m = new Map<string, { forecast: Forecast; kind: LinkKind }>();
-    // (a) directo por FK
+    // (a) directo — coluna canónica transactions.forecast_id (Fase 2) em união
+    // com a âncora legada event_forecasts.transaction_id.
+    const fById = new Map(forecasts.map((f) => [f.id, f]));
+    for (const t of txs) {
+      const fid = (t as any).forecast_id as string | null | undefined;
+      const f = fid ? fById.get(fid) : undefined;
+      if (f) m.set(t.id, { forecast: f, kind: "direct" });
+    }
     for (const f of forecasts) {
-      if (f.transaction_id) m.set(f.transaction_id, { forecast: f, kind: "direct" });
+      if (f.transaction_id && !m.has(f.transaction_id)) m.set(f.transaction_id, { forecast: f, kind: "direct" });
     }
     // (b) inferido por categoria (só L3), sem sobrepor directos
     const forecastsByCat = new Map<string, Forecast[]>();
@@ -274,11 +282,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
       // Case A: rubric-only — set tx.category_id to L3, unlink any existing FK direct
       if (targetL3Id) {
         if (currentDirect) {
-          const { error: eu } = await supabase
-            .from("event_forecasts")
-            .update({ transaction_id: null } as any)
-            .eq("id", currentDirect.id);
-          if (eu) throw eu;
+          await unlinkTransactionFromForecast({ transactionId: tx.id, forecastId: currentDirect.id });
         }
         if (tx.category_id !== targetL3Id) {
           const { error: ec } = await supabase
@@ -296,27 +300,16 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
           // inferido por categoria não tem FK para remover — informar e sair.
           return { unlinked: true, wasInferred: currentEntry?.kind === "category" };
         }
-        const { error } = await supabase
-          .from("event_forecasts")
-          .update({ transaction_id: null } as any)
-          .eq("id", currentDirect.id);
-        if (error) throw error;
+        await unlinkTransactionFromForecast({ transactionId: tx.id, forecastId: currentDirect.id });
         return { unlinked: true };
       }
 
       // Case C: link (or re-link) to a specific BP line
       const target = forecasts.find((f) => f.id === targetForecastId);
       if (!target) throw new Error("Linha BP não encontrada");
-      if (target.transaction_id && target.transaction_id !== tx.id) {
-        throw new Error("Esta linha BP já tem outra transação vinculada. Desvincula-a primeiro na edição da transação atual dessa linha.");
-      }
-
+      // Fase 2: uma linha do BP aceita N transações — nunca está "ocupada".
       if (currentDirect && currentDirect.id !== target.id) {
-        const { error: eu } = await supabase
-          .from("event_forecasts")
-          .update({ transaction_id: null } as any)
-          .eq("id", currentDirect.id);
-        if (eu) throw eu;
+        await unlinkTransactionFromForecast({ transactionId: tx.id, forecastId: currentDirect.id });
       }
 
       if (target.category_id && target.category_id !== tx.category_id) {
@@ -327,16 +320,7 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
         if (ec) throw ec;
       }
 
-      const { error: ef, data: updated } = await supabase
-        .from("event_forecasts")
-        .update({ transaction_id: tx.id } as any)
-        .eq("id", target.id)
-        .is("transaction_id", null)
-        .select("id");
-      if (ef) throw ef;
-      if (!updated || updated.length === 0) {
-        throw new Error("A linha BP ficou vinculada a outra transação entretanto. Atualiza e tenta de novo.");
-      }
+      await linkTransactionToForecast({ transactionId: tx.id, forecastId: target.id });
       return { linked: true };
     },
     onSuccess: (r: any) => {
@@ -431,12 +415,10 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
     // que a grelha já reconhece não é candidato a nova sugestão, e forecasts
     // inferidas também estão indisponíveis.
     const candidateTxs = txs.filter((t) => !forecastByTxId.has(t.id));
+    // Fase 2: uma linha nunca está "ocupada" — só evitamos sugerir linhas já
+    // reclamadas por inferência de categoria (evita duplicar o que a grelha faz).
     const freeForecasts = forecasts.filter(
-      (f) =>
-        !f.transaction_id &&
-        !inferredForecastIds.has(f.id) &&
-        f.category_id &&
-        levelOf(f.category_id) === 3,
+      (f) => !inferredForecastIds.has(f.id) && f.category_id && levelOf(f.category_id) === 3,
     );
 
     type Pair = Suggestion & { raw: number };
@@ -913,19 +895,13 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
                             );
                           }
                           const f = opt.forecast;
-                          const busy = !!f.transaction_id && f.transaction_id !== t.id;
                           const prev = withIva(f.amount, f.iva_rate);
                           return (
-                            <SelectItem key={f.id} value={f.id} disabled={busy} className="pl-6">
+                            <SelectItem key={f.id} value={f.id} className="pl-6">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                   <Link2 className="h-3 w-3 text-emerald-500 shrink-0" />
                                   <span className="font-medium">{f.description || "(sem descrição)"}</span>
-                                  {busy && (
-                                    <Badge variant="outline" className="h-4 text-[9px] px-1">
-                                      já vinculada
-                                    </Badge>
-                                  )}
                                   {!f.transaction_id && (
                                     <Badge variant="secondary" className="h-4 text-[9px] px-1">
                                       SEM TX
