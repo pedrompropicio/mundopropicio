@@ -24,6 +24,9 @@ export interface BlastRadius {
   txCount: number;
   txSum: number;
   protectedForecasts: number;
+  protectedTx: number;
+  protectedTxSum: number;
+  protectedTxByReason: Record<string, number>;
 }
 
 /**
@@ -41,7 +44,12 @@ export async function computeBlastRadius(eventId: string): Promise<BlastRadius> 
       .select("id, category_id, amount, transaction_id")
       .eq("event_id", eventId)
       .is("version_id", null),
-    supabase.from("transactions").select("id, category_id, amount, forecast_id").eq("event_id", eventId),
+    supabase
+      .from("transactions")
+      .select(
+        "id, category_id, amount, forecast_id, status, paid_amount, settlement_id, invoice_group_id, parent_transaction_id",
+      )
+      .eq("event_id", eventId),
     supabase
       .from("sponsorship_pipeline")
       .select("linked_forecast_id, linked_transaction_id")
@@ -79,7 +87,51 @@ export async function computeBlastRadius(eventId: string): Promise<BlastRadius> 
   const fcProtected = (fcs.data ?? []).filter(
     (f: any) => !isAb(f) && !protectedFcIds.has(f.id) && (!!f.transaction_id || txLinkedFcIds.has(f.id)),
   );
-  const txToDelete = (txs.data ?? []).filter((t: any) => !isAb(t) && !protectedTxIds.has(t.id));
+  // Sinais de vida real de uma transação (espelha o reset_reimport):
+  // vínculo ao BP, âncora, pagamento, acerto/fatura, rateio-mãe ou documentos.
+  const anchorTxIds = new Set(
+    (fcs.data ?? []).map((f: any) => f.transaction_id).filter((x: any) => typeof x === "string"),
+  );
+  const parentTxIds = new Set(
+    (txs.data ?? []).map((t: any) => t.parent_transaction_id).filter((x: any) => typeof x === "string"),
+  );
+  const candidates = (txs.data ?? []).filter((t: any) => !isAb(t) && !protectedTxIds.has(t.id));
+  const docTxIds = new Set<string>();
+  for (let i = 0; i < candidates.length; i += 200) {
+    const { data: docs, error: docErr } = await supabase
+      .from("transaction_documents")
+      .select("transaction_id")
+      .in(
+        "transaction_id",
+        candidates.slice(i, i + 200).map((t: any) => t.id as string),
+      );
+    if (docErr) throw docErr;
+    for (const d of docs ?? []) if (d.transaction_id) docTxIds.add(d.transaction_id as string);
+  }
+
+  const reasonsFor = (t: any): string[] => {
+    const r: string[] = [];
+    if (t.forecast_id) r.push("Vínculo a linha do BP");
+    if (anchorTxIds.has(t.id)) r.push("Âncora de linha do BP");
+    if (t.status === "paid" || Number(t.paid_amount ?? 0) > 0) r.push("Pago");
+    if (t.settlement_id || t.invoice_group_id) r.push("Acerto / grupo de fatura");
+    if (parentTxIds.has(t.id)) r.push("Mãe de rateio");
+    if (docTxIds.has(t.id)) r.push("Documentos anexos");
+    return r;
+  };
+
+  const txToDelete: any[] = [];
+  const txProtected: any[] = [];
+  const protectedTxByReason: Record<string, number> = {};
+  for (const t of candidates) {
+    const reasons = reasonsFor(t);
+    if (reasons.length === 0) {
+      txToDelete.push(t);
+      continue;
+    }
+    txProtected.push(t);
+    for (const r of reasons) protectedTxByReason[r] = (protectedTxByReason[r] ?? 0) + 1;
+  }
 
   return {
     forecastCount: fcToDelete.length,
@@ -87,6 +139,9 @@ export async function computeBlastRadius(eventId: string): Promise<BlastRadius> 
     txCount: txToDelete.length,
     txSum: txToDelete.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0),
     protectedForecasts: fcProtected.length,
+    protectedTx: txProtected.length,
+    protectedTxSum: txProtected.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0),
+    protectedTxByReason,
   };
 }
 
@@ -162,9 +217,22 @@ export default function CoalaApplyButton({ eventId, enabled, autoApplyEnabled, p
                     <p>
                       {radiusQ.data.txCount} transação(ões) — {eur(radiusQ.data.txSum)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {radiusQ.data.protectedForecasts} linha(s) de BP com transação vinculada ficam protegidas.
-                    </p>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>
+                        {radiusQ.data.protectedForecasts} linha(s) de BP com transação vinculada ficam protegidas.
+                      </p>
+                      <p>
+                        {radiusQ.data.protectedTx} transação(ões) preservadas ({eur(radiusQ.data.protectedTxSum)}) por
+                        terem sinais de vida real
+                        {Object.keys(radiusQ.data.protectedTxByReason).length > 0
+                          ? ": " +
+                            Object.entries(radiusQ.data.protectedTxByReason)
+                              .map(([k, v]) => `${v} ${k.toLowerCase()}`)
+                              .join(", ")
+                          : ""}
+                        .
+                      </p>
+                    </div>
                   </div>
                 ) : null}
               </div>
