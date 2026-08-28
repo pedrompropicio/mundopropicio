@@ -1176,6 +1176,26 @@ function GestaoTab({
         </>
       )}
 
+      <EsSection>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Título (ES)">
+            <Input value={titleEs} onChange={(e) => setTitleEs(e.target.value)} disabled={disabled} />
+          </Field>
+          <Field label="Localización (ES)">
+            <Input value={locationEs} onChange={(e) => setLocationEs(e.target.value)} disabled={disabled} />
+          </Field>
+        </div>
+        <Field label="Descripción (ES)">
+          <Textarea
+            value={descriptionEs}
+            onChange={(e) => setDescriptionEs(e.target.value)}
+            rows={4}
+            disabled={disabled}
+          />
+        </Field>
+      </EsSection>
+
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Localização">
           <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={disabled} />
