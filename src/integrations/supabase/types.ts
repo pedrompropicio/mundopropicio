@@ -11980,6 +11980,18 @@ export type Database = {
           value: number
         }[]
       }
+      get_event_bp_changes: {
+        Args: { p_days?: number; p_event_id: string }
+        Returns: {
+          action: string
+          author: string
+          changed_at: string
+          changes: Json
+          description: string
+          forecast_id: string
+          forecast_type: string
+        }[]
+      }
       get_event_cash_position: {
         Args: { p_company_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
