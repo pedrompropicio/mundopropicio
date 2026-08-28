@@ -2317,7 +2317,20 @@ const descRef = useRef<HTMLInputElement>(null);
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Alterações recentes do BP (system_audit_log). Só admin/manager —
+                a RLS devolveria lista vazia a qualquer outra role. */}
+            {(isAdmin || isManager) && (
+              <button
+                type="button"
+                onClick={() => setShowBPChanges(true)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                title="Ver quem alterou o quê no BP deste evento"
+              >
+                <History className="h-3.5 w-3.5" />
+                Alterações recentes
+              </button>
+            )}
             {/* Open the BP × Transactions report pre-filtered to this event,
                 so users can audit per-line execution without leaving context. */}
             {/* Navigate internally and pass origin via state so the report
