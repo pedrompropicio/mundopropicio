@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
-import { scoreDescriptionMatch } from "@/lib/bp-tx-matching";
+import { findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
 
 interface BPExportInput {
@@ -142,44 +142,16 @@ async function fetchEventBundle(eventId: string) {
   return { event, forecasts, partners, forecastPartners, auditLogs, transactions };
 }
 
-// Match transactions to a forecast line (mirror of UI logic in EventForecast.tsx)
+// Matching Transações ↔ linha do BP: delega no SSoT (src/lib/bp-tx-matching.ts).
+// Nada de lógica própria aqui — o PDF tem de mostrar exactamente o que o ecrã mostra.
 function matchTransactionsForForecast(
   fc: ForecastRow,
   allForecasts: ForecastRow[],
   transactions: TxRow[],
 ): TxRow[] {
-  // 1) Direct link
-  if (fc.transaction_id) {
-    const direct = transactions.filter((t) => t.id === fc.transaction_id);
-    if (direct.length > 0) return direct;
-  }
-  // Scope to same event or master (null event_id)
-  const scoped = transactions.filter((t) => t.event_id === fc.event_id || t.event_id === null);
-  if (!fc.category_id) return [];
-  const sameCat = scoped.filter((t) => t.category_id === fc.category_id && t.type === fc.type);
-
-  const fcSameCat = allForecasts.filter(
-    (f) => f.category_id === fc.category_id && f.type === fc.type && f.event_id === fc.event_id,
-  );
-  if (fcSameCat.length <= 1) return sameCat;
-
-  // Multiple forecasts share this category — assign each transaction to the
-  // forecast with the BEST description match (SSoT em src/lib/bp-tx-matching.ts,
-  // normalização sem acentos/caracteres especiais).
-  const scoreMatch = scoreDescriptionMatch;
-
-  const matched = sameCat.filter((t) => {
-    const myScore = scoreMatch(fc.description, t.description ?? "");
-    if (myScore <= 0) return false;
-    const bestOther = fcSameCat.reduce((max, f) => {
-      if (f.id === fc.id) return max;
-      const s = scoreMatch(f.description, t.description ?? "");
-      return s > max ? s : max;
-    }, 0);
-    return myScore > bestOther;
-  });
-  return matched.length > 0 ? matched : [];
+  return findMatchingTransactionsForForecast(fc, transactions, allForecasts) as TxRow[];
 }
+
 
 function txStatusLabel(t: TxRow): string {
   const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
