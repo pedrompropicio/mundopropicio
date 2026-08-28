@@ -37,3 +37,9 @@ verify_jwt = false
 # Só é chamada por triggers/cron da BD com a service_role key do Vault.
 [functions.vip-coupon-email]
 verify_jwt = true
+
+# Chamada pelo destinatário a partir do próprio email (one-click RFC 8058, sem
+# JWT) e pela página /unsubscribe do portal. A autorização é o token opaco de
+# 32 bytes que vem no URL — não há dados expostos sem ele.
+[functions.handle-email-unsubscribe]
+verify_jwt = false

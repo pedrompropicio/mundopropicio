@@ -68,9 +68,10 @@ async function sendViaResend(payload: Record<string, any>, apiKey: string): Prom
   if (payload.html) body.html = payload.html
   if (payload.text) body.text = payload.text
   if (payload.reply_to) body.reply_to = payload.reply_to
-  if (payload.unsubscribe_url) {
+  const unsubOneClick = payload.unsubscribe_http_url || payload.unsubscribe_url
+  if (unsubOneClick) {
     body.headers = {
-      'List-Unsubscribe': `<${payload.unsubscribe_url}>`,
+      'List-Unsubscribe': `<${unsubOneClick}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     }
   }
@@ -310,7 +311,11 @@ Deno.serve(async (req) => {
       // Guarda de supressão: nunca enviar para quem cancelou, deu bounce ou foi
       // suprimido manualmente. A lista é por empresa; sem company_id no payload,
       // verificamos o email em qualquer empresa (conservador).
-      if (payload.to) {
+      // A supressão vale para comunicação comercial e transaccional de produto.
+      // NUNCA para emails de autenticação: quem deu bounce ou cancelou marketing
+      // continua a precisar de recuperar a conta.
+      const isAuthEmail = queue === 'auth_emails' || payload.purpose === 'auth'
+      if (payload.to && !isAuthEmail) {
         const recipient = String(payload.to).toLowerCase().trim()
         let suppressionQuery = supabase
           .from('suppressed_emails')
