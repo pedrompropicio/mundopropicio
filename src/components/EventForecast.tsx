@@ -2841,9 +2841,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                       {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                                     </select>
                                   </td>
-                                   <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} disabled={canEditBPPartial && !canEditBP} />
-                                  </td>
+                                    <td className="py-1.5 pr-2">
+                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={canEditBPPartial && !canEditBP} />
+                                   </td>
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
                                   </td>
