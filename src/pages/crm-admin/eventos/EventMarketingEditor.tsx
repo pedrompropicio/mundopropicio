@@ -718,7 +718,35 @@ export default function EventMarketingEditor() {
   );
 }
 
+/**
+ * Acordeão colapsado com os campos em espanhol. Fica fechado por defeito para
+ * não poluir a UI dos eventos portugueses.
+ */
+function EsSection({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border border-border">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/40"
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          Espanhol (opcional — para espetáculos em Espanha)
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-4 border-t border-border p-3">
+        <p className="text-xs text-muted-foreground">
+          Sem preenchimento, o portal /es mostra a versão EN (ou PT).
+        </p>
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function Field({
+
   label,
   hint,
   children,
