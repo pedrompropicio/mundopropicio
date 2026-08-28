@@ -2691,8 +2691,10 @@ export default function CrmCampaignView() {
         open={reactivateOpen}
         onOpenChange={setReactivateOpen}
         campaignName={campaign.name}
+        hasRunBefore={hasRunBefore}
         onConfirm={(reason) => runToggle("ACTIVE", reason)}
       />
+
 
       {editAdsetBudget && (
         <EditAdsetBudgetDialog
