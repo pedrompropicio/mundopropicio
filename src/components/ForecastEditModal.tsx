@@ -332,12 +332,34 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         </div>
 
         <button
-          onClick={() => editMutation.mutate()}
+          onClick={attemptSave}
           disabled={editMutation.isPending}
           className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {editMutation.isPending ? "A guardar…" : "Guardar Alteração"}
         </button>
+
+        <AlertDialog open={dropConfirm} onOpenChange={(open) => { if (!open) setDropConfirm(false); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar redução de valor</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vai baixar «{description.trim() || forecast.description}» de {formatCurrency(Number(forecast.amount))} para {formatCurrency(Math.round(eurAmount * 100) / 100)}.{" "}
+                {Math.round(eurAmount * 100) / 100 === 0
+                  ? "Esta linha continua no BP, mas deixa de contar para o resultado."
+                  : "Esta é uma redução acentuada do valor aprovado."}{" "}
+                Confirma?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setDropConfirm(false); editMutation.mutate(); }}>
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
 
         {/* Audit history */}
         {auditLogs.length > 0 && (
