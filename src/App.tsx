@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
@@ -24,7 +24,8 @@ import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Sun, Moon } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sun, Moon, Menu } from "lucide-react";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
