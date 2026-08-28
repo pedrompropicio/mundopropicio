@@ -36,6 +36,7 @@ interface Tx {
   category_id: string | null;
   status: string | null;
   supplier_id: string | null;
+  forecast_id?: string | null;
 }
 
 interface Forecast {
