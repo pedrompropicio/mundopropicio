@@ -208,6 +208,29 @@ const queryClient = new QueryClient({
   },
 });
 
+function MobileNavSheet() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          aria-label="Abrir menu de navegação"
+          className="md:hidden -ml-1 inline-flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-sidebar-accent"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-[17rem] p-0">
+        <SheetHeader className="sr-only">
+          <SheetTitle>Navegação</SheetTitle>
+        </SheetHeader>
+        <AppSidebar variant="panel" onNavigate={() => setOpen(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function ProtectedLayout() {
   const { user, loading, isPartner, isAdmin, isManager, hasPermission, role, signOut } = useAuth();
   const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
@@ -417,7 +440,10 @@ function ProtectedLayout() {
           height: "calc(3.5rem + env(safe-area-inset-top))",
         }}
       >
-        <BrandedLogo />
+        <div className="flex min-w-0 items-center gap-1">
+          <MobileNavSheet />
+          <BrandedLogo />
+        </div>
         <div className="flex items-center gap-2">
           <ModuleSwitcherButton />
           <CompanySwitcher />
@@ -428,7 +454,7 @@ function ProtectedLayout() {
       </header>
       <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
         <AppSidebar />
-        <main className="flex-1 pl-16 lg:pl-56">
+        <main className="min-w-0 flex-1 pl-0 md:pl-16 lg:pl-56">
           <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Routes>

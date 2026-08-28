@@ -136,7 +136,7 @@ export function AppSidebar({
         style: {
           top: "calc(3.5rem + env(safe-area-inset-top))",
           height: "calc(100dvh - 3.5rem - env(safe-area-inset-top))",
-        } as React.CSSProperties,
+        } as any,
       };
 
   return (
