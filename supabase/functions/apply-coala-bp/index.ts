@@ -2033,6 +2033,9 @@ Deno.serve(async (req) => {
           ccProtectedLog: ccProtectedLog.slice(0, 200),
           rejectedLearningMeta: rejectedLearningMeta.slice(0, 500),
           deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length,
+          preservedTransactions: preservedTx.length, preservedTransactionsSum: preservedTxSum,
+          preservedTransactionsByReason: preservedReasons,
+          preservedTransactionsSample: preservedTx.slice(0, 100),
           reconciliation },
         created_transaction_ids: createdTransactionIds, created_forecast_ids: createdForecastIds,
         created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user?.id ?? null,
@@ -2047,6 +2050,12 @@ Deno.serve(async (req) => {
           suppliersCreated: newSupplierIds.length,
           deletedForecasts: (existingFcs || []).length,
           deletedTransactions: txIds.length,
+          preservedTransactions: preservedTx.length,
+          preservedTransactionsSum: preservedTxSum,
+          preservedTransactionsByReason: preservedReasons,
+          preservedTransactionsNote: preservedTx.length > 0
+            ? `${preservedTx.length} transações (${preservedTxSum} €) NÃO foram apagadas por terem sinais de vida real (pagamento, vínculo ao BP, acerto/fatura, rateio-mãe ou documentos anexos).`
+            : null,
           categoryMapping: {
             preservedFromAdjustedMap: preservedFromMap,
             fellbackToCenterOfCost: fellbackToCC,
