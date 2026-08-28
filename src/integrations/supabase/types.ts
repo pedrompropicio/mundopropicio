@@ -10514,6 +10514,7 @@ export type Database = {
           due_date: string | null
           event_id: string | null
           exclude_from_result: boolean
+          forecast_id: string | null
           fx_rate: number | null
           fx_rate_source: string | null
           iban_override: string | null
@@ -10565,6 +10566,7 @@ export type Database = {
           due_date?: string | null
           event_id?: string | null
           exclude_from_result?: boolean
+          forecast_id?: string | null
           fx_rate?: number | null
           fx_rate_source?: string | null
           iban_override?: string | null
@@ -10616,6 +10618,7 @@ export type Database = {
           due_date?: string | null
           event_id?: string | null
           exclude_from_result?: boolean
+          forecast_id?: string | null
           fx_rate?: number | null
           fx_rate_source?: string | null
           iban_override?: string | null
@@ -10686,6 +10689,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
             referencedColumns: ["id"]
           },
           {
