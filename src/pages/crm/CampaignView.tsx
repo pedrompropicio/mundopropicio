@@ -1007,8 +1007,9 @@ export default function CrmCampaignView() {
           label: opts.label,
           triggered_by: "user_manual",
         }],
-        { title: `Ativar ${opts.entity_type}`, description: `${opts.label} vai começar a gastar.` },
+        { title: `Ativar ${opts.entity_type}`, description: `${opts.label} vai começar a gastar verba do Meta.` },
       );
+
       if (result.ok > 0) {
         qc.invalidateQueries({
           queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
