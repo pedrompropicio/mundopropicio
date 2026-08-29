@@ -2181,7 +2181,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-        <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="glass w-full max-w-lg md:max-w-3xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{titleOverride ?? "Nova Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
@@ -2531,8 +2531,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   BP{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
                 <p className="text-[10px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
-                <div
-                  className="max-h-64 overflow-y-auto overscroll-contain border border-border/30 rounded"
+<div
+                  className="max-h-64 md:max-h-[420px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
@@ -2611,11 +2611,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                       }`}
                                     >
                                       <td className="py-1 pr-2 pl-8 text-[10px]">
-                                        <div className="flex items-center gap-1.5">
+<div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${line.status === "approved" ? "bg-success" : "bg-warning"}`} />
-                                          <span className="truncate">{line.description}</span>
+                                          <span className="truncate min-w-0">{line.description}</span>
                                           {line.specification && (
-                                            <span className="text-muted-foreground truncate">· {line.specification}</span>
+                                            <span className="text-muted-foreground truncate min-w-0">· {line.specification}</span>
                                           )}
                                         </div>
                                       </td>
