@@ -135,6 +135,16 @@ export interface ProductAccount {
   accountType: "GOOGLE_ADS" | string;
 }
 
+export type ConsentStatus =
+  | "CONSENT_STATUS_UNSPECIFIED"
+  | "CONSENT_GRANTED"
+  | "CONSENT_DENIED";
+
+export interface DataManagerConsent {
+  adUserData?: ConsentStatus;
+  adPersonalization?: ConsentStatus;
+}
+
 export interface DataManagerDestination {
   reference: string;
   loginAccount?: ProductAccount;
@@ -182,8 +192,8 @@ export async function ingestEvents(opts: {
   destinations: DataManagerDestination[];
   events: DataManagerEvent[];
   validateOnly?: boolean;
-  /** Consentimento ao nível do request. */
-  adPersonalizationConsent?: "PERSONALIZATION_ALLOWED" | "PERSONALIZATION_DENIED";
+/** Consentimento ao nível do request. */
+  consent?: DataManagerConsent;
 }): Promise<IngestResult> {
   if (opts.events.length > DATA_MANAGER_MAX_EVENTS) {
     throw new Error(
@@ -196,8 +206,8 @@ export async function ingestEvents(opts: {
     events: opts.events,
     validateOnly: opts.validateOnly ?? false,
   };
-  if (opts.adPersonalizationConsent) {
-    body.consent = { adPersonalizationConsent: opts.adPersonalizationConsent };
+if (opts.consent) {
+    body.consent = opts.consent;
   }
   // NOTA: 'encoding' só é preciso quando se enviam userIdentifiers com hash.
   // Aqui só mandamos gclid, por isso fica de fora de propósito.
