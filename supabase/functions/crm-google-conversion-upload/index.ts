@@ -1,24 +1,42 @@
 // crm-google-conversion-upload
 //
-// Sprint 2 — Envio de conversões offline para o Google Ads.
+// Envio de conversões offline para o Google Ads via DATA MANAGER API.
 //
-// Lê crm.google_conversion (status='pending') e envia em batch para
-//   POST /v24/customers/{CUSTOMER_ID}:uploadClickConversions
-// com partialFailure=true. Atualiza cada linha individualmente para
-// 'sent' ou 'failed' consoante o resultado devolvido pela Google.
+// Migrado de POST /v24/customers/{cid}:uploadClickConversions (Google Ads API),
+// que a Google fechou a novas integrações em 2026:
+//   "New integrations for uploading click conversions should use the Data
+//    Manager API. Usage of ConversionUploadService.UploadClickConversions is
+//    limited to existing users."
+// As 14 linhas em crm.google_conversion entre 23 e 27/08/2026 falharam todas
+// com esse erro. Ver docs + issue #62.
 //
-// Auth Google: mesma service account (GOOGLE_SA_KEY_JSON) usada na
-// crm-google-ads-sync. Headers: Authorization Bearer, developer-token,
-// login-customer-id (MCC). Content-Type validado antes de res.json().
+// Lê crm.google_conversion (status='pending') e envia para
+//   POST https://datamanager.googleapis.com/v1/events:ingest
 //
-// Auth caller: JWT de admin (has_role admin). 403 caso contrário.
+// DIFERENÇA IMPORTANTE face à versão anterior: a Data Manager API não devolve
+// resultado por evento (só { requestId, fieldWarnings }). O lote é tudo-ou-nada.
+// Em caso de erro as linhas ficam em 'pending' (não 'failed') para o cron
+// tentar outra vez — só vão a 'failed' quando o erro é da própria linha
+// (ex.: sem identificador de clique).
+//
+// Auth Google: service account GOOGLE_SA_KEY_JSON, scope datamanager.
+// Auth caller: service_role (cron, jobid 43) ou JWT de admin.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import {
+  DATA_MANAGER_MAX_EVENTS,
+  DATA_MANAGER_SCOPE,
+  type DataManagerDestination,
+  type DataManagerEvent,
+  getGoogleAccessToken,
+  ingestEvents,
+  toRfc3339,
+} from "../_shared/google-data-manager.ts";
 
-const GOOGLE_ADS_API_VERSION = Deno.env.get("GOOGLE_ADS_API_VERSION") ?? "v24";
-const LOGIN_CUSTOMER_ID = "9743221780";
-const CUSTOMER_ID = "2200043144";
-const MAX_BATCH = 2000;
+/** Conta Google Ads que recebe os dados (220-004-3144). */
+const OPERATING_ACCOUNT_ID = "2200043144";
+/** MCC onde a service account tem acesso (974-322-1780). */
+const LOGIN_ACCOUNT_ID = "9743221780";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,114 +52,6 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// ---------- SA JWT → access token (igual a crm-google-ads-sync) ----------
-
-function b64url(bytes: Uint8Array): string {
-  let s = "";
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-function b64urlJson(obj: unknown): string {
-  return b64url(new TextEncoder().encode(JSON.stringify(obj)));
-}
-function pemToDer(pem: string): Uint8Array {
-  const body = pem
-    .replace(/-----BEGIN [^-]+-----/g, "")
-    .replace(/-----END [^-]+-----/g, "")
-    .replace(/\s+/g, "");
-  const bin = atob(body);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-async function getGoogleAccessToken(): Promise<string> {
-  const raw = Deno.env.get("GOOGLE_SA_KEY_JSON");
-  if (!raw) throw new Error("missing_secret:GOOGLE_SA_KEY_JSON");
-  let sa: { client_email?: string; private_key?: string; token_uri?: string };
-  try { sa = JSON.parse(raw); } catch {
-    throw new Error("invalid_secret:GOOGLE_SA_KEY_JSON_not_valid_json");
-  }
-  if (!sa.client_email || !sa.private_key) {
-    throw new Error("invalid_secret:GOOGLE_SA_KEY_JSON_missing_fields");
-  }
-  const privateKeyPem = sa.private_key.replace(/\\n/g, "\n");
-  const tokenUri = sa.token_uri ?? "https://oauth2.googleapis.com/token";
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const claim = {
-    iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/adwords",
-    aud: tokenUri,
-    iat: now,
-    exp: now + 3600,
-  };
-  const signingInput = `${b64urlJson(header)}.${b64urlJson(claim)}`;
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToDer(privateKeyPem),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = new Uint8Array(
-    await crypto.subtle.sign(
-      "RSASSA-PKCS1-v1_5",
-      key,
-      new TextEncoder().encode(signingInput),
-    ),
-  );
-  const jwt = `${signingInput}.${b64url(sig)}`;
-
-  const res = await fetch(tokenUri, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-  const ct = res.headers.get("content-type") ?? "";
-  if (!ct.includes("application/json")) {
-    const text = await res.text();
-    throw new Error(
-      `google_oauth_non_json:${res.status}:${ct}:${text.slice(0, 300)}`,
-    );
-  }
-  const data = await res.json();
-  if (!res.ok || !data.access_token) {
-    throw new Error(
-      `google_oauth_failed:${res.status}:${JSON.stringify(data)}`,
-    );
-  }
-  return data.access_token as string;
-}
-
-// ---------- helpers ----------
-
-/**
- * Converte timestamptz (UTC) para o formato exigido pela Google:
- *   "yyyy-MM-dd HH:mm:ss+HH:mm"
- * Usamos sempre offset UTC (+00:00) — o campo na BD é timestamptz armazenado em UTC.
- */
-function formatGoogleDateTime(ts: string): string {
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const yyyy = d.getUTCFullYear();
-  const mm = pad(d.getUTCMonth() + 1);
-  const dd = pad(d.getUTCDate());
-  const HH = pad(d.getUTCHours());
-  const MM = pad(d.getUTCMinutes());
-  const SS = pad(d.getUTCSeconds());
-  return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}+00:00`;
-}
-
-function buildConversionActionResource(ref: string): string {
-  if (ref.startsWith("customers/")) return ref;
-  return `customers/${CUSTOMER_ID}/conversionActions/${ref}`;
-}
-
 interface PendingRow {
   id: string;
   conversion_action_ref: string;
@@ -154,13 +64,20 @@ interface PendingRow {
   conversion_datetime: string;
 }
 
-// ---------- Entry ----------
+/** O ref pode vir como ID numérico ou como resource name completo. */
+function toConversionActionId(ref: string): string {
+  const trimmed = ref.trim();
+  const m = trimmed.match(/conversionActions\/(\d+)/);
+  if (m) return m[1];
+  return trimmed;
+}
 
 Deno.serve(async (req: Request): Promise<Response> => {
   console.log(
-    "[crm-google-conversion-upload] BUILD_VERSION=conv-upload-v2-cronauth",
+    "[crm-google-conversion-upload] BUILD_VERSION=conv-upload-v3-datamanager",
     new Date().toISOString(),
   );
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -175,7 +92,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
-  // Caminho service_role (cron) — descodificação manual do payload do JWT.
+  // ----- opções de entrada -----
+  let validateOnly = false;
+  let limit = DATA_MANAGER_MAX_EVENTS;
+  try {
+    const raw = await req.text();
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      validateOnly = parsed?.validate_only === true;
+      if (Number.isFinite(parsed?.limit)) {
+        limit = Math.max(1, Math.min(DATA_MANAGER_MAX_EVENTS, parsed.limit));
+      }
+    }
+  } catch {
+    // corpo vazio ou não-JSON: mantém defaults
+  }
+
+  // ----- auth do caller: service_role (cron) ou admin -----
   let isServiceRole = false;
   try {
     const parts = token.split(".");
@@ -199,27 +132,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (claimsErr || !claimsData?.claims?.sub) {
       return json({ error: "unauthorized" }, 401);
     }
-    const userId = claimsData.claims.sub as string;
     const { data: isAdmin } = await userClient.rpc("has_role", {
-      _user_id: userId,
+      _user_id: claimsData.claims.sub as string,
       _role: "admin",
     });
     if (!isAdmin) return json({ error: "forbidden_admin_only" }, 403);
-  }
-
-  const devToken = Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN");
-  if (!devToken) {
-    return json({
-      error: "missing_secret",
-      detail: "GOOGLE_ADS_DEVELOPER_TOKEN não está definido.",
-    }, 500);
   }
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // ---------- 1) Fetch pending ----------
+  // ---------- 1) Ler pendentes ----------
   const { data: pendingRaw, error: fetchErr } = await admin
     .schema("crm")
     .from("google_conversion")
@@ -228,27 +152,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
     )
     .eq("status", "pending")
     .order("conversion_datetime", { ascending: true })
-    .limit(MAX_BATCH);
+    .limit(limit);
 
   if (fetchErr) {
     return json({ error: "fetch_pending_failed", detail: fetchErr.message }, 500);
   }
+
   const pending = (pendingRaw ?? []) as PendingRow[];
   const errors: string[] = [];
 
   if (pending.length === 0) {
     return json({
-      read: 0, sent: 0, failed: 0, errors: [], customer_id: CUSTOMER_ID,
+      read: 0,
+      sent: 0,
+      failed: 0,
+      validate_only: validateOnly,
+      errors: [],
+      operating_account_id: OPERATING_ACCOUNT_ID,
     });
   }
 
-  // ---------- 2) Marcar linhas sem identificador como failed ----------
+  // ---------- 2) Linhas sem identificador de clique: falha própria ----------
   const sendable: PendingRow[] = [];
   const noIdIds: string[] = [];
   for (const r of pending) {
     if (r.gclid || r.gbraid || r.wbraid) sendable.push(r);
     else noIdIds.push(r.id);
   }
+
   let failedNoId = 0;
   if (noIdIds.length > 0) {
     const { error: upErr, count } = await admin
@@ -266,151 +197,162 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (sendable.length === 0) {
     return json({
-      read: pending.length, sent: 0, failed: failedNoId,
-      errors, customer_id: CUSTOMER_ID,
+      read: pending.length,
+      sent: 0,
+      failed: failedNoId,
+      validate_only: validateOnly,
+      errors,
+      operating_account_id: OPERATING_ACCOUNT_ID,
     });
   }
 
-  // ---------- 3) Auth Google ----------
+  // ---------- 3) Token (scope datamanager) ----------
   let accessToken: string;
   try {
-    accessToken = await getGoogleAccessToken();
+    accessToken = await getGoogleAccessToken(DATA_MANAGER_SCOPE);
   } catch (e) {
     console.error("[crm-google-conversion-upload] SA auth failed:", e);
     return json({ error: "google_sa_auth_failed", detail: String(e) }, 500);
   }
 
-  // ---------- 4) Montar payload (ordem importa: results[i] ↔ sendable[i]) ----------
-  const conversions = sendable.map((r) => {
-    const c: Record<string, unknown> = {
-      conversionAction: buildConversionActionResource(r.conversion_action_ref),
-      conversionDateTime: formatGoogleDateTime(r.conversion_datetime),
+  // ---------- 4) Destinations: um por ação de conversão distinta ----------
+  // Na Data Manager API a ação de conversão vive no destination
+  // (productDestinationId), não dentro do evento. Cada evento aponta para o
+  // destination pela 'reference'.
+  const destinationByAction = new Map<string, string>();
+  const destinations: DataManagerDestination[] = [];
+  for (const r of sendable) {
+    const actionId = toConversionActionId(r.conversion_action_ref);
+    if (destinationByAction.has(actionId)) continue;
+    const reference = `ca_${actionId}`;
+    destinationByAction.set(actionId, reference);
+    destinations.push({
+      reference,
+      loginAccount: {
+        accountId: LOGIN_ACCOUNT_ID,
+        accountType: "GOOGLE_ADS",
+      },
+      operatingAccount: {
+        accountId: OPERATING_ACCOUNT_ID,
+        accountType: "GOOGLE_ADS",
+      },
+      productDestinationId: actionId,
+    });
+  }
+
+  // ---------- 5) Eventos ----------
+  const events: DataManagerEvent[] = sendable.map((r) => {
+    const actionId = toConversionActionId(r.conversion_action_ref);
+    const ev: DataManagerEvent = {
+      destinationReferences: [destinationByAction.get(actionId)!],
+      eventTimestamp: toRfc3339(r.conversion_datetime),
+      eventSource: "WEB",
+      adIdentifiers: {},
     };
-    if (r.gclid) c.gclid = r.gclid;
-    else if (r.gbraid) c.gbraid = r.gbraid;
-    else if (r.wbraid) c.wbraid = r.wbraid;
+    if (r.gclid) ev.adIdentifiers!.gclid = r.gclid;
+    else if (r.gbraid) ev.adIdentifiers!.gbraid = r.gbraid;
+    else if (r.wbraid) ev.adIdentifiers!.wbraid = r.wbraid;
+
     if (r.conversion_value !== null && r.conversion_value !== undefined) {
-      c.conversionValue = Number(r.conversion_value);
-      c.currencyCode = r.currency_code ?? "EUR";
+      ev.conversionValue = Number(r.conversion_value);
+      ev.currency = r.currency_code ?? "EUR";
     }
-    if (r.order_id) c.orderId = r.order_id;
-    return c;
+    // order_id = lead_capture.id — é a nossa chave de dedupe.
+    if (r.order_id) ev.transactionId = r.order_id;
+    return ev;
   });
 
-  // ---------- 5) Chamar Google ----------
-  const url =
-    `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${CUSTOMER_ID}:uploadClickConversions`;
-  let apiData: any;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": devToken,
-        "login-customer-id": LOGIN_CUSTOMER_ID,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ conversions, partialFailure: true }),
-    });
-    const ct = res.headers.get("content-type") ?? "";
-    if (!ct.includes("application/json")) {
-      const text = await res.text();
-      throw new Error(
-        `google_ads_api_non_json:${res.status}:${ct}:${text.slice(0, 300)}`,
-      );
-    }
-    apiData = await res.json();
-    if (!res.ok) {
-      throw new Error(
-        `google_ads_api_failed:${res.status}:${JSON.stringify(apiData).slice(0, 500)}`,
-      );
-    }
-  } catch (e) {
-    console.error("[crm-google-conversion-upload] upload failed:", e);
+  // ---------- 6) Enviar ----------
+  // O enqueue só enfileira cliques com consent_granted = true, por isso
+  // podemos afirmar consentimento de personalização com verdade.
+  const result = await ingestEvents({
+    accessToken,
+    destinations,
+    events,
+    validateOnly,
+    adPersonalizationConsent: "PERSONALIZATION_ALLOWED",
+  });
+
+  const nowIso = new Date().toISOString();
+
+  // ---------- 7) Erro: devolver as linhas a 'pending' ----------
+  // Tudo-ou-nada. Não enterramos as linhas em 'failed' — o erro é do lote
+  // (credenciais, permissões, API), não da linha.
+  if (!result.ok) {
+    console.error(
+      "[crm-google-conversion-upload] ingest failed:",
+      JSON.stringify(result.error).slice(0, 1000),
+    );
+    const detail = typeof result.error === "string"
+      ? result.error
+      : JSON.stringify(result.error);
+
+    const { error: upErr } = await admin
+      .schema("crm")
+      .from("google_conversion")
+      .update({
+        error_detail: detail.slice(0, 1000),
+        updated_at: nowIso,
+      })
+      .in("id", sendable.map((r) => r.id));
+    if (upErr) errors.push(`mark_retry_failed:${upErr.message}`);
+
     return json({
-      error: "google_ads_api_failed",
-      detail: String(e),
+      error: "data_manager_ingest_failed",
+      status: result.status,
+      detail: result.error,
       read: pending.length,
       sent: 0,
       failed: failedNoId,
+      still_pending: sendable.length,
+      validate_only: validateOnly,
+      errors,
     }, 502);
   }
 
-  // ---------- 6) Mapear resultados ----------
-  // Google devolve results[] com o mesmo comprimento de conversions[]; entradas
-  // rejeitadas aparecem vazias ({}). partialFailureError tem a Status com details
-  // contendo GoogleAdsFailure -> errors[].location.fieldPathElements.index.
-  const results: any[] = Array.isArray(apiData.results) ? apiData.results : [];
-  const errorByIndex = new Map<number, string>();
-  const pfe = apiData.partialFailureError;
-  if (pfe) {
-    const details: any[] = Array.isArray(pfe.details) ? pfe.details : [];
-    for (const det of details) {
-      const errs: any[] = Array.isArray(det?.errors) ? det.errors : [];
-      for (const er of errs) {
-        const fpe: any[] = er?.location?.fieldPathElements ?? [];
-        const idxEl = fpe.find((p: any) => typeof p?.index === "number");
-        const idx = idxEl?.index;
-        const msg = er?.message ?? JSON.stringify(er).slice(0, 300);
-        if (typeof idx === "number") {
-          errorByIndex.set(idx, errorByIndex.get(idx)
-            ? `${errorByIndex.get(idx)} | ${msg}`
-            : msg);
-        }
-      }
-    }
+  // ---------- 8) validateOnly: não marca nada ----------
+  if (validateOnly) {
+    return json({
+      validate_only: true,
+      ok: true,
+      read: pending.length,
+      would_send: sendable.length,
+      request_id: result.requestId,
+      field_warnings: result.fieldWarnings,
+      destinations,
+      sample_event: events[0],
+      operating_account_id: OPERATING_ACCOUNT_ID,
+    });
   }
 
-  // ---------- 7) Atualizar BD linha a linha ----------
-  let sent = 0;
-  let failed = failedNoId;
-  const nowIso = new Date().toISOString();
+  // ---------- 9) Sucesso: marcar tudo como enviado ----------
+  const { error: upErr, count } = await admin
+    .schema("crm")
+    .from("google_conversion")
+    .update({
+      status: "sent",
+      sent_at: nowIso,
+      error_detail: null,
+      data_manager_job_id: result.requestId ?? null,
+      raw: {
+        transport: "data_manager",
+        request_id: result.requestId,
+        field_warnings: result.fieldWarnings,
+      },
+      updated_at: nowIso,
+    }, { count: "exact" })
+    .in("id", sendable.map((r) => r.id));
 
-  for (let i = 0; i < sendable.length; i++) {
-    const row = sendable[i];
-    const result = results[i];
-    const errMsg = errorByIndex.get(i);
-    const accepted = !errMsg &&
-      result && typeof result === "object" &&
-      (result.gclid || result.gbraid || result.wbraid ||
-        result.conversionAction || result.conversionDateTime);
-
-    if (accepted) {
-      const { error: upErr } = await admin
-        .schema("crm")
-        .from("google_conversion")
-        .update({
-          status: "sent",
-          sent_at: nowIso,
-          error_detail: null,
-          raw: { sent_payload: conversions[i], result },
-          updated_at: nowIso,
-        })
-        .eq("id", row.id);
-      if (upErr) errors.push(`update_sent_${row.id}:${upErr.message}`);
-      else sent++;
-    } else {
-      const detail = errMsg ?? "rejected_no_detail";
-      const { error: upErr } = await admin
-        .schema("crm")
-        .from("google_conversion")
-        .update({
-          status: "failed",
-          error_detail: detail.slice(0, 1000),
-          raw: { sent_payload: conversions[i], result, error: errMsg ?? null },
-          updated_at: nowIso,
-        })
-        .eq("id", row.id);
-      if (upErr) errors.push(`update_failed_${row.id}:${upErr.message}`);
-      else failed++;
-    }
-  }
+  if (upErr) errors.push(`update_sent:${upErr.message}`);
 
   return json({
     read: pending.length,
-    sent,
-    failed,
+    sent: count ?? sendable.length,
+    failed: failedNoId,
+    request_id: result.requestId,
+    field_warnings: result.fieldWarnings,
+    validate_only: false,
     errors,
-    customer_id: CUSTOMER_ID,
+    operating_account_id: OPERATING_ACCOUNT_ID,
   });
 });
