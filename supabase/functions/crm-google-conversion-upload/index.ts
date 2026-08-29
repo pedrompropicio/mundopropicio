@@ -269,8 +269,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     accessToken,
     destinations,
     events,
-    validateOnly,
-    adPersonalizationConsent: "PERSONALIZATION_ALLOWED",
+validateOnly,
+    consent: {
+      adUserData: "CONSENT_GRANTED",
+      adPersonalization: "CONSENT_GRANTED",
+    },
   });
 
   const nowIso = new Date().toISOString();
