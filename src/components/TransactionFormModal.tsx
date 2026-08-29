@@ -2181,7 +2181,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-        <div className="glass w-full max-w-lg md:max-w-3xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="glass w-full max-w-lg md:max-w-3xl lg:max-w-4xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{titleOverride ?? "Nova Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
@@ -2530,9 +2530,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
                   BP{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
-                <p className="text-[10px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
+<p className="text-[10px] md:text-[12px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
 <div
-                  className="max-h-64 md:max-h-[420px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
+                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
@@ -2543,7 +2543,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     }
                   }}
                 >
-                  <table className="w-full text-[11px]">
+                  <table className="w-full text-[11px] md:text-[13px]">
                     <thead>
                       <tr className="text-muted-foreground border-b border-border/30">
                         <th className="text-left pb-1 font-medium">Conta / Previsão</th>
@@ -2588,7 +2588,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                       <span className="text-muted-foreground mr-1">{detail.catCode}</span>
                                       {detail.catName}
                                       {hasMultipleLines && (
-                                        <span className="ml-1 text-[9px] text-muted-foreground">({detail.lines.length} linhas)</span>
+                                        <span className="ml-1 text-[9px] md:text-[11px] text-muted-foreground">({detail.lines.length} linhas)</span>
                                       )}
                                     </td>
                                     <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
@@ -2610,7 +2610,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                           : "border-l-transparent hover:bg-muted/20 hover:border-l-primary/30"
                                       }`}
                                     >
-                                      <td className="py-1 pr-2 pl-8 text-[10px]">
+                                      <td className="py-1 pr-2 pl-8 text-[10px] md:text-[12px]">
 <div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${line.status === "approved" ? "bg-success" : "bg-warning"}`} />
                                           <span className="truncate min-w-0">{line.description}</span>
@@ -2619,11 +2619,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                           )}
                                         </div>
                                       </td>
-                                      <td className="py-1 text-right font-mono text-[10px]">{Number(line.amount).toFixed(2)}€</td>
-                                      <td className="py-1 text-right font-mono text-[10px] text-muted-foreground">
+<td className="py-1 text-right font-mono text-[10px] md:text-[12px]">{Number(line.amount).toFixed(2)}€</td>
+                                      <td className="py-1 text-right font-mono text-[10px] md:text-[12px] text-muted-foreground">
                                         {line.iva_rate}%
                                       </td>
-                                      <td className="py-1 text-right font-mono text-[10px]">
+                                      <td className="py-1 text-right font-mono text-[10px] md:text-[12px]">
                                         {(Number(line.amount) * (1 + Number(line.iva_rate) / 100)).toFixed(2)}€
                                       </td>
                                     </tr>
