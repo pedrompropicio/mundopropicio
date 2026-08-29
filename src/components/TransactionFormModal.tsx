@@ -2611,11 +2611,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                       }`}
                                     >
                                       <td className="py-1 pr-2 pl-8 text-[10px]">
-                                        <div className="flex items-center gap-1.5">
+<div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${line.status === "approved" ? "bg-success" : "bg-warning"}`} />
-                                          <span className="truncate">{line.description}</span>
+                                          <span className="truncate min-w-0">{line.description}</span>
                                           {line.specification && (
-                                            <span className="text-muted-foreground truncate">· {line.specification}</span>
+                                            <span className="text-muted-foreground truncate min-w-0">· {line.specification}</span>
                                           )}
                                         </div>
                                       </td>
