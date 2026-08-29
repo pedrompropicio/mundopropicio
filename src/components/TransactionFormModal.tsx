@@ -2531,8 +2531,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   BP{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
                 <p className="text-[10px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
-                <div
-                  className="max-h-64 overflow-y-auto overscroll-contain border border-border/30 rounded"
+<div
+                  className="max-h-64 md:max-h-[420px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
