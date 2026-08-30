@@ -387,12 +387,12 @@ export function AccountantStandaloneInvoicesTab() {
                       Capturado por {profiles?.[r.created_by ?? ""] ?? "—"}
                       {r.notes ? ` · ${r.notes}` : ""}
                     </p>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="ghost" onClick={() => openDoc(r)}>
+                    <div className="flex flex-wrap items-start gap-1.5 pt-1">
+                      <Button size="sm" variant="ghost" className="shrink-0" onClick={() => openDoc(r)}>
                         <Download className="h-3.5 w-3.5 mr-1" /> Documento
                       </Button>
                       {canEdit(r) && (
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
+                        <Button size="sm" variant="ghost" className="shrink-0" onClick={() => openEdit(r)}>
                           <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
                         </Button>
                       )}
@@ -400,6 +400,7 @@ export function AccountantStandaloneInvoicesTab() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="shrink-0"
                           onClick={() => toggleProcessed.mutate(r)}
                           disabled={toggleProcessed.isPending}
                         >
@@ -414,7 +415,7 @@ export function AccountantStandaloneInvoicesTab() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-destructive hover:text-destructive"
+                          className="shrink-0 text-destructive hover:text-destructive"
                           disabled={removeInvoice.isPending}
                           onClick={() => {
                             if (window.confirm("Apagar esta fatura avulsa? O documento também é removido.")) {
