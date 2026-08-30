@@ -1627,68 +1627,35 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     }
   };
 
-  const handleBulkPayment = async () => {
+  /**
+   * "Liquidar (N)" — delega no BatchPaymentModal (o mesmo do ecrã de Transações).
+   * A conta financeira é obrigatória e cada transação liquidada fica com a sua
+   * linha em `transaction_payments`. Não há escrita direta a `transactions` aqui.
+   */
+  const handleBulkPayment = () => {
     if (selectedTxIds.size === 0) return;
-    if (!confirm(`Dar baixa em ${selectedTxIds.size} pagamento(s)? O valor total será marcado como pago.`)) return;
-
-    setPaying(true);
-    try {
-      for (const txId of selectedTxIds) {
-        const item = items.find((i: any) => i.transactions?.id === txId);
-        const tx = item?.transactions;
-        if (!tx) continue;
-        const baseAmount = Number(tx.amount);
-        const ivaRate = Number(tx.iva_rate ?? 23);
-        const totalWithIva = calcWithIva(baseAmount, ivaRate);
-
-        await supabase.from("transaction_audit_log").insert({
-          transaction_id: txId,
-          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-          field_name: "Pagamento parcial",
-          old_value: String(tx.paid_amount ?? 0),
-          new_value: String(totalWithIva),
-        });
-
-        const pDate = list?.payment_date ?? new Date().toISOString().slice(0, 10);
-        await supabase
-          .from("transactions")
-          .update({ paid_amount: totalWithIva, status: "paid", payment_date: pDate })
-          .eq("id", txId);
-
-        // Propagate only true Master/Split apportionment payments.
-        // Installment siblings also use parent_transaction_id, but each parcela must be paid independently.
-        if (!tx.event_id && tx.split_mode) {
-          const { data: children } = await supabase
-            .from("transactions")
-            .select("id, split_percentage, amount, iva_rate, paid_amount")
-            .eq("parent_transaction_id", txId);
-
-          if (children && children.length > 0) {
-            for (const child of children) {
-              const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 23));
-              await supabase
-                .from("transactions")
-                .update({ paid_amount: childTotal, status: "paid", payment_date: pDate })
-                .eq("id", child.id);
-            }
-          }
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
-      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      // Notas de reembolso: a tx→nota é feita por trigger na BD; aqui só refrescamos a UI.
-      queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
-      queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
-      setSelectedTxIds(new Set());
-      toast({ title: `${selectedTxIds.size} pagamento(s) processado(s) com sucesso!` });
-    } catch (err: any) {
-      toast({ title: "Erro ao processar pagamentos", description: err.message, variant: "destructive" });
-    } finally {
-      setPaying(false);
-    }
+    setShowBatchPayment(true);
   };
+
+  const batchPaymentTransactions = useMemo(
+    () =>
+      items
+        .filter((i: any) => i.transactions && selectedTxIds.has(i.transactions.id))
+        .map((i: any) => i.transactions),
+    [items, selectedTxIds],
+  );
+
+  const handleBatchPaymentClose = () => {
+    setShowBatchPayment(false);
+    setSelectedTxIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
+    void refreshBadgeFromDB();
+  };
+
 
   const handleExport = async (format: "pdf" | "excel") => {
     if (!list || items.length === 0) return;
