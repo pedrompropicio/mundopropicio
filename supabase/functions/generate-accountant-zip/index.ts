@@ -185,7 +185,8 @@ Deno.serve(async (req) => {
           const { data: childDocs } = await admin
             .from("transaction_documents")
             .select("id, transaction_id, name, file_url")
-            .in("transaction_id", Array.from(childToPayTx.keys()));
+            .in("transaction_id", Array.from(childToPayTx.keys()))
+            .eq("is_accounting", true);
           for (const d of childDocs ?? []) {
             const payTx = childToPayTx.get(d.transaction_id);
             if (!payTx) continue;
