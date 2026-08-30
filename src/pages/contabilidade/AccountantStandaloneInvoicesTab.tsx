@@ -104,6 +104,7 @@ export function AccountantStandaloneInvoicesTab() {
     onSuccess: () => {
       setEditing(null);
       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
       toast({ title: "Fatura atualizada" });
     },
     onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
@@ -205,6 +206,7 @@ export function AccountantStandaloneInvoicesTab() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
       toast({ title: "Fatura apagada" });
     },
     onError: (e: any) =>
