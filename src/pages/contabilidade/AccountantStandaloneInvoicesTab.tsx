@@ -109,21 +109,60 @@ export function AccountantStandaloneInvoicesTab() {
     onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["standalone-invoices", companyId],
+  /**
+   * Lista de meses disponíveis — consulta leve (só datas), independente do
+   * limite de linhas da lista, para o seletor nunca perder meses antigos.
+   */
+  const { data: available } = useQuery({
+    queryKey: ["standalone-invoice-months", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("standalone_invoices")
+        .select("invoice_date")
+        .eq("company_id", companyId);
+      if (error) throw error;
+      const months = new Set<string>();
+      let hasNoDate = false;
+      (data ?? []).forEach((r: { invoice_date: string | null }) => {
+        if (r.invoice_date) months.add(r.invoice_date.slice(0, 7));
+        else hasNoDate = true;
+      });
+      return { months: [...months].sort().reverse(), hasNoDate };
+    },
+  });
+
+  const [selection, setSelection] = useState<string | null>(null);
+  // Por defeito: mês mais recente COM faturas (não o mês do calendário).
+  const selected =
+    selection ?? available?.months[0] ?? (available?.hasNoDate ? NO_DATE : ALL);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["standalone-invoices", companyId, selected],
+    enabled: !!companyId && !!available,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("standalone_invoices")
         .select("*")
-        .eq("company_id", companyId)
+        .eq("company_id", companyId);
+      if (selected === NO_DATE) {
+        q = q.is("invoice_date", null);
+      } else if (selected !== ALL) {
+        const { start, end } = monthRange(selected);
+        q = q.gte("invoice_date", start).lt("invoice_date", end);
+      } else {
+        q = q.limit(ALL_LIMIT);
+      }
+      const { data, error } = await q
         .order("invoice_date", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(1000);
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Row[];
     },
   });
+
+  const hitLimit = selected === ALL && (data?.length ?? 0) >= ALL_LIMIT;
+
 
   const { data: profiles } = useQuery({
     queryKey: ["standalone-invoice-profiles", companyId],
