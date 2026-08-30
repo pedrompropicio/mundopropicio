@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCompany } from "@/hooks/useCompany";
 import ContactDetailsSheet from "./ContactDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
+import { contactPrimaryLabel, contactSecondaryLabel } from "../lib/contactDisplay";
 
 type TriState = "all" | "yes" | "no";
 
@@ -246,12 +247,12 @@ export default function ContactosList() {
                   />
                 </TableCell>
                 <TableCell>
-                  <div className="font-medium">{c.name ?? c.email ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {c.name && c.email ? c.email : ""}
-                    {c.phone_e164 ? ` · ${c.phone_e164}` : ""}
-                  </div>
+                  <div className="font-medium">{contactPrimaryLabel(c)}</div>
+                  {contactSecondaryLabel(c) && (
+                    <div className="text-xs text-muted-foreground">{contactSecondaryLabel(c)}</div>
+                  )}
                 </TableCell>
+
                 <TableCell>
                   {c.source ? <Badge variant="outline" className="text-xs">{c.source}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>

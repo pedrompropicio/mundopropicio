@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { relativeFromNow, formatDateTime } from "../lib/relativeTime";
+import { contactPrimaryLabel } from "../lib/contactDisplay";
 
 interface Props {
   contactId: string | null;
@@ -108,7 +109,7 @@ export default function ContactDetailsSheet({ contactId, open, onOpenChange }: P
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{contact?.name ?? contact?.email ?? "Contacto"}</SheetTitle>
+          <SheetTitle>{contact ? contactPrimaryLabel(contact) : "Contacto"}</SheetTitle>
           <SheetDescription>
             {contact?.email ?? "—"} {contact?.phone_e164 ? `· ${contact.phone_e164}` : ""}
           </SheetDescription>

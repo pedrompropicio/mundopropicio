@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { relativeFromNow, formatDateTime } from "../lib/relativeTime";
 import ContactDetailsSheet from "../contactos/ContactDetailsSheet";
+import { contactPrimaryLabel, contactSecondaryLabel } from "../lib/contactDisplay";
 
 interface Props {
   leadId: string | null;
@@ -114,11 +115,13 @@ export default function LeadDetailsSheet({ leadId, open, onOpenChange }: Props) 
                 <Card className="p-3 text-xs">
                   {lead.contact ? (
                     <div className="space-y-1">
-                      <div className="font-medium">{lead.contact.name ?? "—"}</div>
-                      <div className="text-muted-foreground">
-                        {lead.contact.email ?? "—"}
-                        {lead.contact.phone_e164 ? ` · ${lead.contact.phone_e164}` : ""}
-                      </div>
+                      <div className="font-medium">{contactPrimaryLabel(lead.contact)}</div>
+                      {contactSecondaryLabel(lead.contact) && (
+                        <div className="text-muted-foreground">
+                          {contactSecondaryLabel(lead.contact)}
+                        </div>
+                      )}
+
                       <Button
                         size="sm"
                         variant="outline"
