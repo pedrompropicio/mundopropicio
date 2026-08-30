@@ -106,6 +106,13 @@
 **Porquê:** na Anitta a diferença entre as duas bases são 279.044,23 €. Um clique não pode mover isso.
 **Estado:** vigente — implementação por fechar na issue #64.
 
+### D-ERP5 — Não se geram transações em massa a partir do cabeçalho do BP (ago/2026)
+**Decisão:** removida a ação "Gerar Transações" do cabeçalho do Business Plan. A edge function `generate-historical-transactions` fica desativada e é removida em passo separado.
+**Porquê:** nasceu quando o fecho do evento era por transações; com a D-ERP3 o evento fecha pelo BP e a ação deixou de ter propósito. Acresce que escrevia `amount` com o IVA embutido (o sistema trata `amount` como base s/IVA), perdia `paying_partner_id` e `ordering_partner_id`, gravava apenas a âncora legada em vez de `transactions.forecast_id`, não registava em `transaction_audit_log`, e o contador ignorava os filtros do ecrã.
+**Consequência:** a criação em massa continua a existir por secção (`handleBulkCreateTx`), que herda o ordenador, grava a base correta e escreve no audit log.
+**Estado:** vigente.
+
+
 ## MP CRM
 > (A preencher — módulo de clientes/leads/promotores, distinto do Audience. Nota: o schema crm.* na BD é onde vive o Audience, não o módulo CRM.)
 
