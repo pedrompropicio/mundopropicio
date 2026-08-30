@@ -57,3 +57,14 @@ Página 1: 1) Resumo, 2) Quebra por Cidade, 3) Distribuição. Página 2: 4) Det
 Página 3+: 5) Bilheteira – Totais Vendidos, 6) Fecho de Bilheteiras / Recintos, 7) Despesas
 por Categoria. Mover "Detalhes por Sócio" para página dedicada deixa o resumo da página 1
 limpo e dá espaço aos extras/pagas/transitórias de cada sócio.
+
+## Funções mortas — não são regra ativa (conferido 30/08/2026)
+
+`enforce_tx_category_l2_match` e `enforce_forecast_tx_link_l2_match` existem na base como funções mas **nenhum trigger as invoca**. Não valide nada. Quem as encontrar não deve concluir que a validação de L2 está ativa.
+
+O que está mesmo ativo é o par de L3 da DR-2026-08-22:
+- `trg_sync_tx_category_from_forecast` em `event_forecasts`
+- `trg_realign_tx_category_from_forecast` em `transactions`
+
+As duas funções de L2 são resíduo da implementação anterior e estão propostas para remoção.
+
