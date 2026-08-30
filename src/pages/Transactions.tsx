@@ -1266,6 +1266,9 @@ export default function Transactions() {
         <TransactionPaymentsListModal
           transaction={transactions.find((t) => t.id === showPaymentsListId) ?? { id: showPaymentsListId }}
           isAdmin={canApprove}
+          eventCompleted={
+            (transactions.find((t) => t.id === showPaymentsListId)?.events as any)?.status === "completed"
+          }
           onClose={() => setShowPaymentsListId(null)}
         />
       )}

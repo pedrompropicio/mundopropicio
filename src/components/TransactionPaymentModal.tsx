@@ -290,8 +290,18 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
-      const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
-      if (newPaid > amount + 0.05) throw new Error("O valor excede o saldo em aberto");
+      // Reler o paid_amount atual da BD (o snapshot em memória pode estar
+      // desatualizado — foi por aí que entraram pagamentos duplicados).
+      const { data: freshTx, error: freshTxError } = await supabase
+        .from("transactions")
+        .select("paid_amount")
+        .eq("id", transaction.id)
+        .maybeSingle();
+      if (freshTxError) throw freshTxError;
+      const dbPaid = Number(freshTx?.paid_amount ?? currentPaid);
+      const newPaid = Math.round((dbPaid + addAmount) * 100) / 100;
+      if (newPaid >= amount + 0.01) throw new Error("O valor excede o saldo em aberto");
+
 
       // Validate credit allocations
       for (const [creditId, valStr] of Object.entries(creditAllocations)) {
@@ -432,7 +442,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         notes: notes.trim() || null,
         created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
       };
-      await (supabase as any).from("transaction_payments").insert(paymentRecord);
+      const { error: paymentInsertError } = await (supabase as any)
+        .from("transaction_payments")
+        .insert(paymentRecord);
+      if (paymentInsertError) throw paymentInsertError;
 
       // Record credit usages
       const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -514,7 +527,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             .eq("id", sib.id);
 
           // Individual payment record on the sibling
-          await (supabase as any).from("transaction_payments").insert({
+          const { error: sibPaymentError } = await (supabase as any).from("transaction_payments").insert({
             transaction_id: sib.id,
             amount: sibRemaining,
             payment_date: format(paymentDate, "yyyy-MM-dd"),
@@ -530,6 +543,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             notes: `Liquidado em conjunto com transação ${transaction.id} (grupo fatura)`,
             created_by: callerName,
           });
+          if (sibPaymentError) throw sibPaymentError;
 
           // Audit on sibling
           await supabase.from("transaction_audit_log").insert({

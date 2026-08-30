@@ -310,7 +310,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
         if (error) throw error;
 
         // Registo individual em transaction_payments (para timeline + ajuste de saldo)
-        await (supabase as any).from("transaction_payments").insert({
+        const { error: batchPaymentError } = await (supabase as any).from("transaction_payments").insert({
           transaction_id: item.id,
           amount: settleEur,
           payment_date: paymentDate,
@@ -321,6 +321,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           notes: notes.trim() || null,
           created_by: userName,
         });
+        if (batchPaymentError) throw batchPaymentError;
 
 
         // Propagate to child splits if parent — proportional to the EUR settled

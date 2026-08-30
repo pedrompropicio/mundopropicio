@@ -18,7 +18,10 @@ type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_
 
 interface Props {
   transaction: any;
+  /** Acesso total (valor, conta, método, pagamento direto) — admin/manager. */
   isAdmin: boolean;
+  /** Evento associado fechado: nenhuma ação de correção fica disponível. */
+  eventCompleted?: boolean;
   onClose: () => void;
 }
 
@@ -29,8 +32,12 @@ const methodLabels: Record<string, string> = {
   state_payment: "Pag. Estado",
 };
 
-export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: Props) {
-  const { user } = useAuth();
+export function TransactionPaymentsListModal({ transaction, isAdmin, eventCompleted = false, onClose }: Props) {
+  const { user, role } = useAuth();
+  // O editor pode corrigir a DATA e APAGAR um pagamento; valor/conta/método
+  // continuam reservados a admin/manager.
+  const canFull = isAdmin && !eventCompleted;
+  const canLimited = (isAdmin || role === "editor") && !eventCompleted;
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -103,8 +110,14 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
 
   const updateMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const newAmount = parseFloat(editForm.amount);
+      const original = payments.find((p: any) => p.id === paymentId);
+      const newAmount = canFull ? parseFloat(editForm.amount) : Number(original?.amount ?? 0);
       if (!newAmount || newAmount <= 0) throw new Error("Valor inválido");
+      if (!canLimited) throw new Error("Sem permissão para editar pagamentos");
+      const effAccountId = canFull ? (editForm.account_id || null) : (original?.account_id ?? null);
+      const effMethod = canFull ? editForm.payment_method : (original?.payment_method ?? "transfer");
+      const effEntity = canFull ? editForm.payment_entity : (original?.payment_entity ?? "");
+      const effReference = canFull ? editForm.payment_reference : (original?.payment_reference ?? "");
 
       // Calculate what the total would be with this change
       const otherPaymentsTotal = payments
@@ -117,12 +130,12 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
       const updateData: any = {
         amount: newAmount,
         payment_date: format(editForm.payment_date, "yyyy-MM-dd"),
-        account_id: editForm.account_id || null,
-        payment_method: editForm.payment_method,
-        payment_entity: editForm.payment_method === "service_payment" ? editForm.payment_entity.trim() : null,
-        payment_reference: editForm.payment_method !== "transfer" ? editForm.payment_reference.trim() : null,
-        invoice_ref: editForm.invoice_ref.trim() || null,
-        notes: editForm.notes.trim() || null,
+        account_id: effAccountId,
+        payment_method: effMethod,
+        payment_entity: effMethod === "service_payment" ? (effEntity ?? "").trim() : null,
+        payment_reference: effMethod !== "transfer" ? (effReference ?? "").trim() : null,
+        invoice_ref: canFull ? (editForm.invoice_ref.trim() || null) : (original?.invoice_ref ?? null),
+        notes: canFull ? (editForm.notes.trim() || null) : (original?.notes ?? null),
       };
 
       const { error } = await (supabase as any)
@@ -143,17 +156,17 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
           paid_amount: finalPaid,
           status: newStatus,
           payment_date: format(editForm.payment_date, "yyyy-MM-dd"),
-          account_id: editForm.account_id || null,
-          payment_method: editForm.payment_method,
-          payment_entity: editForm.payment_method === "service_payment" ? editForm.payment_entity.trim() : null,
-          payment_reference: editForm.payment_method !== "transfer" ? editForm.payment_reference.trim() : null,
+          account_id: effAccountId,
+          payment_method: effMethod,
+          payment_entity: effMethod === "service_payment" ? (effEntity ?? "").trim() : null,
+          payment_reference: effMethod !== "transfer" ? (effReference ?? "").trim() : null,
         } as any)
         .eq("id", transaction.id);
       if (txError) throw txError;
 
       // Granular audit log — one entry per changed field
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-      const originalPayment = payments.find((p: any) => p.id === paymentId);
+      const originalPayment = original;
       const parcela = `Parcela #${payments.findIndex((p: any) => p.id === paymentId) + 1}`;
       const auditEntries: any[] = [];
 
@@ -167,25 +180,25 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
           auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Data pgto`, old_value: oldDate, new_value: newDate });
         }
         const oldAccId = originalPayment.account_id ?? "";
-        const newAccId = editForm.account_id || "";
+        const newAccId = effAccountId || "";
         if (oldAccId !== newAccId) {
           const oldAccName = financialAccounts.find((a: any) => a.id === oldAccId)?.name ?? "—";
           const newAccName = financialAccounts.find((a: any) => a.id === newAccId)?.name ?? "—";
           auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Conta`, old_value: oldAccName, new_value: newAccName });
         }
-        if ((originalPayment.payment_method ?? "transfer") !== editForm.payment_method) {
-          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Método`, old_value: methodLabels[originalPayment.payment_method] ?? originalPayment.payment_method, new_value: methodLabels[editForm.payment_method] ?? editForm.payment_method });
+        if ((originalPayment.payment_method ?? "transfer") !== effMethod) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Método`, old_value: methodLabels[originalPayment.payment_method] ?? originalPayment.payment_method, new_value: methodLabels[effMethod] ?? effMethod });
         }
-        if ((originalPayment.payment_entity ?? "") !== (editForm.payment_entity?.trim() ?? "")) {
-          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Entidade`, old_value: originalPayment.payment_entity ?? "—", new_value: editForm.payment_entity?.trim() || "—" });
+        if ((originalPayment.payment_entity ?? "") !== (effEntity?.trim() ?? "")) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Entidade`, old_value: originalPayment.payment_entity ?? "—", new_value: effEntity?.trim() || "—" });
         }
-        if ((originalPayment.payment_reference ?? "") !== (editForm.payment_reference?.trim() ?? "")) {
-          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Referência`, old_value: originalPayment.payment_reference ?? "—", new_value: editForm.payment_reference?.trim() || "—" });
+        if ((originalPayment.payment_reference ?? "") !== (effReference?.trim() ?? "")) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Referência`, old_value: originalPayment.payment_reference ?? "—", new_value: effReference?.trim() || "—" });
         }
-        if ((originalPayment.invoice_ref ?? "") !== (editForm.invoice_ref?.trim() ?? "")) {
+        if (canFull && (originalPayment.invoice_ref ?? "") !== (editForm.invoice_ref?.trim() ?? "")) {
           auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Nº Fatura`, old_value: originalPayment.invoice_ref ?? "—", new_value: editForm.invoice_ref?.trim() || "—" });
         }
-        if ((originalPayment.notes ?? "") !== (editForm.notes?.trim() ?? "")) {
+        if (canFull && (originalPayment.notes ?? "") !== (editForm.notes?.trim() ?? "")) {
           auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Nota`, old_value: originalPayment.notes ?? "—", new_value: editForm.notes?.trim() || "—" });
         }
       }
@@ -209,6 +222,7 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
 
   const deleteMutation = useMutation({
     mutationFn: async (paymentId: string) => {
+      if (!canLimited) throw new Error("Sem permissão para reverter pagamentos");
       const payment = payments.find((p: any) => p.id === paymentId);
       if (!payment) throw new Error("Pagamento não encontrado");
 
@@ -262,6 +276,7 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
 
   const updateDirectMutation = useMutation({
     mutationFn: async () => {
+      if (!canFull) throw new Error("Sem permissão para ajustar o valor pago");
       const newPaid = parseFloat(directForm.paid_amount);
       if (isNaN(newPaid) || newPaid < 0) throw new Error("Valor pago inválido");
       if (newPaid > totalWithIva + 0.05) throw new Error("O valor pago não pode exceder o montante da transação");
@@ -338,7 +353,7 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
             <div className="rounded-lg bg-secondary/30 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-primary">Pagamento direto</span>
-                {isAdmin && !editingDirect && (
+                {canFull && !editingDirect && (
                   <button onClick={startDirectEdit}
                     className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Editar valor pago">
                     <Pencil className="h-3.5 w-3.5" />
@@ -419,8 +434,9 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
                         <label className="text-xs text-muted-foreground">Valor (€)</label>
                         <input type="number" step="0.01" min="0.01"
                           value={editForm.amount}
+                          disabled={!canFull}
                           onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-60" />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Data</label>
@@ -440,62 +456,68 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-muted-foreground">Conta</label>
-                      <SearchableSelect options={accountOptions} value={editForm.account_id}
-                        onValueChange={(v) => setEditForm({ ...editForm, account_id: v })}
-                        placeholder="Selecionar…" searchPlaceholder="Pesquisar…" />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground">Método</label>
-                      <div className="grid grid-cols-3 gap-1">
-                        {([
-                          { value: "transfer", label: "Transferência", icon: Building },
-                          { value: "service_payment", label: "Pag. Serviços", icon: FileText },
-                          { value: "direct_debit", label: "Débito Direto", icon: Repeat },
-                        ] as const).map((m) => (
-                          <button key={m.value} type="button"
-                            onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
-                            className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-                              editForm.payment_method === m.value ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border text-muted-foreground"
-                            )}>
-                            <m.icon className="h-3 w-3" />{m.label}
-                          </button>
-                        ))}
+                    {canFull ? (
+                      <>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Conta</label>
+                        <SearchableSelect options={accountOptions} value={editForm.account_id}
+                          onValueChange={(v) => setEditForm({ ...editForm, account_id: v })}
+                          placeholder="Selecionar…" searchPlaceholder="Pesquisar…" />
                       </div>
-                    </div>
 
-                    {editForm.payment_method === "service_payment" && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-xs text-muted-foreground">Entidade</label>
-                          <input type="text" value={editForm.payment_entity}
-                            onChange={(e) => setEditForm({ ...editForm, payment_entity: e.target.value })}
-                            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground">Referência</label>
-                          <input type="text" value={editForm.payment_reference}
-                            onChange={(e) => setEditForm({ ...editForm, payment_reference: e.target.value })}
-                            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                      <div>
+                        <label className="text-xs text-muted-foreground">Método</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {([
+                            { value: "transfer", label: "Transferência", icon: Building },
+                            { value: "service_payment", label: "Pag. Serviços", icon: FileText },
+                            { value: "direct_debit", label: "Débito Direto", icon: Repeat },
+                          ] as const).map((m) => (
+                            <button key={m.value} type="button"
+                              onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
+                              className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
+                                editForm.payment_method === m.value ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border text-muted-foreground"
+                              )}>
+                              <m.icon className="h-3 w-3" />{m.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
+
+                      {editForm.payment_method === "service_payment" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Entidade</label>
+                            <input type="text" value={editForm.payment_entity}
+                              onChange={(e) => setEditForm({ ...editForm, payment_entity: e.target.value })}
+                              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Referência</label>
+                            <input type="text" value={editForm.payment_reference}
+                              onChange={(e) => setEditForm({ ...editForm, payment_reference: e.target.value })}
+                              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="text-xs text-muted-foreground">Nº Fatura</label>
+                        <input type="text" value={editForm.invoice_ref}
+                          onChange={(e) => setEditForm({ ...editForm, invoice_ref: e.target.value })}
+                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-muted-foreground">Nota</label>
+                        <input type="text" value={editForm.notes}
+                          onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                      </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">Só o valor, a conta e o método são editáveis por admin. Podes corrigir a data ou apagar o pagamento.</p>
                     )}
-
-                    <div>
-                      <label className="text-xs text-muted-foreground">Nº Fatura</label>
-                      <input type="text" value={editForm.invoice_ref}
-                        onChange={(e) => setEditForm({ ...editForm, invoice_ref: e.target.value })}
-                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground">Nota</label>
-                      <input type="text" value={editForm.notes}
-                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                    </div>
                   </div>
                 ) : (
                   /* View mode */
@@ -506,7 +528,7 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
                         <span className="text-xs text-muted-foreground">
                           {formatDatePT(p.payment_date)}
                         </span>
-                        {isAdmin && (
+                        {canLimited && (
                           <>
                             <button onClick={() => startEdit(p)}
                               className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Editar">
