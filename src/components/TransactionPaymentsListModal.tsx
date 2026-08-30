@@ -456,62 +456,68 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, eventComple
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-muted-foreground">Conta</label>
-                      <SearchableSelect options={accountOptions} value={editForm.account_id}
-                        onValueChange={(v) => setEditForm({ ...editForm, account_id: v })}
-                        placeholder="Selecionar…" searchPlaceholder="Pesquisar…" />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground">Método</label>
-                      <div className="grid grid-cols-3 gap-1">
-                        {([
-                          { value: "transfer", label: "Transferência", icon: Building },
-                          { value: "service_payment", label: "Pag. Serviços", icon: FileText },
-                          { value: "direct_debit", label: "Débito Direto", icon: Repeat },
-                        ] as const).map((m) => (
-                          <button key={m.value} type="button"
-                            onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
-                            className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-                              editForm.payment_method === m.value ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border text-muted-foreground"
-                            )}>
-                            <m.icon className="h-3 w-3" />{m.label}
-                          </button>
-                        ))}
+                    {canFull ? (
+                      <>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Conta</label>
+                        <SearchableSelect options={accountOptions} value={editForm.account_id}
+                          onValueChange={(v) => setEditForm({ ...editForm, account_id: v })}
+                          placeholder="Selecionar…" searchPlaceholder="Pesquisar…" />
                       </div>
-                    </div>
 
-                    {editForm.payment_method === "service_payment" && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-xs text-muted-foreground">Entidade</label>
-                          <input type="text" value={editForm.payment_entity}
-                            onChange={(e) => setEditForm({ ...editForm, payment_entity: e.target.value })}
-                            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground">Referência</label>
-                          <input type="text" value={editForm.payment_reference}
-                            onChange={(e) => setEditForm({ ...editForm, payment_reference: e.target.value })}
-                            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                      <div>
+                        <label className="text-xs text-muted-foreground">Método</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {([
+                            { value: "transfer", label: "Transferência", icon: Building },
+                            { value: "service_payment", label: "Pag. Serviços", icon: FileText },
+                            { value: "direct_debit", label: "Débito Direto", icon: Repeat },
+                          ] as const).map((m) => (
+                            <button key={m.value} type="button"
+                              onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
+                              className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
+                                editForm.payment_method === m.value ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border text-muted-foreground"
+                              )}>
+                              <m.icon className="h-3 w-3" />{m.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
+
+                      {editForm.payment_method === "service_payment" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Entidade</label>
+                            <input type="text" value={editForm.payment_entity}
+                              onChange={(e) => setEditForm({ ...editForm, payment_entity: e.target.value })}
+                              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Referência</label>
+                            <input type="text" value={editForm.payment_reference}
+                              onChange={(e) => setEditForm({ ...editForm, payment_reference: e.target.value })}
+                              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="text-xs text-muted-foreground">Nº Fatura</label>
+                        <input type="text" value={editForm.invoice_ref}
+                          onChange={(e) => setEditForm({ ...editForm, invoice_ref: e.target.value })}
+                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-muted-foreground">Nota</label>
+                        <input type="text" value={editForm.notes}
+                          onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                      </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">Só o valor, a conta e o método são editáveis por admin. Podes corrigir a data ou apagar o pagamento.</p>
                     )}
-
-                    <div>
-                      <label className="text-xs text-muted-foreground">Nº Fatura</label>
-                      <input type="text" value={editForm.invoice_ref}
-                        onChange={(e) => setEditForm({ ...editForm, invoice_ref: e.target.value })}
-                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground">Nota</label>
-                      <input type="text" value={editForm.notes}
-                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                    </div>
                   </div>
                 ) : (
                   /* View mode */
