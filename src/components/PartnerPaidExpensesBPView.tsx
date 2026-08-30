@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -226,8 +226,8 @@ export function PartnerPaidExpensesBPView({ eventId, eventName }: Props) {
                     const k = `${g.id}|${r.key}`;
                     const isOpen = !!open[k];
                     return (
-                      <>
-                        <TableRow key={k} className="cursor-pointer" onClick={() => setOpen((o) => ({ ...o, [k]: !o[k] }))}>
+                      <Fragment key={k}>
+                        <TableRow className="cursor-pointer" onClick={() => setOpen((o) => ({ ...o, [k]: !o[k] }))}>
                           <TableCell className="font-medium text-sm">
                             <span className="inline-flex items-center gap-1">
                               {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -261,7 +261,7 @@ export function PartnerPaidExpensesBPView({ eventId, eventName }: Props) {
                               <TableCell className="text-right font-mono text-xs">{money(roundCents(c.b.base + c.b.iva), r.currency)}</TableCell>
                             </TableRow>
                           ))}
-                      </>
+                      </Fragment>
                     );
                   })}
                   <TableRow className="border-t-2 border-border bg-muted/30">
