@@ -81,3 +81,19 @@ só se houver algo preenchido).
 - Warp de perspetiva também é próprio (homografia 8x8 + bilinear) em `document-scan.ts`.
 - Harness: `src/lib/__tests__/document-detect.test.ts` gera imagens sintéticas (retângulo
   branco rodado 6–20° sobre mármore castanho com sombra) e exige erro < 3% do lado maior.
+
+## Conferência — seletor de mês (2026-08-30)
+
+- Seletor (shadcn Select) no topo da aba: "Todos os meses", "Sem data da fatura"
+  (só se existir) e um item por mês com faturas, mais recente primeiro.
+- Lista de meses vem de consulta própria e leve (`select invoice_date` da company,
+  meses distintos derivados no cliente) — nunca do array já carregado, para não
+  depender de limite de linhas. queryKey `standalone-invoice-months`.
+- Defeito = mês mais recente COM faturas (não o mês do calendário).
+- Com mês escolhido a query filtra por intervalo `invoice_date >= início` e
+  `< mês seguinte`; "Sem data" filtra `invoice_date is null`; "Todos os meses"
+  mantém `.limit(1000)` e mostra aviso âmbar quando o limite é atingido.
+- Agrupamento passou a usar SÓ `invoice_date`. Faturas sem data vão para grupo
+  próprio "Sem data da fatura", sempre no topo — nunca misturadas com um mês real.
+- "Exportar mês" refaz a consulta por intervalo (ou is null) e exporta o período
+  inteiro, não apenas as linhas em memória. Formato do ZIP/XLSX inalterado.
