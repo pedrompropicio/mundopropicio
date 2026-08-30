@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
+import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
@@ -1105,6 +1106,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const { user, isAdmin, isManager } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
+  const [showBatchPayment, setShowBatchPayment] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
   const [showAddTx, setShowAddTx] = useState(false);
   const [editingTx, setEditingTx] = useState<any | null>(null);
@@ -1161,23 +1163,15 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   }, []);
 
   /**
-   * "Marcar como pago" manual de um item da lista.
+   * "Marcar como pago" manual de um item da lista — ESTRITAMENTE VISUAL.
    *
-   * BUG histórico (corrigido 2026-08): este caminho gravava apenas
-   * `payment_list_items.manually_marked_paid` e NÃO tocava na transação, pelo que
-   * transações (nomeadamente as de notas de reembolso) ficavam em 'approved' com
-   * payment_date NULL — e as notas presas em "Aguarda Pagamento".
-   *
-   * Regra: qualquer item liquidado numa lista, por qualquer caminho, põe a
-   * transação em `status='paid'` + `payment_date` (data da lista, mesma convenção
-   * do caminho em massa) + `paid_amount` = total c/IVA. Sem exceções por tipo.
-   * Idempotente: se a tx já está paga não é reescrita; desmarcar o flag NÃO
-   * regride a transação.
+   * Grava apenas `payment_list_items.manually_marked_paid` (toggle). NÃO toca na
+   * transação: não escreve paid_amount, status nem payment_date. Serve de guia
+   * visual para não pagar duas vezes quando o pagamento é feito manualmente no
+   * banco. A liquidação real faz-se em "Liquidar (N)" (BatchPaymentModal), que
+   * exige conta financeira e cria linha em transaction_payments.
    */
   const toggleManualMark = async (itemId: string, current: boolean) => {
-    const item: any = items.find((i: any) => i.id === itemId);
-    const tx = item?.transactions;
-
     const { error } = await supabase
       .from("payment_list_items")
       .update({ manually_marked_paid: !current } as any)
@@ -1187,27 +1181,6 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       return;
     }
 
-    // Só ao MARCAR (não ao desmarcar) e só se a tx ainda não está liquidada.
-    if (!current && tx && tx.status !== "paid") {
-      const totalWithIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
-      const pDate = list?.payment_date ?? new Date().toISOString().slice(0, 10);
-
-      await supabase.from("transaction_audit_log").insert({
-        transaction_id: tx.id,
-        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-        field_name: "Liquidação (marcada na lista de pagamento)",
-        old_value: String(tx.paid_amount ?? 0),
-        new_value: String(totalWithIva),
-      });
-
-      const { error: txError } = await supabase
-        .from("transactions")
-        .update({ paid_amount: totalWithIva, status: "paid", payment_date: pDate })
-        .eq("id", tx.id);
-      if (txError) {
-        toast({ title: "Erro ao liquidar a transação", description: txError.message, variant: "destructive" });
-      }
-    }
 
     queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
     queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
@@ -1656,68 +1629,35 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     }
   };
 
-  const handleBulkPayment = async () => {
+  /**
+   * "Liquidar (N)" — delega no BatchPaymentModal (o mesmo do ecrã de Transações).
+   * A conta financeira é obrigatória e cada transação liquidada fica com a sua
+   * linha em `transaction_payments`. Não há escrita direta a `transactions` aqui.
+   */
+  const handleBulkPayment = () => {
     if (selectedTxIds.size === 0) return;
-    if (!confirm(`Dar baixa em ${selectedTxIds.size} pagamento(s)? O valor total será marcado como pago.`)) return;
-
-    setPaying(true);
-    try {
-      for (const txId of selectedTxIds) {
-        const item = items.find((i: any) => i.transactions?.id === txId);
-        const tx = item?.transactions;
-        if (!tx) continue;
-        const baseAmount = Number(tx.amount);
-        const ivaRate = Number(tx.iva_rate ?? 23);
-        const totalWithIva = calcWithIva(baseAmount, ivaRate);
-
-        await supabase.from("transaction_audit_log").insert({
-          transaction_id: txId,
-          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-          field_name: "Pagamento parcial",
-          old_value: String(tx.paid_amount ?? 0),
-          new_value: String(totalWithIva),
-        });
-
-        const pDate = list?.payment_date ?? new Date().toISOString().slice(0, 10);
-        await supabase
-          .from("transactions")
-          .update({ paid_amount: totalWithIva, status: "paid", payment_date: pDate })
-          .eq("id", txId);
-
-        // Propagate only true Master/Split apportionment payments.
-        // Installment siblings also use parent_transaction_id, but each parcela must be paid independently.
-        if (!tx.event_id && tx.split_mode) {
-          const { data: children } = await supabase
-            .from("transactions")
-            .select("id, split_percentage, amount, iva_rate, paid_amount")
-            .eq("parent_transaction_id", txId);
-
-          if (children && children.length > 0) {
-            for (const child of children) {
-              const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 23));
-              await supabase
-                .from("transactions")
-                .update({ paid_amount: childTotal, status: "paid", payment_date: pDate })
-                .eq("id", child.id);
-            }
-          }
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
-      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      // Notas de reembolso: a tx→nota é feita por trigger na BD; aqui só refrescamos a UI.
-      queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
-      queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
-      setSelectedTxIds(new Set());
-      toast({ title: `${selectedTxIds.size} pagamento(s) processado(s) com sucesso!` });
-    } catch (err: any) {
-      toast({ title: "Erro ao processar pagamentos", description: err.message, variant: "destructive" });
-    } finally {
-      setPaying(false);
-    }
+    setShowBatchPayment(true);
   };
+
+  const batchPaymentTransactions = useMemo(
+    () =>
+      items
+        .filter((i: any) => i.transactions && selectedTxIds.has(i.transactions.id))
+        .map((i: any) => i.transactions),
+    [items, selectedTxIds],
+  );
+
+  const handleBatchPaymentClose = () => {
+    setShowBatchPayment(false);
+    setSelectedTxIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
+    void refreshBadgeFromDB();
+  };
+
 
   const handleExport = async (format: "pdf" | "excel") => {
     if (!list || items.length === 0) return;
@@ -2191,7 +2131,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                               : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
                           }`}
-                          title={manuallyMarked ? "Desmarcar pagamento" : "Marcar como pago (apenas visual)"}
+                          title={manuallyMarked ? "Desmarcar pagamento" : "Marcar como pago (apenas visual — não liquida a transação)"}
                         >
                           <Banknote className="h-3.5 w-3.5" />
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
@@ -2369,6 +2309,15 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           }}
         />
       )}
+
+      {showBatchPayment && batchPaymentTransactions.length > 0 && (
+        <BatchPaymentModal
+          transactions={batchPaymentTransactions}
+          initialPaymentDate={list?.payment_date ?? null}
+          onClose={handleBatchPaymentClose}
+        />
+      )}
+
 
     </div>
   );
