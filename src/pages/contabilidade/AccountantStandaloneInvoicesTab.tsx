@@ -214,11 +214,17 @@ export function AccountantStandaloneInvoicesTab() {
   const groups = useMemo(() => {
     const map = new Map<string, Row[]>();
     (data ?? []).forEach((r) => {
-      const k = monthKey(r);
+      const k = groupKey(r);
       map.set(k, [...(map.get(k) ?? []), r]);
     });
-    return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    // "Sem data da fatura" sempre no topo; restantes meses, mais recente primeiro.
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === NO_DATE) return -1;
+      if (b[0] === NO_DATE) return 1;
+      return a[0] < b[0] ? 1 : -1;
+    });
   }, [data]);
+
 
   const openDoc = async (r: Row) => {
     const { data, error } = await signedCompanyUrl("standalone-invoices", r.storage_path, 3600);
