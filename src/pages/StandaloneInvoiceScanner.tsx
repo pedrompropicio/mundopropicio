@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
@@ -198,8 +199,10 @@ export default function StandaloneInvoiceScanner() {
     }
   };
 
+  const [tab, setTab] = useState("scan");
+
   return (
-    <div className="mx-auto w-full max-w-lg p-4 space-y-4">
+    <div className={cn("w-full space-y-4", tab === "scan" && "mx-auto max-w-lg")}>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon">
           <Link to="/" aria-label="Voltar">
@@ -216,7 +219,7 @@ export default function StandaloneInvoiceScanner() {
         </div>
       </div>
 
-      <Tabs defaultValue="scan">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full">
           <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
           <TabsTrigger value="list" className="flex-1">Conferência</TabsTrigger>
