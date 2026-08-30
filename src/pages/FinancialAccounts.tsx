@@ -47,6 +47,7 @@ interface AccountForm {
   skip_balance_check: boolean;
   withholds_revenue: boolean;
   is_hidden: boolean;
+  is_accounting: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -61,6 +62,7 @@ const emptyForm: AccountForm = {
   skip_balance_check: false,
   withholds_revenue: false,
   is_hidden: false,
+  is_accounting: true,
 };
 
 export default function FinancialAccounts() {
@@ -152,6 +154,7 @@ export default function FinancialAccounts() {
         skip_balance_check: form.skip_balance_check,
         withholds_revenue: form.withholds_revenue,
         is_hidden: form.is_hidden,
+        is_accounting: form.is_accounting,
       };
 
       if (editingId) {
@@ -201,6 +204,7 @@ export default function FinancialAccounts() {
       skip_balance_check: account.skip_balance_check ?? false,
       withholds_revenue: account.withholds_revenue ?? false,
       is_hidden: account.is_hidden ?? false,
+      is_accounting: account.is_accounting ?? true,
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -433,6 +437,21 @@ export default function FinancialAccounts() {
                 />
               </div>
 
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label className="text-sm font-medium">Conta contábil</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora de
+                    Portugal por um sócio). Os movimentos e documentos dessa conta deixam de entrar
+                    nas exportações para a contabilidade. Saldos e extratos não são afetados.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.is_accounting}
+                  onCheckedChange={(v) => setForm({ ...form, is_accounting: v })}
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={saveMutation.isPending}
@@ -482,7 +501,14 @@ export default function FinancialAccounts() {
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4 text-primary" />
                             <div>
-                              <p className="font-medium text-sm">{acc.name}</p>
+                              <p className="font-medium text-sm flex items-center gap-1.5">
+                                {acc.name}
+                                {acc.is_accounting === false && (
+                                  <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                                    Não contábil
+                                  </Badge>
+                                )}
+                              </p>
                               {acc.description && <p className="text-xs text-muted-foreground">{acc.description}</p>}
                             </div>
                           </div>
