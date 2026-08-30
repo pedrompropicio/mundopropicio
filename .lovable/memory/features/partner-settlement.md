@@ -129,9 +129,10 @@ referências a base contratual no ecrã ou no PDF — o PDF apenas indica "c/IVA
 Presente no Encontro de Contas (`PartnerSettlementTab`) e no Fecho do Evento (`EventFecho`):
 
 - **IVA nas despesas**: s/IVA ↔ c/IVA (inicial: `partner_calc_basis`).
-- **Base da despesa**: `realized` (transações, default) ou `committed` (linhas aprovadas do BP).
+- **Base da despesa**: `realized` ("Realizado", transações, default) ou `committed` ("Previsto + excedido"): linhas operacionais aprovadas do BP **mais** o excesso por rubrica (Σ max(realizado − previsto, 0)), que entra sempre.
 - **Incluir overhead**: default **ON** (comportamento histórico).
-- **Incluir transações fora do BP**: default **OFF**; só ativo na base `committed`.
+- O antigo toggle "Incluir transações fora do BP" foi removido a 20/08/2026 (ver `event-cost-basis.md`): o excedido deixou de ser opcional e não há UI que o desligue.
+
 
 Persistido em `localStorage` por user+evento. Propaga ao PDF, que imprime o critério
 no cabeçalho (`describeFechoBasis`). Cálculo via `@/lib/event-cost-basis` (IVA linha a linha).
