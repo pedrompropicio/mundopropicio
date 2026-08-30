@@ -47,6 +47,7 @@ interface AccountForm {
   skip_balance_check: boolean;
   withholds_revenue: boolean;
   is_hidden: boolean;
+  is_accounting: boolean;
 }
 
 const emptyForm: AccountForm = {
