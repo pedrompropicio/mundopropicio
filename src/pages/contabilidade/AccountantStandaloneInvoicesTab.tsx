@@ -235,15 +235,35 @@ export function AccountantStandaloneInvoicesTab() {
     window.open(data.signedUrl, "_blank", "noopener");
   };
 
-  const exportMonth = async (key: string, rows: Row[]) => {
+  /**
+   * Exporta o grupo inteiro a partir de consulta por intervalo de datas
+   * (não apenas as linhas em memória). Formato do ZIP/Excel inalterado.
+   */
+  const exportMonth = async (key: string) => {
     setExporting(key);
     try {
+      let q = (supabase as any)
+        .from("standalone_invoices")
+        .select("*")
+        .eq("company_id", companyId);
+      if (key === NO_DATE) {
+        q = q.is("invoice_date", null);
+      } else {
+        const { start, end } = monthRange(key);
+        q = q.gte("invoice_date", start).lt("invoice_date", end);
+      }
+      const { data: allRows, error } = await q
+        .order("invoice_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = (allRows ?? []) as Row[];
       const [{ default: JSZip }, XLSX] = await Promise.all([import("jszip"), import("xlsx")]);
       const zip = new JSZip();
       let i = 0;
       const sheetRows: any[] = [];
       for (const r of rows) {
         i += 1;
+
         const { data: blob } = await downloadFromCompanyBucket("standalone-invoices", r.storage_path);
         const ext = r.file_name.match(/\.[^.]+$/)?.[0] ?? ".jpg";
         const name = `${String(i).padStart(3, "0")}-${(r.supplier_name ?? "fatura").replace(/[^\w.-]+/g, "_")}${ext}`;
