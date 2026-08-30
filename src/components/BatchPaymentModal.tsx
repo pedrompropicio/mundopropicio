@@ -23,13 +23,15 @@ interface Props {
   transactions: any[];
   onClose: () => void;
   initialInvoiceRef?: string;
+  /** Data sugerida por defeito (ex.: payment_date da lista de pagamento). */
+  initialPaymentDate?: string | null;
 }
 
-export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "" }: Props) {
+export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate }: Props) {
   const [invoiceRef, setInvoiceRef] = useState(initialInvoiceRef);
   const [accountId, setAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split("T")[0]
+    initialPaymentDate || new Date().toISOString().split("T")[0]
   );
   const [notes, setNotes] = useState("");
   // FX rate per non-EUR currency present in the batch (string for input control)
