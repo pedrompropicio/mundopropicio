@@ -32,6 +32,7 @@ import {
   computeHousePercentage,
 } from "@/lib/house-partner";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
+import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 
 
 
@@ -2004,6 +2005,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
         </div>
       ))}
+
+      <PartnerPaidExpensesBPView eventId={eventId} eventName={eventName} />
     </div>
   );
 }

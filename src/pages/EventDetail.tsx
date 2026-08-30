@@ -1170,6 +1170,7 @@ export default function EventDetail() {
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
           {canViewSimulator && <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>}
+          <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -1307,9 +1308,10 @@ export default function EventDetail() {
             </div>
           </div>
 
-          <div className="mt-6">
-            <EntityDocumentsSection entityId={selectedSubEvent || id!} />
-          </div>
+        </TabsContent>
+
+        <TabsContent value="documentos">
+          <EntityDocumentsSection entityId={selectedSubEvent || id!} />
         </TabsContent>
 
 
