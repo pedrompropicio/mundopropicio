@@ -3098,6 +3098,51 @@ export type Database = {
           },
         ]
       }
+      entity_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_type: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          notes: string | null
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          document_type: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_type?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       event_ab_attachments: {
         Row: {
           company_id: string

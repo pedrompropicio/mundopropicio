@@ -11,6 +11,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventFinancialCard } from "@/components/EventFinancialCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import EntityDocumentsSection from "@/components/EntityDocumentsSection";
+
 import { EventForecast } from "@/components/EventForecast";
 import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPipelineBoard";
 import { EventTicketing } from "@/components/EventTicketing";
@@ -1304,7 +1306,12 @@ export default function EventDetail() {
               )}
             </div>
           </div>
+
+          <div className="mt-6">
+            <EntityDocumentsSection entityId={selectedSubEvent || id!} />
+          </div>
         </TabsContent>
+
 
         <TabsContent value="ticketing">
           {isMultiEvent && !selectedSubEvent ? (
