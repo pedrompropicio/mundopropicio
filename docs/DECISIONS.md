@@ -112,6 +112,21 @@
 **Consequência:** a criação em massa continua a existir por secção (`handleBulkCreateTx`), que herda o ordenador, grava a base correta e escreve no audit log.
 **Estado:** vigente.
 
+### D-ERP6 — Conta gerencial: `financial_accounts.is_accounting = false` (30/08/2026)
+**Decisão:** uma conta financeira pode ser marcada como gerencial; os seus movimentos e documentos não entram nas exportações para a contabilidade (`generate-accountant-zip`). A marca é herdada pela transação e apenas informativa nela — não existe campo equivalente em `transactions`.
+**Porquê:** há recursos que nunca transitaram pelas contas da MP em Portugal (ex.: pagamentos feitos no Brasil por um sócio, conta "Pgto Mágicos Acerto Madrid"). O ERP é gerencial; nem tudo é fiscal.
+**Estado:** vigente.
+
+### D-ERP7 — Titularidade da conta e do pagamento: a saída pertence à transação-mãe (30/08/2026)
+**Decisão:** só a transação-mãe recebe `account_id` e só ela gera linha em `transaction_payments`. Filhas de rateio (`parent_transaction_id`) recebem apenas `paid_amount`, `status` e `payment_date`.
+**Porquê:** evitar que a saída conte duas vezes no saldo da conta e na tesouraria.
+**Estado:** vigente.
+
+### D-ERP8 — Nenhuma liquidação sem conta (30/08/2026)
+**Decisão:** qualquer caminho que ponha `status='paid'` tem de passar por um modal de pagamento que exija `account_id` e crie linha em `transaction_payments`. A soma dos pagamentos nunca excede o valor bruto e o `paid_amount` nunca excede o valor bruto, garantido por trigger (`validate_installments_total`, `trg_validate_paid_amount_not_exceeds_gross`).
+**Porquê:** 526 transações foram liquidadas sem conta por escrita direta (1.247.597 €), invisíveis para a tesouraria. O botão "Marcar como Pago" da Lista de Contas a Pagar voltou a ser estritamente visual.
+**Estado:** vigente.
+
 
 ## MP CRM
 > (A preencher — módulo de clientes/leads/promotores, distinto do Audience. Nota: o schema crm.* na BD é onde vive o Audience, não o módulo CRM.)
