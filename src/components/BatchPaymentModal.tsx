@@ -359,13 +359,15 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             )
               ? "paid"
               : "approved";
+            // A saída de dinheiro pertence à transação-mãe: as filhas de rateio
+            // recebem paid_amount/status mas NUNCA account_id nem linha em
+            // transaction_payments (senão a saída contaria duas vezes no saldo).
             await supabase
               .from("transactions")
               .update({
                 paid_amount: childNewPaid,
                 status: childStatus,
                 payment_date: paymentDate,
-                account_id: accountId,
                 ...(invoiceRef.trim()
                   ? { invoice_ref: invoiceRef.trim() }
                   : {}),
