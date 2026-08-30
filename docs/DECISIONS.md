@@ -3,7 +3,7 @@
 > Registo das decisões de arquitetura/produto e o seu PORQUÊ. Formato ADR leve: cada decisão = o que se decidiu + racional + estado (vigente / substituída).
 > Documento vivo, organizado por módulo. Decisões antigas não se apagam — marcam-se "substituída".
 > Como funciona o sistema vive em ARCHITECTURE.md; pendências vivem nas GitHub Issues.
-> Última atualização: 26/jun/2026.
+> Última atualização: 30/ago/2026.
 
 ## Transversal / Infraestrutura
 
@@ -84,7 +84,27 @@
 **Estado:** vigente.
 
 ## MP ERP
-> (A preencher. Regra de arquitetura conhecida: linhas de BP e transações ligam-se via event_forecasts.transaction_id; BP é planeamento a nível L2, não L3; TX vinculada a BP deve ter L3 sob o mesmo L2; TX órfãs aceitam qualquer L3.)
+
+### D-ERP1 — O vínculo BP↔transação é N:1, canónico em `transactions.forecast_id` (ago/2026)
+**Decisão:** uma linha de BP pode ter N transações. A chave é `transactions.forecast_id`. O campo `event_forecasts.transaction_id` fica como âncora legada, mantida por escrita dupla para não partir o que já lê de lá.
+**Substitui:** a regra anterior de vínculo 1:1 por `event_forecasts.transaction_id`.
+**Estado:** vigente.
+
+### D-ERP2 — O BP planeia e compara-se ao nível L3 (ago/2026)
+**Decisão:** o nível de comparação entre previsto e realizado é o L3, o único selecionável. A rubrica da linha do BP é a fonte de verdade e propaga-se à transação vinculada.
+**Substitui:** "BP é planeamento a nível L2, não L3", que deixava passar o erro que mais interessa apanhar — dois L3 irmãos dentro do mesmo L2.
+**Ver:** DR-2026-08-22, neste documento.
+**Estado:** vigente.
+
+### D-ERP3 — O evento fecha pelo BP, não pelas transações (ago/2026)
+**Decisão:** a base do fecho é o BP aprovado (previsto + excedido por rubrica), não o somatório das transações.
+**Porquê:** em co-produção as transações só contêm o que a MP desembolsa. Na Anitta há 33 rubricas com zero transações e 959.722,52 € de custo real: fechar pelas transações apagaria o custo dos sócios.
+**Estado:** vigente.
+
+### D-ERP4 — O seletor c/IVA↔s/IVA é uma vista; a base contratual é `events.partner_calc_basis` (ago/2026)
+**Decisão:** o botão de IVA muda o que se vê, nunca o que um sócio recebe. O acerto com sócios fica ancorado a `events.partner_calc_basis`.
+**Porquê:** na Anitta a diferença entre as duas bases são 279.044,23 €. Um clique não pode mover isso.
+**Estado:** vigente — implementação por fechar na issue #64.
 
 ## MP CRM
 > (A preencher — módulo de clientes/leads/promotores, distinto do Audience. Nota: o schema crm.* na BD é onde vive o Audience, não o módulo CRM.)
