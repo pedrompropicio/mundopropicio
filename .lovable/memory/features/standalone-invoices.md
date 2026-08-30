@@ -52,14 +52,17 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
 Componente único `AccountantStandaloneInvoicesTab.tsx`, usado em dois sítios:
 aba "Faturas Avulsas" em `AccountantHome` (contabilista) e aba "Conferência"
 dentro de `/scanner-faturas` (admin/manager/editor). Nunca duplicar.
-Agrupamento por mês usa `invoice_date` (fallback `created_at`), mês mais
-recente primeiro.
+Agrupamento por mês usa SÓ `invoice_date` (sem fallback), mês mais recente
+primeiro; faturas sem data ficam num grupo próprio "Sem data da fatura", no topo.
+Ver secção "Conferência — seletor de mês" abaixo.
 
 ## Detalhe da lista
 →
-`AccountantStandaloneInvoicesTab.tsx`: agrupada por mês (invoice_date com
-fallback created_at), badge nova/processada, "Marcar processada" reversível,
-abrir documento via signed URL 1h e "Exportar mês" (ZIP das imagens + XLSX
+`AccountantStandaloneInvoicesTab.tsx`: agrupada por mês (SÓ invoice_date;
+sem data → grupo próprio no topo), seletor de mês com consulta própria e
+abertura no mês mais recente com faturas, badge nova/processada, "Marcar
+processada" reversível, abrir documento via signed URL 1h e "Exportar mês"
+(refaz a consulta por intervalo do período inteiro; ZIP das imagens + XLSX
 resumo: nº, data, fornecedor, NIF, total, IVA, nota, estado, ficheiro).
 
 ## Ações na captura (pré-gravação)
