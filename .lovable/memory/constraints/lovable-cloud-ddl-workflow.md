@@ -32,9 +32,11 @@ Resultado: tudo o que foi criado em Live fora de uma migration tracked desaparec
 
 ### Para qualquer alteração ao schema (CREATE TABLE, ALTER TABLE, CREATE VIEW, CREATE POLICY, GRANT, CREATE FUNCTION):
 
-1. **Autor (Claude Code ou agente Lovable)** escreve ficheiro em `supabase/migrations/<timestamp>_<descriptive_name>.sql`.
-2. Se autor foi Claude Code: push para GitHub main. Depois pedir ao **agente Lovable** para puxar main e aplicar a migration em Test via tool `supabase--migration`.
-3. **Pedro** carrega Publish no dashboard Lovable. O Publish detecta o diff Test↔Live e propaga.
+1. **O autor pede ao agente Lovable a alteração**, descrita em linguagem natural.
+2. **O agente escreve a migration** em `supabase/migrations/<timestamp>_<nome>.sql` e aplica-a em Live.
+3. **Confirmação por query de validação** (ver secção "Validação" abaixo).
+
+O Publish propaga código, edge functions e frontend — **não objectos SQL**. Não há passo de propagação Test→Live: só existe Live (D2).
 
 ### O que o Publish NÃO faz
 
