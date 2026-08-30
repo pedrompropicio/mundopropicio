@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
 
 interface Row {
@@ -32,13 +33,27 @@ interface Row {
 const fmtEUR = (n: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
 
+/** Chave do grupo "sem data da fatura" — nunca misturada com um mês real. */
+const NO_DATE = "sem-data";
+const ALL = "todos";
+const ALL_LIMIT = 1000;
+
 const effectiveDate = (r: Row) => r.invoice_date ?? r.created_at.slice(0, 10);
-const monthKey = (r: Row) => effectiveDate(r).slice(0, 7);
+/** Grupo: mês da invoice_date; sem invoice_date → grupo próprio. */
+const groupKey = (r: Row) => (r.invoice_date ? r.invoice_date.slice(0, 7) : NO_DATE);
 const monthLabel = (k: string) => {
+  if (k === NO_DATE) return "Sem data da fatura";
   const [y, m] = k.split("-");
   const names = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   return `${names[Number(m) - 1]} ${y}`;
 };
+/** Intervalo [início, fimExclusivo) de um mês "YYYY-MM". */
+const monthRange = (k: string) => {
+  const [y, m] = k.split("-").map(Number);
+  const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  return { start: `${k}-01`, end: next };
+};
+
 
 export function AccountantStandaloneInvoicesTab() {
   const { companyId } = useCompany();
@@ -89,26 +104,66 @@ export function AccountantStandaloneInvoicesTab() {
     onSuccess: () => {
       setEditing(null);
       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
       toast({ title: "Fatura atualizada" });
     },
     onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["standalone-invoices", companyId],
+  /**
+   * Lista de meses disponíveis — consulta leve (só datas), independente do
+   * limite de linhas da lista, para o seletor nunca perder meses antigos.
+   */
+  const { data: available } = useQuery({
+    queryKey: ["standalone-invoice-months", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("standalone_invoices")
+        .select("invoice_date")
+        .eq("company_id", companyId);
+      if (error) throw error;
+      const months = new Set<string>();
+      let hasNoDate = false;
+      (data ?? []).forEach((r: { invoice_date: string | null }) => {
+        if (r.invoice_date) months.add(r.invoice_date.slice(0, 7));
+        else hasNoDate = true;
+      });
+      return { months: [...months].sort().reverse(), hasNoDate };
+    },
+  });
+
+  const [selection, setSelection] = useState<string | null>(null);
+  // Por defeito: mês mais recente COM faturas (não o mês do calendário).
+  const selected =
+    selection ?? available?.months[0] ?? (available?.hasNoDate ? NO_DATE : ALL);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["standalone-invoices", companyId, selected],
+    enabled: !!companyId && !!available,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("standalone_invoices")
         .select("*")
-        .eq("company_id", companyId)
+        .eq("company_id", companyId);
+      if (selected === NO_DATE) {
+        q = q.is("invoice_date", null);
+      } else if (selected !== ALL) {
+        const { start, end } = monthRange(selected);
+        q = q.gte("invoice_date", start).lt("invoice_date", end);
+      } else {
+        q = q.limit(ALL_LIMIT);
+      }
+      const { data, error } = await q
         .order("invoice_date", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(1000);
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Row[];
     },
   });
+
+  const hitLimit = selected === ALL && (data?.length ?? 0) >= ALL_LIMIT;
+
 
   const { data: profiles } = useQuery({
     queryKey: ["standalone-invoice-profiles", companyId],
@@ -151,6 +206,7 @@ export function AccountantStandaloneInvoicesTab() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
+      qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
       toast({ title: "Fatura apagada" });
     },
     onError: (e: any) =>
@@ -160,11 +216,17 @@ export function AccountantStandaloneInvoicesTab() {
   const groups = useMemo(() => {
     const map = new Map<string, Row[]>();
     (data ?? []).forEach((r) => {
-      const k = monthKey(r);
+      const k = groupKey(r);
       map.set(k, [...(map.get(k) ?? []), r]);
     });
-    return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    // "Sem data da fatura" sempre no topo; restantes meses, mais recente primeiro.
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === NO_DATE) return -1;
+      if (b[0] === NO_DATE) return 1;
+      return a[0] < b[0] ? 1 : -1;
+    });
   }, [data]);
+
 
   const openDoc = async (r: Row) => {
     const { data, error } = await signedCompanyUrl("standalone-invoices", r.storage_path, 3600);
@@ -175,15 +237,35 @@ export function AccountantStandaloneInvoicesTab() {
     window.open(data.signedUrl, "_blank", "noopener");
   };
 
-  const exportMonth = async (key: string, rows: Row[]) => {
+  /**
+   * Exporta o grupo inteiro a partir de consulta por intervalo de datas
+   * (não apenas as linhas em memória). Formato do ZIP/Excel inalterado.
+   */
+  const exportMonth = async (key: string) => {
     setExporting(key);
     try {
+      let q = (supabase as any)
+        .from("standalone_invoices")
+        .select("*")
+        .eq("company_id", companyId);
+      if (key === NO_DATE) {
+        q = q.is("invoice_date", null);
+      } else {
+        const { start, end } = monthRange(key);
+        q = q.gte("invoice_date", start).lt("invoice_date", end);
+      }
+      const { data: allRows, error } = await q
+        .order("invoice_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = (allRows ?? []) as Row[];
       const [{ default: JSZip }, XLSX] = await Promise.all([import("jszip"), import("xlsx")]);
       const zip = new JSZip();
       let i = 0;
       const sheetRows: any[] = [];
       for (const r of rows) {
         i += 1;
+
         const { data: blob } = await downloadFromCompanyBucket("standalone-invoices", r.storage_path);
         const ext = r.file_name.match(/\.[^.]+$/)?.[0] ?? ".jpg";
         const name = `${String(i).padStart(3, "0")}-${(r.supplier_name ?? "fatura").replace(/[^\w.-]+/g, "_")}${ext}`;
@@ -218,27 +300,63 @@ export function AccountantStandaloneInvoicesTab() {
     }
   };
 
-  if (isLoading) {
+  const hasAny = (available?.months.length ?? 0) > 0 || !!available?.hasNoDate;
+
+  const periodSelector = hasAny ? (
+    <div className="flex items-center gap-2">
+      <Label className="text-xs text-muted-foreground">Mês</Label>
+      <Select value={selected} onValueChange={setSelection}>
+        <SelectTrigger className="h-8 w-[200px] text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>Todos os meses</SelectItem>
+          {available?.hasNoDate && <SelectItem value={NO_DATE}>Sem data da fatura</SelectItem>}
+          {available?.months.map((m) => (
+            <SelectItem key={m} value={m}>{monthLabel(m)}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  ) : null;
+
+  if (!available || isLoading) {
     return <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> A carregar…</div>;
   }
 
-  if (groups.length === 0) {
+  if (!hasAny) {
     return <p className="text-sm text-muted-foreground p-4">Sem faturas avulsas registadas.</p>;
   }
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-muted-foreground">
-        Faturas no NIF da empresa pagas com recursos próprios da diretoria — apenas para efeitos contabilísticos.
-        Não têm transação associada.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground max-w-xl">
+          Faturas no NIF da empresa pagas com recursos próprios da diretoria — apenas para efeitos contabilísticos.
+          Não têm transação associada.
+        </p>
+        {periodSelector}
+      </div>
+      {hitLimit && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+          <span>
+            Foram carregadas as primeiras {ALL_LIMIT} faturas — existem mais. Escolha um mês
+            no seletor para ver e exportar tudo desse período.
+          </span>
+        </div>
+      )}
+      {groups.length === 0 && (
+        <p className="text-sm text-muted-foreground">Sem faturas neste período.</p>
+      )}
       {groups.map(([key, rows]) => (
         <section key={key} className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-semibold">
               {monthLabel(key)} <span className="text-muted-foreground text-sm">({rows.length})</span>
             </h3>
-            <Button size="sm" variant="outline" onClick={() => exportMonth(key, rows)} disabled={exporting === key}>
+            <Button size="sm" variant="outline" onClick={() => exportMonth(key)} disabled={exporting === key}>
+
               {exporting === key ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileArchive className="h-4 w-4 mr-1.5" />}
               Exportar mês
             </Button>
