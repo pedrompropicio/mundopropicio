@@ -298,27 +298,63 @@ export function AccountantStandaloneInvoicesTab() {
     }
   };
 
-  if (isLoading) {
+  const hasAny = (available?.months.length ?? 0) > 0 || !!available?.hasNoDate;
+
+  const periodSelector = hasAny ? (
+    <div className="flex items-center gap-2">
+      <Label className="text-xs text-muted-foreground">Mês</Label>
+      <Select value={selected} onValueChange={setSelection}>
+        <SelectTrigger className="h-8 w-[200px] text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>Todos os meses</SelectItem>
+          {available?.hasNoDate && <SelectItem value={NO_DATE}>Sem data da fatura</SelectItem>}
+          {available?.months.map((m) => (
+            <SelectItem key={m} value={m}>{monthLabel(m)}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  ) : null;
+
+  if (!available || isLoading) {
     return <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> A carregar…</div>;
   }
 
-  if (groups.length === 0) {
+  if (!hasAny) {
     return <p className="text-sm text-muted-foreground p-4">Sem faturas avulsas registadas.</p>;
   }
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-muted-foreground">
-        Faturas no NIF da empresa pagas com recursos próprios da diretoria — apenas para efeitos contabilísticos.
-        Não têm transação associada.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground max-w-xl">
+          Faturas no NIF da empresa pagas com recursos próprios da diretoria — apenas para efeitos contabilísticos.
+          Não têm transação associada.
+        </p>
+        {periodSelector}
+      </div>
+      {hitLimit && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+          <span>
+            Foram carregadas as primeiras {ALL_LIMIT} faturas — existem mais. Escolha um mês
+            no seletor para ver e exportar tudo desse período.
+          </span>
+        </div>
+      )}
+      {groups.length === 0 && (
+        <p className="text-sm text-muted-foreground">Sem faturas neste período.</p>
+      )}
       {groups.map(([key, rows]) => (
         <section key={key} className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-semibold">
               {monthLabel(key)} <span className="text-muted-foreground text-sm">({rows.length})</span>
             </h3>
-            <Button size="sm" variant="outline" onClick={() => exportMonth(key, rows)} disabled={exporting === key}>
+            <Button size="sm" variant="outline" onClick={() => exportMonth(key)} disabled={exporting === key}>
+
               {exporting === key ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileArchive className="h-4 w-4 mr-1.5" />}
               Exportar mês
             </Button>
