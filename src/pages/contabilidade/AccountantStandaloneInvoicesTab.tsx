@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
 
 interface Row {
@@ -32,13 +33,27 @@ interface Row {
 const fmtEUR = (n: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
 
+/** Chave do grupo "sem data da fatura" — nunca misturada com um mês real. */
+const NO_DATE = "sem-data";
+const ALL = "todos";
+const ALL_LIMIT = 1000;
+
 const effectiveDate = (r: Row) => r.invoice_date ?? r.created_at.slice(0, 10);
-const monthKey = (r: Row) => effectiveDate(r).slice(0, 7);
+/** Grupo: mês da invoice_date; sem invoice_date → grupo próprio. */
+const groupKey = (r: Row) => (r.invoice_date ? r.invoice_date.slice(0, 7) : NO_DATE);
 const monthLabel = (k: string) => {
+  if (k === NO_DATE) return "Sem data da fatura";
   const [y, m] = k.split("-");
   const names = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   return `${names[Number(m) - 1]} ${y}`;
 };
+/** Intervalo [início, fimExclusivo) de um mês "YYYY-MM". */
+const monthRange = (k: string) => {
+  const [y, m] = k.split("-").map(Number);
+  const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  return { start: `${k}-01`, end: next };
+};
+
 
 export function AccountantStandaloneInvoicesTab() {
   const { companyId } = useCompany();
