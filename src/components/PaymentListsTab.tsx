@@ -1105,6 +1105,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const { user, isAdmin, isManager } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
+  const [showBatchPayment, setShowBatchPayment] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
   const [showAddTx, setShowAddTx] = useState(false);
   const [editingTx, setEditingTx] = useState<any | null>(null);
