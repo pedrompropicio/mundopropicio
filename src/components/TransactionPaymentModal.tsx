@@ -442,7 +442,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         notes: notes.trim() || null,
         created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
       };
-      await (supabase as any).from("transaction_payments").insert(paymentRecord);
+      const { error: paymentInsertError } = await (supabase as any)
+        .from("transaction_payments")
+        .insert(paymentRecord);
+      if (paymentInsertError) throw paymentInsertError;
 
       // Record credit usages
       const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -524,7 +527,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             .eq("id", sib.id);
 
           // Individual payment record on the sibling
-          await (supabase as any).from("transaction_payments").insert({
+          const { error: sibPaymentError } = await (supabase as any).from("transaction_payments").insert({
             transaction_id: sib.id,
             amount: sibRemaining,
             payment_date: format(paymentDate, "yyyy-MM-dd"),
@@ -540,6 +543,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             notes: `Liquidado em conjunto com transação ${transaction.id} (grupo fatura)`,
             created_by: callerName,
           });
+          if (sibPaymentError) throw sibPaymentError;
 
           // Audit on sibling
           await supabase.from("transaction_audit_log").insert({
