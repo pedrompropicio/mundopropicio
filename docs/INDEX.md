@@ -19,7 +19,7 @@
 
 **Regra de ouro:** informação com data no nome é arquivo. Informação sem data no nome é estado. Nunca se lê arquivo para saber onde estamos.
 
-## As 8 frentes
+## As 9 frentes
 
 | Frente | Ficheiro | Chat com o mesmo nome |
 |---|---|---|
@@ -31,6 +31,7 @@
 | Audience — Google | `estado/estado-audience-google.md` | `audience-google` |
 | CRM, Portal & Leads | `estado/estado-crm-portal-e-leads.md` | `crm-portal-e-leads` |
 | Plataforma & Infra | `estado/estado-plataforma-e-infra.md` | `plataforma-e-infra` |
+| Financeiro & Tesouraria | `estado/estado-financeiro-e-tesouraria.md` | `financeiro-e-tesouraria` |
 
 **Um chat por frente. O nome do chat é o nome da frente.** Se um tema muda de frente a meio, muda-se de chat — não se continua no errado.
 
