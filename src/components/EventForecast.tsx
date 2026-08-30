@@ -2191,13 +2191,13 @@ const descRef = useRef<HTMLInputElement>(null);
 
       <Tabs defaultValue="forecasts" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <TabsList>
               <TabsTrigger value="forecasts">Previsões</TabsTrigger>
               <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
             </TabsList>
             {/* BP Search */}
-            <div className="relative">
+            <div className="relative min-w-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
@@ -2214,7 +2214,7 @@ const descRef = useRef<HTMLInputElement>(null);
             </div>
             {/* Partner filter */}
             {eventPartners.length > 0 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <Filter className="h-3.5 w-3.5 text-muted-foreground" />
                 <select
                   value={partnerFilter}
@@ -2231,7 +2231,7 @@ const descRef = useRef<HTMLInputElement>(null);
             )}
             {/* Ordenador da despesa (só eventos com sócios) */}
             {eventPartners.length > 0 && (
-              <div className="flex items-center gap-1.5" title="Ordenador da despesa — quem ordenou o gasto. Aplica-se só a despesas.">
+              <div className="flex items-center gap-1.5 min-w-0" title="Ordenador da despesa — quem ordenou o gasto. Aplica-se só a despesas.">
                 <UserCog className="h-3.5 w-3.5 text-muted-foreground" />
                 <select
                   value={orderingFilter}
@@ -2248,7 +2248,7 @@ const descRef = useRef<HTMLInputElement>(null);
             )}
             {/* Pagador da despesa (só eventos com sócios) */}
             {eventPartners.length > 0 && (
-              <div className="flex items-center gap-1.5" title="Pagador da despesa — quem desembolsa. Aplica-se só a despesas.">
+              <div className="flex items-center gap-1.5 min-w-0" title="Pagador da despesa — quem desembolsa. Aplica-se só a despesas.">
                 <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
                 <select
                   value={payingFilter}
@@ -2264,7 +2264,7 @@ const descRef = useRef<HTMLInputElement>(null);
               </div>
             )}
             {/* Transaction link filter */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
               <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
               <select
                 value={txLinkFilter}
@@ -2278,7 +2278,7 @@ const descRef = useRef<HTMLInputElement>(null);
             </div>
             {/* Formalidade filter — vista por estado de maturidade comercial.
                 Os ícones (🔴🟠🔵🟢) ecoam o sistema de cores da BPRow para reconhecimento rápido. */}
-            <div className="flex items-center gap-1.5" title="Filtrar por estado de formalidade comercial">
+            <div className="flex items-center gap-1.5 min-w-0" title="Filtrar por estado de formalidade comercial">
               <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
               <select
                 value={formalidadeFilter}
@@ -2296,7 +2296,7 @@ const descRef = useRef<HTMLInputElement>(null);
             {/* Tipo: Receitas / Despesas / Ambos.
                 Esconde a secção respetiva e o card de Resumo correspondente. */}
             {!expenseOnly && (
-              <div className="flex items-center gap-1.5" title="Filtrar por tipo (Receitas / Despesas / Ambos)">
+              <div className="flex items-center gap-1.5 min-w-0" title="Filtrar por tipo (Receitas / Despesas / Ambos)">
                 <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 <select
                   value={typeFilter}
@@ -2311,7 +2311,7 @@ const descRef = useRef<HTMLInputElement>(null);
             )}
             {/* Master ↔ Master+Subs toggle (only on master with children) */}
             {childEventIds && childEventIds.length > 0 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                 <select
                   value={includeSubsInBP ? "all" : "master"}
