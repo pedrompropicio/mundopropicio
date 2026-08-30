@@ -1304,7 +1304,12 @@ export default function EventDetail() {
               )}
             </div>
           </div>
+
+          <div className="mt-6">
+            <EntityDocumentsSection entityId={selectedSubEvent || id!} />
+          </div>
         </TabsContent>
+
 
         <TabsContent value="ticketing">
           {isMultiEvent && !selectedSubEvent ? (
