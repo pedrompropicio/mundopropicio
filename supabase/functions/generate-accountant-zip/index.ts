@@ -87,6 +87,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Contas gerenciais (is_accounting=false): movimentos e documentos NÃO entram na
+    // exportação para a contabilidade. Herdado da conta, não há campo na transação.
+    const { data: nonAccountingAccounts, error: naErr } = await admin
+      .from("financial_accounts")
+      .select("id")
+      .eq("company_id", company_id)
+      .eq("is_accounting", false);
+    if (naErr) throw naErr;
+    const nonAccountingIds = (nonAccountingAccounts ?? []).map((a: any) => a.id);
+
     // Query transactions
     let q = admin
       .from("transactions")
@@ -101,6 +111,7 @@ Deno.serve(async (req) => {
     if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);
     if (Array.isArray(filters.account_ids) && filters.account_ids.length) q = q.in("account_id", filters.account_ids);
     if (Array.isArray(filters.supplier_ids) && filters.supplier_ids.length) q = q.in("supplier_id", filters.supplier_ids);
+    if (nonAccountingIds.length) q = q.not("account_id", "in", `(${nonAccountingIds.join(",")})`);
 
     const { data: txs, error: txErr } = await q;
     if (txErr) throw txErr;
@@ -180,6 +191,16 @@ Deno.serve(async (req) => {
         for (const i of items ?? []) {
           const payTx = noteToPayTx.get(i.reimbursement_note_id);
           if (payTx && i.transaction_id) childToPayTx.set(i.transaction_id, payTx);
+        }
+        // Excluir TXs de origem cuja conta é gerencial (is_accounting=false)
+        if (childToPayTx.size && nonAccountingIds.length) {
+          const { data: childTxs } = await admin
+            .from("transactions")
+            .select("id, account_id")
+            .in("id", Array.from(childToPayTx.keys()));
+          for (const t of childTxs ?? []) {
+            if (t.account_id && nonAccountingIds.includes(t.account_id)) childToPayTx.delete(t.id);
+          }
         }
         if (childToPayTx.size) {
           const { data: childDocs } = await admin
