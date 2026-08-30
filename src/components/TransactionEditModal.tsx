@@ -1023,7 +1023,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </TabsList>
 
           <TabsContent value="payment" className="pt-3">
-            <PaymentTimeline transaction={transaction} isAdmin={isAdmin} />
+            <PaymentTimeline transaction={transaction} isAdmin={isAdmin} eventCompleted={eventCompleted} />
           </TabsContent>
 
           {hasCamarim && (

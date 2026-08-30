@@ -30,6 +30,8 @@ import { Button } from "@/components/ui/button";
 interface Props {
   transaction: any;
   isAdmin?: boolean;
+  /** Evento associado fechado — bloqueia as correções de pagamento. */
+  eventCompleted?: boolean;
 }
 
 /**
@@ -45,13 +47,15 @@ interface Props {
  *  - Quando existem parcelas em `transaction_payments`, abre o modal de parcelas.
  *  - Caso contrário, permite ajustar `paid_amount` (e data/conta) inline.
  */
-export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
+export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted = false }: Props) {
   const txId = transaction.id;
   const baseAmount = Number(transaction.amount ?? 0);
   const ivaRate = Number(transaction.iva_rate ?? 0);
   const totalWithIva = calcWithIva(baseAmount, ivaRate);
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  // Editor pode corrigir data / apagar um pagamento (via modal de parcelas).
+  const canEditPayments = (isAdmin || role === "editor") && !eventCompleted;
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [editingDirect, setEditingDirect] = useState(false);
   const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
@@ -544,7 +548,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         <Section
           icon={<Receipt className="h-3.5 w-3.5" />}
           title={`Parcelas pagas (${payments.length})`}
-          action={isAdmin ? (
+          action={canEditPayments ? (
             <button
               type="button"
               onClick={() => setShowPaymentsModal(true)}
@@ -860,7 +864,8 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       {showPaymentsModal && (
         <TransactionPaymentsListModal
           transaction={transaction}
-          isAdmin={isAdmin}
+          isAdmin={isAdmin && !eventCompleted}
+          eventCompleted={eventCompleted}
           onClose={() => setShowPaymentsModal(false)}
         />
       )}
