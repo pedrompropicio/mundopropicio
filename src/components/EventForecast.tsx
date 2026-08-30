@@ -68,7 +68,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
-import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
+
 import { ScheduleInstallmentsModal, type Installment } from "@/components/ScheduleInstallmentsModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
 // SponsorsImportModal removido — substituído pelo Pipeline de Patrocínios
@@ -1373,45 +1373,6 @@ const descRef = useRef<HTMLInputElement>(null);
     }
   };
 
-  const [historicalModalOpen, setHistoricalModalOpen] = useState(false);
-
-  const generateHistoricalMutation = useMutation({
-    mutationFn: async (xlsxRows: XlsxRowForGeneration[] | null) => {
-      const eligibleIds = forecasts.filter((f) => isEligibleForBulkTx(f)).map((f) => f.id);
-      const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
-        body: { event_id: eventId, xlsxRows: xlsxRows ?? [], eligible_forecast_ids: eligibleIds },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      const parts: string[] = [];
-      if (data.createdPaid > 0) parts.push(`${data.createdPaid} liquidada(s)`);
-      if (data.createdApproved > 0) parts.push(`${data.createdApproved} aprovada(s)`);
-      if (data.xlsxProvided > 0) parts.push(`${data.matched}/${data.total} match`);
-      if (data.errors?.length > 0) parts.push(`${data.errors.length} erro(s)`);
-      toast({
-        title: `${data.created} transação(ões) gerada(s)`,
-        description: parts.join(" · ") || undefined,
-      });
-      setHistoricalModalOpen(false);
-    },
-    onError: (err: any) => {
-      toast({ title: "Erro ao gerar transações", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const handleGenerateHistorical = () => {
-    if (eligibleForHistoricalGen.length === 0) {
-      toast({ title: "Nenhuma previsão elegível (sem transação e sem match por categoria)", variant: "destructive" });
-      return;
-    }
-    setHistoricalModalOpen(true);
-  };
 
   /**
    * Importing the BP from Eventos now redirects the user to the full
@@ -1553,10 +1514,6 @@ const descRef = useRef<HTMLInputElement>(null);
     }
   };
 
-  // Mesma regra do bulk: 1 TX auto por linha BP — exclui linhas que já têm
-  // transação direta OU match por categoria/similaridade.
-  const eligibleForHistoricalGen = forecasts.filter((f) => isEligibleForBulkTx(f));
-  const approvedWithoutTxCount = eligibleForHistoricalGen.length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -2356,16 +2313,6 @@ const descRef = useRef<HTMLInputElement>(null);
               <BarChart3 className="h-3.5 w-3.5" />
               BP × Transações
             </button>
-            {isAdmin && approvedWithoutTxCount > 0 && (eventStatus === "completed" || eventStatus === "active") && (
-              <button
-                onClick={handleGenerateHistorical}
-                disabled={generateHistoricalMutation.isPending}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-              >
-                <History className="h-3.5 w-3.5" />
-                {generateHistoricalMutation.isPending ? "A gerar…" : `Gerar Transações (${approvedWithoutTxCount})`}
-              </button>
-            )}
             {canEditBP && (
               <>
                 <input
@@ -3181,13 +3128,6 @@ const descRef = useRef<HTMLInputElement>(null);
         eventName={eventName}
       />
 
-      <GenerateHistoricalModal
-        open={historicalModalOpen}
-        onOpenChange={setHistoricalModalOpen}
-        approvedCount={eligibleForHistoricalGen.length}
-        isGenerating={generateHistoricalMutation.isPending}
-        onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
-      />
 
       <ScheduleInstallmentsModal
         open={!!scheduleTarget}
