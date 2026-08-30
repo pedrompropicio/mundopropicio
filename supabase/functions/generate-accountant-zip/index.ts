@@ -111,7 +111,8 @@ Deno.serve(async (req) => {
     if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);
     if (Array.isArray(filters.account_ids) && filters.account_ids.length) q = q.in("account_id", filters.account_ids);
     if (Array.isArray(filters.supplier_ids) && filters.supplier_ids.length) q = q.in("supplier_id", filters.supplier_ids);
-    if (nonAccountingIds.length) q = q.not("account_id", "in", `(${nonAccountingIds.join(",")})`);
+    // NOT IN devolve NULL para account_id nulo — manter essas transações explicitamente
+    if (nonAccountingIds.length) q = q.or(`account_id.is.null,account_id.not.in.(${nonAccountingIds.join(",")})`);
 
     const { data: txs, error: txErr } = await q;
     if (txErr) throw txErr;
