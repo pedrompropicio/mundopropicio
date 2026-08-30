@@ -4,11 +4,13 @@
 
 ## Princípio absoluto
 
-**Nunca aplicar DDL directamente em Live via SQL Editor.** Mesmo que pareça mais rápido. Mesmo que seja "só um ALTER TABLE". Mesmo que seja idempotente.
+**Todo o DDL passa pelo agente Lovable, como migration tracked. Nunca a martelar SQL à mão no SQL Editor.**
 
-DDL fora de migration tracked = bomba-relógio. O próximo Publish destrói o trabalho.
+Desde a decisão D2 (base única Live, Test eliminado) o agente aplica DDL diretamente em Live. Isso não abre a porta ao SQL Editor: o que protege o schema é o DDL ficar registado como migration e ser reproduzível, não o ambiente onde corre. Objeto criado à mão fica fora do histórico e ninguém consegue explicar de onde veio.
 
-## Por que: o que o Publish realmente faz
+## Por que: o que o Publish fazia (mundo anterior à D2)
+
+> Nota: esta secção descreve o mundo anterior à decisão D2 (base única Live, Test eliminado). Conserva-se porque explica o porquê da regra.
 
 Ao carregar Publish, o Lovable Cloud:
 
