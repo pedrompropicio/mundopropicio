@@ -11,7 +11,7 @@
 Para cada `docs/estado/estado-*.md`: passou de uma página? **cortar**. "Próximo passo concreto" ainda faz sentido? Data com mais de 3 semanas numa frente ativa = ritual de fecho não cumprido.
 
 ## 3. Prazos
-PAT do GitHub **24/set/2026**. Tokens Meta e service account Google. A menos de 30 dias → Issue `a-seguir`.
+PAT do GitHub **24/set/2026**. Tokens Meta e service account Google. A menos de 30 dias → abrir Issue `P1` e citá-la no `estado-plataforma-e-infra.md`.
 
 ## 4. Saúde das ligações
 ```sql

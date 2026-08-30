@@ -40,11 +40,12 @@ O Publish propaga código, edge functions e frontend — **não objectos SQL**. 
 
 ### O que o Publish NÃO faz
 
-**O Publish propaga DDL (schema), não DML (dados).** UPDATEs / INSERTs / DELETEs dentro do mesmo ficheiro de migration correm em Test no `agent apply`, mas o Publish para Live só envia o diff estrutural — os dados não chegam.
+**O Publish propaga código, edge functions e frontend. Não propaga DML (dados) nem crons.**
 
-Backfills têm de ser aplicados em Live separadamente:
-- Via SQL Editor em Live (aceitável para DML em rows específicas por UUID), ou
-- Via pedido específico ao agente Lovable depois do Publish ("aplica este UPDATE em Live").
+Um UPDATE/INSERT/DELETE dentro de um ficheiro de migration corre quando o agente aplica a migration em Live — e mais nada o volta a correr. Nenhum Publish o repete noutro sítio, porque não há outro sítio.
+
+Alterações a crons (`pg_cron`) seguem a mesma regra: aplicam-se em Live pelo agente e o Publish não as toca.
+
 
 ## SQL Editor em Live — quando é aceitável
 
