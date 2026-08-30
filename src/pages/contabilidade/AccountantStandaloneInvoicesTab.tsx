@@ -361,7 +361,7 @@ export function AccountantStandaloneInvoicesTab() {
               Exportar mês
             </Button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {rows.map((r) => (
               <Card key={r.id}>
                 <CardContent className="p-3 flex gap-3">

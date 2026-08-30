@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
