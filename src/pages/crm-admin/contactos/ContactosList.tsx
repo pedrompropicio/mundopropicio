@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCompany } from "@/hooks/useCompany";
 import ContactDetailsSheet from "./ContactDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
+import { contactPrimaryLabel, contactSecondaryLabel } from "../lib/contactDisplay";
 
 type TriState = "all" | "yes" | "no";
 

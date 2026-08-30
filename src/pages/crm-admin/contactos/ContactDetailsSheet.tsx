@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { relativeFromNow, formatDateTime } from "../lib/relativeTime";
+import { contactPrimaryLabel } from "../lib/contactDisplay";
 
 interface Props {
   contactId: string | null;
