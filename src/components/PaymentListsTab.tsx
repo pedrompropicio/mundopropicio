@@ -2309,6 +2309,15 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         />
       )}
 
+      {showBatchPayment && batchPaymentTransactions.length > 0 && (
+        <BatchPaymentModal
+          transactions={batchPaymentTransactions}
+          initialPaymentDate={list?.payment_date ?? null}
+          onClose={handleBatchPaymentClose}
+        />
+      )}
+
+
     </div>
   );
 }
