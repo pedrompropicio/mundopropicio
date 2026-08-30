@@ -1,37 +1,39 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-08-29 · Issues: `agora` #82 · `a-seguir` #64, #67 · `bloqueada` #64
+Atualizado: 2026-08-30 · Issues: #82 · a-seguir #64+#65, #85 · P0 aberto: #64
 
 ## Em que pé está
-O apuramento real dos fechos acontece **fora do ERP**, em planilha (gerador v15 para a Anitta). O ecrã "Fecho" do ERP calcula o nível 1 — resultado base e split pelas percentagens — mas não é hoje a fonte que os sócios veem. A Anitta está apurada e conferida mas **não sacramentada**: falta apresentar aos sócios (semana de 31/08) e pode haver ajustes depois. A Ivete ainda não fechou.
+O apuramento real acontece **fora do ERP**, em planilha (gerador v15 para a Anitta). O ecrã de Fecho calcula o nível 1 e **não é confiável para o acerto** — ver #64. A Anitta está apurada e conferida, **não sacramentada**: apresentação aos sócios na semana de 31/08. A Ivete ainda não fechou.
 
 ## A trabalhar agora
-- **#82** — fecho selado: evento fechado tem de ser imutável a alterações de parâmetros. Precede a #64.
+- **#82** — fecho selado. Precede tudo o resto desta frente: sem selo, um fecho entregue recalcula-se sozinho quando alguém mexe num parâmetro.
 
 ## Próximo passo concreto
-**Antes da apresentação:** regerar a planilha da Anitta com o gerador v15. A base moveu +132,32 € desde 25/08 (11 transações "Extra Anitta Crew 17/07 - Per Diem", 2.687,03 €, criadas a 28/08). Resultado atual **593.988,29 €** contra 594.120,53 € na planilha.
+**Antes da apresentação:** regerar a planilha da Anitta com o gerador v15. E corrigir as três linhas de hospedagem a 0% (#68) — 33.783,35 €, pagador EIN, que vão sair a 6% na fatura dela e não batem com o BP.
 
 ## Bloqueios
-- **#64 bloqueada até depois da apresentação de resultados.** Congelados: `event_partners`, `EventFecho.tsx`, `event_forecasts` da Anitta, gerador da planilha.
-- Migração preparada e **NÃO corrida**: `suppliers.tax_country` + `expense_includes_iva` nullable + `update ... set null`.
+- **#64 verificada a 30/08 e NÃO está corrigida.** O handoff de 23/08 dizia o contrário. A receita foi isolada, a despesa não: `expenseBase = basis.withVat ? gross : net` alimenta diretamente a quota do sócio. A #65 é a mesma ferida vista do `EventFecho` — tratam-se juntas.
+- Congelados até depois da apresentação: `event_partners`, `EventFecho.tsx`, `event_forecasts` da Anitta, gerador da planilha.
 
 ## Factos que não se reinvestigam
 
-**Regra da base de apuramento (decidida 29/08):** sede fiscal **PT** → apura s/IVA; sede fiscal **BR** → apura c/IVA. Receitas **sempre s/IVA** para todos. O critério é a sede fiscal, não a origem — COALA BRASIL (MANDO) é brasileira com sede em PT → s/IVA. A regra é default, sobreponível por contrato com justificação afirmativa.
+**Regra da base de apuramento:** sede fiscal **PT** → apura s/IVA; sede **BR** → apura c/IVA. Receitas sempre s/IVA. O critério é a sede, não a origem. Falta o campo `suppliers.tax_country` — migração preparada, nunca corrida.
 
-**Classificação:** PT → MUNDO PROPICIO, EVERYTHINGISNEW, COALA BRASIL (MANDO). BR → ANITTA, SUPERSOUNDS, HENRY VARGAS PRODUCOES, VYBBE.
+**O estado do seletor vive em `localStorage`, por utilizador e por evento.** O `partner_calc_basis` é só a semente inicial. Dois utilizadores podem ver acertos diferentes do mesmo evento. E o flag por sócio é `p.expense_includes_iva || basis.withVat` — só liga, nunca desliga.
 
-**Estado atual da BD:** as 8 linhas de `event_partners` estão todas a `expense_includes_iva = false`, campo `NOT NULL DEFAULT false`. Nenhum valor foi decidido — todos são o default.
+**Duas superfícies com respostas diferentes:** o `ReportPartnerSettlement.tsx` calcula a quota só pelo `partner_calc_basis`; o PDF gerado dentro do Encontro de Contas herda o botão.
 
-**Ordenador ≠ pagador.** `can_order` = quem controla a geração do custo. `can_pay` = quem desembolsa. Na Anitta: ANITTA ordena e **não** paga; EIN ordena **e** paga. Quando o sócio ordena mas não paga, **quem paga é sempre a MP**.
+**O evento fecha pelo BP** (D-ERP3). Em co-produção a ausência de transações nas linhas pagas pelo sócio é o comportamento correto, não um buraco: na Anitta são 80 linhas e 970.107,35 €, das quais 77 com pagador sócio.
 
-**A MP é detentora da receita do evento** — a bilheteira está em nome dela. Logo a MP pagar despesa ordenada por sócio **não é adiantamento**; é pagar custo do evento com dinheiro do evento. O que gera crédito é o inverso: a EIN, que paga do bolso dela, tem de ser reembolsada (linha "financiamento" 879.721,65 € na planilha).
+**Decisões de 30/08:** a última versão do BP deve conter só linhas com custo real — as previsões que não ocorreram ficam nas versões congeladas, e o snapshot faz-se **antes** da limpeza. O guarda-chuva de rubrica para despesas de equipa nasce **a zero** — previsto por gastar é custo fantasma. O sistema **não decide tratamento fiscal**: produz a composição por taxa, e uma pessoa decide o tipo do acerto (`redebito` ou `reembolso`).
 
-**O ERP para no nível 1.** Nível 2 — cascata MP/EIN, ativos exclusivos (bares 93.969,63 · Bengaleiro 138,82 · Oeiras 50.000), encontros de contas — é negociado caso a caso e vive na planilha. `event_partners` **não** ganha conceito de ativo por sócio.
+**Anitta, três linhas sem transação e sem pagador sócio** (Estrutura WC CNA 9.745, Copos 9.120, Assessoria de Imprensa 2.500): confirmado pelo Pedro que **aconteceram** — estão à espera de fatura. Não zerar.
 
-**Conferência Anitta 29/08:** receitas **2.527.352,94 €** batem ao cêntimo (bilheteira 27.047 bilhetes → 2.286.981,13 s/IVA + 240.371,81 de transações). Despesas s/IVA 1.667.019,55 (BP 1.603.475,44 + excedido 63.544,11). Detector das 5 taxas públicas limpo (todas a IVA 0%). O resultado do evento usa despesas **c/IVA**.
+**Δ de método por reconciliar:** a query canónica de excedido dá 61.464,91 na Anitta contra os 63.544,11 do ecrã. 2.079,20 na rubrica 2.2.01 Aéreo. Enquanto não estiver fechado, número de fecho sai do ecrã ou da planilha, nunca de SQL ad-hoc.
+
+**Nível 2 vive na planilha:** cascata MP/EIN, ativos exclusivos (bares 93.969,63 · Bengaleiro 138,82 · Oeiras 50.000), encontros de contas. `event_partners` não ganha conceito de ativo por sócio.
 
 ## Onde ler mais
 - `docs/procedimentos/PROC-fecho-evento.md`
-- `.lovable/memory/features/fecho-filter-parity.md`, `event-financial-cards.md`
-- Issues #64 (decisão completa em comentário), #82, #67
+- `.lovable/memory/features/fecho-filter-parity.md`, `partner-settlement.md`, `event-cost-basis.md`
+- Issues #82, #64, #65, #85, #68
