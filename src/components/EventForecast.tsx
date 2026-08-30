@@ -2191,7 +2191,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
       <Tabs defaultValue="forecasts" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <TabsList>
               <TabsTrigger value="forecasts">Previsões</TabsTrigger>
               <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
