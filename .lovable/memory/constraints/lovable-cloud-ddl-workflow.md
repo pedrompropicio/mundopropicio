@@ -55,12 +55,13 @@ Apenas para operações que **não criam objectos novos**:
 - `NOTIFY pgrst, 'reload schema'`
 - `UPDATE` / `INSERT` / `DELETE` em rows de tabelas existentes (correcção de dados, backfill pontual)
 - `CREATE INDEX CONCURRENTLY` em situação de emergência (mas idealmente vai a migration na sessão seguinte)
+- `DROP POLICY` e `ALTER POLICY` quando o `query_database` os rejeita (erro 499). É o caminho previsto no `docs/estado/estado-plataforma-e-infra.md` para o trabalho de isolamento multi-tenant. A alteração é de política, não cria objectos, e fica registada no estado da frente.
 
 Nunca:
 - `CREATE TABLE`
 - `ALTER TABLE ... ADD/DROP COLUMN`
 - `CREATE VIEW` / `CREATE OR REPLACE VIEW`
-- `CREATE POLICY` / `ALTER POLICY`
+- `CREATE POLICY` (continua a ser trabalho do agente, via migration)
 - `CREATE FUNCTION` / `ALTER FUNCTION`
 - `CREATE EXTENSION`
 
