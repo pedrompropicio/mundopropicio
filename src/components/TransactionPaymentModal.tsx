@@ -290,8 +290,18 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
-      const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
-      if (newPaid > amount + 0.05) throw new Error("O valor excede o saldo em aberto");
+      // Reler o paid_amount atual da BD (o snapshot em memória pode estar
+      // desatualizado — foi por aí que entraram pagamentos duplicados).
+      const { data: freshTx, error: freshTxError } = await supabase
+        .from("transactions")
+        .select("paid_amount")
+        .eq("id", transaction.id)
+        .maybeSingle();
+      if (freshTxError) throw freshTxError;
+      const dbPaid = Number(freshTx?.paid_amount ?? currentPaid);
+      const newPaid = Math.round((dbPaid + addAmount) * 100) / 100;
+      if (newPaid >= amount + 0.01) throw new Error("O valor excede o saldo em aberto");
+
 
       // Validate credit allocations
       for (const [creditId, valStr] of Object.entries(creditAllocations)) {
