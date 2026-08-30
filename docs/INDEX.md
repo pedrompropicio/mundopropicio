@@ -8,6 +8,7 @@
 |---|---|---|---|
 | **Estado** | `docs/estado/estado-<frente>.md` | *Onde estamos?* | **Vivo** — reescrito por cima, nunca datado |
 | **Pendências** | GitHub Issues | *O que falta fazer?* | **Vivo** |
+A prioridade vive na label (`P0`/`P1`/`P2`); o *estar em curso* vive na secção "A trabalhar agora" do `estado-<frente>.md`, não numa label.
 | **Como funciona** | `.lovable/memory/features/*.md` | *Como é que X funciona?* | Vivo, por feature |
 | **Porquê** | `docs/DECISIONS.md` (ADR) | *Porque decidimos assim?* | Vivo, append-only |
 | **Arquitetura** | `docs/ARCHITECTURE.md` | *Como está montado?* | Vivo |
@@ -35,7 +36,7 @@
 
 1. Ler `docs/INDEX.md` (este ficheiro).
 2. Ler `docs/estado/estado-<frente>.md` da frente em causa.
-3. Ler as Issues com label `agora` (`{"action":"list"}` na edge function `github-issues`).
+3. Ler as Issues abertas (`{"action":"list"}` na edge function `github-issues`). As labels reais são `P0`/`P1`/`P2` + módulo (`MP-ERP`, `MP-AUDIENCE`, `MP-CRM`, `transversal`). Não existem labels de estado — a lista do que está em curso é a secção "A trabalhar agora" do `estado-<frente>.md`.
 4. Só então agir. **Nunca diagnosticar antes de ler.**
 
 Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory/features/`. A hipótese por defeito é que **já existe**.

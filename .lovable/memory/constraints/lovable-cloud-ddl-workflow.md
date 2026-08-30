@@ -4,11 +4,13 @@
 
 ## Princípio absoluto
 
-**Nunca aplicar DDL directamente em Live via SQL Editor.** Mesmo que pareça mais rápido. Mesmo que seja "só um ALTER TABLE". Mesmo que seja idempotente.
+**Todo o DDL passa pelo agente Lovable, como migration tracked. Nunca a martelar SQL à mão no SQL Editor.**
 
-DDL fora de migration tracked = bomba-relógio. O próximo Publish destrói o trabalho.
+Desde a decisão D2 (base única Live, Test eliminado) o agente aplica DDL diretamente em Live. Isso não abre a porta ao SQL Editor: o que protege o schema é o DDL ficar registado como migration e ser reproduzível, não o ambiente onde corre. Objeto criado à mão fica fora do histórico e ninguém consegue explicar de onde veio.
 
-## Por que: o que o Publish realmente faz
+## Por que: o que o Publish fazia (mundo anterior à D2)
+
+> Nota: esta secção descreve o mundo anterior à decisão D2 (base única Live, Test eliminado). Conserva-se porque explica o porquê da regra.
 
 Ao carregar Publish, o Lovable Cloud:
 
@@ -30,9 +32,11 @@ Resultado: tudo o que foi criado em Live fora de uma migration tracked desaparec
 
 ### Para qualquer alteração ao schema (CREATE TABLE, ALTER TABLE, CREATE VIEW, CREATE POLICY, GRANT, CREATE FUNCTION):
 
-1. **Autor (Claude Code ou agente Lovable)** escreve ficheiro em `supabase/migrations/<timestamp>_<descriptive_name>.sql`.
-2. Se autor foi Claude Code: push para GitHub main. Depois pedir ao **agente Lovable** para puxar main e aplicar a migration em Test via tool `supabase--migration`.
-3. **Pedro** carrega Publish no dashboard Lovable. O Publish detecta o diff Test↔Live e propaga.
+1. **O autor pede ao agente Lovable a alteração**, descrita em linguagem natural.
+2. **O agente escreve a migration** em `supabase/migrations/<timestamp>_<nome>.sql` e aplica-a em Live.
+3. **Confirmação por query de validação** (ver secção "Validação" abaixo).
+
+O Publish propaga código, edge functions e frontend — **não objectos SQL**. Não há passo de propagação Test→Live: só existe Live (D2).
 
 ### O que o Publish NÃO faz
 
@@ -51,12 +55,13 @@ Apenas para operações que **não criam objectos novos**:
 - `NOTIFY pgrst, 'reload schema'`
 - `UPDATE` / `INSERT` / `DELETE` em rows de tabelas existentes (correcção de dados, backfill pontual)
 - `CREATE INDEX CONCURRENTLY` em situação de emergência (mas idealmente vai a migration na sessão seguinte)
+- `DROP POLICY` e `ALTER POLICY` quando o `query_database` os rejeita (erro 499). É o caminho previsto no `docs/estado/estado-plataforma-e-infra.md` para o trabalho de isolamento multi-tenant. A alteração é de política, não cria objectos, e fica registada no estado da frente.
 
 Nunca:
 - `CREATE TABLE`
 - `ALTER TABLE ... ADD/DROP COLUMN`
 - `CREATE VIEW` / `CREATE OR REPLACE VIEW`
-- `CREATE POLICY` / `ALTER POLICY`
+- `CREATE POLICY` (continua a ser trabalho do agente, via migration)
 - `CREATE FUNCTION` / `ALTER FUNCTION`
 - `CREATE EXTENSION`
 

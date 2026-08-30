@@ -1,10 +1,11 @@
 # PROCEDIMENTO — Revisão semanal (10 minutos)
 
-## 1. Issues em `agora`
-`github-issues {"action":"list"}`
-- Mais de 5 com label `agora`? **Tirar até ficarem 5.**
-- Alguma em `agora` parada há mais de 2 semanas? Ou é `bloqueada` (dizer de quê) ou volta a `a-seguir`.
-- Alguma `bloqueada` cujo bloqueio já caiu?
+## 1. Issues e trabalho em curso
+`github-issues {"action":"list"}` — as labels são `P0`/`P1`/`P2` + módulo.
+- Somar as issues citadas na secção "A trabalhar agora" dos `estado-*.md`. **Mais de 5 no total? Tirar até ficarem 5.**
+- Alguma citada como em curso há mais de 2 semanas? Ou passa a bloqueio declarado no estado (dizer de quê) ou sai da secção.
+- Algum bloqueio declarado que já caiu?
+- Alguma `P0` que não esteja em nenhum `estado-*.md`? Está órfã — dar-lhe frente.
 
 ## 2. Estados
 Para cada `docs/estado/estado-*.md`: passou de uma página? **cortar**. "Próximo passo concreto" ainda faz sentido? Data com mais de 3 semanas numa frente ativa = ritual de fecho não cumprido.
