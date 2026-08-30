@@ -8,12 +8,11 @@
 |---|---|---|---|
 | **Estado** | `docs/estado/estado-<frente>.md` | *Onde estamos?* | **Vivo** — reescrito por cima, nunca datado |
 | **Pendências** | GitHub Issues | *O que falta fazer?* | **Vivo** |
-
 | **Como funciona** | `.lovable/memory/features/*.md` | *Como é que X funciona?* | Vivo, por feature |
 | **Porquê** | `docs/DECISIONS.md` (ADR) | *Porque decidimos assim?* | Vivo, append-only |
 | **Arquitetura** | `docs/ARCHITECTURE.md` | *Como está montado?* | Vivo |
 | **Restrições** | `.lovable/memory/constraints/*.md` | *O que nunca se pode fazer?* | Vivo |
-| **Histórico** | `docs/handoffs/` | *O que aconteceu no dia dia X?* | **Morto** — arquivo, não se consulta para saber o estado |
+| **Histórico** | `docs/handoffs/` | *O que aconteceu no dia X?* | **Morto** — arquivo, não se consulta para saber o estado |
 
 **Prioridade e trabalho em curso são coisas diferentes.** A prioridade vive na label da Issue (`P0`/`P1`/`P2`); o *estar em curso* vive na secção "A trabalhar agora" do `estado-<frente>.md`. Não existem labels de estado.
 
