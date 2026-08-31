@@ -2200,7 +2200,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-        <div className="glass w-full max-w-lg md:max-w-3xl lg:max-w-4xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="glass w-full max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-6xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{titleOverride ?? "Nova Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
