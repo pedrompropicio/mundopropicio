@@ -151,6 +151,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const [expenseCategoryLevel, setExpenseCategoryLevel] = useState<"l2" | "l3">("l2");
   const [includeLiquidityAppendix, setIncludeLiquidityAppendix] = useState(false);
 
+  // Modo de apuramento das quotas: por contrato de cada sócio (default) ou
+  // pela regra geral do evento. Estado local, não persistido.
+  type CalcMode = "contract" | "event";
+  const [calcMode, setCalcMode] = useState<CalcMode>("contract");
+
+
   // Event info (master + cities)
   const { data: event } = useQuery({
     queryKey: ["event-detail", eventId],
