@@ -917,10 +917,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
     y += 5;
     doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
+    y += 5;
+    doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     doc.setTextColor(0);
     y += 8;
     doc.setTextColor(0);
     y += 8;
+
 
     // ===== 1. RESUMO FINANCEIRO =====
     // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
