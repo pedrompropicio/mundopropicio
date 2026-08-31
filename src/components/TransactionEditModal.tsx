@@ -427,6 +427,16 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   // não mexe em valores nem em estado de pagamento, só em event_forecasts.transaction_id / category_id.
   const canReallocBpWhenPaid = isAdmin || isManager;
 
+  // Renegociar um pagamento único em parcelas (admin/manager).
+  const { canRenegotiate } = useCanRenegotiateInstallments({
+    transaction,
+    isPaidByPartner,
+    isPartnerExtra,
+    eventCompleted,
+  });
+  const [renegotiateOpen, setRenegotiateOpen] = useState(false);
+  const showRenegotiate = canRenegotiate && (isAdmin || isManager);
+
 
   const editMutation = useMutation({
     mutationFn: async () => {
