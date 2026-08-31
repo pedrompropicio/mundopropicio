@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Wand2, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -66,15 +66,34 @@ export function TransactionInstallmentsEditor({
   );
   const diff = +(grossTotal - sum).toFixed(2);
 
-  const distribute = () => {
-    const n = Math.max(1, Math.min(120, count || 2));
-    const amounts = distributeEvenly(grossTotal, n);
+  const distributeWith = (n: number) => {
+    const total = Math.max(1, Math.min(120, n || 2));
+    const amounts = distributeEvenly(grossTotal, total);
     const start = fromYmd(firstDate || ymd(new Date()));
     const rows: PlannedInstallment[] = amounts.map((amt, i) => ({
       amount: amt,
       scheduled_date: ymd(addByInterval(start, interval, i)),
     }));
     onChange(rows);
+  };
+
+  const distribute = () => distributeWith(count);
+
+  // Texto local do input "Nº parcelas" (permite campo vazio durante a edição)
+  const [countText, setCountText] = useState<string>(String(count ?? 2));
+  useEffect(() => {
+    setCountText(String(count ?? 2));
+  }, [count]);
+
+  const commitCount = () => {
+    const raw = Number(countText);
+    let n = Number.isFinite(raw) && countText.trim() !== "" ? Math.floor(raw) : 2;
+    if (n < 2) n = 2;
+    if (n > 120) n = 120;
+    setCountText(String(n));
+    if (n !== count) onWizardChange({ count: n, firstDate, interval });
+    // Sincroniza a tabela apenas quando o nº de linhas difere do pedido
+    if (installments.length !== n) distributeWith(n);
   };
 
   const addRow = () => {
@@ -103,14 +122,22 @@ export function TransactionInstallmentsEditor({
             type="number"
             min={2}
             max={120}
-            value={count}
-            onChange={(e) =>
-              onWizardChange({
-                count: Math.max(2, Math.min(120, Number(e.target.value) || 2)),
-                firstDate,
-                interval,
-              })
-            }
+            value={countText}
+            onChange={(e) => {
+              const v = e.target.value;
+              setCountText(v);
+              const n = Number(v);
+              if (v.trim() !== "" && Number.isFinite(n) && n >= 2 && n <= 120) {
+                onWizardChange({ count: Math.floor(n), firstDate, interval });
+              }
+            }}
+            onBlur={commitCount}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitCount();
+              }
+            }}
             className="h-9"
           />
         </div>
