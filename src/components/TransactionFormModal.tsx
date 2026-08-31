@@ -2650,13 +2650,34 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                           )}
                                         </div>
                                       </td>
-<td className="py-1 text-right font-mono text-[10px] md:text-[12px]">{Number(line.amount).toFixed(2)}€</td>
-                                      <td className="py-1 text-right font-mono text-[10px] md:text-[12px] text-muted-foreground">
-                                        {line.iva_rate}%
-                                      </td>
-                                      <td className="py-1 text-right font-mono text-[10px] md:text-[12px]">
-                                        {(Number(line.amount) * (1 + Number(line.iva_rate) / 100)).toFixed(2)}€
-                                      </td>
+{(() => {
+                                        const lineForecast = Number(line.amount) || 0;
+                                        const lineIva = Number(line.iva_rate) || 0;
+                                        const lineTotal = lineForecast * (1 + lineIva / 100);
+                                        const hasRealLine = isUuid(line.id);
+                                        const lineUsed = hasRealLine ? (usedByForecastId[line.id] || 0) : null;
+                                        const lineRemaining = lineUsed === null ? null : lineForecast - lineUsed;
+                                        return (
+                                          <>
+                                            <td className="py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap">
+                                              <span className="font-semibold">{lineForecast.toFixed(2)}€</span>
+                                              {lineIva > 0 && (
+                                                <p className="text-[9px] md:text-[10px] text-muted-foreground font-mono">
+                                                  + IVA {lineIva}% · {lineTotal.toFixed(2)}€
+                                                </p>
+                                              )}
+                                            </td>
+                                            <td className="py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap">
+                                              {lineUsed === null ? "—" : `${lineUsed.toFixed(2)}€`}
+                                            </td>
+                                            <td className={`py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap ${
+                                              lineRemaining === null ? "" : lineRemaining <= 0 ? "text-destructive" : "text-success"
+                                            }`}>
+                                              {lineRemaining === null ? "—" : `${lineRemaining.toFixed(2)}€`}
+                                            </td>
+                                          </>
+                                        );
+                                      })()}
                                     </tr>
                                   ))}
                                 </React.Fragment>
