@@ -65,6 +65,7 @@ export function CardTeamItemModal({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [supplierName, setSupplierName] = useState("");
+  const [invoiceRef, setInvoiceRef] = useState("");
   const [description, setDescription] = useState("");
   const [itemDate, setItemDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
@@ -114,6 +115,7 @@ export function CardTeamItemModal({
 
   const reset = () => {
     setSupplierName("");
+    setInvoiceRef("");
     setDescription("");
     setItemDate(new Date().toISOString().slice(0, 10));
     setTotal("");
@@ -135,6 +137,7 @@ export function CardTeamItemModal({
     if (!data) return;
     const it = data as any;
     setSupplierName(it.supplier_name ?? "");
+    setInvoiceRef(it.invoice_ref ?? it.ocr_raw_payload?.document_number ?? "");
     setDescription(it.description ?? "");
     setItemDate(it.item_date ?? new Date().toISOString().slice(0, 10));
     // BD guarda base s/IVA → mostramos o total c/IVA do talão.
@@ -188,6 +191,7 @@ export function CardTeamItemModal({
       if (data?.error) throw new Error(data.error);
       setOcrPayload(data);
       if (data.supplier_name && !supplierName) setSupplierName(data.supplier_name);
+      if (data.document_number && !invoiceRef) setInvoiceRef(String(data.document_number));
       if (data.service_description && !description)
         setDescription(data.service_description);
       if (data.document_date) setItemDate(data.document_date);
@@ -243,6 +247,7 @@ export function CardTeamItemModal({
             session_id: sessionId,
             submitted_by: user.id,
             supplier_name: supplierName.trim() || null,
+            invoice_ref: invoiceRef.trim() || null,
             description: description.trim() || null,
             item_date: itemDate,
             amount: amt,
@@ -260,6 +265,7 @@ export function CardTeamItemModal({
           .from("card_session_items")
           .update({
             supplier_name: supplierName.trim() || null,
+            invoice_ref: invoiceRef.trim() || null,
             description: description.trim() || null,
             item_date: itemDate,
             amount: amt,
@@ -415,6 +421,18 @@ export function CardTeamItemModal({
               onChange={(e) => setSupplierName(e.target.value)}
               placeholder="Ex: Pingo Doce, Bomba Galp…"
             />
+          </div>
+
+          <div>
+            <Label className="text-xs">Nº Fatura</Label>
+            <Input
+              value={invoiceRef}
+              onChange={(e) => setInvoiceRef(e.target.value)}
+              placeholder="Ex: FT 002/5944"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Transações com o mesmo nº de fatura serão agrupadas automaticamente
+            </p>
           </div>
 
           <div>
