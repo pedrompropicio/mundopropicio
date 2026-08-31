@@ -108,6 +108,7 @@ export function TransactionRenegotiateInstallmentsModal({
 
   const baseDescription = stripInstallmentSuffix(transaction.description);
 
+
   const mutation = useMutation({
     mutationFn: async () => {
       const err = validateInstallments(rows, grossTotal);
