@@ -1443,6 +1443,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         if (useInstallments && insertedTx?.id && installmentRows.length >= 2) {
           const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
           const n = installmentRows.length;
+          // Identificação estrutural do parcelamento (o sufixo "(n/N)" é cosmético).
+          const installmentGroupId = crypto.randomUUID();
           // Defesa final (server-side round-trip) contra segunda geração.
           const preExisting = await findExistingInstallments({
             eventId: data.event_id || null,
@@ -1454,7 +1456,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           if (preExisting.length > 0) {
             throw new Error(existingInstallmentsMessage(preExisting.length));
           }
+          // A 1ª parcela é a TX já criada — marca-a como membro 1/N do grupo.
+          {
+            const { error: rootErr } = await supabase
+              .from("transactions")
+              .update({
+                installment_group_id: installmentGroupId,
+                installment_number: 1,
+                installment_total: n,
+              } as any)
+              .eq("id", insertedTx.id);
+            if (rootErr) throw rootErr;
+          }
           for (let i = 1; i < n; i++) {
+
             const inst = installmentRows[i];
             const netAmt = installmentNets[i] ?? 0;
             const { data: siblingTx, error: sErr } = await supabase.from("transactions").insert({
