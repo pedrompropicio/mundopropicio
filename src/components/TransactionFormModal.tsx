@@ -2551,7 +2551,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </button>
 <p className="text-[10px] md:text-[12px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
 <div
-                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
+                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-auto overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
