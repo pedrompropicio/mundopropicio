@@ -173,12 +173,26 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const allExpenses = computed.every((i) => i.type === "expense");
   const allIncomes = computed.every((i) => i.type === "income");
 
+  // Nº de fatura pertence ao fornecedor, não ao lote: só é aplicável quando
+  // todas as transações são do MESMO fornecedor (mesmo princípio de invoice-group).
+  const singleSupplier = useMemo(() => {
+    const ids = new Set(transactions.map((t: any) => t.supplier_id ?? null));
+    if (ids.size !== 1) return null;
+    const only = [...ids][0];
+    if (!only) return null;
+    const withName: any = transactions.find((t: any) => t.suppliers?.name);
+    return { id: only as string, name: withName?.suppliers?.name ?? null };
+  }, [transactions]);
+  const invoiceRefApplies = !!singleSupplier;
+  const effectiveInvoiceRef = invoiceRefApplies ? invoiceRef.trim() : "";
+
   const selectedBalance = accountId ? computeAccountBalance(accountId) : null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
   const accountOptions = financialAccounts.map((a: any) => ({
     value: a.id,
     label: a.name,
   }));
+
 
   async function suggestRate(ccy: CurrencyCode) {
     setLoadingFx(ccy);
