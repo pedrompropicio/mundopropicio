@@ -39,6 +39,8 @@ const RPC_ERRORS: Record<string, string> = {
   has_payments: "A transação já tem pagamentos registados.",
   already_installment_group: "A transação já pertence a um grupo de parcelas.",
   is_split: "Transações de rateio não podem ser renegociadas em parcelas.",
+  is_split_parent:
+    "Transações rateadas entre eventos não podem ser renegociadas em parcelas; ajuste o rateio primeiro.",
   is_reimbursement: "Notas de reembolso não podem ser renegociadas em parcelas.",
   is_transitory: "Transações transitórias não podem ser renegociadas em parcelas.",
   is_partner_paid: "Despesas pagas por sócio não podem ser renegociadas em parcelas.",
