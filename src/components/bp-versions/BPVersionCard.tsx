@@ -120,7 +120,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           <Button variant="outline" size="sm" onClick={() => setDiffOpen(true)}>
             <GitCompare className="h-4 w-4 mr-1.5" />
             Ver alterações
