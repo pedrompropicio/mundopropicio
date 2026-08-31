@@ -11,11 +11,13 @@ import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 
 
 /**
- * Editor do parcelamento ANTIGO (issue #39): N transações irmãs "(n/N)" ligadas
- * por `parent_transaction_id`, em que a filha NÃO é split de rateio entre
- * eventos (`split_percentage IS NULL`).
+ * Editor do parcelamento por grupo (issue #39): N transações irmãs que
+ * partilham `installment_group_id`.
  *
- * NÃO confundir com o Modelo B (cronograma em `transaction_payments`).
+ * A identificação é ESTRUTURAL. A descrição (sufixo "(n/N)") é cosmética e
+ * NUNCA é lida para decidir se algo é parcelamento.
+ *
+ * NÃO confundir com o Modelo B legado (cronograma em `transaction_payments`).
  */
 
 type GroupRow = {
@@ -32,43 +34,17 @@ type GroupRow = {
 
 const isPaidRow = (r: GroupRow) => r.status === "paid" || Number(r.paid_amount) > 0.01;
 
-/** Padrão "(1/3)" na descrição — marca formal das parcelas antigas. */
-const INSTALLMENT_PATTERN = /\(\s*\d+\s*\/\s*\d+\s*\)/;
+const GROUP_COLS =
+  "id, description, amount, iva_rate, due_date, date, status, paid_amount, split_percentage, parent_transaction_id, is_transitory, installment_group_id";
 
 export function useInstallmentGroup(transaction: any) {
   const rootId: string = transaction.parent_transaction_id ?? transaction.id;
+  const groupId: string | null = transaction.installment_group_id ?? null;
   const disabled = !!transaction.is_transitory;
   return useQuery({
-    queryKey: ["installment-group", rootId],
+    queryKey: ["installment-group", groupId ?? rootId],
     enabled: !disabled,
     queryFn: async (): Promise<GroupRow[]> => {
-      const cols =
-        "id, description, amount, iva_rate, due_date, date, status, paid_amount, split_percentage, parent_transaction_id, is_transitory";
-      const { data: root, error: rootErr } = await supabase
-        .from("transactions")
-        .select(cols)
-        .eq("id", rootId)
-        .maybeSingle();
-      if (rootErr) throw rootErr;
-      if (!root || (root as any).split_percentage !== null || (root as any).is_transitory) return [];
-
-      const { data: children, error: childErr } = await supabase
-        .from("transactions")
-        .select(cols)
-        .eq("parent_transaction_id", rootId)
-        .is("split_percentage", null);
-      if (childErr) throw childErr;
-      const kids = (children ?? []).filter((c: any) => !c.is_transitory);
-      if (kids.length === 0) return [];
-
-      // Exige a marca formal "(n/m)" em pelo menos uma linha do grupo — evita
-      // apanhar pares transitórios/repetições de descrição como parcelamento.
-      const hasPattern = [root, ...kids].some((r: any) =>
-        INSTALLMENT_PATTERN.test(String(r.description ?? "")),
-      );
-      if (!hasPattern) return [];
-
-
       const map = (r: any, isRoot: boolean): GroupRow => ({
         id: r.id,
         description: r.description ?? "",
@@ -80,13 +56,48 @@ export function useInstallmentGroup(transaction: any) {
         paid_amount: Number(r.paid_amount) || 0,
         isRoot,
       });
+      const sortRows = (rows: GroupRow[]) => {
+        rows.sort((a, b) => (a.due_date ?? a.date).localeCompare(b.due_date ?? b.date));
+        return rows;
+      };
 
-      const rows = [map(root, true), ...kids.map((c: any) => map(c, false))];
-      rows.sort((a, b) => (a.due_date ?? a.date).localeCompare(b.due_date ?? b.date));
-      return rows;
+      // Caminho canónico — mesmo installment_group_id.
+      if (groupId) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select(GROUP_COLS)
+          .eq("installment_group_id", groupId);
+        if (error) throw error;
+        const members = (data ?? []).filter((r: any) => !r.is_transitory);
+        if (members.length < 2) return [];
+        return sortRows(
+          members.map((r: any) => map(r, r.id === rootId && !r.parent_transaction_id)),
+        );
+      }
+
+      // Fallback legado (dados anteriores ao backfill): pai + filhas sem rateio.
+      const { data: root, error: rootErr } = await supabase
+        .from("transactions")
+        .select(GROUP_COLS)
+        .eq("id", rootId)
+        .maybeSingle();
+      if (rootErr) throw rootErr;
+      if (!root || (root as any).split_percentage !== null || (root as any).is_transitory) return [];
+
+      const { data: children, error: childErr } = await supabase
+        .from("transactions")
+        .select(GROUP_COLS)
+        .eq("parent_transaction_id", rootId)
+        .is("split_percentage", null);
+      if (childErr) throw childErr;
+      const kids = (children ?? []).filter((c: any) => !c.is_transitory);
+      if (kids.length === 0) return [];
+
+      return sortRows([map(root, true), ...kids.map((c: any) => map(c, false))]);
     },
   });
 }
+
 
 export function TransactionInstallmentGroupEditor({
   transaction,
