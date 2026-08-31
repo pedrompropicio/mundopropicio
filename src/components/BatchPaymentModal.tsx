@@ -173,12 +173,26 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const allExpenses = computed.every((i) => i.type === "expense");
   const allIncomes = computed.every((i) => i.type === "income");
 
+  // Nº de fatura pertence ao fornecedor, não ao lote: só é aplicável quando
+  // todas as transações são do MESMO fornecedor (mesmo princípio de invoice-group).
+  const singleSupplier = useMemo(() => {
+    const ids = new Set(transactions.map((t: any) => t.supplier_id ?? null));
+    if (ids.size !== 1) return null;
+    const only = [...ids][0];
+    if (!only) return null;
+    const withName: any = transactions.find((t: any) => t.suppliers?.name);
+    return { id: only as string, name: withName?.suppliers?.name ?? null };
+  }, [transactions]);
+  const invoiceRefApplies = !!singleSupplier;
+  const effectiveInvoiceRef = invoiceRefApplies ? invoiceRef.trim() : "";
+
   const selectedBalance = accountId ? computeAccountBalance(accountId) : null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
   const accountOptions = financialAccounts.map((a: any) => ({
     value: a.id,
     label: a.name,
   }));
+
 
   async function suggestRate(ccy: CurrencyCode) {
     setLoadingFx(ccy);
@@ -303,7 +317,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           payment_date: paymentDate,
           account_id: accountId,
         };
-        if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
+        if (effectiveInvoiceRef) updateData.invoice_ref = effectiveInvoiceRef;
 
         const { error } = await supabase
           .from("transactions")
@@ -317,7 +331,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           amount: settleEur,
           payment_date: paymentDate,
           account_id: accountId,
-          invoice_ref: invoiceRef.trim() || null,
+          invoice_ref: effectiveInvoiceRef || null,
           withholding_amount: withholding,
           credit_amount: 0,
           notes: notes.trim() || null,
@@ -370,8 +384,8 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
                 paid_amount: childNewPaid,
                 status: childStatus,
                 payment_date: paymentDate,
-                ...(invoiceRef.trim()
-                  ? { invoice_ref: invoiceRef.trim() }
+                ...(effectiveInvoiceRef
+                  ? { invoice_ref: effectiveInvoiceRef }
                   : {}),
               } as any)
               .eq("id", child.id);
@@ -385,8 +399,8 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast({
         title: `${data.count} transação(ões) liquidada(s)!`,
-        description: invoiceRef.trim()
-          ? `Fatura: ${invoiceRef.trim()}`
+        description: effectiveInvoiceRef
+          ? `Fatura: ${effectiveInvoiceRef}`
           : undefined,
       });
       onClose();
@@ -563,21 +577,30 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
         })}
 
         <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Nº Fatura
-            </label>
-            <input
-              type="text"
-              value={invoiceRef}
-              onChange={(e) => setInvoiceRef(e.target.value)}
-              placeholder="Ex: FT 002/5944"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Todas as transações receberão este nº de fatura
-            </p>
-          </div>
+          {invoiceRefApplies ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Nº Fatura
+              </label>
+              <input
+                type="text"
+                value={invoiceRef}
+                onChange={(e) => setInvoiceRef(e.target.value)}
+                placeholder="Ex: FT 002/5944"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {singleSupplier?.name
+                  ? `Todas as transações de ${singleSupplier.name} receberão este nº de fatura`
+                  : "Todas as transações receberão este nº de fatura"}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+              Nº de fatura não se aplica: o lote tem fornecedores diferentes.
+              Cada transação mantém a sua própria referência de fatura.
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
