@@ -307,3 +307,20 @@ aqui cumprem-no, pelo que o `TransactionInstallmentGroupEditor` abre logo com o
 grupo completo e valores/vencimentos editáveis. Confirmado por leitura do hook e
 por query aos 9 grupos em Live (`installment_number` 1..N contínuo,
 `is_transitory = 0`, `split_percentage NULL` em todos).
+
+## Permissões (2026-08-31)
+
+- Criar TX parcelada (toggle "Pagar em parcelas"): sem gate de papel; RLS de INSERT em
+  `transaction_payments` inclui editor.
+- **Renegociar em parcelas**: `showRenegotiate` em `TransactionEditModal` =
+  `canApprove || isManager || hasPermission("manage_transactions")`. A RPC
+  `renegotiate_transaction_installments` admite `has_role(admin|manager)` **ou**
+  `has_permission(auth.uid(),'manage_transactions')`. Restantes 10 validações inalteradas.
+- **`TransactionInstallmentGroupEditor`**: `canEdit` idem (admin/manager/manage_transactions)
+  para ajustar valores e datas. **Destravar parcelas já pagas** continua só admin/manager
+  (`canApprove`).
+- Prop renomeado: o antigo `isAdmin` destes componentes continha "admin OU manager"
+  (`canApprove` em `Transactions.tsx`). Passou a chamar-se `canApprove` em
+  `TransactionEditModal`, `PaymentTimeline`, `TransactionPaymentsListModal`,
+  `TransactionInstallmentGroupEditor` e `TransactionRow`; textos visíveis corrigidos para
+  "admin/gestora".

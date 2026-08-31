@@ -48,3 +48,18 @@ Não corrigir sem decisão explícita. `paid_amount` **não** é derivado de
   - auditoria por campo em `transaction_audit_log` mantida.
 - `PaymentTimeline` abre o modal para editor (`canEditPayments`) e propaga `eventCompleted`
   (vindo de `TransactionEditModal`).
+
+## Quem pode o quê (2026-08-31)
+
+- **RLS `transaction_payments`** (Live, alinhada com a UI):
+  - SELECT: qualquer autenticado (inalterada) · INSERT: admin, manager, editor (inalterada)
+  - UPDATE / DELETE: admin, manager, **editor** (antes só admin/manager — a UI já mostrava os
+    botões ao editor e o delete afetava 0 linhas **sem erro**, descasando
+    `transactions.paid_amount` da soma das parcelas)
+  - RESTRICTIVE `company_isolation_transaction_payments` mantida.
+- **Guarda no cliente, independente da RLS**: em `TransactionPaymentsListModal` o UPDATE e o
+  DELETE da linha de pagamento usam `.select("id")` e só tocam em `transactions` se voltou ≥1
+  linha; 0 linhas → erro explícito e transação intacta. Um write que não escreveu nunca pode
+  ser reportado como sucesso.
+- **Editor**: corrige data e apaga pagamentos (evento não fechado). Valor, conta, método,
+  entidade, referência, nº fatura, nota e ajuste de pagamento direto ficam admin/manager.
