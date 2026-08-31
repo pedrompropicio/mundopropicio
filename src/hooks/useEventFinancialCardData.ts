@@ -236,6 +236,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         emptyBreakdown(),
       );
 
+      // Soma das linhas de overhead incluídas no total — só para exibição no card.
+      const overheadSum = includeOverhead
+        ? overheadLines.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0)
+        : 0;
+
       // Excesso por rubrica sobre as linhas OPERACIONAIS do BP
       // (Σ max(realizado − previsto, 0)) — entra SEMPRE na base "Previsto + excedido".
       // Não é opcional: um total dependente de um clique produz erro de fecho.
@@ -257,6 +262,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
         phase, modeUsed, unavailable: approved.length === 0,
+        meta: kind === "expense" ? { overhead: overheadSum } : undefined,
       };
     }
 
