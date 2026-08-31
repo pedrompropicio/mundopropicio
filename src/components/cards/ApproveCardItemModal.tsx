@@ -14,6 +14,7 @@ interface Item {
   session_id: string;
   item_date: string;
   supplier_name: string | null;
+  invoice_ref?: string | null;
   description: string | null;
   amount: number;
   iva_rate: number;
@@ -38,6 +39,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   const [ivaRate, setIvaRate] = useState<number>(0);
   const [date, setDate] = useState("");
   const [supplierName, setSupplierName] = useState("");
+  const [invoiceRef, setInvoiceRef] = useState("");
   const [eventId, setEventId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
 
@@ -50,6 +52,10 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
       setTotal(String(cardTotalFromBase(Number(item.amount ?? 0), Number(item.iva_rate ?? 0))));
       setDate(item.item_date);
       setSupplierName(item.supplier_name ?? "");
+      // Valor inicial: o que o produtor gravou no item; senão o nº lido pelo OCR.
+      setInvoiceRef(
+        item.invoice_ref ?? (item as any).ocr_raw_payload?.document_number ?? "",
+      );
       setEventId(item.event_id ?? "");
       setCategoryId(item.category_id ?? "");
       setPreviewUrl(null);
@@ -113,6 +119,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           iva_rate: rate,
           category_id: categoryId,
           account_id: cardAccountId,
+          invoice_ref: invoiceRef.trim() || null,
           event_id: eventId || null,
           date,
           status: "paid",
@@ -132,6 +139,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           iva_rate: rate,
           item_date: date,
           supplier_name: supplierName || null,
+          invoice_ref: invoiceRef.trim() || null,
           description: description || null,
           event_id: eventId || null,
           category_id: categoryId,
@@ -141,6 +149,18 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
         })
         .eq("id", item.id);
       if (updErr) throw updErr;
+
+      // Agrupamento automático por nº de fatura (mesmo padrão do TransactionFormModal).
+      if (invoiceRef.trim()) {
+        const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
+        const auto = await autoGroupInvoiceForTransaction(tx.id);
+        if (auto) {
+          toast({
+            title: `Agrupada à fatura ${auto.invoiceRef}`,
+            description: `${auto.total} transações partilham esta fatura.`,
+          });
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: "Item aprovado." });
@@ -208,6 +228,19 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
             <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <input
+              type="text"
+              value={invoiceRef}
+              onChange={(e) => setInvoiceRef(e.target.value)}
+              placeholder="Ex: FT 002/5944"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Transações com o mesmo nº de fatura serão agrupadas automaticamente
+            </p>
           </div>
           
           <CardAmountFields

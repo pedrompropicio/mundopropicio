@@ -1567,6 +1567,7 @@ export type Database = {
           document_path: string | null
           event_id: string | null
           id: string
+          invoice_ref: string | null
           item_date: string
           iva_rate: number
           ocr_raw_payload: Json | null
@@ -1589,6 +1590,7 @@ export type Database = {
           document_path?: string | null
           event_id?: string | null
           id?: string
+          invoice_ref?: string | null
           item_date?: string
           iva_rate?: number
           ocr_raw_payload?: Json | null
@@ -1611,6 +1613,7 @@ export type Database = {
           document_path?: string | null
           event_id?: string | null
           id?: string
+          invoice_ref?: string | null
           item_date?: string
           iva_rate?: number
           ocr_raw_payload?: Json | null

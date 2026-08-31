@@ -208,3 +208,37 @@ Helper único: `src/lib/card-session-balance.ts` (`fetchCardSessionAccountSync`,
 - Abertura de sessão nova pré-preenche com o saldo calculado da conta (não herda o
   fecho anterior); override manual exige justificação e grava-a nas notas.
 - Sessões **fechadas** não recalculam nada — usam o `closing_summary` histórico.
+
+## Nº de fatura nas despesas de cartão (2026-08-31)
+
+Antes desta data nenhum dos pontos de entrada do módulo pedia o nº do documento
+(verificado em Live: 49 despesas de cartão desde 14/07/2026, todas com
+`transactions.invoice_ref` NULL). Não era regressão — o campo nunca existiu.
+
+Passa a existir nos **três** pontos de entrada, com o mesmo padrão do
+`TransactionFormModal` (label "Nº Fatura", input de texto, placeholder
+"Ex: FT 002/5944", hint "Transações com o mesmo nº de fatura serão agrupadas
+automaticamente"), colocado logo depois de Fornecedor e gravado sempre como
+`invoice_ref.trim() || null`:
+
+1. `NewCardExpenseModal` (gestor) — vai no INSERT e no UPDATE da transação,
+   é pré-carregado na edição (`CardSessionDetail` passou a pedir `invoice_ref`
+   no select das despesas) e entra no conjunto auditado em
+   `transaction_audit_log`. Ao criar, chama
+   `autoGroupInvoiceForTransaction(txId)` de `src/lib/invoice-group.ts`.
+2. `ApproveCardItemModal` (financeira) — valor inicial = `invoice_ref` do item
+   e, em falta, `ocr_raw_payload.document_number` (chave devolvida pela edge fn
+   `extract-camarim-receipt`). Grava na transação criada e no item, e chama o
+   agrupamento automático. Nota: como estas transações não têm `supplier_id`
+   (o cartão usa `supplier_name` livre), o agrupamento só age quando existe
+   fornecedor — a referência fica sempre registada.
+3. `CardTeamItemModal` (produtor, mobile) — campo opcional, pré-preenchido pelo
+   OCR (`document_number`), gravado na coluna nova
+   `card_session_items.invoice_ref` (text NULL, com COMMENT a explicar que é a
+   referência do documento lida do talão ou escrita pelo produtor) e propagado
+   à transação na aprovação.
+
+Efeito: as despesas de cartão passam a entrar no **agrupamento automático por
+nº de fatura** (`mem://features/invoice-groups`) e a ter referência do documento
+para a contabilidade. Valores, IVA, saldos, fecho de sessão e recarga ficaram
+intactos; `invoice_group_id` nunca é escrito diretamente.
