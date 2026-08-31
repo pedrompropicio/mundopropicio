@@ -33,22 +33,25 @@ export type ExistingInstallment = {
 };
 
 /**
- * Deteta parcelas "(n/m)" já existentes para o mesmo documento, para bloquear
- * uma segunda geração (caso real: "Hotel Londres" gerado 2× em 25/05).
+ * Deteta parcelas já existentes para o mesmo documento, para bloquear uma
+ * segunda geração (caso real: "Hotel Londres" gerado 2× em 25/05).
  *
- * Critérios (OR):
- *  - transações com `parent_transaction_id = parentTransactionId` (mesmo grupo);
- *  - transações do mesmo fornecedor + evento cuja descrição-base (sem sufixo
- *    "(n/m)") é igual à do documento a parcelar e que têm o padrão "(n/m)".
+ * Identificação ESTRUTURAL — nunca por texto:
+ *  - (1) transações com `parent_transaction_id = parentTransactionId`;
+ *  - (2) transações do mesmo fornecedor + evento que pertencem a um
+ *    parcelamento (`installment_group_id NOT NULL`) do mesmo documento
+ *    (descrição-base igual, usada só para restringir ao mesmo documento).
  */
 export async function findExistingInstallments(params: {
   eventId?: string | null;
   supplierId?: string | null;
   description: string;
   parentTransactionId?: string | null;
+  installmentGroupId?: string | null;
   excludeIds?: string[];
 }): Promise<ExistingInstallment[]> {
-  const cols = "id, description, amount, due_date, status, parent_transaction_id, is_transitory, split_percentage";
+  const cols =
+    "id, description, amount, due_date, status, parent_transaction_id, is_transitory, split_percentage, installment_group_id";
   const exclude = new Set((params.excludeIds ?? []).filter(Boolean));
   const found = new Map<string, ExistingInstallment>();
 
@@ -76,22 +79,35 @@ export async function findExistingInstallments(params: {
     (data ?? []).forEach(keep);
   }
 
-  // (2) caso histórico — mesmo fornecedor+evento, mesma descrição-base, com padrão (n/m)
+  // (1b) mesmo installment_group_id, quando conhecido
+  if (params.installmentGroupId) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select(cols)
+      .eq("installment_group_id", params.installmentGroupId);
+    if (error) throw error;
+    (data ?? []).forEach(keep);
+  }
+
+  // (2) parcelamento estrutural já existente para o mesmo documento
   const base = normalizeDescription(stripInstallmentSuffix(params.description));
   if (base) {
-    let q = supabase.from("transactions").select(cols).limit(500);
+    let q = supabase
+      .from("transactions")
+      .select(cols)
+      .not("installment_group_id", "is", null)
+      .limit(500);
     q = params.eventId ? q.eq("event_id", params.eventId) : q.is("event_id", null);
     q = params.supplierId ? q.eq("supplier_id", params.supplierId) : q.is("supplier_id", null);
     const { data, error } = await q;
     if (error) throw error;
     (data ?? [])
       .filter(
-        (r: any) =>
-          INSTALLMENT_PATTERN.test(String(r.description ?? "")) &&
-          normalizeDescription(stripInstallmentSuffix(r.description)) === base,
+        (r: any) => normalizeDescription(stripInstallmentSuffix(r.description)) === base,
       )
       .forEach(keep);
   }
+
 
   return [...found.values()];
 }
