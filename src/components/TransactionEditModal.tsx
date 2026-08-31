@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
-import { X, Building, FileText, Landmark, AlertTriangle, Repeat } from "lucide-react";
+import { X, Building, FileText, Landmark, AlertTriangle, Repeat, Layers } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
