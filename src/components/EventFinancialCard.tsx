@@ -139,7 +139,7 @@ export function EventFinancialCard(props: Props) {
   const showScenarioToggle = data.modeUsed === "forecast" && kind === "income";
 
 
-  // Extras visíveis (cachê e rateio turnê) — mostrados em todos os modos quando > 0.
+  // Extras visíveis (cachê, rateio turnê e overhead) — mostrados em todos os modos quando > 0.
   const extras: Array<{ label: string; value: number }> = [];
   if (kind === "expense") {
     const cache = Number(props.cacheImpact || 0);
@@ -150,6 +150,9 @@ export function EventFinancialCard(props: Props) {
     const includeMasterFc = data.modeUsed !== "realized" && masterFc > 0;
     const rateio = masterTx + (includeMasterFc ? masterFc : 0);
     if (rateio > 0) extras.push({ label: "Rateio turnê", value: rateio });
+    // Overhead incluído no total do modo committed (visualização, não altera cálculo).
+    const oh = Number((data.meta as any)?.overhead || 0);
+    if (includeOverhead && oh > 0) extras.push({ label: "Overhead", value: oh });
   }
 
   return (

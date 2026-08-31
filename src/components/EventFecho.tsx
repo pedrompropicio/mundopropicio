@@ -277,6 +277,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadNet = basis.includeOverhead ? overheadIncomeFinal - overheadExpenseFinal : 0;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
+  // Reconciliação explícita com o card "Custos": total operacional + overhead.
+  const expensesTotalWithOverhead = expensesOp + (basis.includeOverhead ? overheadExpenseFinal : 0);
+
   // Acerto com sócios — base = resultado COM overhead na BASE CONTRATUAL do respetivo
   // sócio (D-ERP9). O seletor de vista NUNCA entra aqui.
   const outsideBpBy = (gross: boolean) =>
@@ -369,7 +372,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       startY: y,
       body: [
         ["Receita", formatCurrency(revenue)],
-        ["Despesas operacionais", formatCurrency(expensesOp)],
+        ["Despesas operacionais (s/ overhead)", formatCurrency(expensesOp)],
         ["Resultado s/ overhead", formatCurrency(resultWithoutOverhead)],
       ],
       margin: { left: margin, right: margin },
@@ -424,17 +427,25 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     y += 4;
     autoTable(doc, {
       startY: y,
-      body: [
-        ["Resultado s/ overhead", formatCurrency(resultWithoutOverhead)],
-        ["Overhead líquido", formatCurrency(overheadNet)],
-        ["Resultado c/ overhead", formatCurrency(resultWithOverhead)],
-      ],
+      body: basis.includeOverhead
+        ? [
+            ["Despesas totais (operacionais + overhead)", formatCurrency(expensesTotalWithOverhead)],
+            ["Resultado s/ overhead", formatCurrency(resultWithoutOverhead)],
+            ["Overhead líquido", formatCurrency(overheadNet)],
+            ["Resultado c/ overhead", formatCurrency(resultWithOverhead)],
+          ]
+        : [
+            ["Resultado s/ overhead", formatCurrency(resultWithoutOverhead)],
+            ["Overhead líquido", formatCurrency(overheadNet)],
+            ["Resultado c/ overhead", formatCurrency(resultWithOverhead)],
+          ],
       margin: { left: margin, right: margin },
       styles: { fontSize: 10 },
       columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right", fontStyle: "bold" } },
       theme: "plain",
       didParseCell: (data) => {
-        if (data.row.index === 2) {
+        const resultRowIndex = basis.includeOverhead ? 3 : 2;
+        if (data.row.index === resultRowIndex) {
           data.cell.styles.fillColor = [220, 230, 255];
           data.cell.styles.textColor = resultWithOverhead >= 0 ? [0, 120, 0] : [180, 0, 0];
         }
@@ -512,7 +523,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <TrendingDown className="h-3 w-3 text-destructive" /> Despesas operacionais
+              <TrendingDown className="h-3 w-3 text-destructive" /> Despesas operacionais (s/ overhead)
             </p>
             <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(expensesOp)}</p>
           </div>
@@ -611,6 +622,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
             </p>
           </div>
         </div>
+        {basis.includeOverhead && (
+          <p className="text-[11px] text-muted-foreground mt-3">
+            Despesas totais (operacionais + overhead): {formatCurrency(expensesTotalWithOverhead)}
+          </p>
+        )}
       </div>
 
       {/* Acerto com Sócios */}
