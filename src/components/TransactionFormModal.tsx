@@ -1500,8 +1500,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
               fx_rate_source: currency === "EUR" ? null : fxRateSource,
               parent_transaction_id: insertedTx.id,
+              installment_group_id: installmentGroupId,
+              installment_number: i + 1,
+              installment_total: n,
               split_percentage: null,
               split_amount: null,
+
             } as any).select("id").single();
             if (sErr) throw sErr;
             if (siblingTx?.id) {
