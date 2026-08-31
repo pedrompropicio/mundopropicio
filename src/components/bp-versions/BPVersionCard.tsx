@@ -61,15 +61,16 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5">
           {versions.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)} className="shrink-0">
               <History className="h-4 w-4 mr-1.5" />
               Histórico ({versions.length})
             </Button>
           )}
           {canManage && !isSplit && (
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
+
               <Button size="sm" onClick={() => setFreezeOpen(true)}>
                 <Snowflake className="h-4 w-4 mr-1.5" />
                 Congelar v1
