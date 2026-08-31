@@ -335,3 +335,29 @@ extras e os pools de liquidez seguem contrato.
 Quando os sócios de um evento apuram em bases diferentes **não existe um resultado único** e
 a soma das quotas não fecha contra um único número. Isto é uma propriedade do contrato, não
 um erro de cálculo, e está sinalizado com nota no ecrã e no PDF.
+
+## D-ERP10 — Base de apresentação uniforme no Encontro de Contas (31/08/2026)
+
+**Decisão:** a Mundo Propício segue a base contratual do evento no Encontro de Contas
+apresentado aos sócios, mesmo quando essa base é c/IVA e a MP é portuguesa. A posição real
+da MP — que é s/IVA porque o IVA português é dedutível — passa a estar reconciliada num
+bloco interno do ecrã, não incluído no PDF.
+
+**Porquê:** em eventos com sócios de países diferentes, o documento apresentado aos sócios
+mantém uma base uniforme (normalmente c/IVA nas despesas) para evitar discussão entre
+sócios. O sócio português sabe que esse apuramento c/IVA existe para apresentação aos sócios
+brasileiros. O IVA que entra na base dos sócios é dedutível para a MP, pelo que a posição
+real da empresa é superior à quota nominal mostrada no acerto. Hoje essa diferença não
+aparecia em lado nenhum.
+
+**Implementação:** o bloco "Posição da Mundo Propício · Interno" no
+`PartnerSettlementTab.tsx` mostra:
+- resultado do evento a s/IVA;
+- menos a quota de cada sócio não-casa na sua base efetiva;
+- igual à posição real da MP;
+- sublinhado pela quota nominal e pelo "IVA não repassado".
+
+**Restrições:** o bloco só aparece quando existe casa e o evento não ignora despesas
+operacionais (`gross_revenue`). O valor mostrado é anterior a acertos de IVA entre a
+Mundo Propício e sócios portugueses, que são tratados fora do sistema e arquivados em
+Documentos do evento. Não altera quotas, saldos nem o PDF.
