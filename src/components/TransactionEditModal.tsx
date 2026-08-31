@@ -40,6 +40,10 @@ import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 import { TransactionInstallmentGroupEditor, useInstallmentGroup } from "@/components/TransactionInstallmentGroupEditor";
+import {
+  TransactionRenegotiateInstallmentsModal,
+  useCanRenegotiateInstallments,
+} from "@/components/TransactionRenegotiateInstallmentsModal";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
