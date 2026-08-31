@@ -186,7 +186,8 @@ export function buildPartnerSettlementReportData(input: {
             event_id: rootEvent.id,
             percentage: housePct,
             loss_percentage: null,
-            expense_includes_iva: false,
+            // A casa segue sempre a base contratual do evento.
+            expense_includes_iva: null,
             suppliers: { name: HOUSE_PARTNER_NAME },
             isHouse: true,
           }]

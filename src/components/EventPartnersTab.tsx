@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { partnerUsesGrossExpenses, describePartnerExpenseBasis } from "@/lib/partner-calc-basis";
 import { Trash2, Plus, Users, Info, Pencil, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +41,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [editNotes, setEditNotes] = useState("");
   const [editCanOrder, setEditCanOrder] = useState(false);
   const [editCanPay, setEditCanPay] = useState(false);
+  // Base de apuramento da despesa deste sócio: "inherit" | "gross" | "net".
+  const [editIvaBasis, setEditIvaBasis] = useState<"inherit" | "gross" | "net">("inherit");
 
   const { data: event } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -125,8 +129,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   });
 
   const updatePartner = useMutation({
-    mutationFn: async ({ id, supplier_id, name, percentage: pct, loss_percentage: lp, notes: n, originalName, can_order, can_pay }: { id: string; supplier_id: string; name: string; percentage: number; loss_percentage: number | null; notes: string; originalName: string; can_order: boolean; can_pay: boolean }) => {
-      const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null, can_order, can_pay }).eq("id", id);
+    mutationFn: async ({ id, supplier_id, name, percentage: pct, loss_percentage: lp, notes: n, originalName, can_order, can_pay, expense_includes_iva }: { id: string; supplier_id: string; name: string; percentage: number; loss_percentage: number | null; notes: string; originalName: string; can_order: boolean; can_pay: boolean; expense_includes_iva: boolean | null }) => {
+      const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null, can_order, can_pay, expense_includes_iva }).eq("id", id);
       if (error) throw error;
       const trimmed = name.trim();
       if (trimmed && trimmed !== originalName) {
@@ -206,6 +210,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <TableHead>Sócio</TableHead>
                 <TableHead className="text-right">% Lucro</TableHead>
                 <TableHead className="text-right">% Prejuízo</TableHead>
+                <TableHead>Base IVA</TableHead>
                 <TableHead>BP</TableHead>
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-20" />}
@@ -264,6 +269,33 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {isEditing ? (
+                        <div className="space-y-1">
+                          <Select value={editIvaBasis} onValueChange={(v) => setEditIvaBasis(v as any)}>
+                            <SelectTrigger className="h-7 w-[190px] text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="inherit">Herda do evento</SelectItem>
+                              <SelectItem value="gross">Apura c/IVA</SelectItem>
+                              <SelectItem value="net">Apura s/IVA</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] leading-tight text-muted-foreground">
+                            Um sócio com sede fora de Portugal não recupera o IVA: o custo dele é o valor c/IVA. Esta regra é contratual e não muda com o seletor de vista do Fecho.
+                          </p>
+                        </div>
+                      ) : (
+                        <span
+                          className="text-xs"
+                          title={describePartnerExpenseBasis(event?.partner_calc_basis, p.expense_includes_iva)}
+                        >
+                          {partnerUsesGrossExpenses(event?.partner_calc_basis, p.expense_includes_iva) ? "c/IVA" : "s/IVA"}
+                          {(p.expense_includes_iva === null || p.expense_includes_iva === undefined) && (
+                            <span className="ml-1 text-[10px] text-muted-foreground">(herda)</span>
+                          )}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {isEditing ? (
                         <div className="space-y-2">
                           <label className="flex items-center gap-2 text-xs text-foreground">
                             <Switch checked={editCanOrder} onCheckedChange={setEditCanOrder} />
@@ -303,7 +335,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           {isEditing ? (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => updatePartner.mutate({ id: p.id, supplier_id: p.supplier_id, name: editName, originalName: p.suppliers?.name || "", percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes, can_order: editCanOrder, can_pay: editCanPay })}
+                                onClick={() => updatePartner.mutate({ id: p.id, supplier_id: p.supplier_id, name: editName, originalName: p.suppliers?.name || "", percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes, can_order: editCanOrder, can_pay: editCanPay, expense_includes_iva: editIvaBasis === "inherit" ? null : editIvaBasis === "gross" })}
                                 disabled={!editName.trim() || !editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
                               >
                                 <Check className="h-3.5 w-3.5 text-green-600" />
@@ -315,7 +347,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           ) : (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => { setEditingId(p.id); setEditName(p.suppliers?.name || ""); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); setEditCanOrder(!!p.can_order); setEditCanPay(!!p.can_pay); }}
+                                onClick={() => { setEditingId(p.id); setEditName(p.suppliers?.name || ""); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); setEditCanOrder(!!p.can_order); setEditCanPay(!!p.can_pay); setEditIvaBasis(p.expense_includes_iva === null || p.expense_includes_iva === undefined ? "inherit" : (p.expense_includes_iva ? "gross" : "net")); }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
@@ -329,7 +361,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     )}
                   </TableRow>
                   <TableRow>
-                    <TableCell colSpan={canEdit ? 6 : 5} className="pt-0 pb-2 px-2">
+                    <TableCell colSpan={canEdit ? 7 : 6} className="pt-0 pb-2 px-2">
                       <PartnerExtrasPanel
                         partnerId={p.id}
                         partnerName={p.suppliers?.name || "Sócio"}
