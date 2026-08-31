@@ -2443,8 +2443,8 @@ const descRef = useRef<HTMLInputElement>(null);
 
               {/* Income section */}
               {!expenseOnly && typeFilter !== "expense" && <div className="glass rounded-xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-3 min-w-0">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
                     {canApprove && incomeForecasts.some((f) => f.status === "draft") && (
                       <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-2 py-1">
@@ -2467,7 +2467,7 @@ const descRef = useRef<HTMLInputElement>(null);
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && isEligibleForBulkTx(f)) && (
                       <button
                         onClick={handleBulkCreateTx}
@@ -2636,8 +2636,8 @@ const descRef = useRef<HTMLInputElement>(null);
 
               {/* Expense section */}
               {typeFilter !== "income" && <div className="glass rounded-xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-3 min-w-0">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
                     {canApprove && expenseForecasts.some((f) => f.status === "draft") && (
                       <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-2 py-1">
@@ -2660,7 +2660,7 @@ const descRef = useRef<HTMLInputElement>(null);
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
                     {isAdmin && expenseForecasts.some((f) => selectedIds.has(f.id) && isEligibleForBulkTx(f)) && (
                       <button
                         onClick={handleBulkCreateTx}

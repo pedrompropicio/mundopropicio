@@ -442,7 +442,7 @@ export default function EventABTab({ eventId }: Props) {
               onChange={(m) => upsertConfig.mutate({ ab_mode_bebidas: m })}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={importTicketZones}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Importar zonas da bilheteira
