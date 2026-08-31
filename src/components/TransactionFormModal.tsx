@@ -2200,7 +2200,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-        <div className="glass w-full max-w-lg md:max-w-3xl lg:max-w-4xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="glass w-full max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-6xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{titleOverride ?? "Nova Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
@@ -2506,6 +2506,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
+            // Utilizado por LINHA de previsão: mesma fonte das linhas L3 (eventTransactions),
+            // agregado pelo vínculo canónico transactions.forecast_id.
+            const usedByForecastId: Record<string, number> = {};
+            eventTransactions.filter((t: any) => t.type === form.type).forEach((t: any) => {
+              if (!t.forecast_id) return;
+              usedByForecastId[t.forecast_id] = (usedByForecastId[t.forecast_id] || 0) + Number(t.amount);
+            });
+
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
               const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
@@ -2551,7 +2559,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </button>
 <p className="text-[10px] md:text-[12px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
 <div
-                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
+                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-auto overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
@@ -2578,9 +2586,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           <React.Fragment key={group.groupCode}>
                             {/* L2 Group header */}
                             <tr className="bg-muted/30 border-t border-border/20">
-                              <td className="py-1.5 pr-2 font-semibold text-foreground">
-                                <span className="text-muted-foreground mr-1">{group.groupCode}</span>
-                                {group.groupName}
+                              <td className="py-1.5 pr-2 font-semibold text-foreground min-w-0 max-w-[240px] md:max-w-[380px]">
+                                <div className="truncate" title={`${group.groupCode} ${group.groupName}`}>
+                                  <span className="text-muted-foreground mr-1">{group.groupCode}</span>
+                                  {group.groupName}
+                                </div>
                               </td>
                               <td className="py-1.5 text-right font-mono font-semibold">{group.totalForecast.toFixed(2)}€</td>
                               <td className="py-1.5 text-right font-mono font-semibold">{group.totalUsed.toFixed(2)}€</td>
@@ -2603,12 +2613,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                         : "hover:bg-muted/40"
                                     }`}
                                   >
-                                    <td className="py-1.5 pr-2 pl-4">
-                                      <span className="text-muted-foreground mr-1">{detail.catCode}</span>
-                                      {detail.catName}
-                                      {hasMultipleLines && (
-                                        <span className="ml-1 text-[9px] md:text-[11px] text-muted-foreground">({detail.lines.length} linhas)</span>
-                                      )}
+                                    <td className="py-1.5 pr-2 pl-4 min-w-0 max-w-[240px] md:max-w-[380px]">
+                                      <div className="truncate" title={`${detail.catCode} ${detail.catName}`}>
+                                        <span className="text-muted-foreground mr-1">{detail.catCode}</span>
+                                        {detail.catName}
+                                        {hasMultipleLines && (
+                                          <span className="ml-1 text-[9px] md:text-[11px] text-muted-foreground">({detail.lines.length} linhas)</span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
                                     <td className="py-1.5 text-right font-mono">{detail.used.toFixed(2)}€</td>
@@ -2638,13 +2650,34 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                           )}
                                         </div>
                                       </td>
-<td className="py-1 text-right font-mono text-[10px] md:text-[12px]">{Number(line.amount).toFixed(2)}€</td>
-                                      <td className="py-1 text-right font-mono text-[10px] md:text-[12px] text-muted-foreground">
-                                        {line.iva_rate}%
-                                      </td>
-                                      <td className="py-1 text-right font-mono text-[10px] md:text-[12px]">
-                                        {(Number(line.amount) * (1 + Number(line.iva_rate) / 100)).toFixed(2)}€
-                                      </td>
+{(() => {
+                                        const lineForecast = Number(line.amount) || 0;
+                                        const lineIva = Number(line.iva_rate) || 0;
+                                        const lineTotal = lineForecast * (1 + lineIva / 100);
+                                        const hasRealLine = isUuid(line.id);
+                                        const lineUsed = hasRealLine ? (usedByForecastId[line.id] || 0) : null;
+                                        const lineRemaining = lineUsed === null ? null : lineForecast - lineUsed;
+                                        return (
+                                          <>
+                                            <td className="py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap">
+                                              <span className="font-semibold">{lineForecast.toFixed(2)}€</span>
+                                              {lineIva > 0 && (
+                                                <p className="text-[9px] md:text-[10px] text-muted-foreground font-mono">
+                                                  + IVA {lineIva}% · {lineTotal.toFixed(2)}€
+                                                </p>
+                                              )}
+                                            </td>
+                                            <td className="py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap">
+                                              {lineUsed === null ? "—" : `${lineUsed.toFixed(2)}€`}
+                                            </td>
+                                            <td className={`py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap ${
+                                              lineRemaining === null ? "" : lineRemaining <= 0 ? "text-destructive" : "text-success"
+                                            }`}>
+                                              {lineRemaining === null ? "—" : `${lineRemaining.toFixed(2)}€`}
+                                            </td>
+                                          </>
+                                        );
+                                      })()}
                                     </tr>
                                   ))}
                                 </React.Fragment>
