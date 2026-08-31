@@ -728,11 +728,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const revenue = revenueBase;
     // BASE EFETIVA DO SÓCIO: override do sócio, com o contrato do evento como omissão.
     // O seletor de vista (basis.withVat) NÃO entra aqui (D-ERP4/D-ERP9).
-    const override = p.expense_includes_iva === null || p.expense_includes_iva === undefined
+    // O modo de apuramento escolhido pelo utilizador pode forçar a regra geral do
+    // evento ou respeitar o contrato individual. Em modo "contract", a casa
+    // (Mundo Propício) apura sempre s/IVA por convenção da empresa gestora.
+    const rawOverride = p.expense_includes_iva === null || p.expense_includes_iva === undefined
       ? null
       : !!p.expense_includes_iva;
+    const override = calcMode === "event" ? null : (isHouse ? false : rawOverride);
     const usesGrossExpenses = partnerUsesGrossExpenses(calcBasis, override);
-    const expenseBasisLabel = describePartnerExpenseBasis(calcBasis, override);
+    const expenseBasisLabel = isHouse && calcMode === "contract"
+      ? "Despesas s/IVA · convenção da empresa gestora"
+      : describePartnerExpenseBasis(calcBasis, override);
+
     const expenses = ignoresOperationalExpenses(calcBasis)
       ? 0
       : (usesGrossExpenses ? totalExpensesGross : totalExpensesNet);
