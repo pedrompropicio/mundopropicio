@@ -136,3 +136,29 @@ Presente no Encontro de Contas (`PartnerSettlementTab`) e no Fecho do Evento (`E
 
 Persistido em `localStorage` por user+evento. Propaga ao PDF, que imprime o critério
 no cabeçalho (`describeFechoBasis`). Cálculo via `@/lib/event-cost-basis` (IVA linha a linha).
+
+## Base de apuramento POR SÓCIO (D-ERP9, ago/2026)
+
+`event_partners.expense_includes_iva` é **anulável**:
+
+- `NULL` → herda a base contratual do evento (`events.partner_calc_basis`);
+- `true` → esse sócio apura sempre com despesas c/IVA;
+- `false` → esse sócio apura sempre com despesas s/IVA.
+
+Motivo: a MP produz em Portugal com artistas brasileiros. Um sócio com sede fora de PT
+não recupera IVA (o custo dele é o bruto); um sócio português recupera. O mesmo evento
+pode ter os dois.
+
+Helpers em `src/lib/partner-calc-basis.ts`: `partnerUsesGrossExpenses(eventBasis, override)`,
+`getPartnerEffectiveExpenseBase(...)` e `describePartnerExpenseBasis(...)`.
+`gross_revenue` no evento **prevalece** (ignora despesas para todos os sócios).
+
+O seletor `basis.withVat` (`useFechoBasis`) **NUNCA** entra em nenhum valor que componha a
+quota, nem nas "pagas pelo sócio"/extras, nem nos pools de liquidez/caução (esses são do
+evento e usam a base contratual). O seletor manda só na VISTA: totais do resumo e PDF.
+
+Superfícies alinhadas: `PartnerSettlementTab`, `EventFecho`, `ReportDRE`,
+`ReportDREEmpresarial`, `export-dre.ts`, `partner-settlement-report.ts`. Edição do campo
+(tri-estado Herda / c/IVA / s/IVA) em `EventPartnersTab`. Quando as bases divergem no
+mesmo evento não existe resultado único e a soma das quotas não fecha — nota visível no
+ecrã e no PDF.

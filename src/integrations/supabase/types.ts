@@ -4717,7 +4717,7 @@ export type Database = {
           company_id: string
           created_at: string
           event_id: string
-          expense_includes_iva: boolean
+          expense_includes_iva: boolean | null
           id: string
           loss_percentage: number | null
           notes: string | null
@@ -4731,7 +4731,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           event_id: string
-          expense_includes_iva?: boolean
+          expense_includes_iva?: boolean | null
           id?: string
           loss_percentage?: number | null
           notes?: string | null
@@ -4745,7 +4745,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           event_id?: string
-          expense_includes_iva?: boolean
+          expense_includes_iva?: boolean | null
           id?: string
           loss_percentage?: number | null
           notes?: string | null

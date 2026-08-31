@@ -22,7 +22,10 @@ import {
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
   normalizePartnerCalcBasis,
+  partnerUsesGrossExpenses,
+  describePartnerExpenseBasis,
 } from "@/lib/partner-calc-basis";
+
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
@@ -51,7 +54,13 @@ interface PartnerSettlement {
   percentage: number;
   lossPercentage: number | null;
   effectivePercentage: number;
-  expenseIncludesIva: boolean;
+  /** Override do sócio (null = herda a base contratual do evento). */
+  expenseIncludesIva: boolean | null;
+  /** Base efetiva aplicada ao apuramento deste sócio (true = c/IVA). */
+  usesGrossExpenses: boolean;
+  /** Rótulo curto: base + origem da regra (contrato do evento vs sócio). */
+  expenseBasisLabel: string;
+
   calcBasis: string;
   revenue: number;
   expenses: number;
@@ -442,10 +451,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
+  // VISTA (resumo global + PDF): o seletor c/IVA move o que se VÊ.
   const expenseBase = ignoresOperationalExpenses(calcBasis)
     ? 0
     : (basis.withVat ? totalExpensesGross : totalExpensesNet);
   const resultBase = revenueBase - expenseBase;
+  // APURAMENTO (D-ERP4/D-ERP9): base contratual do evento — nunca o seletor.
+  // Serve de omissão para os sócios sem regra própria e de âncora dos pools de
+  // liquidez/caução (que são do evento, não de cada sócio).
+  const expenseBaseEvent = ignoresOperationalExpenses(calcBasis)
+    ? 0
+    : (partnerUsesGrossExpenses(calcBasis, null) ? totalExpensesGross : totalExpensesNet);
+  const resultBaseEvent = revenueBase - expenseBaseEvent;
+
 
 
   // ---- City breakdown (para turnês) ----
@@ -630,7 +648,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           suppliers: { name: HOUSE_PARTNER_NAME },
           percentage: housePct,
           loss_percentage: null,
-          expense_includes_iva: false,
+          // A casa segue sempre a base contratual do evento (sem regra própria).
+          expense_includes_iva: null,
         } as any]
       : []),
   ];
@@ -701,11 +720,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const settlements: PartnerSettlement[] = allPartners.map((p: any) => {
     const isHouse = !!p.isHouse;
     const revenue = revenueBase;
+    // BASE EFETIVA DO SÓCIO: override do sócio, com o contrato do evento como omissão.
+    // O seletor de vista (basis.withVat) NÃO entra aqui (D-ERP4/D-ERP9).
+    const override = p.expense_includes_iva === null || p.expense_includes_iva === undefined
+      ? null
+      : !!p.expense_includes_iva;
+    const usesGrossExpenses = partnerUsesGrossExpenses(calcBasis, override);
+    const expenseBasisLabel = describePartnerExpenseBasis(calcBasis, override);
     const expenses = ignoresOperationalExpenses(calcBasis)
       ? 0
-      : (p.expense_includes_iva || basis.withVat ? totalExpensesGross : totalExpensesNet);
+      : (usesGrossExpenses ? totalExpensesGross : totalExpensesNet);
 
-    const result = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
+    const result = ignoresOperationalExpenses(calcBasis) ? revenueBase : revenueBase - expenses;
     const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = result * (effectivePercentage / 100);
 
@@ -719,7 +745,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             const txEvId = pe.transactions?.event_id || pe.event_id;
             return {
               description: pe.transactions?.description || "—",
-              amount: basis.withVat
+              amount: usesGrossExpenses
                 ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
                 : Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
@@ -727,6 +753,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               cityLabel: cityLabelByEvent[txEvId] || "—",
             };
           });
+
     const totalPaidByPartner = partnerExpenses.reduce((s, e) => s + e.amount, 0);
 
     const extrasForPartner = isHouse
@@ -737,7 +764,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             const txEvId = pe.transactions?.event_id || pe.event_id;
             return {
               description: pe.transactions?.description || "—",
-              amount: basis.withVat
+              amount: usesGrossExpenses
                 ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
                 : Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
@@ -776,7 +803,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       percentage: Number(p.percentage),
       lossPercentage: p.loss_percentage != null ? Number(p.loss_percentage) : null,
       effectivePercentage,
-      expenseIncludesIva: !!p.expense_includes_iva,
+      expenseIncludesIva: override,
+      usesGrossExpenses,
+      expenseBasisLabel,
       calcBasis,
       revenue,
       expenses,
@@ -810,7 +839,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
   });
 
-  const baseResult = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
+  // Pools de liquidez/caução são do EVENTO — ancorados à base contratual, nunca ao seletor.
+  const baseResult = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBaseEvent;
   const totalTransitoryCredit = settlements.reduce((acc, s) => acc + s.transitoryCredit, 0);
   const resultPositivePool = Math.max(baseResult, 0);
   const resultLossPool = Math.max(-baseResult, 0);
@@ -829,6 +859,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
     s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
   });
+
+  // Bases efetivas distintas no mesmo evento: contratos diferentes → não existe um
+  // resultado único e a soma das quotas não fecha contra um único número. Informativo.
+  const distinctExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses));
+  const hasMixedExpenseBases = distinctExpenseBases.size > 1;
+  const mixedBasesNote =
+    "Sócios com bases de apuramento diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
   function exportPdf() {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -899,6 +936,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       },
     });
     y = (doc as any).lastAutoTable.finalY + 4;
+    if (hasMixedExpenseBases) {
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      const lines = doc.splitTextToSize(mixedBasesNote, pageW - margin * 2);
+      doc.text(lines, margin, y);
+      y += lines.length * 3.4 + 2;
+      doc.setFontSize(9);
+    }
 
     y += 2;
 
@@ -1774,6 +1819,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground">{describeFechoBasis(basis)}</p>
+        {hasMixedExpenseBases && (
+          <p className="mt-1 text-[10px] leading-snug text-amber-600 dark:text-amber-500">{mixedBasesNote}</p>
+        )}
       </div>
 
 
@@ -1827,6 +1875,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               {s.lossPercentage != null && s.effectivePercentage !== s.percentage && (
                 <Badge variant="secondary" className="text-xs">Aplicado: {s.effectivePercentage}%</Badge>
               )}
+              <span className="text-[10px] text-muted-foreground">{s.expenseBasisLabel}</span>
             </div>
             <div className="flex items-center gap-2">
               {s.transitoryCredit > 0 || s.resultPendingByCash > 0 || s.equityContribution > 0 || s.transitoryOffset > 0 ? (

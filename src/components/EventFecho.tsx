@@ -14,7 +14,10 @@ import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
 import {
   normalizePartnerCalcBasis,
+  partnerUsesGrossExpenses,
+  describePartnerExpenseBasis,
 } from "@/lib/partner-calc-basis";
+
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
@@ -256,7 +259,6 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const revenueForSettlement = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
   const expensesOp = (useGrossExpenses ? expenseGross : expenseNet) + outsideBp;
   const resultWithoutOverhead = revenue - expensesOp;
-  const resultWithoutOverheadForSettlement = revenueForSettlement - expensesOp;
 
 
   // Overheads (próprios + via master)
@@ -273,13 +275,29 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadIncomeForSettlement = calcBasis === "gross_revenue" ? overheadIncomeGross : overheadIncomeNet;
   const overheadExpenseFinal = useGrossExpenses ? overheadExpenseGross : overheadExpenseNet;
   const overheadNet = basis.includeOverhead ? overheadIncomeFinal - overheadExpenseFinal : 0;
-  const overheadNetForSettlement = basis.includeOverhead ? overheadIncomeForSettlement - overheadExpenseFinal : 0;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
-  const resultWithOverheadForSettlement = resultWithoutOverheadForSettlement + overheadNetForSettlement;
 
-  // Acerto com sócios — base = resultado COM overhead na BASE CONTRATUAL (não a vista).
+  // Acerto com sócios — base = resultado COM overhead na BASE CONTRATUAL do respetivo
+  // sócio (D-ERP9). O seletor de vista NUNCA entra aqui.
+  const outsideBpBy = (gross: boolean) =>
+    basis.expenseSource === "committed"
+      ? computeOutsideBpExcess(operationalForecasts as any[], expenseTx as any[], gross)
+      : 0;
+  const settlementResultFor = (gross: boolean) => {
+    const expensesOpFor = (gross ? expenseGross : expenseNet) + outsideBpBy(gross);
+    const overheadFor = basis.includeOverhead
+      ? overheadIncomeForSettlement - (gross ? overheadExpenseGross : overheadExpenseNet)
+      : 0;
+    return revenueForSettlement - expensesOpFor + overheadFor;
+  };
+
   const settlements = partners.map((p: any) => {
-    const result = resultWithOverheadForSettlement;
+    const override = p.expense_includes_iva === null || p.expense_includes_iva === undefined
+      ? null
+      : !!p.expense_includes_iva;
+    const usesGrossExpenses = partnerUsesGrossExpenses(calcBasis, override);
+    const expenseBasisLabel = describePartnerExpenseBasis(calcBasis, override);
+    const result = settlementResultFor(usesGrossExpenses);
 
     const effectivePct = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = roundCents(result * (effectivePct / 100));
@@ -290,7 +308,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       .reduce((s: number, pe: any) => {
         const t = pe.transactions;
         if (!t) return s;
-        const amt = useGrossExpenses
+        const amt = usesGrossExpenses
           ? calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0))
           : Number(t.amount);
         return s + amt;
@@ -310,12 +328,19 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       percentage: Number(p.percentage),
       lossPercentage: p.loss_percentage != null ? Number(p.loss_percentage) : null,
       effectivePct,
+      usesGrossExpenses,
+      expenseBasisLabel,
       partnerShare,
       paid: roundCents(paid),
       extras: roundCents(extras),
       balance,
     };
   });
+
+  // Sócios com bases diferentes: não existe resultado único (informativo).
+  const hasMixedExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses)).size > 1;
+  const mixedBasesNote =
+    "Sócios com bases de apuramento diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
   // ============= Export PDF =============
   function exportPdf() {
@@ -426,9 +451,10 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       y += 4;
       autoTable(doc, {
         startY: y,
-        head: [["Sócio", "%", "Quota", "Pago p/ sócio", "Extras", "Saldo"]],
+        head: [["Sócio", "Base", "%", "Quota", "Pago p/ sócio", "Extras", "Saldo"]],
         body: settlements.map(s => [
           s.name,
+          s.usesGrossExpenses ? "c/IVA" : "s/IVA",
           s.lossPercentage != null
             ? `${s.percentage}% / ${s.lossPercentage}%`
             : `${s.percentage}%`,
@@ -588,6 +614,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       </div>
 
       {/* Acerto com Sócios */}
+      {settlements.length > 0 && hasMixedExpenseBases && (
+        <p className="text-[11px] leading-snug text-amber-600 dark:text-amber-500">{mixedBasesNote}</p>
+      )}
       {settlements.length > 0 && (
         <div className="glass rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center gap-2">
@@ -612,8 +641,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      {s.name}
+                      <span className="min-w-0 truncate">{s.name}</span>
                     </div>
+                    <div className="text-[10px] font-normal text-muted-foreground">{s.expenseBasisLabel}</div>
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">
                     {s.lossPercentage != null

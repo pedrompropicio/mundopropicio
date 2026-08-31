@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 import { calcIvaAmount } from "@/lib/iva";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -162,8 +163,8 @@ export function buildDREForExport(
       } else if (brasilMode) {
         // Brasil mode: all partners use expenses inc-IVA
         base = totalIncEx - totalExpInc;
-      } else if (p.expense_includes_iva) {
-        // Standard mode: per-partner flag
+      } else if (partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva)) {
+        // Standard mode: regra própria do sócio ou, se NULL, a base do evento
         base = totalIncEx - totalExpInc;
       } else {
         base = resEx;
@@ -171,7 +172,7 @@ export function buildDREForExport(
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
-      const ivaLabel = !brasilMode && p.expense_includes_iva ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
+      const ivaLabel = !brasilMode && partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva) ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)${ivaLabel}`,
         amountExIva: share,
@@ -645,7 +646,7 @@ export function exportDREToPDF(
         } else if (calcBasis === "net_result_gross_expenses") {
           base = tourIncEx - tourExpInc;
         } else {
-          const expBase = p.expense_includes_iva ? tourExpInc : tourExpEx;
+          const expBase = partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva) ? tourExpInc : tourExpEx;
           base = tourIncEx - expBase;
         }
         const share = base * (Number(p.percentage) / 100);

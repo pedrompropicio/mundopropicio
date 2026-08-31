@@ -14,6 +14,7 @@ import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hie
 import { calcIvaAmount } from "@/lib/iva";
 import { Switch } from "@/components/ui/switch";
 import { computeTotals as computeABTotals, type ABTotals, type ABZoneInput, type ABFoodConfig } from "@/lib/event-ab-calc";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -188,14 +189,14 @@ function buildDRE(
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
-      } else if (p.expense_includes_iva) {
+      } else if (partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva)) {
         base = totalIncEx - totalExpInc;
       } else {
         base = resEx;
       }
       const share = base * (Number(p.percentage) / 100);
       const supplierName = p.suppliers?.name || "Sócio";
-      const ivaLabel = p.expense_includes_iva ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
+      const ivaLabel = partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva) ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)${ivaLabel}`,
         amountExIva: share,

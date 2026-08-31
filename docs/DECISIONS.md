@@ -313,3 +313,25 @@ Contexto: existiam dois gatilhos simétricos (`enforce_tx_category_l2_match` / `
 **Ressalva conhecida (issue #29).** O vínculo é 1:1 (uma linha, uma transação), pelo que uma linha paga em N documentos só tem FK à primeira; as restantes ficam associadas por rubrica. A coerência aqui só cobre a transação com FK. O modelo N:1 fica para a issue #29 — até lá, a regra "a rubrica da linha manda" aplica-se apenas ao par com FK. **Atualização (ago/2026):** esta ressalva caiu — o vínculo passou a N:1 canónico em `transactions.forecast_id`. Ver D-ERP1, na secção MP ERP.
 
 **Guarda de remoção (issue #59).** No mesmo ciclo: uma transação já reclamada por FK por **outra** linha do BP deixa de contar como realizado desta linha e deixa de bloquear a sua remoção (`claimedByOtherForecast` em `src/lib/bp-tx-matching.ts` e `EventForecast.tsx`). Transações órfãs continuam a ser apanhadas por rubrica.
+
+## D-ERP9 — A base de apuramento da despesa é do SÓCIO, não só do evento
+
+A MP produz em Portugal com artistas brasileiros. Um sócio com sede fora de Portugal não
+recupera o IVA português: o custo real dele é o valor c/IVA. Um sócio português recupera:
+o custo é a base líquida. O mesmo evento pode ter os dois, pelo que um único
+`events.partner_calc_basis` não consegue descrever o contrato de ambos.
+
+`event_partners.expense_includes_iva` passou a ser **anulável**: NULL herda a base do
+evento, `true` apura c/IVA, `false` apura s/IVA. Os 8 registos existentes foram convertidos
+para NULL — antes estavam todos a `false`, o que em eventos contratados a
+`net_result_gross_expenses` produzia a base errada nos relatórios de DRE.
+
+Consequência dura: o seletor de IVA do Fecho deixa de tocar em qualquer valor apurado. Ele
+já era declarado vista (D-ERP4), mas alimentava a quota através de
+`p.expense_includes_iva || basis.withVat` — um flag que só ligava, nunca desligava. Agora
+manda apenas nos totais que se veem e no PDF de resumo; a quota, as "pagas pelo sócio", os
+extras e os pools de liquidez seguem contrato.
+
+Quando os sócios de um evento apuram em bases diferentes **não existe um resultado único** e
+a soma das quotas não fecha contra um único número. Isto é uma propriedade do contrato, não
+um erro de cálculo, e está sinalizado com nota no ecrã e no PDF.

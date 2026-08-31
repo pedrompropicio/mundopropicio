@@ -10,6 +10,7 @@ import { buildCategoryLookup, aggregateByHierarchyDRE, type AggregatedGroup } fr
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -279,7 +280,7 @@ export default function ReportDREEmpresarial() {
         let base: number;
         if (calcBasis === "gross_revenue") {
           base = inc;
-        } else if (p.expense_includes_iva) {
+        } else if (partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva)) {
           const expInc = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
             .reduce((s, t) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
           base = inc - expInc;
