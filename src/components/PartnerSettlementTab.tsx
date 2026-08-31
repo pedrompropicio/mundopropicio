@@ -860,6 +860,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
   });
 
+  // ---- Reconciliação interna da posição real da Mundo Propício ----
+  // A base de apresentação segue o contrato do evento (pode ser c/IVA quando há
+  // sócios brasileiros), mas a posição real da empresa portuguesa é s/IVA. Este
+  // bloco é leitura interna e não entra no PDF.
+  const resultRealNet = revenueBase - totalExpensesNet;
+  const externalShares = settlements
+    .filter((s) => !s.isHouse)
+    .reduce((a, s) => a + s.partnerShare, 0);
+  const housePositionReal = resultRealNet - externalShares;
+  const houseNominalShare = settlements.find((s) => s.isHouse)?.partnerShare ?? 0;
+  const houseIvaGain = housePositionReal - houseNominalShare;
+
+  const hasHouse = settlements.some((s) => s.isHouse);
+  const showHouseInternalPosition = hasHouse && !ignoresOperationalExpenses(calcBasis);
+
   // Bases efetivas distintas no mesmo evento: contratos diferentes → não existe um
   // resultado único e a soma das quotas não fecha contra um único número. Informativo.
   const distinctExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses));
@@ -2058,10 +2073,62 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <p className="text-xs text-muted-foreground italic">Sem despesas pagas por este sócio nem extras registados.</p>
             )}
           </div>
-        </div>
-      ))}
+      </div>
+    ))}
 
-      <PartnerPaidExpensesBPView eventId={eventId} eventName={eventName} />
-    </div>
-  );
+    {showHouseInternalPosition && (
+      <div className="glass rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4 text-primary" />
+            <span className="font-semibold">Posição da Mundo Propício</span>
+            <Badge variant="outline" className="text-[10px]">Interno</Badge>
+          </div>
+        </div>
+        <div className="p-4">
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell className="text-sm font-medium">Resultado do evento (s/IVA)</TableCell>
+                <TableCell className="text-right font-mono font-bold">{formatCurrency(resultRealNet)}</TableCell>
+              </TableRow>
+              {settlements
+                .filter((s) => !s.isHouse)
+                .map((s) => (
+                  <TableRow key={s.partnerId}>
+                    <TableCell className="text-sm">
+                      (−) {s.partnerName} · <span className="text-xs text-muted-foreground">{s.expenseBasisLabel}</span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-destructive">
+                      −{formatCurrency(Math.abs(s.partnerShare))}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              <TableRow className="border-t-2 border-border bg-muted/30">
+                <TableCell className="text-sm font-semibold">Posição real</TableCell>
+                <TableCell className={`text-right font-mono font-bold text-lg ${housePositionReal >= 0 ? "text-success" : "text-destructive"}`}>
+                  {formatCurrency(housePositionReal)}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-xs text-muted-foreground py-2">quota nominal</TableCell>
+                <TableCell className="text-right font-mono text-xs text-muted-foreground py-2">
+                  {formatCurrency(houseNominalShare)}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-xs text-muted-foreground py-2">IVA não repassado</TableCell>
+                <TableCell className="text-right font-mono text-xs text-muted-foreground py-2">
+                  {formatCurrency(houseIvaGain)}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    )}
+
+    <PartnerPaidExpensesBPView eventId={eventId} eventName={eventName} />
+  </div>
+);
 }
