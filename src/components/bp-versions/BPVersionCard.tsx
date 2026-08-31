@@ -61,15 +61,16 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5">
           {versions.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)} className="shrink-0">
               <History className="h-4 w-4 mr-1.5" />
               Histórico ({versions.length})
             </Button>
           )}
           {canManage && !isSplit && (
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
+
               <Button size="sm" onClick={() => setFreezeOpen(true)}>
                 <Snowflake className="h-4 w-4 mr-1.5" />
                 Congelar v1
@@ -119,7 +120,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           <Button variant="outline" size="sm" onClick={() => setDiffOpen(true)}>
             <GitCompare className="h-4 w-4 mr-1.5" />
             Ver alterações
@@ -164,9 +165,9 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5">
         {versions.length >= 2 && (
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <Button variant="ghost" size="sm" onClick={() => setCompareOpen(true)}>
               <GitCompare className="h-4 w-4 mr-1.5" />
               Comparar
@@ -177,7 +178,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             />
           </div>
         )}
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
             <History className="h-4 w-4 mr-1.5" />
             Histórico ({versions.length})
@@ -189,7 +190,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         </div>
         {canManage && !isSplit && (
           <>
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
               <Button variant="outline" size="sm" onClick={() => setNewScenarioOpen(true)}>
                 <Sparkles className="h-4 w-4 mr-1.5" />
                 Novo cenário
@@ -199,7 +200,8 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
                 text="Cria um cenário sandbox (rascunho nomeado) clonando a Versão Ativa. Permite simular pressupostos sem afetar produção. Não recebe transações reais."
               />
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
+
               <Button size="sm" onClick={() => setFreezeOpen(true)}>
                 <Snowflake className="h-4 w-4 mr-1.5" />
                 Congelar nova versão

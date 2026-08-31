@@ -39,7 +39,7 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
   if (drafts.length === 0) return null;
 
   return (
-    <div className="glass rounded-xl px-4 py-3 border-primary/10 space-y-2">
+    <div className="glass rounded-xl px-4 py-3 border-primary/10 space-y-2 min-w-0">
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-primary" />
         <p className="text-sm font-semibold">
@@ -59,8 +59,9 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
           return (
             <div
               key={d.id}
-              className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/30 px-3 py-2"
             >
+
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium truncate">
