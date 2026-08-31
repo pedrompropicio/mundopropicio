@@ -31,6 +31,7 @@ export interface CardExpenseRow {
   event_id: string | null;
   category_id: string | null;
   supplier_id?: string | null;
+  invoice_ref?: string | null;
   company_id?: string | null;
 }
 
@@ -66,6 +67,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   const [eventId, setEventId] = useState<string>(defaultEventId ?? "");
   const [categoryId, setCategoryId] = useState<string>("");
   const [supplierId, setSupplierId] = useState<string>("");
+  const [invoiceRef, setInvoiceRef] = useState("");
 
   const [docFile, setDocFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -84,6 +86,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       setEventId(expense.event_id ?? "");
       setCategoryId(expense.category_id ?? "");
       setSupplierId(expense.supplier_id ?? "");
+      setInvoiceRef(expense.invoice_ref ?? "");
     } else {
       setDescription("");
       setTotal("");
@@ -92,6 +95,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       setEventId(defaultEventId ?? "");
       setCategoryId("");
       setSupplierId("");
+      setInvoiceRef("");
     }
     setDocFile(null);
     setPreviewUrl(null);
@@ -223,6 +227,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     setTotal("");
     setCategoryId("");
     setSupplierId("");
+    setInvoiceRef("");
     setDocFile(null);
     setPreviewUrl(null);
     setOcrPayload(null);
@@ -265,6 +270,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           iva_rate: rate,
           category_id: categoryId,
           supplier_id: supplierId || null,
+          invoice_ref: invoiceRef.trim() || null,
           event_id: eventId || null,
           date,
           paid_amount: gross,
@@ -280,6 +286,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           iva_rate: Number(expense.iva_rate ?? 0),
           category_id: expense.category_id ?? null,
           supplier_id: expense.supplier_id ?? null,
+          invoice_ref: expense.invoice_ref ?? null,
           event_id: expense.event_id ?? null,
           date: expense.date,
           paid_amount: Number(expense.paid_amount ?? 0),
@@ -313,6 +320,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           category_id: categoryId,
           account_id: cardAccountId,
           supplier_id: supplierId || null,
+          invoice_ref: invoiceRef.trim() || null,
           event_id: eventId || null,
           date,
           status: "paid",
@@ -325,6 +333,18 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       if (error) throw error;
 
       await attachDoc(inserted.id);
+
+      // Agrupamento automático por nº de fatura (mesmo padrão do TransactionFormModal).
+      if (invoiceRef.trim() && supplierId) {
+        const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
+        const auto = await autoGroupInvoiceForTransaction(inserted.id);
+        if (auto) {
+          toast({
+            title: `Agrupada à fatura ${auto.invoiceRef}`,
+            description: `${auto.total} transações partilham esta fatura.`,
+          });
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: isEdit ? "Despesa atualizada." : "Despesa registada." });
@@ -455,6 +475,20 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
               onValueChange={setSupplierId}
               placeholder="(opcional)"
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <input
+              type="text"
+              value={invoiceRef}
+              onChange={(e) => setInvoiceRef(e.target.value)}
+              placeholder="Ex: FT 002/5944"
+              className={inputCls}
+            />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Transações com o mesmo nº de fatura serão agrupadas automaticamente
+            </p>
           </div>
 
           <div className="flex gap-2 pt-2">
