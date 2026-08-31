@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
-import { X, Building, FileText, Landmark, AlertTriangle, Repeat } from "lucide-react";
+import { X, Building, FileText, Landmark, AlertTriangle, Repeat, Layers } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,10 @@ import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 import { TransactionInstallmentGroupEditor, useInstallmentGroup } from "@/components/TransactionInstallmentGroupEditor";
+import {
+  TransactionRenegotiateInstallmentsModal,
+  useCanRenegotiateInstallments,
+} from "@/components/TransactionRenegotiateInstallmentsModal";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
 
@@ -422,6 +426,16 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   // Admin e gestora podem realocar o vínculo do BP (e mudar a L3) mesmo em TX liquidadas:
   // não mexe em valores nem em estado de pagamento, só em event_forecasts.transaction_id / category_id.
   const canReallocBpWhenPaid = isAdmin || isManager;
+
+  // Renegociar um pagamento único em parcelas (admin/manager).
+  const { canRenegotiate } = useCanRenegotiateInstallments({
+    transaction,
+    isPaidByPartner,
+    isPartnerExtra,
+    eventCompleted,
+  });
+  const [renegotiateOpen, setRenegotiateOpen] = useState(false);
+  const showRenegotiate = canRenegotiate && (isAdmin || isManager);
 
 
   const editMutation = useMutation({
@@ -1135,6 +1149,30 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
           <TransactionInstallmentGroupEditor transaction={transaction} isAdmin={isAdmin} />
+
+          {showRenegotiate && (
+            <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-border bg-secondary/30 px-3 py-2">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                Pagamento único. Podes dividir em parcelas — a transação atual passa a ser a 1ª.
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => setRenegotiateOpen(true)}
+              >
+                <Layers className="h-3.5 w-3.5 mr-1.5" /> Renegociar em parcelas
+              </Button>
+            </div>
+          )}
+          {renegotiateOpen && (
+            <TransactionRenegotiateInstallmentsModal
+              transaction={transaction}
+              onClose={() => setRenegotiateOpen(false)}
+            />
+          )}
+
 
           {!paidLocked && isApproved && !isAdmin && isBpLinked && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
