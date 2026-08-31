@@ -98,11 +98,29 @@ export function useCanRenegotiateInstallments(params: {
     },
   });
 
+  // Mãe de rateio: as filhas é que têm split_percentage. A validação
+  // `split_percentage === null` acima só protege a FILHA — este contador
+  // protege o lado oposto da relação pai-filho.
+  const { data: splitChildCount = 0 } = useQuery({
+    queryKey: ["tx-split-child-count", transaction?.id],
+    enabled: !!transaction?.id && structurallyOk,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_transaction_id", transaction.id)
+        .not("split_percentage", "is", null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   return {
-    canRenegotiate: structurallyOk && paymentCount === 0,
+    canRenegotiate: structurallyOk && paymentCount === 0 && splitChildCount === 0,
     isManager,
   };
 }
+
 
 export function TransactionRenegotiateInstallmentsModal({
   transaction,
