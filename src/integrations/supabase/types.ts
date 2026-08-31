@@ -12420,6 +12420,14 @@ export type Database = {
           skipped_count: number
         }[]
       }
+      renegotiate_transaction_installments: {
+        Args: {
+          p_changed_by: string
+          p_installments: Json
+          p_transaction_id: string
+        }
+        Returns: string
+      }
       restore_bp_versions_from_trash: {
         Args: { _trash_id: string }
         Returns: Json
