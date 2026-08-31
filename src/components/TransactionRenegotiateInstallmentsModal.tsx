@@ -39,6 +39,8 @@ const RPC_ERRORS: Record<string, string> = {
   has_payments: "A transação já tem pagamentos registados.",
   already_installment_group: "A transação já pertence a um grupo de parcelas.",
   is_split: "Transações de rateio não podem ser renegociadas em parcelas.",
+  is_split_parent:
+    "Transações rateadas entre eventos não podem ser renegociadas em parcelas; ajuste o rateio primeiro.",
   is_reimbursement: "Notas de reembolso não podem ser renegociadas em parcelas.",
   is_transitory: "Transações transitórias não podem ser renegociadas em parcelas.",
   is_partner_paid: "Despesas pagas por sócio não podem ser renegociadas em parcelas.",
@@ -98,11 +100,29 @@ export function useCanRenegotiateInstallments(params: {
     },
   });
 
+  // Mãe de rateio: as filhas é que têm split_percentage. A validação
+  // `split_percentage === null` acima só protege a FILHA — este contador
+  // protege o lado oposto da relação pai-filho.
+  const { data: splitChildCount = 0 } = useQuery({
+    queryKey: ["tx-split-child-count", transaction?.id],
+    enabled: !!transaction?.id && structurallyOk,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_transaction_id", transaction.id)
+        .not("split_percentage", "is", null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   return {
-    canRenegotiate: structurallyOk && paymentCount === 0,
+    canRenegotiate: structurallyOk && paymentCount === 0 && splitChildCount === 0,
     isManager,
   };
 }
+
 
 export function TransactionRenegotiateInstallmentsModal({
   transaction,
