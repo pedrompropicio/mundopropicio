@@ -703,10 +703,14 @@ export default function EventDetail() {
     (t) => t.status === "paid" || t.status === "approved" || t.status === "partially_paid"
   );
 
-  const incomeTransactions = realizedTransactions.filter((t) => t.type === "income");
+  // Simetria income/expense: movimentos transitórios (ramo 10.1 Capital — aportes, devoluções,
+  // distribuições — e cauções) NUNCA entram nos cards de resultado, em nenhum dos lados.
+  // A tesouraria (get_event_cash_position) continua a incluí-los por desenho.
+  const incomeTransactions = realizedTransactions.filter((t) => t.type === "income" && !t.is_transitory);
   const expenseTransactions = realizedTransactions.filter((t) => t.type === "expense");
   const operationalExpenseTransactions = expenseTransactions.filter((t) => !t.is_transitory);
   const nonTicketIncomeTransactions = incomeTransactions.filter((t: any) => t.account_categories?.code !== "1.1.01");
+
   const transactionIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const nonTicketTransactionIncome = nonTicketIncomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
   // If ticket sales exist, they replace only ticket-office transactions; other income (e.g. sponsors) still counts.
