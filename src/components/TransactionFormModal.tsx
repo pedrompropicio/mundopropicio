@@ -2586,9 +2586,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           <React.Fragment key={group.groupCode}>
                             {/* L2 Group header */}
                             <tr className="bg-muted/30 border-t border-border/20">
-                              <td className="py-1.5 pr-2 font-semibold text-foreground">
-                                <span className="text-muted-foreground mr-1">{group.groupCode}</span>
-                                {group.groupName}
+                              <td className="py-1.5 pr-2 font-semibold text-foreground min-w-0 max-w-[240px] md:max-w-[380px]">
+                                <div className="truncate" title={`${group.groupCode} ${group.groupName}`}>
+                                  <span className="text-muted-foreground mr-1">{group.groupCode}</span>
+                                  {group.groupName}
+                                </div>
                               </td>
                               <td className="py-1.5 text-right font-mono font-semibold">{group.totalForecast.toFixed(2)}€</td>
                               <td className="py-1.5 text-right font-mono font-semibold">{group.totalUsed.toFixed(2)}€</td>
