@@ -264,6 +264,41 @@ no `TransactionEditModal`, logo abaixo do `TransactionInstallmentGroupEditor`.
   `Criação (renegociação em parcelas)` por parcela criada.
 - Não toca em saldos, fecho de evento, vínculo BP, aprovação nem rateio.
 
+### Escrita ATÓMICA no servidor (2026-08-31)
+
+A gravação já **não** é feita pelo cliente. O modal faz uma única chamada
+`supabase.rpc("renegotiate_transaction_installments", { p_transaction_id,
+p_installments, p_changed_by })` — UPDATE da original + INSERTs das parcelas
+2..N + auditoria correm na **mesma transação de base de dados**: se algo falhar,
+nada é gravado (antes, um insert a meio deixava a original já reescrita como
+(1/N) e o grupo incompleto).
+
+`public.renegotiate_transaction_installments(uuid, jsonb, text) RETURNS uuid`
+— `SECURITY DEFINER`, `SET search_path TO 'public'`, EXECUTE só a
+`authenticated`. Devolve o `installment_group_id` gerado.
+
+- `p_installments` é um array **ordenado** de `{ due_date, amount }` com o valor
+  **BASE (sem IVA)**. O cliente converte bruto→base com `computeInstallmentNets`
+  antes de chamar; a função **não recalcula IVA** — só valida a soma contra
+  `transactions.amount` (tolerância 0,01 €).
+- As 11 condições de visibilidade passaram a existir **também no servidor**
+  (`SELECT … FOR UPDATE`, `has_role(auth.uid(), 'admin'|'manager')`, cada uma com
+  `RAISE EXCEPTION '<codigo>: mensagem em português'`). Códigos:
+  `permission_denied`, `transaction_not_found`, `not_expense`, `already_paid`,
+  `has_payments`, `already_installment_group`, `is_split`, `is_reimbursement`,
+  `is_transitory`, `is_partner_paid`, `is_partner_extra`, `event_completed`,
+  `invalid_installments`, `too_few_installments`, `invalid_due_date`,
+  `invalid_amount`, `installments_sum_mismatch`.
+- `useCanRenegotiateInstallments` mantém-se: é a **primeira** linha (decide
+  mostrar o botão). O servidor é a segunda, não substitui a primeira.
+- `translateRpcError` (no modal) traduz os códigos para o toast.
+- Multi-moeda: quando `currency <> 'EUR'` e `original_amount` não é nulo, o
+  `original_amount` é rateado pró-rata pelo peso da parcela, a 2 casas.
+- Verificado em Live num bloco revertido (2026-08-31): (a) 3 parcelas válidas →
+  original `(1/3)` e 3 linhas no mesmo grupo; (b) soma errada → recusada;
+  (c) já com grupo → recusada; (d) `paid_amount > 0` → recusada; (e) 1 parcela →
+  recusada. Rollback confirmado sem resíduos.
+
 ### Reconhecimento pelo editor de grupos
 
 `useInstallmentGroup` segue o caminho canónico `eq('installment_group_id', …)`,
