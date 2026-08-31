@@ -1150,6 +1150,30 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           )}
           <TransactionInstallmentGroupEditor transaction={transaction} isAdmin={isAdmin} />
 
+          {showRenegotiate && (
+            <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-border bg-secondary/30 px-3 py-2">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                Pagamento único. Podes dividir em parcelas — a transação atual passa a ser a 1ª.
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => setRenegotiateOpen(true)}
+              >
+                <Layers className="h-3.5 w-3.5 mr-1.5" /> Renegociar em parcelas
+              </Button>
+            </div>
+          )}
+          {renegotiateOpen && (
+            <TransactionRenegotiateInstallmentsModal
+              transaction={transaction}
+              onClose={() => setRenegotiateOpen(false)}
+            />
+          )}
+
+
           {!paidLocked && isApproved && !isAdmin && isBpLinked && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
               Transação vinculada ao BP — valor editável até à liquidação.
