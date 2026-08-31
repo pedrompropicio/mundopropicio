@@ -139,6 +139,15 @@
 }
 
 @layer utilities {
+  /* Esconde a scrollbar mantendo o scroll (usado na TabsList em ecrãs estreitos) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .glass {
     @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm;
   }

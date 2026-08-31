@@ -851,13 +851,13 @@ export default function EventDetail() {
   const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div>
         <Link to="/eventos" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
           <ArrowLeft className="h-4 w-4" /> Voltar aos eventos
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">{event.name} <HelpTooltip text={helpTexts.eventDetail} /></h1>
+          <h1 className="min-w-0 text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2"><span className="truncate" title={event.name}>{event.name}</span> <HelpTooltip text={helpTexts.eventDetail} /></h1>
           <EventStatusBadge status={event.status as any} />
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             <EventTypeIcon className="h-3 w-3" />
@@ -868,7 +868,7 @@ export default function EventDetail() {
           }`}>
             BP {event.pl_mode === "active" ? "Ativo" : "Passivo"}
           </span>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
             {(isAdmin || isManager) && !isCompleted && (
               <button
                 onClick={() => setShowEditModal(true)}
@@ -1042,14 +1042,14 @@ export default function EventDetail() {
                 ) : (
                   <button
                     onClick={() => setSelectedSubEvent(sub.id)}
-                    className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
+                    className={`max-w-full rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                       selectedSubEvent === sub.id
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <span className="block">{sub.name}</span>
-                    <span className="block text-[10px] opacity-70">{formatDate(sub.date)} {sub.location ? `· ${sub.location}` : ""}</span>
+                    <span className="block truncate">{sub.name}</span>
+                    <span className="block truncate text-[10px] opacity-70">{formatDate(sub.date)} {sub.location ? `· ${sub.location}` : ""}</span>
                   </button>
                 )}
                 {(isAdmin || isManager) && editingSubName !== sub.id && (
