@@ -122,14 +122,22 @@ export function TransactionInstallmentsEditor({
             type="number"
             min={2}
             max={120}
-            value={count}
-            onChange={(e) =>
-              onWizardChange({
-                count: Math.max(2, Math.min(120, Number(e.target.value) || 2)),
-                firstDate,
-                interval,
-              })
-            }
+            value={countText}
+            onChange={(e) => {
+              const v = e.target.value;
+              setCountText(v);
+              const n = Number(v);
+              if (v.trim() !== "" && Number.isFinite(n) && n >= 2 && n <= 120) {
+                onWizardChange({ count: Math.floor(n), firstDate, interval });
+              }
+            }}
+            onBlur={commitCount}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitCount();
+              }
+            }}
             className="h-9"
           />
         </div>
