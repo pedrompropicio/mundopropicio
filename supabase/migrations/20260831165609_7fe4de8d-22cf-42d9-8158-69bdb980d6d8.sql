@@ -1,0 +1,2 @@
+ALTER TABLE public.card_session_items ADD COLUMN IF NOT EXISTS invoice_ref text NULL;
+COMMENT ON COLUMN public.card_session_items.invoice_ref IS 'Referência do documento (nº de fatura/talão/ATCUD) lida do talão por OCR ou escrita pelo produtor; propagada para transactions.invoice_ref na aprovação para permitir o agrupamento automático por fatura.';
