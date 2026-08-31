@@ -232,11 +232,17 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
       const payment = payments.find((p: any) => p.id === paymentId);
       if (!payment) throw new Error("Pagamento não encontrado");
 
-      const { error } = await (supabase as any)
+      const { data: deletedRows, error } = await (supabase as any)
         .from("transaction_payments")
         .delete()
-        .eq("id", paymentId);
+        .eq("id", paymentId)
+        .select("id");
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        // RLS pode recusar sem erro: nunca tocar na transação se a linha não foi apagada.
+        throw new Error("Não foi possível apagar o pagamento (sem permissão ou linha inexistente). A transação não foi alterada.");
+      }
+
 
       // Recalculate transaction paid_amount
       const remainingTotal = payments
