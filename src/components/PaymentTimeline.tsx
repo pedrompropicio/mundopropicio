@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   transaction: any;
-  isAdmin?: boolean;
+  canApprove?: boolean;
   /** Evento associado fechado — bloqueia as correções de pagamento. */
   eventCompleted?: boolean;
 }
@@ -43,11 +43,11 @@ interface Props {
  *  - Crédito de fornecedor utilizado (supplier_credit_usages)
  *  - Pago por sócio (partner_paid_expenses)
  *
- * Se `isAdmin` for true, expõe edição direta do valor pago:
+ * Se `canApprove` for true, expõe edição direta do valor pago:
  *  - Quando existem parcelas em `transaction_payments`, abre o modal de parcelas.
  *  - Caso contrário, permite ajustar `paid_amount` (e data/conta) inline.
  */
-export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted = false }: Props) {
+export function PaymentTimeline({ transaction, canApprove = false, eventCompleted = false }: Props) {
   const txId = transaction.id;
   const baseAmount = Number(transaction.amount ?? 0);
   const ivaRate = Number(transaction.iva_rate ?? 0);
@@ -55,7 +55,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
   const queryClient = useQueryClient();
   const { user, role } = useAuth();
   // Editor pode corrigir data / apagar um pagamento (via modal de parcelas).
-  const canEditPayments = (isAdmin || role === "editor") && !eventCompleted;
+  const canEditPayments = (canApprove || role === "editor") && !eventCompleted;
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [editingDirect, setEditingDirect] = useState(false);
   const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
@@ -116,7 +116,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
   // Contas financeiras para o seletor (apenas se admin vai editar inline)
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["payment-timeline-accounts"],
-    enabled: isAdmin,
+    enabled: canApprove,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
@@ -346,7 +346,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
   // Pagamento direto (sem parcelas em transaction_payments) — admin pode ajustar.
   const isDirectPaid = !hasAny && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0);
 
-  if (!hasAny && !isDirectPaid && !isAdmin) {
+  if (!hasAny && !isDirectPaid && !canApprove) {
     return (
       <div className="rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
         Esta transação ainda não tem pagamentos, listas, reembolsos, créditos ou registos de pagamento por sócio.
@@ -384,7 +384,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
       </div>
 
       {/* Admin: Estornar transação */}
-      {isAdmin && (transaction.status === "paid" || transaction.status === "reversed" || Number(transaction.paid_amount ?? 0) > 0) && (
+      {canApprove && (transaction.status === "paid" || transaction.status === "reversed" || Number(transaction.paid_amount ?? 0) > 0) && (
         <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
           <div className="text-muted-foreground">
             <span className="font-semibold text-destructive">Admin:</span> estornar esta transação regista o estorno. Opcionalmente pode libertá-la para nova liquidação (ex.: pagamento duplicado).
@@ -508,7 +508,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
-                    {isAdmin && isPlanned && (
+                    {canApprove && isPlanned && (
                       <>
                         <button
                           type="button"
@@ -580,7 +580,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
-                  {isAdmin && !p.reversal_kind && (
+                  {canApprove && !p.reversal_kind && (
                     <button
                       type="button"
                       onClick={() => {
@@ -769,7 +769,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
         <Section
           icon={<Receipt className="h-3.5 w-3.5" />}
           title="Pagamento direto"
-          action={isAdmin && !editingDirect ? (
+          action={canApprove && !editingDirect ? (
             <button
               type="button"
               onClick={startDirectEdit}
@@ -864,7 +864,7 @@ export function PaymentTimeline({ transaction, isAdmin = false, eventCompleted =
       {showPaymentsModal && (
         <TransactionPaymentsListModal
           transaction={transaction}
-          isAdmin={isAdmin && !eventCompleted}
+          canApprove={canApprove && !eventCompleted}
           eventCompleted={eventCompleted}
           onClose={() => setShowPaymentsModal(false)}
         />

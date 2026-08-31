@@ -3907,7 +3907,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               queryClient.invalidateQueries({ queryKey: ["event-transactions", eventId] });
             }
           }}
-          isAdmin={isAdmin}
+          canApprove={isAdmin}
         />
       )}
       {documentsTransaction && (
@@ -4063,7 +4063,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
               queryClient.invalidateQueries({ queryKey: ["event-transactions", eventId] });
             }
           }}
-          isAdmin={isAdmin}
+          canApprove={isAdmin}
         />
       )}
       {documentsTransaction && (

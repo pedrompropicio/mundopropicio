@@ -50,13 +50,13 @@ type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_
 interface Props {
   transaction: any;
   onClose: () => void;
-  isAdmin: boolean;
+  canApprove: boolean;
 }
 
-export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
+export function TransactionEditModal({ transaction, onClose, canApprove }: Props) {
   const isPaid = transaction.status === "paid";
   // Admins can fully edit paid transactions (audit adjustment)
-  const paidLocked = isPaid && !isAdmin;
+  const paidLocked = isPaid && !canApprove;
 
   const [form, setForm] = useState({
     description: transaction.description,
@@ -276,7 +276,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   }, [partnerPaidLink?.partner_id]);
   // Admin/manager mexem sempre; restantes papéis só na própria proposta pendente.
   const canManagePartnerPaidLink =
-    isAdmin || isManager || (partnerPaidPending && (partnerPaidLink as any)?.proposed_by === user?.id);
+    canApprove || isManager || (partnerPaidPending && (partnerPaidLink as any)?.proposed_by === user?.id);
 
   // Detect if this transaction is an Extra do Sócio (despesa a abater do sócio no fecho)
   const { data: partnerExtraLink } = useQuery({
@@ -309,7 +309,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     enabled: !!form.event_id,
   });
   const eventCompleted = eventInfo?.status === "completed";
-  const canEditPartnerExtra = isAdmin || (!eventCompleted && isManager);
+  const canEditPartnerExtra = canApprove || (!eventCompleted && isManager);
 
   // Detecta se EXISTE irmã transitória vinculada à mesma fatura (split parcial criado na origem).
   // Quando existe, "Reverter" = eliminar irmã + apagar partner_advance_expenses dela; a principal
@@ -425,7 +425,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   // Admin e gestora podem realocar o vínculo do BP (e mudar a L3) mesmo em TX liquidadas:
   // não mexe em valores nem em estado de pagamento, só em event_forecasts.transaction_id / category_id.
-  const canReallocBpWhenPaid = isAdmin || isManager;
+  const canReallocBpWhenPaid = canApprove || isManager;
 
   // Renegociar um pagamento único em parcelas (admin/manager).
   const { canRenegotiate } = useCanRenegotiateInstallments({
@@ -435,7 +435,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     eventCompleted,
   });
   const [renegotiateOpen, setRenegotiateOpen] = useState(false);
-  const showRenegotiate = canRenegotiate && (isAdmin || isManager);
+  const showRenegotiate = canRenegotiate && (canApprove || isManager);
 
 
   const editMutation = useMutation({
@@ -510,7 +510,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         due_date: form.due_date || null,
         ...(partnerPaidSettled
           ? { payment_date: partnerPaidDate || form.date }
-          : (isAdmin && isPaid ? { payment_date: form.payment_date || null } : {})),
+          : (canApprove && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
@@ -850,7 +850,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   // ─── Realocação para outra LINHA do BP dentro da mesma L3 ───
   // Mesmas permissões da ferramenta "Alocar realizado".
-  const canManageTxAlloc = isAdmin || isManager || hasPermission("manage_transactions");
+  const canManageTxAlloc = canApprove || isManager || hasPermission("manage_transactions");
   const categoryChangedFromOriginal =
     !!form.category_id && form.category_id !== (transaction.category_id ?? "");
   const bpLinesEnabled =
@@ -992,7 +992,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <h2 className="text-lg font-bold">{isPaid ? (isAdmin ? "Editar (Ajuste Admin)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
+            <h2 className="text-lg font-bold">{isPaid ? (canApprove ? "Editar (Ajuste Admin)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
             <Button asChild size="sm" variant="outline" className="h-8 w-fit text-xs">
               <RouterLink to="/reembolsos">Abrir listas de reembolso</RouterLink>
             </Button>
@@ -1013,12 +1013,12 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
         )}
 
-        {isPaid && !isAdmin && (
+        {isPaid && !canApprove && (
           <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-xs text-success">
             Transação liquidada — Especificação, Fornecedor, Nº Fatura e Método de Pagamento podem ser alterados.
           </div>
         )}
-        {isPaid && isAdmin && (
+        {isPaid && canApprove && (
           <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400 flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" />
             Ajuste administrativo — todos os campos podem ser alterados. Alterações serão registadas no audit log.
@@ -1037,7 +1037,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </TabsList>
 
           <TabsContent value="payment" className="pt-3">
-            <PaymentTimeline transaction={transaction} isAdmin={isAdmin} eventCompleted={eventCompleted} />
+            <PaymentTimeline transaction={transaction} canApprove={canApprove} eventCompleted={eventCompleted} />
           </TabsContent>
 
           {hasCamarim && (
@@ -1148,7 +1148,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               Transação parcelada — altera os valores em <strong>Editar parcelas</strong>.
             </div>
           )}
-          <TransactionInstallmentGroupEditor transaction={transaction} isAdmin={isAdmin} />
+          <TransactionInstallmentGroupEditor transaction={transaction} canApprove={canApprove} />
 
           {showRenegotiate && (
             <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-border bg-secondary/30 px-3 py-2">
@@ -1174,7 +1174,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           )}
 
 
-          {!paidLocked && isApproved && !isAdmin && isBpLinked && (
+          {!paidLocked && isApproved && !canApprove && isBpLinked && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
               Transação vinculada ao BP — valor editável até à liquidação.
             </div>
@@ -1910,7 +1910,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
-          {isAdmin && isPaid && !isPaidByPartner && (
+          {canApprove && isPaid && !isPaidByPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento</label>
               <DatePicker value={form.payment_date} onChange={(d) => setForm({ ...form, payment_date: d })} />
@@ -1999,7 +1999,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
 
           {/* Transitory toggle — only admin/manager can change */}
-          {(isAdmin || isManager) && (
+          {(canApprove || isManager) && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
             <Switch
               checked={form.is_transitory}
@@ -2014,7 +2014,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           )}
 
           {/* Exclude from result toggle — only admin/manager, mutually exclusive with transitory */}
-          {(isAdmin || isManager) && !form.is_transitory && (
+          {(canApprove || isManager) && !form.is_transitory && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
             <Switch
               checked={form.exclude_from_result}

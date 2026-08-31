@@ -1004,7 +1004,7 @@ export default function Transactions() {
       <TransactionRow
         key={t.id}
         transaction={t}
-        isAdmin={canApprove}
+        canApprove={canApprove}
         selectable={canApprove && (t.status === "pending" || t.status === "approved")}
         selected={selectedIds.has(t.id)}
         onToggleSelect={() => toggleSelect(t.id)}
@@ -1236,7 +1236,7 @@ export default function Transactions() {
         <TransactionEditModal
           transaction={editingTransaction}
           onClose={() => setEditingId(null)}
-          isAdmin={canApprove}
+          canApprove={canApprove}
         />
       )}
 
@@ -1265,7 +1265,7 @@ export default function Transactions() {
       {showPaymentsListId && (
         <TransactionPaymentsListModal
           transaction={transactions.find((t) => t.id === showPaymentsListId) ?? { id: showPaymentsListId }}
-          isAdmin={canApprove}
+          canApprove={canApprove}
           eventCompleted={
             (transactions.find((t) => t.id === showPaymentsListId)?.events as any)?.status === "completed"
           }

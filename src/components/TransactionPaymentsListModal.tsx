@@ -19,7 +19,7 @@ type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_
 interface Props {
   transaction: any;
   /** Acesso total (valor, conta, método, pagamento direto) — admin/manager. */
-  isAdmin: boolean;
+  canApprove: boolean;
   /** Evento associado fechado: nenhuma ação de correção fica disponível. */
   eventCompleted?: boolean;
   onClose: () => void;
@@ -32,12 +32,12 @@ const methodLabels: Record<string, string> = {
   state_payment: "Pag. Estado",
 };
 
-export function TransactionPaymentsListModal({ transaction, isAdmin, eventCompleted = false, onClose }: Props) {
+export function TransactionPaymentsListModal({ transaction, canApprove, eventCompleted = false, onClose }: Props) {
   const { user, role } = useAuth();
   // O editor pode corrigir a DATA e APAGAR um pagamento; valor/conta/método
   // continuam reservados a admin/manager.
-  const canFull = isAdmin && !eventCompleted;
-  const canLimited = (isAdmin || role === "editor") && !eventCompleted;
+  const canFull = canApprove && !eventCompleted;
+  const canLimited = (canApprove || role === "editor") && !eventCompleted;
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});

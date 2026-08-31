@@ -726,7 +726,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       {editTx && (
         <TransactionEditModal
           transaction={editTx}
-          isAdmin={isAdmin}
+          canApprove={isAdmin}
           onClose={async () => {
             setEditTx(null);
             await recalcTotal();

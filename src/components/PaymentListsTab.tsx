@@ -2290,7 +2290,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       {editingTx && (
         <TransactionEditModal
           transaction={editingTx}
-          isAdmin={isAdmin}
+          canApprove={isAdmin}
           onClose={() => {
             setEditingTx(null);
             queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });

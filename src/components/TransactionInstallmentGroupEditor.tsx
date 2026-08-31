@@ -101,10 +101,10 @@ export function useInstallmentGroup(transaction: any) {
 
 export function TransactionInstallmentGroupEditor({
   transaction,
-  isAdmin,
+  canApprove,
 }: {
   transaction: any;
-  isAdmin: boolean;
+  canApprove: boolean;
 }) {
   const { user, isManager } = useAuth();
   const queryClient = useQueryClient();
@@ -137,7 +137,7 @@ export function TransactionInstallmentGroupEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.length, originalTotal]);
 
-  const canEdit = isAdmin || isManager;
+  const canEdit = canApprove || isManager;
 
   const newTotal = parseFloat(totalInput) || 0;
   const sum = +Object.values(rows).reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2);
@@ -150,7 +150,7 @@ export function TransactionInstallmentGroupEditor({
   const paidRows = group.filter(isPaidRow);
   const paidSum = +paidRows.reduce((s, r) => s + (rows[r.id]?.amount ?? r.amount), 0).toFixed(2);
 
-  const rowLocked = (r: GroupRow) => isPaidRow(r) && !(isAdmin && unlockPaid);
+  const rowLocked = (r: GroupRow) => isPaidRow(r) && !(canApprove && unlockPaid);
 
   /** Edição directa em € — sincroniza a % correspondente. */
   const setAmount = (id: string, amount: number) =>
@@ -273,7 +273,7 @@ export function TransactionInstallmentGroupEditor({
   if (group.length < 2) return null;
 
   const distribute = () => {
-    const unpaid = group.filter((r) => !isPaidRow(r) || (isAdmin && unlockPaid));
+    const unpaid = group.filter((r) => !isPaidRow(r) || (canApprove && unlockPaid));
     if (unpaid.length === 0) {
       toast({ title: "Todas as parcelas estão pagas", variant: "destructive" });
       return;
@@ -382,7 +382,7 @@ export function TransactionInstallmentGroupEditor({
                 <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
               </Button>
 
-              {isAdmin && paidRows.length > 0 && (
+              {canApprove && paidRows.length > 0 && (
                 <Button
                   type="button"
                   size="sm"

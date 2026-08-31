@@ -18,7 +18,7 @@ import { toast } from "@/hooks/use-toast";
 
 interface Props {
   transaction: any;
-  isAdmin: boolean;
+  canApprove: boolean;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -84,7 +84,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
+export function TransactionRow({ transaction: t, canApprove, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
@@ -632,18 +632,18 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             ) : (
               <>
                 {/* Edit: blocked if event completed (admin bypass); paid = limited edit mode */}
-                {(!eventCompleted || isAdmin) && computedStatus !== "paid" && (
+                {(!eventCompleted || canApprove) && computedStatus !== "paid" && (
                   <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title={eventCompleted ? "Editar (evento fechado — ajuste admin)" : "Editar"}>
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {(!eventCompleted || isAdmin) && computedStatus === "paid" && (
+                {(!eventCompleted || canApprove) && computedStatus === "paid" && (
                   <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground/60 hover:bg-secondary hover:text-foreground transition-colors" title="Editar especificação / fornecedor">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
                 {/* Approve: admin only, pending/overdue only, not completed */}
-                {!eventCompleted && isAdmin && (computedStatus === "pending" || computedStatus === "overdue") && (
+                {!eventCompleted && canApprove && (computedStatus === "pending" || computedStatus === "overdue") && (
                   <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
@@ -671,9 +671,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 {/* Secondary actions menu */}
                 {(() => {
-                  const showDelete = !eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
+                  const showDelete = !eventCompleted && (computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
                   const showViewPayments = onViewPayments && (paidAmount > 0 || !!hasInstallments);
-                  const showHide = isAdmin && onToggleHidden;
+                  const showHide = canApprove && onToggleHidden;
                   const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
                   if (!showDelete && !showViewPayments && !showHide && !showReclassify) return null;
                   return (
