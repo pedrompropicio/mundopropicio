@@ -8,6 +8,8 @@ Card "Custos" (modo Previsto + excedido) e Fecho agora expõem a composição do
 - Fecho rotula "Despesas operacionais (s/ overhead)" e exibe "Despesas totais (operacionais + overhead)" na Síntese Final quando +OH ligado.
 - Totais inalterados; cálculos não mexidos.
 
+Encontro de Contas ganhou bloco interno "Posição da Mundo Propício" (não entra no PDF): reconcilia a posição real da empresa (s/IVA) contra a quota nominal apresentada aos sócios, sem alterar quotas nem saldos. Ver D-ERP10 em `docs/DECISIONS.md`.
+
 ## Em que pé está
 O apuramento real acontece **fora do ERP**, em planilha (gerador v15 para a Anitta). O ecrã de Fecho calcula o nível 1 e **não é confiável para o acerto** — ver #64. A Anitta está apurada e conferida, **não sacramentada**: apresentação aos sócios na semana de 31/08. A Ivete ainda não fechou.
 
