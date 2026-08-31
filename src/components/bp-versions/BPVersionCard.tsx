@@ -49,10 +49,10 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
 
   if (!activeVersion) {
     return (
-      <div className="glass rounded-xl px-4 py-3 flex items-center justify-between gap-3 border-warning/30">
-        <div className="flex items-center gap-3">
+      <div className="glass rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-warning/30">
+        <div className="flex items-center gap-3 min-w-0">
           <GitBranch className="h-5 w-5 text-warning shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium">Sem versão ativa do BP</p>
             <p className="text-xs text-muted-foreground">
               {isSplit
@@ -61,7 +61,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {versions.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
               <History className="h-4 w-4 mr-1.5" />

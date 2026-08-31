@@ -867,9 +867,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
 
       {/* Zones list */}
       <div className="glass rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 min-w-0">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={async () => {
                 setExportingPDF(true);
