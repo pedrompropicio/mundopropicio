@@ -30,6 +30,34 @@ import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 const eur = (v: number) =>
   v.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 
+/** Traduz os códigos de exceção da RPC em mensagens legíveis. */
+const RPC_ERRORS: Record<string, string> = {
+  permission_denied: "Apenas administradores ou gestores podem renegociar em parcelas.",
+  transaction_not_found: "Transação não encontrada.",
+  not_expense: "Apenas despesas podem ser renegociadas em parcelas.",
+  already_paid: "A transação já tem valor pago.",
+  has_payments: "A transação já tem pagamentos registados.",
+  already_installment_group: "A transação já pertence a um grupo de parcelas.",
+  is_split: "Transações de rateio não podem ser renegociadas em parcelas.",
+  is_reimbursement: "Notas de reembolso não podem ser renegociadas em parcelas.",
+  is_transitory: "Transações transitórias não podem ser renegociadas em parcelas.",
+  is_partner_paid: "Despesas pagas por sócio não podem ser renegociadas em parcelas.",
+  is_partner_extra: "Extras de sócio não podem ser renegociados em parcelas.",
+  event_completed: "O evento associado está fechado.",
+  invalid_installments: "Lista de parcelas inválida.",
+  too_few_installments: "São necessárias pelo menos 2 parcelas.",
+  invalid_due_date: "Há parcelas sem data de vencimento.",
+  invalid_amount: "Há parcelas com valor inválido.",
+  installments_sum_mismatch:
+    "A soma das parcelas não bate com o valor da transação.",
+};
+
+export function translateRpcError(message: string): string {
+  const code = String(message ?? "").match(/([a-z_]+):/)?.[1];
+  const friendly = code ? RPC_ERRORS[code] : undefined;
+  return friendly ? `${friendly} (${message})` : message;
+}
+
 const fmtDate = (s: string) => {
   const [y, m, d] = String(s).split("-");
   return d ? `${d}/${m}/${y}` : s;
