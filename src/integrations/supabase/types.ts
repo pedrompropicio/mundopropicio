@@ -10567,6 +10567,9 @@ export type Database = {
           fx_rate_source: string | null
           iban_override: string | null
           id: string
+          installment_group_id: string | null
+          installment_number: number | null
+          installment_total: number | null
           invoice_group_id: string | null
           invoice_ref: string | null
           is_hidden: boolean
@@ -10619,6 +10622,9 @@ export type Database = {
           fx_rate_source?: string | null
           iban_override?: string | null
           id?: string
+          installment_group_id?: string | null
+          installment_number?: number | null
+          installment_total?: number | null
           invoice_group_id?: string | null
           invoice_ref?: string | null
           is_hidden?: boolean
@@ -10671,6 +10677,9 @@ export type Database = {
           fx_rate_source?: string | null
           iban_override?: string | null
           id?: string
+          installment_group_id?: string | null
+          installment_number?: number | null
+          installment_total?: number | null
           invoice_group_id?: string | null
           invoice_ref?: string | null
           is_hidden?: boolean

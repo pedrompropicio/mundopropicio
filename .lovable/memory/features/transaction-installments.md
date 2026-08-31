@@ -178,3 +178,46 @@ pertence a um grupo com ≥ 2 linhas:
 `DROP FUNCTION public.reverse_payment(uuid, text, text, date)` — sobrecarga
 antiga de 4 args removida; fica só a versão com `p_amount`. Todos os callers
 (`PaymentTimeline.tsx`) passam `p_amount`. Elimina PGRST203 (ambiguidade).
+
+---
+
+# Identificação ESTRUTURAL do parcelamento (issue #40, 2026-08)
+
+Colunas em `public.transactions`:
+
+- `installment_group_id uuid NULL` — todas as parcelas do mesmo documento partilham este uuid
+- `installment_number int NULL` — 1..N, pela ordem de vencimento
+- `installment_total int NULL` — N
+- índice parcial `idx_transactions_installment_group_id`
+
+**Regra absoluta:** o sufixo `"(n/N)"` na descrição é **cosmético**. Nunca é lido
+para decidir se algo é parcelamento — foi o que causava falsos positivos
+(ex.: apólices AEGON SEGUROS com "(1/2)" no texto e sem parcelas irmãs).
+`INSTALLMENT_PATTERN` foi **removido** de `src/lib/installment-guard.ts`.
+
+## Backfill aplicado em Live (migration tracked)
+
+Critério estrutural: transação-mãe (`parent_transaction_id IS NULL`) com ≥1 filha
+onde `split_percentage IS NULL` e `is_transitory = false`.
+
+Resultado: **9 grupos / 19 linhas**. São os 8 grupos com sufixo textual
+(Hotel Londres 3×, Aluguel da sala, Aluguel do Teatro, Equipe de Limpeza,
+Estrutura Palco, Estruturas Elétricas, Hosp. equipe tec/banda Lisboa,
+Palacio do Estoril) **mais** `Transfes - Aero x Hotel (Anitta e Equipe)` — pai
+sem sufixo, filha "(2/2)", mesma proforma FP1 226/1132, 966,98 € cada.
+AEGON ficou por marcar (0 linhas), como esperado.
+
+## Leitores / escritores
+
+- `src/lib/installment-guard.ts` — `findExistingInstallments` procura por
+  `parent_transaction_id`, por `installmentGroupId` (novo param) e por
+  `installment_group_id NOT NULL` no mesmo evento+fornecedor com a mesma
+  descrição-base. A descrição-base só restringe ao mesmo documento; nunca decide.
+- `useInstallmentGroup` (`TransactionInstallmentGroupEditor.tsx`) — caminho
+  canónico por `installment_group_id`; fallback legado pai+filhas mantido para
+  dados anteriores ao backfill.
+- `TransactionFormModal.tsx` — gera `installment_group_id`, marca a 1ª TX como
+  1/N e cria as irmãs 2..N com as colunas preenchidas.
+- `EventForecast.tsx` (wizard do BP) — o `scheduleInstallmentsMutation` passa a
+  preencher as 3 colunas, pelo que o grupo é reconhecido mesmo sem
+  `parent_transaction_id`.
