@@ -18,8 +18,8 @@ type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_
 
 interface Props {
   transaction: any;
-  /** Acesso total (valor, conta, método, pagamento direto) — admin/manager. */
-  isAdmin: boolean;
+  /** Acesso total (valor, conta, método, pagamento direto) — admin/gestora. */
+  canApprove: boolean;
   /** Evento associado fechado: nenhuma ação de correção fica disponível. */
   eventCompleted?: boolean;
   onClose: () => void;
@@ -32,12 +32,12 @@ const methodLabels: Record<string, string> = {
   state_payment: "Pag. Estado",
 };
 
-export function TransactionPaymentsListModal({ transaction, isAdmin, eventCompleted = false, onClose }: Props) {
+export function TransactionPaymentsListModal({ transaction, canApprove, eventCompleted = false, onClose }: Props) {
   const { user, role } = useAuth();
   // O editor pode corrigir a DATA e APAGAR um pagamento; valor/conta/método
   // continuam reservados a admin/manager.
-  const canFull = isAdmin && !eventCompleted;
-  const canLimited = (isAdmin || role === "editor") && !eventCompleted;
+  const canFull = canApprove && !eventCompleted;
+  const canLimited = (canApprove || role === "editor") && !eventCompleted;
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -138,11 +138,17 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, eventComple
         notes: canFull ? (editForm.notes.trim() || null) : (original?.notes ?? null),
       };
 
-      const { error } = await (supabase as any)
+      const { data: updatedRows, error } = await (supabase as any)
         .from("transaction_payments")
         .update(updateData)
-        .eq("id", paymentId);
+        .eq("id", paymentId)
+        .select("id");
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        // RLS pode recusar sem erro: nunca tocar na transação se a linha não foi escrita.
+        throw new Error("Não foi possível atualizar o pagamento (sem permissão ou linha inexistente). A transação não foi alterada.");
+      }
+
 
       // Recalculate transaction paid_amount
       const newTotalPaid = Math.round((otherPaymentsTotal + newAmount) * 100) / 100;
@@ -226,11 +232,17 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, eventComple
       const payment = payments.find((p: any) => p.id === paymentId);
       if (!payment) throw new Error("Pagamento não encontrado");
 
-      const { error } = await (supabase as any)
+      const { data: deletedRows, error } = await (supabase as any)
         .from("transaction_payments")
         .delete()
-        .eq("id", paymentId);
+        .eq("id", paymentId)
+        .select("id");
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        // RLS pode recusar sem erro: nunca tocar na transação se a linha não foi apagada.
+        throw new Error("Não foi possível apagar o pagamento (sem permissão ou linha inexistente). A transação não foi alterada.");
+      }
+
 
       // Recalculate transaction paid_amount
       const remainingTotal = payments
@@ -516,7 +528,7 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, eventComple
                       </div>
                       </>
                     ) : (
-                      <p className="text-xs text-muted-foreground italic">Só o valor, a conta e o método são editáveis por admin. Podes corrigir a data ou apagar o pagamento.</p>
+                      <p className="text-xs text-muted-foreground italic">Só o valor, a conta e o método são editáveis por admin ou gestora. Podes corrigir a data ou apagar o pagamento.</p>
                     )}
                   </div>
                 ) : (
