@@ -910,9 +910,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               </button>
             )}
           </div>
-          <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
-
         </div>
+        <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
 
         {isLoading ? (
           <p className="py-6 text-center text-muted-foreground text-sm">A carregar…</p>
