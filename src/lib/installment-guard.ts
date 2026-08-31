@@ -1,14 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** Padrão "(1/3)" na descrição — marca formal das parcelas antigas. */
-export const INSTALLMENT_PATTERN = /\(\s*\d+\s*\/\s*\d+\s*\)/;
-
-/** Remove o sufixo "(n/m)" (e espaços) do fim da descrição. */
+/**
+ * COSMÉTICO. Remove o sufixo "(n/m)" do fim da descrição, apenas para
+ * apresentação/comparação de texto. O sistema NUNCA identifica parcelamento
+ * pela descrição — isso é feito por `transactions.installment_group_id`.
+ */
 export function stripInstallmentSuffix(description: string | null | undefined): string {
   return String(description ?? "")
     .replace(/\(\s*\d+\s*\/\s*\d+\s*\)\s*$/, "")
     .trim();
 }
+
 
 /** Normaliza para comparação: minúsculas, sem acentos, sem pontuação, espaços colapsados. */
 export function normalizeDescription(value: string | null | undefined): string {
