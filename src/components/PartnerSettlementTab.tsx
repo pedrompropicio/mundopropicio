@@ -1822,8 +1822,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="l3">Despesas: Nível 3 (detalhe)</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={calcMode} onValueChange={(v) => setCalcMode(v as CalcMode)}>
+            <SelectTrigger className="h-8 w-[300px] text-xs">
+              <SelectValue placeholder="Apuramento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="contract">Apuramento: por contrato de cada socio</SelectItem>
+              <SelectItem value="event">Apuramento: pela regra geral do evento</SelectItem>
+            </SelectContent>
+          </Select>
           <FechoBasisSelector basis={basis} />
           <Button size="sm" variant="outline" onClick={exportPdf}>
+
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
           </Button>
         </div>
