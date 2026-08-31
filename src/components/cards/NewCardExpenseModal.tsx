@@ -191,6 +191,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
 
       if (data.service_description && !description) setDescription(data.service_description);
       if (data.document_date) setDate(data.document_date);
+      if (data.document_number && !invoiceRef.trim()) setInvoiceRef(String(data.document_number));
       if (data.total_amount != null) setTotal(String(data.total_amount));
       if (data.total_amount != null && data.iva_amount != null)
         setIvaRate(inferCardRateFromReceipt(data.total_amount, data.iva_amount, rates));
@@ -307,6 +308,19 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         }
 
         await attachDoc(expense.id);
+
+        // Reagrupamento após edição: só se o nº de fatura mudou e ficou preenchido.
+        const refChanged = String(expense.invoice_ref ?? "") !== String(patch.invoice_ref ?? "");
+        if (refChanged && patch.invoice_ref && patch.supplier_id) {
+          const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
+          const auto = await autoGroupInvoiceForTransaction(expense.id);
+          if (auto) {
+            toast({
+              title: `Agrupada à fatura ${auto.invoiceRef}`,
+              description: `${auto.total} transações partilham esta fatura.`,
+            });
+          }
+        }
         return;
       }
 

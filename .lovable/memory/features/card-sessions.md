@@ -224,14 +224,22 @@ automaticamente"), colocado logo depois de Fornecedor e gravado sempre como
 1. `NewCardExpenseModal` (gestor) — vai no INSERT e no UPDATE da transação,
    é pré-carregado na edição (`CardSessionDetail` passou a pedir `invoice_ref`
    no select das despesas) e entra no conjunto auditado em
-   `transaction_audit_log`. Ao criar, chama
-   `autoGroupInvoiceForTransaction(txId)` de `src/lib/invoice-group.ts`.
+   `transaction_audit_log`. O OCR pré-preenche o campo a partir de
+   `document_number` quando está vazio. Chama
+   `autoGroupInvoiceForTransaction(txId)` de `src/lib/invoice-group.ts` ao criar
+   e também na edição, quando o `invoice_ref` mudou e ficou preenchido (com
+   fornecedor selecionado).
 2. `ApproveCardItemModal` (financeira) — valor inicial = `invoice_ref` do item
    e, em falta, `ocr_raw_payload.document_number` (chave devolvida pela edge fn
-   `extract-camarim-receipt`). Grava na transação criada e no item, e chama o
-   agrupamento automático. Nota: como estas transações não têm `supplier_id`
-   (o cartão usa `supplier_name` livre), o agrupamento só age quando existe
-   fornecedor — a referência fica sempre registada.
+   `extract-camarim-receipt`). Como o cartão guarda o fornecedor como texto
+   livre (`supplier_name`), a aprovação tenta resolvê-lo: compara o nome
+   normalizado (`normalizeMatchText`, sem acentos/maiúsculas/espaços extra)
+   contra `suppliers` e, se houver **exatamente uma** correspondência, grava
+   `supplier_id` na transação — o agrupamento automático passa a funcionar.
+   Sem correspondência (ou com várias), nunca se cria nem se adivinha
+   fornecedor: grava-se só `invoice_ref`, não se chama o agrupamento, e o modal
+   mostra uma nota junto ao campo de fornecedor a avisar que a fatura não será
+   agrupada automaticamente.
 3. `CardTeamItemModal` (produtor, mobile) — campo opcional, pré-preenchido pelo
    OCR (`document_number`), gravado na coluna nova
    `card_session_items.invoice_ref` (text NULL, com COMMENT a explicar que é a
