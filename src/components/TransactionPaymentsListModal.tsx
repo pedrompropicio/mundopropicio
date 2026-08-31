@@ -18,7 +18,7 @@ type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_
 
 interface Props {
   transaction: any;
-  /** Acesso total (valor, conta, método, pagamento direto) — admin/manager. */
+  /** Acesso total (valor, conta, método, pagamento direto) — admin/gestora. */
   canApprove: boolean;
   /** Evento associado fechado: nenhuma ação de correção fica disponível. */
   eventCompleted?: boolean;
@@ -516,7 +516,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                       </div>
                       </>
                     ) : (
-                      <p className="text-xs text-muted-foreground italic">Só o valor, a conta e o método são editáveis por admin. Podes corrigir a data ou apagar o pagamento.</p>
+                      <p className="text-xs text-muted-foreground italic">Só o valor, a conta e o método são editáveis por admin ou gestora. Podes corrigir a data ou apagar o pagamento.</p>
                     )}
                   </div>
                 ) : (

@@ -427,7 +427,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   // não mexe em valores nem em estado de pagamento, só em event_forecasts.transaction_id / category_id.
   const canReallocBpWhenPaid = canApprove || isManager;
 
-  // Renegociar um pagamento único em parcelas (admin/manager).
+  // Renegociar um pagamento único em parcelas (admin/gestora ou manage_transactions).
   const { canRenegotiate } = useCanRenegotiateInstallments({
     transaction,
     isPaidByPartner,
@@ -435,7 +435,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     eventCompleted,
   });
   const [renegotiateOpen, setRenegotiateOpen] = useState(false);
-  const showRenegotiate = canRenegotiate && (canApprove || isManager);
+  const showRenegotiate = canRenegotiate && (canApprove || isManager || hasPermission("manage_transactions"));
 
 
   const editMutation = useMutation({
@@ -992,7 +992,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <h2 className="text-lg font-bold">{isPaid ? (canApprove ? "Editar (Ajuste Admin)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
+            <h2 className="text-lg font-bold">{isPaid ? (canApprove ? "Editar (Ajuste admin/gestora)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
             <Button asChild size="sm" variant="outline" className="h-8 w-fit text-xs">
               <RouterLink to="/reembolsos">Abrir listas de reembolso</RouterLink>
             </Button>

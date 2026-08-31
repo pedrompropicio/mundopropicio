@@ -387,7 +387,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
       {canApprove && (transaction.status === "paid" || transaction.status === "reversed" || Number(transaction.paid_amount ?? 0) > 0) && (
         <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
           <div className="text-muted-foreground">
-            <span className="font-semibold text-destructive">Admin:</span> estornar esta transação regista o estorno. Opcionalmente pode libertá-la para nova liquidação (ex.: pagamento duplicado).
+            <span className="font-semibold text-destructive">Admin/gestora:</span> estornar esta transação regista o estorno. Opcionalmente pode libertá-la para nova liquidação (ex.: pagamento duplicado).
           </div>
           <Button
             type="button"

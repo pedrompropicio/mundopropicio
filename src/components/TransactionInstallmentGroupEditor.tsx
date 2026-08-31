@@ -106,7 +106,7 @@ export function TransactionInstallmentGroupEditor({
   transaction: any;
   canApprove: boolean;
 }) {
-  const { user, isManager } = useAuth();
+  const { user, isManager, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const { data: group = [] } = useInstallmentGroup(transaction);
 
@@ -137,7 +137,9 @@ export function TransactionInstallmentGroupEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.length, originalTotal]);
 
-  const canEdit = canApprove || isManager;
+  // Admin/gestora e quem tem manage_transactions (ex.: editora financeira) podem ajustar
+  // valores e datas do grupo. Destravar parcelas JÁ PAGAS continua restrito a admin/gestora.
+  const canEdit = canApprove || isManager || hasPermission("manage_transactions");
 
   const newTotal = parseFloat(totalInput) || 0;
   const sum = +Object.values(rows).reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2);
@@ -223,7 +225,7 @@ export function TransactionInstallmentGroupEditor({
         const amountChanged = Math.abs(newAmount - r.amount) > 0.001;
         const dueChanged = (r.due_date ?? null) !== newDue;
         if (!amountChanged && !dueChanged) continue;
-        if (rowLocked(r)) throw new Error("Parcela paga travada — destranca antes de gravar (admin).");
+        if (rowLocked(r)) throw new Error("Parcela paga travada — destranca antes de gravar (admin/gestora).");
 
         const patch: any = {};
         if (amountChanged) patch.amount = newAmount;
@@ -335,7 +337,7 @@ export function TransactionInstallmentGroupEditor({
 
       {!canEdit && (
         <p className="text-[11px] text-muted-foreground">
-          Sem permissão para editar as parcelas (admin/manager).
+          Sem permissão para editar as parcelas.
         </p>
       )}
 
