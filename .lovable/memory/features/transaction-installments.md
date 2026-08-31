@@ -221,3 +221,54 @@ AEGON ficou por marcar (0 linhas), como esperado.
 - `EventForecast.tsx` (wizard do BP) — o `scheduleInstallmentsMutation` passa a
   preencher as 3 colunas, pelo que o grupo é reconhecido mesmo sem
   `parent_transaction_id`.
+
+## Ação "Renegociar em parcelas" (2026-08-31)
+
+`src/components/TransactionRenegotiateInstallmentsModal.tsx` — transforma uma
+despesa que existe como **pagamento único** num grupo de N parcelas. Renderiza
+no `TransactionEditModal`, logo abaixo do `TransactionInstallmentGroupEditor`.
+
+### Condições de visibilidade (todas obrigatórias)
+
+- `type = 'expense'`
+- `paid_amount = 0` **e** zero linhas em `transaction_payments` (contagem própria,
+  hook `useCanRenegotiateInstallments`)
+- `installment_group_id IS NULL`
+- `split_percentage IS NULL`
+- `is_reimbursement = false`, `is_transitory = false`
+- não é "Pago por Sócio" (`partner_paid_expenses`) nem "Extra do Sócio"
+  (`partner_advance_expenses`)
+- evento associado não está `completed`
+- `amount > 0`
+- Permissão: **admin ou manager**
+
+### Comportamento
+
+- Reutiliza o `TransactionInstallmentsEditor` (nº parcelas, 1ª data, intervalo,
+  Distribuir igualmente, Ajustar última, validação da soma contra o **bruto**).
+- Diálogo de confirmação em 2 passos: lista parcela a parcela (data + valor),
+  marca a parcela 1 como "transação atual" e avisa que os anexos não são
+  duplicados. Gravação bloqueada enquanto `validateInstallments` falhar.
+- Ao confirmar: gera `installment_group_id` novo; a **original** recebe
+  `installment_number = 1`, `installment_total = N`, o valor (base via
+  `computeInstallmentNets`, 4 casas) e o vencimento da 1ª parcela — mantendo
+  `id`, `forecast_id`, rubrica, fornecedor, ordenador, pagador, conta e anexos.
+- Parcelas 2..N são INSERTs novos com o mesmo `installment_group_id`,
+  `installment_number = i`, `installment_total = N`,
+  `parent_transaction_id = id da original`, `split_percentage = null`, herdando
+  os metadados como o `TransactionFormModal` faz.
+- Sufixo `"(i/N)"` na descrição de todas — cosmético, nunca lido.
+- **Anexos não são duplicados** — ficam na original (parcela 1).
+- Auditoria em `transaction_audit_log`: `Valor (renegociação em parcelas)` e
+  `Data Vencimento (renegociação em parcelas)` na original + uma linha
+  `Criação (renegociação em parcelas)` por parcela criada.
+- Não toca em saldos, fecho de evento, vínculo BP, aprovação nem rateio.
+
+### Reconhecimento pelo editor de grupos
+
+`useInstallmentGroup` segue o caminho canónico `eq('installment_group_id', …)`,
+exige ≥2 membros não transitórios e ordena por vencimento — as parcelas criadas
+aqui cumprem-no, pelo que o `TransactionInstallmentGroupEditor` abre logo com o
+grupo completo e valores/vencimentos editáveis. Confirmado por leitura do hook e
+por query aos 9 grupos em Live (`installment_number` 1..N contínuo,
+`is_transitory = 0`, `split_percentage NULL` em todos).
