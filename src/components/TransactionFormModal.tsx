@@ -2506,6 +2506,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
+            // Utilizado por LINHA de previsão: mesma fonte das linhas L3 (eventTransactions),
+            // agregado pelo vínculo canónico transactions.forecast_id.
+            const usedByForecastId: Record<string, number> = {};
+            eventTransactions.filter((t: any) => t.type === form.type).forEach((t: any) => {
+              if (!t.forecast_id) return;
+              usedByForecastId[t.forecast_id] = (usedByForecastId[t.forecast_id] || 0) + Number(t.amount);
+            });
+
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
               const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
