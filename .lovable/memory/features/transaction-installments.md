@@ -324,3 +324,33 @@ por query aos 9 grupos em Live (`installment_number` 1..N contínuo,
   `TransactionEditModal`, `PaymentTimeline`, `TransactionPaymentsListModal`,
   `TransactionInstallmentGroupEditor` e `TransactionRow`; textos visíveis corrigidos para
   "admin/gestora".
+
+## Rateio: a validação tem de olhar para os DOIS lados (2026-08-31)
+
+A validação `split_percentage IS NULL` protege apenas a **filha** de um rateio —
+é ela que carrega a percentagem. A **mãe** de um rateio tem
+`split_percentage` nulo, exatamente como qualquer despesa normal, pelo que
+passava a validação e podia ser renegociada em parcelas. Consequência provada em
+Live (teste revertido): a mãe descia para o valor da 1ª parcela enquanto as
+filhas continuavam a distribuir o valor original, e as parcelas novas nasciam com
+o mesmo `parent_transaction_id` das filhas de rateio — o mesmo pai com filhos de
+duas naturezas. Em Live havia 14 mães vulneráveis (44.236,45 €).
+
+Regra: **rateio e parcelamento nunca se cruzam, e a verificação é bilateral.**
+
+- Servidor (`renegotiate_transaction_installments`): além de `is_split`, existe
+  `is_split_parent` — recusa se existir alguma transação com
+  `parent_transaction_id = p_transaction_id` **e** `split_percentage IS NOT NULL`.
+  Ambas as validações são necessárias e cobrem lados opostos da relação.
+- Cliente (`useCanRenegotiateInstallments`): consulta `count exact head` a
+  `transactions` por `parent_transaction_id` com `split_percentage` não nulo
+  (mesmo padrão da contagem de `transaction_payments`, `enabled` só quando as
+  restantes condições estruturais passam) e esconde o botão.
+- `translateRpcError` traduz `is_split_parent`.
+- Criação (`TransactionFormModal`): já bloqueava — `useInstallments && isSplit`
+  devolve "Parcelamento não é compatível com rateio entre eventos nesta fase."
+- Verificado em Live com rollback (2026-08-31): mãe de rateio "Despesas de
+  Transporte e Alfândega (volta)" (18.185,38 €, 2 filhas) → RECUSADA com
+  `is_split_parent`; "Barricadas Anti Pânico" (6.431,24 €, sem filhas) → ACEITE,
+  2 linhas no grupo, soma 6.431,24 €. Rollback confirmado (valores e
+  `installment_group_id` intactos).
