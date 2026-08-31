@@ -17,6 +17,7 @@ import { calcTotalWithIva } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
+import { isCapitalCategoryCode } from "@/lib/capital-branch";
 import {
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
@@ -673,15 +674,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Nota: independente do calcBasis — caução é sempre amount líquido (não tem IVA real).
   const transitoryTxsAll = transactions.filter((t: any) => t.is_transitory && (t.status === "approved" || t.status === "paid"));
   const partnerLinkedTxIds = new Set((paidExpenses as any[]).map((pe) => pe.transaction_id));
+  // Movimentos do ramo 10.1 · Capital (AEP) NUNCA são cauções da casa — são aportes,
+  // devoluções de aporte e distribuições de resultado. A exclusão é por RUBRICA (código),
+  // logo não depende de a ponte partner_capital_moves estar preenchida.
+  const isHouseTransitory = (t: any) =>
+    !partnerLinkedTxIds.has(t.id) && !isCapitalCategoryCode(t.account_categories?.code);
   const houseTransitoryExpenses = transitoryTxsAll
-    .filter((t: any) => t.type === "expense" && !partnerLinkedTxIds.has(t.id))
+    .filter((t: any) => t.type === "expense" && isHouseTransitory(t))
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
   const houseTransitoryIncomes = transitoryTxsAll
-    .filter((t: any) => t.type === "income" && !partnerLinkedTxIds.has(t.id))
+    .filter((t: any) => t.type === "income" && isHouseTransitory(t))
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
   const houseTransitoryCredit = Math.max(0, houseTransitoryExpenses - houseTransitoryIncomes);
   const houseTransitoryItems = transitoryTxsAll
-    .filter((t: any) => !partnerLinkedTxIds.has(t.id))
+    .filter((t: any) => isHouseTransitory(t))
     .map((t: any) => ({
       description: t.description || "—",
       amount: Number(t.amount || 0),
