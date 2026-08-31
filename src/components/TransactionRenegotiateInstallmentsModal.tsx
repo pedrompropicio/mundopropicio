@@ -119,113 +119,21 @@ export function TransactionRenegotiateInstallmentsModal({
         baseTotal,
         ivaMultiplier,
       );
-      const groupId = crypto.randomUUID();
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-      const audit: any[] = [];
 
-      // ---- 1) A original passa a ser a parcela 1/N ----
-      const oldAmount = baseTotal;
-      const oldDue = transaction.due_date ?? null;
-      const firstNet = nets[0] ?? 0;
-      const firstDue = rows[0].scheduled_date;
-
-      const rootPatch: any = {
-        description: `${baseDescription} (1/${n})`,
-        amount: firstNet,
-        due_date: firstDue,
-        installment_group_id: groupId,
-        installment_number: 1,
-        installment_total: n,
-      };
-      if (transaction.currency && transaction.currency !== "EUR" && transaction.original_amount != null) {
-        rootPatch.original_amount = +(
-          (Number(transaction.original_amount) * firstNet) / (baseTotal || 1)
-        ).toFixed(2);
-      }
-      const { error: rootErr } = await supabase
-        .from("transactions")
-        .update(rootPatch)
-        .eq("id", transaction.id);
-      if (rootErr) throw rootErr;
-
-      audit.push({
-        transaction_id: transaction.id,
-        changed_by: changedBy,
-        field_name: "Valor (renegociação em parcelas)",
-        old_value: oldAmount.toFixed(2),
-        new_value: Number(firstNet).toFixed(2),
+      // Escrita ATÓMICA no servidor: UPDATE da original + INSERT das parcelas
+      // 2..N + auditoria, tudo numa só transação. As validações (11 condições)
+      // são reavaliadas do lado do servidor — a validação de UI é só feedback.
+      const { data, error } = await supabase.rpc("renegotiate_transaction_installments", {
+        p_transaction_id: transaction.id,
+        p_installments: rows.map((r, i) => ({
+          due_date: r.scheduled_date,
+          amount: nets[i] ?? 0,
+        })),
+        p_changed_by: changedBy,
       });
-      audit.push({
-        transaction_id: transaction.id,
-        changed_by: changedBy,
-        field_name: "Data Vencimento (renegociação em parcelas)",
-        old_value: oldDue ?? "",
-        new_value: firstDue,
-      });
-
-      // ---- 2) Parcelas 2..N ----
-      for (let i = 1; i < n; i++) {
-        const parcelNet = nets[i] ?? 0;
-        const payload: any = {
-          description: `${baseDescription} (${i + 1}/${n})`,
-          type: transaction.type,
-          amount: parcelNet,
-          iva_rate: ivaRate,
-          event_id: transaction.event_id ?? null,
-          category_id: transaction.category_id ?? null,
-          supplier_id: transaction.supplier_id ?? null,
-          account_id: transaction.account_id ?? null,
-          specification: transaction.specification ?? null,
-          date: transaction.date,
-          due_date: rows[i].scheduled_date,
-          status: transaction.status,
-          paid_amount: 0,
-          payment_date: null,
-          is_reimbursement: false,
-          is_transitory: false,
-          exclude_from_result: transaction.exclude_from_result ?? false,
-          invoice_ref: transaction.invoice_ref ?? null,
-          invoice_group_id: transaction.invoice_group_id ?? null,
-          payment_method: transaction.payment_method ?? "transfer",
-          payment_entity: transaction.payment_entity ?? null,
-          payment_reference: transaction.payment_reference ?? null,
-          ordering_partner_id: transaction.ordering_partner_id ?? null,
-          paying_partner_id: transaction.paying_partner_id ?? null,
-          currency: transaction.currency ?? "EUR",
-          fx_rate: transaction.fx_rate ?? null,
-          fx_rate_source: transaction.fx_rate_source ?? null,
-          original_amount:
-            transaction.currency && transaction.currency !== "EUR" && transaction.original_amount != null
-              ? +((Number(transaction.original_amount) * parcelNet) / (baseTotal || 1)).toFixed(2)
-              : null,
-          parent_transaction_id: transaction.id,
-          installment_group_id: groupId,
-          installment_number: i + 1,
-          installment_total: n,
-          split_percentage: null,
-          split_amount: null,
-        };
-        if (transaction.company_id) payload.company_id = transaction.company_id;
-
-        const { data: created, error: sErr } = await supabase
-          .from("transactions")
-          .insert(payload)
-          .select("id")
-          .single();
-        if (sErr) throw sErr;
-        if (created?.id) {
-          audit.push({
-            transaction_id: created.id,
-            changed_by: changedBy,
-            field_name: "Criação (renegociação em parcelas)",
-            old_value: null,
-            new_value: `${baseDescription} (${i + 1}/${n}) — ${Number(rows[i].amount).toFixed(2)} € (bruto) — venc. ${rows[i].scheduled_date}`,
-          });
-        }
-      }
-
-      const { error: aErr } = await supabase.from("transaction_audit_log").insert(audit);
-      if (aErr) console.error("[renegotiate installments audit] failed", aErr);
+      if (error) throw new Error(translateRpcError(error.message));
+      void data;
 
       return n;
     },
