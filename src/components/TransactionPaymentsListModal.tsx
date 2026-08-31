@@ -138,11 +138,17 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
         notes: canFull ? (editForm.notes.trim() || null) : (original?.notes ?? null),
       };
 
-      const { error } = await (supabase as any)
+      const { data: updatedRows, error } = await (supabase as any)
         .from("transaction_payments")
         .update(updateData)
-        .eq("id", paymentId);
+        .eq("id", paymentId)
+        .select("id");
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        // RLS pode recusar sem erro: nunca tocar na transação se a linha não foi escrita.
+        throw new Error("Não foi possível atualizar o pagamento (sem permissão ou linha inexistente). A transação não foi alterada.");
+      }
+
 
       // Recalculate transaction paid_amount
       const newTotalPaid = Math.round((otherPaymentsTotal + newAmount) * 100) / 100;
