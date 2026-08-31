@@ -8,6 +8,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cardBaseFromTotal, cardTotalFromBase, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
+import { normalizeMatchText } from "@/lib/bp-tx-matching";
 
 interface Item {
   id: string;
@@ -86,6 +87,28 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     },
   });
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-active"],
+    enabled: open,
+    queryFn: async () => {
+      const { data } = await supabase.from("suppliers").select("id, name").order("name");
+      return data ?? [];
+    },
+  });
+
+  /**
+   * O cartão guarda o fornecedor como texto livre. Para o agrupamento
+   * automático por fatura funcionar é preciso `supplier_id`: resolvemos por
+   * nome normalizado e só aceitamos correspondência única. Nunca criamos
+   * fornecedores novos.
+   */
+  const resolvedSupplierId = useMemo(() => {
+    const key = normalizeMatchText(supplierName);
+    if (!key) return null;
+    const hits = (suppliers as any[]).filter((sup) => normalizeMatchText(sup.name) === key);
+    return hits.length === 1 ? (hits[0].id as string) : null;
+  }, [suppliers, supplierName]);
+
   const l3Options = useMemo(() => {
     const byId = new Map(categories.map((c: any) => [c.id, c]));
     const isL3 = (c: any) => {
@@ -119,6 +142,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           iva_rate: rate,
           category_id: categoryId,
           account_id: cardAccountId,
+          supplier_id: resolvedSupplierId,
           invoice_ref: invoiceRef.trim() || null,
           event_id: eventId || null,
           date,
@@ -151,7 +175,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
       if (updErr) throw updErr;
 
       // Agrupamento automático por nº de fatura (mesmo padrão do TransactionFormModal).
-      if (invoiceRef.trim()) {
+      // Sem fornecedor resolvido não há agrupamento possível (o helper exige supplier_id).
+      if (invoiceRef.trim() && resolvedSupplierId) {
         const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
         const auto = await autoGroupInvoiceForTransaction(tx.id);
         if (auto) {
@@ -228,6 +253,11 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
             <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            {!resolvedSupplierId && (
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                Sem fornecedor associado, a fatura não é agrupada automaticamente.
+              </p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
