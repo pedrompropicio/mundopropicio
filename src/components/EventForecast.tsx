@@ -1244,6 +1244,8 @@ const descRef = useRef<HTMLInputElement>(null);
       }
 
       const ids: string[] = [];
+      // Identificação estrutural do parcelamento (o sufixo "(n/N)" é cosmético).
+      const installmentGroupId = crypto.randomUUID();
       for (let i = 0; i < preparedInstallments.length; i++) {
         const inst = preparedInstallments[i];
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
@@ -1257,7 +1259,11 @@ const descRef = useRef<HTMLInputElement>(null);
           date: inst.date,
           due_date: inst.date,
           status: txStatus,
+          installment_group_id: installmentGroupId,
+          installment_number: i + 1,
+          installment_total: preparedInstallments.length,
         } as any).select("id").single();
+
         if (error) {
           if ((error as any).code === "23505") {
             throw new Error("Estas parcelas já existem para esta linha do BP. A criação duplicada foi bloqueada.");
