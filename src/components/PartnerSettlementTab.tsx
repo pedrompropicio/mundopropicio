@@ -151,6 +151,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const [expenseCategoryLevel, setExpenseCategoryLevel] = useState<"l2" | "l3">("l2");
   const [includeLiquidityAppendix, setIncludeLiquidityAppendix] = useState(false);
 
+  // Modo de apuramento das quotas: por contrato de cada sócio (default) ou
+  // pela regra geral do evento. Estado local, não persistido.
+  type CalcMode = "contract" | "event";
+  const [calcMode, setCalcMode] = useState<CalcMode>("contract");
+
+
   // Event info (master + cities)
   const { data: event } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -722,11 +728,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const revenue = revenueBase;
     // BASE EFETIVA DO SÓCIO: override do sócio, com o contrato do evento como omissão.
     // O seletor de vista (basis.withVat) NÃO entra aqui (D-ERP4/D-ERP9).
-    const override = p.expense_includes_iva === null || p.expense_includes_iva === undefined
+    // O modo de apuramento escolhido pelo utilizador pode forçar a regra geral do
+    // evento ou respeitar o contrato individual. Em modo "contract", a casa
+    // (Mundo Propício) apura sempre s/IVA por convenção da empresa gestora.
+    const rawOverride = p.expense_includes_iva === null || p.expense_includes_iva === undefined
       ? null
       : !!p.expense_includes_iva;
+    const override = calcMode === "event" ? null : (isHouse ? false : rawOverride);
     const usesGrossExpenses = partnerUsesGrossExpenses(calcBasis, override);
-    const expenseBasisLabel = describePartnerExpenseBasis(calcBasis, override);
+    const expenseBasisLabel = isHouse && calcMode === "contract"
+      ? "Despesas s/IVA · convenção da empresa gestora"
+      : describePartnerExpenseBasis(calcBasis, override);
+
     const expenses = ignoresOperationalExpenses(calcBasis)
       ? 0
       : (usesGrossExpenses ? totalExpensesGross : totalExpensesNet);
@@ -904,10 +917,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
     y += 5;
     doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
+    y += 5;
+    doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     doc.setTextColor(0);
     y += 8;
     doc.setTextColor(0);
     y += 8;
+
 
     // ===== 1. RESUMO FINANCEIRO =====
     // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
@@ -1806,8 +1822,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="l3">Despesas: Nível 3 (detalhe)</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={calcMode} onValueChange={(v) => setCalcMode(v as CalcMode)}>
+            <SelectTrigger className="h-8 w-[300px] text-xs">
+              <SelectValue placeholder="Apuramento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="contract">Apuramento: por contrato de cada socio</SelectItem>
+              <SelectItem value="event">Apuramento: pela regra geral do evento</SelectItem>
+            </SelectContent>
+          </Select>
           <FechoBasisSelector basis={basis} />
           <Button size="sm" variant="outline" onClick={exportPdf}>
+
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
           </Button>
         </div>
