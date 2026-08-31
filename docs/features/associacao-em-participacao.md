@@ -28,8 +28,11 @@ As transações de capital são marcadas `is_transitory = true` **automaticament
 
 Efeito:
 
-- `is_transitory = true` → **fora do resultado** (DRE / P&L / Fecho / cards) mas **dentro da tesouraria** (`computeBalance`, `get_event_cash_position` não filtram `is_transitory`).
+- `is_transitory = true` → **fora do resultado** (DRE / P&L / Fecho / cards do evento, **nos dois lados** — receita e despesa) mas **dentro da tesouraria** (`computeBalance`, `get_event_cash_position` não filtram `is_transitory`).
+- Correção 2026-08-31: em `src/pages/EventDetail.tsx` o filtro `!is_transitory` só existia no lado da despesa, pelo que os Aportes (income) inflacionavam Receita e Lucro dos cards (caso real: "Henry & Klauss - Madrid", 149.813,87 €). Agora `incomeTransactions` aplica o mesmo filtro, e o gráfico de despesas por categoria já usava só as operacionais.
 - Diferença face a `exclude_from_result`: esse **não** é filtrado nos cards do `EventDetail`, por isso o mecanismo de capital usa `is_transitory` (é o único filtrado em todas as superfícies de resultado).
+- Cauções (`PartnerSettlementTab`): o crédito de cauções da casa **exclui todas as transações do ramo `10.1.*`** por código de rubrica (`isCapitalCategoryCode`), independentemente de existir vínculo em `partner_capital_moves`. Antes, uma devolução de aporte por vincular era lida como caução da Mundo Propício e um aporte como devolução de caução.
+
 
 ## Sócios (`event_partners`)
 
