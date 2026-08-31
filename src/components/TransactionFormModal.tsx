@@ -2613,12 +2613,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                         : "hover:bg-muted/40"
                                     }`}
                                   >
-                                    <td className="py-1.5 pr-2 pl-4">
-                                      <span className="text-muted-foreground mr-1">{detail.catCode}</span>
-                                      {detail.catName}
-                                      {hasMultipleLines && (
-                                        <span className="ml-1 text-[9px] md:text-[11px] text-muted-foreground">({detail.lines.length} linhas)</span>
-                                      )}
+                                    <td className="py-1.5 pr-2 pl-4 min-w-0 max-w-[240px] md:max-w-[380px]">
+                                      <div className="truncate" title={`${detail.catCode} ${detail.catName}`}>
+                                        <span className="text-muted-foreground mr-1">{detail.catCode}</span>
+                                        {detail.catName}
+                                        {hasMultipleLines && (
+                                          <span className="ml-1 text-[9px] md:text-[11px] text-muted-foreground">({detail.lines.length} linhas)</span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
                                     <td className="py-1.5 text-right font-mono">{detail.used.toFixed(2)}€</td>
