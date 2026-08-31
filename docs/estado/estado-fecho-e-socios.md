@@ -1,6 +1,12 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-08-30 · Issues: #82 · a-seguir #64+#65, #85 · P0 aberto: #64
+Atualizado: 2026-08-31 · Issues: #82 · a-seguir #64+#65, #85 · P0 aberto: #64
+
+## Nota 2026-08-31
+Card "Custos" (modo Previsto + excedido) e Fecho agora expõem a composição do overhead sem alterar totais:
+- Card mostra sublinha "Overhead" quando +OH está ligado.
+- Fecho rotula "Despesas operacionais (s/ overhead)" e exibe "Despesas totais (operacionais + overhead)" na Síntese Final quando +OH ligado.
+- Totais inalterados; cálculos não mexidos.
 
 ## Em que pé está
 O apuramento real acontece **fora do ERP**, em planilha (gerador v15 para a Anitta). O ecrã de Fecho calcula o nível 1 e **não é confiável para o acerto** — ver #64. A Anitta está apurada e conferida, **não sacramentada**: apresentação aos sócios na semana de 31/08. A Ivete ainda não fechou.
