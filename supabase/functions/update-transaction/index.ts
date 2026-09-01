@@ -375,12 +375,18 @@ Deno.serve(async (req) => {
           // Audit log on each sibling
           const auditOnSiblings = siblingIds.map((sid: string) => ({
             transaction_id: sid,
+            company_id: transaction.company_id,
             changed_by: callerName,
             field_name: "Propagação grupo-fatura",
             old_value: null,
             new_value: `Atualizado em conjunto com transação ${transaction_id}`,
           }));
-          await adminClient.from("transaction_audit_log").insert(auditOnSiblings);
+          const { error: siblingsAuditError } = await adminClient
+            .from("transaction_audit_log")
+            .insert(auditOnSiblings);
+          if (siblingsAuditError) {
+            console.error("[update-transaction] audit siblings error:", siblingsAuditError);
+          }
         }
       }
     }
