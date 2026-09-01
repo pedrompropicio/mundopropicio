@@ -1496,12 +1496,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 5. FECHO DE BILHETEIRA =====
+    // ===== FECHO DE BILHETEIRA =====
     if (boxOfficeRows.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("6. Fecho de Bilheteiras / Recintos", margin, y);
+      doc.text(secTitle("Fecho de Bilheteiras / Recintos"), margin, y);
       y += 5;
       autoTable(doc, {
         startY: y,
@@ -1521,14 +1521,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 6. DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
+    // ===== DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
     if (expenseByCategory.length > 0) {
       doc.addPage();
       y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
-      doc.text(`7. Despesas por Categoria ${lvlLabel}`, margin, y);
+      doc.text(secTitle(`Despesas por Categoria ${lvlLabel}`), margin, y);
       y += 5;
 
       // Larguras explícitas (uma única coluna de valor c/IVA)
