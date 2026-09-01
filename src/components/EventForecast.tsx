@@ -1810,7 +1810,7 @@ const descRef = useRef<HTMLInputElement>(null);
     const catIds = new Set<string>();
     for (const t of txs) {
       if (t.type !== type || !t.category_id) continue;
-      if (!(t.event_id === eventId || t.event_id === null)) continue;
+      if (t.event_id !== eventId) continue;
       catIds.add(t.category_id);
     }
     const out: any[] = [];
