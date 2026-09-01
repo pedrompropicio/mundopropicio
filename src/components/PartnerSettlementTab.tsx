@@ -1868,7 +1868,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(`Página ${p}/${totalPages}`, pageW - margin, pageH - 6, { align: "right" });
     }
 
-    doc.save(`Fecho_${eventName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+    const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");
+    doc.save(solo ? `Fecho_${safe(eventName)}_${safe(solo.partnerName)}.pdf` : `Fecho_${safe(eventName)}.pdf`);
   }
 
   return (
