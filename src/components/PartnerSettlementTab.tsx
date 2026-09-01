@@ -1825,7 +1825,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       // O que sobra do caixa depois de servir os sócios externos fica retido na MP
       // (a tabela acima usa externalSettlements e exclui a casa).
-      if (remainingCash > 0) {
+      if (!solo && remainingCash > 0) {
         autoTable(doc, {
           startY: y,
           body: [["Retido na Mundo Propício (não distribuído)", formatCurrency(remainingCash)]],
