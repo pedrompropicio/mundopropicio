@@ -1771,16 +1771,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       autoTable(doc, {
         startY: y,
         head: [["Sócio", "Caixa\nDisponível (€)", "Despesas Pagas\n(Pagas pelo Sócio) (€)", "Resultado Evento\n(Lucro ou Prejuízo) (€)", "Total\n(€)", "Caixa Disponível\n(Liquidez) (€)", "Saldo Pendente\n(€)"]],
-        body: liquidityRows.map((row) => [
-          row.partnerName,
-          formatLiquidityAmount(row.reimbursableNow),
-          formatLiquidityAmount(row.reimbursableNow + row.reimbursablePending),
-          formatLiquidityAmount(row.resultPayableNow + row.resultPending),
-          formatLiquidityAmount(row.totalDue),
-          formatLiquidityAmount(row.totalNow),
-          formatLiquidityAmount(row.totalPending),
-        ]),
-        foot: [[
+        body: liquidityRows
+          // A cascata de caixa é sempre calculada com todos os sócios; na variante
+          // individual apenas se imprime a linha do destinatário.
+          .filter((row) => !solo || row.partnerName === solo.partnerName)
+          .map((row) => [
+            row.partnerName,
+            formatLiquidityAmount(row.reimbursableNow),
+            formatLiquidityAmount(row.reimbursableNow + row.reimbursablePending),
+            formatLiquidityAmount(row.resultPayableNow + row.resultPending),
+            formatLiquidityAmount(row.totalDue),
+            formatLiquidityAmount(row.totalNow),
+            formatLiquidityAmount(row.totalPending),
+          ]),
+        foot: solo ? [] : [[
           "TOTAL",
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow, 0)),
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow + row.reimbursablePending, 0)),
