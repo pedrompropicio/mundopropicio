@@ -670,6 +670,39 @@ function drawForecastTable(
       },
     ]];
 
+    if (orphans.length > 0) {
+      foot.push([
+        {
+          content: "Transações sem linha de BP",
+          colSpan: 6,
+          styles: {
+            halign: "left" as const, fontStyle: "bold" as const,
+            fillColor: [240, 240, 245] as [number, number, number],
+            textColor: [40, 40, 60] as [number, number, number],
+          },
+        },
+        {
+          content: fmt(orphanBase),
+          styles: {
+            halign: "right" as const, fontStyle: "bold" as const,
+            fillColor: [240, 240, 245] as [number, number, number],
+            textColor: [40, 40, 60] as [number, number, number],
+          },
+        },
+        { content: "", styles: { fillColor: [240, 240, 245] as [number, number, number] } },
+        {
+          content: fmt(orphanTotal),
+          styles: {
+            halign: "right" as const, fontStyle: "bold" as const,
+            fillColor: [240, 240, 245] as [number, number, number],
+            textColor: [40, 40, 60] as [number, number, number],
+          },
+        },
+      ] as any);
+    }
+
+
+
     autoTable(doc, {
       head, body, foot,
       startY: y,
