@@ -42,7 +42,9 @@ const BilheteiraSyncDigestEmail = ({
   alertCount = 0,
 }: Props) => (
   <Html lang="pt" dir="ltr">
-    <Head />
+    <Head>
+      <meta charSet="utf-8" />
+    </Head>
     <Preview>
       Atualizações automáticas de bilheteira no portal ({events.length} evento
       {events.length === 1 ? '' : 's'})

@@ -2,6 +2,7 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { sanitizeRenderedEmail } from '../_shared/transactional-email-templates/sanitize.ts'
 
 // Configuration baked in at scaffold time
 const SITE_NAME = "MP Gestão Eventos"
@@ -290,6 +291,22 @@ Deno.serve(async (req) => {
       ? template.subject(templateData)
       : template.subject
 
+  // 4b. Guarda em runtime: normaliza NFC e remove invisíveis. Nunca bloqueia o envio.
+  const sanHtml = sanitizeRenderedEmail(html)
+  const sanText = sanitizeRenderedEmail(plainText)
+  const sanSubject = sanitizeRenderedEmail(String(resolvedSubject ?? ''))
+  const sanitizeFindings = [
+    ...sanHtml.findings.map((f) => `html:${f}`),
+    ...sanText.findings.map((f) => `text:${f}`),
+    ...sanSubject.findings.map((f) => `subject:${f}`),
+  ]
+  if (sanitizeFindings.length > 0) {
+    console.warn('[send-transactional-email] texto saneado', {
+      templateName,
+      findings: sanitizeFindings,
+    })
+  }
+
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
 
@@ -308,9 +325,9 @@ Deno.serve(async (req) => {
       to: effectiveRecipient,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
-      subject: resolvedSubject,
-      html,
-      text: plainText,
+      subject: sanSubject.out,
+      html: sanHtml.out,
+      text: sanText.out,
       purpose: 'transactional',
       label: templateName,
       idempotency_key: idempotencyKey,

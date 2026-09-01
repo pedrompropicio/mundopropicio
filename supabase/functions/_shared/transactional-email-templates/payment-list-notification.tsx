@@ -37,7 +37,9 @@ const PaymentListNotificationEmail = ({
   appUrl = '',
 }: PaymentListNotificationProps) => (
   <Html lang="pt" dir="ltr">
-    <Head />
+    <Head>
+      <meta charSet="utf-8" />
+    </Head>
     <Preview>Nova lista de pagamento aguarda aprovação — {listTitle}</Preview>
     <Body style={main}>
       <Container style={container}>
