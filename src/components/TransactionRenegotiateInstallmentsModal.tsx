@@ -193,6 +193,7 @@ export function TransactionRenegotiateInstallmentsModal({
       queryClient.invalidateQueries({ queryKey: ["installment-group"] });
       toast({ title: `Renegociado em ${n} parcelas` });
       onClose();
+      onSuccess?.();
     },
     onError: (e: any) =>
       toast({
