@@ -104,12 +104,50 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
 
   const linkByTx = new Map<string, any>((links as any[]).map((l) => [l.transaction_id, l]));
 
+  /** Destino escolhido antes de gravar o vínculo (por transação). */
+  const [flowByTx, setFlowByTx] = useState<Record<string, CapitalFlow>>({});
+
+  // Transações OPERACIONAIS (fora do ramo 10.1) — leitura para o equilíbrio de financiamento
+  const { data: opTxs = [] } = useQuery({
+    queryKey: ["partner-capital-op-txs", eventId, subEventIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, amount, paid_amount, type, status, is_transitory, is_hidden, reversed_at, account_categories(code)")
+        .in("event_id", treeIds);
+      if (error) throw error;
+      return (data ?? []).filter(
+        (t: any) =>
+          !isCapitalCategoryCode(t.account_categories?.code) &&
+          !t.is_transitory &&
+          !t.is_hidden &&
+          !t.reversed_at,
+      );
+    },
+    enabled: treeIds.length > 0,
+  });
+
+  // Despesas pagas por cada sócio (base líquida)
+  const { data: paidExpenses = [] } = useQuery({
+    queryKey: ["partner-capital-paid-expenses", eventId, subEventIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("partner_id, transactions(amount)")
+        .in("event_id", treeIds)
+        .eq("status", "approved");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: treeIds.length > 0,
+  });
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["partner-capital-moves", eventId] });
   };
 
   const linkMutation = useMutation({
-    mutationFn: async ({ tx, partnerId }: { tx: any; partnerId: string }) => {
+    mutationFn: async ({ tx, partnerId, flow }: { tx: any; partnerId: string; flow: CapitalFlow }) => {
       const kind = capitalKindFromCode(tx.account_categories?.code);
       if (!kind) {
         throw new Error(
@@ -121,9 +159,11 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
         partner_id: partnerId,
         transaction_id: tx.id,
         kind,
+        flow,
       } as any);
       if (error) throw error;
     },
+
     onSuccess: () => {
       invalidate();
       toast({ title: "Movimento de capital vinculado ao sócio" });
