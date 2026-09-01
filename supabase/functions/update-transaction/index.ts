@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         const oldVal = String(transaction.description ?? "");
         const newVal = String(updates.description ?? "");
         if (oldVal !== newVal) {
-          auditEntries.push({ transaction_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
+          auditEntries.push({ transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
         }
       }
 
