@@ -947,7 +947,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("1. Resumo Financeiro", margin, y);
+    doc.text(secTitle("Resumo Financeiro"), margin, y);
     y += 5;
 
     autoTable(doc, {
@@ -980,12 +980,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     y += 2;
 
-    // ===== 2. QUEBRA POR CIDADE (turnê) =====
+    // ===== QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("2. Quebra por Cidade", margin, y);
+      doc.text(secTitle("Quebra por Cidade"), margin, y);
       y += 5;
       const cityCol1 = 60;
       const cityValW = (tableWidth - cityCol1) / 3;
