@@ -96,7 +96,7 @@ export function findMatchingTransactionsForForecast(
   })();
 
   const allowedEventIds = new Set(
-    [forecast?.event_id, null, forecast?._master_event_id].filter((v) => v !== undefined),
+    [forecast?.event_id, forecast?._master_event_id].filter((v) => v != null),
   );
   const scoped = eventTransactions.filter((t: any) => allowedEventIds.has(t.event_id));
 
