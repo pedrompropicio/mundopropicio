@@ -1021,11 +1021,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
+    // ===== DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
     ensureSpace(50);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("3. Distribuição aos Sócios", margin, y);
+    doc.text(secTitle("Distribuição aos Sócios"), margin, y);
     y += 5;
     autoTable(doc, {
       startY: y,
@@ -1036,14 +1036,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         formatCurrency(s.partnerShare),
         formatCurrency(s.resultRepasseNow),
         formatCurrency(s.totalPaidByPartner),
-        `-${formatCurrency(s.totalPartnerExtras)}`,
+        fmtExtras(s.totalPartnerExtras),
         formatCurrency(s.operationalSettlement),
       ]),
-      foot: [["TOTAL", "100%",
+      foot: [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.resultRepasseNow, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        fmtExtras(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.operationalSettlement, 0)),
       ]],
       margin: { left: margin, right: margin },
