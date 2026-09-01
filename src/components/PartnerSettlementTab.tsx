@@ -1640,11 +1640,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 const l2Count = rowsL2.reduce((s, r) => s + r.count, 0);
                 const l2Gross = rowsL2.reduce((s, r) => s + r.amountGross, 0);
                 body.push({
-                  row: [
-                    `    ${first.l2Code} ${first.l2Name}`.trim(),
-                    l2Count.toString(),
-                    formatCurrency(l2Gross),
-                  ],
+                  row: expRow(`    ${first.l2Code} ${first.l2Name}`.trim(), l2Count, l2Gross),
                   style: "l2",
                 });
               }
@@ -1654,11 +1650,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 rowsL2.forEach((r) => {
                   if (r.l3Code === r.l2Code && r.l3Name === r.l2Name) return; // sem nível 3 real
                   body.push({
-                    row: [
-                      `        ${r.l3Code} ${r.l3Name}`.trim(),
-                      r.count.toString(),
-                      formatCurrency(r.amountGross),
-                    ],
+                    row: expRow(`        ${r.l3Code} ${r.l3Name}`.trim(), r.count, r.amountGross),
                     style: "l3",
                   });
                 });
@@ -1671,12 +1663,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       autoTable(doc, {
         startY: y,
-        head: [["Categoria", "Lançamentos", "Despesas"]],
+        head: [solo
+          ? ["Categoria", "Lançamentos", "Despesas", "A sua parte"]
+          : ["Categoria", "Lançamentos", "Despesas"]],
         body: body.map((b) => b.row),
-        foot: [["TOTAL",
-          grandCount.toString(),
-          formatCurrency(grandGross),
-        ]],
+        foot: [solo
+          ? ["TOTAL", grandCount.toString(), formatCurrency(grandGross), formatCurrency(share(grandGross))]
+          : ["TOTAL", grandCount.toString(), formatCurrency(grandGross)]],
         showFoot: "lastPage",
         margin: { left: margin, right: margin },
         tableWidth,
@@ -1687,6 +1680,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           0: { cellWidth: expCol1, halign: "left" },
           1: { cellWidth: expColC, halign: "right" },
           2: { cellWidth: expColV, halign: "right" },
+          ...(solo ? { 3: { cellWidth: expColV, halign: "right" as const, fontStyle: "bold" as const } } : {}),
         },
         didParseCell: (data) => {
           if (data.section !== "body") return;
