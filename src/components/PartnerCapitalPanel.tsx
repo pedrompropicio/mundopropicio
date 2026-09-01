@@ -445,26 +445,48 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
                       {kind ? <Badge variant="outline" className="text-[10px]">{KIND_LABEL[kind]}</Badge> : "—"}
                     </TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(Number(tx.amount || 0))}</TableCell>
-                    <TableCell className="min-w-[200px]">
+                    <TableCell className="min-w-[240px]">
                       {link ? (
-                        <span className="text-sm">
-                          {(partners as any[]).find((p) => p.id === link.partner_id)?.suppliers?.name ?? "—"}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm">
+                            {(partners as any[]).find((p) => p.id === link.partner_id)?.suppliers?.name ?? "—"}
+                          </span>
+                          <Badge variant="secondary" className="text-[10px] font-normal">
+                            {FLOW_LABEL[(link.flow as CapitalFlow) ?? "event_cash"] ?? FLOW_LABEL.event_cash}
+                          </Badge>
+                        </div>
                       ) : canEdit ? (
-                        <SearchableSelect
-                          options={(partners as any[]).map((p) => ({
-                            value: p.id,
-                            label: `${p.suppliers?.name} (${p.percentage}%)`,
-                          }))}
-                          value=""
-                          onValueChange={(partnerId) => linkMutation.mutate({ tx, partnerId })}
-                          placeholder="Vincular a sócio…"
-                          searchPlaceholder="Pesquisar sócio…"
-                        />
+                        <div className="space-y-1.5">
+                          <Select
+                            value={flowByTx[tx.id] ?? "event_cash"}
+                            onValueChange={(v) => setFlowByTx((s) => ({ ...s, [tx.id]: v as CapitalFlow }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="event_cash">{FLOW_LABEL.event_cash}</SelectItem>
+                              <SelectItem value="partner_settlement">{FLOW_LABEL.partner_settlement}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <SearchableSelect
+                            options={(partners as any[]).map((p) => ({
+                              value: p.id,
+                              label: `${p.suppliers?.name} (${p.percentage}%)`,
+                            }))}
+                            value=""
+                            onValueChange={(partnerId) =>
+                              linkMutation.mutate({ tx, partnerId, flow: flowByTx[tx.id] ?? "event_cash" })
+                            }
+                            placeholder="Vincular a sócio…"
+                            searchPlaceholder="Pesquisar sócio…"
+                          />
+                        </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">Sem vínculo</span>
                       )}
                     </TableCell>
+
                     {canEdit && (
                       <TableCell>
                         {link && (
