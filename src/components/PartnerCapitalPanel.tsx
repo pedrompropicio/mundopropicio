@@ -518,7 +518,10 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
           operacional nesta fase.
         </p>
       </div>
+
+      {financingBlock}
     </div>
+
   );
 }
 
