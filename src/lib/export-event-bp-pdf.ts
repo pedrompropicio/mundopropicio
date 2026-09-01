@@ -429,6 +429,8 @@ function drawForecastTable(
   transactions: TxRow[],
   auditLogs: AuditLog[],
   accent: [number, number, number],
+  eventId: string,
+  masterEventId: string | null,
 ): number {
   const { doc, marginLeft, contentWidth } = ctx;
   if (forecasts.length === 0) {
