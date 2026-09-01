@@ -968,29 +968,59 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(secTitle("Resumo Financeiro"), margin, y);
     y += 5;
 
-    autoTable(doc, {
-      startY: y,
-      head: [["", "Valor"]],
-      body: [
-        ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
-        ["Resultado", formatCurrency(resultGross)],
-      ],
+    if (solo) {
+      // Variante individual: base da despesa e resultado seguem a BASE EFETIVA do destinatário,
+      // não o seletor de vista. A 3.ª coluna é a quota-parte dele (resultado × pct = partnerShare).
+      const expForRecipient = solo.usesGrossExpenses ? totalExpensesGross : totalExpensesNet;
+      const resForRecipient = solo.result;
+      const soloLabelW = 96;
+      const soloValW = (tableWidth - soloLabelW) / 2;
+      autoTable(doc, {
+        startY: y,
+        head: [["", "Evento", `A sua parte (${solo.effectivePercentage}%)`]],
+        body: [
+          ["Receita (s/IVA)", formatCurrency(revenueBase), formatCurrency(share(revenueBase))],
+          [`Despesas (${solo.usesGrossExpenses ? "c/IVA" : "s/IVA"})`, formatCurrency(expForRecipient), formatCurrency(share(expForRecipient))],
+          ["Resultado", formatCurrency(resForRecipient), formatCurrency(share(resForRecipient))],
+        ],
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: soloLabelW, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: soloValW, halign: "right" },
+          2: { cellWidth: soloValW, halign: "right", fontStyle: "bold" },
+        },
+      });
+    } else {
+      autoTable(doc, {
+        startY: y,
+        head: [["", "Valor"]],
+        body: [
+          ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
+          [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
+          ["Resultado", formatCurrency(resultGross)],
+        ],
 
-      margin: { left: margin, right: margin },
-      tableWidth,
-      styles: { fontSize: 9, cellPadding: 2.5 },
-      headStyles: { fillColor: [41, 41, 41], halign: "right" },
-      columnStyles: {
-        0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
-        1: { cellWidth: valueColW, halign: "right" },
-      },
-    });
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: valueColW, halign: "right" },
+        },
+      });
+    }
     y = (doc as any).lastAutoTable.finalY + 4;
     if (hasMixedExpenseBases) {
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "normal");
-      const lines = doc.splitTextToSize(mixedBasesNote, pageW - margin * 2);
+      const noteText = solo
+        ? `Os socios deste evento tem bases de apuramento diferentes conforme contrato. Este relatorio esta integralmente na base aplicavel a ${solo.partnerName}. A soma das quotas dos socios nao corresponde ao resultado de nenhuma das bases isoladamente.`
+        : mixedBasesNote;
+      const lines = doc.splitTextToSize(noteText, pageW - margin * 2);
       doc.text(lines, margin, y);
       y += lines.length * 3.4 + 2;
       doc.setFontSize(9);
