@@ -162,7 +162,7 @@ export function findCategoryOrphanTransactions(params: {
   const { categoryId, type, eventId, masterEventId, transactions, allForecasts } = params;
   if (!categoryId || !transactions?.length) return [];
 
-  const allowedEventIds = new Set([eventId, null, masterEventId ?? undefined].filter((v) => v !== undefined));
+  const allowedEventIds = new Set([eventId, masterEventId].filter((v) => v != null));
   const sameCat = transactions.filter(
     (t: any) => t.category_id === categoryId && t.type === type && allowedEventIds.has(t.event_id),
   );
