@@ -7979,6 +7979,7 @@ export type Database = {
           company_id: string
           created_at: string
           event_id: string
+          flow: string
           id: string
           kind: string
           partner_id: string
@@ -7989,6 +7990,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           event_id: string
+          flow?: string
           id?: string
           kind: string
           partner_id: string
@@ -7999,6 +8001,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           event_id?: string
+          flow?: string
           id?: string
           kind?: string
           partner_id?: string
