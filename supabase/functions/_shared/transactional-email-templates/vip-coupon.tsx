@@ -46,7 +46,9 @@ const VipCouponEmail = ({
   isReminder = false,
 }: Props) => (
   <Html lang="pt" dir="ltr">
-    <Head />
+    <Head>
+      <meta charSet="utf-8" />
+    </Head>
     <Preview>
       {isReminder
         ? `O teu cupom para ${eventName} expira a ${validUntil}`

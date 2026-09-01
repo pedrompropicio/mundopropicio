@@ -32,7 +32,9 @@ const SecurityAlertEmail = ({
   timestamp = new Date().toLocaleString('pt-PT'),
 }: SecurityAlertProps) => (
   <Html lang="pt" dir="ltr">
-    <Head />
+    <Head>
+      <meta charSet="utf-8" />
+    </Head>
     <Preview>⚠️ Alerta de segurança — {SITE_NAME}</Preview>
     <Body style={main}>
       <Container style={container}>
