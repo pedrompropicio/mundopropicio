@@ -925,11 +925,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     doc.setTextColor(0);
     y += 8;
-    doc.setTextColor(0);
-    y += 8;
 
 
-    // ===== 1. RESUMO FINANCEIRO =====
+    // ===== RESUMO FINANCEIRO =====
     // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
     const tableWidth = pageW - margin * 2;
     const labelColW = 130;
