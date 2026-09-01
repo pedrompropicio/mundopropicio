@@ -2,7 +2,7 @@
 
 > Documento vivo. Fonte de verdade de COMO o sistema funciona e ONDE vive cada coisa.
 > Mantido no lugar (não é diário). Pendências vivem nas GitHub Issues; o PORQUÊ das decisões vive em DECISIONS.md.
-> Última atualização: 26/jun/2026.
+> Última atualização: 01/set/2026.
 
 ## 1. O que é
 MP Gestão Eventos — SaaS multi-tenant de gestão de eventos (ticketing, BP, simulador financeiro, A&B, patrocínios, financeiro). MP Audience — módulo interno de audience/marketing intelligence para campanhas Meta de artistas brasileiros. Owner: Pedro Neto / Mundo Propício (produção de eventos em Portugal e Brasil).
@@ -76,10 +76,16 @@ Valores actuais de referência na app:
 - `SelectContent` base: `z-[70]`
 - `Dialog` (Radix): `z-[50]`
 - `PopoverContent` base: `z-[100]`
-- Overlays manuais em `createPortal` (ex.: TransactionRenegotiateInstallmentsModal): `z-[110]`
+- Overlays manuais em `createPortal` (ex.: TransactionEditModal, TransactionFormModal, TransactionDocumentsModal): `z-[100]`
+- Overlays manuais em `createPortal` acima do patamar base (ex.: TransactionRenegotiateInstallmentsModal): `z-[110]`
 - Popovers/Selects que vivem dentro de overlays manuais: `z-[120]`
 
-Porquê: Radix renderiza `PopoverContent` e `SelectContent` no `document.body` via portal, ficando irmãos do overlay, não descendentes. Não conta herança de stacking context — é pura aritmética de `z-index`. O `DatePicker` dentro de overlays `z-[100]` funciona por empate resolvido pela ordem do DOM, mas qualquer overlay criado acima de `z-[100]` exige subir também os popovers/selects que abre, caso a caso (`z-[120]` no TransactionInstallmentsEditor para o modal de renegociação em parcelas).
+Porquê: Radix renderiza `PopoverContent` e `SelectContent` no `document.body` via portal, ficando irmãos do overlay, não descendentes. Não conta herança de stacking context — é pura aritmética de `z-index`. O `DatePicker` dentro de overlays `z-[100]` funciona por empate resolvido pela ordem do DOM, mas qualquer overlay criado acima de `z-[100]` exige subir também os popovers/selects que abre, caso a caso (`z-[120]` no TransactionInstallmentsEditor para o modal de renegociação em parcelas, `z-[120]` no popover "documentos contábeis" do TransactionDocumentsModal).
+
+> **AVISO — `.glass` + `backdrop-filter` quebram `position: fixed`.**
+> O `.glass` usa `backdrop-blur`, e um `backdrop-filter != none` torna o elemento **containing block** dos descendentes `position: fixed`. Um modal `fixed` renderizado **INLINE** dentro de um cartão `.glass` ancora-se ao cartão e não ao viewport — o scrim cobre apenas o cartão e o conteúdo cai fora de vista ("tela preta"). **Nenhum z-index resolve isto.** Modais renderizados dentro de listas/cartões **TÊM de usar `createPortal` para `document.body`**.
+> Caso real: `TransactionDocumentsModal` invocado do BP (`EventForecast.tsx`, ForecastRow/OrphanBucketRow) dentro do cartão `.glass` — abria fora do ecrã. Contraste: `TransactionEditModal`, chamado da mesma linha, sempre funcionou porque porta para o `body`. Bónus: o portal também corrige o HTML inválido de um `<div>` irmão de `<tr>` dentro de `<tbody>`.
+
 
 
 ## 8. Regras de operação do Pedro
