@@ -208,6 +208,144 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
 
   const hasAny = summary.some((s) => s.aportes || s.devolucoes || s.distribuicoes);
 
+  // ————— Equilíbrio de financiamento (leitura; não altera o resumo nem o acerto) —————
+  const OP_EXPENSE_STATUS = ["approved", "paid", "partially_paid"];
+  const OP_INCOME_STATUS = ["approved", "paid"];
+  const opExpenses = (opTxs as any[]).filter((t) => t.type === "expense");
+  const opIncome = (opTxs as any[]).filter((t) => t.type === "income");
+
+  const despesaPaga = opExpenses.reduce((s, t) => s + Number(t.paid_amount || 0), 0);
+  const despesaTotal = opExpenses
+    .filter((t) => OP_EXPENSE_STATUS.includes(t.status))
+    .reduce((s, t) => s + Number(t.amount || 0), 0);
+  const receitaRecebida = opIncome
+    .filter((t) => OP_INCOME_STATUS.includes(t.status))
+    .reduce((s, t) => s + Number(t.amount || 0), 0);
+
+  const necessidadeAtual = Math.max(0, despesaPaga - receitaRecebida);
+  const necessidadeTotal = Math.max(0, despesaTotal - receitaRecebida);
+
+  const paidByPartner = new Map<string, number>();
+  (paidExpenses as any[]).forEach((pe) => {
+    const v = Number(pe.transactions?.amount || 0);
+    paidByPartner.set(pe.partner_id, (paidByPartner.get(pe.partner_id) ?? 0) + v);
+  });
+
+  /** Aportes por flow (para o bloco Caixa do evento). */
+  let aportesEventCash = 0;
+  let settlementMoves = 0;
+  (capitalTxs as any[]).forEach((tx) => {
+    const link = linkByTx.get(tx.id);
+    if (!link) return;
+    const v = Number(tx.amount || 0);
+    if (link.flow === "partner_settlement") settlementMoves += v;
+    else if (link.kind === "aporte") aportesEventCash += v;
+  });
+
+  const entrouNoEvento = aportesEventCash + receitaRecebida;
+  const financiadoPelaMP = despesaPaga - entrouNoEvento;
+
+  const externalRows = (partners as any[]).map((p) => {
+    const s = summary.find((x) => x.partnerId === p.id);
+    const pos = (s?.aportes ?? 0) - (s?.devolucoes ?? 0) + (paidByPartner.get(p.id) ?? 0);
+    return { id: p.id, name: p.suppliers?.name ?? "—", pct: Number(p.percentage || 0), pos, isHouse: false };
+  });
+
+  const housePct = computeHousePercentage(partners as any[]);
+  const financingRows = [...externalRows];
+  if (housePct != null) {
+    const posCasa = necessidadeAtual - externalRows.reduce((s, r) => s + r.pos, 0);
+    financingRows.push({
+      id: HOUSE_PARTNER_ID,
+      name: HOUSE_PARTNER_NAME,
+      pct: housePct,
+      pos: posCasa,
+      isHouse: true,
+    });
+  }
+
+  const financing = financingRows.map((r) => {
+    const competia = (r.pct / 100) * necessidadeAtual;
+    return {
+      ...r,
+      competia,
+      desvio: r.pos - competia,
+      faltaAteAoFim: Math.max(0, (r.pct / 100) * necessidadeTotal - r.pos),
+    };
+  });
+
+  const financingBlock = (
+    <div className="space-y-4">
+      <div className="glass rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border/50 bg-muted/30">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Caixa do evento</span>
+        </div>
+        <Table>
+          <TableBody>
+            <TableRow>
+              <TableCell className="text-sm">Entrou no evento (aportes + receita recebida)</TableCell>
+              <TableCell className="text-right font-mono text-success">{formatCurrency(entrouNoEvento)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="text-sm">Saiu (despesas pagas)</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(despesaPaga)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="text-sm font-medium">Financiado pela Mundo Propício</TableCell>
+              <TableCell className="text-right font-mono font-bold">{formatCurrency(financiadoPelaMP)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+        {settlementMoves > 0 && (
+          <p className="px-4 py-2.5 text-[11px] text-muted-foreground">
+            Fora do caixa do evento — acerto entre sócios: {formatCurrency(settlementMoves)}.
+          </p>
+        )}
+      </div>
+
+      <div className="glass rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border/50 bg-muted/30">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Equilíbrio de financiamento
+          </span>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Sócio</TableHead>
+              <TableHead className="text-right">%</TableHead>
+              <TableHead className="text-right">Já pôs</TableHead>
+              <TableHead className="text-right">Competia</TableHead>
+              <TableHead className="text-right">Desvio</TableHead>
+              <TableHead className="text-right">Falta até ao fim</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {financing.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="text-sm font-medium">{r.name}</TableCell>
+                <TableCell className="text-right font-mono text-xs">{r.pct}%</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(r.pos)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(r.competia)}</TableCell>
+                <TableCell
+                  className={`text-right font-mono font-medium ${r.desvio >= 0 ? "text-success" : "text-destructive"}`}
+                >
+                  {r.desvio >= 0 ? "+" : ""}
+                  {formatCurrency(r.desvio)}
+                </TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(r.faltaAteAoFim)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <p className="px-4 py-2.5 text-[11px] text-muted-foreground">
+          Competia e Falta até ao fim calculados sobre a despesa líquida da receita já recebida.
+        </p>
+      </div>
+    </div>
+  );
+
+
   if (partners.length === 0) {
     if (summaryOnly) return null;
     return (
