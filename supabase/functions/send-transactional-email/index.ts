@@ -2,6 +2,7 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { sanitizeRenderedEmail } from '../_shared/transactional-email-templates/sanitize.ts'
 
 // Configuration baked in at scaffold time
 const SITE_NAME = "MP Gestão Eventos"
@@ -324,9 +325,9 @@ Deno.serve(async (req) => {
       to: effectiveRecipient,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
-      subject: resolvedSubject,
-      html,
-      text: plainText,
+      subject: sanSubject.out,
+      html: sanHtml.out,
+      text: sanText.out,
       purpose: 'transactional',
       label: templateName,
       idempotency_key: idempotencyKey,
