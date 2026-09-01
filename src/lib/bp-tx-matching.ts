@@ -13,6 +13,12 @@
  * 4. Regra de ouro: nenhuma TX com categoria pode ficar invisível. As órfãs
  *    aparecem no bucket sintético "Sem linha específica" da categoria
  *    (ver findCategoryOrphanTransactions).
+ * 5. Âmbito de evento (2026-09): só o próprio evento e, quando existir, o master.
+ *    Uma transação com `event_id` nulo NÃO pertence a nenhum evento — antes era
+ *    aceite em TODOS os eventos, o que (a) atribuía despesas da empresa a cada BP
+ *    e (b) mostrava as mães de rateio (que nunca têm evento) ao lado das próprias
+ *    filhas, duplicando valor. Fecho, acerto com sócios e cards já filtravam por
+ *    lista explícita de eventos; o BP passa a fazer o mesmo.
  */
 
 /**
