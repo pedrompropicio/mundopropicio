@@ -1087,7 +1087,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y += 3;
     }
 
-    // ===== 4. DETALHES POR SÓCIO (página 2) =====
+    // ===== DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
     {
       const externalSettlementsP2 = settlements.filter((x: any) => !x.isHouse);
@@ -1096,7 +1096,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         y = 16;
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("4. Detalhes por Sócio", margin, y);
+        doc.text(secTitle("Detalhes por Sócio"), margin, y);
         y += 5;
 
         for (const s of externalSettlementsP2) {
@@ -1115,7 +1115,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               formatCurrency(s.partnerShare),
               formatCurrency(s.resultRepasseNow),
               formatCurrency(s.totalPaidByPartner),
-              `-${formatCurrency(s.totalPartnerExtras)}`,
+              fmtExtras(s.totalPartnerExtras),
               formatCurrency(s.operationalSettlement),
               formatCurrency(s.settlement),
             ]],
@@ -1140,7 +1140,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           if (s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) {
             autoTable(doc, {
               startY: y,
-              head: [["4. Liquidez e pendências de caixa", "Valor"]],
+              head: [["Liquidez e pendências de caixa", "Valor"]],
               body: [
                 ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
                 ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
