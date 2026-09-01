@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
       for (const parentId of approvedIds) {
         const { data: children } = await adminClient
           .from("transactions")
-          .select("id, status")
+          .select("id, status, company_id")
           .eq("parent_transaction_id", parentId);
 
         if (children && children.length > 0) {
@@ -200,13 +200,19 @@ Deno.serve(async (req) => {
 
             const childAuditEntries = pendingChildren.map((c) => ({
               transaction_id: c.id,
+              company_id: c.company_id,
               changed_by: callerName,
               field_name: "status",
               old_value: c.status,
               new_value: "approved",
             }));
 
-            await adminClient.from("transaction_audit_log").insert(childAuditEntries);
+            const { error: childAuditError } = await adminClient
+              .from("transaction_audit_log")
+              .insert(childAuditEntries);
+            if (childAuditError) {
+              console.error("[approve-transaction] audit children error:", childAuditError);
+            }
             await adminClient
               .from("transactions")
               .update({ status: "approved" })
