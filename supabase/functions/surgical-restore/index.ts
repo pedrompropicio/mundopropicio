@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
     }
 
     // Insert sales — strip columns that no longer exist
-    const VALID_SALES_COLS = ["id","lot_id","sale_date","quantity","unit_price","notes","created_by","created_at","zone_id","source","sale_date_to","financial_account_id","import_batch_id"];
+    const VALID_SALES_COLS = ["id","lot_id","sale_date","quantity","unit_price","notes","created_by","created_at","zone_id","source","sale_date_to","financial_account_id","import_batch_id","total_value","company_id"];
     if (backupSales.length > 0) {
       const cleanSales = backupSales.map((s: any) => {
         const clean: any = {};

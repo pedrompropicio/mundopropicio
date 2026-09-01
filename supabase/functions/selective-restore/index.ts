@@ -62,7 +62,7 @@ const TABLE_ORDER = [
 // Schema fingerprint of expected columns per table (last validated 2026-04-20)
 // Used to strip columns that no longer exist in current schema before insert.
 const COLUMN_WHITELIST: Record<string, string[]> = {
-  ticket_sales: ["id","lot_id","sale_date","quantity","unit_price","notes","created_by","created_at","zone_id","source","sale_date_to","financial_account_id","import_batch_id"],
+  ticket_sales: ["id","lot_id","sale_date","quantity","unit_price","notes","created_by","created_at","zone_id","source","sale_date_to","financial_account_id","import_batch_id","total_value","company_id"],
 };
 
 /**

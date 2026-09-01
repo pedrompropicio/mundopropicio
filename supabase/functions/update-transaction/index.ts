@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
     const callerName = caller.user_metadata?.full_name ?? caller.email ?? "sistema";
     const auditEntries = (changes && Array.isArray(changes) ? changes : []).map((c: any) => ({
       transaction_id,
+      company_id: transaction.company_id,
       changed_by: callerName,
       field_name: String(c.field_name ?? ""),
       old_value: String(c.old_value ?? ""),
@@ -172,7 +173,7 @@ Deno.serve(async (req) => {
         const oldVal = String(transaction.description ?? "");
         const newVal = String(updates.description ?? "");
         if (oldVal !== newVal) {
-          auditEntries.push({ transaction_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
+          auditEntries.push({ transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
         }
       }
 
@@ -188,7 +189,7 @@ Deno.serve(async (req) => {
           }
           const label = (id: string | null) => (id ? `${nameById.get(id) ?? id}` : "(sem evento)");
           auditEntries.push({
-            transaction_id, changed_by: callerName, field_name: "Evento",
+            transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Evento",
             old_value: label(oldId), new_value: label(newId),
           });
         }
@@ -374,12 +375,18 @@ Deno.serve(async (req) => {
           // Audit log on each sibling
           const auditOnSiblings = siblingIds.map((sid: string) => ({
             transaction_id: sid,
+            company_id: transaction.company_id,
             changed_by: callerName,
             field_name: "Propagação grupo-fatura",
             old_value: null,
             new_value: `Atualizado em conjunto com transação ${transaction_id}`,
           }));
-          await adminClient.from("transaction_audit_log").insert(auditOnSiblings);
+          const { error: siblingsAuditError } = await adminClient
+            .from("transaction_audit_log")
+            .insert(auditOnSiblings);
+          if (siblingsAuditError) {
+            console.error("[update-transaction] audit siblings error:", siblingsAuditError);
+          }
         }
       }
     }
