@@ -1260,13 +1260,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 4a. CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
-    // A MP não tem secção própria em "4. Detalhes por Sócio", mas as suas cauções
+    // ===== CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
+    // A MP não tem secção própria em "Detalhes por Sócio", mas as suas cauções
     // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
     {
         const houseSettlement = settlements.find((s) => s.isHouse);
       if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
-        // Mantém na mesma página de "4. Detalhes por Sócio"; só quebra se não couber o cabeçalho
+        // Mantém na mesma página de "Detalhes por Sócio"; só quebra se não couber o cabeçalho
         if (y > pageH - 40) {
           doc.addPage();
           y = margin;
@@ -1275,7 +1275,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         }
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("4a. Cauções pagas pela Mundo Propício", margin, y);
+        doc.text(secTitle("Cauções pagas pela Mundo Propício"), margin, y);
         y += 5;
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
@@ -1316,14 +1316,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 5. BILHETEIRA - RESUMOS (nova página) =====
+    // ===== BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
       doc.addPage();
       y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("5. Bilheteira - Totais Vendidos", margin, y);
+      doc.text(secTitle("Bilheteira - Totais Vendidos"), margin, y);
       y += 6;
 
       // Larguras explícitas para a tabela de bilheteira (sem coluna s/IVA)
