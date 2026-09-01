@@ -159,6 +159,7 @@ Deno.serve(async (req) => {
     if (approvedIds.length > 0) {
       const auditEntries = approvedIds.map((id) => ({
         transaction_id: id,
+        company_id: approvableTx.find((t) => t.id === id)?.company_id,
         changed_by: callerName,
         field_name: "status",
         old_value: approvableTx.find((t) => t.id === id)?.status ?? "pending",
