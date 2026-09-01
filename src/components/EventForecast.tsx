@@ -1938,9 +1938,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
   const comparisonTransactions = useMemo(() => {
     return (transactions as any[]).filter((t) => {
-      if (!(t.status === "approved" || t.status === "paid")) return false;
-      if (t.is_transitory) return false;
-      if (t.exclude_from_result) return false;
+      if (!isCanonicalRealTx(t)) return false;
       // Master sem toggle: mantém TX do próprio Master e também os contentores
       // multi-evento (event_id null), mas exclui TX lançadas diretamente nos splits.
       // A simetria por categoria abaixo impede que categorias locais dos splits
