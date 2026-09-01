@@ -1,47 +1,51 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-08-31 · Issues: #82 · a-seguir #64+#65, #85 · P0 aberto: #64
-
-## Nota 2026-08-31
-Card "Custos" (modo Previsto + excedido) e Fecho agora expõem a composição do overhead sem alterar totais:
-- Card mostra sublinha "Overhead" quando +OH está ligado.
-- Fecho rotula "Despesas operacionais (s/ overhead)" e exibe "Despesas totais (operacionais + overhead)" na Síntese Final quando +OH ligado.
-- Totais inalterados; cálculos não mexidos.
-
-Encontro de Contas ganhou bloco interno "Posição da Mundo Propício" (não entra no PDF): reconcilia a posição real da empresa (s/IVA) contra a quota nominal apresentada aos sócios, sem alterar quotas nem saldos. Ver D-ERP10 em `docs/DECISIONS.md`.
+Atualizado: 2026-09-01 · Issues: #82, #65, #85, #68 · P0 aberto: nenhum
 
 ## Em que pé está
-O apuramento real acontece **fora do ERP**, em planilha (gerador v15 para a Anitta). O ecrã de Fecho calcula o nível 1 e **não é confiável para o acerto** — ver #64. A Anitta está apurada e conferida, **não sacramentada**: apresentação aos sócios na semana de 31/08. A Ivete ainda não fechou.
+O apuramento da Anitta continua a fazer-se **fora do ERP**, em planilha (gerador v15), mas o ecrã de Fecho deixou de divergir do contrato: a base de cada sócio é a do respetivo contrato e o seletor de vista já não lhe toca. A Anitta está apurada e conferida, **não sacramentada**. A Ivete ainda não fechou.
 
 ## A trabalhar agora
-- **#82** — fecho selado. Precede tudo o resto desta frente: sem selo, um fecho entregue recalcula-se sozinho quando alguém mexe num parâmetro.
+- **#82** — fecho selado. É o que falta para um fecho entregue deixar de se recalcular sozinho quando alguém mexe num parâmetro. Precede o resto da frente.
+
+## Feito em 31/08–01/09
+- **#64 fechada.** `event_partners.expense_includes_iva` passou a anulável (NULL = herda o evento); os 6 registos existentes foram convertidos. A quota de cada sócio segue a base do contrato dele.
+- **#67 fechada** — já estava construída e não tinha sido registada. `entity_documents` (polimórfica), bucket privado `entity-documents`, RLS completa e `EntityDocumentsSection` ligada ao separador Documentos do evento. Tipos: Fecho, Ata, Contrato, Acerto com sócio, Licença, Seguro, Outro. Zero registos — construída e ainda não usada.
+- **Composição do custo visível.** Card "Custos" mostra a sublinha Overhead com +OH ligado; o Fecho rotula "Despesas operacionais (s/ overhead)" e mostra "Despesas totais" na Síntese Final. Totais inalterados.
+- **Bloco interno "Posição da Mundo Propício"** no Encontro de Contas (nunca em PDF): reconcilia a posição real da empresa (s/IVA) contra a quota nominal apresentada. Ver D-ERP10.
+- **Seletor de Apuramento** no Encontro de Contas: "por contrato de cada sócio" (default) ou "pela regra geral do evento". Estado local, nunca persistido, carimbado no PDF. No modo por contrato a casa apura s/IVA por convenção da empresa gestora.
+- **Defeitos do PDF corrigidos:** rodapé "100%" falso com bases mistas passou a "TOTAL DISTRIBUÍDO"; linha "Retido na Mundo Propício" na folha de liquidez, que passou a fechar; numeração de secções sequencial; "-0,00 €" eliminado.
+- **Relatórios individuais por sócio**, na base do destinatário, com coluna "A sua parte", nomes e percentagens de todos e valores só do próprio.
 
 ## Próximo passo concreto
-**Antes da apresentação:** regerar a planilha da Anitta com o gerador v15. E corrigir as três linhas de hospedagem a 0% (#68) — 33.783,35 €, pagador EIN, que vão sair a 6% na fatura dela e não batem com o BP.
+Regerar a planilha da Anitta com o gerador v15 antes da apresentação. Corrigir as três linhas de hospedagem a 0% (#68) — 33.783,35 €, pagador EIN, que saem a 6% na fatura dela.
 
 ## Bloqueios
-- **#64 verificada a 30/08 e NÃO está corrigida.** O handoff de 23/08 dizia o contrário. A receita foi isolada, a despesa não: `expenseBase = basis.withVat ? gross : net` alimenta diretamente a quota do sócio. A #65 é a mesma ferida vista do `EventFecho` — tratam-se juntas.
-- Congelados até depois da apresentação: `event_partners`, `EventFecho.tsx`, `event_forecasts` da Anitta, gerador da planilha.
+- **#65** é a mesma ferida da #64 vista do `EventFecho.tsx` — ainda por tratar.
+- Congelados até depois da apresentação: `event_partners`, `event_forecasts` da Anitta, gerador da planilha.
 
 ## Factos que não se reinvestigam
 
-**Regra da base de apuramento:** sede fiscal **PT** → apura s/IVA; sede **BR** → apura c/IVA. Receitas sempre s/IVA. O critério é a sede, não a origem. Falta o campo `suppliers.tax_country` — migração preparada, nunca corrida.
+**Regra da base de apuramento:** sede fiscal **PT** → s/IVA; sede **BR** → c/IVA. Receitas sempre s/IVA. O critério é a sede, não a origem. Falta `suppliers.tax_country` — migração preparada, nunca corrida.
 
-**O estado do seletor vive em `localStorage`, por utilizador e por evento.** O `partner_calc_basis` é só a semente inicial. Dois utilizadores podem ver acertos diferentes do mesmo evento. E o flag por sócio é `p.expense_includes_iva || basis.withVat` — só liga, nunca desliga.
+**A Mundo Propício não é um `event_partner`.** É injetada no Encontro de Contas como "casa", com percentagem = 100 − Σ dos sócios. Não existe na tabela.
 
-**Duas superfícies com respostas diferentes:** o `ReportPartnerSettlement.tsx` calcula a quota só pelo `partner_calc_basis`; o PDF gerado dentro do Encontro de Contas herda o botão.
+**Base de apresentação uniforme é decisão de negócio, não erro** (D-ERP10). A casa segue a base contratual do evento no documento apresentado aos sócios; a sua posição real é s/IVA. A diferença é IVA dedutível que fica na empresa. Acertos de IVA entre a MP e sócios portugueses tratam-se **fora do sistema** e arquivam-se no separador Documentos do evento, tipo "Acerto com sócio".
 
-**O evento fecha pelo BP** (D-ERP3). Em co-produção a ausência de transações nas linhas pagas pelo sócio é o comportamento correto, não um buraco: na Anitta são 80 linhas e 970.107,35 €, das quais 77 com pagador sócio.
+**Com bases mistas não existe resultado único** e a soma das quotas não fecha contra nenhum total. É propriedade do contrato, não defeito. Sinalizado no ecrã e no PDF.
 
-**Decisões de 30/08:** a última versão do BP deve conter só linhas com custo real — as previsões que não ocorreram ficam nas versões congeladas, e o snapshot faz-se **antes** da limpeza. O guarda-chuva de rubrica para despesas de equipa nasce **a zero** — previsto por gastar é custo fantasma. O sistema **não decide tratamento fiscal**: produz a composição por taxa, e uma pessoa decide o tipo do acerto (`redebito` ou `reembolso`).
+**O evento fecha pelo BP** (D-ERP3). Em co-produção, a ausência de transações nas linhas pagas pelo sócio é o comportamento correto. Na Anitta são 80 linhas e 970.107,35 €, 77 com pagador sócio.
 
-**Anitta, três linhas sem transação e sem pagador sócio** (Estrutura WC CNA 9.745, Copos 9.120, Assessoria de Imprensa 2.500): confirmado pelo Pedro que **aconteceram** — estão à espera de fatura. Não zerar.
+**Decisões de 30/08:** a última versão do BP contém só linhas com custo real; o snapshot faz-se **antes** da limpeza. O guarda-chuva de rubrica para despesas de equipa nasce a zero. O sistema não decide tratamento fiscal — produz a composição por taxa e uma pessoa decide `redebito` ou `reembolso`.
 
-**Δ de método por reconciliar:** a query canónica de excedido dá 61.464,91 na Anitta contra os 63.544,11 do ecrã. 2.079,20 na rubrica 2.2.01 Aéreo. Enquanto não estiver fechado, número de fecho sai do ecrã ou da planilha, nunca de SQL ad-hoc.
+**Anitta, três linhas sem transação e sem pagador sócio** (Estrutura WC CNA 9.745, Copos 9.120, Assessoria de Imprensa 2.500): confirmado que aconteceram, à espera de fatura. Não zerar.
+
+**Δ de método por reconciliar:** a query canónica de excedido dá 61.464,91 na Anitta contra os 63.544,11 do ecrã — 2.079,20 na rubrica 2.2.01 Aéreo. Número de fecho sai do ecrã ou da planilha, nunca de SQL ad-hoc.
 
 **Nível 2 vive na planilha:** cascata MP/EIN, ativos exclusivos (bares 93.969,63 · Bengaleiro 138,82 · Oeiras 50.000), encontros de contas. `event_partners` não ganha conceito de ativo por sócio.
 
 ## Onde ler mais
 - `docs/procedimentos/PROC-fecho-evento.md`
 - `.lovable/memory/features/fecho-filter-parity.md`, `partner-settlement.md`, `event-cost-basis.md`
-- Issues #82, #64, #65, #85, #68
+- `docs/DECISIONS.md` — D-ERP3, D-ERP4, D-ERP9, D-ERP10
+- Issues #82, #65, #85, #68
