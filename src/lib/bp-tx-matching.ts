@@ -13,6 +13,12 @@
  * 4. Regra de ouro: nenhuma TX com categoria pode ficar invisível. As órfãs
  *    aparecem no bucket sintético "Sem linha específica" da categoria
  *    (ver findCategoryOrphanTransactions).
+ * 5. Âmbito de evento (2026-09): só o próprio evento e, quando existir, o master.
+ *    Uma transação com `event_id` nulo NÃO pertence a nenhum evento — antes era
+ *    aceite em TODOS os eventos, o que (a) atribuía despesas da empresa a cada BP
+ *    e (b) mostrava as mães de rateio (que nunca têm evento) ao lado das próprias
+ *    filhas, duplicando valor. Fecho, acerto com sócios e cards já filtravam por
+ *    lista explícita de eventos; o BP passa a fazer o mesmo.
  */
 
 /**
@@ -96,7 +102,7 @@ export function findMatchingTransactionsForForecast(
   })();
 
   const allowedEventIds = new Set(
-    [forecast?.event_id, null, forecast?._master_event_id].filter((v) => v !== undefined),
+    [forecast?.event_id, forecast?._master_event_id].filter((v) => v != null),
   );
   const scoped = eventTransactions.filter((t: any) => allowedEventIds.has(t.event_id));
 
@@ -162,7 +168,7 @@ export function findCategoryOrphanTransactions(params: {
   const { categoryId, type, eventId, masterEventId, transactions, allForecasts } = params;
   if (!categoryId || !transactions?.length) return [];
 
-  const allowedEventIds = new Set([eventId, null, masterEventId ?? undefined].filter((v) => v !== undefined));
+  const allowedEventIds = new Set([eventId, masterEventId].filter((v) => v != null));
   const sameCat = transactions.filter(
     (t: any) => t.category_id === categoryId && t.type === type && allowedEventIds.has(t.event_id),
   );

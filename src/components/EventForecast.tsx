@@ -176,6 +176,18 @@ interface Props {
   forceReadOnly?: boolean;
 }
 
+/**
+ * Predicado canónico do "Real": apenas TX `approved` ou `paid`; exclui
+ * transitórias e marcadas `exclude_from_result`. SSoT único do ficheiro —
+ * usado na vista Previsão vs Real e no realizado das bandas de rubrica.
+ */
+export const isCanonicalRealTx = (t: any): boolean => {
+  if (!(t.status === "approved" || t.status === "paid")) return false;
+  if (t.is_transitory) return false;
+  if (t.exclude_from_result) return false;
+  return true;
+};
+
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
@@ -1798,7 +1810,7 @@ const descRef = useRef<HTMLInputElement>(null);
     const catIds = new Set<string>();
     for (const t of txs) {
       if (t.type !== type || !t.category_id) continue;
-      if (!(t.event_id === eventId || t.event_id === null)) continue;
+      if (t.event_id !== eventId) continue;
       catIds.add(t.category_id);
     }
     const out: any[] = [];
@@ -1851,7 +1863,8 @@ const descRef = useRef<HTMLInputElement>(null);
         (t) =>
           t.category_id === catId &&
           t.type === f.type &&
-          (t.event_id === eventId || t.event_id === null),
+          t.event_id === eventId &&
+          isCanonicalRealTx(t),
       );
       map.set(idx, {
         code: info?.code ?? "—",
@@ -1925,9 +1938,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
   const comparisonTransactions = useMemo(() => {
     return (transactions as any[]).filter((t) => {
-      if (!(t.status === "approved" || t.status === "paid")) return false;
-      if (t.is_transitory) return false;
-      if (t.exclude_from_result) return false;
+      if (!isCanonicalRealTx(t)) return false;
       // Master sem toggle: mantém TX do próprio Master e também os contentores
       // multi-evento (event_id null), mas exclui TX lançadas diretamente nos splits.
       // A simetria por categoria abaixo impede que categorias locais dos splits
