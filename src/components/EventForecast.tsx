@@ -176,6 +176,18 @@ interface Props {
   forceReadOnly?: boolean;
 }
 
+/**
+ * Predicado canónico do "Real": apenas TX `approved` ou `paid`; exclui
+ * transitórias e marcadas `exclude_from_result`. SSoT único do ficheiro —
+ * usado na vista Previsão vs Real e no realizado das bandas de rubrica.
+ */
+export const isCanonicalRealTx = (t: any): boolean => {
+  if (!(t.status === "approved" || t.status === "paid")) return false;
+  if (t.is_transitory) return false;
+  if (t.exclude_from_result) return false;
+  return true;
+};
+
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
