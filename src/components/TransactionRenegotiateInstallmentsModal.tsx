@@ -127,9 +127,11 @@ export function useCanRenegotiateInstallments(params: {
 export function TransactionRenegotiateInstallmentsModal({
   transaction,
   onClose,
+  onSuccess,
 }: {
   transaction: any;
   onClose: () => void;
+  onSuccess?: () => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -191,6 +193,7 @@ export function TransactionRenegotiateInstallmentsModal({
       queryClient.invalidateQueries({ queryKey: ["installment-group"] });
       toast({ title: `Renegociado em ${n} parcelas` });
       onClose();
+      onSuccess?.();
     },
     onError: (e: any) =>
       toast({

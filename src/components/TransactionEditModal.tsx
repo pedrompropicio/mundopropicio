@@ -1170,6 +1170,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             <TransactionRenegotiateInstallmentsModal
               transaction={transaction}
               onClose={() => setRenegotiateOpen(false)}
+              onSuccess={onClose}
             />
           )}
 

@@ -344,9 +344,17 @@ Deno.serve(async (req) => {
         "is_transitory",
         "exclude_from_result",
       ];
+      // Quando o grupo-fatura e o grupo de parcelas se cruzam, a PARCELA manda.
+      // Parcelas têm calendário próprio: não propagar datas para as irmãs.
+      if (transaction.installment_group_id) {
+        const dateIdx = invoiceSharedFields.indexOf("date");
+        if (dateIdx >= 0) invoiceSharedFields.splice(dateIdx, 1);
+        const dueDateIdx = invoiceSharedFields.indexOf("due_date");
+        if (dueDateIdx >= 0) invoiceSharedFields.splice(dueDateIdx, 1);
+      }
       const siblingUpdates: Record<string, any> = {};
       for (const field of invoiceSharedFields) {
-        if (field in sanitizedUpdates) {
+        if (field in sanitizedUpdates && sanitizedUpdates[field] !== transaction[field]) {
           siblingUpdates[field] = sanitizedUpdates[field];
         }
       }
