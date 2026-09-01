@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
           }
           const label = (id: string | null) => (id ? `${nameById.get(id) ?? id}` : "(sem evento)");
           auditEntries.push({
-            transaction_id, changed_by: callerName, field_name: "Evento",
+            transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Evento",
             old_value: label(oldId), new_value: label(newId),
           });
         }
