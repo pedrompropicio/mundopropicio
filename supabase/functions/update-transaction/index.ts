@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
     const callerName = caller.user_metadata?.full_name ?? caller.email ?? "sistema";
     const auditEntries = (changes && Array.isArray(changes) ? changes : []).map((c: any) => ({
       transaction_id,
+      company_id: transaction.company_id,
       changed_by: callerName,
       field_name: String(c.field_name ?? ""),
       old_value: String(c.old_value ?? ""),
