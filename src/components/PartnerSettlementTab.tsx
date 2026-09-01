@@ -585,7 +585,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       map[key].count += 1;
     });
     // Overheads (rateios de estrutura) — somam-se às mesmas categorias para
-    // que o item 7 reflita o mesmo total de despesas do Resumo Financeiro.
+    // que a secção "Despesas por Categoria" reflita o mesmo total de despesas do Resumo Financeiro.
     overheads.forEach((o: any) => {
       const lv = findLevels(o.category_id);
       const l1 = lv?.l1;
@@ -902,6 +902,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const margin = 14;
     let y = 16;
 
+    // Numeração sequencial das secções efetivamente impressas (várias são condicionais).
+    let sec = 0;
+    const secTitle = (t: string) => `${++sec}. ${t}`;
+
+    // Coluna "Extras (-)": sinal só quando há valor; zero imprime sem sinal.
+    const fmtExtras = (v: number) => (v > 0 ? `-${formatCurrency(v)}` : formatCurrency(v));
+
     const ensureSpace = (needed: number) => {
       if (y + needed > pageH - 12) { doc.addPage(); y = 16; }
     };
@@ -921,11 +928,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     doc.setTextColor(0);
     y += 8;
-    doc.setTextColor(0);
-    y += 8;
 
 
-    // ===== 1. RESUMO FINANCEIRO =====
+    // ===== RESUMO FINANCEIRO =====
     // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
     const tableWidth = pageW - margin * 2;
     const labelColW = 130;
@@ -945,7 +950,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("1. Resumo Financeiro", margin, y);
+    doc.text(secTitle("Resumo Financeiro"), margin, y);
     y += 5;
 
     autoTable(doc, {
@@ -978,12 +983,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     y += 2;
 
-    // ===== 2. QUEBRA POR CIDADE (turnê) =====
+    // ===== QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("2. Quebra por Cidade", margin, y);
+      doc.text(secTitle("Quebra por Cidade"), margin, y);
       y += 5;
       const cityCol1 = 60;
       const cityValW = (tableWidth - cityCol1) / 3;
@@ -1016,11 +1021,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
+    // ===== DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
     ensureSpace(50);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("3. Distribuição aos Sócios", margin, y);
+    doc.text(secTitle("Distribuição aos Sócios"), margin, y);
     y += 5;
     autoTable(doc, {
       startY: y,
@@ -1031,14 +1036,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         formatCurrency(s.partnerShare),
         formatCurrency(s.resultRepasseNow),
         formatCurrency(s.totalPaidByPartner),
-        `-${formatCurrency(s.totalPartnerExtras)}`,
+        fmtExtras(s.totalPartnerExtras),
         formatCurrency(s.operationalSettlement),
       ]),
-      foot: [["TOTAL", "100%",
+      foot: [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.resultRepasseNow, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        fmtExtras(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.operationalSettlement, 0)),
       ]],
       margin: { left: margin, right: margin },
@@ -1082,7 +1087,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y += 3;
     }
 
-    // ===== 4. DETALHES POR SÓCIO (página 2) =====
+    // ===== DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
     {
       const externalSettlementsP2 = settlements.filter((x: any) => !x.isHouse);
@@ -1091,7 +1096,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         y = 16;
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("4. Detalhes por Sócio", margin, y);
+        doc.text(secTitle("Detalhes por Sócio"), margin, y);
         y += 5;
 
         for (const s of externalSettlementsP2) {
@@ -1110,7 +1115,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               formatCurrency(s.partnerShare),
               formatCurrency(s.resultRepasseNow),
               formatCurrency(s.totalPaidByPartner),
-              `-${formatCurrency(s.totalPartnerExtras)}`,
+              fmtExtras(s.totalPartnerExtras),
               formatCurrency(s.operationalSettlement),
               formatCurrency(s.settlement),
             ]],
@@ -1135,7 +1140,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           if (s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) {
             autoTable(doc, {
               startY: y,
-              head: [["4. Liquidez e pendências de caixa", "Valor"]],
+              head: [["Liquidez e pendências de caixa", "Valor"]],
               body: [
                 ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
                 ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
@@ -1255,13 +1260,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 4a. CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
-    // A MP não tem secção própria em "4. Detalhes por Sócio", mas as suas cauções
+    // ===== CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
+    // A MP não tem secção própria em "Detalhes por Sócio", mas as suas cauções
     // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
     {
         const houseSettlement = settlements.find((s) => s.isHouse);
       if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
-        // Mantém na mesma página de "4. Detalhes por Sócio"; só quebra se não couber o cabeçalho
+        // Mantém na mesma página de "Detalhes por Sócio"; só quebra se não couber o cabeçalho
         if (y > pageH - 40) {
           doc.addPage();
           y = margin;
@@ -1270,7 +1275,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         }
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("4a. Cauções pagas pela Mundo Propício", margin, y);
+        doc.text(secTitle("Cauções pagas pela Mundo Propício"), margin, y);
         y += 5;
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
@@ -1311,14 +1316,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 5. BILHETEIRA - RESUMOS (nova página) =====
+    // ===== BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
       doc.addPage();
       y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("5. Bilheteira - Totais Vendidos", margin, y);
+      doc.text(secTitle("Bilheteira - Totais Vendidos"), margin, y);
       y += 6;
 
       // Larguras explícitas para a tabela de bilheteira (sem coluna s/IVA)
@@ -1491,12 +1496,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 5. FECHO DE BILHETEIRA =====
+    // ===== FECHO DE BILHETEIRA =====
     if (boxOfficeRows.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("6. Fecho de Bilheteiras / Recintos", margin, y);
+      doc.text(secTitle("Fecho de Bilheteiras / Recintos"), margin, y);
       y += 5;
       autoTable(doc, {
         startY: y,
@@ -1516,14 +1521,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 6. DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
+    // ===== DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
     if (expenseByCategory.length > 0) {
       doc.addPage();
       y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
-      doc.text(`7. Despesas por Categoria ${lvlLabel}`, margin, y);
+      doc.text(secTitle(`Despesas por Categoria ${lvlLabel}`), margin, y);
       y += 5;
 
       // Larguras explícitas (uma única coluna de valor c/IVA)
@@ -1648,7 +1653,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("8. Análise Final de Liquidez da Distribuição", margin, y);
+      doc.text(secTitle("Análise Final de Liquidez da Distribuição"), margin, y);
       y += 6;
 
       doc.setFontSize(8.5);
@@ -1762,6 +1767,27 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       });
       y = (doc as any).lastAutoTable.finalY + 4;
 
+      // O que sobra do caixa depois de servir os sócios externos fica retido na MP
+      // (a tabela acima usa externalSettlements e exclui a casa).
+      if (remainingCash > 0) {
+        autoTable(doc, {
+          startY: y,
+          body: [["Retido na Mundo Propício (não distribuído)", formatCurrency(remainingCash)]],
+          margin: { left: margin, right: margin },
+          tableWidth,
+          styles: { fontSize: 8.5, cellPadding: 2 },
+          columnStyles: {
+            0: { halign: "left", fontStyle: "bold" },
+            1: { halign: "right", fontStyle: "bold" },
+          },
+          didParseCell: (data) => {
+            data.cell.styles.fillColor = [240, 240, 240];
+            data.cell.styles.textColor = [0, 0, 0];
+          },
+        });
+        y = (doc as any).lastAutoTable.finalY + 4;
+      }
+
       doc.setFontSize(8);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(80);
@@ -1773,7 +1799,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setTextColor(0);
     }
 
-    // (Item 7 "Detalhes por Sócio" foi movido para a 1.ª página, logo após o item 3.)
+    // ("Detalhes por Sócio" é impresso na 1.ª página, logo após a "Distribuição aos Sócios".)
 
 
     // Footer institucional
@@ -1827,7 +1853,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectValue placeholder="Apuramento" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="contract">Apuramento: por contrato de cada socio</SelectItem>
+              <SelectItem value="contract">Apuramento: por contrato de cada sócio</SelectItem>
               <SelectItem value="event">Apuramento: pela regra geral do evento</SelectItem>
             </SelectContent>
           </Select>
