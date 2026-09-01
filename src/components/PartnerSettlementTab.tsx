@@ -1915,10 +1915,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </SelectContent>
           </Select>
           <FechoBasisSelector basis={basis} />
-          <Button size="sm" variant="outline" onClick={exportPdf}>
-
-            <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo</DropdownMenuItem>
+              {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
+              {settlements.filter((s) => !s.isHouse).map((s) => (
+                <DropdownMenuItem key={s.partnerId} onClick={() => exportPdf(s)}>
+                  Para {s.partnerName}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
