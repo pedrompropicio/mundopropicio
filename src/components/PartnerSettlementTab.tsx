@@ -906,6 +906,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     let sec = 0;
     const secTitle = (t: string) => `${++sec}. ${t}`;
 
+    // Coluna "Extras (-)": sinal só quando há valor; zero imprime sem sinal.
+    const fmtExtras = (v: number) => (v > 0 ? `-${formatCurrency(v)}` : formatCurrency(v));
+
     const ensureSpace = (needed: number) => {
       if (y + needed > pageH - 12) { doc.addPage(); y = 16; }
     };
