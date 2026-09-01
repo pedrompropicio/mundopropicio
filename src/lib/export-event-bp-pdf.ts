@@ -850,12 +850,12 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   const incomes = forecasts.filter((f) => f.type === "income");
   const expenses = forecasts.filter((f) => f.type === "expense");
 
-  y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60]);
+  y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60], event.id, event.parent_event_id ?? null);
   if (y > ctx.pageHeight - 40) {
     ctx.doc.addPage();
     y = 14;
   }
-  y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60]);
+  y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60], event.id, event.parent_event_id ?? null);
 }
 
 export async function exportEventBPToPDF({ eventId, includeChildren = true }: BPExportInput): Promise<void> {
