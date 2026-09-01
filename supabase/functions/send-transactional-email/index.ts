@@ -290,6 +290,22 @@ Deno.serve(async (req) => {
       ? template.subject(templateData)
       : template.subject
 
+  // 4b. Guarda em runtime: normaliza NFC e remove invisíveis. Nunca bloqueia o envio.
+  const sanHtml = sanitizeRenderedEmail(html)
+  const sanText = sanitizeRenderedEmail(plainText)
+  const sanSubject = sanitizeRenderedEmail(String(resolvedSubject ?? ''))
+  const sanitizeFindings = [
+    ...sanHtml.findings.map((f) => `html:${f}`),
+    ...sanText.findings.map((f) => `text:${f}`),
+    ...sanSubject.findings.map((f) => `subject:${f}`),
+  ]
+  if (sanitizeFindings.length > 0) {
+    console.warn('[send-transactional-email] texto saneado', {
+      templateName,
+      findings: sanitizeFindings,
+    })
+  }
+
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
 
