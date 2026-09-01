@@ -1618,11 +1618,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
           const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
           body.push({
-            row: [
-              `${g.l1Code} ${g.l1Name}`.trim(),
-              l1Count.toString(),
-              formatCurrency(l1Gross),
-            ],
+            row: expRow(`${g.l1Code} ${g.l1Name}`.trim(), l1Count, l1Gross),
             style: "l1",
           });
 
