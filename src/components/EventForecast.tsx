@@ -1863,7 +1863,8 @@ const descRef = useRef<HTMLInputElement>(null);
         (t) =>
           t.category_id === catId &&
           t.type === f.type &&
-          (t.event_id === eventId || t.event_id === null),
+          t.event_id === eventId &&
+          isCanonicalRealTx(t),
       );
       map.set(idx, {
         code: info?.code ?? "—",
