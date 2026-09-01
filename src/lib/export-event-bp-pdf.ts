@@ -587,6 +587,60 @@ function drawForecastTable(
       }
     });
 
+    // Balde sintético: transações da rubrica que NENHUMA linha de BP reclama
+    // (mesmo bucket que o ecrã mostra). Delegado ao SSoT — sem lógica própria.
+    const orphans = findCategoryOrphanTransactions({
+      categoryId: g.rows[0]?.category_id ?? "",
+      type: g.rows[0]?.type ?? "expense",
+      eventId,
+      masterEventId,
+      transactions,
+      allForecasts,
+    }) as TxRow[];
+
+    let orphanBase = 0;
+    let orphanTotal = 0;
+    orphans.forEach((t) => {
+      orphanBase += Number(t.amount);
+      orphanTotal += Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    });
+
+    if (orphans.length > 0) {
+      body.push([{
+        content: `${orphanBucketLabel(g.rows[0]?.type)} (${orphans.length})  —  ${fmt(orphanBase)}`,
+        colSpan: 9,
+        styles: {
+          fillColor: [238, 244, 252] as [number, number, number],
+          textColor: [40, 60, 110] as [number, number, number],
+          fontStyle: "bold" as const,
+          fontSize: 6.8,
+          cellPadding: { top: 1.2, right: 2, bottom: 1, left: 6 },
+        },
+      }]);
+      orphans.forEach((t) => {
+        const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+        const txPaid = Number(t.paid_amount ?? 0);
+        const txBal = Math.max(0, txTotal - txPaid);
+        const sup = t.suppliers?.name ?? "—";
+        const inv = t.invoice_ref ? `Fatura ${t.invoice_ref} · ` : "";
+        const due = t.due_date ? `Vcto ${formatDatePT(t.due_date)} · ` : "";
+        const pay = t.payment_date ? `Pago em ${formatDatePT(t.payment_date)} · ` : "";
+        const balLine = txBal > 0.01 ? ` · Aberto ${fmt(txBal)}` : "";
+        const specLine = t.specification ? ` (${t.specification})` : "";
+        const txLabel = `   • ${t.description}${specLine}  —  ${sup}\n      ${inv}${due}${pay}Pago ${fmt(txPaid)} / Total ${fmt(txTotal)}${balLine}  [${txStatusLabel(t)}]`;
+        body.push([{
+          content: txLabel,
+          colSpan: 9,
+          styles: {
+            fillColor: [248, 250, 254] as [number, number, number],
+            textColor: [50, 60, 80] as [number, number, number],
+            fontSize: 6.5,
+            cellPadding: { top: 0.8, right: 2, bottom: 0.8, left: 6 },
+          },
+        }]);
+      });
+    }
+
     const foot = [[
       {
         content: `Subtotal ${g.groupCode} ${g.groupName}`,
