@@ -1653,7 +1653,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("8. Análise Final de Liquidez da Distribuição", margin, y);
+      doc.text(secTitle("Análise Final de Liquidez da Distribuição"), margin, y);
       y += 6;
 
       doc.setFontSize(8.5);
@@ -1767,6 +1767,27 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       });
       y = (doc as any).lastAutoTable.finalY + 4;
 
+      // O que sobra do caixa depois de servir os sócios externos fica retido na MP
+      // (a tabela acima usa externalSettlements e exclui a casa).
+      if (remainingCash > 0) {
+        autoTable(doc, {
+          startY: y,
+          body: [["Retido na Mundo Propício (não distribuído)", formatCurrency(remainingCash)]],
+          margin: { left: margin, right: margin },
+          tableWidth,
+          styles: { fontSize: 8.5, cellPadding: 2 },
+          columnStyles: {
+            0: { halign: "left", fontStyle: "bold" },
+            1: { halign: "right", fontStyle: "bold" },
+          },
+          didParseCell: (data) => {
+            data.cell.styles.fillColor = [240, 240, 240];
+            data.cell.styles.textColor = [0, 0, 0];
+          },
+        });
+        y = (doc as any).lastAutoTable.finalY + 4;
+      }
+
       doc.setFontSize(8);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(80);
@@ -1778,7 +1799,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setTextColor(0);
     }
 
-    // (Item 7 "Detalhes por Sócio" foi movido para a 1.ª página, logo após o item 3.)
+    // ("Detalhes por Sócio" é impresso na 1.ª página, logo após a "Distribuição aos Sócios".)
 
 
     // Footer institucional
@@ -1832,7 +1853,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectValue placeholder="Apuramento" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="contract">Apuramento: por contrato de cada socio</SelectItem>
+              <SelectItem value="contract">Apuramento: por contrato de cada sócio</SelectItem>
               <SelectItem value="event">Apuramento: pela regra geral do evento</SelectItem>
             </SelectContent>
           </Select>
