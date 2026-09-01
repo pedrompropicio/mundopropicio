@@ -1588,10 +1588,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(secTitle(`Despesas por Categoria ${lvlLabel}`), margin, y);
       y += 5;
 
-      // Larguras explícitas (uma única coluna de valor c/IVA)
-      const expCol1 = 160; // descrição (L1/L2/L3)
+      // Larguras explícitas (uma única coluna de valor c/IVA; na variante individual há 2 colunas de valor)
+      const expCol1 = solo ? 130 : 160; // descrição (L1/L2/L3)
       const expColC = 40;  // contagem (cabe "Lançamentos")
-      const expColV = tableWidth - expCol1 - expColC;
+      const expColV = solo ? (tableWidth - expCol1 - expColC) / 2 : tableWidth - expCol1 - expColC;
+      // Na variante individual acrescenta-se a quota-parte do destinatário a cada valor.
+      const expRow = (label: string, count: number, gross: number) =>
+        solo
+          ? [label, count.toString(), formatCurrency(gross), formatCurrency(share(gross))]
+          : [label, count.toString(), formatCurrency(gross)];
 
       // Agregação consoante o nível escolhido
       // L2: agrupa em L1 → L2 (atual)
