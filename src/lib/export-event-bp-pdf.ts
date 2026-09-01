@@ -3,7 +3,11 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
-import { findMatchingTransactionsForForecast } from "@/lib/bp-tx-matching";
+import {
+  findMatchingTransactionsForForecast,
+  findCategoryOrphanTransactions,
+  orphanBucketLabel,
+} from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
 
 interface BPExportInput {
@@ -425,6 +429,8 @@ function drawForecastTable(
   transactions: TxRow[],
   auditLogs: AuditLog[],
   accent: [number, number, number],
+  eventId: string,
+  masterEventId: string | null,
 ): number {
   const { doc, marginLeft, contentWidth } = ctx;
   if (forecasts.length === 0) {
@@ -581,6 +587,60 @@ function drawForecastTable(
       }
     });
 
+    // Balde sintético: transações da rubrica que NENHUMA linha de BP reclama
+    // (mesmo bucket que o ecrã mostra). Delegado ao SSoT — sem lógica própria.
+    const orphans = findCategoryOrphanTransactions({
+      categoryId: g.rows[0]?.category_id ?? "",
+      type: g.rows[0]?.type ?? "expense",
+      eventId,
+      masterEventId,
+      transactions,
+      allForecasts,
+    }) as TxRow[];
+
+    let orphanBase = 0;
+    let orphanTotal = 0;
+    orphans.forEach((t) => {
+      orphanBase += Number(t.amount);
+      orphanTotal += Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    });
+
+    if (orphans.length > 0) {
+      body.push([{
+        content: `${orphanBucketLabel(g.rows[0]?.type)} (${orphans.length})  —  ${fmt(orphanBase)}`,
+        colSpan: 9,
+        styles: {
+          fillColor: [238, 244, 252] as [number, number, number],
+          textColor: [40, 60, 110] as [number, number, number],
+          fontStyle: "bold" as const,
+          fontSize: 6.8,
+          cellPadding: { top: 1.2, right: 2, bottom: 1, left: 6 },
+        },
+      }]);
+      orphans.forEach((t) => {
+        const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+        const txPaid = Number(t.paid_amount ?? 0);
+        const txBal = Math.max(0, txTotal - txPaid);
+        const sup = t.suppliers?.name ?? "—";
+        const inv = t.invoice_ref ? `Fatura ${t.invoice_ref} · ` : "";
+        const due = t.due_date ? `Vcto ${formatDatePT(t.due_date)} · ` : "";
+        const pay = t.payment_date ? `Pago em ${formatDatePT(t.payment_date)} · ` : "";
+        const balLine = txBal > 0.01 ? ` · Aberto ${fmt(txBal)}` : "";
+        const specLine = t.specification ? ` (${t.specification})` : "";
+        const txLabel = `   • ${t.description}${specLine}  —  ${sup}\n      ${inv}${due}${pay}Pago ${fmt(txPaid)} / Total ${fmt(txTotal)}${balLine}  [${txStatusLabel(t)}]`;
+        body.push([{
+          content: txLabel,
+          colSpan: 9,
+          styles: {
+            fillColor: [248, 250, 254] as [number, number, number],
+            textColor: [50, 60, 80] as [number, number, number],
+            fontSize: 6.5,
+            cellPadding: { top: 0.8, right: 2, bottom: 0.8, left: 6 },
+          },
+        }]);
+      });
+    }
+
     const foot = [[
       {
         content: `Subtotal ${g.groupCode} ${g.groupName}`,
@@ -609,6 +669,39 @@ function drawForecastTable(
         },
       },
     ]];
+
+    if (orphans.length > 0) {
+      foot.push([
+        {
+          content: "Transações sem linha de BP",
+          colSpan: 6,
+          styles: {
+            halign: "left" as const, fontStyle: "bold" as const,
+            fillColor: [240, 240, 245] as [number, number, number],
+            textColor: [40, 40, 60] as [number, number, number],
+          },
+        },
+        {
+          content: fmt(orphanBase),
+          styles: {
+            halign: "right" as const, fontStyle: "bold" as const,
+            fillColor: [240, 240, 245] as [number, number, number],
+            textColor: [40, 40, 60] as [number, number, number],
+          },
+        },
+        { content: "", styles: { fillColor: [240, 240, 245] as [number, number, number] } },
+        {
+          content: fmt(orphanTotal),
+          styles: {
+            halign: "right" as const, fontStyle: "bold" as const,
+            fillColor: [240, 240, 245] as [number, number, number],
+            textColor: [40, 40, 60] as [number, number, number],
+          },
+        },
+      ] as any);
+    }
+
+
 
     autoTable(doc, {
       head, body, foot,
@@ -757,12 +850,12 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   const incomes = forecasts.filter((f) => f.type === "income");
   const expenses = forecasts.filter((f) => f.type === "expense");
 
-  y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60]);
+  y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60], event.id, event.parent_event_id ?? null);
   if (y > ctx.pageHeight - 40) {
     ctx.doc.addPage();
     y = 14;
   }
-  y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60]);
+  y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60], event.id, event.parent_event_id ?? null);
 }
 
 export async function exportEventBPToPDF({ eventId, includeChildren = true }: BPExportInput): Promise<void> {
