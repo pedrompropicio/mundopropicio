@@ -585,7 +585,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       map[key].count += 1;
     });
     // Overheads (rateios de estrutura) — somam-se às mesmas categorias para
-    // que o item 7 reflita o mesmo total de despesas do Resumo Financeiro.
+    // que a secção "Despesas por Categoria" reflita o mesmo total de despesas do Resumo Financeiro.
     overheads.forEach((o: any) => {
       const lv = findLevels(o.category_id);
       const l1 = lv?.l1;
