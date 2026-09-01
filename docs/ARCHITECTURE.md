@@ -71,6 +71,17 @@ A plataforma divide-se em quatro módulos de produto + uma camada transversal. O
 - Google Ads API v24 (v17/v20 obsoletos).
 - supabase-js .upsert(onConflict) não aceita partial UNIQUE — usar UNIQUE total.
 
+### Escada de z-index
+Valores actuais de referência na app:
+- `SelectContent` base: `z-[70]`
+- `Dialog` (Radix): `z-[50]`
+- `PopoverContent` base: `z-[100]`
+- Overlays manuais em `createPortal` (ex.: TransactionRenegotiateInstallmentsModal): `z-[110]`
+- Popovers/Selects que vivem dentro de overlays manuais: `z-[120]`
+
+Porquê: Radix renderiza `PopoverContent` e `SelectContent` no `document.body` via portal, ficando irmãos do overlay, não descendentes. Não conta herança de stacking context — é pura aritmética de `z-index`. O `DatePicker` dentro de overlays `z-[100]` funciona por empate resolvido pela ordem do DOM, mas qualquer overlay criado acima de `z-[100]` exige subir também os popovers/selects que abre, caso a caso (`z-[120]` no TransactionInstallmentsEditor para o modal de renegociação em parcelas).
+
+
 ## 8. Regras de operação do Pedro
 - Justificar antes de executar; uma ação irreversível de cada vez com autorização explícita.
 - Nunca disparar ao agente Lovable sem confirmação. Prompts ao Lovable: bloco único copy-paste, sem fragmentos, plan_mode=false por defeito.
