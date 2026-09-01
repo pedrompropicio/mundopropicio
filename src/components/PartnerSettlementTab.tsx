@@ -1075,16 +1075,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     autoTable(doc, {
       startY: y,
       head: [["Sócio", "%", "Quota Bruta", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional"]],
-      body: settlements.map((s) => [
-        s.partnerName,
-        `${s.effectivePercentage}%`,
-        formatCurrency(s.partnerShare),
-        formatCurrency(s.resultRepasseNow),
-        formatCurrency(s.totalPaidByPartner),
-        fmtExtras(s.totalPartnerExtras),
-        formatCurrency(s.operationalSettlement),
-      ]),
-      foot: [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
+      body: settlements.map((s) => {
+        const dash = "—";
+        const isRecipient = !solo || s.partnerId === solo.partnerId;
+        const name = solo
+          ? `${s.partnerName} (${s.usesGrossExpenses ? "c/IVA" : "s/IVA"})`
+          : s.partnerName;
+        if (!isRecipient) {
+          return [name, `${s.effectivePercentage}%`, dash, dash, dash, dash, dash];
+        }
+        return [
+          name,
+          `${s.effectivePercentage}%`,
+          formatCurrency(s.partnerShare),
+          formatCurrency(s.resultRepasseNow),
+          formatCurrency(s.totalPaidByPartner),
+          fmtExtras(s.totalPartnerExtras),
+          formatCurrency(s.operationalSettlement),
+        ];
+      }),
+      foot: solo ? [] : [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.resultRepasseNow, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
