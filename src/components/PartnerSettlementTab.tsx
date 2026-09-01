@@ -1322,7 +1322,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
     {
         const houseSettlement = settlements.find((s) => s.isHouse);
-      if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
+      if (!solo && houseSettlement && houseSettlement.transitoryItems.length > 0) {
         // Mantém na mesma página de "Detalhes por Sócio"; só quebra se não couber o cabeçalho
         if (y > pageH - 40) {
           doc.addPage();
