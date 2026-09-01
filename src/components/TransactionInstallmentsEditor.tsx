@@ -150,7 +150,7 @@ export function TransactionInstallmentsEditor({
                 {firstDate ? format(fromYmd(firstDate), "dd/MM/yyyy", { locale: pt }) : "Escolher"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-[100]" align="start">
+            <PopoverContent className="w-auto p-0 z-[120]" align="start">
               <Calendar
                 mode="single"
                 selected={firstDate ? fromYmd(firstDate) : undefined}
@@ -168,7 +168,7 @@ export function TransactionInstallmentsEditor({
             onValueChange={(v) => onWizardChange({ count, firstDate, interval: v as any })}
           >
             <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[120]">
               <SelectItem value="weekly">Semanal</SelectItem>
               <SelectItem value="biweekly">Quinzenal</SelectItem>
               <SelectItem value="monthly">Mensal</SelectItem>
@@ -206,7 +206,7 @@ export function TransactionInstallmentsEditor({
                           {r.scheduled_date ? format(fromYmd(r.scheduled_date), "dd/MM/yyyy", { locale: pt }) : "—"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                      <PopoverContent className="w-auto p-0 z-[120]" align="start">
                         <Calendar
                           mode="single"
                           selected={r.scheduled_date ? fromYmd(r.scheduled_date) : undefined}
