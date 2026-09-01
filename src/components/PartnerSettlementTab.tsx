@@ -895,7 +895,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const mixedBasesNote =
     "Sócios com bases de apuramento diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
-  function exportPdf() {
+  /**
+   * `recipient` ausente/null → relatório completo (inalterado).
+   * Com `recipient` → variante de impressão individual: mesmos cálculos, outra apresentação.
+   */
+  function exportPdf(recipient?: PartnerSettlement | null) {
+    const solo = recipient ?? null;
+    const soloPct = solo ? solo.effectivePercentage / 100 : 0;
+    const share = (v: number) => v * soloPct;
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -926,6 +933,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
     y += 5;
     doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
+    if (solo) {
+      y += 5;
+      doc.text(
+        `Socio: ${solo.partnerName} · ${solo.effectivePercentage}% · ${solo.usesGrossExpenses ? "despesas c/IVA" : "despesas s/IVA"}`,
+        margin,
+        y,
+      );
+    }
     doc.setTextColor(0);
     y += 8;
 
