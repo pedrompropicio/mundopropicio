@@ -1145,7 +1145,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // ===== DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
     {
-      const externalSettlementsP2 = settlements.filter((x: any) => !x.isHouse);
+      const externalSettlementsP2 = settlements
+        .filter((x: any) => !x.isHouse)
+        .filter((x: any) => !solo || x.partnerId === solo.partnerId);
       if (externalSettlementsP2.length > 0) {
         doc.addPage();
         y = 16;
