@@ -902,6 +902,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const margin = 14;
     let y = 16;
 
+    // Numeração sequencial das secções efetivamente impressas (várias são condicionais).
+    let sec = 0;
+    const secTitle = (t: string) => `${++sec}. ${t}`;
+
     const ensureSpace = (needed: number) => {
       if (y + needed > pageH - 12) { doc.addPage(); y = 16; }
     };
