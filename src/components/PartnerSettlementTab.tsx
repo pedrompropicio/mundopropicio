@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Download, UserCheck, TrendingUp, TrendingDown, ArrowRightLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
@@ -895,7 +896,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const mixedBasesNote =
     "Sócios com bases de apuramento diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
-  function exportPdf() {
+  /**
+   * `recipient` ausente/null → relatório completo (inalterado).
+   * Com `recipient` → variante de impressão individual: mesmos cálculos, outra apresentação.
+   */
+  function exportPdf(recipient?: PartnerSettlement | null) {
+    const solo = recipient ?? null;
+    const soloPct = solo ? solo.effectivePercentage / 100 : 0;
+    const share = (v: number) => v * soloPct;
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -926,6 +934,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
     y += 5;
     doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
+    if (solo) {
+      y += 5;
+      doc.text(
+        `Socio: ${solo.partnerName} · ${solo.effectivePercentage}% · ${solo.usesGrossExpenses ? "despesas c/IVA" : "despesas s/IVA"}`,
+        margin,
+        y,
+      );
+    }
     doc.setTextColor(0);
     y += 8;
 
@@ -953,29 +969,59 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.text(secTitle("Resumo Financeiro"), margin, y);
     y += 5;
 
-    autoTable(doc, {
-      startY: y,
-      head: [["", "Valor"]],
-      body: [
-        ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
-        ["Resultado", formatCurrency(resultGross)],
-      ],
+    if (solo) {
+      // Variante individual: base da despesa e resultado seguem a BASE EFETIVA do destinatário,
+      // não o seletor de vista. A 3.ª coluna é a quota-parte dele (resultado × pct = partnerShare).
+      const expForRecipient = solo.usesGrossExpenses ? totalExpensesGross : totalExpensesNet;
+      const resForRecipient = solo.result;
+      const soloLabelW = 96;
+      const soloValW = (tableWidth - soloLabelW) / 2;
+      autoTable(doc, {
+        startY: y,
+        head: [["", "Evento", `A sua parte (${solo.effectivePercentage}%)`]],
+        body: [
+          ["Receita (s/IVA)", formatCurrency(revenueBase), formatCurrency(share(revenueBase))],
+          [`Despesas (${solo.usesGrossExpenses ? "c/IVA" : "s/IVA"})`, formatCurrency(expForRecipient), formatCurrency(share(expForRecipient))],
+          ["Resultado", formatCurrency(resForRecipient), formatCurrency(share(resForRecipient))],
+        ],
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: soloLabelW, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: soloValW, halign: "right" },
+          2: { cellWidth: soloValW, halign: "right", fontStyle: "bold" },
+        },
+      });
+    } else {
+      autoTable(doc, {
+        startY: y,
+        head: [["", "Valor"]],
+        body: [
+          ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
+          [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
+          ["Resultado", formatCurrency(resultGross)],
+        ],
 
-      margin: { left: margin, right: margin },
-      tableWidth,
-      styles: { fontSize: 9, cellPadding: 2.5 },
-      headStyles: { fillColor: [41, 41, 41], halign: "right" },
-      columnStyles: {
-        0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
-        1: { cellWidth: valueColW, halign: "right" },
-      },
-    });
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: valueColW, halign: "right" },
+        },
+      });
+    }
     y = (doc as any).lastAutoTable.finalY + 4;
     if (hasMixedExpenseBases) {
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "normal");
-      const lines = doc.splitTextToSize(mixedBasesNote, pageW - margin * 2);
+      const noteText = solo
+        ? `Os socios deste evento tem bases de apuramento diferentes conforme contrato. Este relatorio esta integralmente na base aplicavel a ${solo.partnerName}. A soma das quotas dos socios nao corresponde ao resultado de nenhuma das bases isoladamente.`
+        : mixedBasesNote;
+      const lines = doc.splitTextToSize(noteText, pageW - margin * 2);
       doc.text(lines, margin, y);
       y += lines.length * 3.4 + 2;
       doc.setFontSize(9);
@@ -1030,16 +1076,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     autoTable(doc, {
       startY: y,
       head: [["Sócio", "%", "Quota Bruta", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional"]],
-      body: settlements.map((s) => [
-        s.partnerName,
-        `${s.effectivePercentage}%`,
-        formatCurrency(s.partnerShare),
-        formatCurrency(s.resultRepasseNow),
-        formatCurrency(s.totalPaidByPartner),
-        fmtExtras(s.totalPartnerExtras),
-        formatCurrency(s.operationalSettlement),
-      ]),
-      foot: [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
+      body: settlements.map((s) => {
+        const dash = "—";
+        const isRecipient = !solo || s.partnerId === solo.partnerId;
+        const name = solo
+          ? `${s.partnerName} (${s.usesGrossExpenses ? "c/IVA" : "s/IVA"})`
+          : s.partnerName;
+        if (!isRecipient) {
+          return [name, `${s.effectivePercentage}%`, dash, dash, dash, dash, dash];
+        }
+        return [
+          name,
+          `${s.effectivePercentage}%`,
+          formatCurrency(s.partnerShare),
+          formatCurrency(s.resultRepasseNow),
+          formatCurrency(s.totalPaidByPartner),
+          fmtExtras(s.totalPartnerExtras),
+          formatCurrency(s.operationalSettlement),
+        ];
+      }),
+      foot: solo ? [] : [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.resultRepasseNow, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
@@ -1090,7 +1146,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // ===== DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
     {
-      const externalSettlementsP2 = settlements.filter((x: any) => !x.isHouse);
+      const externalSettlementsP2 = settlements
+        .filter((x: any) => !x.isHouse)
+        .filter((x: any) => !solo || x.partnerId === solo.partnerId);
       if (externalSettlementsP2.length > 0) {
         doc.addPage();
         y = 16;
@@ -1265,7 +1323,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
     {
         const houseSettlement = settlements.find((s) => s.isHouse);
-      if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
+      if (!solo && houseSettlement && houseSettlement.transitoryItems.length > 0) {
         // Mantém na mesma página de "Detalhes por Sócio"; só quebra se não couber o cabeçalho
         if (y > pageH - 40) {
           doc.addPage();
@@ -1531,10 +1589,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(secTitle(`Despesas por Categoria ${lvlLabel}`), margin, y);
       y += 5;
 
-      // Larguras explícitas (uma única coluna de valor c/IVA)
-      const expCol1 = 160; // descrição (L1/L2/L3)
+      // Larguras explícitas (uma única coluna de valor c/IVA; na variante individual há 2 colunas de valor)
+      const expCol1 = solo ? 130 : 160; // descrição (L1/L2/L3)
       const expColC = 40;  // contagem (cabe "Lançamentos")
-      const expColV = tableWidth - expCol1 - expColC;
+      const expColV = solo ? (tableWidth - expCol1 - expColC) / 2 : tableWidth - expCol1 - expColC;
+      // Na variante individual acrescenta-se a quota-parte do destinatário a cada valor.
+      const expRow = (label: string, count: number, gross: number) =>
+        solo
+          ? [label, count.toString(), formatCurrency(gross), formatCurrency(share(gross))]
+          : [label, count.toString(), formatCurrency(gross)];
 
       // Agregação consoante o nível escolhido
       // L2: agrupa em L1 → L2 (atual)
@@ -1556,11 +1619,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
           const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
           body.push({
-            row: [
-              `${g.l1Code} ${g.l1Name}`.trim(),
-              l1Count.toString(),
-              formatCurrency(l1Gross),
-            ],
+            row: expRow(`${g.l1Code} ${g.l1Name}`.trim(), l1Count, l1Gross),
             style: "l1",
           });
 
@@ -1582,11 +1641,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 const l2Count = rowsL2.reduce((s, r) => s + r.count, 0);
                 const l2Gross = rowsL2.reduce((s, r) => s + r.amountGross, 0);
                 body.push({
-                  row: [
-                    `    ${first.l2Code} ${first.l2Name}`.trim(),
-                    l2Count.toString(),
-                    formatCurrency(l2Gross),
-                  ],
+                  row: expRow(`    ${first.l2Code} ${first.l2Name}`.trim(), l2Count, l2Gross),
                   style: "l2",
                 });
               }
@@ -1596,11 +1651,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 rowsL2.forEach((r) => {
                   if (r.l3Code === r.l2Code && r.l3Name === r.l2Name) return; // sem nível 3 real
                   body.push({
-                    row: [
-                      `        ${r.l3Code} ${r.l3Name}`.trim(),
-                      r.count.toString(),
-                      formatCurrency(r.amountGross),
-                    ],
+                    row: expRow(`        ${r.l3Code} ${r.l3Name}`.trim(), r.count, r.amountGross),
                     style: "l3",
                   });
                 });
@@ -1613,12 +1664,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       autoTable(doc, {
         startY: y,
-        head: [["Categoria", "Lançamentos", "Despesas"]],
+        head: [solo
+          ? ["Categoria", "Lançamentos", "Despesas", "A sua parte"]
+          : ["Categoria", "Lançamentos", "Despesas"]],
         body: body.map((b) => b.row),
-        foot: [["TOTAL",
-          grandCount.toString(),
-          formatCurrency(grandGross),
-        ]],
+        foot: [solo
+          ? ["TOTAL", grandCount.toString(), formatCurrency(grandGross), formatCurrency(share(grandGross))]
+          : ["TOTAL", grandCount.toString(), formatCurrency(grandGross)]],
         showFoot: "lastPage",
         margin: { left: margin, right: margin },
         tableWidth,
@@ -1629,6 +1681,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           0: { cellWidth: expCol1, halign: "left" },
           1: { cellWidth: expColC, halign: "right" },
           2: { cellWidth: expColV, halign: "right" },
+          ...(solo ? { 3: { cellWidth: expColV, halign: "right" as const, fontStyle: "bold" as const } } : {}),
         },
         didParseCell: (data) => {
           if (data.section !== "body") return;
@@ -1719,16 +1772,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       autoTable(doc, {
         startY: y,
         head: [["Sócio", "Caixa\nDisponível (€)", "Despesas Pagas\n(Pagas pelo Sócio) (€)", "Resultado Evento\n(Lucro ou Prejuízo) (€)", "Total\n(€)", "Caixa Disponível\n(Liquidez) (€)", "Saldo Pendente\n(€)"]],
-        body: liquidityRows.map((row) => [
-          row.partnerName,
-          formatLiquidityAmount(row.reimbursableNow),
-          formatLiquidityAmount(row.reimbursableNow + row.reimbursablePending),
-          formatLiquidityAmount(row.resultPayableNow + row.resultPending),
-          formatLiquidityAmount(row.totalDue),
-          formatLiquidityAmount(row.totalNow),
-          formatLiquidityAmount(row.totalPending),
-        ]),
-        foot: [[
+        body: liquidityRows
+          // A cascata de caixa é sempre calculada com todos os sócios; na variante
+          // individual apenas se imprime a linha do destinatário.
+          .filter((row) => !solo || row.partnerName === solo.partnerName)
+          .map((row) => [
+            row.partnerName,
+            formatLiquidityAmount(row.reimbursableNow),
+            formatLiquidityAmount(row.reimbursableNow + row.reimbursablePending),
+            formatLiquidityAmount(row.resultPayableNow + row.resultPending),
+            formatLiquidityAmount(row.totalDue),
+            formatLiquidityAmount(row.totalNow),
+            formatLiquidityAmount(row.totalPending),
+          ]),
+        foot: solo ? [] : [[
           "TOTAL",
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow, 0)),
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow + row.reimbursablePending, 0)),
@@ -1769,7 +1826,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       // O que sobra do caixa depois de servir os sócios externos fica retido na MP
       // (a tabela acima usa externalSettlements e exclui a casa).
-      if (remainingCash > 0) {
+      if (!solo && remainingCash > 0) {
         autoTable(doc, {
           startY: y,
           body: [["Retido na Mundo Propício (não distribuído)", formatCurrency(remainingCash)]],
@@ -1812,7 +1869,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(`Página ${p}/${totalPages}`, pageW - margin, pageH - 6, { align: "right" });
     }
 
-    doc.save(`Fecho_${eventName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+    const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");
+    doc.save(solo ? `Fecho_${safe(eventName)}_${safe(solo.partnerName)}.pdf` : `Fecho_${safe(eventName)}.pdf`);
   }
 
   return (
@@ -1858,10 +1916,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </SelectContent>
           </Select>
           <FechoBasisSelector basis={basis} />
-          <Button size="sm" variant="outline" onClick={exportPdf}>
-
-            <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo</DropdownMenuItem>
+              {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
+              {settlements.filter((s) => !s.isHouse).map((s) => (
+                <DropdownMenuItem key={s.partnerId} onClick={() => exportPdf(s)}>
+                  Para {s.partnerName}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
