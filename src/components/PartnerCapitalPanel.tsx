@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Landmark, Trash2 } from "lucide-react";
@@ -10,6 +12,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { isCapitalCategoryCode, capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
+import { computeHousePercentage, HOUSE_PARTNER_ID, HOUSE_PARTNER_NAME } from "@/lib/house-partner";
+
+type CapitalFlow = "event_cash" | "partner_settlement";
+
+const FLOW_LABEL: Record<CapitalFlow, string> = {
+  event_cash: "Entrou no caixa do evento",
+  partner_settlement: "Acerto entre sócios",
+};
+
 
 // Re-export para não quebrar importadores existentes (SSoT vive em lib/capital-branch).
 export { capitalKindFromCode };
