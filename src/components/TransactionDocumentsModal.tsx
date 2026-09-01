@@ -444,6 +444,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         )}
       </div>
     </div>
+    </div>,
+    document.body
   );
 }
 
