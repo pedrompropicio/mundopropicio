@@ -450,7 +450,7 @@ export function TransactionInstallmentGroupEditor({
                       </span>
                     )}
                   </div>
-                  <input
+                  <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
