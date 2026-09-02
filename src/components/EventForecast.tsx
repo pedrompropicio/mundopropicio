@@ -212,7 +212,7 @@ function nonCanonicalReason(t: any): { label: string; detail?: string } | null {
   return null;
 }
 
-/** Badge discreto "não conta" com popover do motivo. */
+/** Badge "não conta" com popover do motivo — tom âmbar (atenção, não erro). */
 function NonCanonicalBadge({ tx }: { tx: any }) {
   const reason = nonCanonicalReason(tx);
   return (
@@ -221,7 +221,7 @@ function NonCanonicalBadge({ tx }: { tx: any }) {
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/70"
+          className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/25"
         >
           não conta
         </button>
