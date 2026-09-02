@@ -376,3 +376,18 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 
 **Referências:** #86, #96, `claude/auditoria-company-id-service-role-2026-09-01.md`.
 
+## 2026-09-02 — O BP como base real de custos e de receita (D1–D11)
+
+- **DR-2026-09-02-D1 — A linha de BP é obrigatória, por caso.** Rubrica com uma linha: FK automática. Rubrica com várias: obriga a escolher. Rubrica sem linha: oferece criar a linha NA APROVAÇÃO, não no lançamento — quem lança pagamentos pode não ser quem gere o BP, e travar no lançamento em dia de evento faz com que não se registe. A órfã deixa de existir em evento com BP; nunca esteve fora da apuração, estava fora da ATRIBUIÇÃO (ordenador/pagador).
+- **DR-2026-09-02-D2 — Excesso: o aprovador eleva a verba, e fica escrito.** Não trava no lançamento. Na aprovação, escolha explícita entre elevar a verba da linha (com observação obrigatória) ou assumir o excesso. Eleva-se a LINHA, não a L3. Sem limite em euros: `raise_budget` é booleana.
+- **DR-2026-09-02-D3 — Previsto original ao lado da verba corrente.** `baseline_amount` fixo, `amount` móvel. O fecho usa o corrente; a curva de erro usa o original. Sem isto, a elevação obrigatória do D2 apagaria o erro de previsão.
+- **DR-2026-09-02-D4 — A curva de evolução é por L3, sobre o audit log.** Não por linha: em 2,5 meses houve 602 criações e 490 exclusões de linha, e uma curva por linha faz buraco a cada exclusão. Versão congelada responde "de onde saímos"; o audit log responde "por onde passámos".
+- **DR-2026-09-02-D5 — Versões congeladas continuam voluntárias.** Congelar é decisão de gestão; o sistema não obriga em marco nenhum.
+- **DR-2026-09-02-D6 — Modo do evento: com BP ou sem BP, declarado à nascença.** Default por empresa, override por evento. As empresas BR do grupo quase nunca fazem BP e o sistema não deve decretar essa mudança cultural. ARMADILHA: `operacao_mode` é outra coisa (fases do Hub de Produção).
+- **DR-2026-09-02-D7 — Permissões são configuração, não código.** O modelo de override por utilizador e por empresa JÁ EXISTIA (user_permissions + has_permission_in) e estava em uso com 83 overrides; o que faltava era as RPCs usarem-no em vez de has_role. Sem limites em euros.
+- **DR-2026-09-02-D8 — A regra vive no servidor, não nos modais.** As transações nascem em oito caminhos; três nunca escrevem linha. Pôr a regra no formulário significa implementá-la oito vezes e reabrir o buraco ao nono modal. Excepções declaradas: filha de rateio e parcela herdam do pai.
+- **DR-2026-09-02-D9 — O BP de receita fica dentro da aba Business Plan.** Sub-separadores Despesas | Receitas. Não há aba nova: o menu do evento já tem onze abas e a receita já vive em cinco delas. Se a receita sai do BP, o BP deixa de ser o plano do evento.
+- **DR-2026-09-02-D10 — Modelo do BP de receita.** Híbrido por natureza da fonte: rubrica com módulo → linha sintética não persistida; sem módulo → linha manual (Merchandising, Camarotes, Outros). Patrocínios: linha real, nasce só em FECHADO, pelo botão — arrastar um card no Kanban nunca escreve no BP, e espelhar o funil no BP produziria leitura injusta do desempenho comercial. Planeamento por VERBA DE SEGMENTO consumida pelos fechados: previsto corrente = máx(estimativa − Σ fechados, 0). Encerramento da captação é acto datado com motivo. O fecho conta sempre só o fechado, sem opção.
+- **DR-2026-09-02-D11 — IVA: o BP guarda base, mas prevê-se pelo desembolso.** O confronto BP vs realizado é sempre em base líquida; a taxa da linha é expectativa, não restrição; uma transação por taxa; linha de natureza mista (hotel com taxa turística, camarim) prevê-se pelo DESEMBOLSO e a base é derivada; o apuramento de IVA nunca lê a linha do BP.
+
+
