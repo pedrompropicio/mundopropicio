@@ -265,6 +265,8 @@ export default function ReportIvaAudit() {
           )}
         </div>
       )}
+
+      <ReportIvaRateCoherence eventId={eventId} rows={coherenceRows} isLoading={loadingCoherence} />
     </div>
   );
 }
