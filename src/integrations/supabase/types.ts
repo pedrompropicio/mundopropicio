@@ -2602,6 +2602,7 @@ export type Database = {
           country: string
           created_at: string
           currency: string
+          default_budget_mode: string
           display_name: string
           favicon_url: string | null
           feature_tickets_v2: boolean
@@ -2623,6 +2624,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string
+          default_budget_mode?: string
           display_name: string
           favicon_url?: string | null
           feature_tickets_v2?: boolean
@@ -2644,6 +2646,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string
+          default_budget_mode?: string
           display_name?: string
           favicon_url?: string | null
           feature_tickets_v2?: boolean
@@ -5927,6 +5930,7 @@ export type Database = {
           admin_window_end: string | null
           admin_window_start: string | null
           budget: number
+          budget_mode: string | null
           city_id: string | null
           company_id: string
           created_at: string
@@ -5982,6 +5986,7 @@ export type Database = {
           admin_window_end?: string | null
           admin_window_start?: string | null
           budget?: number
+          budget_mode?: string | null
           city_id?: string | null
           company_id?: string
           created_at?: string
@@ -6037,6 +6042,7 @@ export type Database = {
           admin_window_end?: string | null
           admin_window_start?: string | null
           budget?: number
+          budget_mode?: string | null
           city_id?: string | null
           company_id?: string
           created_at?: string
@@ -12011,6 +12017,7 @@ export type Database = {
         }
         Returns: string
       }
+      event_budget_mode: { Args: { _event_id: string }; Returns: string }
       expire_supplier_credits: { Args: never; Returns: number }
       find_admin_absorbing_events: {
         Args: { p_company_id: string; p_date: string }
