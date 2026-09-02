@@ -38,6 +38,26 @@ Rota **`/relatorios/auditoria-iva`** (permission `view_report_document_pendencie
 - Exporta XLSX com origem/data/evento/descrição/base/taxa/IVA esperado/resíduo.
 - Útil pré-fecho de mês para detetar bases com cêntimos "estranhos" que vão divergir das faturas dos fornecedores.
 
+### Secção "Coerência de taxa — BP × Transações" (D11)
+Na mesma página `/relatorios/auditoria-iva` (mesma permissão), a seguir à auditoria de resíduos.
+Componente `src/components/ReportIvaRateCoherence.tsx` (+ hook `useRateCoherenceRows`).
+
+- **Regra D11**: a taxa da **transação** é a verdade (vem da fatura); a da linha de BP é
+  estimativa. Quando divergem, corrige-se a **LINHA**, nunca o contrário. O confronto de
+  valores faz-se sempre em **base líquida** — divergência de taxa não altera o custo do
+  evento, só as vistas com IVA e o planeamento de tesouraria.
+- Universo: `event_forecasts` com `version_id IS NULL`, `type='expense'`, com transações
+  vinculadas por `transactions.forecast_id` e filtro canónico (`isValidFechoTransaction`).
+- Colunas: Evento · Rubrica (código+nome) · Descrição · Taxa BP · Taxas realizadas ·
+  Previsto/Realizado base · Previsto/Realizado bruto · Ruído no bruto (previsto − realizado bruto),
+  ordenado por |ruído| desc.
+- **Taxa única** nas transações → botão "Adotar taxa efetiva": actualiza APENAS
+  `event_forecasts.iva_rate` (nunca `amount`), exige permissão `manage_bp`, e registra em
+  `forecast_audit_log` com observação "Taxa alinhada com a fatura (auditoria de coerência de IVA)".
+- **Taxas mistas** → sem botão; nota "linha de natureza mista — o previsto deve ser feito pelo
+  desembolso (D11)" (casos hotel / camarim).
+- Incluída no export XLSX da página como folha "Coerência de taxa".
+
 ## Testes
 `src/lib/__tests__/iva.test.ts` cobre cálculo, consistência, snap e inferência.
 
