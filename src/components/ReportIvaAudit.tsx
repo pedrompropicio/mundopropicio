@@ -10,6 +10,7 @@ import { calcIvaAmount, IVA_TOLERANCE } from "@/lib/iva";
 import { formatDatePT } from "@/lib/utils";
 import { utils, writeFile } from "xlsx";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import ReportIvaRateCoherence, { useRateCoherenceRows } from "@/components/ReportIvaRateCoherence";
 
 type Divergence = {
   source: "transaction" | "forecast";
@@ -130,6 +131,8 @@ export default function ReportIvaAudit() {
     return out.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
   }, [transactions, forecasts, tolerance]);
 
+  const { rows: coherenceRows, isLoading: loadingCoherence } = useRateCoherenceRows(eventId);
+
   const exportXlsx = () => {
     const rows = divergences.map((d) => ({
       Origem: d.source === "transaction" ? "Transação" : "BP",
@@ -145,6 +148,27 @@ export default function ReportIvaAudit() {
     applyPTNumberFormat(ws);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Auditoria IVA");
+
+    if (coherenceRows.length) {
+      const cohRows = coherenceRows.map((r) => ({
+        Evento: r.event,
+        "Rubrica (código)": r.categoryCode,
+        "Rubrica (nome)": r.categoryName,
+        Descrição: r.description,
+        "Taxa BP (%)": r.bpRate,
+        "Taxas realizadas (%)": r.realizedRates.join("/"),
+        "Previsto base (€)": r.forecastBase,
+        "Realizado base (€)": r.realizedBase,
+        "Previsto bruto (€)": r.forecastGross,
+        "Realizado bruto (€)": r.realizedGross,
+        "Ruído no bruto (€)": r.noise,
+        Caso: r.realizedRates.length > 1 ? "Taxas mistas (D11)" : "Taxa única",
+      }));
+      const wsCoh = utils.json_to_sheet(cohRows);
+      applyPTNumberFormat(wsCoh);
+      utils.book_append_sheet(wb, wsCoh, "Coerência de taxa");
+    }
+
     writeFile(wb, `auditoria-iva-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
@@ -180,7 +204,7 @@ export default function ReportIvaAudit() {
             </p>
           </div>
           <div className="flex items-end">
-            <Button onClick={exportXlsx} disabled={!divergences.length} variant="outline" className="gap-2 w-full">
+            <Button onClick={exportXlsx} disabled={!divergences.length && !coherenceRows.length} variant="outline" className="gap-2 w-full">
               <FileSpreadsheet className="h-4 w-4" /> Exportar XLSX
             </Button>
           </div>
@@ -241,6 +265,8 @@ export default function ReportIvaAudit() {
           )}
         </div>
       )}
+
+      <ReportIvaRateCoherence eventId={eventId} rows={coherenceRows} isLoading={loadingCoherence} />
     </div>
   );
 }
