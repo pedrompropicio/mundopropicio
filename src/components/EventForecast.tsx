@@ -312,7 +312,9 @@ const descRef = useRef<HTMLInputElement>(null);
   const isManager = forceReadOnly ? false : rawIsManager;
   const isEventLocked = eventStatus === "completed";
   const canApprove = !forceReadOnly && (rawIsAdmin || rawIsManager) && !isEventLocked;
-  const canEditBP = !forceReadOnly && (rawIsAdmin || rawIsManager) && !isEventLocked;
+  // Escrever no BP depende da permissão `manage_bp` (por utilizador e empresa),
+  // não do role — espelha o predicado das RPCs batch_*_event_forecasts.
+  const canEditBP = !forceReadOnly && hasPermission("manage_bp") && !isEventLocked;
   const canDeleteBP = !forceReadOnly && rawIsAdmin; // Admin can delete BP lines regardless of event status
   const canEditApprovedBP = canEditBP; // Admin/Manager can always edit approved BP lines
   const isEditor = !forceReadOnly && !rawIsAdmin && !rawIsManager && hasPermission("manage_events");
