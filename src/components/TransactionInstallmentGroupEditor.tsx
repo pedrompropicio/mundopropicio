@@ -154,16 +154,25 @@ export function TransactionInstallmentGroupEditor({
 
   const rowLocked = (r: GroupRow) => isPaidRow(r) && !(canApprove && unlockPaid);
 
-  /** Edição directa em € — sincroniza a % correspondente. */
+  /**
+   * Edição directa em € — o total da fatura passa a SEGUIR a soma das parcelas
+   * (incluindo as pagas/travadas, porque o total inclui a parte já paga).
+   * As % são recalculadas contra o novo total. Só no modo €.
+   */
   const setAmount = (id: string, amount: number) =>
-    setRows((p) => ({
-      ...p,
-      [id]: {
-        ...p[id],
-        amount,
-        pct: newTotal > 0 ? +((amount / newTotal) * 100).toFixed(2) : 0,
-      },
-    }));
+    setRows((p) => {
+      const next: Record<string, RowState> = { ...p, [id]: { ...p[id], amount } };
+      const newSum = +group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0).toFixed(2);
+      setTotalInput(newSum.toFixed(2));
+      group.forEach((r) => {
+        if (!next[r.id]) return;
+        next[r.id] = {
+          ...next[r.id],
+          pct: newSum > 0 ? +(((Number(next[r.id].amount) || 0) / newSum) * 100).toFixed(2) : 0,
+        };
+      });
+      return next;
+    });
 
   /** Edição em % — recalcula os € de todas as parcelas não travadas; resto do arredondamento na última. */
   const setPct = (id: string, pct: number) =>
