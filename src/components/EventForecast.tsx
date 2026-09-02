@@ -3406,6 +3406,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   );
   const excludedTxCount = excludedTx.length;
   const excludedTxTotal = excludedTx.reduce((s: number, tx: any) => s + txWithIva(tx), 0);
+  // Contador de pagas exibido: mesmo critério de paidTransactions, mas só canónicas.
+  const canonicalPaidCount = useMemo(
+    () => paidTransactions.filter(isCanonicalRealTx).length,
+    [paidTransactions],
+  );
 
   // For admin delete: check if any transactions are paid
   const paidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
