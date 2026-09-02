@@ -361,3 +361,18 @@ aparecia em lado nenhum.
 operacionais (`gross_revenue`). O valor mostrado é anterior a acertos de IVA entre a
 Mundo Propício e sócios portugueses, que são tratados fora do sistema e arquivados em
 Documentos do evento. Não altera quotas, saldos nem o PDF.
+
+## D-ERP11 — Insert sob service_role passa `company_id` explícito da linha, nunca depende de `current_company_id()` (01/09/2026)
+
+**Decisão:** qualquer insert feito por edge function sob `service_role` passa `company_id` explicitamente, e o valor vem da linha de negócio a que o registo diz respeito (ex.: `transaction.company_id` para uma linha de auditoria dessa transação), nunca do perfil de quem está a chamar nem de `current_company_id()`. O trigger mantém-se duro, como última linha de defesa. Escritas secundárias não-bloqueantes (auditoria, logs, propagação) capturam e registam o erro — nunca o engolem.
+
+**Contexto:** `set_company_id_on_insert()` levanta excepção quando o insert omite `company_id` e não há contexto de utilizador. Sob `service_role` isso é sempre. Onde o erro era capturado e engolido, a escrita desaparecia em silêncio — quatro meses de auditoria de transações perdidos (894 edições e 1.209 aprovações sem rasto), e o restore de `ticket_sales` impossível.
+
+**Consequência:** a linha de auditoria pertence sempre à mesma empresa do registo que descreve, mesmo quando o utilizador tem acesso a várias. Não se cria variante "soft" da função nem se relaxa nenhum NOT NULL.
+
+**Alternativas rejeitadas:** tornar `set_company_id_on_insert` soft em todo o lado — abriria buraco de isolamento multi-tenant, cuidado já registado na #53 e na #86.
+
+**Estado:** vigente.
+
+**Referências:** #86, #96, `claude/auditoria-company-id-service-role-2026-09-01.md`.
+
