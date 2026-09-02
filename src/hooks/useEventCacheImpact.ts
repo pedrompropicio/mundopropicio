@@ -213,7 +213,7 @@ export function useEventCacheImpact(params: {
       if (!cacheCategoryId) return 0;
       const { data, error } = await supabase
         .from("transactions")
-        .select("amount, status, is_transitory, parent_transaction_id, is_hidden")
+        .select("amount, status, is_transitory, parent_transaction_id, split_percentage, is_hidden")
         .in("event_id", txEventIds)
         .eq("type", "expense")
         .eq("category_id", cacheCategoryId)
@@ -221,7 +221,10 @@ export function useEventCacheImpact(params: {
       if (error) throw error;
       return (data ?? [])
         .filter(
-          (t: any) => !t.is_transitory && !t.is_hidden && !t.parent_transaction_id,
+          (t: any) =>
+            !t.is_transitory &&
+            !t.is_hidden &&
+            !(t.parent_transaction_id && t.split_percentage !== null),
         )
         .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
     },
