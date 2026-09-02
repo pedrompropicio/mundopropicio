@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { roundCents, calcIvaAmount } from "@/lib/iva";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
@@ -177,16 +178,65 @@ interface Props {
 }
 
 /**
- * Predicado canónico do "Real": apenas TX `approved` ou `paid`; exclui
- * transitórias e marcadas `exclude_from_result`. SSoT único do ficheiro —
- * usado na vista Previsão vs Real e no realizado das bandas de rubrica.
+ * Predicado canónico do "Real": apenas TX `approved` ou `paid` e sem nenhum dos
+ * flags bloqueadores universais (`is_transitory`, `exclude_from_result`,
+ * `reversed_at`, `is_hidden`) — os mesmos do Fecho/DRE, via o helper partilhado
+ * `hasResultBlockingFlags` (ver `.lovable/memory/features/fecho-filter-parity.md`).
+ * SSoT único do ficheiro — usado na vista Previsão vs Real, no realizado das
+ * bandas de rubrica e nos totais dos painéis de transações.
+ *
+ * NOTA: as TX que não passam NÃO desaparecem da lista do BP — ficam visíveis,
+ * riscadas e fora dos totais, com o motivo consultável.
  */
 export const isCanonicalRealTx = (t: any): boolean => {
   if (!(t.status === "approved" || t.status === "paid")) return false;
-  if (t.is_transitory) return false;
-  if (t.exclude_from_result) return false;
-  return true;
+  return !hasResultBlockingFlags(t);
 };
+
+/** Motivo pelo qual uma TX não conta para o realizado (primeiro flag encontrado). */
+function nonCanonicalReason(t: any): { label: string; detail?: string } | null {
+  if (t?.reversed_at != null) {
+    return {
+      label: "Transação estornada",
+      detail: [
+        t.reversal_reason || undefined,
+        `Estornada a ${format(new Date(String(t.reversed_at)), "dd/MM/yyyy")}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }
+  if (t?.is_hidden === true) return { label: "Escondida" };
+  if (t?.exclude_from_result === true) return { label: "Excluída do resultado" };
+  if (t?.is_transitory === true) return { label: "Transitória" };
+  return null;
+}
+
+/** Badge discreto "não conta" com popover do motivo. */
+function NonCanonicalBadge({ tx }: { tx: any }) {
+  const reason = nonCanonicalReason(tx);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/70"
+        >
+          não conta
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 z-[120]" align="end">
+        <p className="text-xs font-semibold">{reason?.label ?? "Fora do realizado"}</p>
+        {reason?.detail && <p className="mt-1 text-[11px] text-muted-foreground">{reason.detail}</p>}
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Continua listada para efeitos de análise, mas está fora dos totais do BP.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
   // Taxas de IVA do país da cidade do evento (PT por defeito).
@@ -3343,6 +3393,20 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
   const hasMatchingTx = matchingTransactions.length > 0;
 
+  // Total do painel: só o universo canónico. As restantes ficam listadas
+  // (riscadas) e resumidas na linha "fora do total".
+  const txWithIva = (tx: any) => Number(tx.amount) * (1 + Number(tx.iva_rate) / 100);
+  const canonicalTxTotal = useMemo(
+    () => matchingTransactions.filter(isCanonicalRealTx).reduce((s: number, tx: any) => s + txWithIva(tx), 0),
+    [matchingTransactions],
+  );
+  const excludedTx = useMemo(
+    () => matchingTransactions.filter((t: any) => hasResultBlockingFlags(t)),
+    [matchingTransactions],
+  );
+  const excludedTxCount = excludedTx.length;
+  const excludedTxTotal = excludedTx.reduce((s: number, tx: any) => s + txWithIva(tx), 0);
+
   // For admin delete: check if any transactions are paid
   const paidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
     const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
@@ -3824,10 +3888,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   const isPaid = tx.status === "paid" || txBalance < 0.01;
                   const todayStr = new Date().toISOString().slice(0, 10);
                   const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
+                  // Bloqueada pelos flags universais → fica visível mas fora do total.
+                  const blocked = hasResultBlockingFlags(tx);
                   return (
                     <div
                       key={tx.id}
-                      className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors"
+                      className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors ${blocked ? "opacity-50" : ""}`}
                     >
                       <button
                         type="button"
@@ -3836,24 +3902,28 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{tx.description}</p>
-                            {tx.specification && <p className="text-[10px] text-muted-foreground truncate">{tx.specification}</p>}
+                            <p className={`text-xs font-medium truncate ${blocked ? "line-through" : ""}`}>{tx.description}</p>
+                            {tx.specification && <p className={`text-[10px] text-muted-foreground truncate ${blocked ? "line-through" : ""}`}>{tx.specification}</p>}
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                              isPaid ? "bg-success/15 text-success" :
-                              isOverdue ? "bg-destructive/15 text-destructive" :
-                              "bg-blue-500/15 text-blue-400"
-                            }`}>
-                              {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
-                            </span>
-                            <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                            {blocked ? (
+                              <NonCanonicalBadge tx={tx} />
+                            ) : (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                isPaid ? "bg-success/15 text-success" :
+                                isOverdue ? "bg-destructive/15 text-destructive" :
+                                "bg-blue-500/15 text-blue-400"
+                              }`}>
+                                {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
+                              </span>
+                            )}
+                            <span className={`font-mono text-xs font-semibold ${blocked ? "line-through" : ""}`}>{formatCurrency(txTotal)}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-[10px] text-muted-foreground">
                           {tx.due_date && <span>Vcto: {format(new Date(tx.due_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                           <span>Pago: {formatCurrency(txPaid)}</span>
-                          {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
+                          {!blocked && txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
                           {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                         </div>
                       </button>
@@ -3874,8 +3944,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-border/30">
                 <span className="text-muted-foreground font-medium">Total transações</span>
-                <span className="font-mono font-bold">{formatCurrency(matchingTransactions.reduce((s: number, tx: any) => s + Number(tx.amount) * (1 + Number(tx.iva_rate) / 100), 0))}</span>
+                <span className="font-mono font-bold">{formatCurrency(canonicalTxTotal)}</span>
               </div>
+              {excludedTxCount > 0 && (
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>{excludedTxCount} transação(ões) fora do total</span>
+                  <span className="font-mono">{formatCurrency(excludedTxTotal)}</span>
+                </div>
+              )}
+
             </div>
           </td>
         </tr>
@@ -3995,7 +4072,11 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const txs: any[] = item._orphanTx ?? [];
   const colCount = isExpense ? 8 : 7;
   const pending = orphanBucketIsPending(item.type);
-  const realized = txs.reduce((s, t) => s + Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100), 0);
+  const orphanTxWithIva = (t: any) => Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
+  // Realizado do balde: só o universo canónico (ver isCanonicalRealTx).
+  const realized = txs.filter(isCanonicalRealTx).reduce((s, t) => s + orphanTxWithIva(t), 0);
+  const excludedOrphanTx = txs.filter((t) => hasResultBlockingFlags(t));
+  const excludedOrphanTotal = excludedOrphanTx.reduce((s, t) => s + orphanTxWithIva(t), 0);
 
   return (
     <>
@@ -4031,22 +4112,27 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
           <td colSpan={colCount} className="py-0">
             <div className="my-1 ml-6 space-y-1.5 rounded-r-lg border-l-2 border-muted-foreground/30 bg-muted/20 px-3 py-2 animate-fade-in">
               {txs.map((tx: any) => {
-                const txTotal = Number(tx.amount) * (1 + Number(tx.iva_rate ?? 0) / 100);
+                const txTotal = orphanTxWithIva(tx);
                 const txPaid = Number(tx.paid_amount ?? 0);
                 const isPaid = tx.status === "paid" || txTotal - txPaid < 0.01;
+                const blocked = hasResultBlockingFlags(tx);
                 return (
-                  <div key={tx.id} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5">
+                  <div key={tx.id} className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5 ${blocked ? "opacity-50" : ""}`}>
                     <button type="button" onClick={() => setViewingTransaction(tx)} className="block w-full cursor-pointer text-left">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium">{tx.description}</p>
-                          {tx.specification && <p className="truncate text-[10px] text-muted-foreground">{tx.specification}</p>}
+                          <p className={`truncate text-xs font-medium ${blocked ? "line-through" : ""}`}>{tx.description}</p>
+                          {tx.specification && <p className={`truncate text-[10px] text-muted-foreground ${blocked ? "line-through" : ""}`}>{tx.specification}</p>}
                         </div>
                         <div className="flex shrink-0 items-center gap-3">
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isPaid ? "bg-success/15 text-success" : "bg-blue-500/15 text-blue-400"}`}>
-                            {isPaid ? "Pago" : "A Pagar"}
-                          </span>
-                          <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                          {blocked ? (
+                            <NonCanonicalBadge tx={tx} />
+                          ) : (
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isPaid ? "bg-success/15 text-success" : "bg-blue-500/15 text-blue-400"}`}>
+                              {isPaid ? "Pago" : "A Pagar"}
+                            </span>
+                          )}
+                          <span className={`font-mono text-xs font-semibold ${blocked ? "line-through" : ""}`}>{formatCurrency(txTotal)}</span>
                         </div>
                       </div>
                     </button>
@@ -4056,10 +4142,17 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
                   </div>
                 );
               })}
+
               <div className="flex items-center justify-between border-t border-border/30 pt-1 text-xs">
                 <span className="font-medium text-muted-foreground">Total transações</span>
                 <span className="font-mono font-bold">{formatCurrency(realized)}</span>
               </div>
+              {excludedOrphanTx.length > 0 && (
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>{excludedOrphanTx.length} transação(ões) fora do total</span>
+                  <span className="font-mono">{formatCurrency(excludedOrphanTotal)}</span>
+                </div>
+              )}
             </div>
           </td>
         </tr>

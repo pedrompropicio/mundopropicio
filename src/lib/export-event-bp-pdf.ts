@@ -9,6 +9,7 @@ import {
   orphanBucketLabel,
 } from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 
 interface BPExportInput {
   eventId: string;
@@ -99,7 +100,7 @@ async function fetchEventBundle(eventId: string) {
       .eq("event_id", eventId),
     supabase
       .from("transactions")
-      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, forecast_id, parent_transaction_id, invoice_ref, suppliers:supplier_id(name)")
+      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, forecast_id, parent_transaction_id, invoice_ref, is_transitory, exclude_from_result, reversed_at, is_hidden, suppliers:supplier_id(name)")
       // Uma transação sem evento não pertence a nenhum evento (ver bp-tx-matching.ts).
       .eq("event_id", eventId),
   ]);
@@ -127,7 +128,12 @@ async function fetchEventBundle(eventId: string) {
     name: p.suppliers?.name ?? "Sócio",
     percentage: Number(p.percentage),
   }));
-  const transactions: TxRow[] = (txRes.data ?? []) as any;
+  // Documento oficial: só o universo canónico. As TX com flags bloqueadores
+  // (estornada / escondida / excluída do resultado / transitória) NUNCA saem no
+  // PDF — nem riscadas. A vista riscada existe só no ecrã do BP.
+  const transactions: TxRow[] = ((txRes.data ?? []) as any[]).filter(
+    (t) => !hasResultBlockingFlags(t),
+  ) as any;
 
   // Forecast → partners assignments
   const forecastIds = forecasts.map((f) => f.id);
