@@ -3857,7 +3857,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         transactionDescription={form.description ?? null}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
-            ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
+            ? calcTotalWithIva(parseFloat(form.amount) || 0, form.iva_rate)
             : undefined
         }
         onConfirm={(lines, attach, replacementFile) => {
