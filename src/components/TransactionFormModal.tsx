@@ -3018,8 +3018,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </div>
                 );
               }
-              const ivaValue = baseForm * (form.iva_rate / 100);
-              const total = baseForm + ivaValue;
+              const ivaValue = calcIvaAmount(baseForm, form.iva_rate);
+              const total = calcTotalWithIva(baseForm, form.iva_rate);
               if (baseForm <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
