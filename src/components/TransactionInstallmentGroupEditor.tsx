@@ -451,14 +451,33 @@ export function TransactionInstallmentGroupEditor({
                     )}
                   </div>
                   <input
-                    type="date"
-                    value={edited.due_date ?? ""}
-                    disabled={locked}
-                    onChange={(e) =>
-                      setRows((p) => ({ ...p, [r.id]: { ...p[r.id], due_date: e.target.value } }))
-                    }
-                    className="w-full min-w-0 rounded border border-border bg-background px-1.5 py-1 text-xs disabled:opacity-60"
-                  />
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={locked}
+                        className="w-full min-w-0 justify-start px-1.5 text-xs font-normal disabled:opacity-60"
+                      >
+                        <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                        {edited.due_date
+                          ? format(fromYmd(edited.due_date), "dd/MM/yyyy", { locale: pt })
+                          : "—"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[120]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={edited.due_date ? fromYmd(edited.due_date) : undefined}
+                        onSelect={(d) => {
+                          if (!d) return;
+                          setRows((p) => ({ ...p, [r.id]: { ...p[r.id], due_date: ymd(d) } }));
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {mode === "eur" ? (
                     <input
                       type="number"
