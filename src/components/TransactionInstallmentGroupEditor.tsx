@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
 import { distributeEvenly } from "@/components/ScheduleInstallmentsModal";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
@@ -478,14 +479,11 @@ export function TransactionInstallmentGroupEditor({
                     </PopoverContent>
                   </Popover>
                   {mode === "eur" ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={edited.amount || ""}
+                    <MoneyInput
+                      value={Number(edited.amount) || 0}
                       disabled={locked}
-                      onChange={(e) => setAmount(r.id, parseFloat(e.target.value) || 0)}
-                      className="w-full min-w-0 rounded border border-border bg-background px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
+                      onChange={(v) => setAmount(r.id, v)}
+                      className="h-7 w-full min-w-0 px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
                     />
                   ) : (
                     <div className="flex items-center gap-1 min-w-0">
