@@ -28,6 +28,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
+import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
