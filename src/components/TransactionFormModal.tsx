@@ -2654,7 +2654,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 {(() => {
                                         const lineForecast = Number(line.amount) || 0;
                                         const lineIva = Number(line.iva_rate) || 0;
-                                        const lineTotal = lineForecast * (1 + lineIva / 100);
+                                        const lineTotal = calcTotalWithIva(lineForecast, lineIva);
                                         const hasRealLine = isUuid(line.id);
                                         const lineUsed = hasRealLine ? (usedByForecastId[line.id] || 0) : null;
                                         const lineRemaining = lineUsed === null ? null : lineForecast - lineUsed;
