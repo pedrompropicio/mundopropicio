@@ -1,29 +1,37 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-08-29 · Issues: `a-seguir` #29 · achados A2, A5 por abrir
+Atualizado: 2026-09-02 · cobertura do vínculo explícito subiu de 42% para 80,6% do valor
 
 ## Em que pé está
-O vínculo canónico é **`transactions.forecast_id`** (N transações : 1 linha de BP), implementado a 28/08 com escrita dupla para a âncora legada `event_forecasts.transaction_id`. A 27/08 o modal manual passou a guardar `selectedForecastId` e a escrever a FK no insert. **Os totais do fecho nunca dependeram de nenhuma destas chaves** — DRE, P&L, fecho e acerto de sócios agregam por **rubrica**, via `bp-tx-matching.ts`.
+O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
+
+**Cobertura actual:** 338 de 606 transações de despesa ligadas a evento (55,8%), **1.498.707,22 € de 1.858.714,76 € (80,6% do valor)**. Antes: 165 TX e 1.102.179,73 €.
 
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-**Medir o rácio de transição:** por evento, quantos euros do fecho estão presos a vínculo **explícito** (`forecast_id` preenchido) e quantos a **inferência** (`scoreDescriptionMatch`).
+D8 — obrigar a linha no INSERT, lendo o modo do evento.
 
 ## Bloqueios
 Nenhum.
 
 ## Factos que não se reinvestigam
 
-**Dois regimes coexistem sem fim declarado:** o explícito e o inferido por tokens de descrição, que é o fallback silencioso do legado. Na Anitta, só **21 das 261** transações de despesa têm ordenador próprio; as outras 240 herdam-no por matching, incluindo **179.741,57 €** em rubricas mistas.
+**O universo real da decisão são 227 transações, 337.834,08 €** — as que estão em rubricas com VÁRIAS linhas de BP, onde há escolha humana a fazer e o `scoreDescriptionMatch` ainda decide. Metade do valor está em três rubricas: OOH 135.640,00 € (6 TX), Per Diems 81.203,06 € (69 TX), Cenografia 51.320,04 € (3 TX).
 
-**Continuam a nascer transações sem linha escolhida** depois de 27/08: 25/08 → 1 em 23; 26/08 → 3 em 6; 27/08 → 3 em 11; 28/08 → **4 em 14**. Por decidir: é opcional por desenho, ou o ponto 4 não chegou a esse caminho?
+**A FK ganha sempre ao matching.** Confirmado no código: uma TX com forecast_id é reclamada pela sua linha mesmo com score zero (entra por directTx) e é excluída de todas as outras linhas da rubrica. Escrever a FK tira o algoritmo do caminho.
 
-**A2 — achado por abrir (P2).** Em `findMatchingTransactionsForForecast`, `allowedEventIds` inclui `null`. Uma transação com `event_id` nulo é elegível para o matching de **qualquer evento em simultâneo**, podendo contar em dois fechos. Sobe a P1 quando existir terceira empresa.
+**Rubrica com uma linha nunca usou tokens.** A regra 2 do matching (categoria com uma linha reclama todas as TX da categoria) é determinística. Por isso o backfill das 168 foi arrumação, não correção.
 
-**Fragilidade documentada:** `scoreDescriptionMatch` é winner-takes-all por tokens; convenção de nomes a funcionar como chave estrangeira. 169 grupos expostos. Já mordeu: 12 transações de per diem na linha errada de 79.693,33 €.
+**Medir o vínculo tem de subir ao master no rateio.** Uma filha de rateio herda o forecast_id do pai. Métricas que não fazem coalesce com o parent_transaction_id subestimam a cobertura.
+
+**Onde as transações nascem (8 caminhos, medido a 02/09):** directa/modal 467 TX · rateio filha 136 · reembolso 74 · cartão 58 · grupo de fatura 47 · parcelamento 23 · settlement 14 · camarim 5. Três nunca escrevem linha. Dos 53 masters de rateio, só 12 têm linha (89.830,30 € de 148.812,19 €). É por isso que a regra do D8 vive no servidor e não nos formulários.
+
+**A2 — achado por abrir (P2).** `allowedEventIds` inclui null em findMatchingTransactionsForForecast: uma TX com event_id nulo é elegível para o matching de qualquer evento.
+
+**12 transações têm FK para linha de outro evento e 2 para outra rubrica** — todas alteradas a 28/08, são mães de rateio (event_id nulo) ligadas a linhas de eventos, o que é normal no desenho. As 2 de rubrica divergente ficam como observação, não foram tocadas.
 
 ## Onde ler mais
-- `docs/handoffs/` — vinculo-bp-transacoes-n-para-1-2026-08-28 (secções 6 e 7)
-- `src/lib/bp-tx-matching.ts`, `src/lib/ordering-partner.ts`, `src/lib/event-cost-basis.ts`
+- `src/lib/bp-tx-matching.ts`, `src/lib/ordering-partner.ts`, `src/lib/paying-partner.ts`
+- `docs/DECISIONS.md` — DR-2026-09-02-D1 e D8
