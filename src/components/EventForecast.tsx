@@ -3874,10 +3874,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   const isPaid = tx.status === "paid" || txBalance < 0.01;
                   const todayStr = new Date().toISOString().slice(0, 10);
                   const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
+                  // Bloqueada pelos flags universais → fica visível mas fora do total.
+                  const blocked = hasResultBlockingFlags(tx);
                   return (
                     <div
                       key={tx.id}
-                      className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors"
+                      className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors ${blocked ? "opacity-50" : ""}`}
                     >
                       <button
                         type="button"
@@ -3886,24 +3888,28 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{tx.description}</p>
-                            {tx.specification && <p className="text-[10px] text-muted-foreground truncate">{tx.specification}</p>}
+                            <p className={`text-xs font-medium truncate ${blocked ? "line-through" : ""}`}>{tx.description}</p>
+                            {tx.specification && <p className={`text-[10px] text-muted-foreground truncate ${blocked ? "line-through" : ""}`}>{tx.specification}</p>}
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                              isPaid ? "bg-success/15 text-success" :
-                              isOverdue ? "bg-destructive/15 text-destructive" :
-                              "bg-blue-500/15 text-blue-400"
-                            }`}>
-                              {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
-                            </span>
-                            <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                            {blocked ? (
+                              <NonCanonicalBadge tx={tx} />
+                            ) : (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                isPaid ? "bg-success/15 text-success" :
+                                isOverdue ? "bg-destructive/15 text-destructive" :
+                                "bg-blue-500/15 text-blue-400"
+                              }`}>
+                                {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
+                              </span>
+                            )}
+                            <span className={`font-mono text-xs font-semibold ${blocked ? "line-through" : ""}`}>{formatCurrency(txTotal)}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-[10px] text-muted-foreground">
                           {tx.due_date && <span>Vcto: {format(new Date(tx.due_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                           <span>Pago: {formatCurrency(txPaid)}</span>
-                          {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
+                          {!blocked && txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
                           {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                         </div>
                       </button>
@@ -3924,8 +3930,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-border/30">
                 <span className="text-muted-foreground font-medium">Total transações</span>
-                <span className="font-mono font-bold">{formatCurrency(matchingTransactions.reduce((s: number, tx: any) => s + Number(tx.amount) * (1 + Number(tx.iva_rate) / 100), 0))}</span>
+                <span className="font-mono font-bold">{formatCurrency(canonicalTxTotal)}</span>
               </div>
+              {excludedTxCount > 0 && (
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>{excludedTxCount} transação(ões) fora do total</span>
+                  <span className="font-mono">{formatCurrency(excludedTxTotal)}</span>
+                </div>
+              )}
+
             </div>
           </td>
         </tr>
