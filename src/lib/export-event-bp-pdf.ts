@@ -99,7 +99,7 @@ async function fetchEventBundle(eventId: string) {
       .eq("event_id", eventId),
     supabase
       .from("transactions")
-      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, forecast_id, parent_transaction_id, invoice_ref, suppliers:supplier_id(name)")
+      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, forecast_id, parent_transaction_id, invoice_ref, is_transitory, exclude_from_result, reversed_at, is_hidden, suppliers:supplier_id(name)")
       // Uma transação sem evento não pertence a nenhum evento (ver bp-tx-matching.ts).
       .eq("event_id", eventId),
   ]);
