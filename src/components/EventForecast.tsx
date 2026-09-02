@@ -4112,22 +4112,27 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
           <td colSpan={colCount} className="py-0">
             <div className="my-1 ml-6 space-y-1.5 rounded-r-lg border-l-2 border-muted-foreground/30 bg-muted/20 px-3 py-2 animate-fade-in">
               {txs.map((tx: any) => {
-                const txTotal = Number(tx.amount) * (1 + Number(tx.iva_rate ?? 0) / 100);
+                const txTotal = orphanTxWithIva(tx);
                 const txPaid = Number(tx.paid_amount ?? 0);
                 const isPaid = tx.status === "paid" || txTotal - txPaid < 0.01;
+                const blocked = hasResultBlockingFlags(tx);
                 return (
-                  <div key={tx.id} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5">
+                  <div key={tx.id} className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5 ${blocked ? "opacity-50" : ""}`}>
                     <button type="button" onClick={() => setViewingTransaction(tx)} className="block w-full cursor-pointer text-left">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium">{tx.description}</p>
-                          {tx.specification && <p className="truncate text-[10px] text-muted-foreground">{tx.specification}</p>}
+                          <p className={`truncate text-xs font-medium ${blocked ? "line-through" : ""}`}>{tx.description}</p>
+                          {tx.specification && <p className={`truncate text-[10px] text-muted-foreground ${blocked ? "line-through" : ""}`}>{tx.specification}</p>}
                         </div>
                         <div className="flex shrink-0 items-center gap-3">
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isPaid ? "bg-success/15 text-success" : "bg-blue-500/15 text-blue-400"}`}>
-                            {isPaid ? "Pago" : "A Pagar"}
-                          </span>
-                          <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                          {blocked ? (
+                            <NonCanonicalBadge tx={tx} />
+                          ) : (
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isPaid ? "bg-success/15 text-success" : "bg-blue-500/15 text-blue-400"}`}>
+                              {isPaid ? "Pago" : "A Pagar"}
+                            </span>
+                          )}
+                          <span className={`font-mono text-xs font-semibold ${blocked ? "line-through" : ""}`}>{formatCurrency(txTotal)}</span>
                         </div>
                       </div>
                     </button>
@@ -4137,6 +4142,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
                   </div>
                 );
               })}
+
               <div className="flex items-center justify-between border-t border-border/30 pt-1 text-xs">
                 <span className="font-medium text-muted-foreground">Total transações</span>
                 <span className="font-mono font-bold">{formatCurrency(realized)}</span>
