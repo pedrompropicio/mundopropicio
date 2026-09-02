@@ -32,6 +32,21 @@ A lista de **status** é que varia por vista e cada vista documenta a sua:
 
 Não misturar as duas camadas. Os flags são comuns; os status são específicos.
 
+## BP (aba Business Plan dentro do evento) — mostra tudo, conta só o canónico
+
+`isCanonicalRealTx` em `src/components/EventForecast.tsx` = status ∈ {approved, paid} && `!hasResultBlockingFlags(t)`. A query `event_transactions_actual` continua a trazer TUDO de propósito.
+
+Regra de desenho (decisão do Pedro, 2026-09-02):
+- A lista de transações de cada linha do BP e do balde de órfãs mostra **todas** as transações (incluindo `pending`).
+- Os **totais** (painel expandido, realizado do balde, bandas de rubrica, cards, Previsão vs Real) somam **apenas** o universo canónico.
+- As excluídas ficam **riscadas** e esbatidas, com badge "não conta" e Popover com o motivo (`reversal_reason` quando existe, senão o rótulo do flag + data de `reversed_at`).
+- Abaixo do total aparece "N transação(ões) fora do total · X €".
+
+Isto é **só vista de análise gerencial no ecrã**. Nenhum output oficial mostra as não-canónicas nem marca de riscado: `export-event-bp-pdf.ts` filtra por `hasResultBlockingFlags` logo após o fetch, e `ReportBPTransactions.tsx` exclui `exclude_from_result` / `reversed_at` / `is_hidden` (mantendo o toggle próprio de `is_transitory`).
+
+Bug real que originou a regra: Anitta EDA 2026, rubrica 2.2.01 Aéreo — BP mostrava 161.375,00 € vs 158.197,04 € do Fecho por somar uma "Passagem Aérea" de 3.177,96 € estornada a 01/09.
+
+
 ## Why
 
 `pending` / `draft` / `refused` ainda não são realidade contabilística.
