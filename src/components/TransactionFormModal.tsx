@@ -1762,7 +1762,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         return;
       }
       const { validateInstallments } = await import("@/components/TransactionInstallmentsEditor");
-      const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+      const grossTotal = calcTotalWithIva(parseFloat(form.amount || "0"), Number(form.iva_rate || 0));
       const err = validateInstallments(installmentRows, grossTotal);
       if (err) {
         toast({ title: "Cronograma inválido", description: err, variant: "destructive" });
