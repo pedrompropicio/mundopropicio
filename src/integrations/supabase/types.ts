@@ -4204,6 +4204,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           attachment_refs: Json
+          baseline_amount: number | null
           cache_config_id: string | null
           category_id: string | null
           company_id: string
@@ -4243,6 +4244,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           attachment_refs?: Json
+          baseline_amount?: number | null
           cache_config_id?: string | null
           category_id?: string | null
           company_id?: string
@@ -4282,6 +4284,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           attachment_refs?: Json
+          baseline_amount?: number | null
           cache_config_id?: string | null
           category_id?: string | null
           company_id?: string
