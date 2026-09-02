@@ -2997,9 +2997,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               const baseForm = parseFloat(form.amount) || 0;
               // Quando há split de IVA pendente, mostrar agregados reais das linhas (não aplicar form.iva_rate sobre toda a base)
               if (pendingIvaSplit && pendingIvaSplit.length > 0) {
-                const baseSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0);
-                const ivaSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0) * ((Number(l.iva_rate) || 0) / 100), 0);
-                const totalSum = baseSum + ivaSum;
+                const baseSum = roundCents(pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0));
+                const ivaSum = roundCents(pendingIvaSplit.reduce((s, l) => s + calcIvaAmount(Number(l.base) || 0, Number(l.iva_rate) || 0), 0));
+                const totalSum = roundCents(baseSum + ivaSum);
                 if (baseSum <= 0) return null;
                 return (
                   <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
