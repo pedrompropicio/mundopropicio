@@ -3636,7 +3636,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {/* ===== Parcelamento (Fase 1.5) ===== */}
           {form.type === "expense" && !isSplit && !effectiveAutoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {
-            const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+            const grossTotal = calcTotalWithIva(parseFloat(form.amount || "0"), Number(form.iva_rate || 0));
             return (
               <div className="space-y-2">
                 <label className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/60">
