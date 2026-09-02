@@ -148,6 +148,27 @@ export default function ReportIvaAudit() {
     applyPTNumberFormat(ws);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Auditoria IVA");
+
+    if (coherenceRows.length) {
+      const cohRows = coherenceRows.map((r) => ({
+        Evento: r.event,
+        "Rubrica (código)": r.categoryCode,
+        "Rubrica (nome)": r.categoryName,
+        Descrição: r.description,
+        "Taxa BP (%)": r.bpRate,
+        "Taxas realizadas (%)": r.realizedRates.join("/"),
+        "Previsto base (€)": r.forecastBase,
+        "Realizado base (€)": r.realizedBase,
+        "Previsto bruto (€)": r.forecastGross,
+        "Realizado bruto (€)": r.realizedGross,
+        "Ruído no bruto (€)": r.noise,
+        Caso: r.realizedRates.length > 1 ? "Taxas mistas (D11)" : "Taxa única",
+      }));
+      const wsCoh = utils.json_to_sheet(cohRows);
+      applyPTNumberFormat(wsCoh);
+      utils.book_append_sheet(wb, wsCoh, "Coerência de taxa");
+    }
+
     writeFile(wb, `auditoria-iva-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
