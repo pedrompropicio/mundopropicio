@@ -83,14 +83,17 @@ export function useRealCacheCalculation(
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, exclude_from_result, parent_transaction_id")
+        .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, exclude_from_result, parent_transaction_id, split_percentage")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("is_hidden", false)
         .in("status", ["approved", "paid"]);
       if (error) throw error;
       return (data ?? []).filter(
-        (t: any) => !t.parent_transaction_id && !t.is_transitory && !t.exclude_from_result
+        (t: any) =>
+          !(t.parent_transaction_id && t.split_percentage !== null) &&
+          !t.is_transitory &&
+          !t.exclude_from_result
       );
     },
     enabled: enabled && allEventIds.length > 0,

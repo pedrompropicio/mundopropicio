@@ -322,7 +322,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       if (t.type !== "expense") return false;
       if (!relevantEventIds.includes(t.event_id)) return false;
       if (!includeTransitory && t.is_transitory) return false;
-      if (isSubEvent && t.parent_transaction_id && !includeMasterApportionment) {
+      if (isSubEvent && t.parent_transaction_id && t.split_percentage !== null && !includeMasterApportionment) {
         // Toggle OFF: descarta fatias de rateio Master
         return false;
       }
@@ -337,7 +337,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
           t.event_id === parentEventId &&
           t.type === "expense" &&
           (includeTransitory || !t.is_transitory) &&
-          !t.parent_transaction_id
+          !(t.parent_transaction_id && t.split_percentage !== null)
       );
       masterTxs.forEach((t: any) => {
         masterTxSlices.push({

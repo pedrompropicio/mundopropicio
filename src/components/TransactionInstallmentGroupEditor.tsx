@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
 import { distributeEvenly } from "@/components/ScheduleInstallmentsModal";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
@@ -176,20 +177,19 @@ export function TransactionInstallmentGroupEditor({
    * (incluindo as pagas/travadas, porque o total inclui a parte já paga).
    * As % são recalculadas contra o novo total. Só no modo €.
    */
-  const setAmount = (id: string, amount: number) =>
-    setRows((p) => {
-      const next: Record<string, RowState> = { ...p, [id]: { ...p[id], amount } };
-      const newSum = +group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0).toFixed(2);
-      setTotalInput(newSum.toFixed(2));
-      group.forEach((r) => {
-        if (!next[r.id]) return;
-        next[r.id] = {
-          ...next[r.id],
-          pct: newSum > 0 ? +(((Number(next[r.id].amount) || 0) / newSum) * 100).toFixed(2) : 0,
-        };
-      });
-      return next;
+  const setAmount = (id: string, amount: number) => {
+    const next: Record<string, RowState> = { ...rows, [id]: { ...rows[id], amount } };
+    const newSum = +group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0).toFixed(2);
+    group.forEach((r) => {
+      if (!next[r.id]) return;
+      next[r.id] = {
+        ...next[r.id],
+        pct: newSum > 0 ? +(((Number(next[r.id].amount) || 0) / newSum) * 100).toFixed(2) : 0,
+      };
     });
+    setRows(next);
+    setTotalInput(newSum.toFixed(2));
+  };
 
   /** Edição em % — recalcula os € de todas as parcelas não travadas; resto do arredondamento na última. */
   const setPct = (id: string, pct: number) =>
@@ -479,14 +479,11 @@ export function TransactionInstallmentGroupEditor({
                     </PopoverContent>
                   </Popover>
                   {mode === "eur" ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={edited.amount || ""}
+                    <MoneyInput
+                      value={Number(edited.amount) || 0}
                       disabled={locked}
-                      onChange={(e) => setAmount(r.id, parseFloat(e.target.value) || 0)}
-                      className="w-full min-w-0 rounded border border-border bg-background px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
+                      onChange={(v) => setAmount(r.id, v)}
+                      className="h-7 w-full min-w-0 px-1.5 py-1 text-xs text-right font-mono disabled:opacity-60"
                     />
                   ) : (
                     <div className="flex items-center gap-1 min-w-0">
