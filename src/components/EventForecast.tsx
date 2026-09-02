@@ -3899,7 +3899,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   return (
                     <div
                       key={tx.id}
-                      className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors ${blocked ? "opacity-50" : ""}`}
+                      className={`rounded-lg border px-3 py-2 transition-colors ${
+                        blocked
+                          ? "border-dashed border-warning/40 bg-warning/5 opacity-70 hover:bg-warning/10 hover:border-warning/50"
+                          : "border-border/30 bg-background/50 hover:bg-primary/5 hover:border-primary/30"
+                      }`}
                     >
                       <button
                         type="button"
