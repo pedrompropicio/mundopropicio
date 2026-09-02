@@ -14,15 +14,27 @@
 /** Colunas mínimas que qualquer select de Fecho tem que trazer. */
 export const FECHO_TX_FILTER_COLUMNS = "is_transitory, exclude_from_result, reversed_at, is_hidden, status";
 
+/**
+ * Flags que bloqueiam a contabilização de uma transação no resultado,
+ * independentemente do status. Reutilizado em todas as vistas que precisam
+ * de um universo de transações real (Card, Fecho, DRE, Acerto, etc.).
+ */
+export function hasResultBlockingFlags(t: any): boolean {
+  return (
+    t?.is_transitory === true ||
+    t?.exclude_from_result === true ||
+    t?.reversed_at != null ||
+    t?.is_hidden === true
+  );
+}
+
 export function isValidFechoTransaction(t: any): boolean {
   return (
     (t.status === "approved" || t.status === "paid") &&
-    !t.is_transitory &&
-    !t.exclude_from_result &&
-    t.reversed_at == null &&
-    t.is_hidden !== true
+    !hasResultBlockingFlags(t)
   );
 }
+
 
 /**
  * Rubrica de bilheteira (1.1.01) e descendentes.

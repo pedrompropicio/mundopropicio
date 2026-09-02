@@ -12,18 +12,32 @@ Sempre que uma vista mostre "resultado do evento" comparável ao acerto com sóc
 .in("event_id", allEventIds)
 .in("status", ["approved", "paid"])
 // + filtro client-side:
-.filter(t => !t.is_transitory && !t.exclude_from_result
-             && t.reversed_at == null && t.is_hidden !== true)
+.filter(t => !hasResultBlockingFlags(t))
 ```
 
-## Why
-- `pending` / `draft` / `refused` ainda não são realidade contabilística
+## Flags bloqueadores universais
+
+Os quatro flags que retiram uma transação do resultado são os MESMOS em todas as vistas (Card, Fecho, DRE, Acerto). Vivem no helper exportado `hasResultBlockingFlags(t)` em `src/lib/fecho-filters.ts`:
+
 - `is_transitory = true` → cauções, devoluções, extras de sócio em trânsito (não impactam DRE)
 - `exclude_from_result = true` → linhas marcadas explicitamente para fora do resultado
 - `reversed_at IS NOT NULL` → transação estornada (ex.: `reversal_kind='cash_refund'`); o dinheiro voltou
 - `is_hidden = true` → linhas mascaradas na UI, mantidas só para fiscal
 
+A lista de **status** é que varia por vista e cada vista documenta a sua:
+
+- Fecho / Acerto com sócios / DRE: `approved` e `paid` apenas (`isValidFechoTransaction`).
+- Card financeiro: `approved`, `paid` e `partially_paid` (o card mostra "Pago vs Comprometido" usando `paid_amount`).
+- Modo Forecast de custos do card: inclui também `pending` por decisão própria do forecast.
+
+Não misturar as duas camadas. Os flags são comuns; os status são específicos.
+
+## Why
+
+`pending` / `draft` / `refused` ainda não são realidade contabilística.
+
 Este é o MESMO universo do RPC `get_partner_bp_realized` (portal do sócio). Divergir = staff e sócio verem números diferentes (bug real: Anitta EDA 2026, 4 "Diárias/Per Diem" estornadas = 3.273,33 € a inflacionar a despesa; despesa passou de 565.265,73 para 561.992,40).
+
 
 ## Receita: bilheteira NUNCA é somada duas vezes
 A receita do Fecho é **aditiva**: `ticket_sales + Σ(transações de receita)`. Mas quando o evento
