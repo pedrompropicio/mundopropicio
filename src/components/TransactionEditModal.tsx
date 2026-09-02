@@ -1234,8 +1234,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             </div>
             {(() => {
               const base = parseFloat(form.amount) || 0;
-              const iva = base * (form.iva_rate / 100);
-              const total = base + iva;
+              const iva = calcIvaAmount(base, form.iva_rate);
+              const total = calcTotalWithIva(base, form.iva_rate);
               if (base <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
