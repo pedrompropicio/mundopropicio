@@ -176,20 +176,19 @@ export function TransactionInstallmentGroupEditor({
    * (incluindo as pagas/travadas, porque o total inclui a parte já paga).
    * As % são recalculadas contra o novo total. Só no modo €.
    */
-  const setAmount = (id: string, amount: number) =>
-    setRows((p) => {
-      const next: Record<string, RowState> = { ...p, [id]: { ...p[id], amount } };
-      const newSum = +group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0).toFixed(2);
-      setTotalInput(newSum.toFixed(2));
-      group.forEach((r) => {
-        if (!next[r.id]) return;
-        next[r.id] = {
-          ...next[r.id],
-          pct: newSum > 0 ? +(((Number(next[r.id].amount) || 0) / newSum) * 100).toFixed(2) : 0,
-        };
-      });
-      return next;
+  const setAmount = (id: string, amount: number) => {
+    const next: Record<string, RowState> = { ...rows, [id]: { ...rows[id], amount } };
+    const newSum = +group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0).toFixed(2);
+    group.forEach((r) => {
+      if (!next[r.id]) return;
+      next[r.id] = {
+        ...next[r.id],
+        pct: newSum > 0 ? +(((Number(next[r.id].amount) || 0) / newSum) * 100).toFixed(2) : 0,
+      };
     });
+    setRows(next);
+    setTotalInput(newSum.toFixed(2));
+  };
 
   /** Edição em % — recalcula os € de todas as parcelas não travadas; resto do arredondamento na última. */
   const setPct = (id: string, pct: number) =>

@@ -53,7 +53,7 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
         .select("id, event_id, description, amount, iva_rate, status, category_id, supplier_id, invoice_ref, account_id, account_categories(code, name), suppliers(name), financial_accounts(name)")
         .in("event_id", childEventIds)
         .eq("type", "expense")
-        .is("parent_transaction_id", null)
+        .is("split_percentage", null)
         .in("status", ["paid", "approved", "pending", "overdue"]);
       if (error) throw error;
       const list = (txs ?? []) as any[];

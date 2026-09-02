@@ -337,7 +337,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
           t.event_id === parentEventId &&
           t.type === "expense" &&
           (includeTransitory || !t.is_transitory) &&
-          !t.parent_transaction_id
+          !(t.parent_transaction_id && t.split_percentage !== null)
       );
       masterTxs.forEach((t: any) => {
         masterTxSlices.push({

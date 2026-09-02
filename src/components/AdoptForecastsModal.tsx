@@ -126,7 +126,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         .in("event_id", childEventIds)
         .in("category_id", targetCategoryIds)
         .eq("type", "expense")
-        .is("parent_transaction_id", null)
+        .is("split_percentage", null)
         .in("status", ["paid", "approved", "pending", "overdue"]);
       if (error) throw error;
       const txs = (data ?? []) as any[];
