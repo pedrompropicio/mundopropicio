@@ -212,7 +212,7 @@ function nonCanonicalReason(t: any): { label: string; detail?: string } | null {
   return null;
 }
 
-/** Badge discreto "não conta" com popover do motivo. */
+/** Badge "não conta" com popover do motivo — tom âmbar (atenção, não erro). */
 function NonCanonicalBadge({ tx }: { tx: any }) {
   const reason = nonCanonicalReason(tx);
   return (
@@ -221,7 +221,7 @@ function NonCanonicalBadge({ tx }: { tx: any }) {
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/70"
+          className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/25"
         >
           não conta
         </button>
@@ -3419,6 +3419,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     return t.status !== "paid" && txPaid < txTotal - 0.01;
   }), [matchingTransactions]);
   const hasPaidTx = paidTransactions.length > 0;
+  // Contador de pagas exibido: mesmo critério de paidTransactions, mas só canónicas.
+  const canonicalPaidCount = useMemo(
+    () => paidTransactions.filter(isCanonicalRealTx).length,
+    [paidTransactions],
+  );
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
@@ -3636,7 +3641,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 <button onClick={() => setShowPayments(!showPayments)} className="text-xs flex items-center gap-1 mt-0.5 hover:underline cursor-pointer">
                   <FileText className="h-3 w-3 text-primary shrink-0" />
                   <span className="text-primary/70 font-medium">{matchingTransactions.length} transação(ões)</span>
-                  {paidTransactions.length > 0 && <span className="text-success text-[10px]">({paidTransactions.length} paga{paidTransactions.length > 1 ? "s" : ""})</span>}
+                  {canonicalPaidCount > 0 && <span className="text-success text-[10px]">({canonicalPaidCount} paga{canonicalPaidCount > 1 ? "s" : ""})</span>}
+                  {excludedTxCount > 0 && <span className="text-warning text-[10px]">· {excludedTxCount} fora do total</span>}
                 </button>
               )}
               {!hasMatchingTx && isApproved && item.transaction_id && (
@@ -3893,7 +3899,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   return (
                     <div
                       key={tx.id}
-                      className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors ${blocked ? "opacity-50" : ""}`}
+                      className={`rounded-lg border px-3 py-2 transition-colors ${
+                        blocked
+                          ? "border-dashed border-warning/40 bg-warning/5 opacity-70 hover:bg-warning/10 hover:border-warning/50"
+                          : "border-border/30 bg-background/50 hover:bg-primary/5 hover:border-primary/30"
+                      }`}
                     >
                       <button
                         type="button"
@@ -4117,7 +4127,11 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
                 const isPaid = tx.status === "paid" || txTotal - txPaid < 0.01;
                 const blocked = hasResultBlockingFlags(tx);
                 return (
-                  <div key={tx.id} className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5 ${blocked ? "opacity-50" : ""}`}>
+                  <div key={tx.id} className={`rounded-lg border px-3 py-2 transition-colors ${
+                    blocked
+                      ? "border-dashed border-warning/40 bg-warning/5 opacity-70 hover:bg-warning/10 hover:border-warning/50"
+                      : "border-border/30 bg-background/50 hover:border-primary/30 hover:bg-primary/5"
+                  }`}>
                     <button type="button" onClick={() => setViewingTransaction(tx)} className="block w-full cursor-pointer text-left">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
