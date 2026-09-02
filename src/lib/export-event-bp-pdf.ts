@@ -9,6 +9,7 @@ import {
   orphanBucketLabel,
 } from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 
 interface BPExportInput {
   eventId: string;
