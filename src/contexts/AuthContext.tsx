@@ -76,6 +76,8 @@ export const ALL_PERMISSIONS = [
   { key: "view_simulator", label: "Ver Simulador do Evento", group: "Geral" },
   { key: "manage_events", label: "Gerir Eventos", group: "Operacional" },
   { key: "manage_transactions", label: "Gerir Transações", group: "Operacional" },
+  { key: "approve_transactions", label: "Aprovar transações", group: "Operacional" },
+  { key: "raise_budget", label: "Elevar verba do BP", group: "Operacional" },
   { key: "manage_recurring", label: "Gerir Recorrentes", group: "Operacional" },
   { key: "manage_suppliers", label: "Gerir Entidades / Beneficiários", group: "Operacional" },
   { key: "manage_quotations", label: "Gerir Cotações", group: "Operacional" },
