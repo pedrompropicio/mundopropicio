@@ -3393,6 +3393,20 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
   const hasMatchingTx = matchingTransactions.length > 0;
 
+  // Total do painel: só o universo canónico. As restantes ficam listadas
+  // (riscadas) e resumidas na linha "fora do total".
+  const txWithIva = (tx: any) => Number(tx.amount) * (1 + Number(tx.iva_rate) / 100);
+  const canonicalTxTotal = useMemo(
+    () => matchingTransactions.filter(isCanonicalRealTx).reduce((s: number, tx: any) => s + txWithIva(tx), 0),
+    [matchingTransactions],
+  );
+  const excludedTx = useMemo(
+    () => matchingTransactions.filter((t: any) => hasResultBlockingFlags(t)),
+    [matchingTransactions],
+  );
+  const excludedTxCount = excludedTx.length;
+  const excludedTxTotal = excludedTx.reduce((s: number, tx: any) => s + txWithIva(tx), 0);
+
   // For admin delete: check if any transactions are paid
   const paidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
     const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
