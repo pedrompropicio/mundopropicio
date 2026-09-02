@@ -3406,11 +3406,6 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   );
   const excludedTxCount = excludedTx.length;
   const excludedTxTotal = excludedTx.reduce((s: number, tx: any) => s + txWithIva(tx), 0);
-  // Contador de pagas exibido: mesmo critério de paidTransactions, mas só canónicas.
-  const canonicalPaidCount = useMemo(
-    () => paidTransactions.filter(isCanonicalRealTx).length,
-    [paidTransactions],
-  );
 
   // For admin delete: check if any transactions are paid
   const paidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
@@ -3424,6 +3419,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     return t.status !== "paid" && txPaid < txTotal - 0.01;
   }), [matchingTransactions]);
   const hasPaidTx = paidTransactions.length > 0;
+  // Contador de pagas exibido: mesmo critério de paidTransactions, mas só canónicas.
+  const canonicalPaidCount = useMemo(
+    () => paidTransactions.filter(isCanonicalRealTx).length,
+    [paidTransactions],
+  );
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
