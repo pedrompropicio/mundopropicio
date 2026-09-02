@@ -1671,15 +1671,17 @@ export default function Transactions() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {canApprove && pendingInView.length > 0 && (
+                    {hasSelectableItems && (
                       <th className="pb-2 pr-1 text-center font-medium w-6">
-                        <input
-                          type="checkbox"
-                          checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
-                          onChange={toggleSelectAll}
-                          className="h-3 w-3 rounded border-border accent-primary cursor-pointer"
-                          title="Selecionar todas pendentes"
-                        />
+                        {pendingInView.length > 0 && (
+                          <input
+                            type="checkbox"
+                            checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
+                            onChange={toggleSelectAll}
+                            className="h-3 w-3 rounded border-border accent-primary cursor-pointer"
+                            title="Selecionar todas pendentes"
+                          />
+                        )}
                       </th>
                     )}
                     <th className="pb-2 pr-2 text-left font-medium">Descrição</th>
