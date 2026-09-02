@@ -283,7 +283,8 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
   const paidAmount = Number(t.paid_amount ?? 0);
   const balance = Math.round((totalWithIva - paidAmount) * 100) / 100;
   const isExpense = t.type === "expense";
-  const isChildSplit = !!t.parent_transaction_id;
+  // Filha de RATEIO = tem pai E split_percentage. Filha de PARCELAMENTO tem pai mas split_percentage NULL.
+  const isChildSplit = !!t.parent_transaction_id && t.split_percentage !== null;
   const splitPct = t.split_percentage != null ? Number(t.split_percentage) : null;
   const splitAmt = (t as any).split_amount != null ? Number((t as any).split_amount) : null;
 

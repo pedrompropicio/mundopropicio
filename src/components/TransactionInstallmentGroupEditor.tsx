@@ -1,13 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Lock, Unlock, Wand2, AlertTriangle } from "lucide-react";
+import { Layers, Lock, Unlock, Wand2, AlertTriangle, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { distributeEvenly } from "@/components/ScheduleInstallmentsModal";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+
+// Helpers locais (copiados de TransactionInstallmentsEditor — não exportados lá).
+// Obrigatórios: `new Date(string)` desloca o dia por causa do fuso.
+const ymd = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const fromYmd = (s: string) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+};
 
 
 /**
@@ -154,16 +171,25 @@ export function TransactionInstallmentGroupEditor({
 
   const rowLocked = (r: GroupRow) => isPaidRow(r) && !(canApprove && unlockPaid);
 
-  /** Edição directa em € — sincroniza a % correspondente. */
+  /**
+   * Edição directa em € — o total da fatura passa a SEGUIR a soma das parcelas
+   * (incluindo as pagas/travadas, porque o total inclui a parte já paga).
+   * As % são recalculadas contra o novo total. Só no modo €.
+   */
   const setAmount = (id: string, amount: number) =>
-    setRows((p) => ({
-      ...p,
-      [id]: {
-        ...p[id],
-        amount,
-        pct: newTotal > 0 ? +((amount / newTotal) * 100).toFixed(2) : 0,
-      },
-    }));
+    setRows((p) => {
+      const next: Record<string, RowState> = { ...p, [id]: { ...p[id], amount } };
+      const newSum = +group.reduce((s, r) => s + (Number(next[r.id]?.amount) || 0), 0).toFixed(2);
+      setTotalInput(newSum.toFixed(2));
+      group.forEach((r) => {
+        if (!next[r.id]) return;
+        next[r.id] = {
+          ...next[r.id],
+          pct: newSum > 0 ? +(((Number(next[r.id].amount) || 0) / newSum) * 100).toFixed(2) : 0,
+        };
+      });
+      return next;
+    });
 
   /** Edição em % — recalcula os € de todas as parcelas não travadas; resto do arredondamento na última. */
   const setPct = (id: string, pct: number) =>
@@ -424,15 +450,34 @@ export function TransactionInstallmentGroupEditor({
                       </span>
                     )}
                   </div>
-                  <input
-                    type="date"
-                    value={edited.due_date ?? ""}
-                    disabled={locked}
-                    onChange={(e) =>
-                      setRows((p) => ({ ...p, [r.id]: { ...p[r.id], due_date: e.target.value } }))
-                    }
-                    className="w-full min-w-0 rounded border border-border bg-background px-1.5 py-1 text-xs disabled:opacity-60"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={locked}
+                        className="w-full min-w-0 justify-start px-1.5 text-xs font-normal disabled:opacity-60"
+                      >
+                        <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                        {edited.due_date
+                          ? format(fromYmd(edited.due_date), "dd/MM/yyyy", { locale: pt })
+                          : "—"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[120]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={edited.due_date ? fromYmd(edited.due_date) : undefined}
+                        onSelect={(d) => {
+                          if (!d) return;
+                          setRows((p) => ({ ...p, [r.id]: { ...p[r.id], due_date: ymd(d) } }));
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {mode === "eur" ? (
                     <input
                       type="number"
