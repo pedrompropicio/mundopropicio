@@ -204,7 +204,7 @@ export default function ReportIvaAudit() {
             </p>
           </div>
           <div className="flex items-end">
-            <Button onClick={exportXlsx} disabled={!divergences.length} variant="outline" className="gap-2 w-full">
+            <Button onClick={exportXlsx} disabled={!divergences.length && !coherenceRows.length} variant="outline" className="gap-2 w-full">
               <FileSpreadsheet className="h-4 w-4" /> Exportar XLSX
             </Button>
           </div>
