@@ -365,7 +365,15 @@ export default function EventDetail() {
       // Para a UI do detalhe do evento, herdamos o estado efetivo do Master para
       // a linha do split, preservando o valor/local do sub-evento.
       if (selectedSubEvent) {
-        const parentIds = [...new Set(rows.map((r: any) => r.parent_transaction_id).filter(Boolean))];
+        // Só filhas de RATEIO (split_percentage != null) herdam. Numa parcela
+        // a "mãe" é a parcela anterior — herdar daria "Pago" numa parcela por liquidar.
+        const parentIds = [
+          ...new Set(
+            rows
+              .filter((r: any) => r.parent_transaction_id && r.split_percentage !== null)
+              .map((r: any) => r.parent_transaction_id)
+          ),
+        ];
         if (parentIds.length > 0) {
           const { data: parentRows, error: parentError } = await supabase
             .from("transactions")
@@ -375,6 +383,7 @@ export default function EventDetail() {
 
           const parentMap = new Map((parentRows ?? []).map((p: any) => [p.id, p]));
           rows = rows.map((row: any) => {
+            if (row.split_percentage == null) return row;
             const parent = row.parent_transaction_id ? parentMap.get(row.parent_transaction_id) : null;
             if (!parent) return row;
             return {

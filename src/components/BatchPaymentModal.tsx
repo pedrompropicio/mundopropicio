@@ -351,6 +351,9 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
         if (children && children.length > 0) {
           const parentBaseEur = Number(item.amount);
           for (const child of children) {
+            // Parcela (sem marcador de rateio) tem calendário e liquidação próprios:
+            // o pagamento da mãe NÃO lhe toca. Só filhas de rateio são propagadas.
+            if (child.split_percentage == null) continue;
             const childSplitAmt =
               (child as any).split_amount != null
                 ? Number((child as any).split_amount)
