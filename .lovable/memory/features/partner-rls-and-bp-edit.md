@@ -60,3 +60,22 @@ Policies legacy `auth.uid() IS NOT NULL` **mantidas intactas** (tech debt separa
   - Ignora gate `view_partner_documents` → parceiro vê SEMPRE anexos na vista Agrupada do BP (aba Transações continua gated pela policy `transaction_documents_select_partner`).
 - Edge function `resolve-attachment-url` estendida para `kind='event_forecast_attachment'` (bucket `event-forecast-attachments`).
 - UI: `Paperclip` + badge na linha L3 do BP Agrupada → `Popover` lista nomes → click invoca a edge fn e abre signed URL.
+
+## Escrita no BP por PERMISSÃO, não por role (2026-09-02)
+
+- As RPCs `batch_update_event_forecasts` e `batch_insert_event_forecasts` deixaram de usar
+  `has_role(admin|manager)`. Passam a:
+  `v_can_edit := is_platform_admin() OR has_permission_in(v_caller, 'manage_bp', v_company_id)`.
+- Usa-se **`has_permission_in`** (não `has_permission`) porque `v_company_id` é a empresa DO EVENTO;
+  `has_permission()` resolveria por `current_company_id()` (empresa ativa da sessão), que pode ser outra.
+- O caminho do parceiro (`partner_event_access.can_edit_bp` + `edit_approved_bp`) e todos os locks
+  (overhead, `master_forecast_id`, retroativo, versão, company) ficam **exactamente iguais**.
+- Frontend: `canEditBP` em `EventForecast.tsx` = `hasPermission("manage_bp")` (antes `isAdmin||isManager`).
+  `canApprove`, `canDeleteBP` e `isEditor` continuam por role. `BPGridEditor` e `BPPlanilha` recebem
+  `canEditBP`/`canEdit` por prop a partir daqui — ficam alinhados automaticamente.
+  `PartnerEventDetail` passa `canEditBP={true}` (gate próprio do portal do sócio) — inalterado.
+- `manage_bp` está em `role_permissions` para admin e manager, e foi acrescentada a `ALL_PERMISSIONS`
+  para aparecer no `UserPermissionsModal`. Dar/tirar acesso ao BP passa a ser override por utilizador
+  e empresa em `user_permissions`.
+- Nota conhecida: no cliente, `AuthContext` dá TODAS as permissões a `admin`/`platform_admin` sem ler
+  overrides — remover `manage_bp` a um admin só tem efeito na BD, não na UI.
