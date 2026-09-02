@@ -318,9 +318,14 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     // Sub-evento com toggle OFF: só (a) — tira-se (b) e (c).
     // Master/standalone: tudo o que tem event_id === selectedEventId (lógica
     // original via relevantEventIds).
+    // Flags bloqueadores universais (estornada / escondida / excluída do resultado).
+    // `is_transitory` fica de fora deste teste porque tem toggle próprio aqui.
+    const isBlockedByFlags = (t: any) =>
+      t?.exclude_from_result === true || t?.reversed_at != null || t?.is_hidden === true;
     const localTxRaw = transactions.filter((t: any) => {
       if (t.type !== "expense") return false;
       if (!relevantEventIds.includes(t.event_id)) return false;
+      if (isBlockedByFlags(t)) return false;
       if (!includeTransitory && t.is_transitory) return false;
       if (isSubEvent && t.parent_transaction_id && t.split_percentage !== null && !includeMasterApportionment) {
         // Toggle OFF: descarta fatias de rateio Master
@@ -336,6 +341,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
         (t: any) =>
           t.event_id === parentEventId &&
           t.type === "expense" &&
+          !isBlockedByFlags(t) &&
           (includeTransitory || !t.is_transitory) &&
           !(t.parent_transaction_id && t.split_percentage !== null)
       );
