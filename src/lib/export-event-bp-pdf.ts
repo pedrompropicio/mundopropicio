@@ -127,7 +127,12 @@ async function fetchEventBundle(eventId: string) {
     name: p.suppliers?.name ?? "Sócio",
     percentage: Number(p.percentage),
   }));
-  const transactions: TxRow[] = (txRes.data ?? []) as any;
+  // Documento oficial: só o universo canónico. As TX com flags bloqueadores
+  // (estornada / escondida / excluída do resultado / transitória) NUNCA saem no
+  // PDF — nem riscadas. A vista riscada existe só no ecrã do BP.
+  const transactions: TxRow[] = ((txRes.data ?? []) as any[]).filter(
+    (t) => !hasResultBlockingFlags(t),
+  ) as any;
 
   // Forecast → partners assignments
   const forecastIds = forecasts.map((f) => f.id);
