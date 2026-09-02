@@ -4072,7 +4072,11 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const txs: any[] = item._orphanTx ?? [];
   const colCount = isExpense ? 8 : 7;
   const pending = orphanBucketIsPending(item.type);
-  const realized = txs.reduce((s, t) => s + Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100), 0);
+  const orphanTxWithIva = (t: any) => Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
+  // Realizado do balde: só o universo canónico (ver isCanonicalRealTx).
+  const realized = txs.filter(isCanonicalRealTx).reduce((s, t) => s + orphanTxWithIva(t), 0);
+  const excludedOrphanTx = txs.filter((t) => hasResultBlockingFlags(t));
+  const excludedOrphanTotal = excludedOrphanTx.reduce((s, t) => s + orphanTxWithIva(t), 0);
 
   return (
     <>
