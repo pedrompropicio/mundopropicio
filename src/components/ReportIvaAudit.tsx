@@ -131,6 +131,8 @@ export default function ReportIvaAudit() {
     return out.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
   }, [transactions, forecasts, tolerance]);
 
+  const { rows: coherenceRows, isLoading: loadingCoherence } = useRateCoherenceRows(eventId);
+
   const exportXlsx = () => {
     const rows = divergences.map((d) => ({
       Origem: d.source === "transaction" ? "Transação" : "BP",
