@@ -1,13 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Lock, Unlock, Wand2, AlertTriangle } from "lucide-react";
+import { Layers, Lock, Unlock, Wand2, AlertTriangle, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { distributeEvenly } from "@/components/ScheduleInstallmentsModal";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+
+// Helpers locais (copiados de TransactionInstallmentsEditor — não exportados lá).
+// Obrigatórios: `new Date(string)` desloca o dia por causa do fuso.
+const ymd = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const fromYmd = (s: string) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+};
 
 
 /**
