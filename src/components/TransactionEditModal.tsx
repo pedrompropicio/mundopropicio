@@ -27,6 +27,7 @@ import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invo
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import { fetchBpLinesForCategory, relinkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
 import { isCapitalCategoryCode } from "@/lib/capital-branch";
+import { calcIvaAmount, calcTotalWithIva } from "@/lib/iva";
 import {
   deletePartnerCapitalMove,
   fetchEventPartnersWithInheritance,
@@ -1233,8 +1234,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             </div>
             {(() => {
               const base = parseFloat(form.amount) || 0;
-              const iva = base * (form.iva_rate / 100);
-              const total = base + iva;
+              const iva = calcIvaAmount(base, form.iva_rate);
+              const total = calcTotalWithIva(base, form.iva_rate);
               if (base <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
@@ -1255,7 +1256,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           {transaction.type === "expense" && !paidLocked && (() => {
             const base = parseFloat(form.amount) || 0;
             const ivaRate = parseFloat(String(form.iva_rate)) || 0;
-            const totalCIva = +(base + base * ivaRate / 100).toFixed(2);
+            const totalCIva = calcTotalWithIva(base, ivaRate);
             return (
               <WithholdingDeclaredFields
                 baseAmount={totalCIva}

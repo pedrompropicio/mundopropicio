@@ -28,6 +28,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
+import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
@@ -1761,7 +1762,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         return;
       }
       const { validateInstallments } = await import("@/components/TransactionInstallmentsEditor");
-      const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+      const grossTotal = calcTotalWithIva(parseFloat(form.amount || "0"), Number(form.iva_rate || 0));
       const err = validateInstallments(installmentRows, grossTotal);
       if (err) {
         toast({ title: "Cronograma inválido", description: err, variant: "destructive" });
@@ -2653,7 +2654,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 {(() => {
                                         const lineForecast = Number(line.amount) || 0;
                                         const lineIva = Number(line.iva_rate) || 0;
-                                        const lineTotal = lineForecast * (1 + lineIva / 100);
+                                        const lineTotal = calcTotalWithIva(lineForecast, lineIva);
                                         const hasRealLine = isUuid(line.id);
                                         const lineUsed = hasRealLine ? (usedByForecastId[line.id] || 0) : null;
                                         const lineRemaining = lineUsed === null ? null : lineForecast - lineUsed;
@@ -2996,9 +2997,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               const baseForm = parseFloat(form.amount) || 0;
               // Quando há split de IVA pendente, mostrar agregados reais das linhas (não aplicar form.iva_rate sobre toda a base)
               if (pendingIvaSplit && pendingIvaSplit.length > 0) {
-                const baseSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0);
-                const ivaSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0) * ((Number(l.iva_rate) || 0) / 100), 0);
-                const totalSum = baseSum + ivaSum;
+                const baseSum = roundCents(pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0));
+                const ivaSum = roundCents(pendingIvaSplit.reduce((s, l) => s + calcIvaAmount(Number(l.base) || 0, Number(l.iva_rate) || 0), 0));
+                const totalSum = roundCents(baseSum + ivaSum);
                 if (baseSum <= 0) return null;
                 return (
                   <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
@@ -3017,8 +3018,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </div>
                 );
               }
-              const ivaValue = baseForm * (form.iva_rate / 100);
-              const total = baseForm + ivaValue;
+              const ivaValue = calcIvaAmount(baseForm, form.iva_rate);
+              const total = calcTotalWithIva(baseForm, form.iva_rate);
               if (baseForm <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
@@ -3042,7 +3043,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {form.type === "expense" && (() => {
             const base = parseFloat(form.amount) || 0;
             const ivaRate = parseFloat(String(form.iva_rate)) || 0;
-            const totalCIva = +(base + base * ivaRate / 100).toFixed(2);
+            const totalCIva = calcTotalWithIva(base, ivaRate);
             return (
               <WithholdingDeclaredFields
                 baseAmount={totalCIva}
@@ -3635,7 +3636,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {/* ===== Parcelamento (Fase 1.5) ===== */}
           {form.type === "expense" && !isSplit && !effectiveAutoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {
-            const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+            const grossTotal = calcTotalWithIva(parseFloat(form.amount || "0"), Number(form.iva_rate || 0));
             return (
               <div className="space-y-2">
                 <label className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/60">
@@ -3856,7 +3857,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         transactionDescription={form.description ?? null}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
-            ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
+            ? calcTotalWithIva(parseFloat(form.amount) || 0, form.iva_rate)
             : undefined
         }
         onConfirm={(lines, attach, replacementFile) => {
