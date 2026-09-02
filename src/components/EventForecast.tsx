@@ -3641,7 +3641,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 <button onClick={() => setShowPayments(!showPayments)} className="text-xs flex items-center gap-1 mt-0.5 hover:underline cursor-pointer">
                   <FileText className="h-3 w-3 text-primary shrink-0" />
                   <span className="text-primary/70 font-medium">{matchingTransactions.length} transação(ões)</span>
-                  {paidTransactions.length > 0 && <span className="text-success text-[10px]">({paidTransactions.length} paga{paidTransactions.length > 1 ? "s" : ""})</span>}
+                  {canonicalPaidCount > 0 && <span className="text-success text-[10px]">({canonicalPaidCount} paga{canonicalPaidCount > 1 ? "s" : ""})</span>}
+                  {excludedTxCount > 0 && <span className="text-warning text-[10px]">· {excludedTxCount} fora do total</span>}
                 </button>
               )}
               {!hasMatchingTx && isApproved && item.transaction_id && (
