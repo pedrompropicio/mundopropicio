@@ -4147,6 +4147,12 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
                 <span className="font-medium text-muted-foreground">Total transações</span>
                 <span className="font-mono font-bold">{formatCurrency(realized)}</span>
               </div>
+              {excludedOrphanTx.length > 0 && (
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>{excludedOrphanTx.length} transação(ões) fora do total</span>
+                  <span className="font-mono">{formatCurrency(excludedOrphanTotal)}</span>
+                </div>
+              )}
             </div>
           </td>
         </tr>
