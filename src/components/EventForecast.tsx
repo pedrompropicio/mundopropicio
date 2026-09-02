@@ -4127,7 +4127,11 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
                 const isPaid = tx.status === "paid" || txTotal - txPaid < 0.01;
                 const blocked = hasResultBlockingFlags(tx);
                 return (
-                  <div key={tx.id} className={`rounded-lg border border-border/30 bg-background/50 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5 ${blocked ? "opacity-50" : ""}`}>
+                  <div key={tx.id} className={`rounded-lg border px-3 py-2 transition-colors ${
+                    blocked
+                      ? "border-dashed border-warning/40 bg-warning/5 opacity-70 hover:bg-warning/10 hover:border-warning/50"
+                      : "border-border/30 bg-background/50 hover:border-primary/30 hover:bg-primary/5"
+                  }`}>
                     <button type="button" onClick={() => setViewingTransaction(tx)} className="block w-full cursor-pointer text-left">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
