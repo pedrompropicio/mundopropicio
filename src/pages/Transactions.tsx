@@ -88,7 +88,7 @@ export default function Transactions() {
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
-  const canApprove = isAdmin || isManager;
+  const canApprove = hasPermission("approve_transactions");
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
