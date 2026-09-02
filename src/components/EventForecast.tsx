@@ -177,16 +177,65 @@ interface Props {
 }
 
 /**
- * Predicado canónico do "Real": apenas TX `approved` ou `paid`; exclui
- * transitórias e marcadas `exclude_from_result`. SSoT único do ficheiro —
- * usado na vista Previsão vs Real e no realizado das bandas de rubrica.
+ * Predicado canónico do "Real": apenas TX `approved` ou `paid` e sem nenhum dos
+ * flags bloqueadores universais (`is_transitory`, `exclude_from_result`,
+ * `reversed_at`, `is_hidden`) — os mesmos do Fecho/DRE, via o helper partilhado
+ * `hasResultBlockingFlags` (ver `.lovable/memory/features/fecho-filter-parity.md`).
+ * SSoT único do ficheiro — usado na vista Previsão vs Real, no realizado das
+ * bandas de rubrica e nos totais dos painéis de transações.
+ *
+ * NOTA: as TX que não passam NÃO desaparecem da lista do BP — ficam visíveis,
+ * riscadas e fora dos totais, com o motivo consultável.
  */
 export const isCanonicalRealTx = (t: any): boolean => {
   if (!(t.status === "approved" || t.status === "paid")) return false;
-  if (t.is_transitory) return false;
-  if (t.exclude_from_result) return false;
-  return true;
+  return !hasResultBlockingFlags(t);
 };
+
+/** Motivo pelo qual uma TX não conta para o realizado (primeiro flag encontrado). */
+function nonCanonicalReason(t: any): { label: string; detail?: string } | null {
+  if (t?.reversed_at != null) {
+    return {
+      label: "Transação estornada",
+      detail: [
+        t.reversal_reason || undefined,
+        `Estornada a ${format(new Date(String(t.reversed_at)), "dd/MM/yyyy")}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }
+  if (t?.is_hidden === true) return { label: "Escondida" };
+  if (t?.exclude_from_result === true) return { label: "Excluída do resultado" };
+  if (t?.is_transitory === true) return { label: "Transitória" };
+  return null;
+}
+
+/** Badge discreto "não conta" com popover do motivo. */
+function NonCanonicalBadge({ tx }: { tx: any }) {
+  const reason = nonCanonicalReason(tx);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/70"
+        >
+          não conta
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 z-[120]" align="end">
+        <p className="text-xs font-semibold">{reason?.label ?? "Fora do realizado"}</p>
+        {reason?.detail && <p className="mt-1 text-[11px] text-muted-foreground">{reason.detail}</p>}
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Continua listada para efeitos de análise, mas está fora dos totais do BP.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
   // Taxas de IVA do país da cidade do evento (PT por defeito).
