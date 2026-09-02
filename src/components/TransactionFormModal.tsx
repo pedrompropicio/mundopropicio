@@ -3043,7 +3043,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {form.type === "expense" && (() => {
             const base = parseFloat(form.amount) || 0;
             const ivaRate = parseFloat(String(form.iva_rate)) || 0;
-            const totalCIva = +(base + base * ivaRate / 100).toFixed(2);
+            const totalCIva = calcTotalWithIva(base, ivaRate);
             return (
               <WithholdingDeclaredFields
                 baseAmount={totalCIva}
