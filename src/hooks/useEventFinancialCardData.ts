@@ -7,8 +7,10 @@ import {
   emptyBreakdown, addToBreakdown, detectPhase, resolveMode, classifyIncomeL1,
 } from "@/lib/event-financial-card";
 import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+
 
 
 export interface UseEventFinancialCardDataArgs {
@@ -70,19 +72,23 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     : Number(args.ticketSales?.net ?? 0);
   const ticketNet = Number(args.ticketSales?.net ?? 0);
 
-  // ── transactions (paid + approved, NÃO inclui pending para alinhar com Cards/Análise) ──
+  // ── transactions (paid + approved + partially_paid, NÃO inclui pending para alinhar com Cards/Análise) ──
+  // NOTA: o Card mostra "Pago vs Comprometido" usando paid_amount, por isso inclui "partially_paid".
+  // O Fecho (isValidFechoTransaction) só aceita approved/paid. A diferença de status é intencional;
+  // o que se alinha entre vistas são os flags bloqueadores, via hasResultBlockingFlags.
   const { data: txs = [] } = useQuery({
     queryKey: ["efc-tx", idsKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
     },
     enabled: ids.length > 0,
   });
+
 
   // ── BP forecasts (active version) — usados em committed e forecast ──
   const { data: forecasts = [] } = useQuery({
@@ -133,8 +139,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   return useMemo<UseEventFinancialCardDataResult>(() => {
     // ── Fase ──
     const realizedTx = txs.filter((t: any) =>
-      (t.status === "paid" || t.status === "approved" || t.status === "partially_paid") && !t.is_transitory
+      (t.status === "paid" || t.status === "approved" || t.status === "partially_paid") && !hasResultBlockingFlags(t)
     );
+
     const hasTx = realizedTx.length > 0;
     const hasSales = ticketNet > 0;
     const phase = detectPhase({
@@ -248,11 +255,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         ? computeOutsideBpExcess(
             operational,
             txs.filter((t: any) =>
-              t.type === "expense" && !t.is_transitory && !t.is_hidden && !t.reversed_at
+              t.type === "expense" && !hasResultBlockingFlags(t)
             ),
             withVat,
           )
         : 0;
+
 
       const extra = kind === "expense"
         ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
@@ -335,9 +343,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
       );
       const txEligible = txs.filter((t: any) =>
-        t.type === "expense" && !t.is_transitory &&
+        t.type === "expense" && !hasResultBlockingFlags(t) &&
         (t.status === "paid" || t.status === "approved" || t.status === "partially_paid" || t.status === "pending")
       );
+
       const txAmount = new Map<string, number>();
       const txIdsByCat = new Map<string, string[]>();
       for (const t of txEligible) {
