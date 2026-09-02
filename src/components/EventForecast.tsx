@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { roundCents, calcIvaAmount } from "@/lib/iva";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
