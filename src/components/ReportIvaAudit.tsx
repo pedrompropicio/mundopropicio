@@ -10,6 +10,7 @@ import { calcIvaAmount, IVA_TOLERANCE } from "@/lib/iva";
 import { formatDatePT } from "@/lib/utils";
 import { utils, writeFile } from "xlsx";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import ReportIvaRateCoherence, { useRateCoherenceRows } from "@/components/ReportIvaRateCoherence";
 
 type Divergence = {
   source: "transaction" | "forecast";
