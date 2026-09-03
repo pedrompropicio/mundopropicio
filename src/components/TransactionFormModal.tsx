@@ -730,6 +730,24 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     return l2 ? `${l2.code} ${l2.name}` : null;
   }, [selectedForecastL2Id, categories]);
 
+  /**
+   * Só conta para a verba o que é compromisso real (D2): transitórias, excluídas
+   * do resultado, revertidas e escondidas não consomem BP. As `pending` contam —
+   * uma despesa lançada e por aprovar já é compromisso da linha.
+   */
+  const countsAsBudgetCommitment = (t: any): boolean =>
+    !t?.is_transitory && !t?.exclude_from_result && !t?.reversed_at && !t?.is_hidden;
+
+  /** Utilizado por LINHA de BP (vínculo canónico transactions.forecast_id). */
+  const usedByForecastId = useMemo(() => {
+    const acc: Record<string, number> = {};
+    (eventTransactions as any[]).forEach((t: any) => {
+      if (!t.forecast_id || !countsAsBudgetCommitment(t)) return;
+      acc[t.forecast_id] = (acc[t.forecast_id] || 0) + Number(t.amount);
+    });
+    return acc;
+  }, [eventTransactions]);
+
   // Reset vínculo quando o evento muda (linha BP deixa de fazer sentido noutro evento).
   useEffect(() => {
     if (selectedForecastId) setSelectedForecastId(null);
