@@ -780,6 +780,8 @@ Deno.serve(async (req) => {
         total_loads: totalLoads,
         new_spend_gross: newSpendGross,
         legacy_session_movements: round2(legacySessionSpend),
+        legacy_session_movement_count: legacySessionCount,
+
         direct_movements_total: round2(directTotal),
         direct_movements: directMovements,
         theoretical_balance: theoretical,
