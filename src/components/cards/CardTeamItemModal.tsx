@@ -474,10 +474,19 @@ export function CardTeamItemModal({
             />
           </div>
 
+          <CardItemDocumentsField
+            sessionId={sessionId}
+            itemId={itemId ?? null}
+            pendingFiles={pendingDocs}
+            onPendingChange={setPendingDocs}
+            label="Documentos adicionais"
+          />
+
           <p className="text-[11px] text-muted-foreground">
             A categoria contabilística é atribuída pela financeira ao aprovar.
           </p>
         </div>
+
 
         <DialogFooter className="mt-3 flex-col-reverse gap-2 sm:flex-row">
           {itemId && (
