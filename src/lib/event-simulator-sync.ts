@@ -2,7 +2,9 @@
  * Helpers para inicializar/sincronizar o Simulador a partir das fontes reais:
  *  - Vendas reais: ticket_sales (sum quantity, sum total_value via ticketSaleRevenue)
  *  - Sessões: produto cartesiano event_dates × event_ticket_zones
- *  - Projeção default: total_capacity − vendido (clamp ≥ 0)
+ *  - Projeção default: carga corrente (zone_capacity_snapshot) − vendido quando
+ *    há retrato de bilheteira; senão total_capacity − vendido (clamp ≥ 0).
+ *    Nunca acima da carga corrente (DR-2026-09-03-D20).
  *  - Forecast custos: event_forecasts approved (type=expense) agregados por categoria L3
  *
  * Sources foram aprovadas pelo utilizador (msg de 2026-04-30).
