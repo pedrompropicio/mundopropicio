@@ -231,6 +231,66 @@ Deno.serve(async (req) => {
       return json({ error: "Não há itens aprovados para integrar" }, 422);
     }
 
+    // ===== D1+D8 + DR-2026-09-02 — linha de BP da sessão (UMA só, rubrica 2.6.04) =====
+    // Pré-voo antes de criar seja o que for. O event_id de cada item resolve-se por
+    // bp_scope: 'master_common' → master_event_id, o resto → evento primário. Uma
+    // sessão pode portanto abranger DOIS eventos; nesse caso carimbar uma única
+    // linha em todas as transações poria a linha de um evento numa transação de
+    // outro (viola a coerência da DR-2026-08-22). Recusamos até haver escolha de
+    // linha por evento.
+    const targetEventIds = Array.from(
+      new Set(
+        (items as any[])
+          .map((it) =>
+            it.bp_scope === "master_common"
+              ? (session.master_event_id ?? primaryEventId)
+              : (primaryEventId ?? session.master_event_id),
+          )
+          .filter(Boolean) as string[],
+      ),
+    );
+
+    const withBpEventIds: string[] = [];
+    for (const evId of targetEventIds) {
+      const { data: mode } = await adminClient.rpc("event_budget_mode", { _event_id: evId });
+      if (mode === "with_bp") withBpEventIds.push(evId);
+    }
+
+    if (targetEventIds.length > 1 && withBpEventIds.length > 0) {
+      return json({
+        error:
+          "Esta sessão abrange mais do que um evento e pelo menos um deles é gerido com BP. " +
+          "A escolha de uma linha de BP por evento ainda não está suportada — separa a sessão por evento antes de integrar.",
+      }, 422);
+    }
+
+    if (withBpEventIds.length > 0) {
+      const bpEventId = withBpEventIds[0];
+      if (!sessionForecastId) {
+        return json({
+          error:
+            "Este evento é gerido com BP: escolhe a linha de BP (2.6.04 — Camarins) antes de integrar a sessão.",
+        }, 422);
+      }
+      const { data: fc, error: fcErr } = await adminClient
+        .from("event_forecasts")
+        .select("id,event_id,category_id,type")
+        .eq("id", sessionForecastId)
+        .maybeSingle();
+      if (fcErr) return json({ error: `Erro ao validar a linha de BP: ${fcErr.message}` }, 500);
+      if (!fc) return json({ error: "A linha de BP indicada não existe." }, 422);
+      if ((fc as any).event_id !== bpEventId) {
+        return json({
+          error: "A linha de BP indicada não pertence ao evento para onde esta sessão gera transações.",
+        }, 422);
+      }
+      if ((fc as any).category_id !== camarimCategoryId) {
+        return json({ error: "A linha de BP indicada não é da rubrica 2.6.04 — Camarins." }, 422);
+      }
+    }
+
+
+
     // ===== Find advance financial account from latest fund_move =====
     // NOTA: esta é a conta de ORIGEM do adiantamento (o banco) — o banco JÁ pagou
     // o adiantamento (par de transferência interna 10.3). Serve apenas como
