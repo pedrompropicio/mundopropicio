@@ -78,6 +78,7 @@ import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
 import { CoalaImportWizard } from "@/components/CoalaImportWizard";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { useBPIncomeSynthetic } from "@/hooks/useBPIncomeSynthetic";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -261,7 +262,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Pagador da despesa: "all" | "house" (empresa configurada, sem pagador) | event_partners.id
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
   // Tipo: "all" | "income" | "expense" — controla se mostramos só Receitas, só Despesas ou Ambos
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+  // D9: sub-separadores Despesas | Receitas (substituem o antigo select de tipo).
+  const [typeFilter, setTypeFilter] = useState<"income" | "expense">("expense");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
   const [includeOverheadInComparison, setIncludeOverheadInComparison] = useState<boolean>(false); // Previsão vs Real: incluir linhas is_overhead
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
@@ -887,6 +889,9 @@ const descRef = useRef<HTMLInputElement>(null);
     return s + Number(sl.quantity) * (Number(sl.unit_price) / (1 + rate / 100));
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
+
+  // Linhas sintéticas de receita por módulo (bilheteira, A&B) — DR-2026-09-03-D21.
+  const syntheticIncome = useBPIncomeSynthetic(eventId, childEventIds ?? []);
 
   // Calculate cache lines using ALL configs (own + inherited from parent)
   // Each sub-event calculates with its own ticket revenue, not prorated
@@ -2030,16 +2035,24 @@ const descRef = useRef<HTMLInputElement>(null);
     .filter((f) => f.type === "expense")
     .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
   const totalForecastExpense = totalForecastExpenseBase;
-  const totalForecastIncome = totalForecastIncomeStrict > 0 ? totalForecastIncomeStrict : ticketRevenue;
+  // D21: sem fallback. Receita prevista = linhas reais + linhas sintéticas dos módulos.
+  const incomeBaselineTotal =
+    comparisonForecasts
+      .filter((f) => f.type === "income")
+      .reduce((s, f) => s + Number((f as any).baseline_amount ?? f.amount), 0) +
+    syntheticIncome.totals.baselineNet;
+  const incomeCurrentTotal = totalForecastIncomeBase + syntheticIncome.totals.currentNet;
+  const incomeCurrentIvaTotal = totalForecastIncomeIva + syntheticIncome.totals.currentIva;
+  const totalForecastIncome = incomeCurrentTotal + incomeCurrentIvaTotal;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
   const totalActualIncomeStrict = comparisonTransactions
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
-  // O card de receita real deve refletir a bilheteira vendida + outras receitas reais.
-  // Antes, quando existia qualquer receita em transações, a bilheteira real era ignorada
-  // e o valor podia ficar artificialmente igual ao previsto.
-  const totalActualIncome = totalActualIncomeStrict + ticketActualRevenue;
+  // O card de receita real deve refletir a bilheteira vendida + outras receitas reais,
+  // com o mesmo critério de arredondamento do cabeçalho do evento (D11/D21).
+  const incomeRealTotal = totalActualIncomeStrict + syntheticIncome.totals.realNet;
+  const totalActualIncome = incomeRealTotal;
   const totalActualExpense = comparisonTransactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -2097,6 +2110,7 @@ const descRef = useRef<HTMLInputElement>(null);
             {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
           </select>
         </td>
+        {!isExpenseType && <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>}
         <td className="py-1.5 pr-2">
           <input
             type="number"
@@ -2114,6 +2128,7 @@ const descRef = useRef<HTMLInputElement>(null);
         <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
           {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
         </td>
+        {!isExpenseType && <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>}
         <td className="py-1.5 text-right">
           <div className="flex justify-end items-center gap-1">
             {isExpenseType && canEditBP && (
@@ -2193,9 +2208,9 @@ const descRef = useRef<HTMLInputElement>(null);
       )}
       {/* Summary cards */}
       <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : parentEventId ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
-        {!expenseOnly && typeFilter !== "expense" && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA. Este card trabalha sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
-        {typeFilter !== "income" && <SummaryCard label="Despesas" helpText="Previsão = soma das despesas do BP no perímetro comparável, sempre sem IVA. Real = soma das transações de despesa aprovadas/pagas no mesmo perímetro, também sem IVA. Este card trabalha sem IVA." forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />}
-        {!expenseOnly && !parentEventId && typeFilter === "all" && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. Como Receitas e Despesas neste resumo são calculadas sem IVA, o Resultado também é exibido sem IVA. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
+        {!expenseOnly && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA. Este card trabalha sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
+        {<SummaryCard label="Despesas" helpText="Previsão = soma das despesas do BP no perímetro comparável, sempre sem IVA. Real = soma das transações de despesa aprovadas/pagas no mesmo perímetro, também sem IVA. Este card trabalha sem IVA." forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />}
+        {!expenseOnly && !parentEventId && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. Como Receitas e Despesas neste resumo são calculadas sem IVA, o Resultado também é exibido sem IVA. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -2222,6 +2237,23 @@ const descRef = useRef<HTMLInputElement>(null);
               <TabsTrigger value="forecasts">Previsões</TabsTrigger>
               <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
             </TabsList>
+            {/* D9: sub-separadores Despesas | Receitas — aplicam-se à lista, filtros e botões. */}
+            {!expenseOnly && (
+              <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
+                {(["expense", "income"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTypeFilter(t)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      typeFilter === t ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t === "expense" ? "Despesas" : "Receitas"}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* BP Search */}
             <div className="relative min-w-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -2319,22 +2351,6 @@ const descRef = useRef<HTMLInputElement>(null);
                 <option value="pago_total">🟢 Pago total</option>
               </select>
             </div>
-            {/* Tipo: Receitas / Despesas / Ambos.
-                Esconde a secção respetiva e o card de Resumo correspondente. */}
-            {!expenseOnly && (
-              <div className="flex items-center gap-1.5 min-w-0" title="Filtrar por tipo (Receitas / Despesas / Ambos)">
-                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as "all" | "income" | "expense")}
-                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="all">Receitas + Despesas</option>
-                  <option value="income">Só Receitas</option>
-                  <option value="expense">Só Despesas</option>
-                </select>
-              </div>
-            )}
             {/* Master ↔ Master+Subs toggle (only on master with children) */}
             {childEventIds && childEventIds.length > 0 && (
               <div className="flex items-center gap-1.5 min-w-0">
@@ -2582,9 +2598,11 @@ const descRef = useRef<HTMLInputElement>(null);
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
                         <th className="pb-2 text-right font-medium">IVA %</th>
-                        <th className="pb-2 text-right font-medium">Valor s/ IVA</th>
+                        <th className="pb-2 text-right font-medium">Previsto original</th>
+                        <th className="pb-2 text-right font-medium">Previsto corrente</th>
                         <th className="pb-2 text-right font-medium">IVA (€)</th>
                         <th className="pb-2 text-right font-medium">Total (€)</th>
+                        <th className="pb-2 text-right font-medium">Real</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
@@ -2600,9 +2618,11 @@ const descRef = useRef<HTMLInputElement>(null);
                             {showGroupHeader && (
                               <tr className="bg-secondary/10 border-t border-border/30">
                                 <td colSpan={3} className="py-2 pl-2 text-xs font-semibold text-foreground"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
+                                <td />
                                 <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase + groupIva)}</td>
+                                <td />
                                 <td />
                               </tr>
                             )}
@@ -2613,7 +2633,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
                                 <OrphanBucketRow key={f.id} item={f} isExpense={false} indented={showGroupHeader} isAdmin={canApprove} queryClient={queryClient} eventId={eventId} hideCode />
                               ) : f.is_overhead ? (
-                                <ForecastRow key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} hideCode />
+                                <ForecastRow showIncomeCols key={`overhead-inc-${f.id}`} item={f} colorClass="text-warning/80" isExpense={false} onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly formalidadeEditable={canEditBP || canEditBPPartial || canEditApprovedBP} indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} hideCode />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                                   <td className="py-1.5 pr-2">
@@ -2633,17 +2653,21 @@ const descRef = useRef<HTMLInputElement>(null);
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                                     </select>
-                                  </td>
-                                   <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={canEditBPPartial && !canEditBP} />
-                                  </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
-                                  </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
-                                  </td>
-                                  <td className="py-1.5 text-right">
+                                   </td>
+                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+                                     {f.baseline_amount != null ? formatCurrency(Number(f.baseline_amount)) : "—"}
+                                   </td>
+                                    <td className="py-1.5 pr-2">
+                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={canEditBPPartial && !canEditBP} />
+                                   </td>
+                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+                                   </td>
+                                   <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+                                   </td>
+                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>
+                                   <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
                                       <button onClick={() => handleInlineSave()} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                                       <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
@@ -2651,11 +2675,11 @@ const descRef = useRef<HTMLInputElement>(null);
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} hideCode />
+                                <ForecastRow showIncomeCols key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} hideCode />
                               ));
                               return (
                                 <React.Fragment key={`inc-band-${f.id}`}>
-                                  {band && <CategoryBandRow band={band} colCount={7} />}
+                                  {band && <CategoryBandRow band={band} colCount={9} />}
                                   {row}
                                 </React.Fragment>
                               );
@@ -2665,39 +2689,47 @@ const descRef = useRef<HTMLInputElement>(null);
                         );
                       })}
                       {addingType === "income" && renderInlineRow("income")}
-                      {ticketRevenue > 0 && (
-                        <tr className="bg-success/5 border-t border-border/30">
+                      {/* Linhas sintéticas por módulo (bilheteira, A&B) — DR-2026-09-03-D21.
+                          Não persistidas; três colunas de valor (original / corrente / real). */}
+                      {syntheticIncome.lines.map((l) => (
+                        <tr key={`synthetic-${l.key}`} className="bg-success/5 border-t border-border/30">
                           <td className="py-2.5 pr-3">
                             <div className="flex items-center gap-2">
                               <Ticket className="h-3.5 w-3.5 text-success shrink-0" />
                               <div>
-                                <p className="font-medium text-success/80">Venda de Bilhetes</p>
-                                <p className="text-xs text-muted-foreground">Calculado automaticamente da Bilheteira</p>
+                                <p className="font-medium text-success/80">{l.label}</p>
+                                <p className="text-xs text-muted-foreground">{l.source}</p>
+                                {l.meta && <p className="text-[11px] text-muted-foreground">{l.meta}</p>}
+                                {l.missingNote && <p className="text-[11px] text-warning">{l.missingNote}</p>}
                               </div>
                             </div>
                           </td>
-                          <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">R01 - Venda de Bilhetes</td>
-                          <td className="py-2.5 text-right text-muted-foreground text-xs">6%</td>
-                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenueNet)}</td>
-                          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(ticketRevenueIva)}</td>
-                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenueGross)}</td>
+                          <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">{l.categoryLabel}</td>
+                          <td className="py-2.5 text-right text-muted-foreground text-xs">{l.ivaPct != null ? `${l.ivaPct.toFixed(l.ivaPct % 1 === 0 ? 0 : 1)}%` : "—"}</td>
+                          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{l.baselineNet != null ? formatCurrency(l.baselineNet) : "—"}</td>
+                          <td className="py-2.5 text-right font-mono font-semibold text-success">{l.currentNet != null ? formatCurrency(l.currentNet) : "—"}</td>
+                          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(l.currentIva)}</td>
+                          <td className="py-2.5 text-right font-mono text-xs">{formatCurrency((l.currentNet ?? 0) + l.currentIva)}</td>
+                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(l.realNet)}</td>
                           <td />
                         </tr>
-                      )}
+                      ))}
                     </tbody>
-                    {(incomeForecasts.length > 0 || addingType === "income" || ticketRevenue > 0) && (
+                    {(incomeForecasts.length > 0 || addingType === "income" || syntheticIncome.lines.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncomeBase)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success/70">{formatCurrency(totalForecastIncomeIva)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncome)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-muted-foreground">{formatCurrency(incomeBaselineTotal)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeCurrentTotal)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success/70">{formatCurrency(incomeCurrentIvaTotal)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeCurrentTotal + incomeCurrentIvaTotal)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeRealTotal)}</td>
                           <td />
                         </tr>
                       </tfoot>
                     )}
                   </table>
-                  {incomeForecasts.length === 0 && addingType !== "income" && (
+                  {incomeForecasts.length === 0 && addingType !== "income" && syntheticIncome.lines.length === 0 && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem receitas previstas</p>
                   )}
                 </div>
@@ -3305,9 +3337,11 @@ function CategoryBandRow({
   );
 }
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering, formalidadeEditable, hideCode }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments, canEditOrdering, formalidadeEditable, hideCode, showIncomeCols }: {
   /** Esconde o código da rubrica na descrição (já vem no cabeçalho da rubrica). */
   hideCode?: boolean;
+  /** Tabela de receitas (D21): mostra colunas "Previsto original" e "Real". */
+  showIncomeCols?: boolean;
 
   /** Permite alterar o ordenador da despesa nesta linha (mesma permissão de edição do BP). */
   canEditOrdering?: boolean;
@@ -3441,7 +3475,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showAuditLog,
   });
 
-  const colCount = isExpense ? 8 : 7;
+  const colCount = isExpense ? 8 : 9;
 
   // ── Sync attachments from BP line → linked transactions
   // Copies external links (attachment_refs) from this BP row into transaction_documents
@@ -3691,6 +3725,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           {item.account_categories ? `${item.account_categories.code} ${item.account_categories.name}` : "—"}
         </td>
         <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
+        {showIncomeCols && (
+          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
+            {item.baseline_amount != null ? formatCurrency(Number(item.baseline_amount)) : formatCurrency(Number(item.amount))}
+          </td>
+        )}
         <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
           <span className="inline-flex items-center justify-end gap-1.5">
             {formatCurrency(Number(item.amount))}
@@ -3703,6 +3742,9 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
           {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
         </td>
+        {showIncomeCols && (
+          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">—</td>
+        )}
         <td className="py-2.5 text-right">
           {readOnly ? (
             <div className="flex justify-end items-center gap-1">
@@ -4082,7 +4124,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
   const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const txs: any[] = item._orphanTx ?? [];
-  const colCount = isExpense ? 8 : 7;
+  const colCount = isExpense ? 8 : 9;
   const pending = orphanBucketIsPending(item.type);
   const orphanTxWithIva = (t: any) => Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
   // Realizado do balde: só o universo canónico (ver isCanonicalRealTx).
