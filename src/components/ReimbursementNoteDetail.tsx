@@ -768,7 +768,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           onLinked={async () => {
             setLinkBpTx(null);
             await queryClient.refetchQueries({ queryKey: ["reimbursement-note-items", noteId] });
-            await requestApproveNote();
+            const fresh = queryClient.getQueryData<any[]>(["reimbursement-note-items", noteId]);
+            await requestApproveNote(fresh ?? undefined);
           }}
         />
       )}
