@@ -21,7 +21,7 @@ Nada em execução.
 - Impacto medido em Live no momento do fecho: 3 transações pendentes passam a exigir linha de BP — Coala Festival Portugal 2026 "Armazem Coala - Orange 2ºbox (saldo)" 3.195,65 EUR (rubrica com 6 linhas, tem de escolher); SM - Lisboa "Trafego Pago" 608,26 EUR e SM - Porto "Trafego Pago" 495,81 EUR (rubricas sem linhas, tem de criar). Nenhuma transação já aprovada foi afectada.
 
 ## Próximo passo concreto
-D8 — obrigar a linha no INSERT, lendo o modo do evento.
+D2 — na aprovação, quando o valor excede a verba da linha, escolha explícita entre elevar a verba (com observação obrigatória, permissão `raise_budget`) ou assumir o excesso. Issue #99.
 
 ## Bloqueios
 Nenhum.
