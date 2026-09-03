@@ -230,12 +230,12 @@ export default function LinkBpLineDialog({ transaction, onClose, onLinked, pickO
           {canManageBp && (creating || lines.length === 0) ? (
             <Button onClick={handleCreate} disabled={saving}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Link2 className="mr-1 h-4 w-4" />}
-              Criar, vincular e aprovar
+              {pickOnly ? "Criar e usar linha" : "Criar, vincular e aprovar"}
             </Button>
           ) : (
             <Button onClick={() => selectedId && linkAndApprove(selectedId)} disabled={!selectedId || saving}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Link2 className="mr-1 h-4 w-4" />}
-              Vincular e aprovar
+              {pickOnly ? "Usar esta linha" : "Vincular e aprovar"}
             </Button>
           )}
         </DialogFooter>
