@@ -19,6 +19,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { format } from "date-fns";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { partitionByBpLineRequirement } from "@/lib/bp-line-required";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +64,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
 
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
   const [editTx, setEditTx] = useState<any | null>(null);
+  // D1 + D8 — despesa de evento `with_bp` não pode ser aprovada sem linha de BP.
+  const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
 
   const { data: note, isLoading: noteLoading } = useQuery({
     queryKey: ["reimbursement-note", noteId],
@@ -81,7 +85,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reimbursement_note_items")
-        .select("*, transactions(*, events(name))")
+        .select("*, transactions(*, events(name), account_categories(code, name))")
         .eq("reimbursement_note_id", noteId)
         .order("created_at");
       if (error) throw error;
@@ -232,6 +236,40 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     },
     onError: (err: any) => toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" }),
   });
+
+  // D1 + D8: antes de aprovar a nota, exigir linha de BP nas despesas pendentes
+  // de eventos geridos `with_bp`. Se faltar, abre o diálogo "Vincular ao BP"
+  // (uma transação de cada vez) em vez de chamar o update.
+  const requestApproveNote = async (itemsOverride?: any[]) => {
+    const pendingTxs = (itemsOverride ?? items)
+      .filter((i: any) => i.transactions?.status === "pending")
+      .map((i: any) => i.transactions);
+    if (pendingTxs.length > 0) {
+      try {
+        const { blocked } = await partitionByBpLineRequirement(pendingTxs as any[]);
+        if (blocked.length > 0) {
+          setLinkBpTx(blocked[0]);
+          if (blocked.length > 1) {
+            toast({
+              title: `${blocked.length} despesas sem linha de BP`,
+              description: "Vincula cada uma ao BP para concluir a aprovação da nota.",
+            });
+          }
+          return;
+        }
+      } catch (err: any) {
+        toast({
+          title: "Não foi possível validar as linhas de BP",
+          description: err.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    approveMutation.mutate();
+  };
+
+
 
   const payMutation = useMutation({
     mutationFn: async () => {
@@ -526,7 +564,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           </div>
         )}
         {canApprove && (
-          <Button size="sm" onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
+          <Button size="sm" onClick={() => void requestApproveNote()} disabled={approveMutation.isPending}>
             <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
             {approveMutation.isPending ? "A aprovar…" : "Aprovar Nota"}
           </Button>
@@ -722,6 +760,20 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           </Table>
         </div>
       )}
+
+      {linkBpTx && (
+        <LinkBpLineDialog
+          transaction={linkBpTx}
+          onClose={() => setLinkBpTx(null)}
+          onLinked={async () => {
+            setLinkBpTx(null);
+            await queryClient.refetchQueries({ queryKey: ["reimbursement-note-items", noteId] });
+            const fresh = queryClient.getQueryData<any[]>(["reimbursement-note-items", noteId]);
+            await requestApproveNote(fresh ?? undefined);
+          }}
+        />
+      )}
+
 
       {editTx && (
         <TransactionEditModal
