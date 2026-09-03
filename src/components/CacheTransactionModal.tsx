@@ -54,7 +54,9 @@ export function CacheTransactionModal({
 
   const isFixedCache = cacheType === "fixed";
 
-  const netPayable = withholdingApplicable ? amount - withholdingAmount : amount;
+  // Decisão do Pedro (2026-09-03): paga-se o cachê INTEGRAL. A retenção não é
+  // descontada nem gerada aqui — é definida no fecho, com a base de incidência.
+  const netPayable = amount;
 
   const [dueDate, setDueDate] = useState("");
   const [accountId, setAccountId] = useState("");
@@ -445,14 +447,8 @@ export function CacheTransactionModal({
             </div>
             {withholdingApplicable && (
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-destructive">Retenção IRS ({withholdingRate}%)</span>
-                <span className="font-mono text-destructive">− {formatCurrency(withholdingAmount)}</span>
-              </div>
-            )}
-            {withholdingApplicable && (
-              <div className="mt-1 flex items-center justify-between text-xs font-semibold border-t border-primary/20 pt-1">
-                <span>Líquido a pagar</span>
-                <span className="font-mono">{formatCurrency(netPayable)}</span>
+                <span className="text-muted-foreground">Retenção IRS ({withholdingRate}%) — estimada</span>
+                <span className="font-mono text-muted-foreground">{formatCurrency(withholdingAmount)}</span>
               </div>
             )}
             {cacheCategory && (
@@ -550,10 +546,10 @@ export function CacheTransactionModal({
           </div>
 
           {/* Final amount calculation */}
-          {(totalAdvances > 0 || withholdingApplicable) && (
+          {totalAdvances > 0 && (
             <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Cachê {withholdingApplicable ? "líquido" : "total"}</span>
+                <span>Cachê total</span>
                 <span className="font-mono">{formatCurrency(netPayable)}</span>
               </div>
               {totalAdvances > 0 && (
@@ -751,11 +747,12 @@ export function CacheTransactionModal({
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-warning">Retenção tratada no fecho</p>
+                  <p className="text-xs font-medium text-warning">Retenção definida no fecho</p>
                   <p className="text-[10px] text-warning/80 mt-0.5">
-                    A retenção de IRS ({withholdingRate}%) estimada em {formatCurrency(withholdingAmount)} NÃO é
-                    gerada agora. A base de incidência só se conhece no fecho (parte do cachê pode ser logística
-                    ou verba de marketing, sem retenção), pelo que a obrigação fiscal é definida e criada aí.
+                    Aqui paga-se o cachê integral: a retenção de IRS ({withholdingRate}%), estimada em{" "}
+                    {formatCurrency(withholdingAmount)}, NÃO é descontada nem gerada neste ecrã. É definida no
+                    fecho, quando se conhece a base de incidência (parte do cachê pode ser logística ou verba de
+                    marketing, sem retenção).
                   </p>
                 </div>
               </div>
@@ -767,12 +764,9 @@ export function CacheTransactionModal({
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-4 shrink-0">
           <div className="text-xs text-muted-foreground">
-            {(totalAdvances > 0 || withholdingApplicable) && (
+            {totalAdvances > 0 && (
               <span>
                 Pagamento: <strong className="text-foreground">{formatCurrency(finalAmount)}</strong>
-                {withholdingApplicable && (
-                  <span className="ml-1">+ ret. {formatCurrency(withholdingAmount)}</span>
-                )}
               </span>
             )}
           </div>

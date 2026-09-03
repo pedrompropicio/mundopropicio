@@ -19,6 +19,8 @@ import {
 } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 
 /** Despesa existente (transação da sessão) quando o modal está em modo edição. */
 export interface CardExpenseRow {
@@ -73,6 +75,9 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
+  /** D1+D8 — despesa de evento `with_bp` precisa de linha de BP antes de nascer. */
+  const [bpGate, setBpGate] = useState(false);
+  const [checkingBp, setCheckingBp] = useState(false);
 
   // Pré-preenche em modo edição (e limpa ao voltar a modo criação).
   useEffect(() => {
@@ -255,7 +260,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   };
 
   const mut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (forecastId?: string | null) => {
       const gross = parseFloat(total);
       if (isNaN(gross) || gross <= 0) throw new Error("Total inválido.");
       if (!description.trim()) throw new Error("Descrição obrigatória.");
@@ -341,7 +346,8 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           paid_amount: gross,
           payment_date: date,
           card_session_id: sessionId,
-        })
+          forecast_id: forecastId ?? null,
+        } as any)
         .select("id")
         .single();
       if (error) throw error;
@@ -369,6 +375,30 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  /**
+   * D1+D8 nos cartões: estas transações nascem 'paid', logo escapam ao trigger.
+   * A regra vive no ecrã: despesa com evento gerido `with_bp` só nasce com
+   * `forecast_id` — escolhido (ou criado) no LinkBpLineDialog em modo pickOnly.
+   */
+  const handleSubmit = async () => {
+    if (isEdit || !eventId || !categoryId) {
+      mut.mutate(null);
+      return;
+    }
+    setCheckingBp(true);
+    try {
+      const withBp = await fetchWithBpEventIds([eventId]);
+      if (withBp.has(eventId)) {
+        setBpGate(true);
+        return;
+      }
+      mut.mutate(null);
+    } catch (err: any) {
+      toast({ title: "Erro ao verificar o BP", description: err.message, variant: "destructive" });
+    } finally {
+      setCheckingBp(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -445,7 +475,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           />
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
+        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} required className={inputCls} />
@@ -507,12 +537,37 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={mut.isPending || ocrLoading} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {mut.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
+            <button type="submit" disabled={mut.isPending || ocrLoading || checkingBp} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+              {mut.isPending || checkingBp ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
             </button>
           </div>
         </form>
       </div>
+
+      {bpGate && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: description.trim(),
+            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
+            iva_rate: Number(ivaRate) || 0,
+            event_id: eventId,
+            category_id: categoryId,
+            events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
+            account_categories: (() => {
+              const c = (categories as any[]).find((x) => x.id === categoryId);
+              return c ? { code: c.code, name: c.name } : null;
+            })(),
+          }}
+          onClose={() => setBpGate(false)}
+          onLinked={() => setBpGate(false)}
+          onPicked={(forecastId) => {
+            setBpGate(false);
+            mut.mutate(forecastId);
+          }}
+        />
+      )}
     </div>
   );
 }

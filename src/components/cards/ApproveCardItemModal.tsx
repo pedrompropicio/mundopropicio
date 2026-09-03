@@ -9,6 +9,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cardBaseFromTotal, cardTotalFromBase, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { normalizeMatchText } from "@/lib/bp-tx-matching";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 
 interface Item {
   id: string;
@@ -45,6 +47,9 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   const [categoryId, setCategoryId] = useState<string>("");
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  /** D1+D8 — a transação nasce 'paid' (fora do trigger); a regra vive aqui. */
+  const [bpGate, setBpGate] = useState(false);
+  const [checkingBp, setCheckingBp] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -124,7 +129,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   }, [categories]);
 
   const approve = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (forecastId?: string | null) => {
       if (!item) return;
       if (!categoryId) throw new Error("Categoria obrigatória para aprovar.");
       const gross = parseFloat(total);
@@ -150,7 +155,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           paid_amount: gross,
           payment_date: date,
           card_session_id: item.session_id,
-        })
+          forecast_id: forecastId ?? null,
+        } as any)
         .select("id")
         .single();
       if (error) throw error;
@@ -194,6 +200,30 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
+
+  /**
+   * Despesa de evento gerido `with_bp` só nasce com linha de BP: abre o
+   * LinkBpLineDialog em modo pickOnly e cria já com o `forecast_id`.
+   */
+  const requestApprove = async () => {
+    if (!eventId || !categoryId) {
+      approve.mutate(null);
+      return;
+    }
+    setCheckingBp(true);
+    try {
+      const withBp = await fetchWithBpEventIds([eventId]);
+      if (withBp.has(eventId)) {
+        setBpGate(true);
+        return;
+      }
+      approve.mutate(null);
+    } catch (err: any) {
+      toast({ title: "Erro ao verificar o BP", description: err.message, variant: "destructive" });
+    } finally {
+      setCheckingBp(false);
+    }
+  };
 
   const reject = useMutation({
     mutationFn: async () => {
@@ -314,15 +344,40 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
             </button>
             <button
               type="button"
-              onClick={() => approve.mutate()}
-              disabled={approve.isPending}
+              onClick={() => void requestApprove()}
+              disabled={approve.isPending || checkingBp}
               className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {approve.isPending ? "A aprovar…" : "Aprovar → Criar transação"}
+              {approve.isPending || checkingBp ? "A aprovar…" : "Aprovar → Criar transação"}
             </button>
           </div>
         </div>
       </div>
+
+      {bpGate && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: description.trim() || supplierName || "Despesa cartão",
+            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
+            iva_rate: Number(ivaRate) || 0,
+            event_id: eventId,
+            category_id: categoryId,
+            events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
+            account_categories: (() => {
+              const c = (categories as any[]).find((x) => x.id === categoryId);
+              return c ? { code: c.code, name: c.name } : null;
+            })(),
+          }}
+          onClose={() => setBpGate(false)}
+          onLinked={() => setBpGate(false)}
+          onPicked={(forecastId) => {
+            setBpGate(false);
+            approve.mutate(forecastId);
+          }}
+        />
+      )}
     </div>
   );
 }
