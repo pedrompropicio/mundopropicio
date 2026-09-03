@@ -131,6 +131,71 @@ Deno.serve(async (req) => {
     const missingIds = expandedIds.filter((id) => !transactions.some((t) => t.id === id));
     const approvedIds = approvableTx.map((t) => t.id);
     const skippedIds = [...skippedTx.map((t) => t.id), ...missingIds];
+
+    // AUTORIZAÇÃO POR PERMISSÃO (não por papel): is_platform_admin OU
+    // has_permission_in('approve_transactions', company_id da transação).
+    {
+      const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: callerId });
+      if (!isPa) {
+        const companyIds = [
+          ...new Set((transactions ?? []).map((t: any) => t.company_id).filter((c: any) => !!c)),
+        ];
+        for (const companyId of companyIds) {
+          const { data: allowed, error: permError } = await adminClient.rpc("has_permission_in", {
+            _user_id: callerId,
+            _permission: "approve_transactions",
+            _company_id: companyId,
+          });
+          if (permError) {
+            return new Response(JSON.stringify({ error: permError.message }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (!allowed) {
+            return new Response(
+              JSON.stringify({ error: "Sem permissão para aprovar transações nesta empresa." }),
+              { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
+
+    // D1 + D8: despesa de evento gerido `with_bp` não pode ser aprovada sem
+    // linha de BP. Última linha de defesa — o trigger não vê service_role.
+    if (approvableTx.length > 0) {
+      const candidates = approvableTx.filter(
+        (t: any) =>
+          t.type === "expense" && !!t.event_id && !t.parent_transaction_id && !t.forecast_id,
+      );
+      if (candidates.length > 0) {
+        const eventIds = [...new Set(candidates.map((t: any) => t.event_id as string))];
+        const withBp = new Set<string>();
+        for (const eventId of eventIds) {
+          const { data: mode, error: modeError } = await adminClient.rpc("event_budget_mode", {
+            _event_id: eventId,
+          });
+          if (modeError) {
+            return new Response(JSON.stringify({ error: modeError.message }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (mode === "with_bp") withBp.add(eventId);
+        }
+        const blockedIds = candidates
+          .filter((t: any) => withBp.has(t.event_id as string))
+          .map((t: any) => t.id);
+        if (blockedIds.length > 0) {
+          return new Response(
+            JSON.stringify({ error: "Há despesas sem linha de BP.", blocked_ids: blockedIds }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     const callerName =
       (typeof callerUserMetadata?.full_name === "string" && callerUserMetadata.full_name) ||
       callerEmail ||
