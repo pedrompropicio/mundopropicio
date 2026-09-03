@@ -67,6 +67,8 @@ async function getDefaultIncomeAccountId(companyId: string): Promise<string | nu
  */
 export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<SyncResult> {
   if (row.is_barter) return { skipped: true, reason: "barter_pipeline_only" };
+  // D21: só patrocínios fechados entram no BP de receita. Em negociação ficam no pipeline.
+  if (row.stage !== "closed") return { skipped: true, reason: "stage_not_closed" };
   if (!row.company_id) return { skipped: true, reason: "no_company" };
 
   const amount = Number(row.confirmed_amount || 0);

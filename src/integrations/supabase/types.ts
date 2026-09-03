@@ -6049,6 +6049,8 @@ export type Database = {
       }
       events: {
         Row: {
+          ab_baseline_at: string | null
+          ab_baseline_net: number | null
           absorbs_admin_costs: boolean
           ad_destination_url: string | null
           admin_window_end: string | null
@@ -6088,6 +6090,8 @@ export type Database = {
           slug: string | null
           status: string
           target_roas: number | null
+          ticketing_baseline_at: string | null
+          ticketing_baseline_net: number | null
           ticketing_provider: string | null
           ticketing_url: string | null
           ticketline_event_id: string | null
@@ -6105,6 +6109,8 @@ export type Database = {
           vip_coupon_valid_until: string | null
         }
         Insert: {
+          ab_baseline_at?: string | null
+          ab_baseline_net?: number | null
           absorbs_admin_costs?: boolean
           ad_destination_url?: string | null
           admin_window_end?: string | null
@@ -6144,6 +6150,8 @@ export type Database = {
           slug?: string | null
           status?: string
           target_roas?: number | null
+          ticketing_baseline_at?: string | null
+          ticketing_baseline_net?: number | null
           ticketing_provider?: string | null
           ticketing_url?: string | null
           ticketline_event_id?: string | null
@@ -6161,6 +6169,8 @@ export type Database = {
           vip_coupon_valid_until?: string | null
         }
         Update: {
+          ab_baseline_at?: string | null
+          ab_baseline_net?: number | null
           absorbs_admin_costs?: boolean
           ad_destination_url?: string | null
           admin_window_end?: string | null
@@ -6200,6 +6210,8 @@ export type Database = {
           slug?: string | null
           status?: string
           target_roas?: number | null
+          ticketing_baseline_at?: string | null
+          ticketing_baseline_net?: number | null
           ticketing_provider?: string | null
           ticketing_url?: string | null
           ticketline_event_id?: string | null
