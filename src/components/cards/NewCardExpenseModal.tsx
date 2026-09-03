@@ -375,6 +375,30 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  /**
+   * D1+D8 nos cartões: estas transações nascem 'paid', logo escapam ao trigger.
+   * A regra vive no ecrã: despesa com evento gerido `with_bp` só nasce com
+   * `forecast_id` — escolhido (ou criado) no LinkBpLineDialog em modo pickOnly.
+   */
+  const handleSubmit = async () => {
+    if (isEdit || !eventId || !categoryId) {
+      mut.mutate(null);
+      return;
+    }
+    setCheckingBp(true);
+    try {
+      const withBp = await fetchWithBpEventIds([eventId]);
+      if (withBp.has(eventId)) {
+        setBpGate(true);
+        return;
+      }
+      mut.mutate(null);
+    } catch (err: any) {
+      toast({ title: "Erro ao verificar o BP", description: err.message, variant: "destructive" });
+    } finally {
+      setCheckingBp(false);
+    }
+  };
 
   if (!open) return null;
 
