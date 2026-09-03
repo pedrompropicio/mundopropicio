@@ -1306,6 +1306,8 @@ export default function EventSimulator() {
                   <TableRow>
                     <TableHead>Dia</TableHead>
                     <TableHead>Zona</TableHead>
+                    <TableHead title="Carga inicial (capacidade planeada) · carga corrente (à venda na bilheteira)">Carga</TableHead>
+
                     <TableHead className="text-right">Vendas Reais (qty)</TableHead>
                     <TableHead className="text-right">Faturação Real</TableHead>
                     <TableHead className="text-right">Projeção</TableHead>
