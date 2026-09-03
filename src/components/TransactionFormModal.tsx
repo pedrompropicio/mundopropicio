@@ -1198,6 +1198,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             iva_rate: data.iva_rate,
             event_id: entry.event_id,
             category_id: data.category_id || null,
+            // A FK canónica só desce à filha quando a linha escolhida é do evento dela
+            // (rateio Master: a linha é do Master e fica na mãe).
+            forecast_id:
+              selectedForecast && (selectedForecast as any).event_id === entry.event_id
+                ? selectedForecastId
+                : null,
             supplier_id: data.supplier_id || null,
             account_id: null,
             specification: data.type === "expense" ? (data.specification || null) : null,
