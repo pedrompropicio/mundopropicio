@@ -41,6 +41,8 @@ import helpTexts from "@/lib/help-texts";
 import BPViewerModal from "@/components/BPViewerModal";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import { partitionByBpLineRequirement, needsBpLineBeforeApproval } from "@/lib/bp-line-required";
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { computeBudgetExcess, type BudgetExcessLine, type BudgetRaise } from "@/lib/bp-budget-excess";
 
 const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
   const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
@@ -90,6 +92,8 @@ export default function Transactions() {
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
   const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
   const [bpBlockedTxs, setBpBlockedTxs] = useState<any[]>([]);
+  // DR-2026-09-02-D2 — excesso de verba: linhas a elevar + lote que ficou à espera.
+  const [raiseState, setRaiseState] = useState<{ lines: BudgetExcessLine[]; ids: string[] } | null>(null);
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
@@ -374,28 +378,39 @@ export default function Transactions() {
 
 
   // Lê o corpo do erro da edge function (invoke devolve só "non-2xx").
-  // 409 = D1+D8: despesas sem linha de BP.
-  const readApproveError = async (error: any): Promise<string> => {
+  // 409 = D1+D8 (sem linha de BP) OU D2 (excesso de verba, com `budget_excess`).
+  // 403 = sem permissão para elevar verbas.
+  const readApproveError = async (error: any): Promise<Error & { budgetExcess?: BudgetExcessLine[] }> => {
+    let message = error?.message ?? "Erro desconhecido";
+    let budgetExcess: BudgetExcessLine[] | undefined;
     try {
       const ctx = error?.context;
       const status = ctx?.status;
       const body = ctx && typeof ctx.text === "function" ? await ctx.text() : null;
       const parsed = body ? JSON.parse(body) : null;
-      if (status === 409) {
+      if (status === 409 && Array.isArray(parsed?.budget_excess) && parsed.budget_excess.length > 0) {
+        budgetExcess = parsed.budget_excess as BudgetExcessLine[];
+        message = parsed?.error ?? "Há despesas que excedem a verba da linha de BP.";
+      } else if (status === 409) {
         const n = Array.isArray(parsed?.blocked_ids) ? parsed.blocked_ids.length : 0;
-        return n > 0
+        message = n > 0
           ? `${n} despesa(s) de eventos geridos com BP não têm linha de BP vinculada. Vincula cada uma ao BP antes de aprovar.`
           : "Há despesas sem linha de BP. Vincula-as ao BP antes de aprovar.";
+      } else if (parsed?.error) {
+        message = parsed.error as string;
       }
-      if (parsed?.error) return parsed.error as string;
     } catch {
       /* cai no fallback */
     }
-    return error?.message ?? "Erro desconhecido";
+    const err = new Error(message) as Error & { budgetExcess?: BudgetExcessLine[] };
+    err.budgetExcess = budgetExcess;
+    return err;
   };
 
   const approveMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (arg: string | { id: string; raises?: BudgetRaise[] }) => {
+      const id = typeof arg === "string" ? arg : arg.id;
+      const raises = typeof arg === "string" ? undefined : arg.raises;
       // Capture previous status for undo
       const { data: prev } = await supabase
         .from("transactions")
@@ -403,11 +418,11 @@ export default function Transactions() {
         .eq("id", id)
         .maybeSingle();
       const { data, error } = await supabase.functions.invoke("approve-transaction", {
-        body: { transaction_ids: [id] },
+        body: { transaction_ids: [id], budget_raises: raises ?? undefined },
       });
-      if (error) throw new Error(await readApproveError(error));
+      if (error) throw await readApproveError(error);
       if (data?.error) throw new Error(data.error);
-      return { data, prev };
+      return { data, prev, ids: [id] };
     },
     onSuccess: async ({ data, prev }) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -456,17 +471,24 @@ export default function Transactions() {
         variant: "destructive",
       });
     },
-    onError: (err: any) => {
+    onError: (err: any, arg) => {
+      const id = typeof arg === "string" ? arg : arg?.id;
+      if (err?.budgetExcess?.length && id) {
+        setRaiseState({ lines: err.budgetExcess, ids: [id] });
+        return;
+      }
       toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
     },
   });
 
   const bulkApproveMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async (arg: string[] | { ids: string[]; raises?: BudgetRaise[] }) => {
+      const ids = Array.isArray(arg) ? arg : arg.ids;
+      const raises = Array.isArray(arg) ? undefined : arg.raises;
       const { data, error } = await supabase.functions.invoke("approve-transaction", {
-        body: { transaction_ids: ids },
+        body: { transaction_ids: ids, budget_raises: raises ?? undefined },
       });
-      if (error) throw new Error(await readApproveError(error));
+      if (error) throw await readApproveError(error);
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -493,7 +515,12 @@ export default function Transactions() {
         variant: "destructive",
       });
     },
-    onError: (err: any) => {
+    onError: (err: any, arg) => {
+      const ids = Array.isArray(arg) ? arg : arg?.ids;
+      if (err?.budgetExcess?.length && ids?.length) {
+        setRaiseState({ lines: err.budgetExcess, ids });
+        return;
+      }
       toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
     },
   });
@@ -921,6 +948,16 @@ export default function Transactions() {
     }
   };
 
+  // DR-2026-09-02-D2 — a seguir ao passo da linha de BP: se o realizado da linha
+  // passa a ultrapassar a verba, abre o diálogo de elevação antes de aprovar.
+  const excessLinesFor = async (txs: any[]): Promise<BudgetExcessLine[]> => {
+    const entries = txs
+      .filter((t) => t.type === "expense" && !!t.forecast_id && !t.parent_transaction_id)
+      .map((t) => ({ forecast_id: t.forecast_id as string, amount: Number(t.amount ?? 0), transaction_id: t.id }));
+    if (entries.length === 0) return [];
+    return await computeBudgetExcess(entries);
+  };
+
   // D1 + D8: antes de aprovar, exigir linha de BP quando o evento é `with_bp`.
   // Se faltar, não chamamos o update — abrimos o diálogo "Vincular ao BP".
   const requestApprove = async (id: string) => {
@@ -931,11 +968,16 @@ export default function Transactions() {
         setLinkBpTx(tx);
         return;
       }
+      const lines = await excessLinesFor([tx]);
+      if (lines.length > 0) {
+        setRaiseState({ lines, ids: [id] });
+        return;
+      }
     } catch (err: any) {
       toast({ title: "Não foi possível validar a linha de BP", description: err.message, variant: "destructive" });
       return;
     }
-    approveMutation.mutate(id);
+    approveMutation.mutate({ id });
   };
 
   const handleBulkApprove = async () => {
@@ -954,7 +996,18 @@ export default function Transactions() {
     }
     setBpBlockedTxs(blocked);
     if (approvable.length > 0) {
-      bulkApproveMutation.mutate(approvable.map((t: any) => t.id));
+      const approvableIds = approvable.map((t: any) => t.id);
+      try {
+        const lines = await excessLinesFor(approvable);
+        if (lines.length > 0) {
+          setRaiseState({ lines, ids: approvableIds });
+          return;
+        }
+      } catch (err: any) {
+        toast({ title: "Não foi possível validar as verbas do BP", description: err.message, variant: "destructive" });
+        return;
+      }
+      bulkApproveMutation.mutate({ ids: approvableIds });
     } else if (blocked.length > 0) {
       toast({
         title: "Nenhuma transação aprovada",
@@ -1289,7 +1342,22 @@ export default function Transactions() {
           onClose={() => setLinkBpTx(null)}
           onLinked={(txId) => {
             setBpBlockedTxs((prev) => prev.filter((t) => t.id !== txId));
-            approveMutation.mutate(txId);
+            // Se a linha ficar em excesso, a função devolve 409 budget_excess e o
+            // onError abre o RaiseBudgetDialog.
+            approveMutation.mutate({ id: txId });
+          }}
+        />
+      )}
+
+      {raiseState && (
+        <RaiseBudgetDialog
+          lines={raiseState.lines}
+          onClose={() => setRaiseState(null)}
+          onConfirm={(raises) => {
+            const ids = raiseState.ids;
+            setRaiseState(null);
+            if (ids.length === 1) approveMutation.mutate({ id: ids[0], raises });
+            else bulkApproveMutation.mutate({ ids, raises });
           }}
         />
       )}

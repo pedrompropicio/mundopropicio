@@ -10,6 +10,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { fetchWithBpEventIds } from "@/lib/bp-line-required";
 
 interface PaymentPart {
@@ -228,13 +230,27 @@ export function CacheTransactionModal({
   const ensureCacheModuleForecast = async (): Promise<string | null> => {
     const { data: existing } = await supabase
       .from("event_forecasts")
-      .select("id")
+      .select("id, amount")
       .eq("event_id", eventId)
       .eq("cache_config_id", cacheConfigId)
       .eq("formula_type", "cache_module")
       .is("version_id", null)
       .limit(1);
-    if (existing?.[0]?.id) return existing[0].id as string;
+    if (existing?.[0]?.id) {
+      // DR-2026-09-02-D2 — cachê VARIÁVEL não pergunta nada: a linha é do módulo
+      // e ele próprio a actualiza para o total a inserir (baseline_amount intacto).
+      const lineAmount = Number((existing[0] as any).amount ?? 0);
+      const total = Math.round(finalAmount * 100) / 100;
+      if (total > lineAmount + 0.005) {
+        const { error: raiseErr } = await supabase.rpc("raise_forecast_budget" as any, {
+          _forecast_id: existing[0].id,
+          _new_amount: total,
+          _observation: "Cachê variável recalculado pelo módulo",
+        } as any);
+        if (raiseErr) throw raiseErr;
+      }
+      return existing[0].id as string;
+    }
 
     if (!cacheCategory?.id) return null;
     const { data: created, error } = await supabase
@@ -399,6 +415,9 @@ export function CacheTransactionModal({
    * escolhida/criada pelo utilizador (mesmo fluxo de src/pages/Transactions.tsx).
    * Cachê variável: o módulo garante a linha, sem intervenção.
    */
+  const [raiseLines, setRaiseLines] = useState<BudgetExcessLine[] | null>(null);
+  const [pickedForecastId, setPickedForecastId] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (isFixedCache) {
       try {
@@ -775,9 +794,36 @@ export function CacheTransactionModal({
           }}
           onClose={() => setShowLinkBp(false)}
           onLinked={() => {}}
-          onPicked={(forecastId) => {
+          onPicked={async (forecastId) => {
             setShowLinkBp(false);
+            try {
+              const lines = await computeBudgetExcess([
+                { forecast_id: forecastId, amount: Math.round(finalAmount * 100) / 100 },
+              ]);
+              if (lines.length > 0) {
+                setPickedForecastId(forecastId);
+                setRaiseLines(lines);
+                return;
+              }
+            } catch (err: any) {
+              toast({ title: "Erro ao validar a verba do BP", description: err.message, variant: "destructive" });
+              return;
+            }
             createMutation.mutate(forecastId);
+          }}
+        />
+      )}
+
+      {raiseLines && (
+        <RaiseBudgetDialog
+          lines={raiseLines}
+          applyViaRpc
+          onClose={() => { setRaiseLines(null); setPickedForecastId(null); }}
+          onDone={() => {
+            const fid = pickedForecastId;
+            setRaiseLines(null);
+            setPickedForecastId(null);
+            if (fid) createMutation.mutate(fid);
           }}
         />
       )}

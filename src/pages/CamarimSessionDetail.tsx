@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import type { BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,6 +132,8 @@ export default function CamarimSessionDetail() {
    * Escolhida aqui, antes de disparar a edge function; vai no body em `forecast_id`.
    */
   const [bpGate, setBpGate] = useState<{ eventId: string; eventName: string; categoryId: string; categoryCode: string; categoryName: string } | null>(null);
+  // DR-2026-09-02-D2 — excesso de verba da linha da sessão (422 budget_excess).
+  const [raiseState, setRaiseState] = useState<{ lines: BudgetExcessLine[]; forecastId: string } | null>(null);
   const [cardAccountId, setCardAccountId] = useState<string>("");
   const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
@@ -484,7 +488,10 @@ export default function CamarimSessionDetail() {
     };
   };
 
-  const runIntegrate = async (forecastId?: string | null) => {
+  const runIntegrate = async (
+    forecastId?: string | null,
+    budgetRaise?: { new_amount: number; observation: string } | null,
+  ) => {
     if (!id) return;
     if (blockingIssues.length > 0) {
       toast({
@@ -543,6 +550,7 @@ export default function CamarimSessionDetail() {
         body: {
           session_id: id,
           forecast_id: forecastId ?? null,
+          budget_raise: budgetRaise ?? null,
           card_account_id: cardAccountId || null,
           settlement_account_id: settlementAccountId || null,
           settlement_supplier_id: administrator?.supplierId ?? null,
@@ -553,7 +561,22 @@ export default function CamarimSessionDetail() {
           })),
         },
       });
-      if (error) throw new Error(await extractFnError(error));
+      if (error) {
+        // D2 — excesso de verba: abre o diálogo de elevação e repete a integração.
+        try {
+          const ctx = (error as any)?.context;
+          const body = ctx && typeof ctx.text === "function" ? await ctx.text() : null;
+          const parsed = body ? JSON.parse(body) : null;
+          if (Array.isArray(parsed?.budget_excess) && parsed.budget_excess.length > 0 && forecastId) {
+            setRaiseState({ lines: parsed.budget_excess as BudgetExcessLine[], forecastId });
+            setIntegrating(false);
+            return;
+          }
+        } catch {
+          /* cai no erro normal */
+        }
+        throw new Error(await extractFnError(error));
+      }
       if (data?.error) throw new Error(data.error);
       const settlementMsg = data?.settlement?.type && data.settlement.type !== "balanced"
         ? ` · Acerto: ${data.settlement.type === "reinforcement" ? "reforço a pagar" : "devolução a receber"} de ${formatCurrency(Math.abs(data.settlement.balance ?? 0), session?.currency ?? "EUR")}`
@@ -1368,6 +1391,19 @@ export default function CamarimSessionDetail() {
           onPicked={(forecastId) => {
             setBpGate(null);
             void runIntegrate(forecastId);
+          }}
+        />
+      )}
+
+      {raiseState && (
+        <RaiseBudgetDialog
+          lines={raiseState.lines}
+          onClose={() => setRaiseState(null)}
+          onConfirm={(raises) => {
+            const r = raises[0];
+            const fid = raiseState.forecastId;
+            setRaiseState(null);
+            if (r) void runIntegrate(fid, { new_amount: r.new_amount, observation: r.observation });
           }}
         />
       )}
