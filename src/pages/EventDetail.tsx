@@ -996,11 +996,7 @@ export default function EventDetail() {
                 </p>
               </div>
               <button
-                onClick={() => setConfirmAction({
-                  title: "Concluir Evento",
-                  description: "Concluir este evento? Todas as alterações ficarão bloqueadas. Apenas um administrador poderá reabrir o evento.",
-                  action: () => changeStatusMutation.mutate("completed"),
-                })}
+                onClick={() => setShowCloseGuard(true)}
                 disabled={changeStatusMutation.isPending}
                 className="shrink-0 rounded-lg bg-warning px-4 py-2 text-xs font-semibold text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50"
               >
