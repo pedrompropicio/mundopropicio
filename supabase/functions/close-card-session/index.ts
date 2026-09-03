@@ -449,6 +449,28 @@ Deno.serve(async (req) => {
       if (logErr) console.error("[close-card-session] forecast_audit_log error:", logErr);
     }
 
+    // Adopção das transações antigas (só quando `adopt_legacy_lines` = true).
+    const legacyAdopted: string[] = [];
+    for (const a of legacyAdoptions) {
+      const { error: upErr } = await adminClient
+        .from("transactions").update({ forecast_id: a.forecast_id }).eq("id", a.transaction_id);
+      if (upErr) {
+        console.error("[close-card-session] adopção legado falhou:", upErr);
+        continue;
+      }
+      legacyAdopted.push(a.transaction_id);
+      await adminClient.from("transaction_audit_log").insert({
+        transaction_id: a.transaction_id,
+        field_name: "bp_line_adopted_at_card_close",
+        old_value: null,
+        new_value: a.forecast_id,
+        changed_by: caller.email ?? caller.id,
+        company_id: sessionCompanyId,
+      });
+    }
+
+
+
     // ===== Consolidação: uma transação paga por grupo =====
     const created: string[] = [];
     const errors: string[] = [];
