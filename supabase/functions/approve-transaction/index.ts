@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount, company_id")
+      .select("id, status, type, event_id, amount, company_id, forecast_id, parent_transaction_id")
       .in("id", expandedIds);
 
     if (fetchError) {
