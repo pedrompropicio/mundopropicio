@@ -3184,8 +3184,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {/* Budget indicator for BP */}
           {hasPL && form.category_id && effectiveEventId && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
-            const forecast = forecastBudgetByCategory[budgetKey] || 0;
-            const used = usedBudgetByCategory[budgetKey] || 0;
+            // Mesma base que decide o status: com linha escolhida é a verba da linha.
+            const forecast = selectedForecast
+              ? Number((selectedForecast as any).amount) || 0
+              : forecastBudgetByCategory[budgetKey] || 0;
+            const used = selectedForecast
+              ? usedByForecastId[(selectedForecast as any).id] || 0
+              : usedBudgetByCategory[budgetKey] || 0;
+            const basisLabel = selectedForecast ? "Verba da linha" : "Verba da rubrica (L3)";
             const remaining = forecast - used;
             const pct = forecast > 0 ? (used / forecast) * 100 : 0;
             const newAmount = parseFloat(form.amount) || 0;
@@ -3193,7 +3199,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             return (
               <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Orçamento BP</span>
+                  <span className="text-muted-foreground">Orçamento BP · {basisLabel}</span>
                   <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted">
