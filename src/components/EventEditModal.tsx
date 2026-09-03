@@ -1,3 +1,4 @@
+import { translateCloseBlockerError } from "@/components/events/CloseEventGuardDialog";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
