@@ -54,17 +54,6 @@ interface RequestBody {
   confirmed_balance?: number | null;
   create_adjustment?: boolean;
   adjustment_note?: string | null;
-  /**
-   * OPCIONAL, DESLIGADO POR DEFEITO (decisão pendente do Pedro).
-   * Quando `true`, as transações directas ANTIGAS desta sessão (carimbadas com
-   * `card_session_id`, sem item de origem, ainda sem `forecast_id`) cujo par
-   * (event_id × category_id) coincida com um par escolhido em `forecast_lines`
-   * adoptam essa linha de BP: `transactions.forecast_id` é actualizado, fica
-   * registo em `transaction_audit_log` ('bp_line_adopted_at_card_close') e o
-   * valor líquido entra no cálculo do excesso (D2) dessa linha.
-   * Nenhuma UI passa esta flag — só existe no contrato da função.
-   */
-  adopt_legacy_lines?: boolean;
 }
 
 
@@ -204,8 +193,10 @@ Deno.serve(async (req) => {
     // ===== Transações DIRECTAS ANTIGAS desta sessão (modelo pré-D17) =====
     // Sessões abertas antes do novo modelo podem ter despesas lançadas
     // directamente na conta do cartão e carimbadas com `card_session_id`, sem
-    // item de origem. Não se tocam (entram só na conciliação de saldo) — salvo
-    // se `adopt_legacy_lines` estiver ligado. A sessão fecha mesmo que só tenha
+    // item de origem. Entram na conciliação de saldo como gasto já integrado e,
+    // quando têm evento + rubrica e ainda não têm linha de BP, são SEMPRE alocadas
+    // à linha do par (evento × rubrica) — a mesma que os itens novos desse par
+    // usam (D18). Sem evento ficam como estão. A sessão fecha mesmo que só tenha
     // transações antigas e ZERO itens novos (consolida zero grupos).
     const { data: legacyTxsRaw } = await adminClient
       .from("transactions")
@@ -213,6 +204,11 @@ Deno.serve(async (req) => {
       .eq("card_session_id", body.session_id);
     const legacyTxs = ((legacyTxsRaw ?? []) as any[]).filter(
       (t) => !((items ?? []) as any[]).some((it) => it.transaction_id === t.id),
+    );
+
+    /** Antigas a alocar: despesa, com evento + rubrica, ainda SEM linha de BP. */
+    const legacyToAllocate = legacyTxs.filter(
+      (t) => t.type === "expense" && !t.forecast_id && t.event_id && t.category_id,
     );
 
 
@@ -263,7 +259,10 @@ Deno.serve(async (req) => {
     }
 
     // ===== D1+D8 — linha de BP por par (evento × rubrica) em eventos with_bp =====
-    const eventIds = [...new Set(resolved.map((r) => r.eventId).filter(Boolean) as string[])];
+    const eventIds = [...new Set([
+      ...(resolved.map((r) => r.eventId).filter(Boolean) as string[]),
+      ...(legacyToAllocate.map((t) => t.event_id as string)),
+    ])];
     const withBp = new Set<string>();
     for (const evId of eventIds) {
       const { data: mode } = await adminClient.rpc("event_budget_mode", { _event_id: evId });
@@ -276,18 +275,51 @@ Deno.serve(async (req) => {
 
     /** forecast_id atribuído a cada grupo (só grupos com evento with_bp). */
     const forecastByGroup = new Map<string, string>();
-    const missingLines: { event_id: string; category_id: string; total_base: number }[] = [];
+    const missingLines: {
+      event_id: string;
+      category_id: string;
+      item_count: number;
+      total_base: number;
+      legacy_count: number;
+      legacy_total: number;
+    }[] = [];
+    const pushMissing = (
+      eventId: string,
+      categoryId: string,
+      itemCount: number,
+      itemBase: number,
+      legacyCount: number,
+      legacyBase: number,
+    ) => {
+      const found = missingLines.find((m) => m.event_id === eventId && m.category_id === categoryId);
+      const target = found ?? {
+        event_id: eventId,
+        category_id: categoryId,
+        item_count: 0,
+        total_base: 0,
+        legacy_count: 0,
+        legacy_total: 0,
+      };
+      target.item_count += itemCount;
+      target.total_base = round2(target.total_base + itemBase);
+      target.legacy_count += legacyCount;
+      target.legacy_total = round2(target.legacy_total + legacyBase);
+      if (!found) missingLines.push(target);
+    };
 
     for (const [key, groupItems] of groups.entries()) {
       const first = groupItems[0];
       if (!first.eventId || !withBp.has(first.eventId)) continue;
       const fid = lineFor(first.eventId, first.categoryId);
       if (!fid) {
-        missingLines.push({
-          event_id: first.eventId,
-          category_id: first.categoryId,
-          total_base: round2(groupItems.reduce((s, i) => s + i.base, 0)),
-        });
+        pushMissing(
+          first.eventId,
+          first.categoryId,
+          groupItems.length,
+          round2(groupItems.reduce((s, i) => s + i.base, 0)),
+          0,
+          0,
+        );
         continue;
       }
       const { data: fc, error: fcErr } = await adminClient
@@ -304,6 +336,14 @@ Deno.serve(async (req) => {
         return json({ error: "Uma linha de BP indicada não é da rubrica do grupo." }, 422);
       }
       forecastByGroup.set(key, fid);
+    }
+
+    // Pares vindos das transações ANTIGAS (com evento with_bp) também exigem linha.
+    for (const t of legacyToAllocate) {
+      const evId = t.event_id as string;
+      if (!withBp.has(evId)) continue;
+      if (lineFor(evId, t.category_id as string)) continue;
+      pushMissing(evId, t.category_id as string, 0, 0, 1, round2(Number(t.amount ?? 0)));
     }
 
     if (missingLines.length > 0) {
@@ -325,33 +365,51 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Adopção OPCIONAL das transações antigas por linha de BP (desligada por
-    // defeito). Só entram as que já tenham evento + rubrica, ainda sem linha, e
-    // cujo par coincida com um `forecast_lines` indicado pelo chamador.
-    const legacyAdoptions: { transaction_id: string; forecast_id: string; amount: number }[] = [];
-    if (body.adopt_legacy_lines === true) {
-      for (const t of legacyTxs) {
-        if (t.forecast_id) continue;
-        if (!t.event_id || !t.category_id) continue;
-        if (t.type !== "expense") continue;
-        const fid = lineFor(t.event_id as string, t.category_id as string);
-        if (!fid) continue;
-        const base = round2(Number(t.amount ?? 0));
-        legacyAdoptions.push({ transaction_id: t.id as string, forecast_id: fid, amount: base });
-        toApproveByLine.set(fid, round2((toApproveByLine.get(fid) ?? 0) + base));
+    // Adopção OBRIGATÓRIA das transações ANTIGAS por linha de BP (D18): as que
+    // têm evento + rubrica e ainda não têm linha passam a usar a linha do par —
+    // a mesma dos itens novos. Entram no excesso como "a alocar" (não como
+    // realizado, para não contarem duas vezes: o realizado só conta linhas já
+    // vinculadas). Antigas que JÁ tenham forecast_id não se tocam.
+    const legacyAdoptions: {
+      transaction_id: string;
+      forecast_id: string;
+      amount: number;
+      description: string | null;
+    }[] = [];
+    for (const t of legacyToAllocate) {
+      const evId = t.event_id as string;
+      const catId = t.category_id as string;
+      if (!withBp.has(evId)) continue;
+      const fid = lineFor(evId, catId);
+      if (!fid) {
+        return json({
+          error: "Falta a linha de BP para uma despesa antiga desta sessão.",
+          missing_bp_lines: [{
+            event_id: evId,
+            category_id: catId,
+            item_count: 0,
+            total_base: 0,
+            legacy_count: 1,
+            legacy_total: round2(Number(t.amount ?? 0)),
+          }],
+        }, 422);
       }
-      // A linha indicada tem de pertencer mesmo ao par (evento × rubrica).
-      for (const a of legacyAdoptions) {
-        const { data: fc } = await adminClient
-          .from("event_forecasts").select("id,event_id,category_id").eq("id", a.forecast_id).maybeSingle();
-        const tx = legacyTxs.find((t) => t.id === a.transaction_id);
-        if (!fc || (fc as any).event_id !== tx?.event_id || (fc as any).category_id !== tx?.category_id) {
-          return json({ error: "Adopção de transação antiga: a linha de BP não corresponde ao evento/rubrica." }, 422);
-        }
+      const { data: fc } = await adminClient
+        .from("event_forecasts").select("id,event_id,category_id,description,specification")
+        .eq("id", fid).maybeSingle();
+      if (!fc || (fc as any).event_id !== evId || (fc as any).category_id !== catId) {
+        return json({ error: "Alocação de despesa antiga: a linha de BP não corresponde ao evento/rubrica." }, 422);
       }
+      const base = round2(Number(t.amount ?? 0));
+      legacyAdoptions.push({
+        transaction_id: t.id as string,
+        forecast_id: fid,
+        amount: base,
+        description:
+          [(fc as any).description, (fc as any).specification].filter(Boolean).join(" · ") || null,
+      });
+      toApproveByLine.set(fid, round2((toApproveByLine.get(fid) ?? 0) + base));
     }
-
-
 
     const budgetExcess: any[] = [];
     const raisesToApply: { forecast_id: string; old: number; next: number; observation: string; company_id: string }[] = [];
@@ -452,21 +510,21 @@ Deno.serve(async (req) => {
       if (logErr) console.error("[close-card-session] forecast_audit_log error:", logErr);
     }
 
-    // Adopção das transações antigas (só quando `adopt_legacy_lines` = true).
+    // Alocação das transações ANTIGAS à linha do par — depois dos raises e ANTES
+    // de criar as transações consolidadas dos itens (D18).
     const legacyAdopted: string[] = [];
     for (const a of legacyAdoptions) {
       const { error: upErr } = await adminClient
         .from("transactions").update({ forecast_id: a.forecast_id }).eq("id", a.transaction_id);
       if (upErr) {
-        console.error("[close-card-session] adopção legado falhou:", upErr);
-        continue;
+        return json({ error: `Falha ao alocar uma despesa antiga à linha de BP: ${upErr.message}` }, 500);
       }
       legacyAdopted.push(a.transaction_id);
       await adminClient.from("transaction_audit_log").insert({
         transaction_id: a.transaction_id,
         field_name: "bp_line_adopted_at_card_close",
         old_value: null,
-        new_value: a.forecast_id,
+        new_value: [a.forecast_id, a.description].filter(Boolean).join(" · "),
         changed_by: caller.email ?? caller.id,
         company_id: sessionCompanyId,
       });
