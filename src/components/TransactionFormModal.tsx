@@ -880,6 +880,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const usedBudgetByCategory = hasPL
     ? eventTransactions.reduce<Record<string, number>>((acc, t: any) => {
+        // Só compromisso real consome verba (transitórias/excluídas/revertidas/escondidas fora).
+        if (!countsAsBudgetCommitment(t)) return acc;
         // For Master (multi_day) events, only count transactions explicitly linked to a
         // Master BP line. Sub-event transactions classified as "Custo Isolado" must not
         // consume the Master budget.
