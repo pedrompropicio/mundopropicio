@@ -33,6 +33,9 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   if (fileUrl?.startsWith("camarim://")) {
     return { bucket: "camarim-documents", path: fileUrl.replace(/^camarim:\/\//, "") };
   }
+  if (fileUrl?.startsWith("card://")) {
+    return { bucket: "card-documents", path: fileUrl.replace(/^card:\/\//, "") };
+  }
   // Default bucket is transaction-documents
   if (!fileUrl?.startsWith("http")) return { bucket: "transaction-documents", path: fileUrl };
   const marker = "/storage/v1/object/public/transaction-documents/";

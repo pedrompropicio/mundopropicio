@@ -48,3 +48,7 @@ verify_jwt = true
 # 32 bytes que vem no URL — não há dados expostos sem ele.
 [functions.handle-email-unsubscribe]
 verify_jwt = false
+# D17 — integração (fecho) de sessões de cartão pré-pago: cria transações pagas.
+# Valida JWT e permissões (approve_transactions / raise_budget) dentro da função.
+[functions.close-card-session]
+verify_jwt = true

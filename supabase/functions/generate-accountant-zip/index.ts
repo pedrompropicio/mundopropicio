@@ -128,7 +128,9 @@ Deno.serve(async (req) => {
     const resolveBucket = (fileUrl: string): { bucket: string; path: string } =>
       fileUrl?.startsWith("camarim://")
         ? { bucket: "camarim-documents", path: fileUrl.slice("camarim://".length) }
-        : { bucket: "transaction-documents", path: fileUrl };
+        : fileUrl?.startsWith("card://")
+          ? { bucket: "card-documents", path: fileUrl.slice("card://".length) }
+          : { bucket: "transaction-documents", path: fileUrl };
 
     const docsByTx = new Map<string, ZDoc[]>();
     const seenByTx = new Map<string, Set<string>>();

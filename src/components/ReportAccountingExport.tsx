@@ -158,6 +158,9 @@ export default function ReportAccountingExport() {
     if (filePath?.startsWith("camarim://")) {
       bucket = "camarim-documents";
       path = filePath.replace(/^camarim:\/\//, "");
+    } else if (filePath?.startsWith("card://")) {
+      bucket = "card-documents";
+      path = filePath.replace(/^card:\/\//, "");
     }
     const { data, error } = await supabase.storage.from(bucket).download(path);
     if (error) {

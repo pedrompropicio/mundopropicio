@@ -42,11 +42,14 @@ async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string
   if (/^ref:\/\/https?:\/\//i.test(fileUrl)) return fileUrl.replace(/^ref:\/\//i, "");
   if (fileUrl.startsWith("ref://")) return null;
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
-  let bucket: "transaction-documents" | "camarim-documents" = "transaction-documents";
+  let bucket: "transaction-documents" | "camarim-documents" | "card-documents" = "transaction-documents";
   let path = fileUrl;
   if (fileUrl.startsWith("camarim://")) {
     bucket = "camarim-documents";
     path = fileUrl.replace(/^camarim:\/\//, "");
+  } else if (fileUrl.startsWith("card://")) {
+    bucket = "card-documents";
+    path = fileUrl.replace(/^card:\/\//, "");
   }
 
   // Download autenticado evita falsos negativos de HEAD/CORS em URLs assinadas.
