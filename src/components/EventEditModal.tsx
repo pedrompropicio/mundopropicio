@@ -133,7 +133,11 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+      toast({
+        title: "Erro ao atualizar",
+        description: translateCloseBlockerError(err.message ?? ""),
+        variant: "destructive",
+      });
     },
   });
 
