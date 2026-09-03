@@ -764,12 +764,9 @@ export function CacheTransactionModal({
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-4 shrink-0">
           <div className="text-xs text-muted-foreground">
-            {(totalAdvances > 0 || withholdingApplicable) && (
+            {totalAdvances > 0 && (
               <span>
                 Pagamento: <strong className="text-foreground">{formatCurrency(finalAmount)}</strong>
-                {withholdingApplicable && (
-                  <span className="ml-1">+ ret. {formatCurrency(withholdingAmount)}</span>
-                )}
               </span>
             )}
           </div>
