@@ -764,6 +764,8 @@ Deno.serve(async (req) => {
       holder_name: (session as any).holder_name,
       payment_reference: sessionPaymentRef,
       aggregation_mode: "event_x_category_x_iva",
+      legacy_lines_adopted: legacyAdopted,
+
       consolidated_groups: created.length,
       consolidated_transaction_ids: created,
       items_integrated: resolved.length,
