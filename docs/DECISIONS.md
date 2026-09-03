@@ -3,7 +3,7 @@
 > Registo das decisões de arquitetura/produto e o seu PORQUÊ. Formato ADR leve: cada decisão = o que se decidiu + racional + estado (vigente / substituída).
 > Documento vivo, organizado por módulo. Decisões antigas não se apagam — marcam-se "substituída".
 > Como funciona o sistema vive em ARCHITECTURE.md; pendências vivem nas GitHub Issues.
-> Última atualização: 30/ago/2026.
+> Última atualização: 03/set/2026.
 
 ## Transversal / Infraestrutura
 
@@ -396,5 +396,6 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 - **DR-2026-09-03-D16 — Uma sessão de camarim, uma linha de BP.** A rubrica é sempre 2.6.04, logo a escolha é da sessão e não do grupo de consolidação: todas as transações de despesa da sessão nascem na mesma linha (N:1). As pernas do acerto de adiantamento são transferência interna 10.3 sem evento e não levam linha. Sessão que abranja mais do que um evento com BP é recusada até haver escolha de linha por evento.
 - **DR-2026-09-03-D17 — O cartão pré-pago passa ao modelo do camarim.** As despesas do cartão deixam de ser transações à peça: são ITENS durante a sessão (`card_session_items`) e só viram transações na integração (fecho), consolidadas por **evento × rubrica × IVA**. Cada par evento × rubrica de um evento `with_bp` exige linha de BP (D1+D8) e a D2 aplica-se à SOMA do grupo, com os raises aplicados antes de qualquer transação. Itens **sem evento** (rubricas 10.x, estrutura) consolidam por rubrica × IVA e ficam fora do BP por completo — sem linha, sem gate, sem `forecast_id`. Portador obrigatório na abertura; N documentos por item (`card_item_documents`, bucket `card-documents`, refs `card://`); dossier, resumo de integração (`integration_summary`/`integration_transaction_ids`) e bloqueio pós-fecho como no camarim. A **conciliação de saldo mantém-se exactamente como estava** (ajuste sem categoria, sem evento, IVA 0, `exclude_from_result`). Sessões antigas e as 44 transações já criadas não se tocam; a função nova tolera transações directas antigas carimbadas com `card_session_id`, contando-as como gasto já integrado na conciliação.
 
+- **DR-2026-09-03-D19 — O evento não fecha com sessão aberta.** A passagem a `completed` é recusada pela base de dados enquanto houver sessão de camarim por integrar ou sessão de cartão aberta ligada ao evento — é custo que ainda vai cair no evento depois de fechado. Despesas pendentes não bloqueiam: são aviso com confirmação, porque em eventos controlados por planilha (Coala 2026) o sistema é espelho e o responsável fecha com conhecimento. Uma função, `event_close_blockers`, serve o trigger e o ecrã.
 - **DR-2026-09-03-D18 — Alocação obrigatória das transações antigas no fecho do cartão.** No fecho da sessão de cartão, as transações directas anteriores ao modelo de itens que tenham evento e rubrica são sempre alocadas à linha do par evento × rubrica — ou a uma linha criada na L3 se não houver — e entram no cálculo do excesso como "a alocar". Sem opção de as deixar soltas.
 

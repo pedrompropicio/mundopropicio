@@ -1,3 +1,4 @@
+import { translateCloseBlockerError } from "@/components/events/CloseEventGuardDialog";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,7 +134,11 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+      toast({
+        title: "Erro ao atualizar",
+        description: translateCloseBlockerError(err.message ?? ""),
+        variant: "destructive",
+      });
     },
   });
 

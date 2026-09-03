@@ -56,6 +56,10 @@ import { buildSessionCopyMap } from "@/lib/session-copy";
 import EventABTab from "@/components/EventABTab";
 import { EventRealizedAllocation } from "@/components/EventRealizedAllocation";
 import { Sparkles } from "lucide-react";
+import {
+  CloseEventGuardDialog,
+  translateCloseBlockerError,
+} from "@/components/events/CloseEventGuardDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
@@ -167,6 +171,8 @@ export default function EventDetail() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
+  // D19 — guarda de fecho: diálogo próprio antes de passar a 'completed'.
+  const [showCloseGuard, setShowCloseGuard] = useState(false);
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
@@ -621,10 +627,15 @@ export default function EventDetail() {
           queryClient.invalidateQueries({ queryKey: ["event_detail", s.id] });
         });
       }
+      setShowCloseGuard(false);
       toast({ title: newStatus === "completed" ? "Evento concluído!" : "Evento reativado!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: translateCloseBlockerError(err.message ?? ""),
+        variant: "destructive",
+      });
     },
   });
 
@@ -905,11 +916,7 @@ export default function EventDetail() {
             )}
             {(isAdmin || isManager) && event.status === "active" && (
               <button
-                onClick={() => setConfirmAction({
-                  title: "Concluir Evento",
-                  description: "Concluir este evento? Todas as alterações ficarão bloqueadas. Apenas um administrador poderá reabrir o evento.",
-                  action: () => changeStatusMutation.mutate("completed"),
-                })}
+                onClick={() => setShowCloseGuard(true)}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
               >
@@ -989,11 +996,7 @@ export default function EventDetail() {
                 </p>
               </div>
               <button
-                onClick={() => setConfirmAction({
-                  title: "Concluir Evento",
-                  description: "Concluir este evento? Todas as alterações ficarão bloqueadas. Apenas um administrador poderá reabrir o evento.",
-                  action: () => changeStatusMutation.mutate("completed"),
-                })}
+                onClick={() => setShowCloseGuard(true)}
                 disabled={changeStatusMutation.isPending}
                 className="shrink-0 rounded-lg bg-warning px-4 py-2 text-xs font-semibold text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50"
               >
@@ -1521,6 +1524,15 @@ export default function EventDetail() {
       </EventScenarioProvider>
 
       {/* Confirmation dialog */}
+      <CloseEventGuardDialog
+        open={showCloseGuard}
+        onOpenChange={setShowCloseGuard}
+        eventId={id!}
+        eventName={event.name}
+        isPending={changeStatusMutation.isPending}
+        onConfirm={() => changeStatusMutation.mutate("completed")}
+      />
+
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
