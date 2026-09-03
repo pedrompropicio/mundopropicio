@@ -56,6 +56,7 @@ export default function CardSessionDetail() {
   const [loadOpen, setLoadOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<any | null>(null);
+  const [editItem, setEditItem] = useState<any | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<any | null>(null);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
@@ -534,12 +535,18 @@ export default function CardSessionDetail() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi
-          label="Disponível no cartão"
+          label="Saldo contabilístico"
           value={cardBalance === undefined ? "—" : formatCurrency(cardBalance)}
-          hint="Saldo real da conta (inclui ajustes)"
+          hint="Saldo da conta no módulo Contas (só transações)"
           tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
+        />
+        <Kpi
+          label="Saldo real estimado"
+          value={realEstimated === undefined ? "—" : formatCurrency(realEstimated)}
+          hint={`Contabilístico − itens da sessão ainda não integrados (${formatCurrency(openItemsGross)})`}
+          tone={realEstimated !== undefined && realEstimated < 0 ? "warn" : undefined}
         />
         <Kpi
           label="Entregue"
@@ -711,7 +718,18 @@ export default function CardSessionDetail() {
                           {it.item_date} · {it.events?.name ?? "Sem evento"} · {it.supplier_name ?? "—"}
                         </div>
                       </div>
-                      <div className="shrink-0 font-semibold">{formatCurrency(cardItemGross(it))}</div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {canManage && !isLocked && it.status === "approved" && (
+                          <button
+                            onClick={() => setEditItem(it)}
+                            title="Editar item"
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
+                      </div>
                     </div>
                   ))}
                 </>
@@ -838,6 +856,14 @@ export default function CardSessionDetail() {
         cardAccountId={session.card_account_id}
         defaultEventId={session.primary_event_id}
         expense={editExpense}
+      />
+      <NewCardExpenseModal
+        open={!!editItem}
+        onOpenChange={(v) => { if (!v) setEditItem(null); }}
+        sessionId={id!}
+        cardAccountId={session.card_account_id}
+        defaultEventId={session.primary_event_id}
+        item={editItem}
       />
       {deleteExpense && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
