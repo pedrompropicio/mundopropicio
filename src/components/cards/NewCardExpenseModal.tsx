@@ -346,7 +346,8 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           paid_amount: gross,
           payment_date: date,
           card_session_id: sessionId,
-        })
+          forecast_id: forecastId ?? null,
+        } as any)
         .select("id")
         .single();
       if (error) throw error;
