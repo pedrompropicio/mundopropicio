@@ -656,17 +656,23 @@ Deno.serve(async (req) => {
     let directTotal = 0;
     const directMovements: any[] = [];
     let legacySessionSpend = 0; // transações antigas já carimbadas com card_session_id
+    let legacySessionCount = 0;
     const newTxIds = new Set(created);
 
     for (const t of ((accountTxs ?? []) as any[])) {
       const signed = signedOf(t);
       const eff = effOf(t);
-      if (eff && openDay && eff < openDay) {
-        dynamicOpening += signed;
+      // O carimbo da sessão manda: uma despesa antiga da sessão nunca é
+      // confundida com saldo de abertura, mesmo que a data seja anterior.
+      if (t.card_session_id === body.session_id) {
+        if (!newTxIds.has(t.id)) {
+          legacySessionSpend += signed;
+          legacySessionCount += 1;
+        }
         continue;
       }
-      if (t.card_session_id === body.session_id) {
-        if (!newTxIds.has(t.id)) legacySessionSpend += signed;
+      if (eff && openDay && eff < openDay) {
+        dynamicOpening += signed;
         continue;
       }
       if (loadInIds.has(t.id)) continue;
@@ -674,6 +680,7 @@ Deno.serve(async (req) => {
       directMovements.push({ id: t.id, description: t.description, signed, date: eff });
       directTotal += signed;
     }
+
 
     const opening = overrideOpening === null || overrideOpening === undefined
       ? round2(dynamicOpening)
