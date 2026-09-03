@@ -75,6 +75,9 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
+  /** D1+D8 — despesa de evento `with_bp` precisa de linha de BP antes de nascer. */
+  const [bpGate, setBpGate] = useState(false);
+  const [checkingBp, setCheckingBp] = useState(false);
 
   // Pré-preenche em modo edição (e limpa ao voltar a modo criação).
   useEffect(() => {
