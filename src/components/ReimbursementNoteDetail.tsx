@@ -240,8 +240,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   // D1 + D8: antes de aprovar a nota, exigir linha de BP nas despesas pendentes
   // de eventos geridos `with_bp`. Se faltar, abre o diálogo "Vincular ao BP"
   // (uma transação de cada vez) em vez de chamar o update.
-  const requestApproveNote = async () => {
-    const pendingTxs = items
+  const requestApproveNote = async (itemsOverride?: any[]) => {
+    const pendingTxs = (itemsOverride ?? items)
       .filter((i: any) => i.transactions?.status === "pending")
       .map((i: any) => i.transactions);
     if (pendingTxs.length > 0) {
