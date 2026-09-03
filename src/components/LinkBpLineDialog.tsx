@@ -43,9 +43,16 @@ interface Props {
   onClose: () => void;
   /** Chamado depois de o forecast_id estar gravado — deve aprovar a transação. */
   onLinked: (transactionId: string) => void;
+  /**
+   * Modo "só escolher": a transação ainda não existe (ex.: geração de cachê fixo).
+   * Não grava nada em `transactions`; devolve o forecast_id escolhido/criado em
+   * `onPicked` e o chamador é que cria a transação já com `forecast_id`.
+   */
+  pickOnly?: boolean;
+  onPicked?: (forecastId: string) => void;
 }
 
-export default function LinkBpLineDialog({ transaction, onClose, onLinked }: Props) {
+export default function LinkBpLineDialog({ transaction, onClose, onLinked, pickOnly, onPicked }: Props) {
   const { hasPermission } = useAuth();
   const canManageBp = hasPermission("manage_bp");
   const [selectedId, setSelectedId] = useState<string | null>(null);
