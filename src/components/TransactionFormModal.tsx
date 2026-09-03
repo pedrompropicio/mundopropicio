@@ -1298,8 +1298,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const hasForecastMatch = matchingForecasts.length > 0;
         const hasApprovedBPLine = matchingForecasts.some((f) => f.status === "approved");
         const budgetKey = `${data.type}_${data.category_id || "none"}`;
-        const forecastTotal = forecastBudgetByCategory[budgetKey] || 0;
-        const usedTotal = usedBudgetByCategory[budgetKey] || 0;
+        // Verba de referência: COM linha escolhida é a verba DA LINHA; sem linha, a da rubrica (L3).
+        const lineForecast = selectedForecastId
+          ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId)
+          : null;
+        const forecastTotal = lineForecast
+          ? Number(lineForecast.amount) || 0
+          : forecastBudgetByCategory[budgetKey] || 0;
+        const usedTotal = lineForecast
+          ? usedByForecastId[lineForecast.id] || 0
+          : usedBudgetByCategory[budgetKey] || 0;
         const remaining = forecastTotal - usedTotal;
         const newAmount = parseFloat(data.amount) || 0;
         const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
