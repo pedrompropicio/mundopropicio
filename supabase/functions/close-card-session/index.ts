@@ -22,7 +22,10 @@ const corsHeaders = {
  *
  * A conciliação de saldo replica exactamente o modal antigo e inclui as
  * transações directas antigas já carimbadas com `card_session_id` (sessões
- * anteriores ao novo modelo): tratam-se como gasto já integrado.
+ * abertas antes do novo modelo): tratam-se como gasto JÁ INTEGRADO e não se
+ * tocam. Uma sessão pode misturar antigas + itens novos, ou ter só antigas e
+ * zero itens — nesse caso fecha consolidando zero grupos.
+
  */
 
 interface ParkedDecision {
