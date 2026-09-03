@@ -405,7 +405,7 @@ export default function Transactions() {
       const { data, error } = await supabase.functions.invoke("approve-transaction", {
         body: { transaction_ids: [id] },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readApproveError(error));
       if (data?.error) throw new Error(data.error);
       return { data, prev };
     },
@@ -466,7 +466,7 @@ export default function Transactions() {
       const { data, error } = await supabase.functions.invoke("approve-transaction", {
         body: { transaction_ids: ids },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readApproveError(error));
       if (data?.error) throw new Error(data.error);
       return data;
     },
