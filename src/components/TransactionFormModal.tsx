@@ -1372,6 +1372,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           iva_rate: data.iva_rate,
           event_id: data.event_id || null,
           category_id: data.category_id || null,
+          // D1: a FK canónica vai NO INSERT — nascer aprovado exige linha de BP.
+          forecast_id: selectedForecastId || null,
           supplier_id: data.supplier_id || null,
           account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
