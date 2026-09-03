@@ -761,6 +761,19 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         </div>
       )}
 
+      {linkBpTx && (
+        <LinkBpLineDialog
+          transaction={linkBpTx}
+          onClose={() => setLinkBpTx(null)}
+          onLinked={async () => {
+            setLinkBpTx(null);
+            await queryClient.refetchQueries({ queryKey: ["reimbursement-note-items", noteId] });
+            await requestApproveNote();
+          }}
+        />
+      )}
+
+
       {editTx && (
         <TransactionEditModal
           transaction={editTx}
