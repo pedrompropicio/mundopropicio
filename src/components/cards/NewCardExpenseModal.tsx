@@ -537,12 +537,37 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={mut.isPending || ocrLoading} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {mut.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
+            <button type="submit" disabled={mut.isPending || ocrLoading || checkingBp} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+              {mut.isPending || checkingBp ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
             </button>
           </div>
         </form>
       </div>
+
+      {bpGate && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: description.trim(),
+            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
+            iva_rate: Number(ivaRate) || 0,
+            event_id: eventId,
+            category_id: categoryId,
+            events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
+            account_categories: (() => {
+              const c = (categories as any[]).find((x) => x.id === categoryId);
+              return c ? { code: c.code, name: c.name } : null;
+            })(),
+          }}
+          onClose={() => setBpGate(false)}
+          onLinked={() => setBpGate(false)}
+          onPicked={(forecastId) => {
+            setBpGate(false);
+            mut.mutate(forecastId);
+          }}
+        />
+      )}
     </div>
   );
 }
