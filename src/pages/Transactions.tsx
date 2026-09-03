@@ -39,6 +39,8 @@ import { pt } from "date-fns/locale";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import BPViewerModal from "@/components/BPViewerModal";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { partitionByBpLineRequirement, needsBpLineBeforeApproval } from "@/lib/bp-line-required";
 
 const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
   const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
@@ -85,6 +87,9 @@ export default function Transactions() {
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [showBPViewer, setShowBPViewer] = useState(false);
+  // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
+  const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
+  const [bpBlockedTxs, setBpBlockedTxs] = useState<any[]>([]);
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
@@ -895,10 +900,47 @@ export default function Transactions() {
     }
   };
 
-  const handleBulkApprove = () => {
+  // D1 + D8: antes de aprovar, exigir linha de BP quando o evento é `with_bp`.
+  // Se faltar, não chamamos o update — abrimos o diálogo "Vincular ao BP".
+  const requestApprove = async (id: string) => {
+    const tx = transactions.find((t: any) => t.id === id);
+    if (!tx) return;
+    try {
+      if (await needsBpLineBeforeApproval(tx)) {
+        setLinkBpTx(tx);
+        return;
+      }
+    } catch (err: any) {
+      toast({ title: "Não foi possível validar a linha de BP", description: err.message, variant: "destructive" });
+      return;
+    }
+    approveMutation.mutate(id);
+  };
+
+  const handleBulkApprove = async () => {
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
-    bulkApproveMutation.mutate(ids);
+    const txs = transactions.filter((t: any) => ids.includes(t.id));
+    let approvable = txs;
+    let blocked: any[] = [];
+    try {
+      const res = await partitionByBpLineRequirement(txs as any[]);
+      approvable = res.approvable as any[];
+      blocked = res.blocked as any[];
+    } catch (err: any) {
+      toast({ title: "Não foi possível validar as linhas de BP", description: err.message, variant: "destructive" });
+      return;
+    }
+    setBpBlockedTxs(blocked);
+    if (approvable.length > 0) {
+      bulkApproveMutation.mutate(approvable.map((t: any) => t.id));
+    } else if (blocked.length > 0) {
+      toast({
+        title: "Nenhuma transação aprovada",
+        description: `${blocked.length} transação(ões) sem linha de BP — resolve uma a uma abaixo.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleBatchPayment = () => {
@@ -1012,7 +1054,7 @@ export default function Transactions() {
         eventCompleted={(t.events as any)?.status === "completed"}
         showPaymentDate={opts.showPaymentDate}
         onEdit={(id) => setEditingId(id)}
-        onApprove={(id) => approveMutation.mutate(id)}
+        onApprove={(id) => { void requestApprove(id); }}
         onPayment={(id) => setShowPaymentId(id)}
         onDocs={(id) => setShowDocsId(id)}
         onAudit={(id) => setShowAuditId(id)}
@@ -1219,6 +1261,38 @@ export default function Transactions() {
       )}
 
       <BPViewerModal open={showBPViewer} onClose={() => setShowBPViewer(false)} />
+
+      {linkBpTx && (
+        <LinkBpLineDialog
+          transaction={linkBpTx}
+          onClose={() => setLinkBpTx(null)}
+          onLinked={(txId) => {
+            setBpBlockedTxs((prev) => prev.filter((t) => t.id !== txId));
+            approveMutation.mutate(txId);
+          }}
+        />
+      )}
+
+      {bpBlockedTxs.length > 0 && (
+        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <div className="mb-2 text-sm font-medium">
+            {bpBlockedTxs.length} transação(ões) não aprovada(s) por falta de linha de BP
+          </div>
+          <div className="space-y-2">
+            {bpBlockedTxs.map((t: any) => (
+              <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="truncate">
+                  {(t.events as any)?.name ?? "—"} · {t.description ?? "—"} · {formatCurrency(Number(t.amount ?? 0))}
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setLinkBpTx(t)}>Vincular ao BP</Button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setBpBlockedTxs([])} className="mt-3 text-xs text-muted-foreground underline">
+            Dispensar
+          </button>
+        </div>
+      )}
 
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
