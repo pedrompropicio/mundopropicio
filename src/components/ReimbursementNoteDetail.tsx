@@ -19,6 +19,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { format } from "date-fns";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { partitionByBpLineRequirement } from "@/lib/bp-line-required";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +64,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
 
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
   const [editTx, setEditTx] = useState<any | null>(null);
+  // D1 + D8 — despesa de evento `with_bp` não pode ser aprovada sem linha de BP.
+  const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
 
   const { data: note, isLoading: noteLoading } = useQuery({
     queryKey: ["reimbursement-note", noteId],
@@ -81,7 +85,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reimbursement_note_items")
-        .select("*, transactions(*, events(name))")
+        .select("*, transactions(*, events(name), account_categories(code, name))")
         .eq("reimbursement_note_id", noteId)
         .order("created_at");
       if (error) throw error;
