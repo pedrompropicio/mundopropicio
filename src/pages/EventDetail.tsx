@@ -171,6 +171,8 @@ export default function EventDetail() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
+  // D19 — guarda de fecho: diálogo próprio antes de passar a 'completed'.
+  const [showCloseGuard, setShowCloseGuard] = useState(false);
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
