@@ -1,15 +1,20 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-02 · 11 decisões fechadas (D1–D11) · fundações construídas
+Atualizado: 2026-09-03 · D1–D8 construídos na frente vinculo-bp-transacoes; BP de receita (D9/D10) por começar
 
 ## Em que pé está
-O desenho do "BP como base real de custos e de receita" está fechado em 11 decisões (ver DECISIONS.md, DR-2026-09-02-D1 a D11). As quatro fundações técnicas foram construídas e estão INERTES — nenhuma altera comportamento até o D8 ser construído.
+O desenho do "BP como base real de custos e de receita" deixou a fase de fundações. D1–D8 e D13–D19 estão em produção e documentados em `docs/estado/estado-vinculo-bp-transacoes.md` e `docs/DECISIONS.md`:
+- D1 + D8: linha de BP obrigatória para aprovar despesa em evento `with_bp`, validada no trigger e nos ecrãs.
+- D2: elevação de verba em todos os actos de aprovação, via `raise_forecast_budget` e `RaiseBudgetDialog`.
+- D13–D19: guarda de fecho do evento, cartões no modelo do camarim, retenção removida do cachê, etc.
+
+O que resta nesta frente é o BP de receita.
 
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-**D8 — a regra vive no servidor.** Validação no INSERT de transactions que lê `event_budget_mode(event_id)` e exige a linha de BP quando o evento é `with_bp`. Duas excepções declaradas: filha de rateio herda do master; parcela herda do pai.
+**#103 — D10, BP de receita:** sub-separadores Despesas | Receitas no Business Plan, linha sintética por módulo (bilheteira, patrocínios fechados) com previsão e real separados, linha manual onde não há módulo, e totais/estado vazio a contar as linhas sintéticas. Ponto de partida observado na Ivete Clareou 2026 a 03/09 e comentado na issue.
 
 ## Bloqueios
 Nenhum.
