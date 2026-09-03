@@ -549,7 +549,7 @@ export function CacheTransactionModal({
           {totalAdvances > 0 && (
             <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Cachê {withholdingApplicable ? "líquido" : "total"}</span>
+                <span>Cachê total</span>
                 <span className="font-mono">{formatCurrency(netPayable)}</span>
               </div>
               {totalAdvances > 0 && (
