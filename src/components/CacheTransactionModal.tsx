@@ -364,50 +364,18 @@ export function CacheTransactionModal({
         }
       }
 
-      // Create withholding tax obligation transaction
-      if (withholdingApplicable && withholdingAmount > 0) {
-        // Find or use a fiscal retention category (10.x.xx)
-        const { data: retentionCats } = await supabase
-          .from("account_categories")
-          .select("id, code, name")
-          .eq("is_active", true)
-          .eq("type", "expense")
-          .ilike("code", "10.%")
-          .order("code")
-          .limit(1);
-
-        const retentionCategoryId = retentionCats?.[0]?.id || null;
-
-        // Due date for tax: end of next month
-        const taxDueDate = format(endOfMonth(addMonths(new Date(), 1)), "yyyy-MM-dd");
-
-        const { error: taxError } = await supabase.from("transactions").insert({
-          description: `Retenção IRS (${withholdingRate}%) — ${artistName}`,
-          type: "expense",
-          amount: withholdingAmount,
-          iva_rate: 0,
-          event_id: eventId,
-          category_id: retentionCategoryId,
-          supplier_id: null,
-          account_id: null,
-          date: today,
-          due_date: taxDueDate,
-          status: "approved",
-          paid_amount: 0,
-          specification: `Obrigação fiscal – retenção na fonte sobre cachê de ${artistName}`,
-        } as any);
-        if (taxError) throw taxError;
-      }
+      // Retenção de IRS: NÃO é criada aqui (decisão 2026-09-03). Um cachê
+      // calculado inclui muitas vezes logística e verba de marketing sem
+      // incidência de retenção — só no fecho se sabe a base. A obrigação
+      // fiscal é definida e criada no fecho.
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["cache_artist_transactions"] });
-      const totalCreated = withholdingApplicable
-        ? `${formatCurrency(finalAmount)} + retenção ${formatCurrency(withholdingAmount)}`
-        : formatCurrency(finalAmount);
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast({
         title: "Transações criadas",
-        description: `Pagamento de cachê para ${artistName}: ${totalCreated}`,
+        description: `Pagamento de cachê para ${artistName}: ${formatCurrency(finalAmount)}`,
       });
       onClose();
     },
