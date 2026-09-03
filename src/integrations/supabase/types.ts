@@ -12388,6 +12388,59 @@ export type Database = {
           slug: string
         }[]
       }
+      raise_forecast_budget: {
+        Args: {
+          _forecast_id: string
+          _new_amount: number
+          _observation: string
+        }
+        Returns: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          attachment_refs: Json
+          baseline_amount: number | null
+          cache_config_id: string | null
+          category_id: string | null
+          company_id: string
+          created_at: string
+          currency: string
+          description: string
+          event_id: string
+          exclude_from_result: boolean
+          formalidade: Database["public"]["Enums"]["bp_formalidade"]
+          formalidade_changed_at: string | null
+          formalidade_changed_by: string | null
+          formula_type: string
+          formula_value: number
+          fx_rate: number | null
+          fx_rate_source: string | null
+          historic_overrides: Json
+          id: string
+          invoice_group_id: string | null
+          is_overhead: boolean
+          is_retroactive_override: boolean
+          is_transitory: boolean
+          iva_rate: number
+          master_forecast_id: string | null
+          notes: string | null
+          ordering_partner_id: string | null
+          original_amount: number | null
+          paying_partner_id: string | null
+          specification: string | null
+          status: string
+          transaction_id: string | null
+          type: string
+          updated_at: string
+          version_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "event_forecasts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

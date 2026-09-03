@@ -20,6 +20,8 @@ import { format } from "date-fns";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { partitionByBpLineRequirement } from "@/lib/bp-line-required";
 import {
   AlertDialog,
@@ -65,7 +67,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
   const [editTx, setEditTx] = useState<any | null>(null);
   // D1 + D8 — despesa de evento `with_bp` não pode ser aprovada sem linha de BP.
-  const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
+  
 
   const { data: note, isLoading: noteLoading } = useQuery({
     queryKey: ["reimbursement-note", noteId],
@@ -237,25 +239,50 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     onError: (err: any) => toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" }),
   });
 
-  // D1 + D8: antes de aprovar a nota, exigir linha de BP nas despesas pendentes
-  // de eventos geridos `with_bp`. Se faltar, abre o diálogo "Vincular ao BP"
-  // (uma transação de cada vez) em vez de chamar o update.
+  // D1 + D8 — a linha de BP pede-se POR PAR evento × rubrica (não despesa a
+  // despesa): o forecast_id escolhido aplica-se a todas as despesas do par.
+  // Depois, DR-2026-09-02-D2 — excesso de verba por linha, tudo de uma vez.
+  const [bpGroup, setBpGroup] = useState<{ rep: any; txIds: string[]; remaining: number } | null>(null);
+  const [raiseLines, setRaiseLines] = useState<BudgetExcessLine[] | null>(null);
+
   const requestApproveNote = async (itemsOverride?: any[]) => {
     const pendingTxs = (itemsOverride ?? items)
       .filter((i: any) => i.transactions?.status === "pending")
       .map((i: any) => i.transactions);
+
     if (pendingTxs.length > 0) {
       try {
         const { blocked } = await partitionByBpLineRequirement(pendingTxs as any[]);
         if (blocked.length > 0) {
-          setLinkBpTx(blocked[0]);
-          if (blocked.length > 1) {
+          const groups = new Map<string, any[]>();
+          for (const t of blocked as any[]) {
+            const key = `${t.event_id ?? ""}|${t.category_id ?? ""}`;
+            groups.set(key, [...(groups.get(key) ?? []), t]);
+          }
+          const first = [...groups.values()][0];
+          setBpGroup({
+            rep: first[0],
+            txIds: first.map((t) => t.id),
+            remaining: groups.size,
+          });
+          if (groups.size > 1) {
             toast({
-              title: `${blocked.length} despesas sem linha de BP`,
-              description: "Vincula cada uma ao BP para concluir a aprovação da nota.",
+              title: `${groups.size} pares evento × rubrica sem linha de BP`,
+              description: "Escolhe a linha de cada par para concluir a aprovação da nota.",
             });
           }
           return;
+        }
+
+        const entries = (pendingTxs as any[])
+          .filter((t) => t.type === "expense" && !!t.forecast_id && !t.parent_transaction_id)
+          .map((t) => ({ forecast_id: t.forecast_id as string, amount: Number(t.amount ?? 0), transaction_id: t.id }));
+        if (entries.length > 0) {
+          const lines = await computeBudgetExcess(entries);
+          if (lines.length > 0) {
+            setRaiseLines(lines);
+            return;
+          }
         }
       } catch (err: any) {
         toast({
@@ -268,8 +295,6 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     }
     approveMutation.mutate();
   };
-
-
 
   const payMutation = useMutation({
     mutationFn: async () => {
@@ -761,15 +786,38 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         </div>
       )}
 
-      {linkBpTx && (
+      {bpGroup && (
         <LinkBpLineDialog
-          transaction={linkBpTx}
-          onClose={() => setLinkBpTx(null)}
-          onLinked={async () => {
-            setLinkBpTx(null);
+          pickOnly
+          transaction={bpGroup.rep}
+          onClose={() => setBpGroup(null)}
+          onLinked={() => setBpGroup(null)}
+          onPicked={async (forecastId) => {
+            const txIds = bpGroup.txIds;
+            setBpGroup(null);
+            const { error } = await supabase
+              .from("transactions")
+              .update({ forecast_id: forecastId })
+              .in("id", txIds);
+            if (error) {
+              toast({ title: "Erro ao vincular ao BP", description: error.message, variant: "destructive" });
+              return;
+            }
             await queryClient.refetchQueries({ queryKey: ["reimbursement-note-items", noteId] });
             const fresh = queryClient.getQueryData<any[]>(["reimbursement-note-items", noteId]);
             await requestApproveNote(fresh ?? undefined);
+          }}
+        />
+      )}
+
+      {raiseLines && (
+        <RaiseBudgetDialog
+          lines={raiseLines}
+          applyViaRpc
+          onClose={() => setRaiseLines(null)}
+          onDone={() => {
+            setRaiseLines(null);
+            approveMutation.mutate();
           }}
         />
       )}

@@ -25,6 +25,11 @@ interface RequestBody {
    * NÃO levam linha.
    */
   forecast_id?: string | null;
+  /**
+   * DR-2026-09-02-D2 (revista 03/09) — elevação da verba da linha da sessão,
+   * quando o realizado da linha + as despesas desta sessão a ultrapassam.
+   */
+  budget_raise?: { new_amount: number; observation: string } | null;
 }
 
 /**
@@ -288,6 +293,108 @@ Deno.serve(async (req) => {
       }
       if ((fc as any).category_id !== camarimCategoryId) {
         return json({ error: "A linha de BP indicada não é da rubrica 2.6.04 — Camarins." }, 422);
+      }
+
+      // ===== DR-2026-09-02-D2 (revista 03/09) — excesso de verba da linha =====
+      // Atómico: valida e aplica o raise ANTES de criar qualquer transação.
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const { data: fcFull } = await adminClient
+        .from("event_forecasts")
+        .select("id,description,specification,amount,baseline_amount,company_id")
+        .eq("id", sessionForecastId)
+        .maybeSingle();
+
+      const { data: realizedRows } = await adminClient
+        .from("transactions")
+        .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
+        .eq("forecast_id", sessionForecastId)
+        .in("status", ["approved", "paid"]);
+      const realized = round2(
+        ((realizedRows ?? []) as any[])
+          .filter((r) =>
+            r.is_transitory !== true && r.exclude_from_result !== true &&
+            r.reversed_at == null && r.is_hidden !== true
+          )
+          .reduce((s, r) => s + Number(r.amount ?? 0), 0),
+      );
+
+      // Bases líquidas dos itens aprovados de DESPESA (as pernas do acerto de
+      // adiantamento, 10.3, não levam linha e ficam de fora).
+      const toApprove = round2(
+        (items as any[]).reduce(
+          (s, it) =>
+            s + (Number(it.base_amount ?? 0) ||
+              Number(it.total_amount ?? 0) - Number(it.iva_amount ?? 0)),
+          0,
+        ),
+      );
+
+      const lineAmount = round2(Number((fcFull as any)?.amount ?? 0));
+      const over = round2(realized + toApprove - lineAmount);
+
+      if (over > 0) {
+        const suggested = round2(realized + toApprove);
+        const excessPayload = [{
+          forecast_id: sessionForecastId,
+          description:
+            [(fcFull as any)?.description, (fcFull as any)?.specification].filter(Boolean).join(" · ") ||
+            "(sem descrição)",
+          line_amount: lineAmount,
+          baseline_amount:
+            (fcFull as any)?.baseline_amount == null ? null : round2(Number((fcFull as any).baseline_amount)),
+          realized,
+          to_approve: toApprove,
+          excess: over,
+          suggested_amount: suggested,
+        }];
+
+        const raise = body.budget_raise ?? null;
+        if (!raise) {
+          return json({
+            error: "As despesas desta sessão excedem a verba da linha de BP.",
+            budget_excess: excessPayload,
+          }, 422);
+        }
+        const newAmount = round2(Number(raise.new_amount));
+        const observation = typeof raise.observation === "string" ? raise.observation.trim() : "";
+        if (!Number.isFinite(newAmount) || newAmount < suggested) {
+          return json({
+            error: `A nova verba da linha tem de ser pelo menos ${suggested.toFixed(2)} €.`,
+          }, 422);
+        }
+        if (!observation) {
+          return json({ error: "Observação obrigatória para elevar a verba da linha de BP." }, 422);
+        }
+        const { data: isPaRaise } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+        if (!isPaRaise) {
+          const { data: canRaise } = await adminClient.rpc("has_permission_in", {
+            _user_id: caller.id,
+            _permission: "raise_budget",
+            _company_id: (fcFull as any)?.company_id,
+          });
+          if (!canRaise) {
+            return json({ error: "Sem permissão para elevar verbas de BP nesta empresa." }, 403);
+          }
+        }
+
+        // baseline_amount NUNCA é tocado (D3).
+        const { error: upErr } = await adminClient
+          .from("event_forecasts")
+          .update({ amount: newAmount })
+          .eq("id", sessionForecastId);
+        if (upErr) {
+          return json({ error: `Falha ao elevar a verba da linha de BP: ${upErr.message}` }, 500);
+        }
+        const { error: logErr } = await adminClient.from("forecast_audit_log").insert({
+          forecast_id: sessionForecastId,
+          changed_by: caller.email ?? caller.id,
+          field_name: "Valor (EUR)",
+          old_value: lineAmount.toFixed(2),
+          new_value: newAmount.toFixed(2),
+          observation,
+          company_id: (fcFull as any)?.company_id,
+        });
+        if (logErr) console.error("[close-camarim-session] forecast_audit_log error:", logErr);
       }
     }
 

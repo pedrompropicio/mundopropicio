@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { transaction_ids } = await req.json();
+    const { transaction_ids, budget_raises } = await req.json();
     if (!transaction_ids || !Array.isArray(transaction_ids) || transaction_ids.length === 0) {
       return new Response(
         JSON.stringify({ error: "transaction_ids é obrigatório (array de UUIDs)" }),
@@ -201,6 +201,165 @@ Deno.serve(async (req) => {
       callerEmail ||
       "sistema";
 
+    // DR-2026-09-02-D2 (revista 03/09) — aprovar implica ELEVAR a linha de BP
+    // quando o realizado passa a ultrapassar a verba. Atómico: valida e aplica
+    // todos os raises ANTES de aprovar; se um falhar, não aprova nada.
+    const appliedRaises: { forecast_id: string; old_amount: number; new_amount: number; observation: string }[] = [];
+    const excessTxIds = new Set<string>();
+    if (approvedIds.length > 0) {
+      const entries = approvableTx.filter(
+        (t: any) => t.type === "expense" && !!t.forecast_id && !t.parent_transaction_id,
+      );
+      const forecastIds = [...new Set(entries.map((t: any) => t.forecast_id as string))];
+
+      if (forecastIds.length > 0) {
+        const { data: lines, error: linesErr } = await adminClient
+          .from("event_forecasts")
+          .select("id, description, specification, amount, baseline_amount, company_id")
+          .in("id", forecastIds);
+        if (linesErr) {
+          return new Response(JSON.stringify({ error: linesErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { data: realizedRows, error: realizedErr } = await adminClient
+          .from("transactions")
+          .select("id, forecast_id, amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
+          .in("forecast_id", forecastIds)
+          .in("status", ["approved", "paid"]);
+        if (realizedErr) {
+          return new Response(JSON.stringify({ error: realizedErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const round2 = (n: number) => Math.round(n * 100) / 100;
+        const batchIds = new Set(entries.map((t: any) => t.id));
+        const realizedByLine = new Map<string, number>();
+        for (const r of (realizedRows ?? []) as any[]) {
+          if (batchIds.has(r.id)) continue;
+          if (r.is_transitory === true || r.exclude_from_result === true || r.reversed_at != null || r.is_hidden === true) continue;
+          realizedByLine.set(r.forecast_id, (realizedByLine.get(r.forecast_id) ?? 0) + Number(r.amount ?? 0));
+        }
+        const toApproveByLine = new Map<string, number>();
+        for (const t of entries as any[]) {
+          toApproveByLine.set(t.forecast_id, (toApproveByLine.get(t.forecast_id) ?? 0) + Number(t.amount ?? 0));
+        }
+
+        const excess: any[] = [];
+        const lineById = new Map<string, any>();
+        for (const l of (lines ?? []) as any[]) {
+          lineById.set(l.id, l);
+          const lineAmount = round2(Number(l.amount ?? 0));
+          const realized = round2(realizedByLine.get(l.id) ?? 0);
+          const toApprove = round2(toApproveByLine.get(l.id) ?? 0);
+          const over = round2(realized + toApprove - lineAmount);
+          if (over <= 0) continue;
+          excess.push({
+            forecast_id: l.id,
+            description: [l.description, l.specification].filter(Boolean).join(" · ") || "(sem descrição)",
+            line_amount: lineAmount,
+            baseline_amount: l.baseline_amount == null ? null : round2(Number(l.baseline_amount)),
+            realized,
+            to_approve: toApprove,
+            excess: over,
+            suggested_amount: round2(realized + toApprove),
+          });
+        }
+
+        if (excess.length > 0) {
+          const raises = Array.isArray(budget_raises) ? budget_raises : [];
+          const missing = excess.filter(
+            (e) => !raises.some((r: any) => r?.forecast_id === e.forecast_id),
+          );
+          if (missing.length > 0) {
+            return new Response(
+              JSON.stringify({
+                error: "Há despesas que excedem a verba da linha de BP.",
+                budget_excess: excess,
+              }),
+              { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+
+          const { data: isPa2 } = await adminClient.rpc("is_platform_admin", { _user_id: callerId });
+
+          for (const e of excess) {
+            const raise = raises.find((r: any) => r?.forecast_id === e.forecast_id);
+            const newAmount = Number(raise?.new_amount);
+            const observation = typeof raise?.observation === "string" ? raise.observation.trim() : "";
+            if (!Number.isFinite(newAmount) || newAmount < e.suggested_amount) {
+              return new Response(
+                JSON.stringify({
+                  error: `A nova verba da linha "${e.description}" tem de ser pelo menos ${e.suggested_amount.toFixed(2)} €.`,
+                }),
+                { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+            if (!observation) {
+              return new Response(
+                JSON.stringify({ error: "Observação obrigatória para elevar a verba da linha de BP." }),
+                { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+            if (!isPa2) {
+              const { data: allowed } = await adminClient.rpc("has_permission_in", {
+                _user_id: callerId,
+                _permission: "raise_budget",
+                _company_id: lineById.get(e.forecast_id)?.company_id,
+              });
+              if (!allowed) {
+                return new Response(
+                  JSON.stringify({ error: "Sem permissão para elevar verbas de BP nesta empresa." }),
+                  { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
+              }
+            }
+          }
+
+          // Aplica os raises (baseline_amount NUNCA é tocado — D3).
+          for (const e of excess) {
+            const raise = raises.find((r: any) => r?.forecast_id === e.forecast_id);
+            const newAmount = Math.round(Number(raise.new_amount) * 100) / 100;
+            const observation = String(raise.observation).trim();
+            const { error: upErr } = await adminClient
+              .from("event_forecasts")
+              .update({ amount: newAmount })
+              .eq("id", e.forecast_id);
+            if (upErr) {
+              return new Response(
+                JSON.stringify({ error: `Falha ao elevar a verba da linha de BP: ${upErr.message}` }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+            const { error: logErr } = await adminClient.from("forecast_audit_log").insert({
+              forecast_id: e.forecast_id,
+              changed_by: callerName,
+              field_name: "Valor (EUR)",
+              old_value: e.line_amount.toFixed(2),
+              new_value: newAmount.toFixed(2),
+              observation,
+              company_id: lineById.get(e.forecast_id)?.company_id,
+            });
+            if (logErr) console.error("[approve-transaction] forecast_audit_log error:", logErr);
+            appliedRaises.push({
+              forecast_id: e.forecast_id,
+              old_amount: e.line_amount,
+              new_amount: newAmount,
+              observation,
+            });
+            for (const t of entries as any[]) {
+              if (t.forecast_id === e.forecast_id) excessTxIds.add(t.id);
+            }
+          }
+        }
+      }
+    }
+
+
     if (approvedIds.length > 0) {
       const auditEntries = approvedIds.map((id) => ({
         transaction_id: id,
@@ -230,6 +389,32 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // D2 — deixa rasto na transação que motivou a elevação da verba.
+      if (excessTxIds.size > 0 && appliedRaises.length > 0) {
+        const raiseAudit = [...excessTxIds]
+          .filter((id) => approvedIds.includes(id))
+          .map((id) => {
+            const tx = approvableTx.find((t: any) => t.id === id) as any;
+            const r = appliedRaises.find((x) => x.forecast_id === tx?.forecast_id);
+            if (!r) return null;
+            return {
+              transaction_id: id,
+              company_id: tx?.company_id,
+              changed_by: callerName,
+              field_name: "bp_budget_raised",
+              old_value: null,
+              new_value: `Verba da linha elevada de ${r.old_amount.toFixed(2)} € para ${r.new_amount.toFixed(2)} € — ${r.observation}`,
+            };
+          })
+          .filter(Boolean);
+        if (raiseAudit.length > 0) {
+          const { error: raErr } = await adminClient.from("transaction_audit_log").insert(raiseAudit as any);
+          if (raErr) console.error("[approve-transaction] raise audit error:", raErr);
+        }
+      }
+
+
 
       // Propagate approval to child split transactions
       for (const parentId of approvedIds) {
