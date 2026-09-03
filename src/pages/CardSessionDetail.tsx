@@ -218,16 +218,23 @@ export default function CardSessionDetail() {
   const theoretical = opening + totalLoads - totalApproved - totalPending + directTotal;
 
 
+  /** Breakdown por evento: transações antigas da sessão + itens (novo modelo). */
   const expensesByEvent = useMemo(() => {
     const map: Record<string, { name: string; amount: number }> = {};
-    for (const e of expenses as any[]) {
-      const key = e.event_id ?? "none";
-      const name = e.events?.name ?? "Sem evento";
+    const add = (key: string, name: string, amount: number) => {
       if (!map[key]) map[key] = { name, amount: 0 };
-      map[key].amount += Number(e.paid_amount) || cardItemGross(e);
+      map[key].amount += amount;
+    };
+    for (const e of legacyExpenses as any[]) {
+      add(e.event_id ?? "none", e.events?.name ?? "Sem evento", Number(e.paid_amount) || cardItemGross(e));
+    }
+    for (const it of items as any[]) {
+      if (it.status === "rejected") continue;
+      add(it.event_id ?? "none", it.events?.name ?? "Sem evento", cardItemGross(it));
     }
     return map;
-  }, [expenses]);
+  }, [legacyExpenses, items]);
+
 
   const transition = useMutation({
     mutationFn: async (newStatus: CardSessionStatus) => {
