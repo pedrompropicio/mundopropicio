@@ -1557,9 +1557,107 @@ export type Database = {
           },
         ]
       }
+      card_integrations: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          integration_type: string
+          session_id: string
+          status: string
+          summary_payload: Json | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integration_type?: string
+          session_id: string
+          status?: string
+          summary_payload?: Json | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integration_type?: string
+          session_id?: string
+          status?: string
+          summary_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_integrations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_integrations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "card_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_item_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          file_name: string | null
+          file_path: string
+          id: string
+          item_id: string
+          mime_type: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          file_name?: string | null
+          file_path: string
+          id?: string
+          item_id: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          item_id?: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_item_documents_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "card_session_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_item_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_session_items: {
         Row: {
           amount: number
+          approved_without_document: boolean
+          approved_without_document_reason: string | null
           category_id: string | null
           company_id: string
           created_at: string
@@ -1583,6 +1681,8 @@ export type Database = {
         }
         Insert: {
           amount: number
+          approved_without_document?: boolean
+          approved_without_document_reason?: string | null
           category_id?: string | null
           company_id?: string
           created_at?: string
@@ -1606,6 +1706,8 @@ export type Database = {
         }
         Update: {
           amount?: number
+          approved_without_document?: boolean
+          approved_without_document_reason?: string | null
           category_id?: string | null
           company_id?: string
           created_at?: string
@@ -1776,6 +1878,10 @@ export type Database = {
           holder_name: string
           holder_profile_id: string | null
           id: string
+          integrated_at: string | null
+          integrated_by: string | null
+          integration_summary: Json | null
+          integration_transaction_ids: string[] | null
           notes: string | null
           opened_at: string
           opened_by: string | null
@@ -1795,6 +1901,10 @@ export type Database = {
           holder_name: string
           holder_profile_id?: string | null
           id?: string
+          integrated_at?: string | null
+          integrated_by?: string | null
+          integration_summary?: Json | null
+          integration_transaction_ids?: string[] | null
           notes?: string | null
           opened_at?: string
           opened_by?: string | null
@@ -1814,6 +1924,10 @@ export type Database = {
           holder_name?: string
           holder_profile_id?: string | null
           id?: string
+          integrated_at?: string | null
+          integrated_by?: string | null
+          integration_summary?: Json | null
+          integration_transaction_ids?: string[] | null
           notes?: string | null
           opened_at?: string
           opened_by?: string | null
@@ -1847,6 +1961,13 @@ export type Database = {
           {
             foreignKeyName: "card_sessions_holder_profile_id_fkey"
             columns: ["holder_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_sessions_integrated_by_fkey"
+            columns: ["integrated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

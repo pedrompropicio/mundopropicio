@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AccountantDocBucket = "transaction-documents" | "camarim-documents";
+export type AccountantDocBucket = "transaction-documents" | "camarim-documents" | "card-documents";
 
 export interface AccountantDoc {
   id: string;
@@ -18,10 +18,14 @@ export interface AccountantDoc {
  * `transaction_documents.file_url` pode vir:
  *  - "company_id/…"           → bucket transaction-documents
  *  - "camarim://company_id/…" → bucket camarim-documents
+ *  - "card://company_id/…"    → bucket card-documents (integração de cartão, D17)
  */
 export function resolveDocBucket(fileUrl: string): { bucket: AccountantDocBucket; path: string } {
   if (fileUrl?.startsWith("camarim://")) {
     return { bucket: "camarim-documents", path: fileUrl.slice("camarim://".length) };
+  }
+  if (fileUrl?.startsWith("card://")) {
+    return { bucket: "card-documents", path: fileUrl.slice("card://".length) };
   }
   return { bucket: "transaction-documents", path: fileUrl };
 }

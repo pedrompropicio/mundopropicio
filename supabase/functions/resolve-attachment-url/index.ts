@@ -23,6 +23,9 @@ function storagePathFromTransactionUrl(fileUrl: string) {
   if (fileUrl.startsWith("camarim://")) {
     return { bucket: "camarim-documents", path: fileUrl.replace(/^camarim:\/\//, "") };
   }
+  if (fileUrl.startsWith("card://")) {
+    return { bucket: "card-documents", path: fileUrl.replace(/^card:\/\//, "") };
+  }
 
   const publicMarker = "/storage/v1/object/public/transaction-documents/";
   const publicIdx = fileUrl.indexOf(publicMarker);
