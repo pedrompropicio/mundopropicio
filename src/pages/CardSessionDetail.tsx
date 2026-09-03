@@ -121,6 +121,26 @@ export default function CardSessionDetail() {
   });
 
   const expenseIds = (expenses as any[]).map((e) => e.id);
+
+  /**
+   * D17 — uma sessão aberta antes do novo modelo pode misturar:
+   *  - transações DIRECTAS antigas (carimbadas com card_session_id, sem item)
+   *  - itens novos (card_session_items), que só viram transação na integração
+   * A aba Despesas mostra os dois, com etiqueta a distinguir.
+   */
+  const itemTxIds = useMemo(
+    () => new Set((items as any[]).map((i) => i.transaction_id).filter(Boolean) as string[]),
+    [items],
+  );
+  const legacyExpenses = useMemo(
+    () => (expenses as any[]).filter((e) => !itemTxIds.has(e.id)),
+    [expenses, itemTxIds],
+  );
+  const modelItems = useMemo(
+    () => (items as any[]).filter((i) => i.status === "approved" || i.status === "integrated"),
+    [items],
+  );
+
   const { data: docCounts = {} } = useQuery<Record<string, number>>({
     queryKey: ["card-session-expense-doc-counts", id, expenseIds.length],
     enabled: expenseIds.length > 0,
