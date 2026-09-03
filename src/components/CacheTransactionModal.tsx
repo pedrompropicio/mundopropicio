@@ -29,9 +29,6 @@ interface Props {
   /** 'variable' → linha de BP garantida pelo módulo; 'fixed' → fluxo normal de despesa. */
   cacheType?: string;
   configSupplierId?: string | null;
-  withholdingApplicable?: boolean;
-  withholdingRate?: number;
-  withholdingAmount?: number;
 }
 
 let partIdCounter = 0;
@@ -45,17 +42,15 @@ export function CacheTransactionModal({
   cacheConfigId,
   cacheType = "variable",
   configSupplierId,
-  withholdingApplicable = false,
-  withholdingRate = 25,
-  withholdingAmount = 0,
 }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const isFixedCache = cacheType === "fixed";
 
-  // Decisão do Pedro (2026-09-03): paga-se o cachê INTEGRAL. A retenção não é
-  // descontada nem gerada aqui — é definida no fecho, com a base de incidência.
+  // DR-2026-09-03-D15 (revista): a retenção saiu por completo do fluxo do cachê.
+  // Não é custo do evento — é parte do cachê entregue ao Estado em nome do artista.
+  // Paga-se o cachê integral; os únicos descontos são os do modelo de cálculo.
   const netPayable = amount;
 
   const [dueDate, setDueDate] = useState("");
@@ -445,12 +440,6 @@ export function CacheTransactionModal({
                 {formatCurrency(amount)}
               </span>
             </div>
-            {withholdingApplicable && (
-              <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Retenção IRS ({withholdingRate}%) — estimada</span>
-                <span className="font-mono text-muted-foreground">{formatCurrency(withholdingAmount)}</span>
-              </div>
-            )}
             {cacheCategory && (
               <p className="text-[10px] text-muted-foreground mt-1">
                 Categoria: {cacheCategory.code} — {cacheCategory.name}
@@ -741,24 +730,6 @@ export function CacheTransactionModal({
             />
           </div>
 
-          {/* Withholding tax notice */}
-          {withholdingApplicable && withholdingAmount > 0 && (
-            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-medium text-warning">Retenção definida no fecho</p>
-                  <p className="text-[10px] text-warning/80 mt-0.5">
-                    Aqui paga-se o cachê integral: a retenção de IRS ({withholdingRate}%), estimada em{" "}
-                    {formatCurrency(withholdingAmount)}, NÃO é descontada nem gerada neste ecrã. É definida no
-                    fecho, quando se conhece a base de incidência (parte do cachê pode ser logística ou verba de
-                    marketing, sem retenção).
-                  </p>
-                </div>
-              </div>
-            </div>
-
-          )}
         </div>
 
         {/* Footer */}
