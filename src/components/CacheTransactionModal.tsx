@@ -212,9 +212,52 @@ export function CacheTransactionModal({
     }));
   }, [useSplit, parts, finalAmount, artistName, totalAdvances, cacheCategory, configSupplierId]);
 
+  /**
+   * D1+D8 aplicado ao cachê (decisão 2026-09-03):
+   *  - cachê VARIÁVEL: a linha de BP é do módulo. Se não existir linha
+   *    `formula_type='cache_module'` ligada a este `cache_config_id`, o módulo
+   *    cria-a. Todas as partes do split ligam à MESMA linha (vínculo N:1).
+   *  - cachê FIXO: sem linha automática. Segue o fluxo normal de despesa — o
+   *    utilizador escolhe/cria a linha no LinkBpLineDialog antes de gerar.
+   */
+  const ensureCacheModuleForecast = async (): Promise<string | null> => {
+    const { data: existing } = await supabase
+      .from("event_forecasts")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("cache_config_id", cacheConfigId)
+      .eq("formula_type", "cache_module")
+      .is("version_id", null)
+      .limit(1);
+    if (existing?.[0]?.id) return existing[0].id as string;
+
+    if (!cacheCategory?.id) return null;
+    const { data: created, error } = await supabase
+      .from("event_forecasts")
+      .insert({
+        event_id: eventId,
+        type: "expense",
+        description: `Cachê — ${artistName}`,
+        amount,
+        iva_rate: 0,
+        category_id: cacheCategory.id,
+        formula_type: "cache_module",
+        cache_config_id: cacheConfigId,
+        status: "draft",
+      } as any)
+      .select("id")
+      .single();
+    if (error) throw error;
+    return (created as any)?.id ?? null;
+  };
+
   const createMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (pickedForecastId?: string) => {
       const today = new Date().toISOString().split("T")[0];
+
+      const forecastId = isFixedCache
+        ? pickedForecastId ?? null
+        : await ensureCacheModuleForecast();
 
       // Pre-fetch ALL cache-related forecasts for this event so we can propagate
       // their attachment links to the newly-created transactions. This covers:
@@ -278,6 +321,7 @@ export function CacheTransactionModal({
             due_date: dueDate || null,
             status: "approved",
             paid_amount: 0,
+            forecast_id: forecastId,
           } as any)
           .select("id")
           .single();
