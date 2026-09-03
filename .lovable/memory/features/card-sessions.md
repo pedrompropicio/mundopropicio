@@ -250,3 +250,40 @@ Efeito: as despesas de cartão passam a entrar no **agrupamento automático por
 nº de fatura** (`mem://features/invoice-groups`) e a ter referência do documento
 para a contabilidade. Valores, IVA, saldos, fecho de sessão e recarga ficaram
 intactos; `invoice_group_id` nunca é escrito diretamente.
+
+---
+
+## D17 (2026-09-03) — o cartão passa ao modelo do camarim (backend feito, UI em curso)
+
+A partir do D17 o modelo acima ("cada despesa é uma transação real") fica **legado**. O novo:
+
+- Despesas do cartão são **itens** (`card_session_items`) durante a sessão; nenhuma transação nasce à peça.
+- Estados do item: `submitted` → `approved` → `integrated` (novo) ou `rejected`.
+- `approved_without_document` + `approved_without_document_reason` para aprovar item sem talão (padrão camarim).
+- `card_item_documents` (id, item_id CASCADE, file_path, file_name, mime_type, uploaded_by, company_id) → **N documentos por item**, bucket `card-documents` (paths `<session_id>/…`, isolado por SESSÃO, não por empresa → está em `GLOBAL_BUCKETS` de `src/lib/storage.ts`).
+- `card_sessions` ganhou `integration_summary`, `integration_transaction_ids`, `integrated_at`, `integrated_by`; histórico em `card_integrations`.
+
+### Integração — `supabase/functions/close-card-session/index.ts`
+
+Decalcada de `close-camarim-session`. JWT + `is_platform_admin` ou `has_permission_in(caller,'approve_transactions', company da sessão)` + guard multi-tenant.
+
+Body: `session_id`, `parked_decisions[]`, `forecast_lines[{event_id,category_id,forecast_id}]`, `budget_raises[{forecast_id,new_amount,observation}]`, `confirmed_balance`, `create_adjustment`, `adjustment_note`.
+
+Pré-voo completo sem writes:
+1. Decisões dos parqueados (`reject` / `approve_without_doc` com justificação / `defer`); sobras em `submitted` → **422 com `parked_items`**.
+2. Grupos: com evento `(event_id × category_id × iva_rate)`; sem evento `(category_id × iva_rate)` e **fora do BP** (sem `forecast_id`).
+3. D1+D8 por par evento × rubrica em eventos `with_bp` → 422 com `missing_bp_lines`.
+4. D2 por linha (base líquida, realizado `approved|paid` sem flags bloqueadoras) → 422 com `budget_excess`; com `budget_raises` valida `raise_budget`, aplica `amount` e escreve `forecast_audit_log` (`field_name='Valor (EUR)'`, `baseline_amount` intocado) **antes** de criar transações.
+5. Transações `paid` por grupo: IVA snap `{0,6,13,23}`, `amount` = base líquida recalculada, `paid_amount` = bruto, `account_id` = cartão, `card_session_id`, `payment_reference = CARTAO-<8>`; itens passam a `integrated` com `transaction_id`.
+6. Documentos (`card_item_documents` + legado `document_path`) → `transaction_documents` como `card://<path>`; dossier HTML em `card-documents/dossiers/<session>.html` ligado a todas as transações.
+7. Auditoria `created_by_card_integration` em `transaction_audit_log`.
+8. **Conciliação idêntica à do modal antigo**: `opening (override ou dinâmico) + Σ recargas − gasto novo bruto + movimentos antigos da sessão + movimentos diretos do período`. Ajuste opcional mantém `category_id=null`, sem evento, IVA 0, `exclude_from_result=true`, `card_session_id`.
+9. Sessão → `closed` + `closing_summary`/`integration_summary`/`integration_transaction_ids`; log em `card_integrations` (`done|partial|failed`).
+
+### `card://`
+
+Resolvido para o bucket `card-documents` em: `src/lib/accountant-tx-docs.ts`, `src/components/TransactionDocumentsModal.tsx`, `src/components/ReportAccountingExport.tsx`, `src/pages/PartnerEventDetail.tsx`, `supabase/functions/resolve-attachment-url`, `supabase/functions/generate-accountant-zip`.
+
+### Intocado
+
+Trigger `enforce_transaction_approval_permission`, sessões já fechadas (`ffdea120`, `77d592f0`) e as respetivas 44 transações, e o `performCardLoad` das recargas.
