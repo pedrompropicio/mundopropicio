@@ -176,35 +176,10 @@ Deno.serve(async (req) => {
       return json({ error: "Sessão sem evento associado — impossível gerar transações" }, 422);
     }
 
-    // ===== D1+D8 — linha de BP da sessão (uma só, rubrica 2.6.04) =====
-    const sessionEventIds = [primaryEventId, session.master_event_id].filter(Boolean) as string[];
+    // ===== D1+D8 — linha de BP da sessão: validada mais abaixo, depois de
+    // carregar os itens aprovados (é preciso saber para que eventos resolvem).
     const sessionForecastId = (body.forecast_id ?? null) as string | null;
-    if (sessionForecastId) {
-      const { data: fc, error: fcErr } = await adminClient
-        .from("event_forecasts")
-        .select("id,event_id,category_id,type")
-        .eq("id", sessionForecastId)
-        .maybeSingle();
-      if (fcErr) return json({ error: `Erro ao validar a linha de BP: ${fcErr.message}` }, 500);
-      if (!fc) return json({ error: "A linha de BP indicada não existe." }, 422);
-      if (!sessionEventIds.includes((fc as any).event_id)) {
-        return json({ error: "A linha de BP indicada não pertence ao evento desta sessão." }, 422);
-      }
-      if ((fc as any).category_id !== camarimCategoryId) {
-        return json({ error: "A linha de BP indicada não é da rubrica 2.6.04 — Camarins." }, 422);
-      }
-    } else {
-      // Sem linha: só é aceitável se o evento for gerido sem BP.
-      for (const evId of sessionEventIds) {
-        const { data: mode } = await adminClient.rpc("event_budget_mode", { _event_id: evId });
-        if (mode === "with_bp") {
-          return json({
-            error:
-              "Este evento é gerido com BP: escolhe a linha de BP (2.6.04 — Camarins) antes de integrar a sessão.",
-          }, 422);
-        }
-      }
-    }
+
 
     // ===== Apply decisions over parked items BEFORE loading approved =====
     const decisions = body.parked_decisions ?? [];
