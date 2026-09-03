@@ -612,7 +612,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, category_id, amount, event_id, forecast_id")
+        .select("id, type, category_id, amount, event_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden")
         .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
@@ -729,6 +729,24 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     const l2 = (categories as any[]).find((c) => c.id === selectedForecastL2Id);
     return l2 ? `${l2.code} ${l2.name}` : null;
   }, [selectedForecastL2Id, categories]);
+
+  /**
+   * Só conta para a verba o que é compromisso real (D2): transitórias, excluídas
+   * do resultado, revertidas e escondidas não consomem BP. As `pending` contam —
+   * uma despesa lançada e por aprovar já é compromisso da linha.
+   */
+  const countsAsBudgetCommitment = (t: any): boolean =>
+    !t?.is_transitory && !t?.exclude_from_result && !t?.reversed_at && !t?.is_hidden;
+
+  /** Utilizado por LINHA de BP (vínculo canónico transactions.forecast_id). */
+  const usedByForecastId = useMemo(() => {
+    const acc: Record<string, number> = {};
+    (eventTransactions as any[]).forEach((t: any) => {
+      if (!t.forecast_id || !countsAsBudgetCommitment(t)) return;
+      acc[t.forecast_id] = (acc[t.forecast_id] || 0) + Number(t.amount);
+    });
+    return acc;
+  }, [eventTransactions]);
 
   // Reset vínculo quando o evento muda (linha BP deixa de fazer sentido noutro evento).
   useEffect(() => {
@@ -862,6 +880,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const usedBudgetByCategory = hasPL
     ? eventTransactions.reduce<Record<string, number>>((acc, t: any) => {
+        // Só compromisso real consome verba (transitórias/excluídas/revertidas/escondidas fora).
+        if (!countsAsBudgetCommitment(t)) return acc;
         // For Master (multi_day) events, only count transactions explicitly linked to a
         // Master BP line. Sub-event transactions classified as "Custo Isolado" must not
         // consume the Master budget.
@@ -1178,6 +1198,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             iva_rate: data.iva_rate,
             event_id: entry.event_id,
             category_id: data.category_id || null,
+            // A FK canónica só desce à filha quando a linha escolhida é do evento dela
+            // (rateio Master: a linha é do Master e fica na mãe).
+            forecast_id:
+              selectedForecast && (selectedForecast as any).event_id === entry.event_id
+                ? selectedForecastId
+                : null,
             supplier_id: data.supplier_id || null,
             account_id: null,
             specification: data.type === "expense" ? (data.specification || null) : null,
@@ -1216,6 +1242,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           iva_rate: data.iva_rate,
           event_id: null,
           category_id: data.category_id || null,
+          forecast_id: selectedForecastId || null,
           supplier_id: data.supplier_id || null,
           account_id: parentAccountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
@@ -1278,8 +1305,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const hasForecastMatch = matchingForecasts.length > 0;
         const hasApprovedBPLine = matchingForecasts.some((f) => f.status === "approved");
         const budgetKey = `${data.type}_${data.category_id || "none"}`;
-        const forecastTotal = forecastBudgetByCategory[budgetKey] || 0;
-        const usedTotal = usedBudgetByCategory[budgetKey] || 0;
+        // Verba de referência: COM linha escolhida é a verba DA LINHA; sem linha, a da rubrica (L3).
+        const lineForecast = selectedForecastId
+          ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId)
+          : null;
+        const forecastTotal = lineForecast
+          ? Number(lineForecast.amount) || 0
+          : forecastBudgetByCategory[budgetKey] || 0;
+        const usedTotal = lineForecast
+          ? usedByForecastId[lineForecast.id] || 0
+          : usedBudgetByCategory[budgetKey] || 0;
         const remaining = forecastTotal - usedTotal;
         const newAmount = parseFloat(data.amount) || 0;
         const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
@@ -1337,6 +1372,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           iva_rate: data.iva_rate,
           event_id: data.event_id || null,
           category_id: data.category_id || null,
+          // D1: a FK canónica vai NO INSERT — nascer aprovado exige linha de BP.
+          forecast_id: selectedForecastId || null,
           supplier_id: data.supplier_id || null,
           account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
@@ -1403,14 +1440,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${parseFloat(data.amount).toFixed(2)} €`,
           });
           if (autoApproved && !effectiveAutoMarkPaid) {
-            await supabase.from("transaction_audit_log").insert({
+            // A tabela não tem coluna `observation` — o campo antigo fazia o insert
+            // falhar em silêncio (erro engolido pelo `as any`). Agora lê-se o erro.
+            const { error: autoLogErr } = await supabase.from("transaction_audit_log").insert({
               transaction_id: insertedTx.id,
               changed_by: callerName,
               field_name: "status",
               old_value: "pending",
-              new_value: "approved",
-              observation: "Aprovação automática — categoria com BP aprovado e dentro do saldo disponível",
-            } as any);
+              new_value: "approved (automática — BP aprovado e dentro do saldo)",
+            });
+            if (autoLogErr) console.error("[auto-approve audit] failed", autoLogErr);
           }
         }
 
@@ -1480,6 +1519,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               iva_rate: data.iva_rate,
               event_id: data.event_id || null,
               category_id: data.category_id || null,
+              forecast_id: selectedForecastId || null,
               supplier_id: data.supplier_id || null,
               account_id: accountId,
               specification: data.type === "expense" ? (data.specification || null) : null,
@@ -2507,13 +2547,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
-            // Utilizado por LINHA de previsão: mesma fonte das linhas L3 (eventTransactions),
-            // agregado pelo vínculo canónico transactions.forecast_id.
-            const usedByForecastId: Record<string, number> = {};
-            eventTransactions.filter((t: any) => t.type === form.type).forEach((t: any) => {
-              if (!t.forecast_id) return;
-              usedByForecastId[t.forecast_id] = (usedByForecastId[t.forecast_id] || 0) + Number(t.amount);
-            });
+            // Utilizado por LINHA de previsão: memo `usedByForecastId` (mesma base que
+            // decide o status da transação — só compromisso real).
+
 
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
@@ -3148,8 +3184,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {/* Budget indicator for BP */}
           {hasPL && form.category_id && effectiveEventId && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
-            const forecast = forecastBudgetByCategory[budgetKey] || 0;
-            const used = usedBudgetByCategory[budgetKey] || 0;
+            // Mesma base que decide o status: com linha escolhida é a verba da linha.
+            const forecast = selectedForecast
+              ? Number((selectedForecast as any).amount) || 0
+              : forecastBudgetByCategory[budgetKey] || 0;
+            const used = selectedForecast
+              ? usedByForecastId[(selectedForecast as any).id] || 0
+              : usedBudgetByCategory[budgetKey] || 0;
+            const basisLabel = selectedForecast ? "Verba da linha" : "Verba da rubrica (L3)";
             const remaining = forecast - used;
             const pct = forecast > 0 ? (used / forecast) * 100 : 0;
             const newAmount = parseFloat(form.amount) || 0;
@@ -3157,7 +3199,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             return (
               <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Orçamento BP</span>
+                  <span className="text-muted-foreground">Orçamento BP · {basisLabel}</span>
                   <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted">
