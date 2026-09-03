@@ -390,6 +390,33 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
+  // Carga inicial (capacidade da zona) vs carga corrente (último retrato das
+  // bilheteiras) — DR-2026-09-03-D20. Indexado pelo nome normalizado da zona.
+  const normZone = (s: string) =>
+    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  const { data: zoneLoad } = useQuery({
+    queryKey: ["sim-zone-load", eventId],
+    queryFn: async () => {
+      const [{ data: zonesRaw }, { data: snapRaw }] = await Promise.all([
+        supabase.from("event_ticket_zones").select("name, total_capacity").eq("event_id", eventId!),
+        supabase.rpc("zone_capacity_snapshot" as any, { _event_id: eventId! }),
+      ]);
+      const out = new Map<string, { capacity: number; load: number | null; observedOn: string | null }>();
+      for (const z of (zonesRaw ?? []) as any[]) {
+        out.set(normZone(z.name), { capacity: Number(z.total_capacity || 0), load: null, observedOn: null });
+      }
+      for (const r of (snapRaw ?? []) as any[]) {
+        const k = normZone(r.zone_name);
+        const cur = out.get(k) ?? { capacity: 0, load: null, observedOn: null };
+        out.set(k, { ...cur, load: Number(r.capacity || 0), observedOn: r.observed_on ?? null });
+      }
+      return out;
+    },
+    enabled: !!eventId,
+  });
+
+
+
   const [localCfg, setLocalCfg] = useState<DbConfig | null>(null);
   const [localSessions, setLocalSessions] = useState<DbInput[]>([]);
   const [localCosts, setLocalCosts] = useState<DbCostLine[]>([]);

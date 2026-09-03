@@ -12468,6 +12468,7 @@ export type Database = {
         Returns: number
       }
       norm_coala_desc: { Args: { s: string }; Returns: string }
+      normalize_zone_label: { Args: { _label: string }; Returns: string }
       portal_tick_lead_capture: { Args: never; Returns: Json }
       portal_tick_redirect_log: { Args: never; Returns: Json }
       process_lead_captures_batch: {
@@ -12771,6 +12772,20 @@ export type Database = {
         Returns: boolean
       }
       vip_coupon_functions_base_url: { Args: never; Returns: string }
+      zone_capacity_snapshot: {
+        Args: { _event_id: string; _on?: string }
+        Returns: {
+          available: number
+          blocked: number
+          capacity: number
+          observed_on: string
+          occupied: number
+          source: string
+          unmatched_labels: Json
+          zone_id: string
+          zone_name: string
+        }[]
+      }
     }
     Enums: {
       app_role:
