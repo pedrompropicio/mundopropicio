@@ -21,6 +21,17 @@ where p.event_id = ':EVENTO' order by p.percentage desc;
 
 **Ler assim:** `can_pay = false` → quem paga é a MP, logo **transação é esperada**. `can_pay = true` → o sócio paga do bolso dele, ausência de transação é **legítima** e gera **crédito a devolver-lhe**. Se tiver `parent_event_id`, é cidade de turnê.
 
+## Passo 0-bis — Sessões abertas
+
+```sql
+select public.event_close_blockers(':EVENTO');
+```
+
+**Ler assim:**
+
+- `hard` não vazio (`camarim_sessions` por integrar ou `card_sessions` abertas) → **não se fecha**. A base de dados recusa a passagem a `completed` (D19); é custo que ainda vai cair no evento. Integrar/fechar as sessões primeiro.
+- `soft.pending_expenses` não vazio → **decisão do responsável**, não bloqueia. Fecha-se com conhecimento e a decisão fica **registada na planilha** do evento.
+
 ## Passo 1 — Receitas
 
 ```sql
