@@ -1524,6 +1524,15 @@ export default function EventDetail() {
       </EventScenarioProvider>
 
       {/* Confirmation dialog */}
+      <CloseEventGuardDialog
+        open={showCloseGuard}
+        onOpenChange={setShowCloseGuard}
+        eventId={id!}
+        eventName={event.name}
+        isPending={changeStatusMutation.isPending}
+        onConfirm={() => changeStatusMutation.mutate("completed")}
+      />
+
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
