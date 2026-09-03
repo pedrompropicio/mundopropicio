@@ -198,6 +198,22 @@ Deno.serve(async (req) => {
       .eq("status", "approved");
     if (iErr) return json({ error: iErr.message }, 500);
 
+    // ===== Transações DIRECTAS ANTIGAS desta sessão (modelo pré-D17) =====
+    // Sessões abertas antes do novo modelo podem ter despesas lançadas
+    // directamente na conta do cartão e carimbadas com `card_session_id`, sem
+    // item de origem. Não se tocam (entram só na conciliação de saldo) — salvo
+    // se `adopt_legacy_lines` estiver ligado. A sessão fecha mesmo que só tenha
+    // transações antigas e ZERO itens novos (consolida zero grupos).
+    const { data: legacyTxsRaw } = await adminClient
+      .from("transactions")
+      .select("id, description, amount, paid_amount, iva_rate, event_id, category_id, forecast_id, date, payment_date, type")
+      .eq("card_session_id", body.session_id);
+    const legacyTxs = ((legacyTxsRaw ?? []) as any[]).filter(
+      (t) => !((items ?? []) as any[]).some((it) => it.transaction_id === t.id),
+    );
+
+
+
     // ===== Grupos de consolidação =====
     type Resolved = {
       raw: any;
