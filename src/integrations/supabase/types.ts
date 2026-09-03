@@ -12142,6 +12142,7 @@ export type Database = {
         Returns: string
       }
       event_budget_mode: { Args: { _event_id: string }; Returns: string }
+      event_close_blockers: { Args: { _event_id: string }; Returns: Json }
       expire_supplier_credits: { Args: never; Returns: number }
       find_admin_absorbing_events: {
         Args: { p_company_id: string; p_date: string }
