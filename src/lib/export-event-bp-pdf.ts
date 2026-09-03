@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
+import { computeTicketSynthetic } from "@/lib/bp-income-synthetic";
 import { formatCurrency } from "@/lib/mock-data";
 import {
   findMatchingTransactionsForForecast,
@@ -856,6 +857,39 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
 
   const incomes = forecasts.filter((f) => f.type === "income");
   const expenses = forecasts.filter((f) => f.type === "expense");
+
+  // D21: linha sintética de bilheteira (não persistida) com as três colunas de valor.
+  try {
+    const t = await computeTicketSynthetic(eventId);
+    if (t.initialLoad > 0 || t.realNet > 0 || t.currentNet != null) {
+      const parts = [
+        `Previsto original ${t.baselineNet != null ? fmt(t.baselineNet) : "—"}`,
+        `Previsto corrente ${t.currentNet != null ? fmt(t.currentNet) : "sem Simulador"}`,
+        `Real ${fmt(t.realNet)}`,
+        `Carga inicial ${Math.round(t.initialLoad).toLocaleString("pt-PT")}`,
+        t.currentLoad != null
+          ? `Carga corrente ${Math.round(t.currentLoad).toLocaleString("pt-PT")}${t.currentLoadOn ? ` (${t.currentLoadOn})` : ""}`
+          : "sem retrato de carga",
+        `Vendidos ${Math.round(t.soldQty).toLocaleString("pt-PT")}`,
+      ];
+      incomes.push({
+        id: "synthetic-bilheteira",
+        type: "income",
+        description: "Venda de Bilhetes — módulo bilheteira",
+        specification: parts.join(" · "),
+        amount: t.currentNet ?? t.baselineNet ?? t.realNet,
+        iva_rate: t.ivaPct,
+        status: "approved",
+        notes: null,
+        category_id: null,
+        transaction_id: null,
+        event_id: eventId,
+        account_categories: { code: "1.1.01", name: "Venda de Bilhetes" },
+      } as any);
+    }
+  } catch {
+    /* PDF nunca falha por causa da linha sintética */
+  }
 
   y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60], event.id, event.parent_event_id ?? null);
   if (y > ctx.pageHeight - 40) {
