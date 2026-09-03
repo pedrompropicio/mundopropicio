@@ -376,7 +376,7 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 
 **Referências:** #86, #96, `claude/auditoria-company-id-service-role-2026-09-01.md`.
 
-## 2026-09-02 — O BP como base real de custos e de receita (D1–D11)
+## 2026-09-02 — O BP como base real de custos e de receita (D1–D12)
 
 - **DR-2026-09-02-D1 — A linha de BP é obrigatória, por caso.** Rubrica com uma linha: FK automática. Rubrica com várias: obriga a escolher. Rubrica sem linha: oferece criar a linha NA APROVAÇÃO, não no lançamento — quem lança pagamentos pode não ser quem gere o BP, e travar no lançamento em dia de evento faz com que não se registe. A órfã deixa de existir em evento com BP; nunca esteve fora da apuração, estava fora da ATRIBUIÇÃO (ordenador/pagador).
 - **DR-2026-09-02-D2 — Excesso: o aprovador eleva a verba, e fica escrito.** Não trava no lançamento. Na aprovação, escolha explícita entre elevar a verba da linha (com observação obrigatória) ou assumir o excesso. Eleva-se a LINHA, não a L3. Sem limite em euros: `raise_budget` é booleana.
@@ -389,5 +389,6 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 - **DR-2026-09-02-D9 — O BP de receita fica dentro da aba Business Plan.** Sub-separadores Despesas | Receitas. Não há aba nova: o menu do evento já tem onze abas e a receita já vive em cinco delas. Se a receita sai do BP, o BP deixa de ser o plano do evento.
 - **DR-2026-09-02-D10 — Modelo do BP de receita.** Híbrido por natureza da fonte: rubrica com módulo → linha sintética não persistida; sem módulo → linha manual (Merchandising, Camarotes, Outros). Patrocínios: linha real, nasce só em FECHADO, pelo botão — arrastar um card no Kanban nunca escreve no BP, e espelhar o funil no BP produziria leitura injusta do desempenho comercial. Planeamento por VERBA DE SEGMENTO consumida pelos fechados: previsto corrente = máx(estimativa − Σ fechados, 0). Encerramento da captação é acto datado com motivo. O fecho conta sempre só o fechado, sem opção.
 - **DR-2026-09-02-D11 — IVA: o BP guarda base, mas prevê-se pelo desembolso.** O confronto BP vs realizado é sempre em base líquida; a taxa da linha é expectativa, não restrição; uma transação por taxa; linha de natureza mista (hotel com taxa turística, camarim) prevê-se pelo DESEMBOLSO e a base é derivada; o apuramento de IVA nunca lê a linha do BP.
+- **DR-2026-09-02-D12 — Caminhos que aprovam transações com `service_role` têm de replicar as verificações do trigger.** O trigger `enforce_transaction_approval_permission` isenta `auth.uid() IS NULL` para não partir crons e escritas legítimas por `service_role`. Logo, qualquer edge function que aprove com `service_role` fica fora da trava e tem de verificar ela própria a permissão `approve_transactions` e a obrigatoriedade de linha de BP. Aplicado a `approve-transaction`. Regra geral para futuras edge functions que mudem status de transações.
 
 
