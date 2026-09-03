@@ -575,6 +575,7 @@ export function CacheSettlementPanel({
           artistName={config.artist_name}
           amount={effectiveValue}
           cacheConfigId={config.id}
+          cacheType={config.cache_type}
           configSupplierId={config.supplier_id}
           withholdingApplicable={withholdingApplicable}
           withholdingRate={withholdingRate}

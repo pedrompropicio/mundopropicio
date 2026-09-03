@@ -8,7 +8,9 @@ import { X, FileText, Calendar, Building2, Wallet, ArrowDown, Plus, Trash2, Aler
 import { DatePicker } from "@/components/ui/date-picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format, addMonths, endOfMonth } from "date-fns";
+import { format } from "date-fns";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
 
 interface PaymentPart {
   id: string;
@@ -24,6 +26,8 @@ interface Props {
   artistName: string;
   amount: number;
   cacheConfigId: string;
+  /** 'variable' → linha de BP garantida pelo módulo; 'fixed' → fluxo normal de despesa. */
+  cacheType?: string;
   configSupplierId?: string | null;
   withholdingApplicable?: boolean;
   withholdingRate?: number;
@@ -39,6 +43,7 @@ export function CacheTransactionModal({
   artistName,
   amount,
   cacheConfigId,
+  cacheType = "variable",
   configSupplierId,
   withholdingApplicable = false,
   withholdingRate = 25,
@@ -47,11 +52,14 @@ export function CacheTransactionModal({
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const isFixedCache = cacheType === "fixed";
+
   const netPayable = withholdingApplicable ? amount - withholdingAmount : amount;
 
   const [dueDate, setDueDate] = useState("");
   const [accountId, setAccountId] = useState("");
   const [selectedAdvanceIds, setSelectedAdvanceIds] = useState<Set<string>>(new Set());
+  const [showLinkBp, setShowLinkBp] = useState(false);
 
   // Split payment parts
   const [parts, setParts] = useState<PaymentPart[]>([
@@ -212,9 +220,52 @@ export function CacheTransactionModal({
     }));
   }, [useSplit, parts, finalAmount, artistName, totalAdvances, cacheCategory, configSupplierId]);
 
+  /**
+   * D1+D8 aplicado ao cachê (decisão 2026-09-03):
+   *  - cachê VARIÁVEL: a linha de BP é do módulo. Se não existir linha
+   *    `formula_type='cache_module'` ligada a este `cache_config_id`, o módulo
+   *    cria-a. Todas as partes do split ligam à MESMA linha (vínculo N:1).
+   *  - cachê FIXO: sem linha automática. Segue o fluxo normal de despesa — o
+   *    utilizador escolhe/cria a linha no LinkBpLineDialog antes de gerar.
+   */
+  const ensureCacheModuleForecast = async (): Promise<string | null> => {
+    const { data: existing } = await supabase
+      .from("event_forecasts")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("cache_config_id", cacheConfigId)
+      .eq("formula_type", "cache_module")
+      .is("version_id", null)
+      .limit(1);
+    if (existing?.[0]?.id) return existing[0].id as string;
+
+    if (!cacheCategory?.id) return null;
+    const { data: created, error } = await supabase
+      .from("event_forecasts")
+      .insert({
+        event_id: eventId,
+        type: "expense",
+        description: `Cachê — ${artistName}`,
+        amount,
+        iva_rate: 0,
+        category_id: cacheCategory.id,
+        formula_type: "cache_module",
+        cache_config_id: cacheConfigId,
+        status: "draft",
+      } as any)
+      .select("id")
+      .single();
+    if (error) throw error;
+    return (created as any)?.id ?? null;
+  };
+
   const createMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (pickedForecastId?: string) => {
       const today = new Date().toISOString().split("T")[0];
+
+      const forecastId = isFixedCache
+        ? pickedForecastId ?? null
+        : await ensureCacheModuleForecast();
 
       // Pre-fetch ALL cache-related forecasts for this event so we can propagate
       // their attachment links to the newly-created transactions. This covers:
@@ -278,6 +329,7 @@ export function CacheTransactionModal({
             due_date: dueDate || null,
             status: "approved",
             paid_amount: 0,
+            forecast_id: forecastId,
           } as any)
           .select("id")
           .single();
@@ -320,50 +372,18 @@ export function CacheTransactionModal({
         }
       }
 
-      // Create withholding tax obligation transaction
-      if (withholdingApplicable && withholdingAmount > 0) {
-        // Find or use a fiscal retention category (10.x.xx)
-        const { data: retentionCats } = await supabase
-          .from("account_categories")
-          .select("id, code, name")
-          .eq("is_active", true)
-          .eq("type", "expense")
-          .ilike("code", "10.%")
-          .order("code")
-          .limit(1);
-
-        const retentionCategoryId = retentionCats?.[0]?.id || null;
-
-        // Due date for tax: end of next month
-        const taxDueDate = format(endOfMonth(addMonths(new Date(), 1)), "yyyy-MM-dd");
-
-        const { error: taxError } = await supabase.from("transactions").insert({
-          description: `Retenção IRS (${withholdingRate}%) — ${artistName}`,
-          type: "expense",
-          amount: withholdingAmount,
-          iva_rate: 0,
-          event_id: eventId,
-          category_id: retentionCategoryId,
-          supplier_id: null,
-          account_id: null,
-          date: today,
-          due_date: taxDueDate,
-          status: "approved",
-          paid_amount: 0,
-          specification: `Obrigação fiscal – retenção na fonte sobre cachê de ${artistName}`,
-        } as any);
-        if (taxError) throw taxError;
-      }
+      // Retenção de IRS: NÃO é criada aqui (decisão 2026-09-03). Um cachê
+      // calculado inclui muitas vezes logística e verba de marketing sem
+      // incidência de retenção — só no fecho se sabe a base. A obrigação
+      // fiscal é definida e criada no fecho.
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["cache_artist_transactions"] });
-      const totalCreated = withholdingApplicable
-        ? `${formatCurrency(finalAmount)} + retenção ${formatCurrency(withholdingAmount)}`
-        : formatCurrency(finalAmount);
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast({
         title: "Transações criadas",
-        description: `Pagamento de cachê para ${artistName}: ${totalCreated}`,
+        description: `Pagamento de cachê para ${artistName}: ${formatCurrency(finalAmount)}`,
       });
       onClose();
     },
@@ -376,6 +396,27 @@ export function CacheTransactionModal({
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
   const canSubmit = dueDate && finalAmount > 0 && (!useSplit || Math.abs(splitDiff) < 0.01);
+
+  /**
+   * Cachê fixo em evento gerido `with_bp`: a linha de BP é obrigatória e
+   * escolhida/criada pelo utilizador (mesmo fluxo de src/pages/Transactions.tsx).
+   * Cachê variável: o módulo garante a linha, sem intervenção.
+   */
+  const handleSubmit = async () => {
+    if (isFixedCache) {
+      try {
+        const withBp = await fetchWithBpEventIds([eventId]);
+        if (withBp.has(eventId)) {
+          setShowLinkBp(true);
+          return;
+        }
+      } catch (err: any) {
+        toast({ title: "Erro ao validar o modo do evento", description: err.message, variant: "destructive" });
+        return;
+      }
+    }
+    createMutation.mutate(undefined);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -706,18 +747,20 @@ export function CacheTransactionModal({
 
           {/* Withholding tax notice */}
           {withholdingApplicable && withholdingAmount > 0 && (
-            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-destructive">Obrigação Fiscal Automática</p>
-                  <p className="text-[10px] text-destructive/80 mt-0.5">
-                    Será criada automaticamente uma transação de {formatCurrency(withholdingAmount)} referente
-                    à retenção de IRS ({withholdingRate}%), com vencimento no final do mês seguinte.
+                  <p className="text-xs font-medium text-warning">Retenção tratada no fecho</p>
+                  <p className="text-[10px] text-warning/80 mt-0.5">
+                    A retenção de IRS ({withholdingRate}%) estimada em {formatCurrency(withholdingAmount)} NÃO é
+                    gerada agora. A base de incidência só se conhece no fecho (parte do cachê pode ser logística
+                    ou verba de marketing, sem retenção), pelo que a obrigação fiscal é definida e criada aí.
                   </p>
                 </div>
               </div>
             </div>
+
           )}
         </div>
 
@@ -741,7 +784,7 @@ export function CacheTransactionModal({
               Cancelar
             </button>
             <button
-              onClick={() => createMutation.mutate()}
+              onClick={handleSubmit}
               disabled={!canSubmit || createMutation.isPending}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
@@ -750,6 +793,29 @@ export function CacheTransactionModal({
           </div>
         </div>
       </div>
+
+      {showLinkBp && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: `Cachê — ${artistName}`,
+            amount: finalAmount,
+            iva_rate: 0,
+            event_id: eventId,
+            category_id: cacheCategory?.id ?? null,
+            account_categories: cacheCategory
+              ? { code: cacheCategory.code, name: cacheCategory.name }
+              : null,
+          }}
+          onClose={() => setShowLinkBp(false)}
+          onLinked={() => {}}
+          onPicked={(forecastId) => {
+            setShowLinkBp(false);
+            createMutation.mutate(forecastId);
+          }}
+        />
+      )}
     </div>
   );
 }

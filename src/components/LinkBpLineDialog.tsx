@@ -43,9 +43,16 @@ interface Props {
   onClose: () => void;
   /** Chamado depois de o forecast_id estar gravado — deve aprovar a transação. */
   onLinked: (transactionId: string) => void;
+  /**
+   * Modo "só escolher": a transação ainda não existe (ex.: geração de cachê fixo).
+   * Não grava nada em `transactions`; devolve o forecast_id escolhido/criado em
+   * `onPicked` e o chamador é que cria a transação já com `forecast_id`.
+   */
+  pickOnly?: boolean;
+  onPicked?: (forecastId: string) => void;
 }
 
-export default function LinkBpLineDialog({ transaction, onClose, onLinked }: Props) {
+export default function LinkBpLineDialog({ transaction, onClose, onLinked, pickOnly, onPicked }: Props) {
   const { hasPermission } = useAuth();
   const canManageBp = hasPermission("manage_bp");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -80,6 +87,11 @@ export default function LinkBpLineDialog({ transaction, onClose, onLinked }: Pro
   const linkAndApprove = async (forecastId: string) => {
     setSaving(true);
     try {
+      if (pickOnly) {
+        onPicked?.(forecastId);
+        onClose();
+        return;
+      }
       const { error } = await supabase
         .from("transactions")
         .update({ forecast_id: forecastId } as any)
@@ -218,12 +230,12 @@ export default function LinkBpLineDialog({ transaction, onClose, onLinked }: Pro
           {canManageBp && (creating || lines.length === 0) ? (
             <Button onClick={handleCreate} disabled={saving}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Link2 className="mr-1 h-4 w-4" />}
-              Criar, vincular e aprovar
+              {pickOnly ? "Criar e usar linha" : "Criar, vincular e aprovar"}
             </Button>
           ) : (
             <Button onClick={() => selectedId && linkAndApprove(selectedId)} disabled={!selectedId || saving}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Link2 className="mr-1 h-4 w-4" />}
-              Vincular e aprovar
+              {pickOnly ? "Usar esta linha" : "Vincular e aprovar"}
             </Button>
           )}
         </DialogFooter>
