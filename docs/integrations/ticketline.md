@@ -229,3 +229,12 @@ na bilheteira, muda ao longo da venda).
   (baixa e escreve em `notes`: "projecção ajustada à carga corrente de <data>")
   e mantém `capacity_target` = capacidade da zona. A tabela Dia × Zona mostra
   as duas ("Capacidade 14.000 · Carga corrente 8.520 em 27/08").
+
+## Nota operacional — Publish pode não reconstruir a edge function
+
+Aconteceu a 2026-09-03: dois Publish seguidos e a produção manteve-se em
+`v2.39_capture_occupation` enquanto o repo já tinha `v2.40_occupation_in_daily_cycle`
+— sem erro visível. Depois de cada Publish que toque nesta função, confirmar a
+versão realmente deployed com a acção read-only `{"action":"discover"}` (devolve
+`version`). Se divergir do `VERSION` do repo, fazer deploy directo da função
+`fetch-ticketline-reports` em vez de repetir o Publish.
