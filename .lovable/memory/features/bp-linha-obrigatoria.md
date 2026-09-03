@@ -49,3 +49,30 @@ Vive dentro de `public.enforce_transaction_approval_permission()`
 `src/components/ReimbursementNoteDetail.tsx` aprova por `update` directo em lote
 (gate `isAdmin || isManager`) — o trigger apanha-o, mas sem o diálogo de
 resolução. Ver issue de seguimento.
+
+## Extensão ao 'paid' (2026-09-03)
+
+A verificação de LINHA DE BP corre em:
+- `INSERT` com `status IN ('approved','paid')` — cobre cartões pré-pagos, camarim
+  e cachês, que nunca passam por 'pending';
+- `UPDATE` que transita para `approved`.
+
+**NÃO** corre no `UPDATE` que transita para `paid` — deliberado: 462 transações
+antigas estão aprovadas sem linha em eventos `with_bp`; quem já está aprovado
+paga-se. A verificação de PERMISSÃO (`approve_transactions`) continua exclusiva
+da transição para `approved` (pagar é outro acto).
+
+Ecrãs já ligados ao `LinkBpLineDialog` (modo `pickOnly` quando a transação ainda
+não existe): aprovação individual/lote em `Transactions.tsx`, notas de reembolso,
+cachê fixo, cartões (`NewCardExpenseModal`, `ApproveCardItemModal`) e integração
+de camarim.
+
+## Camarim (2026-09-03)
+
+Uma sessão = UMA linha de 2.6.04 do evento (N:1): o `forecast_id` é escolhido no
+ecrã de integração e vai no body de `close-camarim-session`, que o valida
+(existe · mesmo evento da sessão · rubrica 2.6.04) → 422 em caso contrário, e 422
+se o evento é `with_bp` e o campo não vier. As duas pernas do acerto de
+adiantamento (10.3, sem `event_id`) não levam linha. A autorização da função
+passou de `user_roles` para `is_platform_admin` OU
+`has_permission_in(caller,'approve_transactions', company_id da sessão)`.
