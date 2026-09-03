@@ -1440,14 +1440,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${parseFloat(data.amount).toFixed(2)} €`,
           });
           if (autoApproved && !effectiveAutoMarkPaid) {
-            await supabase.from("transaction_audit_log").insert({
+            // A tabela não tem coluna `observation` — o campo antigo fazia o insert
+            // falhar em silêncio (erro engolido pelo `as any`). Agora lê-se o erro.
+            const { error: autoLogErr } = await supabase.from("transaction_audit_log").insert({
               transaction_id: insertedTx.id,
               changed_by: callerName,
               field_name: "status",
               old_value: "pending",
-              new_value: "approved",
-              observation: "Aprovação automática — categoria com BP aprovado e dentro do saldo disponível",
-            } as any);
+              new_value: "approved (automática — BP aprovado e dentro do saldo)",
+            });
+            if (autoLogErr) console.error("[auto-approve audit] failed", autoLogErr);
           }
         }
 
