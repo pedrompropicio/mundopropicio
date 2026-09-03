@@ -19,6 +19,8 @@ import {
 } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 
 /** Despesa existente (transação da sessão) quando o modal está em modo edição. */
 export interface CardExpenseRow {
