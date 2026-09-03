@@ -373,6 +373,27 @@ export default function Transactions() {
   };
 
 
+  // Lê o corpo do erro da edge function (invoke devolve só "non-2xx").
+  // 409 = D1+D8: despesas sem linha de BP.
+  const readApproveError = async (error: any): Promise<string> => {
+    try {
+      const ctx = error?.context;
+      const status = ctx?.status;
+      const body = ctx && typeof ctx.text === "function" ? await ctx.text() : null;
+      const parsed = body ? JSON.parse(body) : null;
+      if (status === 409) {
+        const n = Array.isArray(parsed?.blocked_ids) ? parsed.blocked_ids.length : 0;
+        return n > 0
+          ? `${n} despesa(s) de eventos geridos com BP não têm linha de BP vinculada. Vincula cada uma ao BP antes de aprovar.`
+          : "Há despesas sem linha de BP. Vincula-as ao BP antes de aprovar.";
+      }
+      if (parsed?.error) return parsed.error as string;
+    } catch {
+      /* cai no fallback */
+    }
+    return error?.message ?? "Erro desconhecido";
+  };
+
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
       // Capture previous status for undo
