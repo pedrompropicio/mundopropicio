@@ -1,11 +1,29 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * D17/D18 — assistente de fecho da sessão de cartão.
+ *
+ * Passo 1  Resumo: grupos evento × rubrica × IVA dos itens, os sem evento à
+ *          parte, e os pares vindos das transações directas antigas da sessão.
+ *          Itens `submitted` bloqueiam — cada um leva decisão (parked_decisions).
+ * Passo 2  Linha de BP por par (evento `with_bp` × rubrica), com LinkBpLineDialog
+ *          em `pickOnly` (escolhe ou cria a linha na L3). Pré-seleccionada quando
+ *          a rubrica só tem uma linha.
+ * Passo 3  Conciliação do saldo (teórico vs conferido, ajuste opcional).
+ * Passo 4  Chama `close-card-session`: 422 `missing_bp_lines` volta ao passo 2;
+ *          422 `budget_excess` abre o RaiseBudgetDialog multi-linha (D2) e repete
+ *          com `budget_raises`.
+ */
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { X, Lock } from "lucide-react";
-import { formatCurrency } from "@/lib/card-session-helpers";
+import { X, Lock, Loader2, ArrowRight, ArrowLeft, Link2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, invalidateCardSessionQueries, cardItemGross } from "@/lib/card-session-helpers";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import type { BudgetExcessLine, BudgetRaise } from "@/lib/bp-budget-excess";
 
 interface SessionData {
   id: string;
@@ -17,10 +35,8 @@ interface SessionData {
   pending_items: number;
   expenses_by_event: Record<string, { name: string; amount: number }>;
   opening_is_override?: boolean;
-  /** Σ assinada dos movimentos diretos na conta durante o período da sessão. */
   direct_total?: number;
   direct_movements?: { id: string; description: string; signed: number; date: string }[];
-  /** Saldo calculado da conta (módulo Contas) para verificação interna. */
   account_balance?: number | null;
 }
 
@@ -30,264 +46,657 @@ interface Props {
   session: SessionData;
 }
 
+type ParkedDecision = { decision: "reject" | "approve_without_doc" | "defer"; reason: string };
+
+interface PairKey {
+  event_id: string;
+  category_id: string;
+}
+
 export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
-  const { user } = useAuth();
   const qc = useQueryClient();
+  const [step, setStep] = useState(1);
+  const [parked, setParked] = useState<Record<string, ParkedDecision>>({});
+  const [lineByPair, setLineByPair] = useState<Record<string, string>>({});
+  const [pickPair, setPickPair] = useState<null | {
+    event_id: string;
+    category_id: string;
+    eventName: string;
+    code: string;
+    name: string;
+    amount: number;
+  }>(null);
+  const [raiseLines, setRaiseLines] = useState<BudgetExcessLine[] | null>(null);
+  const [confirmedBalance, setConfirmedBalance] = useState("");
+  const [createAdjustment, setCreateAdjustment] = useState(false);
+  const [note, setNote] = useState("");
+  const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setStep(1);
+      setRaiseLines(null);
+      setRunning(false);
+    }
+  }, [open]);
+
+  // ===== Dados da sessão =====
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["card-close-wizard", session.id],
+    enabled: open,
+    queryFn: async () => {
+      const [{ data: items }, { data: legacy }] = await Promise.all([
+        supabase
+          .from("card_session_items")
+          .select("id, description, supplier_name, amount, iva_rate, item_date, event_id, category_id, status, transaction_id, approved_without_document")
+          .eq("session_id", session.id)
+          .in("status", ["submitted", "approved"]),
+        supabase
+          .from("transactions")
+          .select("id, description, amount, paid_amount, iva_rate, event_id, category_id, forecast_id, date, type")
+          .eq("card_session_id", session.id),
+      ]);
+      const itemRows = (items ?? []) as any[];
+      const itemTxIds = new Set(itemRows.map((i) => i.transaction_id).filter(Boolean));
+      const legacyRows = ((legacy ?? []) as any[]).filter(
+        (t) => !itemTxIds.has(t.id) && t.type === "expense",
+      );
+
+      const eventIds = [
+        ...new Set([
+          ...itemRows.map((i) => i.event_id),
+          ...legacyRows.map((t) => t.event_id),
+        ].filter(Boolean) as string[]),
+      ];
+      const categoryIds = [
+        ...new Set([
+          ...itemRows.map((i) => i.category_id),
+          ...legacyRows.map((t) => t.category_id),
+        ].filter(Boolean) as string[]),
+      ];
+      const [{ data: evs }, { data: cats }] = await Promise.all([
+        eventIds.length
+          ? supabase.from("events").select("id, name").in("id", eventIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+        categoryIds.length
+          ? supabase.from("account_categories").select("id, code, name").in("id", categoryIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+      const withBp = eventIds.length ? await fetchWithBpEventIds(eventIds) : new Set<string>();
+
+      return {
+        items: itemRows,
+        legacy: legacyRows,
+        eventById: new Map(((evs ?? []) as any[]).map((e) => [e.id, e])),
+        catById: new Map(((cats ?? []) as any[]).map((c) => [c.id, c])),
+        withBp,
+      };
+    },
+  });
+
+  const items = data?.items ?? [];
+  const legacy = data?.legacy ?? [];
+  const submittedItems = items.filter((i: any) => i.status === "submitted");
+  const approvedItems = items.filter((i: any) => i.status === "approved");
+
+  const evName = (id?: string | null) =>
+    id ? ((data?.eventById.get(id) as any)?.name ?? "—") : "Sem evento (estrutura)";
+  const catLabel = (id?: string | null) => {
+    const c = id ? (data?.catById.get(id) as any) : null;
+    return c ? `${c.code} — ${c.name}` : "sem rubrica";
+  };
+
+  // ===== Grupos evento × rubrica × IVA (itens aprovados) =====
+  const groups = useMemo(() => {
+    const map = new Map<string, { event_id: string | null; category_id: string | null; iva_rate: number; count: number; base: number; total: number }>();
+    for (const it of approvedItems as any[]) {
+      const key = [it.event_id ?? "", it.category_id ?? "", Number(it.iva_rate ?? 0)].join("|");
+      const cur = map.get(key) ?? {
+        event_id: it.event_id ?? null,
+        category_id: it.category_id ?? null,
+        iva_rate: Number(it.iva_rate ?? 0),
+        count: 0,
+        base: 0,
+        total: 0,
+      };
+      cur.count += 1;
+      cur.base += Number(it.amount ?? 0);
+      cur.total += cardItemGross(it);
+      map.set(key, cur);
+    }
+    return [...map.values()];
+  }, [approvedItems]);
+
+  /** Pares (evento with_bp × rubrica) que exigem linha — itens + antigas (D18). */
+  const pairs = useMemo(() => {
+    const map = new Map<string, PairKey & { item_count: number; item_base: number; legacy_count: number; legacy_total: number }>();
+    const add = (eventId: string, categoryId: string, isLegacy: boolean, base: number) => {
+      const key = `${eventId}|${categoryId}`;
+      const cur = map.get(key) ?? {
+        event_id: eventId,
+        category_id: categoryId,
+        item_count: 0,
+        item_base: 0,
+        legacy_count: 0,
+        legacy_total: 0,
+      };
+      if (isLegacy) {
+        cur.legacy_count += 1;
+        cur.legacy_total += base;
+      } else {
+        cur.item_count += 1;
+        cur.item_base += base;
+      }
+      map.set(key, cur);
+    };
+    for (const it of approvedItems as any[]) {
+      if (!it.event_id || !it.category_id) continue;
+      if (!data?.withBp.has(it.event_id)) continue;
+      add(it.event_id, it.category_id, false, Number(it.amount ?? 0));
+    }
+    for (const t of legacy as any[]) {
+      if (!t.event_id || !t.category_id || t.forecast_id) continue;
+      if (!data?.withBp.has(t.event_id)) continue;
+      add(t.event_id, t.category_id, true, Number(t.amount ?? 0));
+    }
+    return [...map.values()];
+  }, [approvedItems, legacy, data?.withBp]);
+
+  // Pré-selecção: rubrica com uma única linha no evento.
+  useEffect(() => {
+    if (!open || pairs.length === 0) return;
+    void (async () => {
+      const next: Record<string, string> = {};
+      for (const p of pairs) {
+        const key = `${p.event_id}|${p.category_id}`;
+        if (lineByPair[key]) continue;
+        const { data: lines } = await supabase
+          .from("event_forecasts")
+          .select("id")
+          .eq("event_id", p.event_id)
+          .eq("category_id", p.category_id)
+          .eq("type", "expense")
+          .is("version_id", null);
+        if ((lines ?? []).length === 1) next[key] = (lines as any[])[0].id;
+      }
+      if (Object.keys(next).length > 0) setLineByPair((prev) => ({ ...next, ...prev }));
+    })();
+  }, [open, pairs.length]);
+
+  // ===== Conciliação =====
   const directTotal = Number(session.direct_total ?? 0);
   const directMovements = session.direct_movements ?? [];
-  const [showDirect, setShowDirect] = useState(false);
-  const theoretical =
-    session.opening_balance + session.total_loads - session.total_approved_expenses + directTotal;
-  // Verificação interna: o teórico deve igualar o saldo calculado no módulo Contas.
-  const accountBalance = session.account_balance ?? null;
-  const contasDrift = accountBalance === null ? 0 : theoretical - accountBalance;
-  const [confirmedBalance, setConfirmedBalance] = useState(String(theoretical.toFixed(2)));
-  const [note, setNote] = useState("");
-  const [createAdjustment, setCreateAdjustment] = useState(false);
-  const [confirmedHighDiff, setConfirmedHighDiff] = useState(false);
+  const legacySpend = useMemo(
+    () => legacy.reduce((s: number, t: any) => s - Number(t.paid_amount ?? 0), 0),
+    [legacy],
+  );
+  const newSpendGross = useMemo(
+    () => (approvedItems as any[]).reduce((s, it) => s + cardItemGross(it), 0),
+    [approvedItems],
+  );
+  const theoretical = useMemo(
+    () =>
+      Math.round(
+        (session.opening_balance + session.total_loads - newSpendGross + legacySpend + directTotal) * 100,
+      ) / 100,
+    [session.opening_balance, session.total_loads, newSpendGross, legacySpend, directTotal],
+  );
 
-  const diff = parseFloat(confirmedBalance) - theoretical;
-  const adjType: "income" | "expense" = diff < 0 ? "expense" : "income";
+  useEffect(() => {
+    if (open) setConfirmedBalance(theoretical.toFixed(2));
+  }, [open, theoretical]);
 
-  // Salvaguarda: diferença invulgarmente alta (>50% do gasto aprovado) sugere
-  // que foi digitado o saldo de abertura em vez do saldo atual do cartão.
+  const diff = Math.round((parseFloat(confirmedBalance || "0") - theoretical) * 100) / 100;
   const noteRequired = Math.abs(diff) > 0.01 && createAdjustment;
 
-  const highDiff =
-    !isNaN(diff) &&
-    session.total_approved_expenses > 0 &&
-    Math.abs(diff) > session.total_approved_expenses * 0.5;
+  const missingPairs = pairs.filter((p) => !lineByPair[`${p.event_id}|${p.category_id}`]);
+  const undecided = submittedItems.filter((i: any) => !parked[i.id]);
+  const badReason = submittedItems.filter(
+    (i: any) => parked[i.id]?.decision === "approve_without_doc" && !parked[i.id]?.reason.trim(),
+  );
 
-  const close = useMutation({
-    mutationFn: async () => {
-      if (session.pending_items > 0) throw new Error("Existem itens pendentes de aprovação.");
-      if (highDiff && !confirmedHighDiff) throw new Error("Confirme a diferença invulgarmente alta antes de fechar.");
-      const confirmed = parseFloat(confirmedBalance);
-      if (isNaN(confirmed)) throw new Error("Saldo real inválido.");
-
-      // Ajuste opcional
-      if (Math.abs(diff) > 0.01 && createAdjustment) {
-        if (!note.trim())
-          throw new Error(
-            "Explica a origem da diferença (ex.: fatura perdida pelo operador do cartão).",
-          );
-        const amt = Math.abs(diff);
-        const type = adjType; // diff < 0 → despesa não registada; diff > 0 → receita/sobra
-        const today = new Date().toISOString().split("T")[0];
-        // Conciliação de saldo da conta do cartão — NÃO é receita/despesa do
-        // evento: sem categoria do plano de contas, sem evento, IVA 0 e
-        // exclude_from_result para nunca entrar em BP / P&L / apuramento IVA.
-        const { error } = await supabase.from("transactions").insert({
-          description: `Acerto de fecho de sessão — cartão ${session.card_name}${note.trim() ? ` (${note.trim()})` : ""}`,
-          type,
-          amount: amt,
-          iva_rate: 0,
-          category_id: null,
-          account_id: session.card_account_id,
-          date: today,
-          status: "paid",
-          paid_amount: amt,
-          payment_date: today,
-          exclude_from_result: true,
-          card_session_id: session.id,
-        });
-
-        if (error) throw error;
-      }
-
-      const summary = {
-        opening_balance: session.opening_balance,
-        total_loads: session.total_loads,
-        total_approved_expenses: session.total_approved_expenses,
-        theoretical_balance: theoretical,
-        opening_is_override: !!session.opening_is_override,
-        direct_movements_total: directTotal,
-        account_balance: accountBalance,
+  // ===== Execução =====
+  const run = async (raises?: BudgetRaise[]) => {
+    setRunning(true);
+    try {
+      const body = {
+        session_id: session.id,
+        parked_decisions: Object.entries(parked).map(([item_id, v]) => ({
+          item_id,
+          decision: v.decision,
+          reason: v.reason || undefined,
+        })),
+        forecast_lines: pairs
+          .map((p) => ({
+            event_id: p.event_id,
+            category_id: p.category_id,
+            forecast_id: lineByPair[`${p.event_id}|${p.category_id}`],
+          }))
+          .filter((l) => !!l.forecast_id),
+        budget_raises: raises ?? [],
         confirmed_balance: parseFloat(confirmedBalance),
-        difference: diff,
-        adjustment_created: Math.abs(diff) > 0.01 && createAdjustment,
-        note: note.trim() || null,
-        expenses_by_event: session.expenses_by_event,
-        closed_by_user_id: user?.id ?? null,
-        closed_at: new Date().toISOString(),
+        create_adjustment: createAdjustment,
+        adjustment_note: note.trim() || null,
       };
 
-      // .select().single() garante que 0 linhas afetadas (RLS/estado) dá erro
-      // visível em vez de sucesso falso.
-      const { data: updated, error: updErr } = await supabase
-        .from("card_sessions")
-        .update({
-          status: "closed",
-          closed_at: new Date().toISOString(),
-          closed_by: user?.id ?? null,
-          closing_balance_confirmed: parseFloat(confirmedBalance),
-          closing_summary: summary,
-        })
-        .eq("id", session.id)
-        .select("id")
-        .maybeSingle();
-      if (updErr) throw updErr;
-      if (!updated)
-        throw new Error(
-          "Nenhuma linha atualizada — sem permissão para fechar esta sessão ou o estado mudou. Recarrega a página e tenta de novo.",
-        );
+      const { data: res, error } = await supabase.functions.invoke("close-card-session", { body });
 
-    },
-    onSuccess: () => {
-      toast({ title: "Sessão fechada." });
+      if (error) {
+        let parsed: any = null;
+        try {
+          const ctx = (error as any)?.context;
+          const text = ctx && typeof ctx.text === "function" ? await ctx.text() : null;
+          parsed = text ? JSON.parse(text) : null;
+        } catch {
+          /* ignora */
+        }
+        if (Array.isArray(parsed?.missing_bp_lines) && parsed.missing_bp_lines.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Falta a linha de BP",
+            description: "Escolhe a linha de cada par evento × rubrica.",
+          });
+          setStep(2);
+          return;
+        }
+        if (Array.isArray(parsed?.budget_excess) && parsed.budget_excess.length > 0) {
+          setRaiseLines(parsed.budget_excess as BudgetExcessLine[]);
+          return;
+        }
+        if (Array.isArray(parsed?.parked_items) && parsed.parked_items.length > 0) {
+          toast({ variant: "destructive", title: "Há despesas por rever", description: "Decide item a item." });
+          setStep(1);
+          void refetch();
+          return;
+        }
+        throw new Error(parsed?.error ?? error.message);
+      }
+      if ((res as any)?.error) throw new Error((res as any).error);
+
+      const created = (res as any)?.created ?? 0;
+      toast({
+        title: "Sessão fechada e integrada",
+        description: `${created} transação(ões) consolidada(s)${
+          (res as any)?.errors?.length ? ` · ${(res as any).errors.length} erro(s)` : ""
+        }`,
+      });
       invalidateCardSessionQueries(qc, session.id);
       onOpenChange(false);
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
-  });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao fechar", description: e.message });
+    } finally {
+      setRunning(false);
+    }
+  };
 
   if (!open) return null;
 
+  const inputCls =
+    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-6">
+      <div className="glass max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Fechar sessão de cartão</h2>
+            <h2 className="text-lg font-semibold">Fechar e integrar sessão de cartão</h2>
           </div>
           <button onClick={() => onOpenChange(false)} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {session.pending_items > 0 ? (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-600">
-            Existem <strong>{session.pending_items}</strong> item(s) pendentes de aprovação. Aprove ou rejeite antes de fechar.
-          </div>
+        <div className="mb-4 flex items-center gap-2 text-xs">
+          {["Resumo", "Linhas de BP", "Saldo", "Integrar"].map((label, i) => (
+            <div
+              key={label}
+              className={`flex-1 rounded-md border px-2 py-1 text-center ${
+                step === i + 1
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground"
+              }`}
+            >
+              {i + 1}. {label}
+            </div>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> A carregar a sessão…
+          </p>
         ) : (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
-              <Row
-                label={`Saldo abertura${session.opening_is_override ? " (override)" : " (calculado da conta)"}`}
-                value={formatCurrency(session.opening_balance)}
-              />
-              <Row label="Recargas" value={formatCurrency(session.total_loads)} />
-              <Row label="Despesas aprovadas" value={`− ${formatCurrency(session.total_approved_expenses)}`} />
-              <div className="flex items-center justify-between gap-2 py-0.5">
-                <button
-                  type="button"
-                  onClick={() => setShowDirect((v) => !v)}
-                  className="text-left text-muted-foreground underline decoration-dotted hover:text-foreground"
-                  title="Transações pagas nesta conta, no período da sessão, que não pertencem à sessão"
-                >
-                  Movimentos diretos na conta (fora da sessão) · {directMovements.length}
-                </button>
-                <span className="font-medium">
-                  {directTotal >= 0 ? "+ " : "− "}
-                  {formatCurrency(Math.abs(directTotal))}
-                </span>
-              </div>
-              {showDirect && directMovements.length > 0 && (
-                <ul className="mb-1 space-y-1 rounded border border-border/60 bg-background/60 p-2 text-xs">
-                  {directMovements.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate text-muted-foreground">
-                        {m.date ? `${m.date} · ` : ""}
-                        {m.description}
-                      </span>
-                      <span className={m.signed < 0 ? "text-destructive" : "text-emerald-500"}>
-                        {m.signed > 0 ? "+" : ""}
-                        {formatCurrency(m.signed)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {showDirect && directMovements.length === 0 && (
-                <p className="mb-1 text-xs text-muted-foreground">Sem movimentos diretos neste período.</p>
-              )}
-              <hr className="my-2 border-border" />
-              <Row label="Saldo teórico" value={formatCurrency(theoretical)} bold />
-              {Math.abs(contasDrift) > 0.01 && (
-                <p className="mt-2 text-xs text-amber-600">
-                  O cálculo da sessão difere das Contas em {formatCurrency(contasDrift)} — pode indicar dados
-                  inconsistentes.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Saldo real conferido no cartão</label>
-              <input
-                type="number" step="0.01"
-                value={confirmedBalance}
-                onChange={(e) => setConfirmedBalance(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-              {Math.abs(diff) > 0.01 && (
-                <p className={`mt-1 text-xs font-medium ${diff < 0 ? "text-destructive" : "text-emerald-500"}`}>
-                  Diferença: {diff > 0 ? "+" : ""}{formatCurrency(diff)}
-                </p>
-              )}
-              {highDiff && (
-                <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-600">
-                  <p className="font-semibold">Diferença elevada entre teórico e real</p>
-                  <p className="mt-1">
-                    Causas comuns: (1) o saldo de abertura da sessão foi editado já com despesas
-                    lançadas — nesse caso corrige a abertura em vez de criar ajuste; (2) despesa
-                    registada que não saiu deste cartão, ou movimento no cartão sem registo;
-                    (3) engano na digitação do saldo atual. Vale confirmar antes de fechar.
-                  </p>
-                  <label className="mt-2 flex cursor-pointer items-center gap-2 font-medium">
-                    <input type="checkbox" checked={confirmedHighDiff} onChange={(e) => setConfirmedHighDiff(e.target.checked)} />
-                    Revi e confirmo o saldo digitado
-                  </label>
-                </div>
-              )}
-
-            </div>
-
-            {Math.abs(diff) > 0.01 && (
-              <div className="rounded-lg border border-border/60 p-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" checked={createAdjustment} onChange={(e) => setCreateAdjustment(e.target.checked)} />
-                  Criar transação de ajuste ({adjType === "expense" ? "despesa" : "receita"})
-                </label>
-                {createAdjustment && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Conciliação do saldo da conta do cartão — sem categoria do plano de contas e
-                    fora do BP/P&amp;L do evento. A nota abaixo é obrigatória.
-                  </p>
+          <>
+            {/* ================= PASSO 1 ================= */}
+            {step === 1 && (
+              <div className="space-y-4">
+                {submittedItems.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                    <p className="text-sm font-semibold text-amber-600">
+                      {submittedItems.length} despesa(s) por rever — decide antes de integrar
+                    </p>
+                    {submittedItems.map((it: any) => (
+                      <div key={it.id} className="rounded border border-border/60 bg-background/60 p-2 text-xs">
+                        <p className="font-medium">
+                          {it.supplier_name || it.description || "—"} · {formatCurrency(cardItemGross(it))}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {(["reject", "approve_without_doc", "defer"] as const).map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() =>
+                                setParked((prev) => ({
+                                  ...prev,
+                                  [it.id]: { decision: d, reason: prev[it.id]?.reason ?? "" },
+                                }))
+                              }
+                              className={`rounded border px-2 py-0.5 ${
+                                parked[it.id]?.decision === d
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border text-muted-foreground"
+                              }`}
+                            >
+                              {d === "reject" ? "Rejeitar" : d === "approve_without_doc" ? "Aprovar sem doc." : "Adiar"}
+                            </button>
+                          ))}
+                        </div>
+                        {parked[it.id]?.decision === "approve_without_doc" && (
+                          <input
+                            className={`${inputCls} mt-2`}
+                            placeholder="Justificação obrigatória"
+                            value={parked[it.id]?.reason ?? ""}
+                            onChange={(e) =>
+                              setParked((prev) => ({
+                                ...prev,
+                                [it.id]: { decision: "approve_without_doc", reason: e.target.value },
+                              }))
+                            }
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
+
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Consolidação por evento × rubrica × IVA</h3>
+                  {groups.filter((g) => g.event_id).length === 0 && (
+                    <p className="text-xs text-muted-foreground">Sem itens com evento.</p>
+                  )}
+                  <div className="space-y-1">
+                    {groups
+                      .filter((g) => g.event_id)
+                      .map((g, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 rounded border border-border/60 bg-muted/20 px-2 py-1 text-xs">
+                          <span className="min-w-0 truncate">
+                            {evName(g.event_id)} · {catLabel(g.category_id)} · IVA {g.iva_rate}%
+                            <span className="text-muted-foreground"> ({g.count})</span>
+                          </span>
+                          <span className="font-medium tabular-nums">{formatCurrency(g.total)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </section>
+
+                {groups.some((g) => !g.event_id) && (
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold">Sem evento (estrutura — fora do BP)</h3>
+                    <div className="space-y-1">
+                      {groups
+                        .filter((g) => !g.event_id)
+                        .map((g, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2 rounded border border-border/60 bg-muted/20 px-2 py-1 text-xs">
+                            <span className="min-w-0 truncate">
+                              {catLabel(g.category_id)} · IVA {g.iva_rate}%
+                              <span className="text-muted-foreground"> ({g.count})</span>
+                            </span>
+                            <span className="font-medium tabular-nums">{formatCurrency(g.total)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </section>
+                )}
+
+                {legacy.length > 0 && (
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold">
+                      Transações antigas da sessão{" "}
+                      <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-600">
+                        registadas antes do modelo de itens
+                      </Badge>
+                    </h3>
+                    <div className="space-y-1">
+                      {pairs
+                        .filter((p) => p.legacy_count > 0)
+                        .map((p) => (
+                          <div key={`${p.event_id}|${p.category_id}`} className="flex items-center justify-between gap-2 rounded border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-xs">
+                            <span className="min-w-0 truncate">
+                              {evName(p.event_id)} · {catLabel(p.category_id)}
+                              <span className="text-muted-foreground"> ({p.legacy_count} a alocar)</span>
+                            </span>
+                            <span className="font-medium tabular-nums">{formatCurrency(p.legacy_total)}</span>
+                          </div>
+                        ))}
+                      {pairs.filter((p) => p.legacy_count > 0).length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Já todas alocadas a linha de BP (ou sem evento) — entram só na conciliação.
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                  <Button
+                    disabled={undecided.length > 0 || badReason.length > 0}
+                    onClick={() => setStep(pairs.length > 0 ? 2 : 3)}
+                  >
+                    Continuar <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Nota / justificação {noteRequired && <span className="text-destructive">*</span>}
-              </label>
-              <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              {noteRequired && !note.trim() && (
-                <p className="mt-1 text-xs text-destructive">
-                  Explica a origem da diferença (ex.: fatura perdida pelo operador do cartão).
+            {/* ================= PASSO 2 ================= */}
+            {step === 2 && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Cada par evento × rubrica de um evento gerido com BP precisa de uma linha. As despesas
+                  antigas da sessão são alocadas à mesma linha do par (D18).
                 </p>
-              )}
-            </div>
+                {pairs.map((p) => {
+                  const key = `${p.event_id}|${p.category_id}`;
+                  const chosen = lineByPair[key];
+                  const cat = data?.catById.get(p.category_id) as any;
+                  return (
+                    <div key={key} className="rounded-lg border border-border p-3 text-xs">
+                      <p className="font-medium">{evName(p.event_id)}</p>
+                      <p className="text-muted-foreground">{catLabel(p.category_id)}</p>
+                      <p className="mt-1 text-muted-foreground">
+                        Itens: {p.item_count} · {formatCurrency(p.item_base)} · Antigas a alocar: {p.legacy_count} ·{" "}
+                        {formatCurrency(p.legacy_total)}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        {chosen ? (
+                          <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600">
+                            <CheckCircle2 className="mr-1 h-3 w-3" /> Linha escolhida
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600">
+                            <AlertTriangle className="mr-1 h-3 w-3" /> Sem linha
+                          </Badge>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setPickPair({
+                              event_id: p.event_id,
+                              category_id: p.category_id,
+                              eventName: evName(p.event_id),
+                              code: cat?.code ?? "",
+                              name: cat?.name ?? "",
+                              amount: p.item_base + p.legacy_total,
+                            })
+                          }
+                        >
+                          <Link2 className="mr-2 h-3 w-3" /> {chosen ? "Trocar linha" : "Escolher linha"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex justify-between gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                  </Button>
+                  <Button disabled={missingPairs.length > 0} onClick={() => setStep(3)}>
+                    Continuar <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
-            <p className="text-xs text-muted-foreground">
-              O saldo remanescente fica no cartão. A próxima sessão abre com esse saldo como opening_balance.
-            </p>
+            {/* ================= PASSO 3 ================= */}
+            {step === 3 && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
+                  <Row
+                    label={`Saldo abertura${session.opening_is_override ? " (override)" : " (calculado da conta)"}`}
+                    value={formatCurrency(session.opening_balance)}
+                  />
+                  <Row label="Recargas" value={formatCurrency(session.total_loads)} />
+                  <Row label="Despesas da sessão (itens)" value={`− ${formatCurrency(newSpendGross)}`} />
+                  <Row label="Transações antigas da sessão" value={formatCurrency(legacySpend)} />
+                  <Row
+                    label={`Movimentos diretos na conta (${directMovements.length})`}
+                    value={formatCurrency(directTotal)}
+                  />
+                  <hr className="my-2 border-border" />
+                  <Row label="Saldo teórico" value={formatCurrency(theoretical)} bold />
+                </div>
 
-            <div className="flex gap-2 pt-2">
-              <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
-              <button
-                type="button"
-                onClick={() => close.mutate()}
-                disabled={close.isPending || (highDiff && !confirmedHighDiff) || (noteRequired && !note.trim())}
-                className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {close.isPending ? "A fechar…" : "Fechar sessão"}
-              </button>
-            </div>
-          </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Saldo real conferido no cartão
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={confirmedBalance}
+                    onChange={(e) => setConfirmedBalance(e.target.value)}
+                    className={inputCls}
+                  />
+                  {Math.abs(diff) > 0.01 && (
+                    <p className={`mt-1 text-xs font-medium ${diff < 0 ? "text-destructive" : "text-emerald-500"}`}>
+                      Diferença: {diff > 0 ? "+" : ""}
+                      {formatCurrency(diff)}
+                    </p>
+                  )}
+                </div>
+
+                {Math.abs(diff) > 0.01 && (
+                  <div className="rounded-lg border border-border/60 p-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={createAdjustment}
+                        onChange={(e) => setCreateAdjustment(e.target.checked)}
+                      />
+                      Criar transação de acerto ({diff < 0 ? "despesa" : "receita"})
+                    </label>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Conciliação do saldo da conta — sem rubrica, fora do BP e do resultado. A nota é
+                      obrigatória.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Nota / justificação {noteRequired && <span className="text-destructive">*</span>}
+                  </label>
+                  <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} />
+                </div>
+
+                <div className="flex justify-between gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setStep(pairs.length > 0 ? 2 : 1)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                  </Button>
+                  <Button disabled={noteRequired && !note.trim()} onClick={() => setStep(4)}>
+                    Continuar <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ================= PASSO 4 ================= */}
+            {step === 4 && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
+                  <p>
+                    Vão nascer <strong>{groups.length}</strong> transação(ões) paga(s) consolidada(s) no cartão{" "}
+                    <strong>{session.card_name}</strong>, com os documentos dos itens e o dossier anexados.
+                  </p>
+                  {pairs.some((p) => p.legacy_count > 0) && (
+                    <p className="mt-2 text-xs text-amber-600">
+                      As despesas antigas da sessão com evento e rubrica passam a usar a linha de BP escolhida.
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Depois disto a sessão fica fechada e sem edição.
+                  </p>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={() => setStep(3)} disabled={running}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                  </Button>
+                  <Button onClick={() => void run()} disabled={running}>
+                    {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Fechar e integrar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {pickPair && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: `Cartão ${session.card_name} — ${pickPair.name}`,
+            amount: pickPair.amount,
+            iva_rate: 0,
+            event_id: pickPair.event_id,
+            category_id: pickPair.category_id,
+            events: { name: pickPair.eventName },
+            account_categories: { code: pickPair.code, name: pickPair.name },
+          }}
+          onClose={() => setPickPair(null)}
+          onLinked={() => setPickPair(null)}
+          onPicked={(forecastId) => {
+            setLineByPair((prev) => ({ ...prev, [`${pickPair.event_id}|${pickPair.category_id}`]: forecastId }));
+            setPickPair(null);
+          }}
+        />
+      )}
+
+      {raiseLines && (
+        <RaiseBudgetDialog
+          lines={raiseLines}
+          onClose={() => setRaiseLines(null)}
+          onConfirm={(raises) => {
+            setRaiseLines(null);
+            void run(raises);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -296,7 +705,9 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
   return (
     <div className={`flex items-center justify-between py-1 ${bold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
       <span>{label}</span>
-      <span>{value}</span>
+      <span className="tabular-nums">{value}</span>
     </div>
   );
 }
+
+export default CloseCardSessionModal;

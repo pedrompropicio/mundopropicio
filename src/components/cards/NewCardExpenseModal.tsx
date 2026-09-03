@@ -19,10 +19,20 @@ import {
 } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
-import { fetchWithBpEventIds } from "@/lib/bp-line-required";
-import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import CardItemDocumentsField from "@/components/cards/CardItemDocumentsField";
+import { fetchCardItemDocuments, uploadCardItemDocument } from "@/lib/card-item-documents";
 
-/** Despesa existente (transação da sessão) quando o modal está em modo edição. */
+/**
+ * D17 — as despesas do cartão são ITENS da sessão (`card_session_items`) e só
+ * viram transações no FECHO, consolidadas por evento × rubrica × IVA. Este
+ * modal nunca cria transações: grava o item já `approved` (quem registra aqui é
+ * quem gere o cartão) com N documentos em `card_item_documents`.
+ *
+ * O modo `expense` continua a existir só para EDITAR as transações directas
+ * antigas (sessões abertas antes deste modelo) — não cria nada novo.
+ */
+
+/** Transação directa antiga da sessão (modelo pré-D17), em modo edição. */
 export interface CardExpenseRow {
   id: string;
   description: string | null;
@@ -37,14 +47,31 @@ export interface CardExpenseRow {
   company_id?: string | null;
 }
 
+/** Item da sessão, em modo edição. */
+export interface CardItemRow {
+  id: string;
+  description: string | null;
+  supplier_name: string | null;
+  amount: number | string | null;
+  iva_rate: number | string | null;
+  item_date: string;
+  event_id: string | null;
+  category_id: string | null;
+  invoice_ref?: string | null;
+  approved_without_document?: boolean | null;
+  approved_without_document_reason?: string | null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   sessionId: string;
   cardAccountId: string;
   defaultEventId?: string | null;
-  /** Quando presente, o modal edita esta despesa em vez de criar uma nova. */
+  /** Edição de uma transação directa antiga da sessão. */
   expense?: CardExpenseRow | null;
+  /** Edição de um item da sessão. */
+  item?: CardItemRow | null;
 }
 
 function getDocType(filename: string): string {
@@ -54,12 +81,22 @@ function getDocType(filename: string): string {
   return "outro";
 }
 
-export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccountId, defaultEventId, expense }: Props) {
+export function NewCardExpenseModal({
+  open,
+  onOpenChange,
+  sessionId,
+  cardAccountId,
+  defaultEventId,
+  expense,
+  item,
+}: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const isEdit = !!expense;
+  const isLegacyEdit = !!expense;
+  const isItemEdit = !!item;
+  const isEdit = isLegacyEdit || isItemEdit;
 
   const [description, setDescription] = useState("");
   /** Total c/IVA — igual ao talão (é o que sai do cartão). */
@@ -69,15 +106,16 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   const [eventId, setEventId] = useState<string>(defaultEventId ?? "");
   const [categoryId, setCategoryId] = useState<string>("");
   const [supplierId, setSupplierId] = useState<string>("");
+  const [supplierName, setSupplierName] = useState("");
   const [invoiceRef, setInvoiceRef] = useState("");
+  const [noDocReason, setNoDocReason] = useState("");
 
   const [docFile, setDocFile] = useState<File | null>(null);
+  const [pendingDocs, setPendingDocs] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
-  /** D1+D8 — despesa de evento `with_bp` precisa de linha de BP antes de nascer. */
-  const [bpGate, setBpGate] = useState(false);
-  const [checkingBp, setCheckingBp] = useState(false);
+  const [existingDocCount, setExistingDocCount] = useState(0);
 
   // Pré-preenche em modo edição (e limpa ao voltar a modo criação).
   useEffect(() => {
@@ -91,7 +129,20 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       setEventId(expense.event_id ?? "");
       setCategoryId(expense.category_id ?? "");
       setSupplierId(expense.supplier_id ?? "");
+      setSupplierName("");
       setInvoiceRef(expense.invoice_ref ?? "");
+      setNoDocReason("");
+    } else if (item) {
+      setDescription(item.description ?? "");
+      setTotal(String(cardItemGross(item) || ""));
+      setIvaRate(Number(item.iva_rate) || 0);
+      setDate(item.item_date);
+      setEventId(item.event_id ?? "");
+      setCategoryId(item.category_id ?? "");
+      setSupplierId("");
+      setSupplierName(item.supplier_name ?? "");
+      setInvoiceRef(item.invoice_ref ?? "");
+      setNoDocReason(item.approved_without_document_reason ?? "");
     } else {
       setDescription("");
       setTotal("");
@@ -100,13 +151,26 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
       setEventId(defaultEventId ?? "");
       setCategoryId("");
       setSupplierId("");
+      setSupplierName("");
       setInvoiceRef("");
+      setNoDocReason("");
     }
     setDocFile(null);
+    setPendingDocs([]);
     setPreviewUrl(null);
     setOcrPayload(null);
-  }, [open, expense?.id]);
+  }, [open, expense?.id, item?.id]);
 
+  // Nº de anexos já gravados (só relevante para itens).
+  useEffect(() => {
+    if (!open || !item?.id) {
+      setExistingDocCount(0);
+      return;
+    }
+    void fetchCardItemDocuments(item.id)
+      .then((d) => setExistingDocCount(d.length))
+      .catch(() => setExistingDocCount(0));
+  }, [open, item?.id]);
 
   const { rates } = useEventIvaCountry(eventId || null);
 
@@ -174,6 +238,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     }
     setDocFile(file);
     setPreviewUrl(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+    if (!isLegacyEdit) setPendingDocs((prev) => [...prev, file]);
     e.target.value = "";
 
     setOcrLoading(true);
@@ -204,6 +269,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
 
       // Fornecedor: tenta casar com um existente por nome
       if (data.supplier_name) {
+        if (!supplierName.trim()) setSupplierName(String(data.supplier_name));
         const norm = (s: string) => s.toLowerCase().trim();
         const match = (suppliers as any[]).find(
           (s) => norm(s.name) === norm(data.supplier_name) || norm(s.name).includes(norm(data.supplier_name)),
@@ -233,12 +299,16 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     setTotal("");
     setCategoryId("");
     setSupplierId("");
+    setSupplierName("");
     setInvoiceRef("");
+    setNoDocReason("");
     setDocFile(null);
+    setPendingDocs([]);
     setPreviewUrl(null);
     setOcrPayload(null);
   };
 
+  /** Anexo de transação (só no caminho legado). */
   const attachDoc = async (txId: string) => {
     if (!docFile) return;
     const ext = docFile.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -260,15 +330,16 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   };
 
   const mut = useMutation({
-    mutationFn: async (forecastId?: string | null) => {
+    mutationFn: async () => {
       const gross = parseFloat(total);
       if (isNaN(gross) || gross <= 0) throw new Error("Total inválido.");
       if (!description.trim()) throw new Error("Descrição obrigatória.");
-      if (!categoryId) throw new Error("Categoria obrigatória.");
+      if (!categoryId) throw new Error("Rubrica (L3) obrigatória.");
       const rate = Number(ivaRate) || 0;
       // BD guarda base s/IVA + taxa; o cartão pagou o total c/IVA.
       const base = cardBaseFromTotal(gross, rate);
 
+      // ---- Caminho legado: editar transação directa antiga ----
       if (expense) {
         const patch = {
           description: description.trim(),
@@ -313,61 +384,59 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         }
 
         await attachDoc(expense.id);
-
-        // Reagrupamento após edição: só se o nº de fatura mudou e ficou preenchido.
-        const refChanged = String(expense.invoice_ref ?? "") !== String(patch.invoice_ref ?? "");
-        if (refChanged && patch.invoice_ref && patch.supplier_id) {
-          const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
-          const auto = await autoGroupInvoiceForTransaction(expense.id);
-          if (auto) {
-            toast({
-              title: `Agrupada à fatura ${auto.invoiceRef}`,
-              description: `${auto.total} transações partilham esta fatura.`,
-            });
-          }
-        }
         return;
       }
 
-      const { data: inserted, error } = await supabase
-        .from("transactions")
-        .insert({
-          description: description.trim(),
-          type: "expense",
-          amount: base,
-          iva_rate: rate,
-          category_id: categoryId,
-          account_id: cardAccountId,
-          supplier_id: supplierId || null,
-          invoice_ref: invoiceRef.trim() || null,
-          event_id: eventId || null,
-          date,
-          status: "paid",
-          paid_amount: gross,
-          payment_date: date,
-          card_session_id: sessionId,
-          forecast_id: forecastId ?? null,
-        } as any)
-        .select("id")
-        .single();
-      if (error) throw error;
+      // ---- Item da sessão (criar ou editar) ----
+      const docsAfter = existingDocCount + pendingDocs.length;
+      const reason = noDocReason.trim();
+      if (docsAfter === 0 && !reason) {
+        throw new Error("Sem documento: justifica a aprovação sem comprovativo.");
+      }
 
-      await attachDoc(inserted.id);
+      const payload = {
+        session_id: sessionId,
+        description: description.trim(),
+        supplier_name: supplierName.trim() || null,
+        amount: base,
+        iva_rate: rate,
+        item_date: date,
+        event_id: eventId || null,
+        category_id: categoryId,
+        invoice_ref: invoiceRef.trim() || null,
+        status: "approved",
+        approved_without_document: docsAfter === 0,
+        approved_without_document_reason: docsAfter === 0 ? reason : null,
+        reviewed_by: user?.id ?? null,
+        reviewed_at: new Date().toISOString(),
+      };
 
-      // Agrupamento automático por nº de fatura (mesmo padrão do TransactionFormModal).
-      if (invoiceRef.trim() && supplierId) {
-        const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
-        const auto = await autoGroupInvoiceForTransaction(inserted.id);
-        if (auto) {
-          toast({
-            title: `Agrupada à fatura ${auto.invoiceRef}`,
-            description: `${auto.total} transações partilham esta fatura.`,
-          });
-        }
+      let itemId = item?.id ?? null;
+      if (itemId) {
+        const { error } = await supabase.from("card_session_items").update(payload as any).eq("id", itemId);
+        if (error) throw error;
+      } else {
+        const { data: inserted, error } = await supabase
+          .from("card_session_items")
+          .insert({ ...payload, submitted_by: user?.id ?? null } as any)
+          .select("id")
+          .single();
+        if (error) throw error;
+        itemId = (inserted as any).id as string;
+      }
+
+      for (const f of pendingDocs) {
+        await uploadCardItemDocument(sessionId, itemId, f, user?.id ?? null);
       }
     },
     onSuccess: () => {
-      toast({ title: isEdit ? "Despesa atualizada." : "Despesa registada." });
+      toast({
+        title: isLegacyEdit
+          ? "Despesa atualizada."
+          : isItemEdit
+            ? "Item atualizado."
+            : "Despesa registada na sessão (vira transação no fecho).",
+      });
       invalidateCardSessionQueries(qc, sessionId);
       onOpenChange(false);
       reset();
@@ -375,35 +444,12 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  /**
-   * D1+D8 nos cartões: estas transações nascem 'paid', logo escapam ao trigger.
-   * A regra vive no ecrã: despesa com evento gerido `with_bp` só nasce com
-   * `forecast_id` — escolhido (ou criado) no LinkBpLineDialog em modo pickOnly.
-   */
-  const handleSubmit = async () => {
-    if (isEdit || !eventId || !categoryId) {
-      mut.mutate(null);
-      return;
-    }
-    setCheckingBp(true);
-    try {
-      const withBp = await fetchWithBpEventIds([eventId]);
-      if (withBp.has(eventId)) {
-        setBpGate(true);
-        return;
-      }
-      mut.mutate(null);
-    } catch (err: any) {
-      toast({ title: "Erro ao verificar o BP", description: err.message, variant: "destructive" });
-    } finally {
-      setCheckingBp(false);
-    }
-  };
-
   if (!open) return null;
 
   const inputCls =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
+
+  const needsReason = !isLegacyEdit && existingDocCount + pendingDocs.length === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -411,12 +457,25 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">{isEdit ? "Editar despesa (cartão)" : "Nova despesa (cartão)"}</h2>
+            <h2 className="text-lg font-semibold">
+              {isLegacyEdit
+                ? "Editar despesa antiga (cartão)"
+                : isItemEdit
+                  ? "Editar despesa da sessão"
+                  : "Nova despesa (cartão)"}
+            </h2>
           </div>
           <button onClick={() => onOpenChange(false)} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {!isLegacyEdit && (
+          <p className="mb-3 rounded-lg border border-border/60 bg-muted/30 p-2 text-[11px] text-muted-foreground">
+            A despesa fica registada na sessão. A transação só nasce no fecho, consolidada por
+            evento × rubrica × IVA.
+          </p>
+        )}
 
         {/* Scan do documento — opcional */}
         <div className="mb-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
@@ -439,7 +498,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
               onClick={() => cameraRef.current?.click()}
             >
               {ocrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-              {ocrLoading ? "A ler…" : docFile ? "Substituir foto" : "Tirar foto"}
+              {ocrLoading ? "A ler…" : docFile ? "Nova foto" : "Tirar foto"}
             </Button>
             <Button
               type="button"
@@ -475,7 +534,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           />
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="space-y-3">
+        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} required className={inputCls} />
@@ -494,12 +553,12 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
             <DatePicker value={date} onChange={setDate} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria (L3) *</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Rubrica (L3) *</label>
             <SearchableSelect
               options={l3Options}
               value={categoryId}
               onValueChange={setCategoryId}
-              placeholder="Selecionar categoria…"
+              placeholder="Selecionar rubrica…"
             />
           </div>
           <div>
@@ -508,18 +567,31 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
               options={events.map((e: any) => ({ value: e.id, label: e.name }))}
               value={eventId}
               onValueChange={setEventId}
-              placeholder="(sem evento — custo comum)"
+              placeholder="(sem evento — custo de estrutura)"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
-            <SearchableSelect
-              options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
-              value={supplierId}
-              onValueChange={setSupplierId}
-              placeholder="(opcional)"
-            />
-          </div>
+          {isLegacyEdit ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
+              <SearchableSelect
+                options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+                value={supplierId}
+                onValueChange={setSupplierId}
+                placeholder="(opcional)"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor (nome)</label>
+              <input
+                type="text"
+                value={supplierName}
+                onChange={(e) => setSupplierName(e.target.value)}
+                placeholder="(opcional — como vem no talão)"
+                className={inputCls}
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
@@ -530,44 +602,43 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
               placeholder="Ex: FT 002/5944"
               className={inputCls}
             />
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Transações com o mesmo nº de fatura serão agrupadas automaticamente
-            </p>
           </div>
+
+          {!isLegacyEdit && (
+            <>
+              <CardItemDocumentsField
+                sessionId={sessionId}
+                itemId={item?.id ?? null}
+                pending={pendingDocs}
+                onPendingChange={(files) => setPendingDocs(files)}
+              />
+              {needsReason && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Justificação sem documento *
+                  </label>
+                  <input
+                    type="text"
+                    value={noDocReason}
+                    onChange={(e) => setNoDocReason(e.target.value)}
+                    placeholder="Porque não há comprovativo?"
+                    className={inputCls}
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={mut.isPending || ocrLoading || checkingBp} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {mut.isPending || checkingBp ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
+            <button type="submit" disabled={mut.isPending || ocrLoading} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+              {mut.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
             </button>
           </div>
         </form>
       </div>
-
-      {bpGate && (
-        <LinkBpLineDialog
-          pickOnly
-          transaction={{
-            id: "",
-            description: description.trim(),
-            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
-            iva_rate: Number(ivaRate) || 0,
-            event_id: eventId,
-            category_id: categoryId,
-            events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
-            account_categories: (() => {
-              const c = (categories as any[]).find((x) => x.id === categoryId);
-              return c ? { code: c.code, name: c.name } : null;
-            })(),
-          }}
-          onClose={() => setBpGate(false)}
-          onLinked={() => setBpGate(false)}
-          onPicked={(forecastId) => {
-            setBpGate(false);
-            mut.mutate(forecastId);
-          }}
-        />
-      )}
     </div>
   );
 }
+
+export default NewCardExpenseModal;

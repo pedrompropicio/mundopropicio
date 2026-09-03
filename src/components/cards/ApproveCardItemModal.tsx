@@ -9,8 +9,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cardBaseFromTotal, cardTotalFromBase, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 import CardAmountFields from "@/components/cards/CardAmountFields";
 import { normalizeMatchText } from "@/lib/bp-tx-matching";
-import { fetchWithBpEventIds } from "@/lib/bp-line-required";
-import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import CardItemDocumentsField from "@/components/cards/CardItemDocumentsField";
 
 interface Item {
   id: string;
@@ -47,9 +46,6 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   const [categoryId, setCategoryId] = useState<string>("");
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  /** D1+D8 — a transação nasce 'paid' (fora do trigger); a regra vive aqui. */
-  const [bpGate, setBpGate] = useState(false);
-  const [checkingBp, setCheckingBp] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -128,38 +124,19 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
       .map((c: any) => ({ value: c.id, label: `${c.code} — ${c.name}` }));
   }, [categories]);
 
+  /**
+   * D17 — aprovar é só validar o ITEM. A transação nasce no FECHO da sessão,
+   * consolidada por evento × rubrica × IVA (com o gate D1/D8/D2 lá).
+   */
   const approve = useMutation({
-    mutationFn: async (forecastId?: string | null) => {
+    mutationFn: async () => {
       if (!item) return;
-      if (!categoryId) throw new Error("Categoria obrigatória para aprovar.");
+      if (!categoryId) throw new Error("Rubrica (L3) obrigatória para aprovar.");
       const gross = parseFloat(total);
       if (isNaN(gross) || gross <= 0) throw new Error("Valor inválido.");
       const rate = Number(ivaRate) || 0;
-      // BD: amount = base s/IVA; paid_amount = total pago no cartão (c/IVA).
+      // BD: amount = base s/IVA (o total c/IVA é reconstruído a partir da taxa).
       const amt = cardBaseFromTotal(gross, rate);
-
-      const { data: tx, error } = await supabase
-        .from("transactions")
-        .insert({
-          description: description.trim() || supplierName || "Despesa cartão",
-          type: "expense",
-          amount: amt,
-          iva_rate: rate,
-          category_id: categoryId,
-          account_id: cardAccountId,
-          supplier_id: resolvedSupplierId,
-          invoice_ref: invoiceRef.trim() || null,
-          event_id: eventId || null,
-          date,
-          status: "paid",
-          paid_amount: gross,
-          payment_date: date,
-          card_session_id: item.session_id,
-          forecast_id: forecastId ?? null,
-        } as any)
-        .select("id")
-        .single();
-      if (error) throw error;
 
       const { error: updErr } = await supabase
         .from("card_session_items")
@@ -173,57 +150,20 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           description: description || null,
           event_id: eventId || null,
           category_id: categoryId,
-          transaction_id: tx.id,
           reviewed_by: user?.id ?? null,
           reviewed_at: new Date().toISOString(),
         })
         .eq("id", item.id);
       if (updErr) throw updErr;
-
-      // Agrupamento automático por nº de fatura (mesmo padrão do TransactionFormModal).
-      // Sem fornecedor resolvido não há agrupamento possível (o helper exige supplier_id).
-      if (invoiceRef.trim() && resolvedSupplierId) {
-        const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
-        const auto = await autoGroupInvoiceForTransaction(tx.id);
-        if (auto) {
-          toast({
-            title: `Agrupada à fatura ${auto.invoiceRef}`,
-            description: `${auto.total} transações partilham esta fatura.`,
-          });
-        }
-      }
     },
     onSuccess: () => {
-      toast({ title: "Item aprovado." });
+      toast({ title: "Item aprovado (entra no fecho da sessão)." });
       invalidateCardSessionQueries(qc, item?.session_id);
       onOpenChange(false);
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  /**
-   * Despesa de evento gerido `with_bp` só nasce com linha de BP: abre o
-   * LinkBpLineDialog em modo pickOnly e cria já com o `forecast_id`.
-   */
-  const requestApprove = async () => {
-    if (!eventId || !categoryId) {
-      approve.mutate(null);
-      return;
-    }
-    setCheckingBp(true);
-    try {
-      const withBp = await fetchWithBpEventIds([eventId]);
-      if (withBp.has(eventId)) {
-        setBpGate(true);
-        return;
-      }
-      approve.mutate(null);
-    } catch (err: any) {
-      toast({ title: "Erro ao verificar o BP", description: err.message, variant: "destructive" });
-    } finally {
-      setCheckingBp(false);
-    }
-  };
 
   const reject = useMutation({
     mutationFn: async () => {
@@ -275,6 +215,14 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
                 className="max-h-56 w-full rounded border border-border bg-muted object-contain"
               />
             </a>
+          )}
+          {item.session_id && (
+            <CardItemDocumentsField
+              sessionId={item.session_id}
+              itemId={item.id}
+              pending={[]}
+              onPendingChange={() => {}}
+            />
           )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição</label>
@@ -344,40 +292,16 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
             </button>
             <button
               type="button"
-              onClick={() => void requestApprove()}
-              disabled={approve.isPending || checkingBp}
+              onClick={() => approve.mutate()}
+              disabled={approve.isPending}
               className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {approve.isPending || checkingBp ? "A aprovar…" : "Aprovar → Criar transação"}
+              {approve.isPending ? "A aprovar…" : "Aprovar item"}
             </button>
           </div>
         </div>
       </div>
-
-      {bpGate && (
-        <LinkBpLineDialog
-          pickOnly
-          transaction={{
-            id: "",
-            description: description.trim() || supplierName || "Despesa cartão",
-            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
-            iva_rate: Number(ivaRate) || 0,
-            event_id: eventId,
-            category_id: categoryId,
-            events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
-            account_categories: (() => {
-              const c = (categories as any[]).find((x) => x.id === categoryId);
-              return c ? { code: c.code, name: c.name } : null;
-            })(),
-          }}
-          onClose={() => setBpGate(false)}
-          onLinked={() => setBpGate(false)}
-          onPicked={(forecastId) => {
-            setBpGate(false);
-            approve.mutate(forecastId);
-          }}
-        />
-      )}
     </div>
   );
 }
+

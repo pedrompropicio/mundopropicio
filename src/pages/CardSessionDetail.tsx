@@ -56,6 +56,7 @@ export default function CardSessionDetail() {
   const [loadOpen, setLoadOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<any | null>(null);
+  const [editItem, setEditItem] = useState<any | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<any | null>(null);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
@@ -174,6 +175,19 @@ export default function CardSessionDetail() {
   // Cartão gasta SEMPRE o total c/IVA — amount na BD é base s/IVA.
   const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
 
+  /**
+   * D17 — dois saldos distintos:
+   *  - Saldo contabilístico: o da conta no módulo Contas (só conta transações).
+   *  - Saldo real estimado: contabilístico − itens da sessão ainda não
+   *    integrados (submitted + approved), que já saíram do cartão mas ainda não
+   *    têm transação.
+   */
+  const openItemsGross = (items as any[])
+    .filter((i) => i.status === "submitted" || i.status === "approved")
+    .reduce((s, i) => s + cardItemGross(i), 0);
+  const realEstimated = cardBalance === undefined ? undefined : cardBalance - openItemsGross;
+
+
   // Sessões FECHADAS não recalculam nada — usam o closing_summary histórico.
   const isClosedSession = (session as any)?.status === "closed";
   const loadInIds = (loads as any[]).map((l) => l.in_transaction_id);
@@ -205,16 +219,23 @@ export default function CardSessionDetail() {
   const theoretical = opening + totalLoads - totalApproved - totalPending + directTotal;
 
 
+  /** Breakdown por evento: transações antigas da sessão + itens (novo modelo). */
   const expensesByEvent = useMemo(() => {
     const map: Record<string, { name: string; amount: number }> = {};
-    for (const e of expenses as any[]) {
-      const key = e.event_id ?? "none";
-      const name = e.events?.name ?? "Sem evento";
+    const add = (key: string, name: string, amount: number) => {
       if (!map[key]) map[key] = { name, amount: 0 };
-      map[key].amount += Number(e.paid_amount) || cardItemGross(e);
+      map[key].amount += amount;
+    };
+    for (const e of legacyExpenses as any[]) {
+      add(e.event_id ?? "none", e.events?.name ?? "Sem evento", Number(e.paid_amount) || cardItemGross(e));
+    }
+    for (const it of items as any[]) {
+      if (it.status === "rejected") continue;
+      add(it.event_id ?? "none", it.events?.name ?? "Sem evento", cardItemGross(it));
     }
     return map;
-  }, [expenses]);
+  }, [legacyExpenses, items]);
+
 
   const transition = useMutation({
     mutationFn: async (newStatus: CardSessionStatus) => {
@@ -514,12 +535,18 @@ export default function CardSessionDetail() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi
-          label="Disponível no cartão"
+          label="Saldo contabilístico"
           value={cardBalance === undefined ? "—" : formatCurrency(cardBalance)}
-          hint="Saldo real da conta (inclui ajustes)"
+          hint="Saldo da conta no módulo Contas (só transações)"
           tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
+        />
+        <Kpi
+          label="Saldo real estimado"
+          value={realEstimated === undefined ? "—" : formatCurrency(realEstimated)}
+          hint={`Contabilístico − itens da sessão ainda não integrados (${formatCurrency(openItemsGross)})`}
+          tone={realEstimated !== undefined && realEstimated < 0 ? "warn" : undefined}
         />
         <Kpi
           label="Entregue"
@@ -691,7 +718,18 @@ export default function CardSessionDetail() {
                           {it.item_date} · {it.events?.name ?? "Sem evento"} · {it.supplier_name ?? "—"}
                         </div>
                       </div>
-                      <div className="shrink-0 font-semibold">{formatCurrency(cardItemGross(it))}</div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {canManage && !isLocked && it.status === "approved" && (
+                          <button
+                            onClick={() => setEditItem(it)}
+                            title="Editar item"
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
+                      </div>
                     </div>
                   ))}
                 </>
@@ -818,6 +856,14 @@ export default function CardSessionDetail() {
         cardAccountId={session.card_account_id}
         defaultEventId={session.primary_event_id}
         expense={editExpense}
+      />
+      <NewCardExpenseModal
+        open={!!editItem}
+        onOpenChange={(v) => { if (!v) setEditItem(null); }}
+        sessionId={id!}
+        cardAccountId={session.card_account_id}
+        defaultEventId={session.primary_event_id}
+        item={editItem}
       />
       {deleteExpense && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

@@ -11,9 +11,11 @@ import {
   CARD_SESSION_STATUS_LABELS,
   CARD_SESSION_STATUS_VARIANTS,
   formatCurrency,
+  cardItemGross,
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { OpenCardSessionModal } from "@/components/cards/OpenCardSessionModal";
+import { fetchAccountCashAdjustments } from "@/lib/account-balance";
 
 export default function CardSessions() {
   const navigate = useNavigate();
@@ -35,17 +37,31 @@ export default function CardSessions() {
     },
   });
 
-  const { data: allTx = [] } = useQuery({
-    queryKey: ["prepaid-cards-tx", cards.map((c: any) => c.id).join(",")],
+  /**
+   * D17 — dois saldos por cartão:
+   *  - contabilístico: mesma fórmula do módulo Contas (initial_balance +
+   *    Σ movimentos pagos + ajustes não-monetários);
+   *  - real estimado: contabilístico − itens da sessão aberta ainda não
+   *    integrados (submitted + approved), que já saíram do cartão.
+   */
+  const { data: accountBalances } = useQuery({
+    queryKey: ["financial-accounts-tx-summary", cards.map((c: any) => c.id).join(",")],
     enabled: cards.length > 0,
     queryFn: async () => {
       const ids = cards.map((c: any) => c.id);
-      const { data } = await supabase
-        .from("transactions")
-        .select("account_id, type, paid_amount")
-        .in("account_id", ids)
-        .in("status", ["paid", "approved", "pending"]);
-      return data ?? [];
+      const [{ data: txs }, adjustments] = await Promise.all([
+        supabase.from("transactions").select("account_id, type, paid_amount").in("account_id", ids),
+        fetchAccountCashAdjustments(ids),
+      ]);
+      const m = new Map<string, number>();
+      cards.forEach((c: any) => m.set(c.id, Number(c.initial_balance ?? 0)));
+      for (const t of (txs ?? []) as any[]) {
+        const cur = m.get(t.account_id) ?? 0;
+        const amt = Number(t.paid_amount ?? 0);
+        m.set(t.account_id, t.type === "income" ? cur + amt : cur - amt);
+      }
+      for (const [accId, adj] of adjustments) m.set(accId, (m.get(accId) ?? 0) + adj);
+      return m;
     },
   });
 
@@ -60,16 +76,25 @@ export default function CardSessions() {
     },
   });
 
-  const balances = useMemo(() => {
-    const m = new Map<string, number>();
-    cards.forEach((c: any) => m.set(c.id, Number(c.initial_balance ?? 0)));
-    for (const t of allTx as any[]) {
-      const cur = m.get(t.account_id) ?? 0;
-      const amt = Number(t.paid_amount ?? 0);
-      m.set(t.account_id, t.type === "income" ? cur + amt : cur - amt);
-    }
-    return m;
-  }, [cards, allTx]);
+  const balances = accountBalances ?? new Map<string, number>();
+
+  const openSessionIds = (sessions as any[]).filter((s) => s.status !== "closed").map((s) => s.id);
+  const { data: openItemsBySession } = useQuery({
+    queryKey: ["card-session-items", openSessionIds.join(",")],
+    enabled: openSessionIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("card_session_items")
+        .select("session_id, amount, iva_rate, status")
+        .in("session_id", openSessionIds)
+        .in("status", ["submitted", "approved"]);
+      const m = new Map<string, number>();
+      for (const it of (data ?? []) as any[]) {
+        m.set(it.session_id, (m.get(it.session_id) ?? 0) + cardItemGross(it));
+      }
+      return m;
+    },
+  });
 
   const activeSessionByCard = useMemo(() => {
     const m = new Map<string, any>();
@@ -98,6 +123,7 @@ export default function CardSessions() {
         {cards.map((c: any) => {
           const bal = balances.get(c.id) ?? 0;
           const active = activeSessionByCard.get(c.id);
+          const openGross = active ? (openItemsBySession?.get(active.id) ?? 0) : 0;
           return (
             <Card key={c.id}>
               <CardHeader className="pb-2">
@@ -115,9 +141,18 @@ export default function CardSessions() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Saldo atual: </span>
-                  <span className="font-semibold text-foreground">{formatCurrency(bal)}</span>
+                <div className="space-y-0.5 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Saldo contabilístico: </span>
+                    <span className="font-semibold text-foreground">{formatCurrency(bal)}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Saldo real estimado: </span>
+                    <span className="font-medium text-foreground">{formatCurrency(bal - openGross)}</span>
+                    {openGross > 0 && (
+                      <span className="text-muted-foreground"> (− {formatCurrency(openGross)} em itens)</span>
+                    )}
+                  </div>
                 </div>
                 {active ? (
                   <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-xs">
