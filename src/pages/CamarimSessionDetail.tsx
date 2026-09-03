@@ -124,6 +124,11 @@ export default function CamarimSessionDetail() {
   const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
   const [showIntegrate, setShowIntegrate] = useState(false);
   const [integrating, setIntegrating] = useState(false);
+  /**
+   * D1+D8 — uma sessão de camarim = UMA linha de BP (2.6.04) do evento.
+   * Escolhida aqui, antes de disparar a edge function; vai no body em `forecast_id`.
+   */
+  const [bpGate, setBpGate] = useState<{ eventId: string; eventName: string; categoryId: string; categoryCode: string; categoryName: string } | null>(null);
   const [cardAccountId, setCardAccountId] = useState<string>("");
   const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
@@ -443,7 +448,42 @@ export default function CamarimSessionDetail() {
 
 
 
-  const runIntegrate = async () => {
+  /**
+   * Resolve, para o evento da sessão, se é gerido `with_bp` e qual a rubrica
+   * 2.6.04 da empresa. Devolve o contexto do diálogo ou `null` (sem BP).
+   */
+  const resolveBpGate = async () => {
+    const sess = session as any;
+    const { data: evRows } = await supabase
+      .from("camarim_session_events" as any)
+      .select("event_id,is_primary")
+      .eq("session_id", id as string);
+    const primary = ((evRows ?? []) as any[]).find((e) => e.is_primary) ?? ((evRows ?? []) as any[])[0];
+    const eventId = (primary?.event_id ?? sess?.master_event_id ?? null) as string | null;
+    if (!eventId) return null;
+
+    const { data: mode } = await supabase.rpc("event_budget_mode" as any, { _event_id: eventId } as any);
+    if (mode !== "with_bp") return null;
+
+    const { data: ev } = await supabase.from("events").select("name").eq("id", eventId).maybeSingle();
+    const { data: cat } = await supabase
+      .from("account_categories")
+      .select("id,code,name")
+      .eq("code", "2.6.04")
+      .eq("is_active", true)
+      .eq("company_id", sess?.company_id)
+      .maybeSingle();
+    if (!cat) throw new Error("Categoria 2.6.04 — Camarins não encontrada nesta empresa.");
+    return {
+      eventId,
+      eventName: (ev as any)?.name ?? "—",
+      categoryId: (cat as any).id as string,
+      categoryCode: (cat as any).code as string,
+      categoryName: (cat as any).name as string,
+    };
+  };
+
+  const runIntegrate = async (forecastId?: string | null) => {
     if (!id) return;
     if (blockingIssues.length > 0) {
       toast({
@@ -488,9 +528,20 @@ export default function CamarimSessionDetail() {
 
     setIntegrating(true);
     try {
+      // Linha de BP obrigatória em eventos geridos com BP (D1+D8).
+      if (!forecastId) {
+        const gate = await resolveBpGate();
+        if (gate) {
+          setBpGate(gate);
+          setIntegrating(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("close-camarim-session", {
         body: {
           session_id: id,
+          forecast_id: forecastId ?? null,
           card_account_id: cardAccountId || null,
           settlement_account_id: settlementAccountId || null,
           settlement_supplier_id: administrator?.supplierId ?? null,
