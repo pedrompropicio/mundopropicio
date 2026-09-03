@@ -29,6 +29,9 @@ export const ISOLATED_BUCKETS = new Set<string>([
 export const GLOBAL_BUCKETS = new Set<string>([
   "company-branding",
   "database-backups",
+  // card-documents é isolado por SESSÃO (`<session_id>/…`), não por empresa:
+  // as policies de storage validam a sessão/portador, logo nunca leva prefixo de empresa.
+  "card-documents",
 ]);
 
 export type Bucket =
@@ -48,7 +51,8 @@ export type Bucket =
   | "ticket-office-settlements"
   | "transaction-documents"
   | "company-branding"
-  | "database-backups";
+  | "database-backups"
+  | "card-documents";
 
 let cachedCompanyId: string | null = null;
 
