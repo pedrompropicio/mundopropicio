@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-03 · D2 em produção nos actos de aprovação; cartões e guarda de fecho a seguir
+Atualizado: 2026-09-03 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -10,15 +10,21 @@ O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A
 Depois de 02/09 fechou-se a fuga que fazia a cobertura degradar-se sozinha: os caminhos que criavam despesa de evento **já aprovada ou já paga**, sem nunca passar por `pending`, e portanto sem nunca cruzar a trava.
 
 ## A trabalhar agora
-**Passo 2 — Cartão pré-pago passa ao modelo do camarim.**
-Itens durante a sessão; transações só no fecho; consolidadas por evento × rubrica × IVA. Linha de BP por par evento × rubrica quando o evento é `with_bp`; D2 sobre as somas no fecho. Itens sem evento consolidam-se por rubrica × IVA e ficam fora do BP. Uma sessão aberta por cartão já é garantida pelo índice `ux_card_sessions_active_per_card`.
+Nada em execução.
 
-**Passo 3 — Guarda de fecho do evento.**
-`events.status` não passa a `'completed'` com sessão de camarim por integrar ligada ao evento, sessão de cartão aberta com item do evento, ou nota de reembolso com despesa do evento por aprovar. Trigger + passo novo no PROC-fecho-evento.
+## Fechado agora (D1 + D2 + D8 + D13–D19)
 
-Depois: #114 (trava do excesso de verba no trigger como última linha de defesa).
+### Os três passos de 03/09
 
-## Fechado agora (D1 + D2 + D8 + D13–D16)
+**Passo 1 — D2 em todos os actos de aprovação.** RPC `raise_forecast_budget` (SECURITY DEFINER, exige `raise_budget`, observação obrigatória, só sobe, não toca em `baseline_amount`, auditoria em `forecast_audit_log`), helper `bp-budget-excess.ts` e `RaiseBudgetDialog` (uma ou várias linhas, observação comum). `approve-transaction` e `close-camarim-session` ficaram atómicos: validam tudo, aplicam os raises e só depois escrevem. Reembolsos agrupam por par evento × rubrica; cachê variável actualiza a linha do módulo, cachê fixo passa pelo diálogo.
+
+**Passo 2 — Cartão pré-pago no modelo do camarim (D17 + D18).** As despesas são ITENS durante a sessão (`card_session_items`) e só viram transações no fecho, pela `close-card-session`, consolidadas por **evento × rubrica × IVA**. Linha de BP por par evento × rubrica em evento `with_bp`; **D2 aplica-se às SOMAS** do grupo, com os raises antes de qualquer escrita. Itens **sem evento** (rubricas 10.x) consolidam por rubrica × IVA e ficam **fora do BP**. Dois saldos no ecrã: contabilístico e real estimado (menos os itens abertos). **Alocação obrigatória das antigas (D18):** transações directas anteriores ao modelo, com evento e rubrica, são sempre alocadas à linha do par — criada na L3 se não houver — e entram no excesso como "a alocar"; sem opção de as deixar soltas.
+As **2 sessões abertas funcionam já no modelo novo**, sem fecho prévio: **Délia · 8363** (`a8257a56`) com **13 transações antigas, todas da Ivete**, e **Suelen · 0663** (`cac2f5a0`) com **1 antiga sem evento**. `holder_profile_id` só é obrigatório na abertura de sessões novas.
+
+**Passo 3 — Guarda de fecho do evento (D19).** Função `public.event_close_blockers(uuid)` como fonte única (hard: camarim por integrar, cartão aberto; soft: despesas pendentes) e trigger `enforce_event_close_blockers` BEFORE UPDATE OF status, só na transição para `'completed'`, com `P0001` em pt-PT e **sem isenção** — nem `service_role`. Na UI, `CloseEventGuardDialog` consulta antes de gravar, impede o avanço com bloqueio duro e exige confirmação explícita quando há despesas pendentes. `PROC-fecho-evento.md` ganhou o **Passo 0-bis — Sessões abertas**.
+**Medido em Live ao fechar:** com o trigger ligado, hoje **só a Ivete Clareou 2026 ficaria bloqueada** (1 sessão de cartão aberta, Délia Braga). **Anitta - EDA 2026, Coala Festival Portugal 2026, SM - Lisboa e SM - Porto têm 1 despesa pendente cada** — aviso com confirmação, não bloqueio.
+
+### Detalhe dos passos anteriores
 
 **1. `approve-transaction` — service_role a contornar o trigger.**
 Era o caminho vivo de aprovação a partir de `src/pages/Transactions.tsx` (individual e em lote) e fazia o update com `service_role`. Como `auth.uid()` é `NULL` nesse caso, a isenção do trigger `enforce_transaction_approval_permission` aplicava-se e a função contornava tanto a permissão `approve_transactions` como a obrigatoriedade de linha de BP: a trava D1+D8 era, nesse caminho, apenas de UI.
@@ -67,12 +73,16 @@ Propagação às filhas por `parent_transaction_id` mantida. Medido em Live: **1
 Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS NOT NULL`, `type <> 'expense'`, `event_id` nulo, evento sem BP.
 
 ## Próximo passo concreto
-Passo 2 — cartões pré-pagos ao modelo do camarim (itens durante a sessão, transações só no fecho, consolidadas por evento × rubrica × IVA, linha de BP por par evento × rubrica, D2 no fecho).
+**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos).
 
 ## Bloqueios
 Nenhum.
 
 ## Factos que não se reinvestigam
+
+**A sessão de camarim "CAMARIM - Henry & Klauss (Coliseu - Porto)" está `open` sem nenhum evento ligado** em `camarim_session_events` (e sem `master_event_id`) — é **invisível para a guarda de fecho** até alguém a ligar ao evento. Ver a issue aberta em 03/09.
+
+**`'completed'` em `events` é o fecho financeiro, não o dia do espectáculo.** A Anitta e o Coala 2026 continuam `'active'` em fecho; os eventos da tour M&M de Agosto, já apurados, estão `'completed'`.
 
 **O universo real da decisão são 227 transações, 337.834,08 €** — as que estão em rubricas com VÁRIAS linhas de BP, onde há escolha humana a fazer e o `scoreDescriptionMatch` ainda decide. Metade do valor está em três rubricas: OOH 135.640,00 € (6 TX), Per Diems 81.203,06 € (69 TX), Cenografia 51.320,04 € (3 TX).
 
@@ -92,5 +102,6 @@ Nenhum.
 
 ## Onde ler mais
 - `src/lib/bp-tx-matching.ts`, `src/lib/bp-line-required.ts`, `src/lib/bp-budget-excess.ts`, `src/components/LinkBpLineDialog.tsx`, `src/components/RaiseBudgetDialog.tsx`
-- `supabase/functions/approve-transaction/index.ts`, `supabase/functions/close-camarim-session/index.ts`
-- `docs/DECISIONS.md` — DR-2026-09-02-D1, D2, D8, D12 e DR-2026-09-03-D13 a D16
+- `supabase/functions/approve-transaction/index.ts`, `supabase/functions/close-camarim-session/index.ts`, `supabase/functions/close-card-session/index.ts`
+- `src/components/events/CloseEventGuardDialog.tsx`, `docs/procedimentos/PROC-fecho-evento.md` (Passo 0-bis)
+- `docs/DECISIONS.md` — DR-2026-09-02-D1, D2, D8, D12 e DR-2026-09-03-D13 a D19
