@@ -564,7 +564,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           </div>
         )}
         {canApprove && (
-          <Button size="sm" onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
+          <Button size="sm" onClick={() => void requestApproveNote()} disabled={approveMutation.isPending}>
             <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
             {approveMutation.isPending ? "A aprovar…" : "Aprovar Nota"}
           </Button>
