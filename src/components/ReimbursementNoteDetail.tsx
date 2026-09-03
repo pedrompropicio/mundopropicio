@@ -237,6 +237,40 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     onError: (err: any) => toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" }),
   });
 
+  // D1 + D8: antes de aprovar a nota, exigir linha de BP nas despesas pendentes
+  // de eventos geridos `with_bp`. Se faltar, abre o diálogo "Vincular ao BP"
+  // (uma transação de cada vez) em vez de chamar o update.
+  const requestApproveNote = async () => {
+    const pendingTxs = items
+      .filter((i: any) => i.transactions?.status === "pending")
+      .map((i: any) => i.transactions);
+    if (pendingTxs.length > 0) {
+      try {
+        const { blocked } = await partitionByBpLineRequirement(pendingTxs as any[]);
+        if (blocked.length > 0) {
+          setLinkBpTx(blocked[0]);
+          if (blocked.length > 1) {
+            toast({
+              title: `${blocked.length} despesas sem linha de BP`,
+              description: "Vincula cada uma ao BP para concluir a aprovação da nota.",
+            });
+          }
+          return;
+        }
+      } catch (err: any) {
+        toast({
+          title: "Não foi possível validar as linhas de BP",
+          description: err.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    approveMutation.mutate();
+  };
+
+
+
   const payMutation = useMutation({
     mutationFn: async () => {
       const today = new Date().toISOString().split("T")[0];
