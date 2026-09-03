@@ -18,6 +18,13 @@ interface RequestBody {
   parked_decisions?: ParkedDecision[];
   settlement_account_id?: string | null;
   settlement_supplier_id?: string | null;
+  /**
+   * D1+D8 — linha de BP da sessão (N:1). Uma sessão de camarim = UMA linha de
+   * 2.6.04 do evento; todas as transações consolidadas de despesa nascem com
+   * este forecast_id. As pernas do acerto de adiantamento (10.3, sem event_id)
+   * NÃO levam linha.
+   */
+  forecast_id?: string | null;
 }
 
 /**
@@ -55,15 +62,9 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Role check: admin OR manager OR platform_admin (multi-membership → várias linhas)
-    const { data: roleRows } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id);
-    const callerRoles = (roleRows ?? []).map((r: any) => r.role as string);
-    if (!callerRoles.some((r) => r === "admin" || r === "manager" || r === "platform_admin")) {
-      return json({ error: "Apenas admin/manager podem integrar a sessão" }, 403);
-    }
+    // Autorização: mesma via da edge fn `approve-transaction` — permissão
+    // `approve_transactions` na empresa da SESSÃO (não na empresa activa),
+    // ou platform_admin. Feita depois de carregar a sessão (ver abaixo).
 
     const body = (await req.json()) as RequestBody;
     if (!body?.session_id) return json({ error: "session_id obrigatório" }, 400);
@@ -93,6 +94,23 @@ Deno.serve(async (req) => {
       const allowCrossTenant = isPa && callerCompanyId == null;
       if (!allowCrossTenant && (session as any).company_id !== callerCompanyId) {
         return json({ error: "Cross-tenant access denied" }, 403);
+      }
+    }
+
+    // ===== Autorização por PERMISSÃO (integrar cria transações aprovadas/pagas) =====
+    {
+      const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+      let allowed = isPa === true;
+      if (!allowed) {
+        const { data: hasPerm } = await adminClient.rpc("has_permission_in", {
+          _user_id: caller.id,
+          _permission: "approve_transactions",
+          _company_id: (session as any).company_id,
+        });
+        allowed = hasPerm === true;
+      }
+      if (!allowed) {
+        return json({ error: "Sem permissão para aprovar transações nesta empresa." }, 403);
       }
     }
 
@@ -156,6 +174,36 @@ Deno.serve(async (req) => {
     const primaryEventId = primaryEvent?.event_id ?? null;
     if (!primaryEventId && !session.master_event_id) {
       return json({ error: "Sessão sem evento associado — impossível gerar transações" }, 422);
+    }
+
+    // ===== D1+D8 — linha de BP da sessão (uma só, rubrica 2.6.04) =====
+    const sessionEventIds = [primaryEventId, session.master_event_id].filter(Boolean) as string[];
+    const sessionForecastId = (body.forecast_id ?? null) as string | null;
+    if (sessionForecastId) {
+      const { data: fc, error: fcErr } = await adminClient
+        .from("event_forecasts")
+        .select("id,event_id,category_id,type")
+        .eq("id", sessionForecastId)
+        .maybeSingle();
+      if (fcErr) return json({ error: `Erro ao validar a linha de BP: ${fcErr.message}` }, 500);
+      if (!fc) return json({ error: "A linha de BP indicada não existe." }, 422);
+      if (!sessionEventIds.includes((fc as any).event_id)) {
+        return json({ error: "A linha de BP indicada não pertence ao evento desta sessão." }, 422);
+      }
+      if ((fc as any).category_id !== camarimCategoryId) {
+        return json({ error: "A linha de BP indicada não é da rubrica 2.6.04 — Camarins." }, 422);
+      }
+    } else {
+      // Sem linha: só é aceitável se o evento for gerido sem BP.
+      for (const evId of sessionEventIds) {
+        const { data: mode } = await adminClient.rpc("event_budget_mode", { _event_id: evId });
+        if (mode === "with_bp") {
+          return json({
+            error:
+              "Este evento é gerido com BP: escolhe a linha de BP (2.6.04 — Camarins) antes de integrar a sessão.",
+          }, 422);
+        }
+      }
     }
 
     // ===== Apply decisions over parked items BEFORE loading approved =====
@@ -456,6 +504,7 @@ Deno.serve(async (req) => {
         is_reimbursement: isReimbursement,
         reimbursement_to: isReimbursement ? first.buyerId : null,
         company_id: sessionCompanyId, // service-role: current_company_id() returns NULL
+        forecast_id: sessionForecastId, // N:1 — todas as consolidadas da sessão na mesma linha
       };
 
       if (txStatus === "paid") {
