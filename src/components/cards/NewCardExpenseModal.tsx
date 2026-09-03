@@ -260,7 +260,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
   };
 
   const mut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (forecastId?: string | null) => {
       const gross = parseFloat(total);
       if (isNaN(gross) || gross <= 0) throw new Error("Total inválido.");
       if (!description.trim()) throw new Error("Descrição obrigatória.");
