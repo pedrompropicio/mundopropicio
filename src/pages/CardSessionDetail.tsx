@@ -174,6 +174,19 @@ export default function CardSessionDetail() {
   // Cartão gasta SEMPRE o total c/IVA — amount na BD é base s/IVA.
   const totalPending = pendingItems.reduce((s, i) => s + cardItemGross(i), 0);
 
+  /**
+   * D17 — dois saldos distintos:
+   *  - Saldo contabilístico: o da conta no módulo Contas (só conta transações).
+   *  - Saldo real estimado: contabilístico − itens da sessão ainda não
+   *    integrados (submitted + approved), que já saíram do cartão mas ainda não
+   *    têm transação.
+   */
+  const openItemsGross = (items as any[])
+    .filter((i) => i.status === "submitted" || i.status === "approved")
+    .reduce((s, i) => s + cardItemGross(i), 0);
+  const realEstimated = cardBalance === undefined ? undefined : cardBalance - openItemsGross;
+
+
   // Sessões FECHADAS não recalculam nada — usam o closing_summary histórico.
   const isClosedSession = (session as any)?.status === "closed";
   const loadInIds = (loads as any[]).map((l) => l.in_transaction_id);
