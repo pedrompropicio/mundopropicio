@@ -45,26 +45,6 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: roleRows, error: roleError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-
-    if (roleError) {
-      return new Response(JSON.stringify({ error: roleError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const callerRoles = new Set((roleRows ?? []).map((row) => row.role));
-    if (!callerRoles.has("admin") && !callerRoles.has("manager")) {
-      return new Response(
-        JSON.stringify({ error: "Apenas administradores e managers podem aprovar transações" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const { transaction_ids } = await req.json();
     if (!transaction_ids || !Array.isArray(transaction_ids) || transaction_ids.length === 0) {
       return new Response(
