@@ -22,7 +22,10 @@ const corsHeaders = {
  *
  * A conciliação de saldo replica exactamente o modal antigo e inclui as
  * transações directas antigas já carimbadas com `card_session_id` (sessões
- * anteriores ao novo modelo): tratam-se como gasto já integrado.
+ * abertas antes do novo modelo): tratam-se como gasto JÁ INTEGRADO e não se
+ * tocam. Uma sessão pode misturar antigas + itens novos, ou ter só antigas e
+ * zero itens — nesse caso fecha consolidando zero grupos.
+
  */
 
 interface ParkedDecision {
@@ -51,7 +54,19 @@ interface RequestBody {
   confirmed_balance?: number | null;
   create_adjustment?: boolean;
   adjustment_note?: string | null;
+  /**
+   * OPCIONAL, DESLIGADO POR DEFEITO (decisão pendente do Pedro).
+   * Quando `true`, as transações directas ANTIGAS desta sessão (carimbadas com
+   * `card_session_id`, sem item de origem, ainda sem `forecast_id`) cujo par
+   * (event_id × category_id) coincida com um par escolhido em `forecast_lines`
+   * adoptam essa linha de BP: `transactions.forecast_id` é actualizado, fica
+   * registo em `transaction_audit_log` ('bp_line_adopted_at_card_close') e o
+   * valor líquido entra no cálculo do excesso (D2) dessa linha.
+   * Nenhuma UI passa esta flag — só existe no contrato da função.
+   */
+  adopt_legacy_lines?: boolean;
 }
+
 
 const ALLOWED_IVA_RATES = [0, 6, 13, 23];
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -186,6 +201,22 @@ Deno.serve(async (req) => {
       .eq("status", "approved");
     if (iErr) return json({ error: iErr.message }, 500);
 
+    // ===== Transações DIRECTAS ANTIGAS desta sessão (modelo pré-D17) =====
+    // Sessões abertas antes do novo modelo podem ter despesas lançadas
+    // directamente na conta do cartão e carimbadas com `card_session_id`, sem
+    // item de origem. Não se tocam (entram só na conciliação de saldo) — salvo
+    // se `adopt_legacy_lines` estiver ligado. A sessão fecha mesmo que só tenha
+    // transações antigas e ZERO itens novos (consolida zero grupos).
+    const { data: legacyTxsRaw } = await adminClient
+      .from("transactions")
+      .select("id, description, amount, paid_amount, iva_rate, event_id, category_id, forecast_id, date, payment_date, type")
+      .eq("card_session_id", body.session_id);
+    const legacyTxs = ((legacyTxsRaw ?? []) as any[]).filter(
+      (t) => !((items ?? []) as any[]).some((it) => it.transaction_id === t.id),
+    );
+
+
+
     // ===== Grupos de consolidação =====
     type Resolved = {
       raw: any;
@@ -294,8 +325,37 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Adopção OPCIONAL das transações antigas por linha de BP (desligada por
+    // defeito). Só entram as que já tenham evento + rubrica, ainda sem linha, e
+    // cujo par coincida com um `forecast_lines` indicado pelo chamador.
+    const legacyAdoptions: { transaction_id: string; forecast_id: string; amount: number }[] = [];
+    if (body.adopt_legacy_lines === true) {
+      for (const t of legacyTxs) {
+        if (t.forecast_id) continue;
+        if (!t.event_id || !t.category_id) continue;
+        if (t.type !== "expense") continue;
+        const fid = lineFor(t.event_id as string, t.category_id as string);
+        if (!fid) continue;
+        const base = round2(Number(t.amount ?? 0));
+        legacyAdoptions.push({ transaction_id: t.id as string, forecast_id: fid, amount: base });
+        toApproveByLine.set(fid, round2((toApproveByLine.get(fid) ?? 0) + base));
+      }
+      // A linha indicada tem de pertencer mesmo ao par (evento × rubrica).
+      for (const a of legacyAdoptions) {
+        const { data: fc } = await adminClient
+          .from("event_forecasts").select("id,event_id,category_id").eq("id", a.forecast_id).maybeSingle();
+        const tx = legacyTxs.find((t) => t.id === a.transaction_id);
+        if (!fc || (fc as any).event_id !== tx?.event_id || (fc as any).category_id !== tx?.category_id) {
+          return json({ error: "Adopção de transação antiga: a linha de BP não corresponde ao evento/rubrica." }, 422);
+        }
+      }
+    }
+
+
+
     const budgetExcess: any[] = [];
     const raisesToApply: { forecast_id: string; old: number; next: number; observation: string; company_id: string }[] = [];
+
 
     for (const [fid, toApprove] of toApproveByLine.entries()) {
       const { data: fcFull } = await adminClient
@@ -391,6 +451,28 @@ Deno.serve(async (req) => {
       });
       if (logErr) console.error("[close-card-session] forecast_audit_log error:", logErr);
     }
+
+    // Adopção das transações antigas (só quando `adopt_legacy_lines` = true).
+    const legacyAdopted: string[] = [];
+    for (const a of legacyAdoptions) {
+      const { error: upErr } = await adminClient
+        .from("transactions").update({ forecast_id: a.forecast_id }).eq("id", a.transaction_id);
+      if (upErr) {
+        console.error("[close-card-session] adopção legado falhou:", upErr);
+        continue;
+      }
+      legacyAdopted.push(a.transaction_id);
+      await adminClient.from("transaction_audit_log").insert({
+        transaction_id: a.transaction_id,
+        field_name: "bp_line_adopted_at_card_close",
+        old_value: null,
+        new_value: a.forecast_id,
+        changed_by: caller.email ?? caller.id,
+        company_id: sessionCompanyId,
+      });
+    }
+
+
 
     // ===== Consolidação: uma transação paga por grupo =====
     const created: string[] = [];
@@ -577,17 +659,23 @@ Deno.serve(async (req) => {
     let directTotal = 0;
     const directMovements: any[] = [];
     let legacySessionSpend = 0; // transações antigas já carimbadas com card_session_id
+    let legacySessionCount = 0;
     const newTxIds = new Set(created);
 
     for (const t of ((accountTxs ?? []) as any[])) {
       const signed = signedOf(t);
       const eff = effOf(t);
-      if (eff && openDay && eff < openDay) {
-        dynamicOpening += signed;
+      // O carimbo da sessão manda: uma despesa antiga da sessão nunca é
+      // confundida com saldo de abertura, mesmo que a data seja anterior.
+      if (t.card_session_id === body.session_id) {
+        if (!newTxIds.has(t.id)) {
+          legacySessionSpend += signed;
+          legacySessionCount += 1;
+        }
         continue;
       }
-      if (t.card_session_id === body.session_id) {
-        if (!newTxIds.has(t.id)) legacySessionSpend += signed;
+      if (eff && openDay && eff < openDay) {
+        dynamicOpening += signed;
         continue;
       }
       if (loadInIds.has(t.id)) continue;
@@ -595,6 +683,7 @@ Deno.serve(async (req) => {
       directMovements.push({ id: t.id, description: t.description, signed, date: eff });
       directTotal += signed;
     }
+
 
     const opening = overrideOpening === null || overrideOpening === undefined
       ? round2(dynamicOpening)
@@ -678,6 +767,8 @@ Deno.serve(async (req) => {
       holder_name: (session as any).holder_name,
       payment_reference: sessionPaymentRef,
       aggregation_mode: "event_x_category_x_iva",
+      legacy_lines_adopted: legacyAdopted,
+
       consolidated_groups: created.length,
       consolidated_transaction_ids: created,
       items_integrated: resolved.length,
@@ -694,6 +785,8 @@ Deno.serve(async (req) => {
         total_loads: totalLoads,
         new_spend_gross: newSpendGross,
         legacy_session_movements: round2(legacySessionSpend),
+        legacy_session_movement_count: legacySessionCount,
+
         direct_movements_total: round2(directTotal),
         direct_movements: directMovements,
         theoretical_balance: theoretical,

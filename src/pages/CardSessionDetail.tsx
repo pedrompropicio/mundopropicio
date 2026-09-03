@@ -121,6 +121,26 @@ export default function CardSessionDetail() {
   });
 
   const expenseIds = (expenses as any[]).map((e) => e.id);
+
+  /**
+   * D17 — uma sessão aberta antes do novo modelo pode misturar:
+   *  - transações DIRECTAS antigas (carimbadas com card_session_id, sem item)
+   *  - itens novos (card_session_items), que só viram transação na integração
+   * A aba Despesas mostra os dois, com etiqueta a distinguir.
+   */
+  const itemTxIds = useMemo(
+    () => new Set((items as any[]).map((i) => i.transaction_id).filter(Boolean) as string[]),
+    [items],
+  );
+  const legacyExpenses = useMemo(
+    () => (expenses as any[]).filter((e) => !itemTxIds.has(e.id)),
+    [expenses, itemTxIds],
+  );
+  const modelItems = useMemo(
+    () => (items as any[]).filter((i) => i.status === "approved" || i.status === "integrated"),
+    [items],
+  );
+
   const { data: docCounts = {} } = useQuery<Record<string, number>>({
     queryKey: ["card-session-expense-doc-counts", id, expenseIds.length],
     enabled: expenseIds.length > 0,
@@ -575,7 +595,7 @@ export default function CardSessionDetail() {
       {/* Tabs */}
       <div className="border-b border-border">
         <div className="flex gap-4">
-          <TabBtn active={tab === "expenses"} onClick={() => setTab("expenses")}>Despesas ({expenses.length})</TabBtn>
+          <TabBtn active={tab === "expenses"} onClick={() => setTab("expenses")}>Despesas ({legacyExpenses.length + modelItems.length})</TabBtn>
           <TabBtn active={tab === "queue"} onClick={() => setTab("queue")}>
             Fila de aprovação {pendingItems.length > 0 && <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-xs text-amber-600">{pendingItems.length}</span>}
           </TabBtn>
@@ -590,16 +610,26 @@ export default function CardSessionDetail() {
               <Plus className="h-4 w-4" /> Nova despesa
             </button>
           )}
-          {expenses.length === 0 ? (
+          {legacyExpenses.length === 0 && modelItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem despesas registadas.</p>
           ) : (
             <div className="space-y-1">
-              {(expenses as any[]).map((e) => {
+              {legacyExpenses.length > 0 && modelItems.length > 0 && (
+                <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Registadas antes do modelo de itens
+                </p>
+              )}
+              {legacyExpenses.map((e) => {
                 const count = (docCounts as Record<string, number>)[e.id] ?? 0;
                 return (
                   <div key={e.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium">{e.description}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{e.description}</span>
+                        <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-600">
+                          registada antes do modelo de itens
+                        </Badge>
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {e.date} · {e.events?.name ?? "Sem evento"} · {e.account_categories?.code ?? "—"}
                       </div>
@@ -642,6 +672,30 @@ export default function CardSessionDetail() {
                   </div>
                 );
               })}
+
+              {modelItems.length > 0 && (
+                <>
+                  <p className="pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Itens da sessão (só viram transação na integração)
+                  </p>
+                  {modelItems.map((it: any) => (
+                    <div key={it.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{it.description ?? it.supplier_name ?? "Despesa"}</span>
+                          <Badge variant="outline" className="border-primary/40 bg-primary/10 text-[10px] text-primary">
+                            {it.status === "integrated" ? "integrada" : "item da sessão"}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {it.item_date} · {it.events?.name ?? "Sem evento"} · {it.supplier_name ?? "—"}
+                        </div>
+                      </div>
+                      <div className="shrink-0 font-semibold">{formatCurrency(cardItemGross(it))}</div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>

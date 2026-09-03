@@ -115,6 +115,9 @@ export function OpenCardSessionModal({
     mutationFn: async () => {
       if (!cardAccountId) throw new Error("Selecione o cartão.");
       if (!holderName.trim()) throw new Error("Nome do portador é obrigatório.");
+      // D17: portador do sistema obrigatório SÓ na abertura de sessões novas.
+      // Sessões já abertas com holder_profile_id NULL continuam a funcionar e a fechar.
+      if (!holderProfileId) throw new Error("Escolhe o portador (utilizador do sistema).");
       if (overrideOpening && !openingReason.trim())
         throw new Error("Justificação obrigatória para definir o saldo de abertura manualmente.");
       const card = cards.find((c: any) => c.id === cardAccountId);
@@ -197,7 +200,7 @@ export function OpenCardSessionModal({
             />
           </Field>
 
-          <Field label="Portador (utilizador do sistema)">
+          <Field label="Portador (utilizador do sistema) *">
             <SearchableSelect
               options={profiles.map((p: any) => ({
                 value: p.id,
@@ -209,7 +212,7 @@ export function OpenCardSessionModal({
                 const p = profiles.find((x: any) => x.id === v);
                 if (p && !holderName) setHolderName(p.full_name || p.email || "");
               }}
-              placeholder="(opcional)"
+              placeholder="Selecionar portador…"
             />
           </Field>
 

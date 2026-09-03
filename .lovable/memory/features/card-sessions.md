@@ -287,3 +287,13 @@ Resolvido para o bucket `card-documents` em: `src/lib/accountant-tx-docs.ts`, `s
 ### Intocado
 
 Trigger `enforce_transaction_approval_permission`, sessões já fechadas (`ffdea120`, `77d592f0`) e as respetivas 44 transações, e o `performCardLoad` das recargas.
+
+### Sessões abertas antes do D17 (cac2f5a0 Suelen, a8257a56) — não são fechadas antes do Publish
+
+`close-card-session` tolera a mistura:
+- transações DIRECTAS antigas (com `card_session_id`, sem item de origem) entram só na conciliação como **gasto já integrado** (o carimbo da sessão manda: nunca caem no saldo de abertura, mesmo com data anterior). Resumo: `reconciliation.legacy_session_movements` + `legacy_session_movement_count`.
+- sessão **sem itens novos** fecha na mesma, consolidando zero grupos.
+- `holder_profile_id` é obrigatório só na ABERTURA (`OpenCardSessionModal`); sessões já abertas com holder NULL fecham e continuam a aceitar `NewCardExpenseModal`.
+- `CardSessionDetail` › aba Despesas mostra os dois blocos, com badge âmbar "registada antes do modelo de itens" e badge azul "item da sessão" / "integrada".
+
+**`adopt_legacy_lines` (body, boolean, DESLIGADO por defeito — decisão pendente do Pedro):** quando `true`, as transações antigas da sessão com `event_id`+`category_id` iguais a um par com `forecast_id` em `forecast_lines` e ainda sem linha recebem esse `forecast_id` (update + `transaction_audit_log` `bp_line_adopted_at_card_close`) e o valor líquido entra no excesso (D2) dessa linha. Vive só no contrato da edge function — nenhuma UI a passa.
