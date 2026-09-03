@@ -8,7 +8,8 @@ import { X, FileText, Calendar, Building2, Wallet, ArrowDown, Plus, Trash2, Aler
 import { DatePicker } from "@/components/ui/date-picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format, addMonths, endOfMonth } from "date-fns";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
 
 interface PaymentPart {
   id: string;
@@ -24,6 +25,8 @@ interface Props {
   artistName: string;
   amount: number;
   cacheConfigId: string;
+  /** 'variable' → linha de BP garantida pelo módulo; 'fixed' → fluxo normal de despesa. */
+  cacheType?: string;
   configSupplierId?: string | null;
   withholdingApplicable?: boolean;
   withholdingRate?: number;
@@ -39,6 +42,7 @@ export function CacheTransactionModal({
   artistName,
   amount,
   cacheConfigId,
+  cacheType = "variable",
   configSupplierId,
   withholdingApplicable = false,
   withholdingRate = 25,
@@ -47,11 +51,14 @@ export function CacheTransactionModal({
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const isFixedCache = cacheType === "fixed";
+
   const netPayable = withholdingApplicable ? amount - withholdingAmount : amount;
 
   const [dueDate, setDueDate] = useState("");
   const [accountId, setAccountId] = useState("");
   const [selectedAdvanceIds, setSelectedAdvanceIds] = useState<Set<string>>(new Set());
+  const [showLinkBp, setShowLinkBp] = useState(false);
 
   // Split payment parts
   const [parts, setParts] = useState<PaymentPart[]>([
