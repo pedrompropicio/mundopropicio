@@ -87,6 +87,11 @@ export default function LinkBpLineDialog({ transaction, onClose, onLinked, pickO
   const linkAndApprove = async (forecastId: string) => {
     setSaving(true);
     try {
+      if (pickOnly) {
+        onPicked?.(forecastId);
+        onClose();
+        return;
+      }
       const { error } = await supabase
         .from("transactions")
         .update({ forecast_id: forecastId } as any)
