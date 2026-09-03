@@ -1327,6 +1327,19 @@ export default function EventSimulator() {
                         onChange={(e) => updateSession(i, { day_index: Math.max(0, Number(e.target.value) - 1) })} /></TableCell>
                       <TableCell><Input className="h-8 w-28" value={s.zone_label}
                         onChange={(e) => updateSession(i, { zone_label: e.target.value })} /></TableCell>
+                      <TableCell className="text-[11px] text-muted-foreground whitespace-nowrap">
+                        {(() => {
+                          const z = zoneLoad?.get(normZone(s.zone_label));
+                          if (!z) return "—";
+                          const cap = `Capacidade ${z.capacity.toLocaleString("pt-PT")}`;
+                          if (z.load === null) return cap;
+                          const d = z.observedOn
+                            ? new Date(`${z.observedOn}T00:00:00`).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })
+                            : "";
+                          return `${cap} · Carga corrente ${z.load.toLocaleString("pt-PT")}${d ? ` em ${d}` : ""}`;
+                        })()}
+                      </TableCell>
+
                       <TableCell><Input className="h-8 w-24 text-right" type="number" value={s.real_sales_qty}
                         onChange={(e) => updateSession(i, { real_sales_qty: Number(e.target.value) })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={s.real_sales_revenue}
