@@ -451,7 +451,7 @@ export function NewCardExpenseModal({ open, onOpenChange, sessionId, cardAccount
           />
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
+        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} required className={inputCls} />
