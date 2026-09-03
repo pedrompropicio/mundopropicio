@@ -51,7 +51,19 @@ interface RequestBody {
   confirmed_balance?: number | null;
   create_adjustment?: boolean;
   adjustment_note?: string | null;
+  /**
+   * OPCIONAL, DESLIGADO POR DEFEITO (decisão pendente do Pedro).
+   * Quando `true`, as transações directas ANTIGAS desta sessão (carimbadas com
+   * `card_session_id`, sem item de origem, ainda sem `forecast_id`) cujo par
+   * (event_id × category_id) coincida com um par escolhido em `forecast_lines`
+   * adoptam essa linha de BP: `transactions.forecast_id` é actualizado, fica
+   * registo em `transaction_audit_log` ('bp_line_adopted_at_card_close') e o
+   * valor líquido entra no cálculo do excesso (D2) dessa linha.
+   * Nenhuma UI passa esta flag — só existe no contrato da função.
+   */
+  adopt_legacy_lines?: boolean;
 }
+
 
 const ALLOWED_IVA_RATES = [0, 6, 13, 23];
 const round2 = (n: number) => Math.round(n * 100) / 100;
