@@ -10,6 +10,16 @@ O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A
 ## A trabalhar agora
 Nada em execução.
 
+## Fechado agora (D1 + D8)
+
+- A edge function `approve-transaction` era o caminho vivo de aprovação a partir de `src/pages/Transactions.tsx` (individual e em lote) e fazia o update com `service_role`. Como `auth.uid()` é `NULL` nesse caso, a isenção do trigger `enforce_transaction_approval_permission` aplicava-se e a função contornava tanto a permissão `approve_transactions` como a obrigatoriedade de linha de BP. A trava D1+D8 era, nesse caminho, apenas de UI.
+- Corrigido: a função passou a autorizar por permissão (`is_platform_admin` OU `has_permission_in('approve_transactions', company_id)`, avaliado uma vez por empresa do lote) em vez do papel admin/manager; e replica o gate D1+D8 do lado do servidor — bloqueia `type='expense'` com `event_id`, sem `parent_transaction_id`, sem `forecast_id`, em evento cujo `event_budget_mode` é `'with_bp'`, devolvendo 409 com `blocked_ids` e não aprovando nada do lote.
+- Verificado em Live antes da troca: Pedro Neto, Juliana Martins e Matheus Coelho continuam a passar pela via da permissão. Ninguém perdeu acesso.
+- `src/pages/Transactions.tsx`: helper `readApproveError` traduz o 409 numa mensagem legível, na aprovação individual e em lote.
+- `ReimbursementNoteDetail.tsx`: botão "Aprovar Nota" passa por `requestApproveNote()`, que corre `partitionByBpLineRequirement` sobre as despesas `pending` e abre o `LinkBpLineDialog` uma a uma, com refetch entre cada, aprovando só quando nenhuma estiver bloqueada.
+- Propagação às filhas por `parent_transaction_id` mantida como estava. Medido em Live: 136 filhas de rateio e 12 parcelas, nenhuma pendente. Aprovar a mãe aprovar as filhas é correcto — aprovação não é pagamento.
+- Impacto medido em Live no momento do fecho: 3 transações pendentes passam a exigir linha de BP — Coala Festival Portugal 2026 "Armazem Coala - Orange 2ºbox (saldo)" 3.195,65 EUR (rubrica com 6 linhas, tem de escolher); SM - Lisboa "Trafego Pago" 608,26 EUR e SM - Porto "Trafego Pago" 495,81 EUR (rubricas sem linhas, tem de criar). Nenhuma transação já aprovada foi afectada.
+
 ## Próximo passo concreto
 D8 — obrigar a linha no INSERT, lendo o modo do evento.
 
