@@ -322,8 +322,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Adopção OPCIONAL das transações antigas por linha de BP (desligada por
+    // defeito). Só entram as que já tenham evento + rubrica, ainda sem linha, e
+    // cujo par coincida com um `forecast_lines` indicado pelo chamador.
+    const legacyAdoptions: { transaction_id: string; forecast_id: string; amount: number }[] = [];
+    if (body.adopt_legacy_lines === true) {
+      for (const t of legacyTxs) {
+        if (t.forecast_id) continue;
+        if (!t.event_id || !t.category_id) continue;
+        if (t.type !== "expense") continue;
+        const fid = lineFor(t.event_id as string, t.category_id as string);
+        if (!fid) continue;
+        const base = round2(Number(t.amount ?? 0));
+        legacyAdoptions.push({ transaction_id: t.id as string, forecast_id: fid, amount: base });
+        toApproveByLine.set(fid, round2((toApproveByLine.get(fid) ?? 0) + base));
+      }
+    }
+
     const budgetExcess: any[] = [];
     const raisesToApply: { forecast_id: string; old: number; next: number; observation: string; company_id: string }[] = [];
+
 
     for (const [fid, toApprove] of toApproveByLine.entries()) {
       const { data: fcFull } = await adminClient
