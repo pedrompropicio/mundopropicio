@@ -26,7 +26,7 @@ Corrigido (DR-2026-09-03-D13): a verificação de LINHA passa a correr no `INSER
 **3. Cachê (DR-2026-09-03-D15).**
 Medido em Live: **5 configurações de cachê, todas variáveis, 2 sem linha de BP** (Deive Leonardo Braga e Lisboa, ambos `with_bp`) — cobertas por criação preguiçosa na primeira geração de transação, sem DML.
 Variável: a linha é do módulo (`formula_type='cache_module'`), garantida por ele, e a transação nasce vinculada; as N partes de um split entram na mesma linha. Fixo: não há linha automática — segue o fluxo de qualquer despesa, com `LinkBpLineDialog` em modo `pickOnly`.
-A retenção de IRS deixou de ser gerada no modal e deixou de ser descontada: paga-se o cachê integral. A base de incidência só se conhece no fecho (parte do cachê é logística ou verba de marketing). Aviso âmbar informativo mantido.
+A retenção saiu por completo do fluxo do cachê (D15 revista em 03/09): não é custo do evento — é parte do cachê entregue ao Estado em nome do artista — logo não gera despesa nem linha de BP, não se desconta no pagamento e não aparece em ecrã nenhum (modal, acerto e modelo de cálculo limpos). Os únicos descontos são os do modelo configurado: percentagem/faixas, base de receita, base de dedução e percentagem de dedução fixa (calculados em `useRealCacheCalculation`). As colunas `withholding_*` ficam inertes na BD, sem UI.
 
 **4. Cartões pré-pagos (DR-2026-09-03-D14).**
 Nascem `'paid'`, logo a regra tem de viver no ecrã. `NewCardExpenseModal.tsx` e `ApproveCardItemModal.tsx`: antes do insert, se a transação vai ter `event_id`, é despesa e o evento é `with_bp`, abre o `LinkBpLineDialog` em `pickOnly` e insere já com `forecast_id`. `CloseCardSessionModal.tsx` fica fora — o acerto de fecho não tem `event_id`.
