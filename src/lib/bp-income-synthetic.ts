@@ -77,8 +77,12 @@ export async function computeTicketSynthetic(
   }, 0);
 
   const ivaPct = pQty > 0 ? pIva / pQty : 6;
-  const avgNet = pQty > 0 ? pNet / pQty : soldQty > 0 ? realNet / soldQty : null;
-  const computedBaselineNet = initialLoad > 0 && avgNet != null ? initialLoad * avgNet : null;
+  // DR-2026-09-03-D21 (adenda): previsto original = min(carga inicial, Σ qty dos lotes
+  // de planeamento) × preço médio líquido ponderado. Sem lotes de planeamento não há
+  // previsto original (sem fallback ao preço médio real — inflacionava eventos antigos).
+  const avgNet = pQty > 0 ? pNet / pQty : null;
+  const computedBaselineNet =
+    pQty > 0 && avgNet != null ? Math.min(initialLoad > 0 ? initialLoad : pQty, pQty) * avgNet : null;
   const stored = (evt as any)?.ticketing_baseline_net;
   const baselineNet = stored != null ? Number(stored) : computedBaselineNet;
 

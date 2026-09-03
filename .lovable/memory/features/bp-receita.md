@@ -10,10 +10,13 @@ DR-2026-09-03-D21 (issue #103, ronda 1).
   sempre visíveis; filtros/vistas/botões aplicam-se ao sub-separador activo.
 - Linhas **sintéticas** (não persistidas, não editáveis) para rubricas com módulo,
   com TRÊS colunas: previsto original / previsto corrente / real.
-  - Bilheteira 1.1.01: original = `Σ event_ticket_zones.total_capacity` × preço
-    médio de planeamento (lotes `quantity>0`, `price>0`, `sync_generated=false`,
-    ponderado, líquido; fallback preço médio real) e FIXADO em
-    `events.ticketing_baseline_net`/`ticketing_baseline_at`; corrente = Simulador
+  - Bilheteira 1.1.01: original = `min(Σ event_ticket_zones.total_capacity,
+    Σ quantidade dos lotes de planeamento)` × preço médio líquido ponderado dos
+    lotes de planeamento (`quantity>0`, `price>0`, `sync_generated=false`;
+    `Σ(qty × price / (1+iva)) / Σ qty`). SEM lotes de planeamento não há previsto
+    original (`null`, ecrã mostra "—") — não há fallback ao preço médio real.
+    FIXADO uma única vez em `events.ticketing_baseline_net`/`ticketing_baseline_at`,
+    e nunca com 0 ou null; corrente = Simulador
     (`event_simulator_inputs` + `computeScenarioRevenue(..., "forecast")`);
     real = `ticket_sales` via `sumTicketSalesRevenue`, líquido pelo IVA do LOTE.
     IVA efectivo por lote — nunca "R01"/6% fixos.
