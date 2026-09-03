@@ -782,7 +782,7 @@ export function CacheTransactionModal({
               Cancelar
             </button>
             <button
-              onClick={() => createMutation.mutate()}
+              onClick={handleSubmit}
               disabled={!canSubmit || createMutation.isPending}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
@@ -791,6 +791,29 @@ export function CacheTransactionModal({
           </div>
         </div>
       </div>
+
+      {showLinkBp && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: `Cachê — ${artistName}`,
+            amount: finalAmount,
+            iva_rate: 0,
+            event_id: eventId,
+            category_id: cacheCategory?.id ?? null,
+            account_categories: cacheCategory
+              ? { code: cacheCategory.code, name: cacheCategory.name }
+              : null,
+          }}
+          onClose={() => setShowLinkBp(false)}
+          onLinked={() => {}}
+          onPicked={(forecastId) => {
+            setShowLinkBp(false);
+            createMutation.mutate(forecastId);
+          }}
+        />
+      )}
     </div>
   );
 }
