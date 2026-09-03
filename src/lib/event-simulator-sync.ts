@@ -2,7 +2,9 @@
  * Helpers para inicializar/sincronizar o Simulador a partir das fontes reais:
  *  - Vendas reais: ticket_sales (sum quantity, sum total_value via ticketSaleRevenue)
  *  - Sessões: produto cartesiano event_dates × event_ticket_zones
- *  - Projeção default: total_capacity − vendido (clamp ≥ 0)
+ *  - Projeção default: carga corrente (zone_capacity_snapshot) − vendido quando
+ *    há retrato de bilheteira; senão total_capacity − vendido (clamp ≥ 0).
+ *    Nunca acima da carga corrente (DR-2026-09-03-D20).
  *  - Forecast custos: event_forecasts approved (type=expense) agregados por categoria L3
  *
  * Sources foram aprovadas pelo utilizador (msg de 2026-04-30).
@@ -58,6 +60,27 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   const forecasts = (fcRes.data ?? []) as Row[];
   const categories = (catsRes.data ?? []) as Row[];
   const existingCosts = (cfgRes.data ?? []) as Row[];
+
+  // Carga corrente por zona (DR-2026-09-03-D20): último retrato diário de
+  // event_zone_capacities (Ticketline occupation.xlsx / BOL). Quando existe,
+  // é ela — e não a capacidade da zona — a base da projecção por defeito.
+  // `capacity_target` continua a ser a capacidade (carga inicial).
+  const currentLoadByZoneId = new Map<string, { load: number; observedOn: string | null }>();
+  try {
+    const { data: snapData } = await supabase.rpc("zone_capacity_snapshot" as any, {
+      _event_id: eventId,
+    });
+    for (const r of (snapData ?? []) as Row[]) {
+      if (!r.zone_id) continue;
+      currentLoadByZoneId.set(r.zone_id, {
+        load: Number(r.capacity || 0),
+        observedOn: r.observed_on ?? null,
+      });
+    }
+  } catch {
+    // sem retrato disponível → comportamento actual (capacidade − vendido)
+  }
+
 
   // Re-fetch ticket_sales agora que temos zone_ids reais
   const zoneIds = zones.map((z) => z.id);
@@ -137,7 +160,13 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
       }
 
       const capacity = Number(z.total_capacity || 0);
-      const projected = Math.max(0, capacity - realQty);
+      // Carga inicial (capacidade) vs carga corrente (o que está de facto à
+      // venda). A projecção nasce da corrente quando há retrato; capacity_target
+      // fica sempre a capacidade.
+      const snap = currentLoadByZoneId.get(z.id);
+      const currentLoad = snap ? snap.load : null;
+      const base = currentLoad ?? capacity;
+      const projected = Math.max(0, base - realQty);
 
       if (existingRow) {
         // Update apenas as métricas automáticas; preserva manuais
@@ -145,18 +174,24 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           real_sales_qty: realQty,
           real_sales_revenue: realRev,
         };
-        // Atualiza projeção só se o utilizador ainda não a editou (heurística: se existing.projected_qty == 0 ou == capacity)
-        if (
-          Number(existingRow.projected_qty || 0) === 0 ||
-          Number(existingRow.projected_qty || 0) === capacity
-        ) {
+        // Atualiza projeção só se o utilizador ainda não a editou (heurística:
+        // projected_qty == 0, == capacidade ou == carga corrente)
+        const cur = Number(existingRow.projected_qty || 0);
+        if (cur === 0 || cur === capacity || (currentLoad !== null && cur === currentLoad)) {
           patch.projected_qty = projected;
+        } else if (currentLoad !== null && cur > currentLoad) {
+          // A projecção nunca pode ficar acima da carga corrente.
+          patch.projected_qty = currentLoad;
+          const note = `projecção ajustada à carga corrente de ${snap?.observedOn ?? "hoje"}`;
+          const prev = String(existingRow.notes || "").trim();
+          patch.notes = prev.includes(note) ? prev : (prev ? `${prev} · ${note}` : note);
         }
         const { error } = await supabase
           .from("event_simulator_inputs")
           .update(patch as any).eq("id", existingRow.id);
         if (error) throw error;
         report.sessionsUpdated++;
+
       } else {
         const { error } = await supabase
           .from("event_simulator_inputs")

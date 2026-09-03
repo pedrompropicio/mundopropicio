@@ -16,7 +16,7 @@ import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.39_capture_occupation";
+const VERSION = "v2.40_occupation_in_daily_cycle";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1960,6 +1960,74 @@ async function runCaptureOccupation(admin: any, configId?: string) {
   }
 }
 
+// ----------------------------------------------------------------------------
+// v2.40 — ocupação no ciclo diário (DR-2026-09-03-D20)
+// Corre SEMPRE depois do sale_summary, por config, no mesmo fan-out.
+// Nunca lança: falha na ocupação de um evento não aborta as vendas desse
+// evento nem dos outros — fica registada no import_audit.occupation do run.
+// No modo cron só corre 1×/dia por evento (o cron é horário); no modo
+// manual corre sempre (refresca o retrato do dia).
+// ----------------------------------------------------------------------------
+async function captureOccupationSafe(
+  admin: any,
+  cfg: any,
+  mode: string,
+  runId?: string | null,
+): Promise<any> {
+  let outcome: any;
+  try {
+    if (!cfg.ticketline_event_id) {
+      outcome = { ok: true, skipped: true, reason: "config sem ticketline_event_id" };
+    } else {
+      const dayIso = lisbonTodayIso();
+      let skip = false;
+      if (mode === "cron") {
+        const { data: already } = await admin
+          .from("event_zone_capacities")
+          .select("id")
+          .eq("event_id", cfg.event_id)
+          .eq("observed_on", dayIso)
+          .eq("source", "ticketline_occupation")
+          .limit(1);
+        skip = (already || []).length > 0;
+      }
+      if (skip) {
+        outcome = { ok: true, skipped: true, reason: "já existe retrato de hoje", observed_on: dayIso };
+      } else {
+        const resp = await runCaptureOccupation(admin, cfg.id);
+        const body = await resp.json().catch(() => ({}));
+        outcome = {
+          ok: resp.status === 200 && body?.ok !== false,
+          httpStatus: resp.status,
+          observed_on: body?.observed_on ?? dayIso,
+          upserted: body?.upserted ?? 0,
+          empty: body?.empty ?? false,
+          phase: body?.phase ?? null,
+          error: body?.error ?? null,
+          sums: body?.sums ?? null,
+        };
+      }
+    }
+  } catch (e: any) {
+    outcome = { ok: false, phase: "occupation_unexpected", error: e?.message || String(e) };
+  }
+  if (!outcome.ok) console.warn(`[occupation ${cfg.id}] ${outcome.phase}: ${outcome.error}`);
+  if (runId) {
+    try {
+      const { data: cur } = await admin
+        .from("ticketline_sync_runs").select("import_audit").eq("id", runId).maybeSingle();
+      await admin.from("ticketline_sync_runs")
+        .update({ import_audit: { ...(cur?.import_audit ?? {}), occupation: outcome } })
+        .eq("id", runId);
+    } catch (e: any) {
+      console.warn(`[occupation ${cfg.id}] audit não gravado: ${e?.message || e}`);
+    }
+  }
+  return outcome;
+}
+
+
+
 
 
 
@@ -3199,7 +3267,10 @@ Deno.serve(async (req) => {
       continue;
     }
     const r = await runOneConfig(admin, cfg, mode, triggeredBy, sessions);
-    results.push({ configId: cfg.id, ...r });
+    // Ocupação (carga corrente) DEPOIS do sale_summary — nunca aborta as vendas.
+    const occ = await captureOccupationSafe(admin, cfg, mode, (r as any)?.runId ?? null);
+    results.push({ configId: cfg.id, ...r, occupation: occ });
+
   }
   const allOk = results.every(r => r.ok);
   return json(allOk ? 200 : 500, { ok: allOk, results });
