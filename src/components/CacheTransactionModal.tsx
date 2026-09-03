@@ -54,7 +54,9 @@ export function CacheTransactionModal({
 
   const isFixedCache = cacheType === "fixed";
 
-  const netPayable = withholdingApplicable ? amount - withholdingAmount : amount;
+  // Decisão do Pedro (2026-09-03): paga-se o cachê INTEGRAL. A retenção não é
+  // descontada nem gerada aqui — é definida no fecho, com a base de incidência.
+  const netPayable = amount;
 
   const [dueDate, setDueDate] = useState("");
   const [accountId, setAccountId] = useState("");
