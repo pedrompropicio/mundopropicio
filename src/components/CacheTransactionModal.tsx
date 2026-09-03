@@ -397,6 +397,27 @@ export function CacheTransactionModal({
 
   const canSubmit = dueDate && finalAmount > 0 && (!useSplit || Math.abs(splitDiff) < 0.01);
 
+  /**
+   * Cachê fixo em evento gerido `with_bp`: a linha de BP é obrigatória e
+   * escolhida/criada pelo utilizador (mesmo fluxo de src/pages/Transactions.tsx).
+   * Cachê variável: o módulo garante a linha, sem intervenção.
+   */
+  const handleSubmit = async () => {
+    if (isFixedCache) {
+      try {
+        const withBp = await fetchWithBpEventIds([eventId]);
+        if (withBp.has(eventId)) {
+          setShowLinkBp(true);
+          return;
+        }
+      } catch (err: any) {
+        toast({ title: "Erro ao validar o modo do evento", description: err.message, variant: "destructive" });
+        return;
+      }
+    }
+    createMutation.mutate(undefined);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl max-h-[90vh] flex flex-col">
