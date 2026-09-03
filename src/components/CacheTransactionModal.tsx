@@ -447,14 +447,8 @@ export function CacheTransactionModal({
             </div>
             {withholdingApplicable && (
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-destructive">Retenção IRS ({withholdingRate}%)</span>
-                <span className="font-mono text-destructive">− {formatCurrency(withholdingAmount)}</span>
-              </div>
-            )}
-            {withholdingApplicable && (
-              <div className="mt-1 flex items-center justify-between text-xs font-semibold border-t border-primary/20 pt-1">
-                <span>Líquido a pagar</span>
-                <span className="font-mono">{formatCurrency(netPayable)}</span>
+                <span className="text-muted-foreground">Retenção IRS ({withholdingRate}%) — estimada</span>
+                <span className="font-mono text-muted-foreground">{formatCurrency(withholdingAmount)}</span>
               </div>
             )}
             {cacheCategory && (
