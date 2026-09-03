@@ -34,7 +34,7 @@ import {
   inferCardRateFromReceipt,
   invalidateCardSessionQueries,
 } from "@/lib/card-session-helpers";
-import CardItemDocumentsField from "@/components/cards/CardItemDocumentsField";
+import { CardItemDocumentsField } from "@/components/cards/CardItemDocumentsField";
 import { uploadCardItemDocument } from "@/lib/card-item-documents";
 
 interface Props {
@@ -477,9 +477,8 @@ export function CardTeamItemModal({
           <CardItemDocumentsField
             sessionId={sessionId}
             itemId={itemId ?? null}
-            pendingFiles={pendingDocs}
+            pending={pendingDocs}
             onPendingChange={setPendingDocs}
-            label="Documentos adicionais"
           />
 
           <p className="text-[11px] text-muted-foreground">
