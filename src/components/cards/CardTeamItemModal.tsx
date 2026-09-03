@@ -34,6 +34,8 @@ import {
   inferCardRateFromReceipt,
   invalidateCardSessionQueries,
 } from "@/lib/card-session-helpers";
+import CardItemDocumentsField from "@/components/cards/CardItemDocumentsField";
+import { uploadCardItemDocument } from "@/lib/card-item-documents";
 
 interface Props {
   open: boolean;
@@ -78,6 +80,8 @@ export function CardTeamItemModal({
   const [events, setEvents] = useState<EventOpt[]>([]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  /** Documentos extra (N por item — `card_item_documents`). */
+  const [pendingDocs, setPendingDocs] = useState<File[]>([]);
   const [existingDocPath, setExistingDocPath] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -123,6 +127,7 @@ export function CardTeamItemModal({
     setEventId(primaryEventId ?? "");
     setNotes("");
     setPhotoFile(null);
+    setPendingDocs([]);
     setExistingDocPath(null);
     setPreviewUrl(null);
     setOcrPayload(null);
@@ -277,26 +282,13 @@ export function CardTeamItemModal({
         if (updErr) throw updErr;
       }
 
-      // Upload photo (nova ou substituição)
-      if (photoFile && workingId) {
-        const ts = Date.now();
-        const ext =
-          photoFile.name.split(".").pop()?.toLowerCase() ||
-          (photoFile.type.includes("png") ? "png" : "jpg");
-        const path = `${sessionId}/${workingId}/${ts}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("card-documents")
-          .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
-        if (upErr) throw upErr;
-        // apagar anterior se existia (só o produtor com sessão aberta)
-        if (existingDocPath && existingDocPath !== path) {
-          await supabase.storage.from("card-documents").remove([existingDocPath]);
+      // D17 — N documentos por item: a foto do talão e os anexos extra ficam
+      // todos em `card_item_documents` (bucket card-documents). O legado
+      // `document_path` continua a apontar para o primeiro, para as vistas antigas.
+      if (workingId) {
+        for (const f of [...(photoFile ? [photoFile] : []), ...pendingDocs]) {
+          await uploadCardItemDocument(sessionId, workingId, f, user.id);
         }
-        const { error: updDocErr } = await supabase
-          .from("card_session_items")
-          .update({ document_path: path })
-          .eq("id", workingId);
-        if (updDocErr) throw updDocErr;
       }
 
       toast({ title: itemId ? "Lançamento atualizado" : "Lançamento submetido" });
