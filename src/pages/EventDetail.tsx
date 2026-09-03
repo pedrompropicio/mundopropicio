@@ -627,10 +627,15 @@ export default function EventDetail() {
           queryClient.invalidateQueries({ queryKey: ["event_detail", s.id] });
         });
       }
+      setShowCloseGuard(false);
       toast({ title: newStatus === "completed" ? "Evento concluído!" : "Evento reativado!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: translateCloseBlockerError(err.message ?? ""),
+        variant: "destructive",
+      });
     },
   });
 
