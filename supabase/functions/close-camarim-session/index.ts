@@ -264,14 +264,16 @@ Deno.serve(async (req) => {
       }, 422);
     }
 
-    if (withBpEventIds.length > 0) {
-      const bpEventId = withBpEventIds[0];
-      if (!sessionForecastId) {
-        return json({
-          error:
-            "Este evento é gerido com BP: escolhe a linha de BP (2.6.04 — Camarins) antes de integrar a sessão.",
-        }, 422);
-      }
+    if (withBpEventIds.length > 0 && !sessionForecastId) {
+      return json({
+        error:
+          "Este evento é gerido com BP: escolhe a linha de BP (2.6.04 — Camarins) antes de integrar a sessão.",
+      }, 422);
+    }
+
+    if (sessionForecastId) {
+      const bpEventId = withBpEventIds[0] ?? targetEventIds[0];
+
       const { data: fc, error: fcErr } = await adminClient
         .from("event_forecasts")
         .select("id,event_id,category_id,type")
