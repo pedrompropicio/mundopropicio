@@ -183,3 +183,49 @@ acelera o download e reduz ruído no parser.
   antes falhava com 403 porque só aceitava o service role por igualdade estrita.
 - Runs com status **`html_response`** = `ticketline_event_id` obsoleto ou conta
   sem acesso ao evento (NÃO é sessão expirada). Usar `{"action":"discover"}`.
+
+## Ocupação por zona — carga corrente (v2.40, 2026-09-03)
+
+Ver `DR-2026-09-03-D20` em `docs/DECISIONS.md`: **carga inicial** (capacidade
+planeada das zonas, fixa) ≠ **carga corrente** (o que está de facto à venda
+na bilheteira, muda ao longo da venda).
+
+- **Endpoint:** `GET /managers/events/{ticketline_event_id}/occupation.xlsx`
+  (mesmo login Devise / `ticketline_master`).
+- **Colunas lidas** (a partir do header `ZONA`, endereços reais das células):
+  `ZONA | OCUP. MÁX. | DISP. | BLOQ. | Qt. ocupada`.
+  A linha `Total` **não** é gravada como zona; se a soma das zonas não bater
+  com o Total, a captura falha sem escrever nada. Disponibilidade negativa
+  (sobrevenda) é dado real e é aceite.
+- **Destino:** `public.event_zone_capacities`, uma linha por zona por dia:
+  `capacity_kind='released'`, `source='ticketline_occupation'`,
+  `observed_on` = hoje em Europe/Lisbon, upsert por
+  `(event_id, zone_label, capacity_kind, observed_on)`.
+  O BOL escreve na **mesma tabela** com o mesmo `capacity_kind='released'` e
+  `source='bol_m2'`.
+- **Cron:** não há cron novo. A captura entrou no ciclo do
+  `ticketline-sync-daily` (`5 * * * *`, sem `configId` → fan-out por config):
+  cada sub-invocação corre `runOneConfig` (sale_summary) e **depois**
+  `captureOccupationSafe`. Falha na ocupação nunca aborta as vendas desse
+  evento nem dos outros — fica em `ticketline_sync_runs.import_audit.occupation`.
+  Em `mode='cron'` só corre 1×/dia por evento (já existe retrato de hoje →
+  `skipped`); em `mode='manual'` corre sempre e refresca o retrato do dia.
+  A action manual `{"action":"capture_occupation","configId":"…"}` mantém-se.
+- **Mapeamento às zonas do ERP:** função
+  `public.zone_capacity_snapshot(_event_id uuid, _on date default current_date)`.
+  Toma o **último retrato** disponível até `_on` (`max(observed_on) <= _on`,
+  uma só data), normaliza o `zone_label` com `public.normalize_zone_label()`
+  — prefixo antes do primeiro ` - ` e do ` | `, o que retira o sufixo do
+  recinto e o lote/variante; sem acentos, sem espaços duplos, minúsculas — e
+  casa com `event_ticket_zones.name` normalizado da mesma forma. Agrega por
+  zona (`capacity`, `available`, `blocked`, `occupied`) e devolve ainda
+  `unmatched_labels` (jsonb) com os rótulos que não casaram, para a UI os
+  mostrar em vez de os perder. `EXECUTE` só a `authenticated`/`service_role`,
+  com guarda de empresa do evento.
+  Exemplo (Ivete Clareou 2026, `_on='2026-08-27'`): ARENA 14.020 · OPEN BAR 5.996.
+- **Simulador:** `src/lib/event-simulator-sync.ts` usa a carga corrente como
+  base da projecção por defeito quando há retrato (senão mantém
+  capacidade − vendido), nunca deixa a projecção acima da carga corrente
+  (baixa e escreve em `notes`: "projecção ajustada à carga corrente de <data>")
+  e mantém `capacity_target` = capacidade da zona. A tabela Dia × Zona mostra
+  as duas ("Capacidade 14.000 · Carga corrente 8.520 em 27/08").
