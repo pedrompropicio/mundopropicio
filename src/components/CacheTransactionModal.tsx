@@ -747,11 +747,12 @@ export function CacheTransactionModal({
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-warning">Retenção tratada no fecho</p>
+                  <p className="text-xs font-medium text-warning">Retenção definida no fecho</p>
                   <p className="text-[10px] text-warning/80 mt-0.5">
-                    A retenção de IRS ({withholdingRate}%) estimada em {formatCurrency(withholdingAmount)} NÃO é
-                    gerada agora. A base de incidência só se conhece no fecho (parte do cachê pode ser logística
-                    ou verba de marketing, sem retenção), pelo que a obrigação fiscal é definida e criada aí.
+                    Aqui paga-se o cachê integral: a retenção de IRS ({withholdingRate}%), estimada em{" "}
+                    {formatCurrency(withholdingAmount)}, NÃO é descontada nem gerada neste ecrã. É definida no
+                    fecho, quando se conhece a base de incidência (parte do cachê pode ser logística ou verba de
+                    marketing, sem retenção).
                   </p>
                 </div>
               </div>
