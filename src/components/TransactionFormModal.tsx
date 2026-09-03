@@ -612,7 +612,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, category_id, amount, event_id, forecast_id")
+        .select("id, type, category_id, amount, event_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden")
         .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
