@@ -337,7 +337,18 @@ Deno.serve(async (req) => {
         legacyAdoptions.push({ transaction_id: t.id as string, forecast_id: fid, amount: base });
         toApproveByLine.set(fid, round2((toApproveByLine.get(fid) ?? 0) + base));
       }
+      // A linha indicada tem de pertencer mesmo ao par (evento × rubrica).
+      for (const a of legacyAdoptions) {
+        const { data: fc } = await adminClient
+          .from("event_forecasts").select("id,event_id,category_id").eq("id", a.forecast_id).maybeSingle();
+        const tx = legacyTxs.find((t) => t.id === a.transaction_id);
+        if (!fc || (fc as any).event_id !== tx?.event_id || (fc as any).category_id !== tx?.category_id) {
+          return json({ error: "Adopção de transação antiga: a linha de BP não corresponde ao evento/rubrica." }, 422);
+        }
+      }
     }
+
+
 
     const budgetExcess: any[] = [];
     const raisesToApply: { forecast_id: string; old: number; next: number; observation: string; company_id: string }[] = [];
