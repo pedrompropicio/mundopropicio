@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1340,7 +1341,7 @@ export default function CamarimSessionDetail() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={runIntegrate}
+              onClick={(e) => { e.preventDefault(); void runIntegrate(null); }}
               disabled={integrating || blockingIssues.length > 0 || (approvedItems.length > 0 && !confirmIntegration)}
             >
               {integrating ? "A integrar…" : "Confirmar e integrar"}
@@ -1348,6 +1349,28 @@ export default function CamarimSessionDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {bpGate && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: "",
+            description: `Sessão de Camarim: ${session.title}`,
+            amount: totals.spent,
+            iva_rate: 0,
+            event_id: bpGate.eventId,
+            category_id: bpGate.categoryId,
+            events: { name: bpGate.eventName },
+            account_categories: { code: bpGate.categoryCode, name: bpGate.categoryName },
+          }}
+          onClose={() => setBpGate(null)}
+          onLinked={() => setBpGate(null)}
+          onPicked={(forecastId) => {
+            setBpGate(null);
+            void runIntegrate(forecastId);
+          }}
+        />
+      )}
 
       {splitItemId && (
         <SplitItemModal
