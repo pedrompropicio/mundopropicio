@@ -28,6 +28,7 @@ import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { scaleABFromReal, scaleABCostFromReal } from "@/lib/event-simulator-ab-scale";
 import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
+import { fetchCurrentLoadByZoneName, normZoneLabel } from "@/lib/event-simulator-forecast-live";
 
 export interface CitySimulatorData {
   loading: boolean;
@@ -108,8 +109,9 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
 
   // Lotes p/ solver BE/Forecast
   const { data: beLotInfo = {} } = useQuery<Record<string, SessionLotInfo>>({
-    queryKey: ["city-sim-lots", eventId],
+    queryKey: ["city-sim-lots-v2", eventId],
     queryFn: async () => {
+      const currentLoadForSolver = await fetchCurrentLoadByZoneName(eventId!);
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id, name, total_capacity").eq("event_id", eventId!);
@@ -146,9 +148,11 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
           const ms = new Date(today).getTime() - new Date(firstSale).getTime();
           daysSelling = Math.max(1, Math.round(ms / 86400000));
         }
+        const snap = currentLoadForSolver.get(normZoneLabel(z.name));
         out[String(z.name)] = {
           key: String(z.name),
-          capacity: Number(z.total_capacity || 0),
+          // Capacidade do solver = CARGA CORRENTE (D20); inicial é fallback.
+          capacity: snap ? snap.load : Number(z.total_capacity || 0),
           lots: lotsArr,
           days_selling: daysSelling,
         };

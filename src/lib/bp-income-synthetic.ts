@@ -7,7 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
-import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
 
 export interface TicketSyntheticResult {
   initialLoad: number;
@@ -19,8 +19,10 @@ export interface TicketSyntheticResult {
   baselineNet: number | null;
   /** valor calculado agora (antes de ler o guardado) */
   computedBaselineNet: number | null;
-  /** previsto corrente (s/IVA) — null sem Simulador */
+  /** previsto corrente (s/IVA) — null sem Simulador nem carga corrente */
   currentNet: number | null;
+  /** quantidade total prevista no cenário Forecast (≤ carga corrente) */
+  currentQty: number;
   /** real (s/IVA), critério linha a linha (D11) */
   realNet: number;
 }
@@ -86,61 +88,18 @@ export async function computeTicketSynthetic(
   const stored = (evt as any)?.ticketing_baseline_net;
   const baselineNet = stored != null ? Number(stored) : computedBaselineNet;
 
-  // Carga corrente (último retrato das bilheteiras)
-  let currentLoad: number | null = null;
-  let currentLoadOn: string | null = null;
-  const { data: snap } = await supabase.rpc("zone_capacity_snapshot" as any, { _event_id: eventId });
-  const rows = ((snap ?? []) as any[]).filter((r) => r.zone_name);
-  if (rows.length > 0) {
-    currentLoad = rows.reduce((s, r) => s + Number(r.capacity || 0), 0);
-    currentLoadOn = rows.map((r) => r.observed_on).filter(Boolean).sort().pop() ?? null;
-  }
-
-  // Previsto corrente (Simulador, cenário forecast, sempre líquido)
-  let currentNet: number | null = null;
-  const [{ data: cfg }, { data: inputs }] = await Promise.all([
-    supabase.from("event_simulator_config").select("*").eq("event_id", eventId).maybeSingle(),
-    supabase.from("event_simulator_inputs").select("*").eq("event_id", eventId),
-  ]);
-  if (cfg && (inputs ?? []).length > 0) {
-    const c = cfg as any;
-    const coala: CoalaConfig = {
-      ab_drink_avg_ticket: Number(c.default_drink_avg_ticket || 0),
-      ab_food_avg_ticket: Number(c.default_food_avg_ticket || 0),
-      ab_drink_passthrough_pct: Number(c.ab_drink_passthrough_pct || 0),
-      ab_food_passthrough_pct: Number(c.ab_food_passthrough_pct || 0),
-      sponsorship_revenue: 0,
-      souvenir_revenue: 0,
-      souvenir_cost: 0,
-      bonif_bebidas: 0,
-      ponto_vendido: 0,
-      other_revenue: 0,
-      prior_year_tickets: 0,
-      prior_year_drink: 0,
-      prior_year_food: 0,
-      prior_year_sponsor: 0,
-      prior_year_souvenir: 0,
-      prior_year_other: 0,
-      ticket_iva_pct: Number(c.ticket_iva_pct || 6),
-    } as CoalaConfig;
-    const sessions = (inputs ?? []).map((s: any) => ({
-      day_index: Number(s.day_index || 0),
-      zone_label: String(s.zone_label || ""),
-      real_sales_qty: Number(s.real_sales_qty || 0),
-      real_sales_revenue: Number(s.real_sales_revenue || 0),
-      projected_qty: Number(s.projected_qty || 0),
-      courtesy_qty: Number(s.courtesy_qty || 0),
-      forecast_qty: Number(s.forecast_qty || 0),
-      prior_year_qty: Number(s.prior_year_qty || 0),
-      prior_year_revenue: Number(s.prior_year_revenue || 0),
-      iva_pct: Number(s.iva_pct || 6),
-      avg_ticket_override: s.avg_ticket_override,
-    })) as CoalaSession[];
-    currentNet = computeScenarioRevenue(sessions, coala, "forecast").ticketsRevenue;
-  }
+  // Previsto corrente = cenário Forecast do Simulador calculado AO VIVO
+  // (DR-2026-09-03-D21, adenda 2). Nunca o fallback estático.
+  const live = await computeLiveTicketForecast(eventId);
 
   return {
-    initialLoad, currentLoad, currentLoadOn, soldQty, ivaPct,
-    baselineNet, computedBaselineNet, currentNet, realNet,
+    initialLoad,
+    currentLoad: live.currentLoad,
+    currentLoadOn: live.currentLoadOn,
+    soldQty, ivaPct,
+    baselineNet, computedBaselineNet,
+    currentNet: live.net,
+    currentQty: live.totalQty,
+    realNet,
   };
 }

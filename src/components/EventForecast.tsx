@@ -2122,12 +2122,16 @@ const descRef = useRef<HTMLInputElement>(null);
             placeholder="0,00"
           />
         </td>
-        <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
-        </td>
-        <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
-        </td>
+        {isExpenseType && (
+          <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+            {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+          </td>
+        )}
+        {isExpenseType && (
+          <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+            {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+          </td>
+        )}
         {!isExpenseType && <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>}
         <td className="py-1.5 text-right">
           <div className="flex justify-end items-center gap-1">
@@ -2598,11 +2602,9 @@ const descRef = useRef<HTMLInputElement>(null);
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
                         <th className="pb-2 text-right font-medium">IVA %</th>
-                        <th className="pb-2 text-right font-medium">Previsto original</th>
-                        <th className="pb-2 text-right font-medium">Previsto corrente</th>
-                        <th className="pb-2 text-right font-medium">IVA (€)</th>
-                        <th className="pb-2 text-right font-medium">Total (€)</th>
-                        <th className="pb-2 text-right font-medium">Real</th>
+                        <th className="pb-2 text-right font-medium">Previsto original (s/IVA)</th>
+                        <th className="pb-2 text-right font-medium">Previsto corrente (s/IVA)</th>
+                        <th className="pb-2 text-right font-medium">Real (s/IVA)</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
@@ -2619,9 +2621,7 @@ const descRef = useRef<HTMLInputElement>(null);
                               <tr className="bg-secondary/10 border-t border-border/30">
                                 <td colSpan={3} className="py-2 pl-2 text-xs font-semibold text-foreground"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
                                 <td />
-                                <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase)}</td>
-                                <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
-                                <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase + groupIva)}</td>
+                                <td className="py-2 text-right font-mono text-xs font-semibold" title={`IVA ${formatCurrency(groupIva)} · Total c/IVA ${formatCurrency(groupBase + groupIva)}`}>{formatCurrency(groupBase)}</td>
                                 <td />
                                 <td />
                               </tr>
@@ -2660,12 +2660,6 @@ const descRef = useRef<HTMLInputElement>(null);
                                     <td className="py-1.5 pr-2">
                                      <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={canEditBPPartial && !canEditBP} />
                                    </td>
-                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
-                                   </td>
-                                   <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
-                                   </td>
                                    <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>
                                    <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
@@ -2679,7 +2673,7 @@ const descRef = useRef<HTMLInputElement>(null);
                               ));
                               return (
                                 <React.Fragment key={`inc-band-${f.id}`}>
-                                  {band && <CategoryBandRow band={band} colCount={9} />}
+                                  {band && <CategoryBandRow band={band} colCount={7} />}
                                   {row}
                                 </React.Fragment>
                               );
@@ -2707,9 +2701,12 @@ const descRef = useRef<HTMLInputElement>(null);
                           <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">{l.categoryLabel}</td>
                           <td className="py-2.5 text-right text-muted-foreground text-xs">{l.ivaPct != null ? `${l.ivaPct.toFixed(l.ivaPct % 1 === 0 ? 0 : 1)}%` : "—"}</td>
                           <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{l.baselineNet != null ? formatCurrency(l.baselineNet) : "—"}</td>
-                          <td className="py-2.5 text-right font-mono font-semibold text-success">{l.currentNet != null ? formatCurrency(l.currentNet) : "—"}</td>
-                          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(l.currentIva)}</td>
-                          <td className="py-2.5 text-right font-mono text-xs">{formatCurrency((l.currentNet ?? 0) + l.currentIva)}</td>
+                          <td
+                            className="py-2.5 text-right font-mono font-semibold text-success"
+                            title={l.currentNet != null ? `IVA ${formatCurrency(l.currentIva)} · Total c/IVA ${formatCurrency(l.currentNet + l.currentIva)}` : undefined}
+                          >
+                            {l.currentNet != null ? formatCurrency(l.currentNet) : "—"}
+                          </td>
                           <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(l.realNet)}</td>
                           <td />
                         </tr>
@@ -2720,9 +2717,7 @@ const descRef = useRef<HTMLInputElement>(null);
                         <tr className="border-t border-border/50">
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
                           <td className="py-2.5 text-right font-mono font-bold text-muted-foreground">{formatCurrency(incomeBaselineTotal)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeCurrentTotal)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success/70">{formatCurrency(incomeCurrentIvaTotal)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeCurrentTotal + incomeCurrentIvaTotal)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success" title={`IVA ${formatCurrency(incomeCurrentIvaTotal)} · Total c/IVA ${formatCurrency(incomeCurrentTotal + incomeCurrentIvaTotal)}`}>{formatCurrency(incomeCurrentTotal)}</td>
                           <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeRealTotal)}</td>
                           <td />
                         </tr>
@@ -3475,7 +3470,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showAuditLog,
   });
 
-  const colCount = isExpense ? 8 : 9;
+  const colCount = isExpense ? 8 : 7;
 
   // ── Sync attachments from BP line → linked transactions
   // Copies external links (attachment_refs) from this BP row into transaction_documents
@@ -3730,18 +3725,25 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
             {item.baseline_amount != null ? formatCurrency(Number(item.baseline_amount)) : formatCurrency(Number(item.amount))}
           </td>
         )}
-        <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+        <td
+          className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}
+          title={showIncomeCols ? `IVA ${formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)} · Total c/IVA ${formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}` : undefined}
+        >
           <span className="inline-flex items-center justify-end gap-1.5">
             {formatCurrency(Number(item.amount))}
             <CurrencyBadge currency={item.currency} originalAmount={item.original_amount} fxRate={item.fx_rate} />
           </span>
         </td>
-        <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
-          {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
-        </td>
-        <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-          {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
-        </td>
+        {!showIncomeCols && (
+          <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
+            {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+          </td>
+        )}
+        {!showIncomeCols && (
+          <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+            {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
+          </td>
+        )}
         {showIncomeCols && (
           <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">—</td>
         )}
@@ -4124,7 +4126,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
   const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const txs: any[] = item._orphanTx ?? [];
-  const colCount = isExpense ? 8 : 9;
+  const colCount = isExpense ? 8 : 7;
   const pending = orphanBucketIsPending(item.type);
   const orphanTxWithIva = (t: any) => Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
   // Realizado do balde: só o universo canónico (ver isCanonicalRealTx).

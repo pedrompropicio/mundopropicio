@@ -33,6 +33,7 @@ import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
+import { fetchCurrentLoadByZoneName, normZoneLabel } from "@/lib/event-simulator-forecast-live";
 // combo bridge removido: combos são lotes unificados em event_ticket_lots
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
@@ -332,8 +333,9 @@ export default function EventSimulator() {
   // (importações em batch) ou quando há mismatch entre a ordem das sessões
   // do BP e a ordem usada pela matriz Dia × Zona.
   const { data: beLotInfo } = useQuery({
-    queryKey: ["sim-coala-be-lots-v2", eventId],
+    queryKey: ["sim-coala-be-lots-v3", eventId],
     queryFn: async () => {
+      const currentLoadForSolver = await fetchCurrentLoadByZoneName(eventId!);
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id, name, total_capacity").eq("event_id", eventId!);
@@ -378,9 +380,11 @@ export default function EventSimulator() {
           daysSelling = Math.max(1, Math.round(ms / 86400000));
         }
         const key = String(z.name);
+        // Capacidade do solver = CARGA CORRENTE (D20); carga inicial é fallback.
+        const snap = currentLoadForSolver.get(normZoneLabel(z.name));
         out[key] = {
           key,
-          capacity: Number(z.total_capacity || 0),
+          capacity: snap ? snap.load : Number(z.total_capacity || 0),
           lots: lotsArr,
           days_selling: daysSelling,
         };
