@@ -3470,7 +3470,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showAuditLog,
   });
 
-  const colCount = isExpense ? 8 : 9;
+  const colCount = isExpense ? 8 : 7;
 
   // ── Sync attachments from BP line → linked transactions
   // Copies external links (attachment_refs) from this BP row into transaction_documents
@@ -4126,7 +4126,7 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
   const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const txs: any[] = item._orphanTx ?? [];
-  const colCount = isExpense ? 8 : 9;
+  const colCount = isExpense ? 8 : 7;
   const pending = orphanBucketIsPending(item.type);
   const orphanTxWithIva = (t: any) => Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
   // Realizado do balde: só o universo canónico (ver isCanonicalRealTx).
