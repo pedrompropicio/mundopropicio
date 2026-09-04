@@ -7,7 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
-import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
 
 export interface TicketSyntheticResult {
   initialLoad: number;
@@ -19,8 +19,10 @@ export interface TicketSyntheticResult {
   baselineNet: number | null;
   /** valor calculado agora (antes de ler o guardado) */
   computedBaselineNet: number | null;
-  /** previsto corrente (s/IVA) — null sem Simulador */
+  /** previsto corrente (s/IVA) — null sem Simulador nem carga corrente */
   currentNet: number | null;
+  /** quantidade total prevista no cenário Forecast (≤ carga corrente) */
+  currentQty: number;
   /** real (s/IVA), critério linha a linha (D11) */
   realNet: number;
 }
