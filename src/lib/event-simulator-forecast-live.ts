@@ -62,9 +62,10 @@ export interface LiveTicketForecast {
 }
 
 export async function computeLiveTicketForecast(eventId: string): Promise<LiveTicketForecast> {
-  const [{ data: dates }, { data: cfgRow }, { data: inputs }, { data: zones }, currentLoadMap] =
+  const [{ data: dates }, { data: evtRow }, { data: cfgRow }, { data: inputs }, { data: zones }, currentLoadMap] =
     await Promise.all([
       supabase.from("event_dates").select("date").eq("event_id", eventId).order("date"),
+      supabase.from("events").select("date").eq("id", eventId).maybeSingle(),
       supabase.from("event_simulator_config").select("*").eq("event_id", eventId).maybeSingle(),
       supabase.from("event_simulator_inputs").select("*").eq("event_id", eventId).order("day_index"),
       supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId),
@@ -231,7 +232,7 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
 
   // Data do evento = última sessão (mesmo critério da página do Simulador).
   const dateList = ((dates ?? []) as any[]).map((d) => d.date).filter(Boolean);
-  const eventDate = dateList.length ? dateList[dateList.length - 1] : null;
+  const eventDate = dateList.length ? dateList[dateList.length - 1] : ((evtRow as any)?.date ?? null);
   const solution = solveForecast(sessions, coala, lotInfoByKey, eventDate, {
     finalAccel: Number(cfg.forecast_final_accel) || undefined,
     finalWindowDays: Number(cfg.forecast_final_window_days) || undefined,
