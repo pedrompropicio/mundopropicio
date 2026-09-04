@@ -99,6 +99,7 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
       } else {
         meta.push("sem retrato de carga");
       }
+      if (ticket.currentQty > 0) meta.push(`Previsto ${fmtInt(ticket.currentQty)} bilhetes`);
       if (ticket.soldQty > 0) {
         const pcts: string[] = [];
         if (ticket.initialLoad > 0) pcts.push(`${Math.round((ticket.soldQty / ticket.initialLoad) * 100)}% da inicial`);
