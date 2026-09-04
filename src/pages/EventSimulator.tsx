@@ -378,9 +378,11 @@ export default function EventSimulator() {
           daysSelling = Math.max(1, Math.round(ms / 86400000));
         }
         const key = String(z.name);
+        // Capacidade do solver = CARGA CORRENTE (D20); carga inicial é fallback.
+        const snap = currentLoadForSolver.get(normZone(z.name));
         out[key] = {
           key,
-          capacity: Number(z.total_capacity || 0),
+          capacity: snap ? snap.load : Number(z.total_capacity || 0),
           lots: lotsArr,
           days_selling: daysSelling,
         };
