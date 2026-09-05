@@ -15,8 +15,13 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { computeTicketSynthetic } from "@/lib/bp-income-synthetic";
+import {
+  computeSponsorshipSynthetic,
+  type SponsorshipSegmentBreakdown,
+} from "@/lib/bp-sponsorship-synthetic";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { useEventABRealized } from "@/hooks/useEventABRealized";
+
 
 export interface SyntheticIncomeLine {
   key: "bilheteira" | "ab";
