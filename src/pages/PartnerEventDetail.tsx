@@ -1025,6 +1025,17 @@ export default function PartnerEventDetail() {
   };
 
   const handleExportBPPdf = async () => {
+    if (canExportStatement) {
+      try {
+        const branding = await fetchExportBranding();
+        const input = buildStatementInput(branding.logoDataUrl);
+        if (!input) return;
+        exportPartnerStatementPdf(input);
+      } catch (err: any) {
+        toast.error("Erro ao exportar PDF", { description: err?.message });
+      }
+      return;
+    }
     const p = buildExportPayload();
     if (!p) return;
     try {
