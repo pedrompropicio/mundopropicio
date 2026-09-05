@@ -166,7 +166,9 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
       is_transitory: false,
       transaction_id: transactionId,
       company_id: row.company_id,
+      formalidade: "fechado",
       notes: "Gerado a partir do Pipeline de Patrocínios",
+
     } as never)
     .select("id")
     .single();
