@@ -1,20 +1,15 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-03 · D1–D8 construídos na frente vinculo-bp-transacoes; BP de receita (D9/D10) por começar
+Atualizado: 2026-09-05 · #103 ronda 1 em produção (Publish do Pedro a 04/09); ronda 2 por fazer
 
 ## Em que pé está
-O desenho do "BP como base real de custos e de receita" deixou a fase de fundações. D1–D8 e D13–D19 estão em produção e documentados em `docs/estado/estado-vinculo-bp-transacoes.md` e `docs/DECISIONS.md`:
-- D1 + D8: linha de BP obrigatória para aprovar despesa em evento `with_bp`, validada no trigger e nos ecrãs.
-- D2: elevação de verba em todos os actos de aprovação, via `raise_forecast_budget` e `RaiseBudgetDialog`.
-- D13–D19: guarda de fecho do evento, cartões no modelo do camarim, retenção removida do cachê, etc.
-
-O que resta nesta frente é o BP de receita.
+O BP de receita está construído. A aba Business Plan tem sub-separadores Despesas | Receitas e as receitas com módulo aparecem como linhas sintéticas não persistidas — 1.1.01 (bilheteira) e 1.1.03 (A&B) — com três colunas s/IVA: previsto original (fixado uma única vez em `events.ticketing_baseline_net` / `ab_baseline_net`), previsto corrente (cenário Forecast do Simulador ao vivo, `computeLiveTicketForecast`, com capacidade = carga corrente de `zone_capacity_snapshot`) e real (`ticket_sales`, critério D11 linha a linha). Há duas cargas (D20): inicial = `event_ticket_zones.total_capacity`; corrente = último retrato de `event_zone_capacities`, capturado pelo ciclo diário da Ticketline (v2.40) e mostrado com data.
 
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-**#103 — D10, BP de receita:** sub-separadores Despesas | Receitas no Business Plan, linha sintética por módulo (bilheteira, patrocínios fechados) com previsão e real separados, linha manual onde não há módulo, e totais/estado vazio a contar as linhas sintéticas. Ponto de partida observado na Ivete Clareou 2026 a 03/09 e comentado na issue.
+**#103 ronda 2** — verba por segmento de patrocínio e encerramento datado da captação (ver `docs/questoes-bp-receita.md`).
 
 ## Bloqueios
 Nenhum.
@@ -38,6 +33,18 @@ Nenhum.
 
 **IVA 0% no BP tem quatro causas distintas e o sistema não as separa:** isenção legal (seguros, taxas públicas, per diems, alfândega); autoliquidação intracomunitária (Meta, Google, ClepMedia); transporte internacional (aéreo); e composição mista onde o zero é aproximação (hospedagem, camarins). 208 das 712 linhas de despesa estão a 0%, 2.091.583,15 €. Hospedagem: 28 linhas, 127.298,03 €, em 13 eventos — é convenção da equipa, não erro. NÃO mexer antes do campo de desembolso previsto existir (D11.2/11.3).
 
+**Fórmula do previsto original fechada a 03/09 (adenda D21):** min(carga inicial, Σ qty dos lotes de planeamento) × preço médio líquido ponderado dos lotes de planeamento. Sem lotes de planeamento → "—" e nada se grava.
+
+**Baselines já fixadas em produção (query a `events`, 05/09):** Ivete 232.075,47 € (fixada 03/09 23:58 UTC; A&B 67.948,75 €) e Anitta EDA 2026 2.591.000,00 € (fixada 04/09 11:04 UTC; 30.207 bilhetes de lotes de planeamento × preço líquido; carga inicial 40.000). São colunas novas, não tocam em nenhum apuramento nem no fecho da Anitta.
+
+**Ivete, carga corrente lida da Ticketline:** 20.016 a 27/08 (lotes 4/5 abertos) → 8.500 desde 03/09 (lotes 4/5 a zero, Lote 3 reduzido). Ocupação 05/09: 7.533. Vendas 05/09 11:13 UTC: 6.043 bilhetes, 453.192,92 € s/IVA. A ocupação inclui convites/bloqueios — não é venda paga.
+
+**O 1,57 M€ que apareceu como previsto corrente a 03/09 era o fallback estático sobre `event_simulator_inputs` parados desde 10/06** — eliminado (adenda 2 da D21). `event_simulator_inputs` não tem cron: refresca ao abrir o Simulador e nem a página nem o BP dependem dele.
+
+**Publish pode não reconstruir edge functions** (03/09: `fetch-ticketline-reports` ficou em v2.39 sem erro após dois Publish; resolvido com deploy directo de 4 funções). Regra: depois de Publish que toque em edge functions, confirmar a versão em produção; se divergir, deploy directo. Nota em `docs/integrations/ticketline.md`.
+
 ## Onde ler mais
-- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11
-- `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit
+- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21 + adendas
+- `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation
+- `docs/questoes-bp-receita.md`
+- `docs/integrations/ticketline.md`

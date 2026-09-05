@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-03 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento
+Atualizado: 2026-09-05 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -99,6 +99,8 @@ Nenhum.
 **12 transações têm FK para linha de outro evento e 2 para outra rubrica** — todas alteradas a 28/08, são mães de rateio (`event_id` nulo) ligadas a linhas de eventos, normal no desenho. As 2 de rubrica divergente ficam como observação.
 
 **Sessão de cartão é multi-evento por natureza.** A sessão `ffdea120` tocou 6 eventos e tem despesas sem evento (rubricas 10.x). `card_session_items` existe com o formato certo mas tem zero itens na história — o gestor regista directo e cada despesa vira transação na hora.
+
+**Deploy directo de edge functions a 03/09:** o Publish não tinha levado `approve-transaction`, `close-camarim-session`, `close-card-session` nem `fetch-ticketline-reports` (esta ficou em v2.39 após dois Publish sem erro). As quatro foram deployadas directamente a 03/09 — desde então a versão em produção é a do repo. Regra operacional: confirmar a versão em produção após cada Publish que toque em edge functions.
 
 ## Onde ler mais
 - `src/lib/bp-tx-matching.ts`, `src/lib/bp-line-required.ts`, `src/lib/bp-budget-excess.ts`, `src/components/LinkBpLineDialog.tsx`, `src/components/RaiseBudgetDialog.tsx`
