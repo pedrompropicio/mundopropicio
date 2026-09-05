@@ -263,16 +263,16 @@ export async function exportPartnerStatementExcel(input: PartnerStatementInput):
   money(resRow, [2]);
   ws.addRow([]);
 
-  // 5. Parte dos sócios
+  // 5. Parte dos sócios (numa linha só — o acordo já detalha as quotas)
   title("5. A parte dos sócios");
   const shHead = ws.addRow(["Sócio", "Quota", "Valor"]);
   shHead.font = { name: "Arial", bold: true };
-  st.shares.forEach((s) => {
-    const row = ws.addRow([s.name, s.percentage / 100, s.value]);
-    row.font = { name: "Arial", bold: true, size: 12 };
-    row.getCell(2).numFmt = "0.00%";
-    money(row, [3]);
-  });
+  const totalPct = st.shares.reduce((sum, s) => sum + s.percentage, 0);
+  const totalValue = st.shares.reduce((sum, s) => sum + s.value, 0);
+  const shRow = ws.addRow(["Parte dos sócios", totalPct / 100, totalValue]);
+  shRow.font = { name: "Arial", bold: true, size: 12 };
+  shRow.getCell(2).numFmt = "0.00%";
+  money(shRow, [3]);
 
   ws.eachRow((row) => {
     row.eachCell((cell) => {
@@ -437,16 +437,20 @@ export function exportPartnerStatementPdf(input: PartnerStatementInput): void {
   doc.text(fmt(st.result), pageWidth - margin - 3, ry + 6, { align: "right" });
   doc.setTextColor(0);
 
-  // 5. Parte dos sócios
+  // 5. Parte dos sócios (numa linha só — o acordo já detalha as quotas)
   const sy = sectionTitle("5. A parte dos sócios", ry + 16);
+  const totalPct = st.shares.reduce((sum, s) => sum + s.percentage, 0);
+  const totalValue = st.shares.reduce((sum, s) => sum + s.value, 0);
   autoTable(doc, {
     startY: sy,
     head: [["Sócio", "Quota", "Valor"]],
-    body: st.shares.map((s) => [
-      { content: s.name, styles: { fontStyle: "bold" } },
-      { content: `${s.percentage.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`, styles: { halign: "right" } },
-      { content: fmt(s.value), styles: { fontStyle: "bold", halign: "right" } },
-    ]),
+    body: [
+      [
+        { content: "Parte dos sócios", styles: { fontStyle: "bold" } },
+        { content: `${totalPct.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`, styles: { halign: "right" } },
+        { content: fmt(totalValue), styles: { fontStyle: "bold", halign: "right" } },
+      ],
+    ],
     theme: "grid",
     styles: { ...baseStyles, fontSize: 9.5 },
     headStyles,
