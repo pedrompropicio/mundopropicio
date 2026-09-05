@@ -1787,7 +1787,7 @@ const descRef = useRef<HTMLInputElement>(null);
     [forecasts, adoptedForecasts, transactions],
   );
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter((f) => !sponsorshipExcludedIds.has(f.id)).filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
   const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter).filter(matchesPayingFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
