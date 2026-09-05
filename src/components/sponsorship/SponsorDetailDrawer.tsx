@@ -92,6 +92,9 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
   }, [row.linked_transaction_id, row.updated_at]);
 
   const hasLink = !!(row.linked_transaction_id && row.linked_forecast_id);
+  /** D22: só um dos lados vinculado — gerar de novo duplicaria BP+TX. */
+  const isHalfLinked = !hasLink && !!(row.linked_transaction_id || row.linked_forecast_id);
+
 
   function patch<K extends keyof SponsorshipPipelineRow>(key: K, value: SponsorshipPipelineRow[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
