@@ -168,7 +168,6 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
 }
 
 const MONEY = '#,##0.00\\ "€"';
-const PCT = '0.00"%"';
 
 function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 60);
