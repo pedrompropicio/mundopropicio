@@ -12276,6 +12276,13 @@ export type Database = {
           total_amount: number
         }[]
       }
+      get_partner_event_shares: {
+        Args: { p_event_id: string }
+        Returns: {
+          partner_name: string
+          percentage: number
+        }[]
+      }
       get_partner_event_tx_aggregates: {
         Args: { p_event_ids: string[] }
         Returns: {

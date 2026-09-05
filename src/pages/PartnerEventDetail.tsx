@@ -21,6 +21,7 @@ import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
+import { exportPartnerStatementExcel, exportPartnerStatementPdf, type PartnerStatementInput } from "@/lib/export-partner-statement";
 import { fetchExportBranding } from "@/lib/export-header";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
@@ -515,6 +516,20 @@ export default function PartnerEventDetail() {
     return m;
   }, [bpAttachmentsRaw]);
 
+  // ── Quotas dos sócios (RPC SECURITY DEFINER — só nome + percentagem)
+  const { data: partnerShares = [] } = useQuery({
+    queryKey: ["partner_event_shares", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_partner_event_shares" as any, {
+        p_event_id: activeEventId!,
+      } as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ partner_name: string; percentage: number }>;
+    },
+    enabled: !!activeEventId && hasPermission("view_bp"),
+  });
+
+
 
   const openBpAttachment = async (kind: string, documentId: string) => {
     try {
@@ -928,9 +943,63 @@ export default function PartnerEventDetail() {
     };
   };
 
+  // ─── Prestação de contas completa (só quando o sócio já vê receitas/resultado) ───
+  // Gate: mesma condição do PartnerFinancialCards no separador BP (view_bp).
+  const canExportStatement = hasPermission("view_bp");
+
+  const buildStatementInput = (logoDataUrl?: string | null): PartnerStatementInput | null => {
+    if (!event) return null;
+    // R2 — filtro canónico das despesas (overhead ENTRA).
+    const canonical = (bpExpenses ?? []).filter(
+      (f: any) =>
+        f.type === "expense" &&
+        !f.is_transitory &&
+        (!f.exclude_from_result || f.is_overhead),
+    );
+    const documentsByCategoryId: Record<string, number> = {};
+    Object.entries(bpAttachmentsByCategory).forEach(([catId, list]) => {
+      documentsByCategoryId[catId] = list.length;
+    });
+    return {
+      eventName: event.name,
+      eventDate: event.date ?? null,
+      eventLocation: (event as any).location ?? null,
+      companyName: companyDisplayName,
+      logoDataUrl: logoDataUrl ?? null,
+      forecasts: canonical.map((f: any) => ({
+        category_id: f.category_id ?? null,
+        amount: f.amount,
+        iva_rate: f.iva_rate,
+      })),
+      categories: allCategories as any[],
+      revenues: [
+        { label: "Bilheteira", net: ticketRevenueNet },
+        { label: "Bares (A&B)", net: barsRealNet },
+        { label: "Patrocínios", net: sponsorshipRealNet },
+        { label: "Outras receitas", net: otherIncomeRealNet },
+      ],
+      documentsByCategoryId,
+      shares: (partnerShares ?? []).map((s) => ({
+        name: s.partner_name,
+        percentage: Number(s.percentage) || 0,
+      })),
+    };
+  };
+
   const handleExportBPExcel = async () => {
+    if (canExportStatement) {
+      try {
+        const input = buildStatementInput();
+        if (!input) return;
+        await exportPartnerStatementExcel(input);
+      } catch (err: any) {
+        toast.error("Erro ao exportar Excel", { description: err?.message });
+      }
+      return;
+    }
     const p = buildExportPayload();
     if (!p) return;
+
     try {
       await exportPLToExcel(
         p.eventsToExport,
@@ -956,6 +1025,17 @@ export default function PartnerEventDetail() {
   };
 
   const handleExportBPPdf = async () => {
+    if (canExportStatement) {
+      try {
+        const branding = await fetchExportBranding();
+        const input = buildStatementInput(branding.logoDataUrl);
+        if (!input) return;
+        exportPartnerStatementPdf(input);
+      } catch (err: any) {
+        toast.error("Erro ao exportar PDF", { description: err?.message });
+      }
+      return;
+    }
     const p = buildExportPayload();
     if (!p) return;
     try {

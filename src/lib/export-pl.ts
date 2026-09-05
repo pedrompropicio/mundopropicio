@@ -6,6 +6,7 @@ import type { PLMode, PLTypeFilter } from "@/components/ReportPL";
 import { buildCategoryLookup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareReportCodesUnclassifiedLast } from "@/lib/utils";
+import { calcIvaAmount } from "@/lib/iva";
 
 interface PLLine {
   label: string;
@@ -331,13 +332,14 @@ function buildPLForExport(
   const expTree = new Map<string, TreeNode>();
   forecasts.forEach((f: any) => {
     const base = Number(f.amount) || 0;
-    const iva = base * Number(f.iva_rate ?? 0) / 100;
+    // R1 — IVA linha a linha, arredondado ao cêntimo antes de somar.
+    const iva = calcIvaAmount(base, Number(f.iva_rate ?? 0));
     const tree = f.type === "income" ? incTree : expTree;
     addToTree(tree, f.category_id ?? null, base, iva, true);
   });
   transactions.forEach((t: any) => {
     const base = Number(t.amount) || 0;
-    const iva = base * Number(t.iva_rate ?? 0) / 100;
+    const iva = calcIvaAmount(base, Number(t.iva_rate ?? 0));
     const tree = t.type === "income" ? incTree : expTree;
     addToTree(tree, t.category_id ?? null, base, iva, false);
   });
