@@ -1722,6 +1722,7 @@ export default function PartnerEventDetail() {
                   <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receita Real</p>
                     <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(totalSoldRevenue)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">s/IVA: {formatCurrency(ticketRevenueNet)}</p>
                   </CardContent>
                 </Card>
                 <Card>
