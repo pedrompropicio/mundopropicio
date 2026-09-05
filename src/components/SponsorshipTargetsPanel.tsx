@@ -204,8 +204,8 @@ export function SponsorshipTargetsPanel({ eventId, companyId, canEdit, closedAt,
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
         </AlertDialogContent>
+
       </AlertDialog>
     </>
   );
