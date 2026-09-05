@@ -40,7 +40,10 @@ export interface SyntheticIncomeLine {
   realNet: number;
   missingNote?: string;
   meta?: string;
+  /** sub-linhas por segmento (só na linha de patrocínios) */
+  segments?: SponsorshipSegmentBreakdown[];
 }
+
 
 const EMPTY_PARTICIPANTS: ABScenarioParticipants = { real: {}, breakeven: {}, forecast: {} };
 
