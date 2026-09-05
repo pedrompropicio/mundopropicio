@@ -34,3 +34,10 @@ Regra de ouro: qualquer importador/reset que apague em massa `transactions`/`eve
 
 - Coluna `auto_sync_bp` na tabela `sponsorship_pipeline` continua a existir mas é **ignorada** pelo sync. Toggle removido do drawer.
 - `useUpdateSponsor` deixou de chamar `syncSponsorToBP` automaticamente.
+
+## D22 (2026-09-05) — Verba por segmento e sintética de receita
+
+- Planeamento por **verba de segmento**: `sponsorship_segments` (por empresa) + `event_sponsorship_targets` (por evento × segmento, com `baseline_amount` fixo). `sponsorship_pipeline.segment_id` classifica o card.
+- BP › Receitas mostra 1 linha sintética **1.2.01** (não persistida) com original / corrente / real e sub-linhas por segmento. Corrente = fechados + verba por captar enquanto `events.sponsorship_closed_at IS NULL`; depois do encerramento = só fechados.
+- **Sem verbas definidas o comportamento é exactamente o anterior** (sem sintética, linhas 1.2.01 persistidas contam normalmente). Com verbas, as linhas 1.2.01 de cards fechados são excluídas das listas/totais (a sintética representa-as) — nunca apagadas.
+- `syncSponsorToBP`: só `stage='closed'`; card meio-vinculado devolve `half_linked` (nunca cria de novo); forecast nova nasce `formalidade='fechado'`.
