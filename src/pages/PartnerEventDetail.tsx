@@ -1012,12 +1012,25 @@ export default function PartnerEventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
+  // ─── Receita líquida de bilheteira (unit_price é c/IVA → extrair pela iva_rate do lote) ───
+  const lotIvaById: Record<string, number> = {};
+  ticketZones.forEach((z: any) => {
+    (z.event_ticket_lots || []).forEach((l: any) => {
+      lotIvaById[l.id] = Number(l.iva_rate ?? 6);
+    });
+  });
+
   // ─── Ticket calculations (use filtered zones/sales) ───
   const salesByZone: Record<string, { qty: number; revenue: number }> = {};
+  const salesNetByZone: Record<string, number> = {};
   filteredSales.forEach((s: any) => {
     if (!salesByZone[s.zone_id]) salesByZone[s.zone_id] = { qty: 0, revenue: 0 };
     salesByZone[s.zone_id].qty += s.quantity;
     salesByZone[s.zone_id].revenue += s.quantity * Number(s.unit_price);
+
+    const iva = lotIvaById[s.lot_id] ?? 6;
+    if (!salesNetByZone[s.zone_id]) salesNetByZone[s.zone_id] = 0;
+    salesNetByZone[s.zone_id] += (s.quantity * Number(s.unit_price)) / (1 + iva / 100);
   });
 
   const totalCapacity = filteredZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
@@ -1027,14 +1040,7 @@ export default function PartnerEventDetail() {
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
 
-  // ─── Receita líquida de bilheteira (unit_price é c/IVA → extrair pela iva_rate do lote) ───
-  const lotIvaById: Record<string, number> = {};
-  ticketZones.forEach((z: any) => {
-    (z.event_ticket_lots || []).forEach((l: any) => {
-      lotIvaById[l.id] = Number(l.iva_rate ?? 6);
-    });
-  });
-  const ticketRevenueNet = ticketSales.reduce((s: number, sale: any) => {
+  const ticketRevenueNet = filteredSales.reduce((s: number, sale: any) => {
     const gross = sale.quantity * Number(sale.unit_price);
     const iva = lotIvaById[sale.lot_id] ?? 6;
     return s + gross / (1 + iva / 100);
@@ -1716,6 +1722,7 @@ export default function PartnerEventDetail() {
                   <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receita Real</p>
                     <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(totalSoldRevenue)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">s/IVA: {formatCurrency(ticketRevenueNet)}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -1800,6 +1807,7 @@ export default function PartnerEventDetail() {
                           <div>
                             <p className="text-[10px] text-muted-foreground">Receita</p>
                             <p className="text-sm sm:text-lg font-bold font-mono text-emerald-500">{formatCurrency(zoneSales.revenue)}</p>
+                            <p className="text-[10px] text-muted-foreground">s/IVA: {formatCurrency(salesNetByZone[zone.id] || 0)}</p>
                           </div>
                           <div>
                             <p className="text-[10px] text-muted-foreground">vs. Plan</p>
