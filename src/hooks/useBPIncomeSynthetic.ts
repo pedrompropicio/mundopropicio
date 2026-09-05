@@ -165,6 +165,27 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
       });
     }
 
+    // ── PATROCÍNIOS (1.2.01) — só com verbas por segmento (D22) ──────
+    if (sponsorship?.hasTargets) {
+      const porCaptar = sponsorship.segments.reduce((s, x) => s + x.remaining, 0);
+      const meta = sponsorship.closedAt
+        ? `Captação encerrada em ${new Date(sponsorship.closedAt).toLocaleDateString("pt-PT")}`
+        : `Por captar ${porCaptar.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}`;
+      lines.push({
+        key: "patrocinios",
+        label: "Patrocínios",
+        source: "Verbas por segmento + pipeline (não editável)",
+        categoryLabel: "1.2.01 Patrocínios",
+        ivaPct: null,
+        baselineNet: sponsorship.baselineNet,
+        currentNet: sponsorship.currentNet,
+        currentIva: 0,
+        realNet: sponsorship.realNet,
+        meta,
+        segments: sponsorship.segments,
+      });
+    }
+
     return {
       lines,
       totals: {
@@ -174,6 +195,10 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
         realNet: lines.reduce((s, l) => s + l.realNet, 0),
       },
       ticketRealNet: ticket?.realNet ?? 0,
+      /** linhas 1.2.01 persistidas representadas pela sintética (vazio sem verbas) */
+      excludedForecastIds: sponsorship?.hasTargets ? sponsorship.excludedForecastIds : [],
+      sponsorshipClosedAt: sponsorship?.closedAt ?? null,
     };
+
   }, [ticket, eventRow, abScenarios, abRealized, eventId, queryClient]);
 }
