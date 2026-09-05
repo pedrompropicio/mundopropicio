@@ -61,6 +61,14 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
     enabled: !!eventId,
   });
 
+  const { data: sponsorship } = useQuery({
+    queryKey: ["bp_income_sponsorship_synthetic", idsKey],
+    queryFn: () => computeSponsorshipSynthetic(eventId, idsKey.split(",")),
+    enabled: !!eventId,
+  });
+
+
+
   const { data: eventRow } = useQuery({
     queryKey: ["bp_income_baselines", eventId],
     queryFn: async () => {
