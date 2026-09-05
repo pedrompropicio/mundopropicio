@@ -133,20 +133,26 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
 
   // R6 — última quota por subtracção
   const ordered = [...input.shares].sort((a, b) => Number(b.percentage) - Number(a.percentage));
-  const shares = ordered.map((s, i) => {
-    const pct = Number(s.percentage) || 0;
-    const value =
-      i === ordered.length - 1 && ordered.length > 1
-        ? 0 // preenchido abaixo
-        : roundCents(result * (pct / 100));
-    return { name: s.name, percentage: pct, value };
-  });
-  if (shares.length > 1) {
+  // Cada sócio registado leva ROUND(resultado × %); a parte restante (a empresa,
+  // ou o último sócio quando as quotas já somam 100%) sai por subtracção.
+  const shares = ordered.map((s) => ({
+    name: s.name,
+    percentage: Number(s.percentage) || 0,
+    value: roundCents(result * ((Number(s.percentage) || 0) / 100)),
+  }));
+  const pctSum = roundCents(shares.reduce((s, x) => s + x.percentage, 0));
+  if (pctSum >= 99.995 && shares.length > 1) {
     const others = shares.slice(0, -1).reduce((s, x) => s + x.value, 0);
     shares[shares.length - 1].value = roundCents(result - others);
-  } else if (shares.length === 1) {
-    shares[0].value = roundCents(result * (shares[0].percentage / 100));
+  } else if (pctSum < 99.995) {
+    const assigned = shares.reduce((s, x) => s + x.value, 0);
+    shares.push({
+      name: input.companyName ? `${input.companyName} (parte restante)` : "Parte restante",
+      percentage: roundCents(100 - pctSum),
+      value: roundCents(result - assigned),
+    });
   }
+
 
   return {
     families,
