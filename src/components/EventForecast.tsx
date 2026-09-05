@@ -2708,7 +2708,8 @@ const descRef = useRef<HTMLInputElement>(null);
                       {/* Linhas sintéticas por módulo (bilheteira, A&B) — DR-2026-09-03-D21.
                           Não persistidas; três colunas de valor (original / corrente / real). */}
                       {syntheticIncome.lines.map((l) => (
-                        <tr key={`synthetic-${l.key}`} className="bg-success/5 border-t border-border/30">
+                        <React.Fragment key={`synthetic-${l.key}`}>
+                        <tr className="bg-success/5 border-t border-border/30">
                           <td className="py-2.5 pr-3">
                             <div className="flex items-center gap-2">
                               <Ticket className="h-3.5 w-3.5 text-success shrink-0" />
@@ -2732,7 +2733,20 @@ const descRef = useRef<HTMLInputElement>(null);
                           <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(l.realNet)}</td>
                           <td />
                         </tr>
+                        {(l.segments ?? []).map((s) => (
+                          <tr key={`synthetic-${l.key}-${s.segmentId}`} className="bg-success/[0.02] text-xs">
+                            <td className="py-1.5 pl-8 pr-3 text-muted-foreground">{s.segmentName}</td>
+                            <td className="hidden sm:table-cell" />
+                            <td />
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.baselineNet)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.currentNet)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.realNet)}</td>
+                            <td />
+                          </tr>
+                        ))}
+                        </React.Fragment>
                       ))}
+
                     </tbody>
                     {(incomeForecasts.length > 0 || addingType === "income" || syntheticIncome.lines.length > 0) && (
                       <tfoot>
