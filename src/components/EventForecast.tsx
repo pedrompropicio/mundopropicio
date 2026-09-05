@@ -79,6 +79,9 @@ import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidade
 import { CoalaImportWizard } from "@/components/CoalaImportWizard";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useBPIncomeSynthetic } from "@/hooks/useBPIncomeSynthetic";
+import { SponsorshipTargetsPanel } from "@/components/SponsorshipTargetsPanel";
+import { useCompany } from "@/hooks/useCompany";
+
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
