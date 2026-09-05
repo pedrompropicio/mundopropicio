@@ -200,5 +200,5 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
       sponsorshipClosedAt: sponsorship?.closedAt ?? null,
     };
 
-  }, [ticket, eventRow, abScenarios, abRealized, eventId, queryClient]);
+  }, [ticket, sponsorship, eventRow, abScenarios, abRealized, eventId, queryClient]);
 }
