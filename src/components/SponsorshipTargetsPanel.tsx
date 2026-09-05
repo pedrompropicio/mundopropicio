@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency } from "@/lib/mock-data";
 import {
   useEventSponsorshipTargets,
   useSaveSponsorshipTargets,
