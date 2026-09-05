@@ -3,6 +3,8 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { computeTicketSynthetic } from "@/lib/bp-income-synthetic";
+import { computeSponsorshipSynthetic } from "@/lib/bp-sponsorship-synthetic";
+
 import { formatCurrency } from "@/lib/mock-data";
 import {
   findMatchingTransactionsForForecast,
@@ -890,6 +892,41 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   } catch {
     /* PDF nunca falha por causa da linha sintética */
   }
+
+  // D22: linha sintética de patrocínios (só quando há verbas por segmento).
+  try {
+    const s = await computeSponsorshipSynthetic(eventId);
+    if (s.hasTargets) {
+      const excluded = new Set(s.excludedForecastIds);
+      for (let i = incomes.length - 1; i >= 0; i--) {
+        if (excluded.has((incomes[i] as any).id)) incomes.splice(i, 1);
+      }
+      const parts = [
+        `Previsto original ${s.baselineNet != null ? fmt(s.baselineNet) : "—"}`,
+        `Previsto corrente ${s.currentNet != null ? fmt(s.currentNet) : "—"}`,
+        `Real ${fmt(s.realNet)}`,
+        s.closedAt ? `Captação encerrada ${s.closedAt.slice(0, 10)}` : "captação aberta",
+        ...s.segments.map((seg) => `${seg.name}: verba ${fmt(seg.target)} · fechado ${fmt(seg.closed)}`),
+      ];
+      incomes.push({
+        id: "synthetic-patrocinios",
+        type: "income",
+        description: "Patrocínios — verbas por segmento",
+        specification: parts.join(" · "),
+        amount: s.currentNet ?? s.baselineNet ?? s.realNet,
+        iva_rate: 0,
+        status: "approved",
+        notes: null,
+        category_id: null,
+        transaction_id: null,
+        event_id: eventId,
+        account_categories: { code: "1.2.01", name: "Patrocínios" },
+      } as any);
+    }
+  } catch {
+    /* PDF nunca falha por causa da linha sintética */
+  }
+
 
   y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60], event.id, event.parent_event_id ?? null);
   if (y > ctx.pageHeight - 40) {

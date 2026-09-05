@@ -5466,6 +5466,67 @@ export type Database = {
           },
         ]
       }
+      event_sponsorship_targets: {
+        Row: {
+          amount: number
+          baseline_amount: number | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          notes: string | null
+          segment_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          baseline_amount?: number | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          notes?: string | null
+          segment_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          baseline_amount?: number | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          notes?: string | null
+          segment_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_sponsorship_targets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_sponsorship_targets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_sponsorship_targets_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "sponsorship_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_team_member_zones: {
         Row: {
           member_id: string
@@ -6088,6 +6149,7 @@ export type Database = {
           portal_visible: boolean
           poster_image_url: string | null
           slug: string | null
+          sponsorship_closed_at: string | null
           status: string
           target_roas: number | null
           ticketing_baseline_at: string | null
@@ -6148,6 +6210,7 @@ export type Database = {
           portal_visible?: boolean
           poster_image_url?: string | null
           slug?: string | null
+          sponsorship_closed_at?: string | null
           status?: string
           target_roas?: number | null
           ticketing_baseline_at?: string | null
@@ -6208,6 +6271,7 @@ export type Database = {
           portal_visible?: boolean
           poster_image_url?: string | null
           slug?: string | null
+          sponsorship_closed_at?: string | null
           status?: string
           target_roas?: number | null
           ticketing_baseline_at?: string | null
@@ -9206,6 +9270,7 @@ export type Database = {
           owner_user_id: string | null
           priority: string
           proposed_amount: number | null
+          segment_id: string | null
           sort_order: number
           stage: Database["public"]["Enums"]["sponsorship_stage"]
           supplier_id: string | null
@@ -9239,6 +9304,7 @@ export type Database = {
           owner_user_id?: string | null
           priority?: string
           proposed_amount?: number | null
+          segment_id?: string | null
           sort_order?: number
           stage?: Database["public"]["Enums"]["sponsorship_stage"]
           supplier_id?: string | null
@@ -9272,6 +9338,7 @@ export type Database = {
           owner_user_id?: string | null
           priority?: string
           proposed_amount?: number | null
+          segment_id?: string | null
           sort_order?: number
           stage?: Database["public"]["Enums"]["sponsorship_stage"]
           supplier_id?: string | null
@@ -9298,6 +9365,13 @@ export type Database = {
             columns: ["linked_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsorship_pipeline_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "sponsorship_segments"
             referencedColumns: ["id"]
           },
           {
@@ -9346,6 +9420,41 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "sponsorship_pipeline"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsorship_segments: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsorship_segments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -12714,6 +12823,10 @@ export type Database = {
       seed_operacao_frentes_default: {
         Args: { p_event_id: string }
         Returns: number
+      }
+      seed_sponsorship_segments: {
+        Args: { _company_id: string }
+        Returns: undefined
       }
       set_active_company: {
         Args: { target_company_id: string }

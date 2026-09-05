@@ -45,6 +45,9 @@ export interface SponsorshipPipelineRow {
   lost_reason: string | null;
   closed_at: string | null;
   auto_sync_bp: boolean;
+  /** segmento de patrocínio (D22) — null nos cards anteriores */
+  segment_id?: string | null;
+
   linked_forecast_id: string | null;
   linked_transaction_id: string | null;
   sort_order: number;

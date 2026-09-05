@@ -41,3 +41,7 @@ DR-2026-09-03-D21 (issue #103, ronda 1).
   `src/lib/export-event-bp-pdf.ts` (PDF inclui a sintética).
 - Ronda 2 (pendente): verba por segmento de patrocínio e encerramento datado da
   captação.
+
+## D22 — Patrocínios sintéticos (2026-09-05)
+
+Linha sintética 1.2.01 alimentada por verbas de segmento + pipeline (`src/lib/bp-sponsorship-synthetic.ts`, `src/hooks/useSponsorshipSegments.ts`, `src/components/SponsorshipTargetsPanel.tsx`). Só aparece quando o evento tem verbas. Encerramento da captação em `events.sponsorship_closed_at` (reversível). PDF do BP inclui a mesma linha com as três colunas.

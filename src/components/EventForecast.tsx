@@ -79,6 +79,9 @@ import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidade
 import { CoalaImportWizard } from "@/components/CoalaImportWizard";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useBPIncomeSynthetic } from "@/hooks/useBPIncomeSynthetic";
+import { SponsorshipTargetsPanel } from "@/components/SponsorshipTargetsPanel";
+import { useCompany } from "@/hooks/useCompany";
+
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -890,8 +893,15 @@ const descRef = useRef<HTMLInputElement>(null);
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
 
-  // Linhas sintéticas de receita por módulo (bilheteira, A&B) — DR-2026-09-03-D21.
+  // Linhas sintéticas de receita por módulo (bilheteira, A&B, patrocínios) — D21/D22.
   const syntheticIncome = useBPIncomeSynthetic(eventId, childEventIds ?? []);
+  const { companyId } = useCompany();
+  // Linhas 1.2.01 persistidas que a sintética de patrocínios já representa (vazio sem verbas).
+  const sponsorshipExcludedIds = useMemo(
+    () => new Set(syntheticIncome.excludedForecastIds ?? []),
+    [syntheticIncome.excludedForecastIds],
+  );
+
 
   // Calculate cache lines using ALL configs (own + inherited from parent)
   // Each sub-event calculates with its own ticket revenue, not prorated
@@ -1777,7 +1787,7 @@ const descRef = useRef<HTMLInputElement>(null);
     [forecasts, adoptedForecasts, transactions],
   );
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter((f) => !sponsorshipExcludedIds.has(f.id)).filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
   const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter).filter(matchesOrderingFilter).filter(matchesPayingFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
@@ -1969,6 +1979,10 @@ const descRef = useRef<HTMLInputElement>(null);
       const isOverheadLine = !!f.is_overhead || !!f._overhead_via_master;
       if (isOverheadLine && !includeOverheadInComparison) return false;
       if (f.status !== "approved") return false;
+      // D22: com verbas por segmento, as linhas 1.2.01 geradas pelo pipeline passam a
+      // ser representadas pela linha sintética de patrocínios (sem dupla contagem).
+      if (sponsorshipExcludedIds.has(f.id)) return false;
+
       // exclude_from_result normalmente filtra overhead; saltamos esse filtro quando incluímos overhead
       if (f.exclude_from_result && !isOverheadLine) return false;
       if (f.is_transitory) return false;
@@ -1981,7 +1995,7 @@ const descRef = useRef<HTMLInputElement>(null);
       if (f.type === "expense" && !matchesPayingPartnerFilter(f.paying_partner_id ?? null, payingFilter)) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter, payingFilter]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter, payingFilter, sponsorshipExcludedIds]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
@@ -2593,8 +2607,16 @@ const descRef = useRef<HTMLInputElement>(null);
                         <Plus className="h-3.5 w-3.5" /> Adicionar
                       </button>
                     )}
+                    <SponsorshipTargetsPanel
+                      eventId={eventId}
+                      companyId={companyId}
+                      canEdit={canEditBP}
+                      closedAt={syntheticIncome.sponsorshipClosedAt ?? null}
+                      extraEventIds={childEventIds ?? []}
+                    />
                   </div>
                 </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                      <thead>
@@ -2686,7 +2708,8 @@ const descRef = useRef<HTMLInputElement>(null);
                       {/* Linhas sintéticas por módulo (bilheteira, A&B) — DR-2026-09-03-D21.
                           Não persistidas; três colunas de valor (original / corrente / real). */}
                       {syntheticIncome.lines.map((l) => (
-                        <tr key={`synthetic-${l.key}`} className="bg-success/5 border-t border-border/30">
+                        <React.Fragment key={`synthetic-${l.key}`}>
+                        <tr className="bg-success/5 border-t border-border/30">
                           <td className="py-2.5 pr-3">
                             <div className="flex items-center gap-2">
                               <Ticket className="h-3.5 w-3.5 text-success shrink-0" />
@@ -2710,7 +2733,21 @@ const descRef = useRef<HTMLInputElement>(null);
                           <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(l.realNet)}</td>
                           <td />
                         </tr>
+                        {(l.segments ?? []).map((s) => (
+                          <tr key={`synthetic-${l.key}-${s.segmentId ?? "none"}`} className="bg-success/[0.02] text-xs">
+                            <td className="py-1.5 pl-8 pr-3 text-muted-foreground">{s.name}</td>
+                            <td className="hidden sm:table-cell" />
+                            <td />
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.target)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground" title={s.remaining > 0 ? `Por captar ${formatCurrency(s.remaining)}` : undefined}>{formatCurrency(s.closed + s.remaining)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.closed)}</td>
+                            <td />
+                          </tr>
+                        ))}
+
+                        </React.Fragment>
                       ))}
+
                     </tbody>
                     {(incomeForecasts.length > 0 || addingType === "income" || syntheticIncome.lines.length > 0) && (
                       <tfoot>

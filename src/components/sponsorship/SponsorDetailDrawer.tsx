@@ -37,6 +37,8 @@ import {
   useSyncSponsorBP,
   useUpdateSponsor,
 } from "@/hooks/useSponsorshipPipeline";
+import { useSponsorshipSegments } from "@/hooks/useSponsorshipSegments";
+
 import { isLinkedTransactionPaid } from "@/lib/sponsorship-bp-sync";
 import {
   AlertDialog,
@@ -65,6 +67,8 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
   const sync = useSyncSponsorBP(eventId);
   const { data: activities = [] } = useSponsorshipActivities(row.id);
   const addNote = useAddSponsorNote(row.id, companyId);
+  const { data: segments = [] } = useSponsorshipSegments(companyId);
+
 
   const [draft, setDraft] = useState<SponsorshipPipelineRow>(row);
   const [note, setNote] = useState("");
@@ -92,6 +96,9 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
   }, [row.linked_transaction_id, row.updated_at]);
 
   const hasLink = !!(row.linked_transaction_id && row.linked_forecast_id);
+  /** D22: só um dos lados vinculado — gerar de novo duplicaria BP+TX. */
+  const isHalfLinked = !hasLink && !!(row.linked_transaction_id || row.linked_forecast_id);
+
 
   function patch<K extends keyof SponsorshipPipelineRow>(key: K, value: SponsorshipPipelineRow[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -305,6 +312,26 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
             </div>
           </div>
 
+          <div>
+            <Label>Segmento</Label>
+            <Select
+              value={draft.segment_id ?? "none"}
+              onValueChange={(v) => patch("segment_id", v === "none" ? null : v)}
+              disabled={!canEdit}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem segmento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem segmento</SelectItem>
+                {segments.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Contacto</Label>
@@ -382,7 +409,8 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
                   sync.isPending ||
                   update.isPending ||
                   Number(draft.confirmed_amount) <= 0 ||
-                  isLinkedPaid
+                  isLinkedPaid ||
+                  isHalfLinked
                 }
                 className="w-full"
               >
@@ -399,11 +427,18 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
                 )}
               </Button>
             )}
+            {isHalfLinked && (
+              <p className="text-[11px] text-amber-500">
+                Vínculo incompleto: só existe {row.linked_transaction_id ? "a transação" : "a linha do BP"}.
+                Corrige o vínculo antes de gerar, para não duplicar.
+              </p>
+            )}
             {Number(draft.confirmed_amount) <= 0 && !draft.is_barter && (
               <p className="text-[11px] text-amber-500">
                 Define um valor confirmado &gt; 0 para gerar.
               </p>
             )}
+
           </div>
 
           {canEdit && (
