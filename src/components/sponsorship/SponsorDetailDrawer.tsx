@@ -382,7 +382,8 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
                   sync.isPending ||
                   update.isPending ||
                   Number(draft.confirmed_amount) <= 0 ||
-                  isLinkedPaid
+                  isLinkedPaid ||
+                  isHalfLinked
                 }
                 className="w-full"
               >
@@ -399,11 +400,18 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
                 )}
               </Button>
             )}
+            {isHalfLinked && (
+              <p className="text-[11px] text-amber-500">
+                Vínculo incompleto: só existe {row.linked_transaction_id ? "a transação" : "a linha do BP"}.
+                Corrige o vínculo antes de gerar, para não duplicar.
+              </p>
+            )}
             {Number(draft.confirmed_amount) <= 0 && !draft.is_barter && (
               <p className="text-[11px] text-amber-500">
                 Define um valor confirmado &gt; 0 para gerar.
               </p>
             )}
+
           </div>
 
           {canEdit && (
