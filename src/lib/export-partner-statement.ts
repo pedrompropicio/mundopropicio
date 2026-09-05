@@ -91,8 +91,8 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
     expenseIva = roundCents(expenseIva + iva);
 
     const info = f.category_id ? lookup[f.category_id] : null;
-    const famCode = info?.l1Code ?? info?.code ?? "Z";
-    const famName = info?.l1Name ?? info?.name ?? "Sem grupo";
+    const famCode = info?.l2Code ?? info?.code ?? "Z";
+    const famName = info?.l2Name ?? info?.name ?? "Sem grupo";
     const rubCode = info?.code ?? "";
     const rubName = info?.name ?? "Sem rubrica";
     const rubKey = `${rubCode}|${rubName}`;
