@@ -37,6 +37,8 @@ import {
   useSyncSponsorBP,
   useUpdateSponsor,
 } from "@/hooks/useSponsorshipPipeline";
+import { useSponsorshipSegments } from "@/hooks/useSponsorshipSegments";
+
 import { isLinkedTransactionPaid } from "@/lib/sponsorship-bp-sync";
 import {
   AlertDialog,
