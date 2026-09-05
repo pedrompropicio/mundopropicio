@@ -1979,6 +1979,10 @@ const descRef = useRef<HTMLInputElement>(null);
       const isOverheadLine = !!f.is_overhead || !!f._overhead_via_master;
       if (isOverheadLine && !includeOverheadInComparison) return false;
       if (f.status !== "approved") return false;
+      // D22: com verbas por segmento, as linhas 1.2.01 geradas pelo pipeline passam a
+      // ser representadas pela linha sintética de patrocínios (sem dupla contagem).
+      if (sponsorshipExcludedIds.has(f.id)) return false;
+
       // exclude_from_result normalmente filtra overhead; saltamos esse filtro quando incluímos overhead
       if (f.exclude_from_result && !isOverheadLine) return false;
       if (f.is_transitory) return false;
