@@ -308,6 +308,26 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
             </div>
           </div>
 
+          <div>
+            <Label>Segmento</Label>
+            <Select
+              value={draft.segment_id ?? "none"}
+              onValueChange={(v) => patch("segment_id", v === "none" ? null : v)}
+              disabled={!canEdit}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem segmento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem segmento</SelectItem>
+                {segments.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Contacto</Label>
