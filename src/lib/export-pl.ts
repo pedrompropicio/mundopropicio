@@ -6,6 +6,7 @@ import type { PLMode, PLTypeFilter } from "@/components/ReportPL";
 import { buildCategoryLookup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareReportCodesUnclassifiedLast } from "@/lib/utils";
+import { calcIvaAmount } from "@/lib/iva";
 
 interface PLLine {
   label: string;
