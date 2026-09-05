@@ -2734,16 +2734,17 @@ const descRef = useRef<HTMLInputElement>(null);
                           <td />
                         </tr>
                         {(l.segments ?? []).map((s) => (
-                          <tr key={`synthetic-${l.key}-${s.segmentId}`} className="bg-success/[0.02] text-xs">
-                            <td className="py-1.5 pl-8 pr-3 text-muted-foreground">{s.segmentName}</td>
+                          <tr key={`synthetic-${l.key}-${s.segmentId ?? "none"}`} className="bg-success/[0.02] text-xs">
+                            <td className="py-1.5 pl-8 pr-3 text-muted-foreground">{s.name}</td>
                             <td className="hidden sm:table-cell" />
                             <td />
-                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.baselineNet)}</td>
-                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.currentNet)}</td>
-                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.realNet)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.target)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground" title={s.remaining > 0 ? `Por captar ${formatCurrency(s.remaining)}` : undefined}>{formatCurrency(s.closed + s.remaining)}</td>
+                            <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(s.closed)}</td>
                             <td />
                           </tr>
                         ))}
+
                         </React.Fragment>
                       ))}
 
