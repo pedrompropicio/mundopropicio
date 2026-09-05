@@ -3,6 +3,8 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { computeTicketSynthetic } from "@/lib/bp-income-synthetic";
+import { computeSponsorshipSynthetic } from "@/lib/bp-sponsorship-synthetic";
+
 import { formatCurrency } from "@/lib/mock-data";
 import {
   findMatchingTransactionsForForecast,
