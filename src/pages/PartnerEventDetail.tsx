@@ -516,6 +516,20 @@ export default function PartnerEventDetail() {
     return m;
   }, [bpAttachmentsRaw]);
 
+  // ── Quotas dos sócios (RPC SECURITY DEFINER — só nome + percentagem)
+  const { data: partnerShares = [] } = useQuery({
+    queryKey: ["partner_event_shares", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_partner_event_shares" as any, {
+        p_event_id: activeEventId!,
+      } as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ partner_name: string; percentage: number }>;
+    },
+    enabled: !!activeEventId && hasPermission("view_bp"),
+  });
+
+
 
   const openBpAttachment = async (kind: string, documentId: string) => {
     try {
