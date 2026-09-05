@@ -1807,6 +1807,7 @@ export default function PartnerEventDetail() {
                           <div>
                             <p className="text-[10px] text-muted-foreground">Receita</p>
                             <p className="text-sm sm:text-lg font-bold font-mono text-emerald-500">{formatCurrency(zoneSales.revenue)}</p>
+                            <p className="text-[10px] text-muted-foreground">s/IVA: {formatCurrency(salesNetByZone[zone.id] || 0)}</p>
                           </div>
                           <div>
                             <p className="text-[10px] text-muted-foreground">vs. Plan</p>
