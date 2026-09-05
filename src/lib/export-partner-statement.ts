@@ -14,6 +14,7 @@ import autoTable from "jspdf-autotable";
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes, formatDatePT } from "@/lib/utils";
+import { HOUSE_PARTNER_NAME } from "@/lib/house-partner";
 
 export interface PartnerShareInput {
   name: string;
@@ -135,7 +136,7 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
   const ordered = [...input.shares].sort((a, b) => Number(b.percentage) - Number(a.percentage));
   // Cada sócio registado leva ROUND(resultado × %); a parte restante (a empresa,
   // ou o último sócio quando as quotas já somam 100%) sai por subtracção.
-  const shares = ordered.map((s) => ({
+  let shares = ordered.map((s) => ({
     name: s.name,
     percentage: Number(s.percentage) || 0,
     value: roundCents(result * ((Number(s.percentage) || 0) / 100)),
@@ -153,6 +154,30 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
     });
   }
 
+  // Agregação para prestação de contas: o maior sócio EXTERNO fica visível;
+  // todo o resto (outros externos + Mundo Propício/residual) colapsa em
+  // "Sócios locais", com valor por subtracção para fechar ao cêntimo.
+  const isHouseName = (n: string) =>
+    n.toLowerCase().includes(HOUSE_PARTNER_NAME.toLowerCase());
+  const sorted = [...shares].sort((a, b) => b.percentage - a.percentage);
+  const mainIdx = sorted.findIndex((s) => !isHouseName(s.name));
+  const hasExternal = mainIdx !== -1;
+
+  const aggregatedShares: Array<{ name: string; percentage: number; value: number }> = [];
+  if (!hasExternal) {
+    // Só existe quota da casa: apresenta-a como "Sócios locais"
+    aggregatedShares.push({ name: "Sócios locais", percentage: 100, value: result });
+  } else {
+    const main = sorted[mainIdx];
+    const rest = sorted.filter((_, i) => i !== mainIdx);
+    const restPct = roundCents(rest.reduce((s, x) => s + x.percentage, 0));
+    const restValue = roundCents(result - main.value);
+    aggregatedShares.push(main);
+    if (restPct > 0 || Math.abs(restValue) > 0.001) {
+      aggregatedShares.push({ name: "Sócios locais", percentage: restPct, value: restValue });
+    }
+  }
+  shares = aggregatedShares;
 
   return {
     families,
@@ -263,16 +288,16 @@ export async function exportPartnerStatementExcel(input: PartnerStatementInput):
   money(resRow, [2]);
   ws.addRow([]);
 
-  // 5. Parte dos sócios (numa linha só — o acordo já detalha as quotas)
+  // 5. Parte dos sócios
   title("5. A parte dos sócios");
   const shHead = ws.addRow(["Sócio", "Quota", "Valor"]);
   shHead.font = { name: "Arial", bold: true };
-  const totalPct = st.shares.reduce((sum, s) => sum + s.percentage, 0);
-  const totalValue = st.shares.reduce((sum, s) => sum + s.value, 0);
-  const shRow = ws.addRow(["Parte dos sócios", totalPct / 100, totalValue]);
-  shRow.font = { name: "Arial", bold: true, size: 12 };
-  shRow.getCell(2).numFmt = "0.00%";
-  money(shRow, [3]);
+  st.shares.forEach((s) => {
+    const row = ws.addRow([s.name, s.percentage / 100, s.value]);
+    row.font = { name: "Arial", bold: true, size: 12 };
+    row.getCell(2).numFmt = "0.00%";
+    money(row, [3]);
+  });
 
   ws.eachRow((row) => {
     row.eachCell((cell) => {
@@ -437,20 +462,16 @@ export function exportPartnerStatementPdf(input: PartnerStatementInput): void {
   doc.text(fmt(st.result), pageWidth - margin - 3, ry + 6, { align: "right" });
   doc.setTextColor(0);
 
-  // 5. Parte dos sócios (numa linha só — o acordo já detalha as quotas)
+  // 5. Parte dos sócios
   const sy = sectionTitle("5. A parte dos sócios", ry + 16);
-  const totalPct = st.shares.reduce((sum, s) => sum + s.percentage, 0);
-  const totalValue = st.shares.reduce((sum, s) => sum + s.value, 0);
   autoTable(doc, {
     startY: sy,
     head: [["Sócio", "Quota", "Valor"]],
-    body: [
-      [
-        { content: "Parte dos sócios", styles: { fontStyle: "bold" } },
-        { content: `${totalPct.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`, styles: { halign: "right" } },
-        { content: fmt(totalValue), styles: { fontStyle: "bold", halign: "right" } },
-      ],
-    ],
+    body: st.shares.map((s) => [
+      { content: s.name, styles: { fontStyle: "bold" } },
+      { content: `${s.percentage.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`, styles: { halign: "right" } },
+      { content: fmt(s.value), styles: { fontStyle: "bold", halign: "right" } },
+    ]),
     theme: "grid",
     styles: { ...baseStyles, fontSize: 9.5 },
     headStyles,
