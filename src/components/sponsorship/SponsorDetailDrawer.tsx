@@ -65,6 +65,8 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
   const sync = useSyncSponsorBP(eventId);
   const { data: activities = [] } = useSponsorshipActivities(row.id);
   const addNote = useAddSponsorNote(row.id, companyId);
+  const { data: segments = [] } = useSponsorshipSegments(companyId);
+
 
   const [draft, setDraft] = useState<SponsorshipPipelineRow>(row);
   const [note, setNote] = useState("");
