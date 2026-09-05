@@ -81,9 +81,19 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
   const ivaRate = Number(row.iva_rate ?? 23);
   const today = todayLocalISO();
 
+  // Caso 0 (D22): card meio-vinculado — só um dos lados existe. Nunca criar de novo
+  // (duplicaria BP+TX). Exige correção manual do vínculo.
+  if (
+    (row.linked_transaction_id && !row.linked_forecast_id) ||
+    (!row.linked_transaction_id && row.linked_forecast_id)
+  ) {
+    return { skipped: true, reason: "half_linked" };
+  }
+
   // Caso 1: já tem TX e BP vinculados → update em ambos.
   // (Nunca toca em payment_date / status — se TX já foi paga, mantém pago.)
   if (row.linked_transaction_id && row.linked_forecast_id) {
+
     const [{ error: txErr }, { error: fcErr }] = await Promise.all([
       supabase
         .from("transactions")
