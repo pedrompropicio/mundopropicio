@@ -100,6 +100,8 @@ Nenhum.
 
 **Sessão de cartão é multi-evento por natureza.** A sessão `ffdea120` tocou 6 eventos e tem despesas sem evento (rubricas 10.x). `card_session_items` existe com o formato certo mas tem zero itens na história — o gestor regista directo e cada despesa vira transação na hora.
 
+**Deploy directo de edge functions a 03/09:** o Publish não tinha levado `approve-transaction`, `close-camarim-session`, `close-card-session` nem `fetch-ticketline-reports` (esta ficou em v2.39 após dois Publish sem erro). As quatro foram deployadas directamente a 03/09 — desde então a versão em produção é a do repo. Regra operacional: confirmar a versão em produção após cada Publish que toque em edge functions.
+
 ## Onde ler mais
 - `src/lib/bp-tx-matching.ts`, `src/lib/bp-line-required.ts`, `src/lib/bp-budget-excess.ts`, `src/components/LinkBpLineDialog.tsx`, `src/components/RaiseBudgetDialog.tsx`
 - `supabase/functions/approve-transaction/index.ts`, `supabase/functions/close-camarim-session/index.ts`, `supabase/functions/close-card-session/index.ts`
