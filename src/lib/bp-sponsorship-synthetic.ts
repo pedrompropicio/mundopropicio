@@ -122,7 +122,8 @@ export async function computeSponsorshipSynthetic(
     segments.push({ segmentId: key, name: "Segmento sem verba", target: 0, closed, remaining: 0 });
   }
 
-  const excludedForecastIds = ((cards ?? []) as any[])
+  // Só as linhas geradas por cards fechados (é o que o "real" da sintética já conta).
+  const excludedForecastIds = closedCards
     .map((c) => c.linked_forecast_id as string | null)
     .filter((x): x is string => !!x);
 
