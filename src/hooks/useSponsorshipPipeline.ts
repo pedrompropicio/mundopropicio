@@ -114,8 +114,11 @@ export function useSyncSponsorBP(eventId: string) {
           barter_pipeline_only: "Permutas ficam só no pipeline.",
           no_company: "Empresa não identificada.",
           zero_amount: "O valor confirmado tem de ser maior que zero.",
+          stage_not_closed: "Só patrocínios fechados entram no BP.",
+          half_linked: "Vínculo incompleto (só existe um dos lados). Corrige o vínculo antes de gerar.",
           "category_1.2.01_not_found": "Categoria 1.2.01 (Patrocínios) não existe nesta empresa.",
         };
+
         toast({
           title: "Não foi possível gerar BP/TX",
           description: reasons[result.reason] ?? result.reason,
