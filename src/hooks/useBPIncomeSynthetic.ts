@@ -24,7 +24,8 @@ import { useEventABRealized } from "@/hooks/useEventABRealized";
 
 
 export interface SyntheticIncomeLine {
-  key: "bilheteira" | "ab";
+  key: "bilheteira" | "ab" | "patrocinios";
+
   label: string;
   source: string;
   categoryLabel: string;
