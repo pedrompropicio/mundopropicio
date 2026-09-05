@@ -893,8 +893,15 @@ const descRef = useRef<HTMLInputElement>(null);
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
 
-  // Linhas sintéticas de receita por módulo (bilheteira, A&B) — DR-2026-09-03-D21.
+  // Linhas sintéticas de receita por módulo (bilheteira, A&B, patrocínios) — D21/D22.
   const syntheticIncome = useBPIncomeSynthetic(eventId, childEventIds ?? []);
+  const { companyId } = useCompany();
+  // Linhas 1.2.01 persistidas que a sintética de patrocínios já representa (vazio sem verbas).
+  const sponsorshipExcludedIds = useMemo(
+    () => new Set(syntheticIncome.excludedForecastIds ?? []),
+    [syntheticIncome.excludedForecastIds],
+  );
+
 
   // Calculate cache lines using ALL configs (own + inherited from parent)
   // Each sub-event calculates with its own ticket revenue, not prorated
