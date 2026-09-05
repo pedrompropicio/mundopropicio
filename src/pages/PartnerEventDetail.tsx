@@ -1012,12 +1012,25 @@ export default function PartnerEventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
+  // ─── Receita líquida de bilheteira (unit_price é c/IVA → extrair pela iva_rate do lote) ───
+  const lotIvaById: Record<string, number> = {};
+  ticketZones.forEach((z: any) => {
+    (z.event_ticket_lots || []).forEach((l: any) => {
+      lotIvaById[l.id] = Number(l.iva_rate ?? 6);
+    });
+  });
+
   // ─── Ticket calculations (use filtered zones/sales) ───
   const salesByZone: Record<string, { qty: number; revenue: number }> = {};
+  const salesNetByZone: Record<string, number> = {};
   filteredSales.forEach((s: any) => {
     if (!salesByZone[s.zone_id]) salesByZone[s.zone_id] = { qty: 0, revenue: 0 };
     salesByZone[s.zone_id].qty += s.quantity;
     salesByZone[s.zone_id].revenue += s.quantity * Number(s.unit_price);
+
+    const iva = lotIvaById[s.lot_id] ?? 6;
+    if (!salesNetByZone[s.zone_id]) salesNetByZone[s.zone_id] = 0;
+    salesNetByZone[s.zone_id] += (s.quantity * Number(s.unit_price)) / (1 + iva / 100);
   });
 
   const totalCapacity = filteredZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
@@ -1027,14 +1040,7 @@ export default function PartnerEventDetail() {
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
 
-  // ─── Receita líquida de bilheteira (unit_price é c/IVA → extrair pela iva_rate do lote) ───
-  const lotIvaById: Record<string, number> = {};
-  ticketZones.forEach((z: any) => {
-    (z.event_ticket_lots || []).forEach((l: any) => {
-      lotIvaById[l.id] = Number(l.iva_rate ?? 6);
-    });
-  });
-  const ticketRevenueNet = ticketSales.reduce((s: number, sale: any) => {
+  const ticketRevenueNet = filteredSales.reduce((s: number, sale: any) => {
     const gross = sale.quantity * Number(sale.unit_price);
     const iva = lotIvaById[sale.lot_id] ?? 6;
     return s + gross / (1 + iva / 100);
