@@ -2607,8 +2607,16 @@ const descRef = useRef<HTMLInputElement>(null);
                         <Plus className="h-3.5 w-3.5" /> Adicionar
                       </button>
                     )}
+                    <SponsorshipTargetsPanel
+                      eventId={eventId}
+                      companyId={companyId}
+                      canEdit={canEditBP}
+                      closedAt={syntheticIncome.sponsorshipClosedAt ?? null}
+                      extraEventIds={childEventIds ?? []}
+                    />
                   </div>
                 </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                      <thead>
