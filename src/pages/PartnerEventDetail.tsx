@@ -943,9 +943,63 @@ export default function PartnerEventDetail() {
     };
   };
 
+  // ─── Prestação de contas completa (só quando o sócio já vê receitas/resultado) ───
+  // Gate: mesma condição do PartnerFinancialCards no separador BP (view_bp).
+  const canExportStatement = hasPermission("view_bp");
+
+  const buildStatementInput = (logoDataUrl?: string | null): PartnerStatementInput | null => {
+    if (!event) return null;
+    // R2 — filtro canónico das despesas (overhead ENTRA).
+    const canonical = (bpExpenses ?? []).filter(
+      (f: any) =>
+        f.type === "expense" &&
+        !f.is_transitory &&
+        (!f.exclude_from_result || f.is_overhead),
+    );
+    const documentsByCategoryId: Record<string, number> = {};
+    Object.entries(bpAttachmentsByCategory).forEach(([catId, list]) => {
+      documentsByCategoryId[catId] = list.length;
+    });
+    return {
+      eventName: event.name,
+      eventDate: event.date ?? null,
+      eventLocation: (event as any).location ?? null,
+      companyName: companyDisplayName,
+      logoDataUrl: logoDataUrl ?? null,
+      forecasts: canonical.map((f: any) => ({
+        category_id: f.category_id ?? null,
+        amount: f.amount,
+        iva_rate: f.iva_rate,
+      })),
+      categories: allCategories as any[],
+      revenues: [
+        { label: "Bilheteira", net: ticketRevenueNet },
+        { label: "Bares (A&B)", net: barsRealNet },
+        { label: "Patrocínios", net: sponsorshipRealNet },
+        { label: "Outras receitas", net: otherIncomeRealNet },
+      ],
+      documentsByCategoryId,
+      shares: (partnerShares ?? []).map((s) => ({
+        name: s.partner_name,
+        percentage: Number(s.percentage) || 0,
+      })),
+    };
+  };
+
   const handleExportBPExcel = async () => {
+    if (canExportStatement) {
+      try {
+        const input = buildStatementInput();
+        if (!input) return;
+        await exportPartnerStatementExcel(input);
+      } catch (err: any) {
+        toast.error("Erro ao exportar Excel", { description: err?.message });
+      }
+      return;
+    }
     const p = buildExportPayload();
     if (!p) return;
+
     try {
       await exportPLToExcel(
         p.eventsToExport,
