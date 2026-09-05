@@ -132,25 +132,25 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
   const revenueNet = roundCents(revenues.reduce((s, r) => s + r.net, 0));
   const result = roundCents(revenueNet - expenseTotal);
 
-  // R6 — última quota por subtracção
+  // R6 — última quota por subtracção. Cálculo em cêntimos para evitar
+  // desvios de floating-point (ex.: 597183.45 × 0.70 = 418028.415).
   const ordered = [...input.shares].sort((a, b) => Number(b.percentage) - Number(a.percentage));
-  // Cada sócio registado leva ROUND(resultado × %); a parte restante (a empresa,
-  // ou o último sócio quando as quotas já somam 100%) sai por subtracção.
+  const resultCents = Math.round(result * 100);
   let shares = ordered.map((s) => ({
     name: s.name,
     percentage: Number(s.percentage) || 0,
-    value: roundCents(result * ((Number(s.percentage) || 0) / 100)),
+    value: Math.round(resultCents * ((Number(s.percentage) || 0) / 100)) / 100,
   }));
   const pctSum = roundCents(shares.reduce((s, x) => s + x.percentage, 0));
   if (pctSum >= 99.995 && shares.length > 1) {
-    const others = shares.slice(0, -1).reduce((s, x) => s + x.value, 0);
-    shares[shares.length - 1].value = roundCents(result - others);
+    const othersCents = shares.slice(0, -1).reduce((s, x) => s + Math.round(x.value * 100), 0);
+    shares[shares.length - 1].value = (resultCents - othersCents) / 100;
   } else if (pctSum < 99.995) {
-    const assigned = shares.reduce((s, x) => s + x.value, 0);
+    const assignedCents = shares.reduce((s, x) => s + Math.round(x.value * 100), 0);
     shares.push({
       name: input.companyName ? `${input.companyName} (parte restante)` : "Parte restante",
       percentage: roundCents(100 - pctSum),
-      value: roundCents(result - assigned),
+      value: (resultCents - assignedCents) / 100,
     });
   }
 
@@ -171,7 +171,8 @@ export function buildPartnerStatement(input: PartnerStatementInput): PartnerStat
     const main = sorted[mainIdx];
     const rest = sorted.filter((_, i) => i !== mainIdx);
     const restPct = roundCents(rest.reduce((s, x) => s + x.percentage, 0));
-    const restValue = roundCents(result - main.value);
+    const mainCents = Math.round(main.value * 100);
+    const restValue = (resultCents - mainCents) / 100;
     aggregatedShares.push(main);
     if (restPct > 0 || Math.abs(restValue) > 0.001) {
       aggregatedShares.push({ name: "Sócios locais", percentage: restPct, value: restValue });
