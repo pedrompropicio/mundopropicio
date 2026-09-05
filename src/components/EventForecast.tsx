@@ -1995,7 +1995,7 @@ const descRef = useRef<HTMLInputElement>(null);
       if (f.type === "expense" && !matchesPayingPartnerFilter(f.paying_partner_id ?? null, payingFilter)) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter, payingFilter]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison, orderingFilter, payingFilter, sponsorshipExcludedIds]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
