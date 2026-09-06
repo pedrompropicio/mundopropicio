@@ -193,6 +193,7 @@ Transação lançada via **bypass** porque excedia a verba da categoria. Tem `pl
 | `active` | Versão ativa — referência oficial para sócios e relatórios versionados. |
 | `superseded` | Substituída por uma nova versão ativa. Continua acessível no histórico. |
 | `archived` | Arquivada manualmente — escondida da timeline mas presente na DB. |
+| `working_draft` | Sandbox editável de cenário: as linhas vivem em `event_forecasts.version_id` e editam-se sem tocar no BP oficial. Promovível (`promote_scenario_to_active`) ou descartável (`discard_scenario_draft`). Excluído de auditorias e totais do BP ativo. |
 
 ---
 
