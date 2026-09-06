@@ -412,3 +412,15 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
   Correcções de robustez no mesmo acto: card meio-vinculado (só TX ou só linha) nunca gera de novo — devolve `half_linked` e o botão fica travado com aviso; a linha criada pelo pipeline nasce com `formalidade = 'fechado'`, coerente com o estado do card.
 
 - **DR-2026-09-06-D23 — `working_draft` fica.** O estado `working_draft` de `bp_versions` é a sandbox editável de cenário (`create_scenario_draft` → edição das linhas em `event_forecasts.version_id` → `promote_scenario_to_active` ou `discard_scenario_draft`). Não é resíduo: é o único mecanismo para trabalhar um cenário sem tocar no BP oficial. A spec `.lovable/specs/bp-versions-spec.md` §14/§26 estava desactualizada (descrevia cenários como snapshots draft imutáveis) e passa a documentar o ciclo real. Versões congeladas continuam voluntárias (D5). Estado na Live a 06/09: 124 versões, 1 `working_draft` (Coala PT 2026 v51 "Câmara de Cascais", 20/05, 355 linhas em sandbox, evento encerrado, inerte).
+
+## DR-2026-09-06 — Atribuição campanha→evento passa a configuração explícita por família de eventos
+
+**Decisão:** A atribuição campanha→evento para efeitos contabilísticos deixa de depender do matcher de tokens e passa a ser configuração explícita por família de eventos.
+
+**Contexto:** `crm.auto_link_meta_campaigns_to_events` liga por tokens de 4+ letras do nome do evento, exigindo dois acertos. Mediu-se que as 23 campanhas do Anitta que ligaram fizeram-no porque o nome continha uma data com "2026", não por semântica; seis campanhas "[REDESIGN] Ensaios da Anitta" ficaram órfãs por não terem ano no nome; e eventos cujo nome é apenas uma cidade, como "RG - Santa Maria da Feira", atraíam campanhas de outros artistas.
+
+**Decisão tomada:** Duas colunas em `public.events` — `ads_allocation_level` (`'tour'` | `'cidade'` | `'externo'`) e `ads_match_aliases` `text[]` — e a função `public.resolve_ads_event`, que identifica a família entre os eventos com venda aberta no período da fatura, aplica o nível configurado, e resolve a cidade a partir de `public.cities` via `events.city_id`, nunca a partir do nome do evento. Cidade e ano nunca ligam sozinhos.
+
+**Consequências:** Os dois auto-linkers continuam intactos a servir o dashboard do MP Audience — aproximação aceitável para leitura de gestão, não para contabilidade. O valor `'externo'` impede atribuições a eventos cujo tráfego é de terceiros (Deive Leonardo, agência Nonstop). A confirmação pela contabilidade tranca o vínculo, e a partir daí nenhuma regra automática lhe toca.
+
+**Estado:** vigente.
