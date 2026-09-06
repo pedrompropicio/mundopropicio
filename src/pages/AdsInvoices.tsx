@@ -19,6 +19,9 @@ interface AdsInvoiceRow {
   lines_sum: number | null;
   source: string;
   status: string;
+  parent_transaction_id: string | null;
+  confirmed_at: string | null;
+  applied_at: string | null;
 }
 
 interface AdsInvoiceLineRow {
