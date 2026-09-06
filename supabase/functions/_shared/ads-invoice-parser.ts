@@ -165,15 +165,16 @@ export function parseMetaInvoiceLines(lines: TextLine[]): AdsInvoiceParseResult 
     if (!current) return;
     const raw = cutFooter(current.parts.join(" "));
     const { placement, campaignName } = splitPlacement(raw);
-    const isAdjustment = /^(Coupons:|Location fee:)/i.test(raw);
+    const isAdjustment = /^(Coupons:|Location fee:)/i.test(campaignName);
     parsed.push({
       lineNo: current.lineNo,
       rawDescription: raw,
-      placement: isAdjustment ? null : placement,
+      placement,
       campaignName,
       amount: current.amount,
       isAdjustment,
     });
+
     current = null;
   };
 
