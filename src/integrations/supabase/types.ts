@@ -179,8 +179,12 @@ export type Database = {
       }
       ads_invoice: {
         Row: {
+          applied_at: string | null
+          applied_by: string | null
           billing_period: string
           company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
           currency: string
           file_path: string | null
@@ -189,6 +193,7 @@ export type Database = {
           issue_date: string | null
           lines_sum: number | null
           notes: string | null
+          parent_transaction_id: string | null
           platform: string
           source: string
           source_ref: string | null
@@ -197,8 +202,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
           billing_period: string
           company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           currency?: string
           file_path?: string | null
@@ -207,6 +216,7 @@ export type Database = {
           issue_date?: string | null
           lines_sum?: number | null
           notes?: string | null
+          parent_transaction_id?: string | null
           platform: string
           source: string
           source_ref?: string | null
@@ -215,8 +225,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          applied_at?: string | null
+          applied_by?: string | null
           billing_period?: string
           company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           currency?: string
           file_path?: string | null
@@ -225,6 +239,7 @@ export type Database = {
           issue_date?: string | null
           lines_sum?: number | null
           notes?: string | null
+          parent_transaction_id?: string | null
           platform?: string
           source?: string
           source_ref?: string | null
@@ -232,7 +247,15 @@ export type Database = {
           total_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ads_invoice_parent_transaction_id_fkey"
+            columns: ["parent_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ads_invoice_line: {
         Row: {
@@ -250,6 +273,7 @@ export type Database = {
           match_source: string
           placement: string | null
           raw_description: string
+          transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -267,6 +291,7 @@ export type Database = {
           match_source?: string
           placement?: string | null
           raw_description: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -284,6 +309,7 @@ export type Database = {
           match_source?: string
           placement?: string | null
           raw_description?: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -299,6 +325,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "ads_invoice"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_invoice_line_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
