@@ -212,11 +212,15 @@ async function handleGenerate(body: any, userId?: string) {
   const { inv, lines } = await loadInvoice(body.invoice_id);
 
   if (inv.status === "applied" || inv.parent_transaction_id) {
-    const { data: created } = await admin
-      .from("transactions")
-      .select("id, event_id, amount, description, specification, parent_transaction_id")
-      .or(`id.eq.${inv.parent_transaction_id},parent_transaction_id.eq.${inv.parent_transaction_id}`);
-    return json({ ok: true, already: true, status: inv.status, transactions: created ?? [], version: VERSION });
+    let createdRows: any[] = [];
+    if (inv.parent_transaction_id) {
+      const { data: created } = await admin
+        .from("transactions")
+        .select("id, event_id, amount, description, specification, parent_transaction_id")
+        .or(`id.eq.${inv.parent_transaction_id},parent_transaction_id.eq.${inv.parent_transaction_id}`);
+      createdRows = created ?? [];
+    }
+    return json({ ok: true, already: true, status: inv.status, transactions: createdRows, version: VERSION });
   }
   if (inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
 

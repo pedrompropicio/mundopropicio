@@ -57,3 +57,6 @@ verify_jwt = true
 # service_role ou JWT de utilizador autenticado, validado dentro da função.
 [functions.ads-invoice-ingest]
 verify_jwt = true
+
+[functions.ads-invoice-apply]
+verify_jwt = true
