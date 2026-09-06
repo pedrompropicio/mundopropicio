@@ -161,6 +161,20 @@ export default function AdsInvoices() {
 
   const openInvoice = invoices.find((i) => i.id === openId) ?? null;
 
+  const { data: createdTx = [] } = useQuery({
+    queryKey: ["ads-invoice-transactions", openInvoice?.parent_transaction_id],
+    enabled: !!openInvoice?.parent_transaction_id,
+    queryFn: async () => {
+      const parentId = openInvoice!.parent_transaction_id!;
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, event_id, amount, parent_transaction_id")
+        .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   if (openInvoice) {
     const lines = detail ?? [];
     const byEvent = new Map<string, number>();
@@ -168,27 +182,97 @@ export default function AdsInvoices() {
     let missing = 0;
     for (const l of lines) {
       if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
-      if (!l.event_id) { missing++; continue; }
+      if (!l.event_id || l.match_source === "none") { missing++; continue; }
       byEvent.set(l.event_id, (byEvent.get(l.event_id) ?? 0) + Number(l.amount));
     }
     const allocation = Array.from(byEvent.entries()).sort((a, b) => b[1] - a[1]);
+    const sumOk = reconciles(
+      Number(openInvoice.total_amount),
+      openInvoice.lines_sum === null ? null : Number(openInvoice.lines_sum),
+    );
+    const canConfirm = openInvoice.status === "proposed" && sumOk && missing === 0;
+    const isConfirmed = openInvoice.status === "confirmed";
+    const isApplied = openInvoice.status === "applied" || !!openInvoice.parent_transaction_id;
+    const readOnly = isConfirmed || isApplied;
 
     return (
       <div className="space-y-6 p-6">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setOpenId(null)}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-semibold">
               {platformLabels[openInvoice.platform] ?? openInvoice.platform} · {openInvoice.invoice_number}
             </h1>
             <p className="text-sm text-muted-foreground">
               Período {periodLabel(openInvoice.billing_period)} · total {formatCurrency(Number(openInvoice.total_amount))} ·
               soma das linhas {formatCurrency(Number(openInvoice.lines_sum ?? 0))}
+              {readOnly && " · linhas só de leitura"}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{statusLabels[openInvoice.status] ?? openInvoice.status}</Badge>
+            {!isApplied && (
+              <Button
+                size="sm"
+                disabled={!canConfirm || confirmMutation.isPending || isConfirmed}
+                onClick={() => confirmMutation.mutate(openInvoice.id)}
+              >
+                <Lock className="mr-2 h-4 w-4" />
+                {isConfirmed ? "Rateio confirmado" : "Confirmar rateio"}
+              </Button>
+            )}
+            {(isConfirmed || isApplied) && (
+              <Button
+                size="sm"
+                variant={isApplied ? "outline" : "default"}
+                disabled={isApplied || generateMutation.isPending}
+                onClick={() => generateMutation.mutate(openInvoice.id)}
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                {isApplied ? "Lançamentos gerados" : "Gerar lançamentos"}
+              </Button>
+            )}
+          </div>
         </div>
+
+        {!canConfirm && openInvoice.status === "proposed" && (
+          <p className="text-sm text-warning">
+            {missing > 0
+              ? `Não é possível confirmar: ${missing} linha(s) sem evento resolvido.`
+              : "Não é possível confirmar: a soma das linhas não bate com o total da fatura."}
+          </p>
+        )}
+
+        {isApplied && createdTx.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Lançamentos gerados</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lançamento</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(createdTx as any[])
+                    .sort((a, b) => (a.parent_transaction_id ? 1 : 0) - (b.parent_transaction_id ? 1 : 0))
+                    .map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>{t.event_id ? eventName(t.event_id) : "Fatura (sem evento)"}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(Number(t.amount))}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
 
         <Card>
           <CardHeader>
