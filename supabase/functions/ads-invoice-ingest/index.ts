@@ -47,7 +47,21 @@ async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; 
   const auth = req.headers.get("Authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
   if (!token) return { ok: false, error: "missing Authorization" };
-  if (token === SERVICE_ROLE) return { ok: true };
+  if (SERVICE_ROLE && token === SERVICE_ROLE) return { ok: true };
+
+  // Chave legacy em JWT: detecta service_role pelo payload
+  try {
+    const parts = token.split(".");
+    if (parts.length >= 2) {
+      const payload = JSON.parse(
+        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
+      );
+      if (payload?.role === "service_role") return { ok: true };
+    }
+  } catch (_e) {
+    // ignore, tentar como token de utilizador
+  }
+
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data?.user) return { ok: false, error: "invalid token" };
   return { ok: true, userId: data.user.id };
