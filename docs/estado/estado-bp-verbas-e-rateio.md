@@ -1,15 +1,21 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-05 · #103 ronda 1 em produção (Publish do Pedro a 04/09); ronda 2 por fazer
+Atualizado: 2026-09-06 · #103 rondas 1 e 2 em produção (Publish do Pedro a 04/09 e 06/09)
 
 ## Em que pé está
-O BP de receita está construído. A aba Business Plan tem sub-separadores Despesas | Receitas e as receitas com módulo aparecem como linhas sintéticas não persistidas — 1.1.01 (bilheteira) e 1.1.03 (A&B) — com três colunas s/IVA: previsto original (fixado uma única vez em `events.ticketing_baseline_net` / `ab_baseline_net`), previsto corrente (cenário Forecast do Simulador ao vivo, `computeLiveTicketForecast`, com capacidade = carga corrente de `zone_capacity_snapshot`) e real (`ticket_sales`, critério D11 linha a linha). Há duas cargas (D20): inicial = `event_ticket_zones.total_capacity`; corrente = último retrato de `event_zone_capacities`, capturado pelo ciclo diário da Ticketline (v2.40) e mostrado com data.
+O BP de receita está construído. A aba Business Plan tem sub-separadores Despesas | Receitas e as receitas com módulo aparecem como linhas sintéticas não persistidas — 1.1.01 (bilheteira), 1.1.03 (A&B) e 1.2.01 (patrocínios, D22) — com três colunas s/IVA: previsto original, previsto corrente e real.
+
+- **1.1.01 Bilheteira:** previsto original fixado uma única vez em `events.ticketing_baseline_net`; previsto corrente do cenário Forecast do Simulador ao vivo (`computeLiveTicketForecast`, capacidade = carga corrente de `zone_capacity_snapshot`); real de `ticket_sales` líquido por IVA do lote (D11 linha a linha). Há duas cargas (D20): inicial = `event_ticket_zones.total_capacity`; corrente = último retrato de `event_zone_capacities`, capturado pelo ciclo diário da Ticketline (v2.40) e mostrado com data.
+- **1.1.03 A&B:** corrente do cenário A&B ativo, real de `useEventABRealized`, original de `events.ab_baseline_net`.
+- **1.2.01 Patrocínios (D22):** só aparece quando o evento tem verbas em `event_sponsorship_targets`. Previsto original = Σ `baseline_amount` das verbas; previsto corrente = fechados + por captar até `events.sponsorship_closed_at`, depois só fechados; real = Σ `confirmed_amount` dos cards fechados não-permuta. A apresentação exclui as linhas de BP ligadas a esses cards (`1.2.01` ou `1.2.02`) para não duplicar. Segmentos por empresa em `sponsorship_segments` (7 semeados, trigger para empresas novas). Painel "Verbas de patrocínio" e botão "Encerrar captação" na aba Receitas, gated por `manage_bp`.
+
+Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e estado vazio incluem sintéticas + reais + manuais; card Receitas bate ao cabeçalho.
 
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-**#103 ronda 2** — verba por segmento de patrocínio e encerramento datado da captação (ver `docs/questoes-bp-receita.md`).
+Definir as verbas por segmento nos eventos futuros (Ghanem 2027 e seguintes) — sem verbas o BP de receita de patrocínios é só o realizado. Depois: curva de evolução L1/L2/L3 sobre `forecast_audit_log` (charter do chat bp-x-resultado, ponto 5).
 
 ## Bloqueios
 Nenhum.
@@ -43,8 +49,14 @@ Nenhum.
 
 **Publish pode não reconstruir edge functions** (03/09: `fetch-ticketline-reports` ficou em v2.39 sem erro após dois Publish; resolvido com deploy directo de 4 funções). Regra: depois de Publish que toque em edge functions, confirmar a versão em produção; se divergir, deploy directo. Nota em `docs/integrations/ticketline.md`.
 
+**Factos novos a 06/09:**
+- Nenhum evento tem verbas de patrocínio (`event_sponsorship_targets` = 0 linhas) nem captação encerrada (`events.sponsorship_closed_at` = NULL em todos).
+- O motor `src/lib/sponsorship-bp-sync.ts` passou a rejeitar cards meio-ligados (#118): guarda passa a `linked_transaction_id || linked_forecast_id`; card meio-ligado devolve `half_linked`, botão de sync travado com aviso. Linhas novas geradas por cards fechados nascem com `formalidade = 'fechado'` (#119).
+- Os 3 cards meio-ligados da Anitta (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) continuam meio-ligados por decisão — corrigir só depois do fecho da Anitta, com o padrão SQL documentado do Casino.
+
 ## Onde ler mais
-- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21 + adendas
+- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22 + adendas
 - `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation
+- `src/lib/bp-income-synthetic.ts`, `src/lib/bp-sponsorship-synthetic.ts`, `src/lib/event-simulator-forecast-live.ts`
 - `docs/questoes-bp-receita.md`
 - `docs/integrations/ticketline.md`
