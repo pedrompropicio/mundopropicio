@@ -1,7 +1,8 @@
 # Spec: Sistema de Versões do Business Plan (BP)
 
 > Documento consolidado das decisões tomadas. A implementação seguirá esta spec.
-> Última atualização: 2026-04-26 (revisão 3 — adicionado modelo de cenários múltiplos §26-28)
+> Última atualização: 2026-09-06 (revisão 4 — 2026-09-06, working_draft documentado (D23))
+> Histórico: revisão 3 — 2026-04-26, adicionado modelo de cenários múltiplos §26-28
 
 ---
 
