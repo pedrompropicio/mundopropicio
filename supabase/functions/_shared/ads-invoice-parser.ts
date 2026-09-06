@@ -84,8 +84,8 @@ function isNoise(text: string): boolean {
 
 /** Extrai linhas visuais de um PDF com posições, via unpdf/pdf.js. */
 export async function extractPdfLines(bytes: Uint8Array): Promise<TextLine[]> {
-  // @ts-ignore — especificador remoto Deno
-  const { getDocumentProxy } = await import("npm:unpdf@0.12.1");
+  // @ts-ignore — especificador remoto Deno (mesmo build já em produção no bol-report-parser)
+  const { getDocumentProxy } = await import("https://esm.sh/unpdf@0.12.1");
   const pdf = await getDocumentProxy(bytes);
   const out: TextLine[] = [];
   for (let p = 1; p <= pdf.numPages; p++) {
