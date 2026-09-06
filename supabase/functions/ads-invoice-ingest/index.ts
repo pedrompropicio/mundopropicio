@@ -13,7 +13,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseMetaInvoice } from "../_shared/ads-invoice-parser.ts";
 
-const VERSION = "v1.0_proposal_layer";
+const VERSION = "v2.0_resolve_ads_event";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +88,8 @@ interface LineDraft {
   campaign_name: string | null;
   external_campaign_id: string | null;
   event_id: string | null;
-  match_source: "erp_link" | "fuzzy" | "manual" | "none";
+  match_source: "erp_link" | "fuzzy" | "manual" | "none" | "regra";
+  match_note: string | null;
   amount: number;
   is_adjustment: boolean;
 }
@@ -157,72 +158,59 @@ async function buildAllocation(companyId: string, lines: LineDraft[]) {
 
 // ------------------------------------------------------------------ parse_meta
 
-async function matchMetaCampaigns(companyId: string, campaignNames: string[]) {
+/** Mapa nome-de-campanha → external_campaign_id do espelho Meta (só referência). */
+async function metaCampaignIds(companyId: string): Promise<Map<string, string | null>> {
   const { data, error } = await admin
     .schema("crm")
     .from("meta_campaign_snapshot")
-    .select("name, external_campaign_id, linked_event_id")
+    .select("name, external_campaign_id")
     .eq("company_id", companyId);
   if (error) throw new Error(`meta_campaign_snapshot: ${error.message}`);
-
-  const exact = new Map<string, { events: Set<string | null>; ids: Set<string> }>();
-  const all: Array<{ name: string; external_campaign_id: string; linked_event_id: string | null }> = [];
+  const byName = new Map<string, Set<string>>();
   for (const row of data ?? []) {
-    const key = norm(row.name ?? "");
+    const key = norm(row.name ?? "").toLowerCase();
     if (!key) continue;
-    all.push({
-      name: key,
-      external_campaign_id: row.external_campaign_id,
-      linked_event_id: row.linked_event_id ?? null,
+    const slot = byName.get(key) ?? new Set<string>();
+    if (row.external_campaign_id) slot.add(String(row.external_campaign_id));
+    byName.set(key, slot);
+  }
+  const out = new Map<string, string | null>();
+  for (const [k, v] of byName) out.set(k, v.size === 1 ? Array.from(v)[0] : null);
+  return out;
+}
+
+interface Resolved {
+  event_id: string | null;
+  match_source: LineDraft["match_source"];
+  match_note: string | null;
+}
+
+/**
+ * Resolve campanha → evento pela configuração explícita das famílias
+ * (public.resolve_ads_event). Substitui a antiga adivinhação por nomes.
+ */
+async function resolveEvents(
+  companyId: string,
+  billingPeriod: string, // YYYY-MM-DD (primeiro dia do mês)
+  campaignNames: string[],
+): Promise<Map<string, Resolved>> {
+  const out = new Map<string, Resolved>();
+  const unique = Array.from(new Set(campaignNames.map((n) => norm(n)).filter(Boolean)));
+  for (const name of unique) {
+    const { data, error } = await admin.rpc("resolve_ads_event", {
+      p_company_id: companyId,
+      p_campaign_name: name,
+      p_billing_period: billingPeriod,
     });
-    const slot = exact.get(key) ?? { events: new Set<string | null>(), ids: new Set<string>() };
-    slot.events.add(row.linked_event_id ?? null);
-    if (row.external_campaign_id) slot.ids.add(row.external_campaign_id);
-    exact.set(key, slot);
+    if (error) throw new Error(`resolve_ads_event(${name}): ${error.message}`);
+    const row = Array.isArray(data) ? data[0] : data;
+    out.set(name, {
+      event_id: row?.event_id ?? null,
+      match_source: (row?.match_source ?? "none") as LineDraft["match_source"],
+      match_note: row?.note ?? null,
+    });
   }
-
-  const result = new Map<
-    string,
-    { event_id: string | null; external_campaign_id: string | null; match_source: "erp_link" | "fuzzy" | "none" }
-  >();
-
-  for (const raw of campaignNames) {
-    const name = norm(raw);
-    if (!name) { result.set(raw, { event_id: null, external_campaign_id: null, match_source: "none" }); continue; }
-
-    const hit = exact.get(name);
-    if (hit) {
-      const events = Array.from(hit.events);
-      if (events.length === 1 && events[0]) {
-        result.set(raw, {
-          event_id: events[0],
-          external_campaign_id: hit.ids.size === 1 ? Array.from(hit.ids)[0] : null,
-          match_source: "erp_link",
-        });
-      } else {
-        // sem vínculo, ou vínculos divergentes → fica por resolver
-        result.set(raw, {
-          event_id: null,
-          external_campaign_id: hit.ids.size === 1 ? Array.from(hit.ids)[0] : null,
-          match_source: "none",
-        });
-      }
-      continue;
-    }
-
-    const prefixHits = all.filter((c) => c.name.startsWith(name));
-    if (prefixHits.length === 1 && prefixHits[0].linked_event_id) {
-      result.set(raw, {
-        event_id: prefixHits[0].linked_event_id,
-        external_campaign_id: prefixHits[0].external_campaign_id ?? null,
-        match_source: "fuzzy",
-      });
-      continue;
-    }
-
-    result.set(raw, { event_id: null, external_campaign_id: null, match_source: "none" });
-  }
-  return result;
+  return out;
 }
 
 async function handleParseMeta(body: Record<string, any>) {
@@ -248,7 +236,8 @@ async function handleParseMeta(body: Record<string, any>) {
   }
 
   const nonAdjust = parsed.lines.filter((l) => !l.isAdjustment).map((l) => l.campaignName);
-  const matches = await matchMetaCampaigns(companyId, nonAdjust);
+  const matches = await resolveEvents(companyId, h.billingPeriod, nonAdjust);
+  const campaignIds = await metaCampaignIds(companyId);
 
   const lines: LineDraft[] = parsed.lines.map((l) => {
     if (l.isAdjustment) {
@@ -260,19 +249,22 @@ async function handleParseMeta(body: Record<string, any>) {
         external_campaign_id: null,
         event_id: null,
         match_source: "none",
+        match_note: null,
         amount: l.amount,
         is_adjustment: true,
       };
     }
-    const m = matches.get(l.campaignName) ?? { event_id: null, external_campaign_id: null, match_source: "none" as const };
+    const key = norm(l.campaignName);
+    const m: Resolved = matches.get(key) ?? { event_id: null, match_source: "none", match_note: null };
     return {
       line_no: l.lineNo,
       raw_description: l.rawDescription,
       placement: l.placement,
       campaign_name: l.campaignName,
-      external_campaign_id: m.external_campaign_id,
+      external_campaign_id: campaignIds.get(key.toLowerCase()) ?? null,
       event_id: m.event_id,
       match_source: m.match_source,
+      match_note: m.match_note,
       amount: l.amount,
       is_adjustment: false,
     };
@@ -357,20 +349,27 @@ async function handleProposeGoogle(body: Record<string, any>) {
     meta.set(String(c.external_campaign_id), { name: c.name ?? null, linked_event_id: c.linked_event_id ?? null });
   }
 
+  const googleNames = Array.from(agg.entries()).map(([id, v]) =>
+    norm(meta.get(id)?.name ?? v.name ?? id)
+  );
+  const googleMatches = await resolveEvents(companyId, start, googleNames);
+
   const lines: LineDraft[] = Array.from(agg.entries())
     .filter(([, v]) => v.cents !== 0)
     .sort((a, b) => b[1].cents - a[1].cents)
     .map(([externalId, v], i) => {
       const c = meta.get(externalId);
       const name = norm(c?.name ?? v.name ?? externalId);
+      const m: Resolved = googleMatches.get(name) ?? { event_id: null, match_source: "none", match_note: null };
       return {
         line_no: i + 1,
         raw_description: name,
         placement: null,
         campaign_name: name,
         external_campaign_id: externalId || null,
-        event_id: c?.linked_event_id ?? null,
-        match_source: c?.linked_event_id ? "erp_link" : "none",
+        event_id: m.event_id,
+        match_source: m.match_source,
+        match_note: m.match_note,
         amount: round2(v.cents / 100),
         is_adjustment: false,
       } as LineDraft;
