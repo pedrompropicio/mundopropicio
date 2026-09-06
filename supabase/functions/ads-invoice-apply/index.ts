@@ -35,7 +35,7 @@ const ADS_BUCKET = "ads-invoices";
 
 const platformLabel: Record<string, string> = { meta: "Meta Platforms Ireland Limited", google: "Google Ireland Limited" };
 const platformAccount: Record<string, string> = { meta: "5094207367314169", google: "220-004-3144" };
-const IVA_NOTE = "IVA 0% — autoliquidação pelo adquirente (art. 196.º da Diretiva 2006/112/CE)";
+const IVA_NOTE = "IVA 0% - autoliquidação pelo adquirente (art. 196.º da Diretiva 2006/112/CE)";
 
 async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; error?: string }> {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
