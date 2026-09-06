@@ -1,7 +1,8 @@
 # Spec: Sistema de Versões do Business Plan (BP)
 
 > Documento consolidado das decisões tomadas. A implementação seguirá esta spec.
-> Última atualização: 2026-04-26 (revisão 3 — adicionado modelo de cenários múltiplos §26-28)
+> Última atualização: 2026-09-06 (revisão 4 — 2026-09-06, working_draft documentado (D23))
+> Histórico: revisão 3 — 2026-04-26, adicionado modelo de cenários múltiplos §26-28
 
 ---
 
@@ -192,6 +193,7 @@ Transação lançada via **bypass** porque excedia a verba da categoria. Tem `pl
 | `active` | Versão ativa — referência oficial para sócios e relatórios versionados. |
 | `superseded` | Substituída por uma nova versão ativa. Continua acessível no histórico. |
 | `archived` | Arquivada manualmente — escondida da timeline mas presente na DB. |
+| `working_draft` | Sandbox editável de cenário: as linhas vivem em `event_forecasts.version_id` e editam-se sem tocar no BP oficial. Promovível (`promote_scenario_to_active`) ou descartável (`discard_scenario_draft`). Excluído de auditorias e totais do BP ativo. |
 
 ---
 
@@ -323,7 +325,7 @@ Transação lançada via **bypass** porque excedia a verba da categoria. Tem `pl
 - `is_pinned_scenario` (bool, default false) — cenários "fixados" aparecem sempre na multi-comparação e nos seletores de relatórios. Limite: até **4 cenários fixados** por evento simultaneamente.
 
 ### 26.2 Estados aplicáveis
-- Cenários vivem como **rascunhos** (estado `draft`) com `scenario_label` preenchido
+- Ciclo real de um cenário: `create_scenario_draft` cria a versão em estado **`working_draft`** com `scenario_label` preenchido e clona as linhas da Ativa para `event_forecasts.version_id`; a equipa edita essas linhas na sandbox; no fim, `promote_scenario_to_active` torna o cenário o BP oficial (com cascade Master→Splits) ou `discard_scenario_draft` elimina a versão e as suas linhas. O estado `draft` fica para snapshots simples sem sandbox editável.
 - Não substituem a versão ativa nem entram em "superseded" — ficam vivos para análise
 - Podem ser promovidos a ativos a qualquer momento (vira o BP oficial e perde o estatuto de cenário)
 - Podem ser descartados como qualquer rascunho
