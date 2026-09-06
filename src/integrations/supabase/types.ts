@@ -246,6 +246,7 @@ export type Database = {
           invoice_id: string
           is_adjustment: boolean
           line_no: number
+          match_note: string | null
           match_source: string
           placement: string | null
           raw_description: string
@@ -262,6 +263,7 @@ export type Database = {
           invoice_id: string
           is_adjustment?: boolean
           line_no: number
+          match_note?: string | null
           match_source?: string
           placement?: string | null
           raw_description: string
@@ -278,6 +280,7 @@ export type Database = {
           invoice_id?: string
           is_adjustment?: boolean
           line_no?: number
+          match_note?: string | null
           match_source?: string
           placement?: string | null
           raw_description?: string
@@ -6239,6 +6242,8 @@ export type Database = {
           ad_destination_url: string | null
           admin_window_end: string | null
           admin_window_start: string | null
+          ads_allocation_level: string
+          ads_match_aliases: string[]
           budget: number
           budget_mode: string | null
           city_id: string | null
@@ -6300,6 +6305,8 @@ export type Database = {
           ad_destination_url?: string | null
           admin_window_end?: string | null
           admin_window_start?: string | null
+          ads_allocation_level?: string
+          ads_match_aliases?: string[]
           budget?: number
           budget_mode?: string | null
           city_id?: string | null
@@ -6361,6 +6368,8 @@ export type Database = {
           ad_destination_url?: string | null
           admin_window_end?: string | null
           admin_window_start?: string | null
+          ads_allocation_level?: string
+          ads_match_aliases?: string[]
           budget?: number
           budget_mode?: string | null
           city_id?: string | null
@@ -12059,6 +12068,16 @@ export type Database = {
           test_name: string
         }[]
       }
+      ads_event_windows: {
+        Args: { p_company_id: string }
+        Returns: {
+          event_id: string
+          root_id: string
+          win_end: string
+          win_start: string
+        }[]
+      }
+      ads_norm_text: { Args: { p_text: string }; Returns: string }
       analyze_formalidade_bulk: {
         Args: { _event_ids?: string[] }
         Returns: {
@@ -12870,6 +12889,18 @@ export type Database = {
           p_transaction_id: string
         }
         Returns: string
+      }
+      resolve_ads_event: {
+        Args: {
+          p_billing_period: string
+          p_campaign_name: string
+          p_company_id: string
+        }
+        Returns: {
+          event_id: string
+          match_source: string
+          note: string
+        }[]
       }
       restore_bp_versions_from_trash: {
         Args: { _trash_id: string }
