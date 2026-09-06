@@ -93,6 +93,7 @@ import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
 import StandaloneInvoiceScanner from "./pages/StandaloneInvoiceScanner";
+import AdsInvoices from "./pages/AdsInvoices";
 import AccountantPendencies from "./pages/AccountantPendencies";
 import EventImplementations from "./pages/EventImplementations";
 import EventImplementationDetail from "./pages/EventImplementationDetail";
@@ -483,6 +484,7 @@ function ProtectedLayout() {
               <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/reembolsos" element={<Reimbursements />} />
               <Route path="/scanner-faturas" element={<StandaloneInvoiceScanner />} />
+              <Route path="/faturas-plataformas" element={<AdsInvoices />} />
               <Route path="/pendencias-contabilista" element={<AccountantPendencies />} />
               <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/camarim" element={<Camarim />} />

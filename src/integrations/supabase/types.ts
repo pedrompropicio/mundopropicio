@@ -177,6 +177,129 @@ export type Database = {
           },
         ]
       }
+      ads_invoice: {
+        Row: {
+          billing_period: string
+          company_id: string
+          created_at: string
+          currency: string
+          file_path: string | null
+          id: string
+          invoice_number: string
+          issue_date: string | null
+          lines_sum: number | null
+          notes: string | null
+          platform: string
+          source: string
+          source_ref: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          billing_period: string
+          company_id: string
+          created_at?: string
+          currency?: string
+          file_path?: string | null
+          id?: string
+          invoice_number: string
+          issue_date?: string | null
+          lines_sum?: number | null
+          notes?: string | null
+          platform: string
+          source: string
+          source_ref?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          company_id?: string
+          created_at?: string
+          currency?: string
+          file_path?: string | null
+          id?: string
+          invoice_number?: string
+          issue_date?: string | null
+          lines_sum?: number | null
+          notes?: string | null
+          platform?: string
+          source?: string
+          source_ref?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ads_invoice_line: {
+        Row: {
+          amount: number
+          campaign_name: string | null
+          company_id: string
+          created_at: string
+          event_id: string | null
+          external_campaign_id: string | null
+          id: string
+          invoice_id: string
+          is_adjustment: boolean
+          line_no: number
+          match_source: string
+          placement: string | null
+          raw_description: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          campaign_name?: string | null
+          company_id: string
+          created_at?: string
+          event_id?: string | null
+          external_campaign_id?: string | null
+          id?: string
+          invoice_id: string
+          is_adjustment?: boolean
+          line_no: number
+          match_source?: string
+          placement?: string | null
+          raw_description: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          campaign_name?: string | null
+          company_id?: string
+          created_at?: string
+          event_id?: string | null
+          external_campaign_id?: string | null
+          id?: string
+          invoice_id?: string
+          is_adjustment?: boolean
+          line_no?: number
+          match_source?: string
+          placement?: string | null
+          raw_description?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_invoice_line_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_invoice_line_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ads_invoice"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_secrets: {
         Row: {
           created_at: string
