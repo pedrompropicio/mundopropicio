@@ -28,6 +28,7 @@ interface AdsInvoiceLineRow {
   campaign_name: string | null;
   event_id: string | null;
   match_source: string;
+  match_note: string | null;
   amount: number;
   is_adjustment: boolean;
 }
@@ -89,7 +90,7 @@ export default function AdsInvoices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ads_invoice_line")
-        .select("id, line_no, raw_description, placement, campaign_name, event_id, match_source, amount, is_adjustment")
+        .select("id, line_no, raw_description, placement, campaign_name, event_id, match_source, match_note, amount, is_adjustment")
         .eq("invoice_id", openId!)
         .order("line_no");
       if (error) throw error;
@@ -189,6 +190,7 @@ export default function AdsInvoices() {
                   <TableHead>Descrição na fatura</TableHead>
                   <TableHead>Evento</TableHead>
                   <TableHead className="w-28">Origem</TableHead>
+                  <TableHead>Porquê</TableHead>
                   <TableHead className="text-right w-28">Valor</TableHead>
                 </TableRow>
               </TableHeader>
@@ -202,6 +204,9 @@ export default function AdsInvoices() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{l.match_source}</Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[240px] text-[11px] text-muted-foreground">
+                      {l.match_note ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
                   </TableRow>

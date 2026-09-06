@@ -32,6 +32,12 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [adminWindowStart, setAdminWindowStart] = useState<string>(event.admin_window_start || "");
   const [adminWindowEnd, setAdminWindowEnd] = useState<string>(event.admin_window_end || "");
 
+  // Tráfego pago (só evento-mãe / single): nível de lançamento + nomes alternativos
+  const [adsLevel, setAdsLevel] = useState<string>(event.ads_allocation_level || "tour");
+  const [adsAliases, setAdsAliases] = useState<string>(
+    Array.isArray(event.ads_match_aliases) ? event.ads_match_aliases.join(", ") : ""
+  );
+
   const eventType = event.event_type || "simple";
   const isSplit = !!event.parent_event_id;
   const canAbsorb = !isSplit; // Só Single ou Master podem absorver (trigger DB também valida)
@@ -105,6 +111,15 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           absorbs_admin_costs: canAbsorb ? absorbsAdminCosts : false,
           admin_window_start: canAbsorb && absorbsAdminCosts && adminWindowStart ? adminWindowStart : null,
           admin_window_end: canAbsorb && absorbsAdminCosts && adminWindowEnd ? adminWindowEnd : null,
+          ...(isSplit
+            ? {}
+            : {
+                ads_allocation_level: adsLevel,
+                ads_match_aliases: adsAliases
+                  .split(",")
+                  .map((a) => a.trim())
+                  .filter(Boolean),
+              }),
         } as any)
         .eq("id", event.id);
       if (error) throw error;
@@ -392,6 +407,39 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           ) : (
             <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-[10px] text-muted-foreground">
               Sub-eventos (Splits) não podem absorver custos administrativos — só o evento Master ou eventos Single.
+            </div>
+          )}
+
+          {/* Tráfego pago — só evento-mãe ou evento único */}
+          {!isSplit && (
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs font-semibold">Tráfego pago</div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
+                  Onde é lançado o tráfego desta família
+                </label>
+                <select
+                  value={adsLevel}
+                  onChange={(e) => setAdsLevel(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="tour">Tour — tudo lança neste evento</option>
+                  <option value="cidade">Por cidade — lança no sub-evento da cidade</option>
+                  <option value="externo">Externo — nunca atribuir automaticamente</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
+                  Nomes alternativos usados nas campanhas (separados por vírgula)
+                </label>
+                <input
+                  type="text"
+                  value={adsAliases}
+                  onChange={(e) => setAdsAliases(e.target.value)}
+                  placeholder="Ex.: Ensaios da Anitta, EDA"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
             </div>
           )}
 
