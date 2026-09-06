@@ -109,6 +109,7 @@ export function AppSidebar({
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") || isAdmin },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/scanner-faturas", icon: ScanLine, label: "Scanner Faturas", show: isAdmin || isManager || role === "editor" },
+    { to: "/faturas-plataformas", icon: Receipt, label: "Faturas Plataformas", show: isAdmin || isManager || role === "editor" || role === "accountant" },
     { to: "/pendencias-contabilista", icon: ClipboardCheck, label: "Contabilista", show: hasPermission("manage_transactions") || isAdmin || isManager, badge: accountantPendingCount },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/cartoes", icon: CreditCard, label: "Cartões", show: hasPermission("card_manage") || isAdmin || isManager },
