@@ -57,13 +57,57 @@ function reconciles(total: number, sum: number | null) {
 
 export default function AdsInvoices() {
   const [openId, setOpenId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["ads-invoices"] });
+    queryClient.invalidateQueries({ queryKey: ["ads-invoice-detail"] });
+    queryClient.invalidateQueries({ queryKey: ["ads-invoice-transactions"] });
+  };
+
+  const callApply = async (action: "confirm" | "generate", invoiceId: string) => {
+    const { data, error } = await supabase.functions.invoke("ads-invoice-apply", {
+      body: { action, invoice_id: invoiceId },
+    });
+    if (error) throw new Error(error.message);
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data as any;
+  };
+
+  const confirmMutation = useMutation({
+    mutationFn: (invoiceId: string) => callApply("confirm", invoiceId),
+    onSuccess: (data) => {
+      toast.success(
+        data?.already
+          ? "Fatura já estava confirmada."
+          : `Rateio confirmado. ${data?.campaigns_locked ?? 0} campanha(s) com vínculo trancado.`,
+      );
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: (invoiceId: string) => callApply("generate", invoiceId),
+    onSuccess: (data) => {
+      toast.success(
+        data?.already
+          ? "Os lançamentos desta fatura já existem."
+          : `Lançamentos criados: 1 mãe e ${(data?.transactions?.length ?? 1) - 1} por evento.`,
+      );
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["ads-invoices"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ads_invoice")
-        .select("id, platform, invoice_number, billing_period, issue_date, total_amount, lines_sum, source, status")
+        .select(
+          "id, platform, invoice_number, billing_period, issue_date, total_amount, lines_sum, source, status, parent_transaction_id, confirmed_at, applied_at",
+        )
         .order("billing_period", { ascending: false })
         .order("platform");
       if (error) throw error;
