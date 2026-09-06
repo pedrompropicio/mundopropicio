@@ -190,6 +190,7 @@ export default function AdsInvoices() {
                   <TableHead>Descrição na fatura</TableHead>
                   <TableHead>Evento</TableHead>
                   <TableHead className="w-28">Origem</TableHead>
+                  <TableHead>Porquê</TableHead>
                   <TableHead className="text-right w-28">Valor</TableHead>
                 </TableRow>
               </TableHeader>
