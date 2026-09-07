@@ -221,6 +221,21 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
+      // Receita: "Previsto + excedido" (D24) vem do SSoT — por componente
+      // max(real, previsto corrente). Sempre s/IVA.
+      if (kind === "income") {
+        const c = revenue?.committed;
+        return {
+          displayValue: c?.total ?? 0,
+          subtotals: [
+            { label: "Bilheteira", value: c?.buckets.bilheteira ?? null },
+            { label: "Patrocínio", value: c?.buckets.patrocinio ?? null },
+            ...(c && c.buckets.ab !== 0 ? [{ label: "A&B", value: c.buckets.ab }] : []),
+            { label: "Outros", value: c?.buckets.outros ?? null },
+          ],
+          formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
+        };
+      }
       // Operacionais: linhas aprovadas que entram no resultado.
       // Overhead: linhas is_overhead (têm exclude_from_result=true) — só com o toggle ON.
       const operational = forecasts.filter((f: any) =>
