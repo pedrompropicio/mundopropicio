@@ -32,7 +32,23 @@ export function capitalKindFromCode(code: string | null | undefined): CapitalKin
   if (c.startsWith("10.1.01")) return "aporte";
   if (c.startsWith("10.1.02")) return "devolucao";
   if (c.startsWith("10.1.03")) return "distribuicao";
+  if (c.startsWith("10.1.04")) return "emprestimo";
+  if (c.startsWith("10.1.05")) return "reembolso_emprestimo";
   return null;
+}
+
+/**
+ * Exige sócio de EVENTO (`event_partners`)?
+ *
+ * 10.1.01/02/03 (aporte / devolução / distribuição) são movimentos da
+ * Associação em Participação → sim, exigem sócio (e portanto evento).
+ * 10.1.04/05 (empréstimo a sócio e respetivo reembolso) são com a sociedade da
+ * empresa — a Mundo Propício é sempre a casa e nunca está em `event_partners`
+ * → não exigem sócio, nem evento, nem linha em `partner_capital_moves`.
+ */
+export function capitalNeedsPartner(code: string | null | undefined): boolean {
+  const kind = capitalKindFromCode(code);
+  return kind === "aporte" || kind === "devolucao" || kind === "distribuicao";
 }
 
 
