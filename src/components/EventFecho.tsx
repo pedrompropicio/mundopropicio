@@ -11,7 +11,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
+import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import {
   normalizePartnerCalcBasis,
   partnerUsesGrossExpenses,
