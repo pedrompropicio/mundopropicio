@@ -164,36 +164,22 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
       if (kind === "income") {
-        const incomeTx = realizedTx.filter((t: any) => t.type === "income");
-        const nonTicket = incomeTx.filter((t: any) => t.account_categories?.code !== "1.1.01");
-        const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
-        const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
-        const hasSalesNow = ticketNet > 0;
-        const display = hasSalesNow ? ticketRevenue + nonTicketSum : allIncomeSum;
-
-        // Subtotais por rubrica exata
-        const buckets = { bilheteira: hasSalesNow ? ticketRevenue : 0, patrocinio: 0, ab: 0, outros: 0 };
-        const source = hasSalesNow ? nonTicket : incomeTx;
-        for (const t of source) {
-          const code = t.account_categories?.code ?? "";
-          const cls = classifyIncomeL1(code);
-          // A substituição por ticket_sales aplica-se APENAS a 1.1.01 (bilheteira),
-          // nunca a outras rubricas 1.1.* (ex. 1.1.03 A&B).
-          if (hasSalesNow && code === "1.1.01") continue;
-          const v = eff(t.amount, t.iva_rate);
-          if (cls === "bilheteira") buckets.bilheteira += v;
-          else if (cls === "patrocinio") buckets.patrocinio += v;
-          else if (cls === "ab") buckets.ab += v;
-          else buckets.outros += v;
-        }
-
+        // SSoT da receita (D24): bilheteira linha a linha + TX pelo filtro canónico
+        // do Fecho, anti-duplicação por prefixo 1.1.01. Sem cálculo local.
+        const b = revenue?.real.buckets;
+        const pick = (k: "bilheteira" | "patrocinio" | "ab" | "outros") =>
+          b ? (withVat ? b[k].gross : b[k].net) : 0;
+        const display = revenue
+          ? withVat ? revenue.real.total.gross : revenue.real.total.net
+          : 0;
+        const ab = pick("ab");
         return {
           displayValue: display,
           subtotals: [
-            { label: "Bilheteira", value: buckets.bilheteira },
-            { label: "Patrocínio", value: buckets.patrocinio },
-            ...(buckets.ab !== 0 ? [{ label: "A&B", value: buckets.ab }] : []),
-            { label: "Outros", value: buckets.outros },
+            { label: "Bilheteira", value: pick("bilheteira") },
+            { label: "Patrocínio", value: pick("patrocinio") },
+            ...(ab !== 0 ? [{ label: "A&B", value: ab }] : []),
+            { label: "Outros", value: pick("outros") },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
