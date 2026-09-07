@@ -5,9 +5,6 @@
 > Como funciona o sistema vive em ARCHITECTURE.md; pendências vivem nas GitHub Issues.
 > Última atualização: 07/set/2026.
 
-## 2026-09-07 — Fonte única do saldo de conta financeira
-`computeAccountBalance` em `src/lib/account-balance.ts` é a única fórmula do saldo de uma conta: `initial_balance + Σ(income ? +paid_amount : −paid_amount) + ajustes de retenção/crédito`. Não filtra `reversed_at` nem `status`, porque `paid_amount` já distingue os dois tipos de estorno. Devolve `null` quando `skip_balance_check = true`, e o interface mostra "Sem controlo de saldo" — uma conta sem controlo de saldo não exibe saldo em lado nenhum. Exceção deliberada: os ecrãs de sessão de camarim/cartão continuam a mostrar o saldo da sessão, que é coisa diferente do saldo da conta.
-
 ## Transversal / Infraestrutura
 
 ### D1 — Lovable Cloud é permanente (mai/2026)
