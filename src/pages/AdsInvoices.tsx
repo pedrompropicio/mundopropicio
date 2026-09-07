@@ -261,6 +261,43 @@ export default function AdsInvoices() {
           </p>
         )}
 
+        {blocked && blocked.length > 0 && (
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="text-base text-destructive">
+                Geração recusada — já existem lançamentos para esta fatura
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Não foi criado nada. Confirme se estes lançamentos já cobrem a fatura antes de decidir.
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Lançamento</TableHead>
+                    <TableHead>Referência</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {blocked.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.date ?? "—"}</TableCell>
+                      <TableCell>{t.event ?? "Fatura (sem evento)"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {t.invoice_ref || t.specification || "—"}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(Number(t.amount))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
         {isApplied && createdTx.length > 0 && (
           <Card>
             <CardHeader>
