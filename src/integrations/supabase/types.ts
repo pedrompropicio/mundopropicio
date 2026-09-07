@@ -195,6 +195,9 @@ export type Database = {
           notes: string | null
           parent_transaction_id: string | null
           platform: string
+          reopen_count: number
+          reopened_at: string | null
+          reopened_by: string | null
           source: string
           source_ref: string | null
           status: string
@@ -218,6 +221,9 @@ export type Database = {
           notes?: string | null
           parent_transaction_id?: string | null
           platform: string
+          reopen_count?: number
+          reopened_at?: string | null
+          reopened_by?: string | null
           source: string
           source_ref?: string | null
           status?: string
@@ -241,6 +247,9 @@ export type Database = {
           notes?: string | null
           parent_transaction_id?: string | null
           platform?: string
+          reopen_count?: number
+          reopened_at?: string | null
+          reopened_by?: string | null
           source?: string
           source_ref?: string | null
           status?: string
@@ -271,6 +280,8 @@ export type Database = {
           line_no: number
           match_note: string | null
           match_source: string
+          matched_at: string | null
+          matched_by: string | null
           placement: string | null
           raw_description: string
           transaction_id: string | null
@@ -289,6 +300,8 @@ export type Database = {
           line_no: number
           match_note?: string | null
           match_source?: string
+          matched_at?: string | null
+          matched_by?: string | null
           placement?: string | null
           raw_description: string
           transaction_id?: string | null
@@ -307,6 +320,8 @@ export type Database = {
           line_no?: number
           match_note?: string | null
           match_source?: string
+          matched_at?: string | null
+          matched_by?: string | null
           placement?: string | null
           raw_description?: string
           transaction_id?: string | null

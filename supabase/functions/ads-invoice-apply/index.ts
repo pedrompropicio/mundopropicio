@@ -11,7 +11,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 
-const VERSION = "v2.1_out_of_scope_lines";
+const VERSION = "v2.2_reopen";
 
 /** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
 const PAYMENT_TERMS_DAYS = 60;
@@ -96,6 +96,7 @@ async function findExistingTransactions(inv: any) {
     .from("transactions")
     .select("id, date, amount, event_id, invoice_ref, specification, parent_transaction_id")
     .eq("category_id", CATEGORY_DIGITAL)
+    .eq("company_id", inv.company_id)
     .or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -518,6 +519,198 @@ async function handleGenerate(body: any, userId?: string) {
   });
 }
 
+// ------------------------------------------------------- destrancar campanhas
+/**
+ * Destranca só os vínculos que a confirmação DESTA fatura trancou.
+ * Mantém linked_event_id — o que se desfaz é a tranca, não o vínculo.
+ */
+async function unlockCampaigns(inv: any, lines: any[]): Promise<number> {
+  if (inv.platform !== "meta") return 0;
+  const names = new Set<string>();
+  for (const l of lines) {
+    if (l.is_adjustment || !l.campaign_name) continue;
+    names.add(normName(l.campaign_name));
+  }
+  if (names.size === 0) return 0;
+  const { data: snaps } = await admin
+    .schema("crm")
+    .from("meta_campaign_snapshot")
+    .select("id, name")
+    .eq("company_id", inv.company_id);
+  let unlocked = 0;
+  for (const snap of snaps ?? []) {
+    if (!names.has(normName(snap.name))) continue;
+    const { error } = await admin
+      .schema("crm")
+      .from("meta_campaign_snapshot")
+      .update({ linked_event_locked: false })
+      .eq("id", snap.id);
+    if (!error) unlocked++;
+  }
+  return unlocked;
+}
+
+// ------------------------------------------------------------------ reabertura
+
+async function handleReopen(body: any, userId?: string) {
+  const { inv, lines } = await loadInvoice(body.invoice_id);
+  if (inv.status === "applied" || inv.parent_transaction_id) {
+    return json({ error: "fatura aplicada — usa a reversão" }, 400);
+  }
+  if (inv.status !== "confirmed") {
+    return json({ error: "só faturas confirmadas podem ser reabertas" }, 400);
+  }
+
+  const campaignsUnlocked = await unlockCampaigns(inv, lines);
+
+  const { error } = await admin
+    .from("ads_invoice")
+    .update({
+      status: "proposed",
+      confirmed_by: null,
+      confirmed_at: null,
+      reopened_by: userId ?? null,
+      reopened_at: new Date().toISOString(),
+      reopen_count: Number(inv.reopen_count ?? 0) + 1,
+    })
+    .eq("id", inv.id);
+  if (error) return json({ error: error.message }, 500);
+
+  return json({ ok: true, status: "proposed", campaigns_unlocked: campaignsUnlocked, version: VERSION });
+}
+
+// -------------------------------------------------------------------- reversão
+
+async function handleRevert(body: any, userId?: string) {
+  const { inv, lines } = await loadInvoice(body.invoice_id);
+  if (inv.status !== "applied" || !inv.parent_transaction_id) {
+    return json({ error: "só faturas aplicadas podem ser revertidas" }, 400);
+  }
+  const parentId = inv.parent_transaction_id as string;
+
+  const { data: txs, error: te } = await admin
+    .from("transactions")
+    .select("id, date, amount, status, paid_amount, settlement_id, card_session_id, event_id, parent_transaction_id")
+    .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`);
+  if (te) return json({ error: te.message }, 500);
+  const ids = (txs ?? []).map((t: any) => t.id);
+  if (ids.length === 0) return json({ error: "não há lançamentos a reverter" }, 400);
+
+  // ---------------- guardas: nada é apagado se alguma delas falhar
+  const blockers: any[] = [];
+
+  for (const t of txs ?? []) {
+    if (t.status === "paid" || Number(t.paid_amount ?? 0) > 0) {
+      blockers.push({ kind: "pago", transaction_id: t.id, status: t.status, paid_amount: Number(t.paid_amount ?? 0) });
+    }
+    if (t.settlement_id) blockers.push({ kind: "fecho_bilheteira", transaction_id: t.id, settlement_id: t.settlement_id });
+    if (t.card_session_id) blockers.push({ kind: "sessao_cartao", transaction_id: t.id, card_session_id: t.card_session_id });
+  }
+
+  const { data: pays } = await admin.from("transaction_payments").select("id, transaction_id").in("transaction_id", ids);
+  for (const p of pays ?? []) blockers.push({ kind: "parcela_registada", transaction_id: p.transaction_id, payment_id: p.id });
+
+  const { data: pli } = await admin.from("payment_list_items").select("id, transaction_id, payment_list_id").in("transaction_id", ids);
+  for (const r of pli ?? []) blockers.push({ kind: "lista_pagamento", transaction_id: r.transaction_id, payment_list_id: r.payment_list_id });
+
+  const { data: rni } = await admin.from("reimbursement_note_items").select("id, transaction_id, note_id").in("transaction_id", ids);
+  for (const r of rni ?? []) blockers.push({ kind: "nota_reembolso", transaction_id: r.transaction_id, note_id: (r as any).note_id ?? null });
+
+  const { data: rnp } = await admin.from("reimbursement_notes").select("id, payment_transaction_id").in("payment_transaction_id", ids);
+  for (const r of rnp ?? []) blockers.push({ kind: "nota_reembolso_pagamento", transaction_id: r.payment_transaction_id, note_id: r.id });
+
+  // FK CASCADE: o DELETE apagaria a conferência do contabilista em silêncio.
+  const { data: reviews } = await admin
+    .from("accountant_transaction_reviews")
+    .select("id, transaction_id, status, note")
+    .in("transaction_id", ids);
+  for (const r of reviews ?? []) {
+    blockers.push({ kind: "conferencia_contabilista", transaction_id: r.transaction_id, status: r.status, note: r.note });
+  }
+
+  const { data: exports } = await admin
+    .from("accounting_exports")
+    .select("id, period_from, period_to, created_at")
+    .eq("company_id", inv.company_id);
+  for (const t of txs ?? []) {
+    for (const ex of exports ?? []) {
+      if (!t.date || !ex.period_from || !ex.period_to) continue;
+      if (t.date >= ex.period_from && t.date <= ex.period_to) {
+        blockers.push({
+          kind: "exportado_contabilidade",
+          transaction_id: t.id,
+          transaction_date: t.date,
+          period_from: ex.period_from,
+          period_to: ex.period_to,
+          exported_at: ex.created_at,
+        });
+      }
+    }
+  }
+
+  if (blockers.length > 0) {
+    return json({
+      error: `reversão recusada: ${blockers.length} impedimento(s) nos lançamentos desta fatura`,
+      revert_block: true,
+      blockers,
+      version: VERSION,
+    }, 409);
+  }
+
+  // ---------------- (a) soltar as ligações do BP (FK NO ACTION)
+  const { data: unlinked } = await admin
+    .from("event_forecasts")
+    .update({ transaction_id: null })
+    .in("transaction_id", ids)
+    .select("id");
+  const forecastsUnlinked = (unlinked ?? []).length;
+
+  // ---------------- (b) ficheiros do storage (os registos caem por CASCADE)
+  let filesDeleted = 0;
+  const prefix = `${inv.company_id}/ads-invoices/${inv.id}/`;
+  const { data: files } = await admin.storage.from(DOC_BUCKET).list(prefix.replace(/\/$/, ""), { limit: 1000 });
+  const paths = (files ?? []).filter((f: any) => f.name).map((f: any) => `${prefix}${f.name}`);
+  if (paths.length > 0) {
+    const { data: removed } = await admin.storage.from(DOC_BUCKET).remove(paths);
+    filesDeleted = (removed ?? []).length;
+  }
+
+  // ---------------- (c) apagar a mãe (as filhas caem por CASCADE)
+  await admin.from("ads_invoice_line").update({ transaction_id: null }).eq("invoice_id", inv.id);
+  const { error: de } = await admin.from("transactions").delete().eq("id", parentId);
+  if (de) return json({ error: `apagar lançamentos: ${de.message}` }, 500);
+
+  // ---------------- (d) fatura volta a proposta
+  const { error: ue } = await admin
+    .from("ads_invoice")
+    .update({
+      status: "proposed",
+      applied_by: null,
+      applied_at: null,
+      parent_transaction_id: null,
+      confirmed_by: null,
+      confirmed_at: null,
+      reopened_by: userId ?? null,
+      reopened_at: new Date().toISOString(),
+      reopen_count: Number(inv.reopen_count ?? 0) + 1,
+    })
+    .eq("id", inv.id);
+  if (ue) return json({ error: ue.message }, 500);
+
+  // ---------------- (e) destrancar campanhas
+  const campaignsUnlocked = await unlockCampaigns(inv, lines);
+
+  return json({
+    ok: true,
+    status: "proposed",
+    deleted_transactions: ids.length,
+    files_deleted: filesDeleted,
+    forecasts_unlinked: forecastsUnlinked,
+    campaigns_unlocked: campaignsUnlocked,
+    version: VERSION,
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -527,7 +720,9 @@ Deno.serve(async (req) => {
     if (!body?.invoice_id) return json({ error: "invoice_id obrigatório" }, 400);
     if (body.action === "confirm") return await handleConfirm(body, auth.userId);
     if (body.action === "generate") return await handleGenerate(body, auth.userId);
-    return json({ error: "action inválida (confirm | generate)" }, 400);
+    if (body.action === "reopen") return await handleReopen(body, auth.userId);
+    if (body.action === "revert") return await handleRevert(body, auth.userId);
+    return json({ error: "action inválida (confirm | generate | reopen | revert)" }, 400);
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e), version: VERSION }, 500);
   }
