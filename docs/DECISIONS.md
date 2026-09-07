@@ -5,9 +5,6 @@
 > Como funciona o sistema vive em ARCHITECTURE.md; pendências vivem nas GitHub Issues.
 > Última atualização: 07/set/2026.
 
-## 2026-09-07 — Fonte única do saldo de conta financeira
-`computeAccountBalance` em `src/lib/account-balance.ts` é a única fórmula do saldo de uma conta: `initial_balance + Σ(income ? +paid_amount : −paid_amount) + ajustes de retenção/crédito`. Não filtra `reversed_at` nem `status`, porque `paid_amount` já distingue os dois tipos de estorno. Devolve `null` quando `skip_balance_check = true`, e o interface mostra "Sem controlo de saldo" — uma conta sem controlo de saldo não exibe saldo em lado nenhum. Exceção deliberada: os ecrãs de sessão de camarim/cartão continuam a mostrar o saldo da sessão, que é coisa diferente do saldo da conta.
-
 ## Transversal / Infraestrutura
 
 ### D1 — Lovable Cloud é permanente (mai/2026)
@@ -378,6 +375,14 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 **Estado:** vigente.
 
 **Referências:** #86, #96, `claude/auditoria-company-id-service-role-2026-09-01.md`.
+
+## D-ERP12 — Fonte única do saldo de conta financeira (07/09/2026)
+**Decisão:** `computeAccountBalance` em `src/lib/account-balance.ts` é a única fórmula do saldo de uma conta: `initial_balance + Σ(income ? +paid_amount : −paid_amount) + ajustes de retenção/crédito`. Devolve `null` quando `skip_balance_check = true`, e o interface mostra "Sem controlo de saldo" — uma conta sem controlo de saldo não exibe saldo em lado nenhum.
+**Porquê:** Existiam sete cálculos independentes do mesmo saldo, com regras divergentes, e dois deles omitiam os ajustes de retenção. Uma conta configurada como sem controlo de saldo mostrava um número que ninguém validava.
+**Não filtra `reversed_at` nem `status`:** a RPC `reverse_transaction` põe `paid_amount = 0` nos estornos `cash_refund`, e nos estornos `supplier_credit` o dinheiro saiu mesmo da conta. `paid_amount` já distingue os dois casos.
+**Exceção deliberada:** os ecrãs de sessão de camarim/cartão continuam a mostrar o saldo da sessão, que é coisa diferente do saldo da conta.
+**Estado:** vigente. Aplicado em cinco consumidores; o export do extrato, o Fluxo de Caixa, a Projeção de Tesouraria e `get_event_cash_position` ainda não seguem a regra (issue #90).
+
 
 ## 2026-09-02/03 — O BP como base real de custos e de receita (D1–D17)
 
