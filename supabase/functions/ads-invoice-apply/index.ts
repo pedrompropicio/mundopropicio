@@ -11,7 +11,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 
-const VERSION = "v1.0_confirm_generate";
+const VERSION = "v2.0_guard_duplicates_and_terms";
+
+/** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
+const PAYMENT_TERMS_DAYS = 60;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
