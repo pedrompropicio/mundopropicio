@@ -1,6 +1,6 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-09-01 · Issues: #82, #65, #85, #68 · P0 aberto: nenhum
+Atualizado: 2026-09-07 · Issues: #82, #65, #85, #68 · P0 aberto: nenhum
 
 ## Em que pé está
 O apuramento da Anitta continua a fazer-se **fora do ERP**, em planilha (gerador v15), mas o ecrã de Fecho deixou de divergir do contrato: a base de cada sócio é a do respetivo contrato e o seletor de vista já não lhe toca. A Anitta está apurada e conferida, **não sacramentada**. A Ivete ainda não fechou.
