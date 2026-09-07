@@ -34,7 +34,12 @@ import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { linkTransactionToForecast } from "@/lib/bp-line-relink";
-import { isCapitalCategoryCode, isCapitalCategoryId } from "@/lib/capital-branch";
+import {
+  isCapitalCategoryCode,
+  isCapitalCategoryId,
+  capitalNeedsPartner as capitalCodeNeedsPartner,
+} from "@/lib/capital-branch";
+import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
@@ -1456,7 +1461,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // ===== Capital do Sócio (AEP) — vínculo automático =====
         // Sequência: transação criada → id obtido → insere partner_capital_moves.
         // Se o vínculo falhar, avisa (a TX existe; pode ligar-se no painel).
-        if (insertedTx?.id && selectedCategoryIsCapital && capitalPartnerId) {
+        if (
+          insertedTx?.id &&
+          selectedCategoryIsCapital &&
+          capitalCodeNeedsPartner(selectedCategoryCode) &&
+          capitalPartnerId
+        ) {
           try {
             await upsertPartnerCapitalMove({
               eventId: data.event_id,
@@ -1989,7 +1999,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
     // Um movimento de capital tem sempre um sócio associado (associado da
     // Associação em Participação). Sem sócio, o dado fica incompleto.
-    if (selectedCategoryIsCapital) {
+    // 10.1.04/05 (empréstimo a sócio / reembolso) são com a sociedade da
+    // empresa: não exigem sócio de evento nem evento.
+    if (selectedCategoryIsCapital && capitalCodeNeedsPartner(selectedCategoryCode)) {
       if (isSplit) {
         toast({
           title: "Movimento de capital não pode ser rateado",
@@ -2116,7 +2128,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     (categories as any[]).find((c) => c.id === form.category_id)?.code ?? null;
   // Sócio (AEP) é obrigatório para o ramo 10.1.* → exige evento com sócios.
   const capitalEventId = form.event_id || splitMasterEventId || "";
-  const capitalNeedsPartner = selectedCategoryIsCapital;
+  const capitalNeedsPartner =
+    selectedCategoryIsCapital && capitalCodeNeedsPartner(selectedCategoryCode);
   // Sai do ramo Capital (ou muda de evento) → limpa o sócio escolhido.
   useEffect(() => {
     if (!selectedCategoryIsCapital) setCapitalPartnerId("");
@@ -3238,7 +3251,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {/* Entidade (origem da receita) — opcional. Escondido no ramo 10.1.* (capital),
               onde o campo "Sócio (AEP)" é que manda no supplier_id. */}
-          {form.type === "income" && !selectedCategoryIsCapital && (
+          {form.type === "income" && !capitalNeedsPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
               <div className="flex gap-2">
@@ -3746,6 +3759,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               Uma transação criada como paga exige <strong>conta financeira</strong> associada.
             </p>
+          )}
+          {/* Conta-espelho de sócio: despesa criada já liquidada gera aporte automático (10.1.01). */}
+          {effectiveAutoMarkPaid && form.type === "expense" && (
+            <MirrorAporteNotice
+              accountId={form.account_id}
+              amount={parseFloat(form.amount || "0") || 0}
+            />
           )}
 
           {!showProrationConfirm && !showDuplicateConfirm && (

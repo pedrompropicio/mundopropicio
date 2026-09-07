@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
+import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { calcWithIva, isFullyPaid } from "@/lib/utils";
 import { X, FileText, Loader2, RefreshCw } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -627,6 +628,8 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
                 )}
               </p>
             )}
+            {/* Conta-espelho de sócio: gera aporte automático pelo total do lote. */}
+            <MirrorAporteNotice accountId={accountId} amount={totalRemaining} />
           </div>
 
           <div>

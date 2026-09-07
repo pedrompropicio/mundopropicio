@@ -31,6 +31,8 @@ const KIND_LABEL: Record<CapitalKind, string> = {
   aporte: "Aporte",
   devolucao: "Devolução de aporte",
   distribuicao: "Distribuição de resultado",
+  emprestimo: "Empréstimo a sócio",
+  reembolso_emprestimo: "Reembolso de empréstimo de sócio",
 };
 
 interface Props {

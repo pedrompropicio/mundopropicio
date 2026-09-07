@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
+import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw, Repeat } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
@@ -808,6 +809,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 {selectedAccountBalance <= 0 && " — Sem saldo!"}
               </p>
             )}
+            {/* Conta-espelho de sócio: o pagamento gera um aporte automático (10.1.01). */}
+            <MirrorAporteNotice
+              accountId={accountId}
+              amount={parseFloat(paymentAmount || "0") || balance}
+            />
           </div>
 
           {/* Método de Pagamento */}

@@ -6706,7 +6706,9 @@ export type Database = {
           is_accounting: boolean
           is_active: boolean
           is_hidden: boolean
+          mirror_partner_aporte: boolean
           name: string
+          partner_id: string | null
           phone: string | null
           skip_balance_check: boolean
           type: string
@@ -6727,7 +6729,9 @@ export type Database = {
           is_accounting?: boolean
           is_active?: boolean
           is_hidden?: boolean
+          mirror_partner_aporte?: boolean
           name: string
+          partner_id?: string | null
           phone?: string | null
           skip_balance_check?: boolean
           type?: string
@@ -6748,7 +6752,9 @@ export type Database = {
           is_accounting?: boolean
           is_active?: boolean
           is_hidden?: boolean
+          mirror_partner_aporte?: boolean
           name?: string
+          partner_id?: string | null
           phone?: string | null
           skip_balance_check?: boolean
           type?: string
@@ -6761,6 +6767,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_accounts_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
             referencedColumns: ["id"]
           },
         ]
@@ -8354,6 +8367,65 @@ export type Database = {
           {
             foreignKeyName: "partner_advance_expenses_transaction_id_fkey"
             columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_aporte_mirror: {
+        Row: {
+          account_id: string
+          aporte_transaction_id: string
+          company_id: string
+          created_at: string
+          id: string
+          source_transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          aporte_transaction_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          source_transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          aporte_transaction_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          source_transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_aporte_mirror_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_aporte_mirror_aporte_transaction_id_fkey"
+            columns: ["aporte_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_aporte_mirror_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_aporte_mirror_source_transaction_id_fkey"
+            columns: ["source_transaction_id"]
             isOneToOne: true
             referencedRelation: "transactions"
             referencedColumns: ["id"]
