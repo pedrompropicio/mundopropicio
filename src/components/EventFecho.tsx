@@ -203,18 +203,15 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const useGrossExpenses = basis.withVat;
 
 
-  // Receita = bilheteira (ticket_sales) + receitas em transações.
-  // Se houver ticket_sales, as transações da rubrica 1.1.01 (Bilheteira) são o mesmo
-  // dinheiro já contado nas ticket_sales → excluídas para não duplicar.
-  const incomeTxAll = transactions.filter((t: any) => t.type === "income");
+  // Receita — vem toda do SSoT (D24). Zero cálculo local de bilheteira ou de TX income.
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
-  const hasTickets = ticketSales.length > 0;
-  const incomeTx = hasTickets ? incomeTxAll.filter((t: any) => !isTicketingRevenueTx(t)) : incomeTxAll;
-  const revenueNet = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.net, 0) : 0)
-    + incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
-  const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
-    + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+  const hasTickets = revenueBasis?.real.hasTicketSales ?? false;
+  const incomeTx = revenueBasis?.real.incomeTx ?? [];
+  const ticketNetTotal = revenueBasis?.real.ticket.net ?? 0;
+  const ticketGrossTotal = revenueBasis?.real.ticket.gross ?? 0;
+  const revenueNet = revenueBasis?.real.total.net ?? 0;
+  const revenueGross = revenueBasis?.real.total.gross ?? 0;
 
   // Base da despesa conforme seletor: realizado (transações) ou previsto + excedido.
   const expenseSourceLines = basis.expenseSource === "committed"
