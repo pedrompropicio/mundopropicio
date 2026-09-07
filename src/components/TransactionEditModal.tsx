@@ -702,12 +702,15 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           });
         }
       } else if (!capitalRequiresPartner && capitalLink) {
-        // Categoria saiu do ramo 10.1 → o vínculo de capital deixa de fazer sentido.
+        // Saiu do ramo 10.1, OU continua no ramo mas passou a uma rubrica sem sócio
+        // de evento (10.1.04/05) → o vínculo de capital deixa de fazer sentido.
         try {
           await deletePartnerCapitalMove(transaction.id);
           toast({
             title: "Vínculo de capital removido",
-            description: "A categoria já não pertence ao ramo 10.1 · Capital, pelo que o sócio foi desvinculado.",
+            description: isCapitalCategory
+              ? "Empréstimo a sócio não tem sócio de evento — o vínculo de capital foi removido."
+              : "A categoria já não pertence ao ramo 10.1 · Capital, pelo que o sócio foi desvinculado.",
           });
         } catch (capErr: any) {
           console.error("[capital unlink] failed", capErr);
