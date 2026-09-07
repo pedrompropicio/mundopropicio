@@ -508,12 +508,12 @@ export default function FinancialAccounts() {
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {acc.skip_balance_check ? (
-                            <span className="text-xs text-muted-foreground italic">Saldo não controlado</span>
+                            <span className="text-xs text-muted-foreground italic">Sem controlo de saldo</span>
                           ) : showBalance ? formatCurrency(Number(acc.initial_balance)) : "••••••"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {acc.skip_balance_check ? (
-                            <span className="text-xs text-muted-foreground italic">Saldo não controlado</span>
+                          {balance === null ? (
+                            <span className="text-xs text-muted-foreground italic">Sem controlo de saldo</span>
                           ) : showBalance ? (
                             <span className={`font-mono text-sm font-semibold ${balance >= 0 ? "text-success" : "text-destructive"}`}>
                               {formatCurrency(balance)}
