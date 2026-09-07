@@ -584,8 +584,12 @@ async function handleReopen(body: any, userId?: string) {
 
 async function handleRevert(body: any, userId?: string) {
   const { inv, lines } = await loadInvoice(body.invoice_id);
-  if (inv.status !== "applied" || !inv.parent_transaction_id) {
+  // mesma condição de "aplicada" que a UI usa
+  if (!(inv.status === "applied" || inv.parent_transaction_id)) {
     return json({ error: "só faturas aplicadas podem ser revertidas" }, 400);
+  }
+  if (!inv.parent_transaction_id) {
+    return json({ error: "não há lançamentos a reverter" }, 400);
   }
   const parentId = inv.parent_transaction_id as string;
 
