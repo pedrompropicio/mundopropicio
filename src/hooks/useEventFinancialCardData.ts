@@ -285,6 +285,23 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     // ── FORECAST ──────────────────────────────────────────────
     if (kind === "income") {
+      // Cenário Forecast = previsto corrente do SSoT (D24): bilheteira ao vivo,
+      // A&B, patrocínios e outras receitas de BP. Os cenários today/breakeven
+      // continuam a vir directamente do motor do Simulador.
+      if (scenario === "forecast") {
+        const f = revenue?.currentForecast;
+        return {
+          displayValue: f?.total ?? 0,
+          subtotals: [
+            { label: "Bilheteira", value: f?.buckets.bilheteira ?? null },
+            { label: "Patrocínio", value: f?.buckets.patrocinio ?? null },
+            { label: "A&B", value: f?.buckets.ab ?? null },
+            { label: "Outros", value: f?.buckets.outros ?? null },
+          ],
+          formalidadeBreakdown: null, phase, modeUsed,
+          unavailable: !f || f.total == null,
+        };
+      }
       if (!simCfg || simInputs.length === 0) {
         return {
           displayValue: 0,
