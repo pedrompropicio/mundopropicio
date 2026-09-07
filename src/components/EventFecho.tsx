@@ -207,10 +207,6 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // Receita — vem toda do SSoT (D24). Zero cálculo local de bilheteira ou de TX income.
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
-  const hasTickets = revenueBasis?.real.hasTicketSales ?? false;
-  const incomeTx = revenueBasis?.real.incomeTx ?? [];
-  const ticketNetTotal = revenueBasis?.real.ticket.net ?? 0;
-  const ticketGrossTotal = revenueBasis?.real.ticket.gross ?? 0;
   const revenueNet = revenueBasis?.real.total.net ?? 0;
   const revenueGross = revenueBasis?.real.total.gross ?? 0;
 
