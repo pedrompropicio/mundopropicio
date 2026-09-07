@@ -12437,6 +12437,10 @@ export type Database = {
         }
         Returns: string
       }
+      event_bp_evolution: {
+        Args: { _event_id: string; _from?: string; _to?: string }
+        Returns: Json
+      }
       event_budget_mode: { Args: { _event_id: string }; Returns: string }
       event_close_blockers: { Args: { _event_id: string }; Returns: Json }
       expire_supplier_credits: { Args: never; Returns: number }
