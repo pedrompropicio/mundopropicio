@@ -528,7 +528,8 @@ async function unlockCampaigns(inv: any, lines: any[]): Promise<number> {
   if (inv.platform !== "meta") return 0;
   const names = new Set<string>();
   for (const l of lines) {
-    if (l.is_adjustment || !l.campaign_name) continue;
+    // mesma condição da confirmação: só linhas com evento trancam/destrancam
+    if (l.is_adjustment || !l.event_id || !l.campaign_name) continue;
     names.add(normName(l.campaign_name));
   }
   if (names.size === 0) return 0;
