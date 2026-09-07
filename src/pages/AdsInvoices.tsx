@@ -57,6 +57,7 @@ function reconciles(total: number, sum: number | null) {
 
 export default function AdsInvoices() {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<any[] | null>(null);
   const queryClient = useQueryClient();
 
   const invalidate = () => {
