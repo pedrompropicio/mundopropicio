@@ -160,6 +160,7 @@ export default function AdsInvoices() {
         return;
       }
       setBlocked(null);
+      setRevertBlockers(null);
       toast.success(
         data?.already
           ? "Os lançamentos desta fatura já existem."
@@ -177,6 +178,8 @@ export default function AdsInvoices() {
         `Rateio reaberto. ${data?.campaigns_unlocked ?? 0} campanha(s) com vínculo destrancado.`,
       );
       setReopenOpen(false);
+      setBlocked(null);
+      setRevertBlockers(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -191,6 +194,7 @@ export default function AdsInvoices() {
         toast.error("Reversão recusada: há impedimentos nos lançamentos.");
         return;
       }
+      setBlocked(null);
       setRevertBlockers(null);
       setRevertOpen(false);
       setRevertConfirmText("");
@@ -204,8 +208,9 @@ export default function AdsInvoices() {
 
   const markMutation = useMutation({
     mutationFn: async (v: { id: string; note: string | null }) => {
-      const { data: auth } = await supabase.auth.getUser();
-      const stamp = { matched_by: auth?.user?.id ?? null, matched_at: new Date().toISOString() };
+      const { data: auth, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !auth?.user?.id) throw new Error("Não foi possível identificar o utilizador.");
+      const stamp = { matched_by: auth.user.id, matched_at: new Date().toISOString() };
       const { error } = await supabase
         .from("ads_invoice_line")
         .update(
@@ -215,21 +220,26 @@ export default function AdsInvoices() {
         )
         .eq("id", v.id);
       if (error) throw error;
+      return v;
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (v) => {
+      toast.success(v.note === null ? "Linha reposta por resolver." : "Linha marcada como fora do sistema.");
+      invalidate();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const assignMutation = useMutation({
     mutationFn: async (v: { id: string; eventId: string }) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !auth?.user?.id) throw new Error("Não foi possível identificar o utilizador.");
       const { error } = await supabase
         .from("ads_invoice_line")
         .update({
           event_id: v.eventId,
           match_source: "manual",
           match_note: "atribuído à mão",
-          matched_by: auth?.user?.id ?? null,
+          matched_by: auth.user.id,
           matched_at: new Date().toISOString(),
         })
         .eq("id", v.id);
