@@ -58,7 +58,6 @@ export async function computeTicketSynthetic(
     }
   }
 
-  const lotIva = new Map<string, number>(lots.map((l) => [l.id, Number(l.iva_rate ?? 0)]));
   const planning = lots.filter(
     (l) => Number(l.quantity || 0) > 0 && Number(l.price || 0) > 0 && !l.sync_generated,
   );
