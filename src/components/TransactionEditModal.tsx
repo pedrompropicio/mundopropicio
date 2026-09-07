@@ -26,7 +26,7 @@ import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency
 import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import { fetchBpLinesForCategory, relinkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
-import { isCapitalCategoryCode } from "@/lib/capital-branch";
+import { isCapitalCategoryCode, capitalNeedsPartner } from "@/lib/capital-branch";
 import { calcIvaAmount, calcTotalWithIva } from "@/lib/iva";
 import {
   deletePartnerCapitalMove,
@@ -940,7 +940,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       return;
     }
     // Ramo 10.1 · Capital (AEP): sócio obrigatório.
-    if (isCapitalCategory) {
+    // 10.1.04/05 (empréstimo a sócio / reembolso) são com a sociedade da
+    // empresa: não exigem sócio de evento nem evento.
+    if (isCapitalCategory && capitalNeedsPartner(selectedCategoryCode)) {
       if (!form.event_id) {
         toast({
           title: "Selecione o evento primeiro",
