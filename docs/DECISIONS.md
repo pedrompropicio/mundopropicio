@@ -383,6 +383,19 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 **Exceção deliberada:** os ecrãs de sessão de camarim/cartão continuam a mostrar o saldo da sessão, que é coisa diferente do saldo da conta.
 **Estado:** vigente. Aplicado em cinco consumidores; o export do extrato, o Fluxo de Caixa, a Projeção de Tesouraria e `get_event_cash_position` ainda não seguem a regra (issue #90).
 
+## D-ERP13 — Conta-espelho de sócio: o aporte em espécie é derivado, não digitado (07/09/2026)
+**Decisão:** Numa conta marcada `mirror_partner_aporte`, cada despesa paga gera automaticamente um aporte de igual valor para o sócio de `partner_id`, por trigger. O aporte sincroniza com o `paid_amount` da despesa.
+**Porquê:** O aporte em espécie não é uma decisão, é uma identidade — o sócio pagou, logo aportou. Escrito à mão, nasce certo e envelhece: o aporte de Madrid foi lançado a 31/08 e sete despesas entradas a 01/09 nunca lhe foram somadas, deixando a conta a −5.947,63 sem que nada avisasse.
+**Âmbito:** só despesas, só contas com a flag. O espelho segue a transação e o seu `paid_amount`, nunca a linha de BP nem `transaction_payments`.
+**Estado:** vigente. Aplicado a uma conta. Falta o painel que mostre quanto o sócio ainda tem a devolver.
+
+## D-ERP14 — Despesa com pagador sócio: o custo é do evento, a fatura é do sócio (07/09/2026)
+**Decisão:** Quando uma linha de BP tem `paying_partner_id`, a MP não recebe a fatura do fornecedor. O documento fiscal da MP é a fatura do sócio, a lastrear reembolso mais lucro. Essas linhas não geram transações com fatura no ERP.
+**Porquê:** Lançá-las contaria o custo duas vezes quando a refaturação chegar. A linha do BP é a verdade de gestão; a fatura do sócio é a verdade fiscal; reconciliam pelo total.
+**Consequência:** o "realizado" dessas rubricas nunca é preenchido por transações — chega de uma vez. Relevante para a frente `bp-x-resultado`.
+**Estado:** vigente. Confirmado para a EIN na Anitta.
+
+
 
 ## 2026-09-02/03 — O BP como base real de custos e de receita (D1–D17)
 
