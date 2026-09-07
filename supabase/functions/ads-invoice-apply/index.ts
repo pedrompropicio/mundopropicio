@@ -11,7 +11,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 
-const VERSION = "v2.1_out_of_scope_lines";
+const VERSION = "v2.2_reopen";
 
 /** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
 const PAYMENT_TERMS_DAYS = 60;
@@ -96,6 +96,7 @@ async function findExistingTransactions(inv: any) {
     .from("transactions")
     .select("id, date, amount, event_id, invoice_ref, specification, parent_transaction_id")
     .eq("category_id", CATEGORY_DIGITAL)
+    .eq("company_id", inv.company_id)
     .or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
   if (error) throw new Error(error.message);
   return data ?? [];
