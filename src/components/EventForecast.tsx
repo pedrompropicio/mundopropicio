@@ -60,6 +60,8 @@ import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { BPRecentChangesSheet } from "@/components/bp/BPRecentChangesSheet";
+import { BPEvolution } from "@/components/bp/BPEvolution";
+
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import { exportCommittedBpToPDF } from "@/lib/export-bp-committed-pdf";
 import { exportCommittedBpToXLSX } from "@/lib/export-bp-committed-xlsx";
