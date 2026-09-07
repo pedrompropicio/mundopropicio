@@ -335,6 +335,78 @@ async function handleGenerate(body: any, userId?: string) {
   const { data: eventRows } = await admin.from("events").select("id, name").in("id", eventIds);
   const eventName = (id: string) => (eventRows ?? []).find((e: any) => e.id === id)?.name ?? "(evento)";
 
+  /** subtotal do evento / total da fatura × 100, 4 casas decimais */
+  const splitPct = (subtotal: number) =>
+    total === 0 ? null : Math.round((subtotal / total) * 100 * 10000) / 10000;
+
+  // ---- trava anti-duplicação: nunca gerar por cima de lançamentos existentes
+  const existing = await findExistingTransactions(inv);
+  if (existing.length > 0) {
+    return json({
+      error:
+        `já existem ${existing.length} lançamento(s) de tráfego pago para esta fatura ` +
+        `(${inv.invoice_number} / ${spec}). Geração recusada.`,
+      duplicate_block: true,
+      existing: existing
+        .map((t: any) => ({
+          id: t.id,
+          date: t.date,
+          amount: Number(t.amount),
+          event: t.event_id ? eventName(t.event_id) : null,
+          event_id: t.event_id,
+          role: t.parent_transaction_id ? "filha" : "mãe",
+          invoice_ref: t.invoice_ref,
+          specification: t.specification,
+        }))
+        .sort((a: any, b: any) => (a.role === "mãe" ? -1 : 1) - (b.role === "mãe" ? -1 : 1)),
+      version: VERSION,
+    }, 409);
+  }
+
+  if (dryRun) {
+    return json({
+      ok: true,
+      dry_run: true,
+      status: inv.status,
+      parent: {
+        date: txDate,
+        due_date: dueDate,
+        invoice_ref: inv.invoice_number,
+        split_mode: "absolute",
+        amount: total,
+        specification: spec,
+        supplier_id: supplierId,
+      },
+      children: Array.from(byEvent.keys()).map((eventId) => ({
+        event: eventName(eventId),
+        event_id: eventId,
+        amount: subtotals.get(eventId)!,
+        split_percentage: splitPct(subtotals.get(eventId)!),
+        split_mode: "percentage",
+        date: txDate,
+        due_date: dueDate,
+        forecast_id: pickForecast(eventId),
+      })),
+      adjustments,
+      children_sum: childrenSum,
+      total,
+      version: VERSION,
+    });
+  }
+
+  const { data: parent, error: pe } = await admin
+    .from("transactions")
+    .insert({
+      ...base,
+      event_id: null,
+      amount: total,
+      invoice_ref: inv.invoice_number,
+      split_mode: "absolute",
+    })
+    .select("id, amount")
+    .single();
+  if (pe) return json({ error: `mãe: ${pe.message}` }, 500);
+
   const created: any[] = [{ role: "mae", id: parent.id, event: null, amount: total }];
 
   for (const [eventId, evLines] of byEvent) {
@@ -347,6 +419,8 @@ async function handleGenerate(body: any, userId?: string) {
         amount: subtotal,
         parent_transaction_id: parent.id,
         forecast_id: pickForecast(eventId),
+        split_mode: "percentage",
+        split_percentage: splitPct(subtotal),
       })
       .select("id, forecast_id")
       .single();
