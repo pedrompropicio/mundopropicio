@@ -250,7 +250,9 @@ async function handleGenerate(body: any, userId?: string) {
     }
     return json({ ok: true, already: true, status: inv.status, transactions: createdRows, version: VERSION });
   }
-  if (inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
+  const dryRun = body.dry_run === true;
+  if (!dryRun && inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
+
 
   const problem = checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
