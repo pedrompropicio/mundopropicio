@@ -30,6 +30,7 @@ import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
+import { fetchTicketSalesRevenue } from "@/lib/event-revenue-basis";
 import { useCompany } from "@/hooks/useCompany";
 import {
   ORDERING_FILTER_ALL,
