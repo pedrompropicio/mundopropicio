@@ -795,7 +795,7 @@ export default function AdsInvoices() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Faturas de plataformas</h1>
+        <h1 className="text-2xl font-semibold">Faturas Ads</h1>
         <p className="text-sm text-muted-foreground">
           Propostas de rateio das faturas de tráfego pago (Meta e Google).
         </p>
