@@ -404,12 +404,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   // Sócio escolhido → preenche a Entidade (supplier_id) da transação de capital.
   // Sócios e fornecedores partilham o cadastro `suppliers`.
   useEffect(() => {
-    if (!isCapitalCategory || !capitalPartnerId) return;
+    if (!capitalRequiresPartner || !capitalPartnerId) return;
     const sid = (capitalPartners as any[]).find((p: any) => p.id === capitalPartnerId)?.supplier_id;
     if (sid) setForm((prev: any) => (prev.supplier_id === sid ? prev : { ...prev, supplier_id: sid }));
-  }, [isCapitalCategory, capitalPartnerId, capitalPartners]);
+  }, [capitalRequiresPartner, capitalPartnerId, capitalPartners]);
   // Vínculo de capital a criar/alterar (ou a remover, se a categoria saiu do ramo 10.1).
-  const capitalLinkDirty = isCapitalCategory
+  const capitalLinkDirty = capitalRequiresPartner
     ? !!capitalPartnerId && capitalPartnerId !== (capitalLink?.partner_id ?? "")
     : !!capitalLink;
 
@@ -685,7 +685,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       }
 
       // ===== Capital do Sócio (AEP) — criar/atualizar/remover o vínculo =====
-      if (isCapitalCategory && capitalPartnerId) {
+      if (capitalRequiresPartner && capitalPartnerId) {
         try {
           await upsertPartnerCapitalMove({
             eventId: form.event_id,
@@ -701,7 +701,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             variant: "destructive",
           });
         }
-      } else if (!isCapitalCategory && capitalLink) {
+      } else if (!capitalRequiresPartner && capitalLink) {
         // Categoria saiu do ramo 10.1 → o vínculo de capital deixa de fazer sentido.
         try {
           await deletePartnerCapitalMove(transaction.id);
@@ -944,7 +944,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     // Ramo 10.1 · Capital (AEP): sócio obrigatório.
     // 10.1.04/05 (empréstimo a sócio / reembolso) são com a sociedade da
     // empresa: não exigem sócio de evento nem evento.
-    if (isCapitalCategory && capitalNeedsPartner(selectedCategoryCode)) {
+    if (capitalRequiresPartner) {
       if (!form.event_id) {
         toast({
           title: "Selecione o evento primeiro",
@@ -1106,7 +1106,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           )}
 
           {/* Sócio (AEP) — ramo 10.1 · Capital. Obrigatório; o vínculo é gerido ao gravar. */}
-          {isCapitalCategory && (
+          {capitalRequiresPartner && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
               <label className="mb-1 block text-xs font-medium text-primary">
                 Sócio (Associação em Participação) *
@@ -1459,7 +1459,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
           {/* Entidade (origem da receita) — opcional. Escondido no ramo 10.1.* (capital),
               onde o campo "Sócio (AEP)" é que manda no supplier_id. */}
-          {!isExpense && !isCapitalCategory && (
+          {!isExpense && !capitalRequiresPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
               <SearchableSelect
