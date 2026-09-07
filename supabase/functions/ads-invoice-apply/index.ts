@@ -11,7 +11,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 
-const VERSION = "v1.0_confirm_generate";
+const VERSION = "v2.0_guard_duplicates_and_terms";
+
+/** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
+const PAYMENT_TERMS_DAYS = 60;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,6 +74,31 @@ function fmtDate(d: string | null): string {
   if (!d) return "—";
   const [y, m, dd] = String(d).split("-");
   return `${dd}/${m}/${y}`;
+}
+
+/** Data de emissão + NET 60, em data local (YYYY-MM-DD). */
+function addDays(d: string, days: number): string {
+  const [y, m, dd] = String(d).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, dd));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Trava anti-duplicação: procura lançamentos de tráfego pago que já cubram
+ * esta fatura, mesmo feitos à mão e sem qualquer ligação à ads_invoice.
+ * Critério: rubrica 3.2.01 Digital e (invoice_ref = nº da fatura
+ * OU specification contém "ref. MM/AAAA" do período faturado).
+ */
+async function findExistingTransactions(inv: any) {
+  const spec = `ref. ${periodLabel(inv.billing_period)}`;
+  const { data, error } = await admin
+    .from("transactions")
+    .select("id, date, amount, event_id, invoice_ref, specification, parent_transaction_id")
+    .eq("category_id", CATEGORY_DIGITAL)
+    .or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 async function loadInvoice(invoiceId: string) {
@@ -211,7 +239,7 @@ function buildEventProof(inv: any, eventName: string, eventLines: any[], subtota
 async function handleGenerate(body: any, userId?: string) {
   const { inv, lines } = await loadInvoice(body.invoice_id);
 
-  if (inv.status === "applied" || inv.parent_transaction_id) {
+  if (body.dry_run !== true && (inv.status === "applied" || inv.parent_transaction_id)) {
     let createdRows: any[] = [];
     if (inv.parent_transaction_id) {
       const { data: created } = await admin
@@ -222,7 +250,9 @@ async function handleGenerate(body: any, userId?: string) {
     }
     return json({ ok: true, already: true, status: inv.status, transactions: createdRows, version: VERSION });
   }
-  if (inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
+  const dryRun = body.dry_run === true;
+  if (!dryRun && inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
+
 
   const problem = checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
@@ -269,6 +299,7 @@ async function handleGenerate(body: any, userId?: string) {
 
   const spec = `ref. ${periodLabel(inv.billing_period)}`;
   const txDate = inv.issue_date ?? new Date().toISOString().slice(0, 10);
+  const dueDate = addDays(txDate, PAYMENT_TERMS_DAYS);
   const base = {
     type: "expense",
     category_id: CATEGORY_DIGITAL,
@@ -279,15 +310,9 @@ async function handleGenerate(body: any, userId?: string) {
     supplier_id: supplierId,
     payment_method: "transfer",
     date: txDate,
+    due_date: dueDate,
     company_id: inv.company_id,
   };
-
-  const { data: parent, error: pe } = await admin
-    .from("transactions")
-    .insert({ ...base, event_id: null, amount: total })
-    .select("id, amount")
-    .single();
-  if (pe) return json({ error: `mãe: ${pe.message}` }, 500);
 
   // linhas de BP 3.2.01 dos eventos envolvidos (versão ativa)
   const eventIds = Array.from(byEvent.keys());
@@ -310,6 +335,78 @@ async function handleGenerate(body: any, userId?: string) {
   const { data: eventRows } = await admin.from("events").select("id, name").in("id", eventIds);
   const eventName = (id: string) => (eventRows ?? []).find((e: any) => e.id === id)?.name ?? "(evento)";
 
+  /** subtotal do evento / total da fatura × 100, 4 casas decimais */
+  const splitPct = (subtotal: number) =>
+    total === 0 ? null : Math.round((subtotal / total) * 100 * 10000) / 10000;
+
+  // ---- trava anti-duplicação: nunca gerar por cima de lançamentos existentes
+  const existing = await findExistingTransactions(inv);
+  if (existing.length > 0) {
+    return json({
+      error:
+        `já existem ${existing.length} lançamento(s) de tráfego pago para esta fatura ` +
+        `(${inv.invoice_number} / ${spec}). Geração recusada.`,
+      duplicate_block: true,
+      existing: existing
+        .map((t: any) => ({
+          id: t.id,
+          date: t.date,
+          amount: Number(t.amount),
+          event: t.event_id ? eventName(t.event_id) : null,
+          event_id: t.event_id,
+          role: t.parent_transaction_id ? "filha" : "mãe",
+          invoice_ref: t.invoice_ref,
+          specification: t.specification,
+        }))
+        .sort((a: any, b: any) => (a.role === "mãe" ? -1 : 1) - (b.role === "mãe" ? -1 : 1)),
+      version: VERSION,
+    }, 409);
+  }
+
+  if (dryRun) {
+    return json({
+      ok: true,
+      dry_run: true,
+      status: inv.status,
+      parent: {
+        date: txDate,
+        due_date: dueDate,
+        invoice_ref: inv.invoice_number,
+        split_mode: "absolute",
+        amount: total,
+        specification: spec,
+        supplier_id: supplierId,
+      },
+      children: Array.from(byEvent.keys()).map((eventId) => ({
+        event: eventName(eventId),
+        event_id: eventId,
+        amount: subtotals.get(eventId)!,
+        split_percentage: splitPct(subtotals.get(eventId)!),
+        split_mode: "percentage",
+        date: txDate,
+        due_date: dueDate,
+        forecast_id: pickForecast(eventId),
+      })),
+      adjustments,
+      children_sum: childrenSum,
+      total,
+      version: VERSION,
+    });
+  }
+
+  const { data: parent, error: pe } = await admin
+    .from("transactions")
+    .insert({
+      ...base,
+      event_id: null,
+      amount: total,
+      invoice_ref: inv.invoice_number,
+      split_mode: "absolute",
+    })
+    .select("id, amount")
+    .single();
+  if (pe) return json({ error: `mãe: ${pe.message}` }, 500);
+
   const created: any[] = [{ role: "mae", id: parent.id, event: null, amount: total }];
 
   for (const [eventId, evLines] of byEvent) {
@@ -322,6 +419,8 @@ async function handleGenerate(body: any, userId?: string) {
         amount: subtotal,
         parent_transaction_id: parent.id,
         forecast_id: pickForecast(eventId),
+        split_mode: "percentage",
+        split_percentage: splitPct(subtotal),
       })
       .select("id, forecast_id")
       .single();

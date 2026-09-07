@@ -57,6 +57,7 @@ function reconciles(total: number, sum: number | null) {
 
 export default function AdsInvoices() {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<any[] | null>(null);
   const queryClient = useQueryClient();
 
   const invalidate = () => {
@@ -69,7 +70,16 @@ export default function AdsInvoices() {
     const { data, error } = await supabase.functions.invoke("ads-invoice-apply", {
       body: { action, invoice_id: invoiceId },
     });
-    if (error) throw new Error(error.message);
+    // A trava anti-duplicação responde 409 com a lista dos lançamentos existentes:
+    // não é um erro de execução, é informação para a pessoa decidir.
+    const ctx = (error as any)?.context;
+    if (error) {
+      let payload: any = null;
+      try { payload = await ctx?.json?.(); } catch { /* sem corpo JSON */ }
+      if (payload?.duplicate_block) return payload;
+      throw new Error(payload?.error ?? error.message);
+    }
+    if ((data as any)?.duplicate_block) return data as any;
     if ((data as any)?.error) throw new Error((data as any).error);
     return data as any;
   };
@@ -90,6 +100,12 @@ export default function AdsInvoices() {
   const generateMutation = useMutation({
     mutationFn: (invoiceId: string) => callApply("generate", invoiceId),
     onSuccess: (data) => {
+      if (data?.duplicate_block) {
+        setBlocked(data.existing ?? []);
+        toast.error("Geração recusada: já existem lançamentos para esta fatura.");
+        return;
+      }
+      setBlocked(null);
       toast.success(
         data?.already
           ? "Os lançamentos desta fatura já existem."
@@ -243,6 +259,43 @@ export default function AdsInvoices() {
               ? `Não é possível confirmar: ${missing} linha(s) sem evento resolvido.`
               : "Não é possível confirmar: a soma das linhas não bate com o total da fatura."}
           </p>
+        )}
+
+        {blocked && blocked.length > 0 && (
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="text-base text-destructive">
+                Geração recusada — já existem lançamentos para esta fatura
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Não foi criado nada. Confirme se estes lançamentos já cobrem a fatura antes de decidir.
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Lançamento</TableHead>
+                    <TableHead>Referência</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {blocked.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.date ?? "—"}</TableCell>
+                      <TableCell>{t.event ?? "Fatura (sem evento)"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {t.invoice_ref || t.specification || "—"}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(Number(t.amount))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
 
         {isApplied && createdTx.length > 0 && (
