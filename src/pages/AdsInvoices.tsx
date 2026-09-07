@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, AlertTriangle, Lock, Unlock, FileDown, ChevronsUpDown, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, Lock, Unlock, FileDown, ChevronsUpDown, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdsInvoiceRow {
@@ -773,7 +773,7 @@ export default function AdsInvoices() {
                             Repor por resolver
                           </Button>
                         )}
-                        {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && !l.event_id && (
+                        {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && (
                           <MarkOutsideButton
                             disabled={markMutation.isPending}
                             onConfirm={(note) => markMutation.mutate({ id: l.id, note })}
@@ -906,9 +906,10 @@ function EventPicker({
               {visible.map((o) => (
                 <CommandItem
                   key={o.id}
-                  value={o.name}
+                  value={`${o.name} ${o.id}`}
                   onSelect={() => { onSelect(o.id); setOpen(false); }}
                 >
+                  <Check className={`mr-2 h-3.5 w-3.5 ${o.id === selectedId ? "opacity-100" : "opacity-0"}`} />
                   <span className={o.isChild ? "pl-4" : "font-medium"}>{o.name}</span>
                   {showAll && !o.eligible && (
                     <Badge variant="outline" className="ml-auto text-[10px]">fora do período</Badge>
