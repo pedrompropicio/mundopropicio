@@ -620,7 +620,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             {selectedBalance !== null && (
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Saldo atual: {formatCurrency(selectedBalance)}
-                {allExpenses && totalRemaining > selectedBalance && (
+                {allExpenses && totalCashOut > selectedBalance + 0.05 && (
                   <span className="ml-1 text-destructive font-semibold">
                     — Saldo insuficiente!
                   </span>

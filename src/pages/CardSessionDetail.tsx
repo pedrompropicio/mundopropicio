@@ -185,7 +185,7 @@ export default function CardSessionDetail() {
   const openItemsGross = (items as any[])
     .filter((i) => i.status === "submitted" || i.status === "approved")
     .reduce((s, i) => s + cardItemGross(i), 0);
-  const realEstimated = cardBalance === undefined ? undefined : cardBalance - openItemsGross;
+  const realEstimated = cardBalance == null ? undefined : cardBalance - openItemsGross;
 
 
   // Sessões FECHADAS não recalculam nada — usam o closing_summary histórico.
@@ -432,7 +432,7 @@ export default function CardSessionDetail() {
       openedAt: session.opened_at ?? null,
       closedAt: (session as any).closed_at ?? null,
       summary: {
-        availableOnCard: cardBalance === undefined ? null : Number(cardBalance),
+        availableOnCard: cardBalance == null ? null : Number(cardBalance),
         delivered: opening + totalLoads,
         deliveredNote: `Abertura ${formatCurrency(opening)} (${isOverride ? "override manual" : "calculado da conta"}) + ${loads.length} recarga(s)`,
         approvedSpent: totalApproved,
@@ -538,15 +538,15 @@ export default function CardSessionDetail() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi
           label="Saldo contabilístico"
-          value={cardBalance === undefined ? "—" : formatCurrency(cardBalance)}
+          value={cardBalance == null ? "—" : formatCurrency(cardBalance)}
           hint="Saldo da conta no módulo Contas (só transações)"
-          tone={cardBalance !== undefined && cardBalance < 0 ? "warn" : undefined}
+          tone={cardBalance != null && cardBalance < 0 ? "warn" : undefined}
         />
         <Kpi
           label="Saldo real estimado"
-          value={realEstimated === undefined ? "—" : formatCurrency(realEstimated)}
+          value={realEstimated == null ? "—" : formatCurrency(realEstimated)}
           hint={`Contabilístico − itens da sessão ainda não integrados (${formatCurrency(openItemsGross)})`}
-          tone={realEstimated !== undefined && realEstimated < 0 ? "warn" : undefined}
+          tone={realEstimated != null && realEstimated < 0 ? "warn" : undefined}
         />
         <Kpi
           label="Entregue"
