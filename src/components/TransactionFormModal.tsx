@@ -2130,20 +2130,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const capitalEventId = form.event_id || splitMasterEventId || "";
   const capitalNeedsPartner =
     selectedCategoryIsCapital && capitalCodeNeedsPartner(selectedCategoryCode);
-  // Sai do ramo Capital (ou muda de evento) → limpa o sócio escolhido.
+  // Sai do ramo Capital, OU passa a rubrica sem sócio (10.1.04/05) → limpa o sócio.
   useEffect(() => {
-    if (!selectedCategoryIsCapital) setCapitalPartnerId("");
-  }, [selectedCategoryIsCapital]);
+    if (!capitalNeedsPartner) setCapitalPartnerId("");
+  }, [capitalNeedsPartner]);
   useEffect(() => {
     setCapitalPartnerId("");
   }, [capitalEventId]);
   // Sócio escolhido → preenche a Entidade (supplier_id) da transação de capital.
   // Sócios e fornecedores partilham o cadastro `suppliers`, logo a lista mostra o nome.
   useEffect(() => {
-    if (!selectedCategoryIsCapital || !capitalPartnerId) return;
+    if (!capitalNeedsPartner || !capitalPartnerId) return;
     const sid = (eventPartners as any[]).find((p: any) => p.id === capitalPartnerId)?.supplier_id;
     if (sid) setForm((prev) => (prev.supplier_id === sid ? prev : { ...prev, supplier_id: sid }));
-  }, [selectedCategoryIsCapital, capitalPartnerId, eventPartners]);
+  }, [capitalNeedsPartner, capitalPartnerId, eventPartners]);
 
 
 
