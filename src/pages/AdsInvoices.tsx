@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, AlertTriangle, Lock, Unlock, FileDown, ChevronsUpDown, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, Lock, Unlock, FileDown, ChevronsUpDown, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdsInvoiceRow {
@@ -71,6 +71,19 @@ const statusLabels: Record<string, string> = {
   confirmed: "Confirmada",
   applied: "Aplicada",
   cancelled: "Cancelada",
+};
+
+/** Rótulos legíveis dos impedimentos devolvidos pela reversão. */
+const blockerKindLabels: Record<string, string> = {
+  pago: "Pago",
+  fecho_bilheteira: "Fecho de bilheteira",
+  sessao_cartao: "Sessão de cartão",
+  parcela_registada: "Parcela registada",
+  lista_pagamento: "Lista de pagamento",
+  nota_reembolso: "Nota de reembolso",
+  nota_reembolso_pagamento: "Pagamento de nota de reembolso",
+  conferencia_contabilista: "Conferência do contabilista",
+  exportado_contabilidade: "Exportado para a contabilidade",
 };
 
 function periodLabel(d: string) {
@@ -160,6 +173,7 @@ export default function AdsInvoices() {
         return;
       }
       setBlocked(null);
+      setRevertBlockers(null);
       toast.success(
         data?.already
           ? "Os lançamentos desta fatura já existem."
@@ -177,6 +191,8 @@ export default function AdsInvoices() {
         `Rateio reaberto. ${data?.campaigns_unlocked ?? 0} campanha(s) com vínculo destrancado.`,
       );
       setReopenOpen(false);
+      setBlocked(null);
+      setRevertBlockers(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -191,6 +207,7 @@ export default function AdsInvoices() {
         toast.error("Reversão recusada: há impedimentos nos lançamentos.");
         return;
       }
+      setBlocked(null);
       setRevertBlockers(null);
       setRevertOpen(false);
       setRevertConfirmText("");
@@ -204,8 +221,9 @@ export default function AdsInvoices() {
 
   const markMutation = useMutation({
     mutationFn: async (v: { id: string; note: string | null }) => {
-      const { data: auth } = await supabase.auth.getUser();
-      const stamp = { matched_by: auth?.user?.id ?? null, matched_at: new Date().toISOString() };
+      const { data: auth, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !auth?.user?.id) throw new Error("Não foi possível identificar o utilizador.");
+      const stamp = { matched_by: auth.user.id, matched_at: new Date().toISOString() };
       const { error } = await supabase
         .from("ads_invoice_line")
         .update(
@@ -215,21 +233,26 @@ export default function AdsInvoices() {
         )
         .eq("id", v.id);
       if (error) throw error;
+      return v;
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (v) => {
+      toast.success(v.note === null ? "Linha reposta por resolver." : "Linha marcada como fora do sistema.");
+      invalidate();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const assignMutation = useMutation({
     mutationFn: async (v: { id: string; eventId: string }) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !auth?.user?.id) throw new Error("Não foi possível identificar o utilizador.");
       const { error } = await supabase
         .from("ads_invoice_line")
         .update({
           event_id: v.eventId,
           match_source: "manual",
           match_note: "atribuído à mão",
-          matched_by: auth?.user?.id ?? null,
+          matched_by: auth.user.id,
           matched_at: new Date().toISOString(),
         })
         .eq("id", v.id);
@@ -306,24 +329,27 @@ export default function AdsInvoices() {
       ]);
       if (ee) throw ee;
       if (we) throw we;
-      const eligible = new Set(
+      const inWindow = new Set(
         ((wins ?? []) as any[])
           .filter((w) => w.win_start && w.win_end && w.win_start <= end && w.win_end >= start)
           .map((w) => w.event_id as string),
       );
-      const active = ((evs ?? []) as any[]).filter((e) => e.status === "active");
-      const byId = new Map(active.map((e) => [e.id, e]));
-      const mothers = active
+      // O status faz parte do critério de elegibilidade, não é um corte prévio:
+      // com o interruptor ligado tem de aparecer tudo, seja qual for o status.
+      const all = (evs ?? []) as any[];
+      const isEligible = (e: any) => e.status === "active" && inWindow.has(e.id);
+      const byId = new Map(all.map((e) => [e.id, e]));
+      const mothers = all
         .filter((e) => !e.parent_event_id || !byId.has(e.parent_event_id))
         .sort((a, b) => String(a.name).localeCompare(String(b.name)));
       const out: EventOption[] = [];
       for (const m of mothers) {
-        out.push({ id: m.id, name: m.name, parent_event_id: m.parent_event_id, eligible: eligible.has(m.id), isChild: false });
-        const kids = active
+        out.push({ id: m.id, name: m.name, parent_event_id: m.parent_event_id, eligible: isEligible(m), isChild: false });
+        const kids = all
           .filter((e) => e.parent_event_id === m.id)
           .sort((a, b) => String(a.name).localeCompare(String(b.name)));
         for (const k of kids) {
-          out.push({ id: k.id, name: k.name, parent_event_id: k.parent_event_id, eligible: eligible.has(k.id), isChild: true });
+          out.push({ id: k.id, name: k.name, parent_event_id: k.parent_event_id, eligible: isEligible(k), isChild: true });
         }
       }
       return out;
@@ -580,7 +606,7 @@ export default function AdsInvoices() {
                 <TableBody>
                   {revertBlockers.map((b, i) => (
                     <TableRow key={i}>
-                      <TableCell>{b.kind}</TableCell>
+                      <TableCell>{blockerKindLabels[b.kind] ?? b.kind}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{b.transaction_id}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {[
@@ -588,8 +614,10 @@ export default function AdsInvoices() {
                           b.paid_amount ? formatCurrency(Number(b.paid_amount)) : null,
                           b.note,
                           b.period_from ? `export ${b.period_from} → ${b.period_to}` : null,
+                          b.exported_at ? `entregue ${fmtDateTime(b.exported_at)}` : null,
                           b.transaction_date,
                           b.payment_list_id,
+                          b.payment_id,
                           b.note_id,
                           b.settlement_id,
                           b.card_session_id,
@@ -745,7 +773,7 @@ export default function AdsInvoices() {
                             Repor por resolver
                           </Button>
                         )}
-                        {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && !l.event_id && (
+                        {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && (
                           <MarkOutsideButton
                             disabled={markMutation.isPending}
                             onConfirm={(note) => markMutation.mutate({ id: l.id, note })}
@@ -878,9 +906,10 @@ function EventPicker({
               {visible.map((o) => (
                 <CommandItem
                   key={o.id}
-                  value={o.name}
+                  value={`${o.name} ${o.id}`}
                   onSelect={() => { onSelect(o.id); setOpen(false); }}
                 >
+                  <Check className={`mr-2 h-3.5 w-3.5 ${o.id === selectedId ? "opacity-100" : "opacity-0"}`} />
                   <span className={o.isChild ? "pl-4" : "font-medium"}>{o.name}</span>
                   {showAll && !o.eligible && (
                     <Badge variant="outline" className="ml-auto text-[10px]">fora do período</Badge>
