@@ -19,7 +19,7 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -233,7 +233,7 @@ export default function FinancialAccounts() {
   // Summary cards — exclude skip_balance_check accounts from total
   const totalBalance = activeAccounts.reduce((sum: number, acc: any) => {
     if (!canSeeBalance(acc) || acc.skip_balance_check) return sum;
-    return sum + computeBalance(acc.id, Number(acc.initial_balance));
+    return sum + (computeBalance(acc) ?? 0);
   }, 0);
 
   return (
@@ -482,7 +482,7 @@ export default function FinancialAccounts() {
                   {activeAccounts.map((acc: any) => {
                     const typeInfo = getTypeInfo(acc.type);
                     const Icon = typeInfo.icon;
-                    const balance = computeBalance(acc.id, Number(acc.initial_balance));
+                    const balance = computeBalance(acc);
                     const showBalance = canSeeBalance(acc);
 
                     return (
