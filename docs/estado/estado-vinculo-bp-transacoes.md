@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-05 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento
+Atualizado: 2026-09-07 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -73,7 +73,7 @@ Propagação às filhas por `parent_transaction_id` mantida. Medido em Live: **1
 Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS NOT NULL`, `type <> 'expense'`, `event_id` nulo, evento sem BP.
 
 ## Próximo passo concreto
-**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos).
+**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão.
 
 ## Bloqueios
 Nenhum.

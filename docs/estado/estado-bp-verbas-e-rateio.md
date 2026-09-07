@@ -1,9 +1,11 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-06 · #103 rondas 1 e 2 em produção (Publish do Pedro a 04/09 e 06/09)
+Atualizado: 2026-09-07 · D24 em produção (Publish do Pedro 07/09) · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído. A aba Business Plan tem sub-separadores Despesas | Receitas e as receitas com módulo aparecem como linhas sintéticas não persistidas — 1.1.01 (bilheteira), 1.1.03 (A&B) e 1.2.01 (patrocínios, D22) — com três colunas s/IVA: previsto original, previsto corrente e real.
+
+**A receita tem SSoT (D24):** `src/lib/event-revenue-basis.ts` (+ hook `useEventRevenueBasis`) é a única fonte da receita de um evento ou Master+Splits, em três bases — `real`, `currentForecast` (previsto corrente) e `committed` (previsto + excedido = `max(real, currentForecast ?? real)` por componente, espelhando a regra do custo). Regras canónicas: bilheteira linha a linha de `ticket_sales` com IVA do lote (D11); transações `income` pelo filtro canónico do Fecho (`isValidFechoTransaction`: approved/paid, sem transitórias/excluídas/estornadas/escondidas); anti-duplicação por PREFIXO `1.1.01` (`isBilheteiraCategoryCode`) quando há `ticket_sales`; **sem `partially_paid`**. Consumidores: card financeiro da capa (`useEventFinancialCardData`), Fecho (`EventFecho`), capa do evento (`EventDetail`) e sintéticas do BP (`bp-income-synthetic`). Verificado 07/09: Ivete **501.415,16 €** e Anitta **2.527.352,94 €** s/IVA idênticos antes/depois.
 
 - **1.1.01 Bilheteira:** previsto original fixado uma única vez em `events.ticketing_baseline_net`; previsto corrente do cenário Forecast do Simulador ao vivo (`computeLiveTicketForecast`, capacidade = carga corrente de `zone_capacity_snapshot`); real de `ticket_sales` líquido por IVA do lote (D11 linha a linha). Há duas cargas (D20): inicial = `event_ticket_zones.total_capacity`; corrente = último retrato de `event_zone_capacities`, capturado pelo ciclo diário da Ticketline (v2.40) e mostrado com data.
 - **1.1.03 A&B:** corrente do cenário A&B ativo, real de `useEventABRealized`, original de `events.ab_baseline_net`.
@@ -15,7 +17,7 @@ Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e 
 Nada em execução.
 
 ## Próximo passo concreto
-Definir as verbas por segmento nos eventos futuros (Ghanem 2027 e seguintes) — sem verbas o BP de receita de patrocínios é só o realizado. Depois: curva de evolução L1/L2/L3 sobre `forecast_audit_log` (charter do chat bp-x-resultado, ponto 5).
+**Curva de evolução L1/L2/L3** sobre `forecast_audit_log` + `system_audit_log` com as versões congeladas como marcos (D4, decidido 02/09; zero captura nova; limite: audit arranca a 17/06/2026 — issue #104). Depois: verbas por segmento nos eventos futuros (Ghanem 2027 e seguintes) — sem verbas o BP de receita de patrocínios é só o realizado.
 
 ## Bloqueios
 Nenhum.
@@ -54,9 +56,15 @@ Nenhum.
 - O motor `src/lib/sponsorship-bp-sync.ts` passou a rejeitar cards meio-ligados (#118): guarda passa a `linked_transaction_id || linked_forecast_id`; card meio-ligado devolve `half_linked`, botão de sync travado com aviso. Linhas novas geradas por cards fechados nascem com `formalidade = 'fechado'` (#119).
 - Os 3 cards meio-ligados da Anitta (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) continuam meio-ligados por decisão — corrigir só depois do fecho da Anitta, com o padrão SQL documentado do Casino.
 
+**Factos novos a 07/09:**
+- **D23 — `working_draft` fica.** É a sandbox editável de cenário (`create_scenario_draft` → edição → `promote_scenario_to_active` / `discard_scenario_draft`), não resíduo. Estado na Live: 1 `working_draft` (Coala PT 2026 v51 "Câmara de Cascais", 20/05, 355 linhas, evento encerrado, inerte). Spec `.lovable/specs/bp-versions-spec.md` actualizada.
+- **D5 mantém versões congeladas voluntárias** — nenhuma versão é gerada automaticamente fora dos snapshots de lifecycle já existentes.
+- **`docs/questoes-*.md` está gitignored** — as questões abertas vivem nos docs de estado e nas issues, não nesses ficheiros (ver issue transversal aberta a 07/09).
+
 ## Onde ler mais
-- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22 + adendas
-- `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation
+- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas
+- `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation, event-revenue-basis
+- `src/lib/event-revenue-basis.ts`, `src/hooks/useEventRevenueBasis.ts`
 - `src/lib/bp-income-synthetic.ts`, `src/lib/bp-sponsorship-synthetic.ts`, `src/lib/event-simulator-forecast-live.ts`
 - `docs/questoes-bp-receita.md`
 - `docs/integrations/ticketline.md`
