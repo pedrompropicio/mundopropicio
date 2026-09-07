@@ -2128,7 +2128,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     (categories as any[]).find((c) => c.id === form.category_id)?.code ?? null;
   // Sócio (AEP) é obrigatório para o ramo 10.1.* → exige evento com sócios.
   const capitalEventId = form.event_id || splitMasterEventId || "";
-  const capitalNeedsPartner = selectedCategoryIsCapital;
+  const capitalNeedsPartner =
+    selectedCategoryIsCapital && capitalCodeNeedsPartner(selectedCategoryCode);
   // Sai do ramo Capital (ou muda de evento) → limpa o sócio escolhido.
   useEffect(() => {
     if (!selectedCategoryIsCapital) setCapitalPartnerId("");
@@ -3250,7 +3251,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {/* Entidade (origem da receita) — opcional. Escondido no ramo 10.1.* (capital),
               onde o campo "Sócio (AEP)" é que manda no supplier_id. */}
-          {form.type === "income" && !selectedCategoryIsCapital && (
+          {form.type === "income" && !capitalNeedsPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
               <div className="flex gap-2">
