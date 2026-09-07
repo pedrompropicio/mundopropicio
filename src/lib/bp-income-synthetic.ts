@@ -6,8 +6,8 @@
  * na primeira vez em events.ticketing_baseline_net (feito pelo hook da UI).
  */
 import { supabase } from "@/integrations/supabase/client";
-import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
+import { fetchTicketSalesRevenue } from "@/lib/event-revenue-basis";
 
 export interface TicketSyntheticResult {
   initialLoad: number;
@@ -72,11 +72,8 @@ export async function computeTicketSynthetic(
   }
 
   const soldQty = sales.reduce((s, x) => s + Number(x.quantity || 0), 0);
-  const realNet = sales.reduce((s, x) => {
-    const gross = ticketSaleRevenue(x);
-    const rate = lotIva.get(x.lot_id) ?? 0;
-    return s + (rate > 0 ? gross / (1 + rate / 100) : gross);
-  }, 0);
+  // Real: SSoT da receita (D24) — mesma função que o card e o Fecho usam.
+  const realNet = (await fetchTicketSalesRevenue(ids)).net;
 
   const ivaPct = pQty > 0 ? pIva / pQty : 6;
   // DR-2026-09-03-D21 (adenda): previsto original = min(carga inicial, Σ qty dos lotes
