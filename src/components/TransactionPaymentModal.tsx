@@ -183,19 +183,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const totalCreditApplied = Object.values(creditAllocations).reduce((s, v) => s + (parseFloat(v) || 0), 0);
 
-  function computeAccountBalance(accId: string) {
+  function accountBalanceOf(accId: string): number | null {
     const acc = financialAccounts.find((a: any) => a.id === accId);
     if (!acc) return 0;
-    let bal = Number(acc.initial_balance ?? 0);
-    txSummary.filter((t: any) => t.account_id === accId).forEach((t: any) => {
-      const amt = Number(t.paid_amount ?? 0);
-      if (t.type === "income") bal += amt;
-      else bal -= amt;
-    });
-    return bal;
+    return computeAccountBalance(acc as any, txSummary as any, cashAdjustments);
   }
 
-  const selectedAccountBalance = accountId ? computeAccountBalance(accountId) : null;
+  const selectedAccountBalance = accountId ? accountBalanceOf(accountId) : null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
 
   const baseAmount = Number(transaction.amount);
@@ -329,8 +323,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
         if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
         const skipCheck = selectedAcc?.skip_balance_check ?? false;
-        if (!skipCheck) {
-          const accBalance = computeAccountBalance(accountId);
+        const accBalance = accountBalanceOf(accountId);
+        if (!skipCheck && accBalance !== null) {
           if (netCashOut > accBalance) {
             throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
           }
@@ -799,19 +793,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               placeholder="Selecionar conta…"
               searchPlaceholder="Pesquisar conta…"
             />
+            {accountId && selectedAccountBalance === null && (
+              <p className="mt-1 text-xs font-medium text-muted-foreground italic">Sem controlo de saldo</p>
+            )}
             {accountId && selectedAccountBalance !== null && (
-              <p className={`mt-1 text-xs font-medium ${selectedAccount?.skip_balance_check ? "text-muted-foreground" : selectedAccountBalance <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                {selectedAccount?.skip_balance_check ? (
-                  <>
-                    Saldo: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
-                    {" · conta sem controlo de saldo"}
-                  </>
-                ) : (
-                  <>
-                    Saldo disponível: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
-                    {selectedAccountBalance <= 0 && " — Sem saldo!"}
-                  </>
-                )}
+              <p className={`mt-1 text-xs font-medium ${selectedAccountBalance <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                Saldo disponível: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
+                {selectedAccountBalance <= 0 && " — Sem saldo!"}
               </p>
             )}
           </div>
