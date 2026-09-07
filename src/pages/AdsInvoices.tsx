@@ -99,6 +99,12 @@ export default function AdsInvoices() {
   const generateMutation = useMutation({
     mutationFn: (invoiceId: string) => callApply("generate", invoiceId),
     onSuccess: (data) => {
+      if (data?.duplicate_block) {
+        setBlocked(data.existing ?? []);
+        toast.error("Geração recusada: já existem lançamentos para esta fatura.");
+        return;
+      }
+      setBlocked(null);
       toast.success(
         data?.already
           ? "Os lançamentos desta fatura já existem."
