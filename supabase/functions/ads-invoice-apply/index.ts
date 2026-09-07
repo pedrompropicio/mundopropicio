@@ -597,11 +597,12 @@ async function handleRevert(body: any, userId?: string) {
     .from("transactions")
     .select("id, date, amount, status, paid_amount, settlement_id, card_session_id, event_id, parent_transaction_id")
     .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`);
-  if (te) return json({ error: te.message }, 500);
+  if (te) return json({ error: `guarda transactions falhou: ${te.message}` }, 500);
   const ids = (txs ?? []).map((t: any) => t.id);
   if (ids.length === 0) return json({ error: "não há lançamentos a reverter" }, 400);
 
   // ---------------- guardas: nada é apagado se alguma delas falhar
+  // Uma guarda que não conseguiu correr NUNCA é tratada como guarda que passou.
   const blockers: any[] = [];
 
   for (const t of txs ?? []) {
@@ -612,31 +613,41 @@ async function handleRevert(body: any, userId?: string) {
     if (t.card_session_id) blockers.push({ kind: "sessao_cartao", transaction_id: t.id, card_session_id: t.card_session_id });
   }
 
-  const { data: pays } = await admin.from("transaction_payments").select("id, transaction_id").in("transaction_id", ids);
+  const { data: pays, error: paysErr } = await admin
+    .from("transaction_payments").select("id, transaction_id").in("transaction_id", ids);
+  if (paysErr) return json({ error: `guarda transaction_payments falhou: ${paysErr.message}` }, 500);
   for (const p of pays ?? []) blockers.push({ kind: "parcela_registada", transaction_id: p.transaction_id, payment_id: p.id });
 
-  const { data: pli } = await admin.from("payment_list_items").select("id, transaction_id, payment_list_id").in("transaction_id", ids);
+  const { data: pli, error: pliErr } = await admin
+    .from("payment_list_items").select("id, transaction_id, payment_list_id").in("transaction_id", ids);
+  if (pliErr) return json({ error: `guarda payment_list_items falhou: ${pliErr.message}` }, 500);
   for (const r of pli ?? []) blockers.push({ kind: "lista_pagamento", transaction_id: r.transaction_id, payment_list_id: r.payment_list_id });
 
-  const { data: rni } = await admin.from("reimbursement_note_items").select("id, transaction_id, note_id").in("transaction_id", ids);
-  for (const r of rni ?? []) blockers.push({ kind: "nota_reembolso", transaction_id: r.transaction_id, note_id: (r as any).note_id ?? null });
+  const { data: rni, error: rniErr } = await admin
+    .from("reimbursement_note_items").select("id, transaction_id, reimbursement_note_id").in("transaction_id", ids);
+  if (rniErr) return json({ error: `guarda reimbursement_note_items falhou: ${rniErr.message}` }, 500);
+  for (const r of rni ?? []) blockers.push({ kind: "nota_reembolso", transaction_id: r.transaction_id, note_id: (r as any).reimbursement_note_id ?? null });
 
-  const { data: rnp } = await admin.from("reimbursement_notes").select("id, payment_transaction_id").in("payment_transaction_id", ids);
+  const { data: rnp, error: rnpErr } = await admin
+    .from("reimbursement_notes").select("id, payment_transaction_id").in("payment_transaction_id", ids);
+  if (rnpErr) return json({ error: `guarda reimbursement_notes falhou: ${rnpErr.message}` }, 500);
   for (const r of rnp ?? []) blockers.push({ kind: "nota_reembolso_pagamento", transaction_id: r.payment_transaction_id, note_id: r.id });
 
   // FK CASCADE: o DELETE apagaria a conferência do contabilista em silêncio.
-  const { data: reviews } = await admin
+  const { data: reviews, error: reviewsErr } = await admin
     .from("accountant_transaction_reviews")
     .select("id, transaction_id, status, note")
     .in("transaction_id", ids);
+  if (reviewsErr) return json({ error: `guarda accountant_transaction_reviews falhou: ${reviewsErr.message}` }, 500);
   for (const r of reviews ?? []) {
     blockers.push({ kind: "conferencia_contabilista", transaction_id: r.transaction_id, status: r.status, note: r.note });
   }
 
-  const { data: exports } = await admin
+  const { data: exports, error: exportsErr } = await admin
     .from("accounting_exports")
     .select("id, period_from, period_to, created_at")
     .eq("company_id", inv.company_id);
+  if (exportsErr) return json({ error: `guarda accounting_exports falhou: ${exportsErr.message}` }, 500);
   for (const t of txs ?? []) {
     for (const ex of exports ?? []) {
       if (!t.date || !ex.period_from || !ex.period_to) continue;
@@ -663,14 +674,20 @@ async function handleRevert(body: any, userId?: string) {
   }
 
   // ---------------- (a) soltar as ligações do BP (FK NO ACTION)
-  const { data: unlinked } = await admin
+  const { data: unlinked, error: unlinkErr } = await admin
     .from("event_forecasts")
     .update({ transaction_id: null })
     .in("transaction_id", ids)
     .select("id");
+  if (unlinkErr) return json({ error: `soltar event_forecasts falhou: ${unlinkErr.message}` }, 500);
   const forecastsUnlinked = (unlinked ?? []).length;
 
-  // ---------------- (b) ficheiros do storage (os registos caem por CASCADE)
+  // ---------------- (b) apagar a mãe (as filhas caem por CASCADE)
+  await admin.from("ads_invoice_line").update({ transaction_id: null }).eq("invoice_id", inv.id);
+  const { error: de } = await admin.from("transactions").delete().eq("id", parentId);
+  if (de) return json({ error: `apagar lançamentos: ${de.message}` }, 500);
+
+  // ---------------- (c) ficheiros do storage (só depois do DELETE ter passado)
   let filesDeleted = 0;
   const prefix = `${inv.company_id}/ads-invoices/${inv.id}/`;
   const { data: files } = await admin.storage.from(DOC_BUCKET).list(prefix.replace(/\/$/, ""), { limit: 1000 });
@@ -679,11 +696,6 @@ async function handleRevert(body: any, userId?: string) {
     const { data: removed } = await admin.storage.from(DOC_BUCKET).remove(paths);
     filesDeleted = (removed ?? []).length;
   }
-
-  // ---------------- (c) apagar a mãe (as filhas caem por CASCADE)
-  await admin.from("ads_invoice_line").update({ transaction_id: null }).eq("invoice_id", inv.id);
-  const { error: de } = await admin.from("transactions").delete().eq("id", parentId);
-  if (de) return json({ error: `apagar lançamentos: ${de.message}` }, 500);
 
   // ---------------- (d) fatura volta a proposta
   const { error: ue } = await admin
