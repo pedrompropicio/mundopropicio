@@ -16,6 +16,7 @@ import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
 import { fetchSupplierBankRows } from "@/lib/supplier-bank";
+import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
 
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
@@ -115,6 +116,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: cashAdjustments } = useQuery({
+    queryKey: ["account-cash-adjustments"],
+    queryFn: () => fetchAccountCashAdjustments(),
   });
 
   const { data: supplierData } = useQuery({
