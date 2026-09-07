@@ -376,6 +376,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const selectedCategoryCode: string | null =
     (categories as any[]).find((c: any) => c.id === form.category_id)?.code ?? null;
   const isCapitalCategory = isCapitalCategoryCode(selectedCategoryCode);
+  /** 10.1.01/02/03 exigem sócio de evento; 10.1.04/05 (empréstimo/reembolso) não. */
+  const capitalRequiresPartner = isCapitalCategory && capitalNeedsPartner(selectedCategoryCode);
   const wasCapitalCategory = isCapitalCategoryCode(
     (categories as any[]).find((c: any) => c.id === (transaction.category_id ?? ""))?.code ?? null,
   );
@@ -384,7 +386,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const { data: capitalPartners = [] } = useQuery({
     queryKey: ["event-partners-capital", form.event_id],
     queryFn: () => fetchEventPartnersWithInheritance(form.event_id),
-    enabled: !!form.event_id && isCapitalCategory,
+    enabled: !!form.event_id && capitalRequiresPartner,
   });
 
   // Vínculo já existente (partner_capital_moves) desta transação.
