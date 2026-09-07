@@ -1,6 +1,6 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-09-01 · Issues: #82, #65, #85, #68 · P0 aberto: nenhum
+Atualizado: 2026-09-07 · Issues: #82, #65, #85, #68 · P0 aberto: nenhum
 
 ## Em que pé está
 O apuramento da Anitta continua a fazer-se **fora do ERP**, em planilha (gerador v15), mas o ecrã de Fecho deixou de divergir do contrato: a base de cada sócio é a do respetivo contrato e o seletor de vista já não lhe toca. A Anitta está apurada e conferida, **não sacramentada**. A Ivete ainda não fechou.
@@ -43,6 +43,14 @@ Regerar a planilha da Anitta com o gerador v15 antes da apresentação. Corrigir
 **Δ de método por reconciliar:** a query canónica de excedido dá 61.464,91 na Anitta contra os 63.544,11 do ecrã — 2.079,20 na rubrica 2.2.01 Aéreo. Número de fecho sai do ecrã ou da planilha, nunca de SQL ad-hoc.
 
 **Nível 2 vive na planilha:** cascata MP/EIN, ativos exclusivos (bares 93.969,63 · Bengaleiro 138,82 · Oeiras 50.000), encontros de contas. `event_partners` não ganha conceito de ativo por sócio.
+
+**Despesa com pagador sócio: a fatura é dele, o documento fiscal da MP é a refaturação.** Confirmado pelo Pedro em 07/09 para a EIN na Anitta: as faturas dos fornecedores saem em nome da EIN e ela emite depois uma fatura à MP a lastrear reembolso das despesas mais lucro. Consequências: (a) `paying_partner_id` diz quem desembolsa, nunca de quem é o custo fiscal; (b) essas linhas de BP **nunca podem virar transações com fatura de fornecedor no ERP** — seria contar o custo duas vezes quando a fatura da EIN chegar; (c) as 124 linhas da EIN, 1.170.562,18 € de base, que vivem só no BP, estão corretas assim e não são um buraco; (d) a linha do BP é a verdade de gestão e a fatura do sócio é a verdade fiscal, e reconciliam pelo total, nunca linha a linha.
+
+**Risco de IVA na refaturação, por confirmar com a EIN.** Das 124 linhas da EIN, 16 estão a 0% e somam 236.899,69 € (PSP, bombeiros, marinha, licenças). Se a EIN refaturar tudo a 23%, cria ~54.487 € de IVA que hoje não existe. E a secção 5 da planilha de fecho devolve à sociedade o IVA total das despesas, do qual 214.742,43 € são das linhas da EIN — se essas faturas são dela, é ela que o recupera, e quando a fatura da EIN chegar com IVA próprio a MP recupera outra vez. Rever antes de regerar o fecho.
+
+**O recurso do evento que está com a EIN tem origem documental.** Por instrução da MP, a Ticketline transferiu 905.000,00 € diretamente para a EIN em 04/09/2026, ficando 402.836,17 € por liquidar para a MP. Os documentos de fecho da Ticketline são todos em nome da Mundo Propício — a bilhética é da MP, os 905.000 são uma instrução de pagamento e não uma venda da EIN. Revenue share: 5% sobre 2.211.170,00 de vendas web = 110.558,50 + IVA = 135.986,96, faturado pela MP à Ticketline em 07/09 (FT 2026 101). Bate com o fecho: 4% entram como receita do evento, 1% fica como ativo exclusivo MP+EIN.
+
+**A conta "Pgto Mágicos Acerto Madrid" é o veículo de devolução do H&K, não financiamento de eventos.** A MP financiou o evento de Madrid acima dos seus 30%; o H&K devolve esse excesso pagando, em reais, contas que a MP tinha no Brasil. As despesas de outros eventos pagas por ali são contas da MP e o H&K é só o canal — não existe dívida entre eventos. Por isso o aporte tem `flow = partner_settlement` e não `event_cash`: nunca entrou no caixa de Madrid.
 
 ## Onde ler mais
 - `docs/procedimentos/PROC-fecho-evento.md`
