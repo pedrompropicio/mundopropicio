@@ -39,8 +39,8 @@ Não corrigir sem decisão explícita.
 
 - 624 de 706 transações liquidadas não têm linha em `transaction_payments` (issue #91).
 - 526 liquidadas sem `account_id`, das quais 395 (75%) vêm da Lista de Contas a Pagar; 218 itens marcados com "Marcar como Pago" ficaram todos `paid`.
-- Saldo do Santander apurado por SQL: **-111.264,22 EUR**. As contas de bilheteira (Blueticket, BOL, Ticketline, Fever) não têm uma única entrada registada — a receita de bilhetes não está modelada como entrada de conta.
-- `skip_balance_check` é respeitado no card Saldo Total, na tabela de contas e no extrato em ecrã, mas ignorado no export do extrato, no Fluxo de Caixa, na Projeção de Tesouraria e em `get_event_cash_position` (issue #90).
+- Saldo do Santander apurado por SQL a 07/09/2026: **-218.115,20 EUR** (-217.655,20 com os ajustes de retenção). O extrato bancário a 01/09 dizia **+107.257,71 EUR**. A conta tem `initial_balance = 0` e apenas 2 entradas contra 113 saídas — a diferença é receita por carregar, não erro de cálculo. O `skip_balance_check` foi ligado nesta conta para desbloquear pagamentos, não por desenho. As contas de bilheteira (Blueticket, BOL, Ticketline, Fever) não têm uma única entrada registada — a receita de bilhetes não está modelada como entrada de conta.
+- `skip_balance_check` passou a ser respeitado nos cinco sítios do saldo de conta (ver "Em que pé está"), mas continua ignorado no export do extrato, no Fluxo de Caixa, na Projeção de Tesouraria, em `get_event_cash_position` e nos cálculos inline de `card-session-balance.ts` e `CardSessions.tsx`. Issue #90 mantém-se aberta por isso.
 - Tornar a tesouraria utilizável exige três peças em conjunto: fonte única de saldo (#90), backfill de `transaction_payments` (#91) e modelação da receita de bilheteira. Uma peça isolada piora o resultado.
 - Menor, sem issue: o OCR das faturas avulsas usa a edge function `extract-camarim-receipt` e o prompt de talões de camarim (bebidas, snacks, IVA 6%), o que pode degradar a extração em faturas de outra natureza.
 
