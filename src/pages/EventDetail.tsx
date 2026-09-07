@@ -30,6 +30,7 @@ import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
+import { fetchTicketSalesRevenue } from "@/lib/event-revenue-basis";
 import { useCompany } from "@/hooks/useCompany";
 import {
   ORDERING_FILTER_ALL,
@@ -514,44 +515,10 @@ export default function EventDetail() {
 
 
 
-  // Receita de bilheteira em PAR {net, gross} — o card resolve conforme o seletor c/IVA.
+  // Receita de bilheteira em PAR {net, gross} — cálculo único no SSoT da receita (D24).
   const { data: ticketSales = EMPTY_TICKET_SALES } = useQuery({
     queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
-    queryFn: async () => {
-      // Get zones for all relevant event IDs
-      const { data: zones } = await supabase
-        .from("event_ticket_zones")
-        .select("id")
-        .in("event_id", transactionEventIds);
-      if (!zones || zones.length === 0) return { net: 0, gross: 0 };
-
-      const zoneIds = zones.map(z => z.id);
-      // Get lots for those zones
-      const { data: lots } = await supabase
-        .from("event_ticket_lots")
-        .select("id, iva_rate")
-        .in("zone_id", zoneIds);
-
-      if (!lots || lots.length === 0) return { net: 0, gross: 0 };
-
-      const lotIvaMap = new Map(lots.map((lot: any) => [lot.id, Number(lot.iva_rate || 0)]));
-
-      // Get all ticket sales
-      const { data: sales } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lots.map(l => l.id));
-
-      if (!sales || sales.length === 0) return { net: 0, gross: 0 };
-
-      // Bruto = valor importado; líquido = bruto / (1 + iva/100), linha a linha.
-      return sales.reduce((acc, s: any) => {
-        const gross = s.total_value != null ? Number(s.total_value) : Number(s.quantity || 0) * Number(s.unit_price || 0);
-        const ivaRate = lotIvaMap.get(s.lot_id) ?? 0;
-        const net = ivaRate > 0 ? gross / (1 + ivaRate / 100) : gross;
-        return { net: acc.net + net, gross: acc.gross + gross };
-      }, { net: 0, gross: 0 });
-    },
+    queryFn: () => fetchTicketSalesRevenue(transactionEventIds),
     enabled: !!id,
   });
   /** Compatibilidade: o resto do ecrã continua a trabalhar em base líquida. */

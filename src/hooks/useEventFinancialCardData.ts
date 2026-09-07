@@ -8,6 +8,7 @@ import {
 } from "@/lib/event-financial-card";
 import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
 
@@ -61,6 +62,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
+
+  // SSoT da receita (D24) — só para kind='income'. O custo mantém a lógica própria.
+  const { data: revenue } = useEventRevenueBasis(
+    kind === "income" ? eventId : undefined,
+    kind === "income" ? ids : [],
+  );
 
   // Valor da linha c/ ou s/IVA — arredondamento ao cêntimo LINHA A LINHA (Art.º 18 CIVA).
   const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) =>
@@ -157,36 +164,22 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
       if (kind === "income") {
-        const incomeTx = realizedTx.filter((t: any) => t.type === "income");
-        const nonTicket = incomeTx.filter((t: any) => t.account_categories?.code !== "1.1.01");
-        const nonTicketSum = nonTicket.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
-        const allIncomeSum = incomeTx.reduce((s: number, t: any) => s + eff(t.amount, t.iva_rate), 0);
-        const hasSalesNow = ticketNet > 0;
-        const display = hasSalesNow ? ticketRevenue + nonTicketSum : allIncomeSum;
-
-        // Subtotais por rubrica exata
-        const buckets = { bilheteira: hasSalesNow ? ticketRevenue : 0, patrocinio: 0, ab: 0, outros: 0 };
-        const source = hasSalesNow ? nonTicket : incomeTx;
-        for (const t of source) {
-          const code = t.account_categories?.code ?? "";
-          const cls = classifyIncomeL1(code);
-          // A substituição por ticket_sales aplica-se APENAS a 1.1.01 (bilheteira),
-          // nunca a outras rubricas 1.1.* (ex. 1.1.03 A&B).
-          if (hasSalesNow && code === "1.1.01") continue;
-          const v = eff(t.amount, t.iva_rate);
-          if (cls === "bilheteira") buckets.bilheteira += v;
-          else if (cls === "patrocinio") buckets.patrocinio += v;
-          else if (cls === "ab") buckets.ab += v;
-          else buckets.outros += v;
-        }
-
+        // SSoT da receita (D24): bilheteira linha a linha + TX pelo filtro canónico
+        // do Fecho, anti-duplicação por prefixo 1.1.01. Sem cálculo local.
+        const b = revenue?.real.buckets;
+        const pick = (k: "bilheteira" | "patrocinio" | "ab" | "outros") =>
+          b ? (withVat ? b[k].gross : b[k].net) : 0;
+        const display = revenue
+          ? withVat ? revenue.real.total.gross : revenue.real.total.net
+          : 0;
+        const ab = pick("ab");
         return {
           displayValue: display,
           subtotals: [
-            { label: "Bilheteira", value: buckets.bilheteira },
-            { label: "Patrocínio", value: buckets.patrocinio },
-            ...(buckets.ab !== 0 ? [{ label: "A&B", value: buckets.ab }] : []),
-            { label: "Outros", value: buckets.outros },
+            { label: "Bilheteira", value: pick("bilheteira") },
+            { label: "Patrocínio", value: pick("patrocinio") },
+            ...(ab !== 0 ? [{ label: "A&B", value: ab }] : []),
+            { label: "Outros", value: pick("outros") },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
@@ -228,6 +221,21 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
+      // Receita: "Previsto + excedido" (D24) vem do SSoT — por componente
+      // max(real, previsto corrente). Sempre s/IVA.
+      if (kind === "income") {
+        const c = revenue?.committed;
+        return {
+          displayValue: c?.total ?? 0,
+          subtotals: [
+            { label: "Bilheteira", value: c?.buckets.bilheteira ?? null },
+            { label: "Patrocínio", value: c?.buckets.patrocinio ?? null },
+            ...(c && c.buckets.ab !== 0 ? [{ label: "A&B", value: c.buckets.ab }] : []),
+            { label: "Outros", value: c?.buckets.outros ?? null },
+          ],
+          formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
+        };
+      }
       // Operacionais: linhas aprovadas que entram no resultado.
       // Overhead: linhas is_overhead (têm exclude_from_result=true) — só com o toggle ON.
       const operational = forecasts.filter((f: any) =>
@@ -277,6 +285,23 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     // ── FORECAST ──────────────────────────────────────────────
     if (kind === "income") {
+      // Cenário Forecast = previsto corrente do SSoT (D24): bilheteira ao vivo,
+      // A&B, patrocínios e outras receitas de BP. Os cenários today/breakeven
+      // continuam a vir directamente do motor do Simulador.
+      if (scenario === "forecast") {
+        const f = revenue?.currentForecast;
+        return {
+          displayValue: f?.total ?? 0,
+          subtotals: [
+            { label: "Bilheteira", value: f?.buckets.bilheteira ?? null },
+            { label: "Patrocínio", value: f?.buckets.patrocinio ?? null },
+            { label: "A&B", value: f?.buckets.ab ?? null },
+            { label: "Outros", value: f?.buckets.outros ?? null },
+          ],
+          formalidadeBreakdown: null, phase, modeUsed,
+          unavailable: !f || f.total == null,
+        };
+      }
       if (!simCfg || simInputs.length === 0) {
         return {
           displayValue: 0,
@@ -419,7 +444,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       };
     }
 
-  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
+  }, [txs, forecasts, revenue, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
       includeOverhead,
       args.ticketSales, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 

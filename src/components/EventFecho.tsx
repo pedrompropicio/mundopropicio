@@ -11,7 +11,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
+import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import {
   normalizePartnerCalcBasis,
   partnerUsesGrossExpenses,
@@ -20,6 +20,7 @@ import {
 
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
+import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 
 
@@ -161,33 +162,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     enabled: !!parentEventId,
   });
 
-  // ---- Ticket sales (preferência sobre income transactions se houver)
-  const { data: ticketSales = [] } = useQuery({
-    queryKey: ["fecho-ticket-sales", allEventIds],
-    queryFn: async () => {
-      const { data: zones } = await supabase
-        .from("event_ticket_zones")
-        .select("id")
-        .in("event_id", allEventIds);
-      if (!zones || zones.length === 0) return [];
-      const zoneIds = zones.map(z => z.id);
-      const { data: lots } = await supabase
-        .from("event_ticket_lots")
-        .select("id, iva_rate")
-        .in("zone_id", zoneIds);
-      if (!lots || lots.length === 0) return [];
-      const { data: sales } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lots.map(l => l.id));
-      return (sales || []).map((s: any) => {
-        const lot = lots.find((l: any) => l.id === s.lot_id);
-        const ivaRate = lot?.iva_rate || 0;
-        const gross = s.total_value != null ? Number(s.total_value) : Number(s.quantity) * Number(s.unit_price);
-        const net = gross / (1 + ivaRate / 100);
-        return { gross, net };
-      });
-    },
+  // ---- Receita: SSoT único (D24) — bilheteira + TX income, anti-duplicação 1.1.01
+  const { data: revenueBasis } = useEventRevenueBasis(eventId, childEventIds || [], {
+    skipForecast: true,
   });
 
   // ---- Despesas pagas por sócios
@@ -227,18 +204,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const useGrossExpenses = basis.withVat;
 
 
-  // Receita = bilheteira (ticket_sales) + receitas em transações.
-  // Se houver ticket_sales, as transações da rubrica 1.1.01 (Bilheteira) são o mesmo
-  // dinheiro já contado nas ticket_sales → excluídas para não duplicar.
-  const incomeTxAll = transactions.filter((t: any) => t.type === "income");
+  // Receita — vem toda do SSoT (D24). Zero cálculo local de bilheteira ou de TX income.
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
-  const hasTickets = ticketSales.length > 0;
-  const incomeTx = hasTickets ? incomeTxAll.filter((t: any) => !isTicketingRevenueTx(t)) : incomeTxAll;
-  const revenueNet = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.net, 0) : 0)
-    + incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
-  const revenueGross = (hasTickets ? ticketSales.reduce((s, t: any) => s + t.gross, 0) : 0)
-    + incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+  const revenueNet = revenueBasis?.real.total.net ?? 0;
+  const revenueGross = revenueBasis?.real.total.gross ?? 0;
 
   // Base da despesa conforme seletor: realizado (transações) ou previsto + excedido.
   const expenseSourceLines = basis.expenseSource === "committed"

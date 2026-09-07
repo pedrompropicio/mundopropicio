@@ -424,3 +424,19 @@ Documentos do evento. Não altera quotas, saldos nem o PDF.
 **Consequências:** Os dois auto-linkers continuam intactos a servir o dashboard do MP Audience — aproximação aceitável para leitura de gestão, não para contabilidade. O valor `'externo'` impede atribuições a eventos cujo tráfego é de terceiros (Deive Leonardo, agência Nonstop). A confirmação pela contabilidade tranca o vínculo, e a partir daí nenhuma regra automática lhe toca.
 
 **Estado:** vigente.
+
+## DR-2026-09-06-D24 — SSoT da receita do evento e base "Previsto + excedido" na receita
+
+**Decisão:** A receita de um evento (ou Master + Splits) passa a ter uma única implementação, `src/lib/event-revenue-basis.ts` (`computeEventRevenueBasis` + hook `useEventRevenueBasis`), que devolve três bases:
+
+- **`real`** — bilheteira de `ticket_sales` linha a linha (D11: `total_value` quando existe, IVA do lote, sem arredondar por bloco) + transações `type='income'` pelo filtro canónico do Fecho (`isValidFechoTransaction`: `status ∈ {approved, paid}`, `!is_transitory`, `!exclude_from_result`, `reversed_at IS NULL`, `!is_hidden`). Anti-duplicação por **prefixo** de rubrica `1.1.01` (`isBilheteiraCategoryCode`) quando há `ticket_sales` — a regra do Fecho é a canónica, por rubrica e nunca por heurística sobre a descrição. **`partially_paid` sai** da receita: o card contava-o, o Fecho não.
+- **`currentForecast`** — bilheteira via `computeLiveTicketForecast` (D21 adenda 2); A&B via cenário forecast do módulo A&B (injectado pelo hook, porque vive em `useEventABScenarios`); patrocínios via `computeSponsorshipSynthetic` (previsto corrente com verbas, fechados sem verbas, D22); outras receitas = linhas de BP `type='income'` da versão activa não representadas por sintéticas. `null` por componente quando não há base.
+- **`committed`** ("Previsto + excedido") — por componente `max(real, currentForecast ?? real)`: o previsto nunca fica abaixo do já realizado e, sem previsão, cai para o real. Espelha a regra do custo (`computeOutsideBpExcess`).
+
+Devolve também a decomposição por bucket (Bilheteira / A&B / Patrocínio / Outros), em par `{net, gross}` no realizado, para o Fecho e o card manterem detalhe e o seletor c/IVA na vista. Previsto é sempre s/IVA.
+
+**Consumidores** (cálculo local apagado): `useEventFinancialCardData` (Realizado = `real`, Previsto + excedido = `committed`, Forecast = `currentForecast`), `EventFecho`, `EventDetail` (bilheteira via `fetchTicketSalesRevenue`) e `computeTicketSynthetic` (real da bilheteira). Custo e Fecho de despesas ficam intocados.
+
+**Verificação (06/09, Live):** Ivete Clareou 2026 — real 501.415,16 € s/IVA = bilheteira 465.238,21 € + patrocínios 36.176,95 € (10.976,95 em 1.2.01 + 25.200,00 em 1.2.02), idêntico ao cêntimo antes e depois no card e no Fecho. Anitta - EDA 2026 — real 2.527.352,94 € s/IVA = bilheteira 2.286.981,13 € + A&B 130.112,00 € + patrocínios 21.813,01 € + outros 88.446,80 €, idêntico antes e depois. Nenhum dos dois tinha transações `partially_paid` nem transações de receita em `1.1.01`, pelo que a mudança de critério não altera nenhum evento existente.
+
+**Estado:** vigente.

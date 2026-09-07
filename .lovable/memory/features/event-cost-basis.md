@@ -81,18 +81,13 @@ Overhead OFF → 1.604.418,45 s/IVA · 1.856.754,97 c/IVA
 Overhead ON  → 1.636.918,45 s/IVA · 1.896.729,97 c/IVA
 ```
 
-## PENDÊNCIA IDENTIFICADA — receita (não implementar sem decisão nova)
-A regra `max(previsto, realizado)` **não** se aplica à receita, e o problema da
-receita **não é o espelho** do custo:
-- Só o **Coala PT 2026** tem linhas de receita no BP (19 linhas, 347.917,03 €).
-  Todos os outros eventos têm **zero**.
-- A previsão de bilheteira vive em `ticket_sales`/Simulador, não em
-  `event_forecasts`. Aplicar max() daria "receita = realizado" em todo o lado e
-  mascarava a ausência de BP de receita.
-- O risco é o **inverso** do custo: em modo comprometido o card de receita fica
-  a zero ou "indisponível" por falta de BP → **subavalia**.
-- Trata-se com decisão própria (BP de receita obrigatório, ou card de receita
-  ignorar o modo comprometido), não com a regra do excesso.
+## RECEITA — resolvida em DR-2026-09-06-D24 (ver `event-revenue-basis.md`)
+A receita tem SSoT próprio: `src/lib/event-revenue-basis.ts`. A base
+"Previsto + excedido" da receita é `max(real, previsto corrente ?? real)` **por
+componente** (Bilheteira / A&B / Patrocínio / Outros), não por linha de BP — a
+previsão de bilheteira vive no Simulador/`ticket_sales`, a de A&B no módulo A&B e
+a de patrocínios nas verbas por segmento (D22), não em `event_forecasts`. Assim o
+card comprometido de receita nunca fica a zero por falta de BP de receita.
 
 ## CRITÉRIO ÚNICO POR EVENTO (2026-08-20)
 Card da capa e Fecho (Encontro de Contas + Geral) partilham **um só** critério

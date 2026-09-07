@@ -8,3 +8,4 @@
 - [Google Ads service account auth](mem://integrations/google-ads-service-account-auth) — Service accounts são utilizadores válidos no Google Ads (sem DWD), nível máx "Padrão"; NOT_ADS_USER, PAGE_SIZE_NOT_SUPPORTED e service role sb_secret_
 - [Edge fn: nunca esm.sh para supabase-js](mem://constraints/edge-fn-esm-sh-supabase-js) — esm.sh quebrou boot (WORKER_ERROR) e parou o CAPI 16 dias; usar npm:@supabase/supabase-js@2, POST directo ao Graph, retoma de 'processing', alarme leads-capi-health
 - [BP de receita](mem://features/bp-receita) — Sub-separadores Despesas|Receitas e linhas sintéticas por módulo (bilheteira/A&B) com previsto original, corrente e real
+- [Event revenue basis (SSoT)](mem://features/event-revenue-basis) — Função única da receita em 3 bases (real/previsto corrente/previsto+excedido) com buckets
