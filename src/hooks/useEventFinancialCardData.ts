@@ -8,6 +8,7 @@ import {
 } from "@/lib/event-financial-card";
 import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
 
