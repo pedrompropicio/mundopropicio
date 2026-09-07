@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-07 · D24 em produção (Publish do Pedro 07/09) · mesa de desenho `bp-x-resultado` encerrada
+Atualizado: 2026-09-07 · curva de evolução (#104, D4) em produção (Publish do Pedro 07/09) · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído. A aba Business Plan tem sub-separadores Despesas | Receitas e as receitas com módulo aparecem como linhas sintéticas não persistidas — 1.1.01 (bilheteira), 1.1.03 (A&B) e 1.2.01 (patrocínios, D22) — com três colunas s/IVA: previsto original, previsto corrente e real.
@@ -13,11 +13,20 @@ O BP de receita está construído. A aba Business Plan tem sub-separadores Despe
 
 Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e estado vazio incluem sintéticas + reais + manuais; card Receitas bate ao cabeçalho.
 
+**A curva de evolução do BP está em produção (#104, D4).** A aba Business Plan tem agora o sub-separador **Evolução**, alimentado pela RPC `event_bp_evolution`:
+- reconstrução retroactiva do previsto de despesa por L3, dia a dia, a partir do estado actual;
+- desfaz `system_audit_log` (`entity_type='event_forecasts'`) e `forecast_audit_log` desde o arranque do audit em 2026-06-17;
+- origem = Σ `baseline_amount` das linhas activas;
+- marcos das versões congeladas (`bp_versions` em `active`/`superseded`) com o total do snapshot;
+- "alterações anotadas" de `forecast_audit_log` (observação preenchida);
+- componente só leitura: `src/components/bp/BPEvolution.tsx` com área empilhada, toggles L1/L2/L3, período 30/90/origem, linha tracejada do previsto original e tabela dos maiores movimentos.
+
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-**Curva de evolução L1/L2/L3** sobre `forecast_audit_log` + `system_audit_log` com as versões congeladas como marcos (D4, decidido 02/09; zero captura nova; limite: audit arranca a 17/06/2026 — issue #104). Depois: verbas por segmento nos eventos futuros (Ghanem 2027 e seguintes) — sem verbas o BP de receita de patrocínios é só o realizado.
+1. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
+2. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
 
 ## Bloqueios
 Nenhum.
@@ -61,10 +70,15 @@ Nenhum.
 - **D5 mantém versões congeladas voluntárias** — nenhuma versão é gerada automaticamente fora dos snapshots de lifecycle já existentes.
 - **`docs/questoes-*.md` está gitignored** — as questões abertas vivem nos docs de estado e nas issues, não nesses ficheiros (ver issue transversal aberta a 07/09).
 
+**Factos novos da verificação de 07/09 (curva de evolução):**
+- **Ivete Clareou 2026:** último ponto da série = **707.684,40 €** = previsto actual; origem (Σ `baseline_amount`) = **716.852,25 €**; sem versões congeladas.
+- **Anitta — EDA 2026:** último ponto da série = **1.667.709,64 €** = previsto actual; origem = **1.476.705,02 €**; Versão 1 (17/06 18:25) snapshot **1.429.244,39 €** vs curva do dia **1.419.595,39 €** — diferença de **9.649,00 €** porque o audit arranca às 18:33 desse dia. Limitação conhecida, só afecta esse marco.
+
 ## Onde ler mais
 - `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas
-- `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation, event-revenue-basis
+- `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation, event-revenue-basis, bp-evolucao
 - `src/lib/event-revenue-basis.ts`, `src/hooks/useEventRevenueBasis.ts`
 - `src/lib/bp-income-synthetic.ts`, `src/lib/bp-sponsorship-synthetic.ts`, `src/lib/event-simulator-forecast-live.ts`
+- `src/components/bp/BPEvolution.tsx`
 - `docs/questoes-bp-receita.md`
 - `docs/integrations/ticketline.md`
