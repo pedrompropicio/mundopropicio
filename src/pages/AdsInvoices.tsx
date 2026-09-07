@@ -306,24 +306,27 @@ export default function AdsInvoices() {
       ]);
       if (ee) throw ee;
       if (we) throw we;
-      const eligible = new Set(
+      const inWindow = new Set(
         ((wins ?? []) as any[])
           .filter((w) => w.win_start && w.win_end && w.win_start <= end && w.win_end >= start)
           .map((w) => w.event_id as string),
       );
-      const active = ((evs ?? []) as any[]).filter((e) => e.status === "active");
-      const byId = new Map(active.map((e) => [e.id, e]));
-      const mothers = active
+      // O status faz parte do critério de elegibilidade, não é um corte prévio:
+      // com o interruptor ligado tem de aparecer tudo, seja qual for o status.
+      const all = (evs ?? []) as any[];
+      const isEligible = (e: any) => e.status === "active" && inWindow.has(e.id);
+      const byId = new Map(all.map((e) => [e.id, e]));
+      const mothers = all
         .filter((e) => !e.parent_event_id || !byId.has(e.parent_event_id))
         .sort((a, b) => String(a.name).localeCompare(String(b.name)));
       const out: EventOption[] = [];
       for (const m of mothers) {
-        out.push({ id: m.id, name: m.name, parent_event_id: m.parent_event_id, eligible: eligible.has(m.id), isChild: false });
-        const kids = active
+        out.push({ id: m.id, name: m.name, parent_event_id: m.parent_event_id, eligible: isEligible(m), isChild: false });
+        const kids = all
           .filter((e) => e.parent_event_id === m.id)
           .sort((a, b) => String(a.name).localeCompare(String(b.name)));
         for (const k of kids) {
-          out.push({ id: k.id, name: k.name, parent_event_id: k.parent_event_id, eligible: eligible.has(k.id), isChild: true });
+          out.push({ id: k.id, name: k.name, parent_event_id: k.parent_event_id, eligible: isEligible(k), isChild: true });
         }
       }
       return out;
