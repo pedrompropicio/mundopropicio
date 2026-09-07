@@ -73,6 +73,19 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
+/** Rótulos legíveis dos impedimentos devolvidos pela reversão. */
+const blockerKindLabels: Record<string, string> = {
+  pago: "Pago",
+  fecho_bilheteira: "Fecho de bilheteira",
+  sessao_cartao: "Sessão de cartão",
+  parcela_registada: "Parcela registada",
+  lista_pagamento: "Lista de pagamento",
+  nota_reembolso: "Nota de reembolso",
+  nota_reembolso_pagamento: "Pagamento de nota de reembolso",
+  conferencia_contabilista: "Conferência do contabilista",
+  exportado_contabilidade: "Exportado para a contabilidade",
+};
+
 function periodLabel(d: string) {
   const [y, m] = d.split("-");
   return `${m}/${y}`;
