@@ -13,7 +13,14 @@
  */
 export const CAPITAL_BRANCH_PREFIX = "10.1.";
 
-export type CapitalKind = "aporte" | "devolucao" | "distribuicao";
+export type CapitalKind =
+  | "aporte"
+  | "devolucao"
+  | "distribuicao"
+  /** 10.1.04 — empréstimo à sociedade da empresa (não a um sócio de evento). */
+  | "emprestimo"
+  /** 10.1.05 — reembolso desse empréstimo. */
+  | "reembolso_emprestimo";
 
 export function isCapitalCategoryCode(code: string | null | undefined): boolean {
   return String(code ?? "").startsWith(CAPITAL_BRANCH_PREFIX);

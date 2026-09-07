@@ -34,7 +34,8 @@ import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { linkTransactionToForecast } from "@/lib/bp-line-relink";
-import { isCapitalCategoryCode, isCapitalCategoryId } from "@/lib/capital-branch";
+import { isCapitalCategoryCode, isCapitalCategoryId, capitalNeedsPartnerCode } from "@/lib/capital-branch";
+import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
@@ -3746,6 +3747,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               Uma transação criada como paga exige <strong>conta financeira</strong> associada.
             </p>
+          )}
+          {/* Conta-espelho de sócio: despesa criada já liquidada gera aporte automático (10.1.01). */}
+          {effectiveAutoMarkPaid && form.type === "expense" && (
+            <MirrorAporteNotice
+              accountId={form.account_id}
+              amount={parseFloat(form.amount || "0") || 0}
+            />
           )}
 
           {!showProrationConfirm && !showDuplicateConfirm && (
