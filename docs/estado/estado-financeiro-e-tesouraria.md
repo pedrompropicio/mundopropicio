@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-06 · Issues abertas: #90, #91, #92 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
+Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
 
 ## Em que pé está
 
@@ -11,6 +11,7 @@ Atualizado: 2026-09-06 · Issues abertas: #90, #91, #92 · #93 fechada por decis
 - **Lista de Contas a Pagar sem escrita direta.** "Marcar como Pago" voltou a ser estritamente visual (grava só `payment_list_items.manually_marked_paid`). "Liquidar (N)" passou a usar o `BatchPaymentModal` com conta obrigatória, uma linha em `transaction_payments` por transação e data inicial de `payment_lists.payment_date`. Filhas de rateio recebem `paid_amount`, `status` e `payment_date`, mas nunca `account_id` nem linha de pagamento (evita contagem dupla no saldo).
 - **Faturas avulsas — aba Conferência.** Seletor de mês com lista vinda de consulta própria (independente do limite de linhas), abertura no mês mais recente com faturas, grupo próprio "Sem data da fatura" sempre no topo, consulta por intervalo quando há mês escolhido, aviso quando o limite de 1000 é atingido em "Todos os meses", e "Exportar mês" a consultar o período completo em vez das linhas em memória. Scanner/OCR intocados.
 - **Camada de proposta para faturas de tráfego pago.** Existem as tabelas `public.ads_invoice` e `public.ads_invoice_line`, o bucket privado `ads-invoices`, a edge function `ads-invoice-ingest` (acções `parse_meta` e `propose_google`), a função `public.resolve_ads_event`, as colunas `events.ads_allocation_level` e `events.ads_match_aliases`, e o ecrã "Faturas de plataformas" em Financeiro (só leitura). Validado a 06/09/2026 contra as cinco faturas Meta de abril a agosto e três meses de Google, todos a fechar ao cêntimo. 98% do valor é atribuído por regra explícita.
+- **Fonte única do saldo de conta (parcial).** `src/lib/account-balance.ts` passou a exportar `computeAccountBalance(account, transactions, adjustments): number | null`, que devolve `null` quando `financial_accounts.skip_balance_check = true`. Cinco consumidores migraram e mostram "Sem controlo de saldo" em vez de número: `FinancialAccounts.tsx`, `TransactionPaymentModal.tsx`, `BatchPaymentModal.tsx`, `TransferFormModal.tsx` e `card-account-balance.ts`. Os três modais passaram a incluir os ajustes de retenção/crédito, terminando uma divergência de 460,00 € face ao ecrã de Contas. Os ecrãs de sessão de camarim/cartão ficaram deliberadamente de fora — ali o saldo é o da sessão, não o da conta, e o `skip_balance_check` só significa "não bloqueies o pagamento". Nenhuma validação nova foi introduzida.
 
 ## A trabalhar agora
 
@@ -38,8 +39,8 @@ Não corrigir sem decisão explícita.
 
 - 624 de 706 transações liquidadas não têm linha em `transaction_payments` (issue #91).
 - 526 liquidadas sem `account_id`, das quais 395 (75%) vêm da Lista de Contas a Pagar; 218 itens marcados com "Marcar como Pago" ficaram todos `paid`.
-- Saldo do Santander apurado por SQL: **-111.264,22 EUR**. As contas de bilheteira (Blueticket, BOL, Ticketline, Fever) não têm uma única entrada registada — a receita de bilhetes não está modelada como entrada de conta.
-- `skip_balance_check` é respeitado no card Saldo Total, na tabela de contas e no extrato em ecrã, mas ignorado no export do extrato, no Fluxo de Caixa, na Projeção de Tesouraria e em `get_event_cash_position` (issue #90).
+- Saldo do Santander apurado por SQL a 07/09/2026: **-218.115,20 EUR** (-217.655,20 com os ajustes de retenção). O extrato bancário a 01/09 dizia **+107.257,71 EUR**. A conta tem `initial_balance = 0` e apenas 2 entradas contra 113 saídas — a diferença é receita por carregar, não erro de cálculo. O `skip_balance_check` foi ligado nesta conta para desbloquear pagamentos, não por desenho. As contas de bilheteira (Blueticket, BOL, Ticketline, Fever) não têm uma única entrada registada — a receita de bilhetes não está modelada como entrada de conta.
+- `skip_balance_check` passou a ser respeitado nos cinco sítios do saldo de conta (ver "Em que pé está"), mas continua ignorado no export do extrato, no Fluxo de Caixa, na Projeção de Tesouraria, em `get_event_cash_position` e nos cálculos inline de `card-session-balance.ts` e `CardSessions.tsx`. Issue #90 mantém-se aberta por isso.
 - Tornar a tesouraria utilizável exige três peças em conjunto: fonte única de saldo (#90), backfill de `transaction_payments` (#91) e modelação da receita de bilheteira. Uma peça isolada piora o resultado.
 - Menor, sem issue: o OCR das faturas avulsas usa a edge function `extract-camarim-receipt` e o prompt de talões de camarim (bebidas, snacks, IVA 6%), o que pode degradar a extração em faturas de outra natureza.
 
@@ -66,6 +67,10 @@ Não corrigir sem decisão explícita.
 **`crm-meta-sync-insights` limita a janela a 90 dias por código, mesmo em mode full.** Buracos históricos do espelho são irrecuperáveis por essa via — para meses já faturados, a fatura é a fonte, não o espelho.
 
 **Meta Platforms Ireland Limited, VAT IE9692928F, IVA 0% por autoliquidação (art.º 196.º da Diretiva 2006/112/CE).** Conta Meta 5094207367314169. Google Ads cliente 220-004-3144, perfil de pagamentos 5700-5654-4710.
+
+**O saldo de conta nunca filtra `reversed_at`.** A RPC `reverse_transaction` tem dois tipos de estorno: `cash_refund` põe `paid_amount = 0` (o dinheiro voltou), `supplier_credit` mantém o `paid_amount` (o dinheiro saiu mesmo e nasce um crédito no fornecedor). `paid_amount` já é a resposta certa nos dois casos; filtrar `reversed_at` no saldo inflacionaria os estornos por crédito de fornecedor.
+
+**Existem três overloads de `reverse_transaction` em Live.** A de 5 argumentos (`p_tx_id`, `p_kind`, `p_reason`, `p_valid_until`, `p_release_for_repayment`) é a correta e é a única chamada pelo frontend, em `PaymentTimeline.tsx`. A legada de 3 argumentos (`p_transaction_id`, `p_reversal_kind`, `p_reason`) continua viva sem consumidor e não toca em `transaction_payments` nem liberta a transação das listas. Estornar por SQL direto, sem a RPC, deixa `reversal_kind` a NULL e o `paid_amount` intacto — foi o que corrompeu o saldo do Santander em 3.177,96 € entre 01/09 e 07/09.
 
 ## Onde ler mais
 
