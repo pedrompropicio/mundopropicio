@@ -76,6 +76,31 @@ function fmtDate(d: string | null): string {
   return `${dd}/${m}/${y}`;
 }
 
+/** Data de emissão + NET 60, em data local (YYYY-MM-DD). */
+function addDays(d: string, days: number): string {
+  const [y, m, dd] = String(d).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, dd));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Trava anti-duplicação: procura lançamentos de tráfego pago que já cubram
+ * esta fatura, mesmo feitos à mão e sem qualquer ligação à ads_invoice.
+ * Critério: rubrica 3.2.01 Digital e (invoice_ref = nº da fatura
+ * OU specification contém "ref. MM/AAAA" do período faturado).
+ */
+async function findExistingTransactions(inv: any) {
+  const spec = `ref. ${periodLabel(inv.billing_period)}`;
+  const { data, error } = await admin
+    .from("transactions")
+    .select("id, date, amount, event_id, invoice_ref, specification, parent_transaction_id")
+    .eq("category_id", CATEGORY_DIGITAL)
+    .or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 async function loadInvoice(invoiceId: string) {
   const { data: inv, error } = await admin.from("ads_invoice").select("*").eq("id", invoiceId).maybeSingle();
   if (error) throw new Error(error.message);
