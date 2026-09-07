@@ -450,3 +450,13 @@ Devolve também a decomposição por bucket (Bilheteira / A&B / Patrocínio / Ou
 **Verificação (06/09, Live):** Ivete Clareou 2026 — real 501.415,16 € s/IVA = bilheteira 465.238,21 € + patrocínios 36.176,95 € (10.976,95 em 1.2.01 + 25.200,00 em 1.2.02), idêntico ao cêntimo antes e depois no card e no Fecho. Anitta - EDA 2026 — real 2.527.352,94 € s/IVA = bilheteira 2.286.981,13 € + A&B 130.112,00 € + patrocínios 21.813,01 € + outros 88.446,80 €, idêntico antes e depois. Nenhum dos dois tinha transações `partially_paid` nem transações de receita em `1.1.01`, pelo que a mudança de critério não altera nenhum evento existente.
 
 **Estado:** vigente.
+
+## DR-2026-09-07 — Uma guarda que não conseguiu correr nunca conta como guarda que passou
+
+**Contexto:** A reversão de uma fatura Ads apaga transações. As guardas que a impedem consultam sete tabelas. Na primeira implementação, o `error` devolvido pelo Supabase era descartado em todas: se uma query falhasse — coluna errada, RLS, o que fosse — `data` vinha `null`, o ciclo não corria e a guarda passava como se estivesse tudo limpo. Uma das colunas estava mesmo errada (`note_id` em vez de `reimbursement_note_id`). A guarda mais perigosa era a de `accountant_transaction_reviews`, cuja FK é CASCADE: uma falha silenciosa ali apagaria a conferência do contabilista sem deixar rasto.
+
+**Decisão:** Em qualquer operação destrutiva, uma consulta de guarda que devolva erro aborta a operação com 500 e mensagem que nomeia a guarda. Nunca se trata ausência de resultados indistinguível de falha de consulta como ausência de impedimentos.
+
+**Consequência:** Aplica-se a toda a `ads-invoice-apply` e é o padrão a seguir em qualquer código futuro que apague ou reverta dados.
+
+**Estado:** vigente.

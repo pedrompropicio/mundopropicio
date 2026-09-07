@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
+Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92, #124, #125 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
 
 ## Em que pé está
 
@@ -10,7 +10,8 @@ Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92 · #93 fechada por decis
 - **Editor ganhou correção de pagamentos.** Pode alterar a data e apagar um pagamento registado; valor, conta e método continuam só para admin/manager. Nenhuma ação disponível em evento fechado (`status='completed'`). Auditoria por campo mantida.
 - **Lista de Contas a Pagar sem escrita direta.** "Marcar como Pago" voltou a ser estritamente visual (grava só `payment_list_items.manually_marked_paid`). "Liquidar (N)" passou a usar o `BatchPaymentModal` com conta obrigatória, uma linha em `transaction_payments` por transação e data inicial de `payment_lists.payment_date`. Filhas de rateio recebem `paid_amount`, `status` e `payment_date`, mas nunca `account_id` nem linha de pagamento (evita contagem dupla no saldo).
 - **Faturas avulsas — aba Conferência.** Seletor de mês com lista vinda de consulta própria (independente do limite de linhas), abertura no mês mais recente com faturas, grupo próprio "Sem data da fatura" sempre no topo, consulta por intervalo quando há mês escolhido, aviso quando o limite de 1000 é atingido em "Todos os meses", e "Exportar mês" a consultar o período completo em vez das linhas em memória. Scanner/OCR intocados.
-- **Camada de proposta para faturas de tráfego pago.** Existem as tabelas `public.ads_invoice` e `public.ads_invoice_line`, o bucket privado `ads-invoices`, a edge function `ads-invoice-ingest` (acções `parse_meta` e `propose_google`), a função `public.resolve_ads_event`, as colunas `events.ads_allocation_level` e `events.ads_match_aliases`, e o ecrã "Faturas de plataformas" em Financeiro (só leitura). Validado a 06/09/2026 contra as cinco faturas Meta de abril a agosto e três meses de Google, todos a fechar ao cêntimo. 98% do valor é atribuído por regra explícita.
+- **Faturas Ads — ciclo completo, em produção.** Tabelas `public.ads_invoice` e `public.ads_invoice_line`, bucket privado `ads-invoices`, edge functions `ads-invoice-ingest` (`parse_meta`, `propose_google`) e `ads-invoice-apply` (`confirm`, `generate`, `reopen`, `revert`), função `public.resolve_ads_event`, colunas `events.ads_allocation_level` e `events.ads_match_aliases`. O ecrã chama-se **Faturas Ads** (rota inalterada, `/faturas-plataformas`). Validado contra as cinco faturas Meta de abril a agosto e três meses de Google, todos a fechar ao cêntimo; 98% do valor é atribuído por regra explícita. A 07/09 fecharam-se as três lacunas que impediam corrigir um erro de matching: atribuição manual de evento por linha (`match_source = 'manual'`, com `matched_by`/`matched_at`), reabertura de uma fatura confirmada, e reversão de uma fatura já aplicada. Versão em produção confirmada por invocação: `v2.3_revert_guards`.
+- **Tráfego pago da Anitta fechado.** A linha de BP "Trafego Pago (MP e Anitta)" de 13.551,12 € decompõe-se ao cêntimo em 10.126,02 € de faturas Meta Ireland (Fev 2.249,10 · Abr 1.312,02 · Mai 1.864,60 · Jun 797,44 · Jul 3.902,86) mais 3.425,10 € de pagamentos pela conta brasileira (1.730,30 + 1.694,80). Faltavam lançar Fevereiro e Abril, 3.561,12 € — lançados a 07/09 como liquidados. A rubrica 3.2.01 Digital da Anitta passou de 15.701,96 € para **19.263,08 €**, com o realizado da linha a 13.551,11 € contra BP de 13.551,12 €. O resultado do evento não mudou: a despesa do fecho é a soma das linhas de BP, e a linha já continha estes valores. Ficaram ligadas ao `forecast_id` as quatro transações de tráfego que estavam órfãs.
 - **Fonte única do saldo de conta (parcial).** `src/lib/account-balance.ts` passou a exportar `computeAccountBalance(account, transactions, adjustments): number | null`, que devolve `null` quando `financial_accounts.skip_balance_check = true`. Cinco consumidores migraram e mostram "Sem controlo de saldo" em vez de número: `FinancialAccounts.tsx`, `TransactionPaymentModal.tsx`, `BatchPaymentModal.tsx`, `TransferFormModal.tsx` e `card-account-balance.ts`. Os três modais passaram a incluir os ajustes de retenção/crédito, terminando uma divergência de 460,00 € face ao ecrã de Contas. Os ecrãs de sessão de camarim/cartão ficaram deliberadamente de fora — ali o saldo é o da sessão, não o da conta, e o `skip_balance_check` só significa "não bloqueies o pagamento". Nenhuma validação nova foi introduzida.
 
 ## A trabalhar agora
@@ -19,13 +20,14 @@ Nada em execução.
 
 ## Próximo passo concreto
 
-Confirmação pela contabilidade (que tranca `linked_event_locked`), geração da transação-mãe e das filhas por evento ligadas à linha de BP 3.2.01, e o comprovativo de veiculação por evento.
+Testar em Live o ciclo novo das Faturas Ads, por esta ordem: (1) abrir a fatura 254484037 de julho e carregar em "Gerar lançamentos" — tem de devolver 409 e listar os quatro lançamentos manuais da Delia de 03/08; (2) reabrir uma fatura confirmada e verificar que as campanhas Meta destrancaram; (3) reatribuir uma linha à mão e confirmar o carimbo de autor no tooltip. A reversão não se testa em Live enquanto não houver uma fatura aplicada que se possa perder sem custo.
 
 ## Bloqueios
 
 - **(a) Regra dos cupões da Meta por decidir.** Em maio foram abatidos à Simone, em junho à Ivete; não há regra escrita.
 - **(b) Regime de IVA das faturas Google por confirmar.** Não existe nenhuma transação de Google no sistema.
-- **(c) €48.741,41 de tráfego por lançar.** Abril: 9.995,23 € (lançado sem evento, nunca rateado) e agosto: 38.746,18 € (fatura de 02/09), dos quais 34.702,85 € são do Raphael Ghanem.
+- **(c) 47.429,39 € de tráfego por lançar.** Abril: a mãe de 9.995,23 € estava na rubrica errada (10.8.07 Outros) e foi corrigida para 3.2.01 Digital a 07/09; tem agora uma filha (Anitta, 1.312,02 €) e faltam ratear 8.683,21 €. Agosto: 38.746,18 € da fatura de 02/09, dos quais 34.702,85 € são do Raphael Ghanem.
+- **(d) Jan-26, Fev-26 e parte de Mar-26 nunca entraram no sistema — 71.989,54 €.** Issue #124. Quase tudo de eventos anteriores ao arranque do ERP e nunca importados.
 
 ## Dados legados deixados intactos por decisão do Pedro
 
@@ -71,6 +73,12 @@ Não corrigir sem decisão explícita.
 **O saldo de conta nunca filtra `reversed_at`.** A RPC `reverse_transaction` tem dois tipos de estorno: `cash_refund` põe `paid_amount = 0` (o dinheiro voltou), `supplier_credit` mantém o `paid_amount` (o dinheiro saiu mesmo e nasce um crédito no fornecedor). `paid_amount` já é a resposta certa nos dois casos; filtrar `reversed_at` no saldo inflacionaria os estornos por crédito de fornecedor.
 
 **Existem três overloads de `reverse_transaction` em Live.** A de 5 argumentos (`p_tx_id`, `p_kind`, `p_reason`, `p_valid_until`, `p_release_for_repayment`) é a correta e é a única chamada pelo frontend, em `PaymentTimeline.tsx`. A legada de 3 argumentos (`p_transaction_id`, `p_reversal_kind`, `p_reason`) continua viva sem consumidor e não toca em `transaction_payments` nem liberta a transação das listas. Estornar por SQL direto, sem a RPC, deixa `reversal_kind` a NULL e o `paid_amount` intacto — foi o que corrompeu o saldo do Santander em 3.177,96 € entre 01/09 e 07/09.
+
+**A despesa do fecho de um evento é a soma das linhas de BP, não a soma das transações.** Lançar uma transação contra uma linha de BP que já contém o valor não altera o resultado do evento nem o apuramento por sócio — só converte previsão em realizado. Só há impacto no resultado se o total ligado à linha exceder o BP, e aí entra como custo fora do BP.
+
+**Reverter uma fatura Ads aplicada apaga a transação-mãe, e as filhas caem por CASCADE.** Sete guardas correm antes e nenhuma é opcional: pago ou com `paid_amount` > 0, `settlement_id`, `card_session_id`, linha em `transaction_payments`, presença em `payment_list_items`, `reimbursement_note_items` ou `reimbursement_notes`, conferência em `accountant_transaction_reviews`, e data dentro de um período já em `accounting_exports`. A ordem das operações é fixa: soltar `event_forecasts.transaction_id` (FK NO ACTION, é a que bloqueia), apagar a mãe, e só depois apagar os ficheiros do storage.
+
+**A rubrica de destino de uma fatura de tráfego não é garantida.** A fatura Meta de abril (252466632) esteve quatro meses lançada em 10.8.07 Outros em vez de 3.2.01 Digital, e por isso não aparecia em nenhuma leitura do Digital. Ao conferir tráfego pago, procurar por `invoice_ref` e por fornecedor, nunca só por categoria.
 
 ## Onde ler mais
 
