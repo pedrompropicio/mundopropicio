@@ -34,7 +34,11 @@ import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
 import { linkTransactionToForecast } from "@/lib/bp-line-relink";
-import { isCapitalCategoryCode, isCapitalCategoryId, capitalNeedsPartnerCode } from "@/lib/capital-branch";
+import {
+  isCapitalCategoryCode,
+  isCapitalCategoryId,
+  capitalNeedsPartner as capitalCodeNeedsPartner,
+} from "@/lib/capital-branch";
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 
@@ -1457,7 +1461,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // ===== Capital do Sócio (AEP) — vínculo automático =====
         // Sequência: transação criada → id obtido → insere partner_capital_moves.
         // Se o vínculo falhar, avisa (a TX existe; pode ligar-se no painel).
-        if (insertedTx?.id && selectedCategoryIsCapital && capitalPartnerId) {
+        if (
+          insertedTx?.id &&
+          selectedCategoryIsCapital &&
+          capitalCodeNeedsPartner(selectedCategoryCode) &&
+          capitalPartnerId
+        ) {
           try {
             await upsertPartnerCapitalMove({
               eventId: data.event_id,
@@ -1990,7 +1999,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
     // Um movimento de capital tem sempre um sócio associado (associado da
     // Associação em Participação). Sem sócio, o dado fica incompleto.
-    if (selectedCategoryIsCapital) {
+    // 10.1.04/05 (empréstimo a sócio / reembolso) são com a sociedade da
+    // empresa: não exigem sócio de evento nem evento.
+    if (selectedCategoryIsCapital && capitalCodeNeedsPartner(selectedCategoryCode)) {
       if (isSplit) {
         toast({
           title: "Movimento de capital não pode ser rateado",
