@@ -299,6 +299,7 @@ async function handleGenerate(body: any, userId?: string) {
 
   const spec = `ref. ${periodLabel(inv.billing_period)}`;
   const txDate = inv.issue_date ?? new Date().toISOString().slice(0, 10);
+  const dueDate = addDays(txDate, PAYMENT_TERMS_DAYS);
   const base = {
     type: "expense",
     category_id: CATEGORY_DIGITAL,
@@ -309,15 +310,9 @@ async function handleGenerate(body: any, userId?: string) {
     supplier_id: supplierId,
     payment_method: "transfer",
     date: txDate,
+    due_date: dueDate,
     company_id: inv.company_id,
   };
-
-  const { data: parent, error: pe } = await admin
-    .from("transactions")
-    .insert({ ...base, event_id: null, amount: total })
-    .select("id, amount")
-    .single();
-  if (pe) return json({ error: `mãe: ${pe.message}` }, 500);
 
   // linhas de BP 3.2.01 dos eventos envolvidos (versão ativa)
   const eventIds = Array.from(byEvent.keys());
