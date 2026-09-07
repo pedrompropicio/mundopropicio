@@ -593,7 +593,7 @@ export default function AdsInvoices() {
                 <TableBody>
                   {revertBlockers.map((b, i) => (
                     <TableRow key={i}>
-                      <TableCell>{b.kind}</TableCell>
+                      <TableCell>{blockerKindLabels[b.kind] ?? b.kind}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{b.transaction_id}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {[
@@ -601,8 +601,10 @@ export default function AdsInvoices() {
                           b.paid_amount ? formatCurrency(Number(b.paid_amount)) : null,
                           b.note,
                           b.period_from ? `export ${b.period_from} → ${b.period_to}` : null,
+                          b.exported_at ? `entregue ${fmtDateTime(b.exported_at)}` : null,
                           b.transaction_date,
                           b.payment_list_id,
+                          b.payment_id,
                           b.note_id,
                           b.settlement_id,
                           b.card_session_id,
