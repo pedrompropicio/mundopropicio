@@ -82,6 +82,12 @@ Não corrigir sem decisão explícita.
 
 **A rubrica de destino de uma fatura de tráfego não é garantida.** A fatura Meta de abril (252466632) esteve quatro meses lançada em 10.8.07 Outros em vez de 3.2.01 Digital, e por isso não aparecia em nenhuma leitura do Digital. Ao conferir tráfego pago, procurar por `invoice_ref` e por fornecedor, nunca só por categoria.
 
+**O espelho segue a transação, nunca a linha de BP nem a linha de pagamento.** Uma transação pode cobrir várias linhas de BP e continua a ser uma só saída de dinheiro. E `transaction_payments` não é âncora fiável: na conta de Madrid havia uma transação com o pagamento gravado duas vezes e outra com o valor em reais. O `paid_amount` da transação é a verdade. Filhas de rateio nunca recebem `account_id`, portanto nunca geram aporte duplicado.
+
+**`transaction_payments` não tem campo de moeda.** O pagamento do consórcio tem 68.770,80 numa transação de 11.385,52 — é o valor em reais (câmbio 6,04), não um erro. Quem somar essa tabela mistura moedas sem aviso.
+
+**O ramo 10.1 não alimenta o mapa de sugestão de rubricas.** Guarda acrescentada a `coala_capture_category_change` em 07/09: sem ela, cada aporte espelhado escrevia uma linha em `coala_supplier_category_map`.
+
 ## Onde ler mais
 
 - `.lovable/memory/features/payment-amount-invariants.md` — soma de pagamentos e paid_amount nunca excedem o bruto
