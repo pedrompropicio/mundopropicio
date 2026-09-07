@@ -69,7 +69,16 @@ export default function AdsInvoices() {
     const { data, error } = await supabase.functions.invoke("ads-invoice-apply", {
       body: { action, invoice_id: invoiceId },
     });
-    if (error) throw new Error(error.message);
+    // A trava anti-duplicação responde 409 com a lista dos lançamentos existentes:
+    // não é um erro de execução, é informação para a pessoa decidir.
+    const ctx = (error as any)?.context;
+    if (error) {
+      let payload: any = null;
+      try { payload = await ctx?.json?.(); } catch { /* sem corpo JSON */ }
+      if (payload?.duplicate_block) return payload;
+      throw new Error(payload?.error ?? error.message);
+    }
+    if ((data as any)?.duplicate_block) return data as any;
     if ((data as any)?.error) throw new Error((data as any).error);
     return data as any;
   };
