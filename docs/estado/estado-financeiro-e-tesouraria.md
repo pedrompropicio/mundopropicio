@@ -68,6 +68,10 @@ Não corrigir sem decisão explícita.
 
 **Meta Platforms Ireland Limited, VAT IE9692928F, IVA 0% por autoliquidação (art.º 196.º da Diretiva 2006/112/CE).** Conta Meta 5094207367314169. Google Ads cliente 220-004-3144, perfil de pagamentos 5700-5654-4710.
 
+**O saldo de conta nunca filtra `reversed_at`.** A RPC `reverse_transaction` tem dois tipos de estorno: `cash_refund` põe `paid_amount = 0` (o dinheiro voltou), `supplier_credit` mantém o `paid_amount` (o dinheiro saiu mesmo e nasce um crédito no fornecedor). `paid_amount` já é a resposta certa nos dois casos; filtrar `reversed_at` no saldo inflacionaria os estornos por crédito de fornecedor.
+
+**Existem três overloads de `reverse_transaction` em Live.** A de 5 argumentos (`p_tx_id`, `p_kind`, `p_reason`, `p_valid_until`, `p_release_for_repayment`) é a correta e é a única chamada pelo frontend, em `PaymentTimeline.tsx`. A legada de 3 argumentos (`p_transaction_id`, `p_reversal_kind`, `p_reason`) continua viva sem consumidor e não toca em `transaction_payments` nem liberta a transação das listas. Estornar por SQL direto, sem a RPC, deixa `reversal_kind` a NULL e o `paid_amount` intacto — foi o que corrompeu o saldo do Santander em 3.177,96 € entre 01/09 e 07/09.
+
 ## Onde ler mais
 
 - `.lovable/memory/features/payment-amount-invariants.md` — soma de pagamentos e paid_amount nunca excedem o bruto
