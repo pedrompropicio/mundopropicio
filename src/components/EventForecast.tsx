@@ -2254,7 +2254,9 @@ const descRef = useRef<HTMLInputElement>(null);
             <TabsList>
               <TabsTrigger value="forecasts">Previsões</TabsTrigger>
               <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
+              <TabsTrigger value="evolution">Evolução</TabsTrigger>
             </TabsList>
+
             {/* D9: sub-separadores Despesas | Receitas — aplicam-se à lista, filtros e botões. */}
             {!expenseOnly && (
               <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
@@ -3101,7 +3103,13 @@ const descRef = useRef<HTMLInputElement>(null);
           </div>
           <ComparisonTable data={comparisonData} onOpenTransactionDocuments={setComparisonDocumentsTransaction} />
         </TabsContent>
+
+        {/* D4: evolução do previsto de despesa (leitura, sem edição) */}
+        <TabsContent value="evolution">
+          <BPEvolution eventId={eventId} />
+        </TabsContent>
       </Tabs>
+
 
       {editApprovedForecast && (
         <ForecastEditModal
