@@ -19,7 +19,7 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -210,18 +210,8 @@ export default function FinancialAccounts() {
     setShowForm(true);
   }
 
-  function computeBalance(accountId: string, initialBalance: number) {
-    const accountTxs = txSummary.filter((t) => t.account_id === accountId);
-    let balance = initialBalance;
-    accountTxs.forEach((t) => {
-      const amt = Number((t as any).paid_amount ?? 0);
-      if (t.type === "income") balance += amt;
-      else balance -= amt;
-    });
-    // Add back non-cash deductions (IRS withholding + supplier credits)
-    // that are embedded in the gross paid_amount.
-    balance += cashAdjustments?.get(accountId) ?? 0;
-    return balance;
+  function computeBalance(account: any): number | null {
+    return computeAccountBalance(account, txSummary as any, cashAdjustments);
   }
 
   function canSeeBalance(account: any) {
@@ -243,7 +233,7 @@ export default function FinancialAccounts() {
   // Summary cards — exclude skip_balance_check accounts from total
   const totalBalance = activeAccounts.reduce((sum: number, acc: any) => {
     if (!canSeeBalance(acc) || acc.skip_balance_check) return sum;
-    return sum + computeBalance(acc.id, Number(acc.initial_balance));
+    return sum + (computeBalance(acc) ?? 0);
   }, 0);
 
   return (
@@ -492,7 +482,7 @@ export default function FinancialAccounts() {
                   {activeAccounts.map((acc: any) => {
                     const typeInfo = getTypeInfo(acc.type);
                     const Icon = typeInfo.icon;
-                    const balance = computeBalance(acc.id, Number(acc.initial_balance));
+                    const balance = computeBalance(acc);
                     const showBalance = canSeeBalance(acc);
 
                     return (
@@ -518,12 +508,12 @@ export default function FinancialAccounts() {
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {acc.skip_balance_check ? (
-                            <span className="text-xs text-muted-foreground italic">Saldo não controlado</span>
+                            <span className="text-xs text-muted-foreground italic">Sem controlo de saldo</span>
                           ) : showBalance ? formatCurrency(Number(acc.initial_balance)) : "••••••"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {acc.skip_balance_check ? (
-                            <span className="text-xs text-muted-foreground italic">Saldo não controlado</span>
+                          {balance === null ? (
+                            <span className="text-xs text-muted-foreground italic">Sem controlo de saldo</span>
                           ) : showBalance ? (
                             <span className={`font-mono text-sm font-semibold ${balance >= 0 ? "text-success" : "text-destructive"}`}>
                               {formatCurrency(balance)}

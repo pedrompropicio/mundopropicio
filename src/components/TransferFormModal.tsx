@@ -6,7 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 
@@ -57,25 +57,16 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     queryFn: async () => {
       const account = accounts.find((a) => a.id === fromAccountId);
       if (!account) return 0;
+      if ((account as any).skip_balance_check) return null;
 
       const { data: txns, error } = await supabase
         .from("transactions")
-        .select("type, paid_amount")
-        .eq("account_id", fromAccountId)
-        .in("status", ["paid", "approved", "pending"]);
+        .select("account_id, type, paid_amount")
+        .eq("account_id", fromAccountId);
       if (error) throw error;
 
-      let balance = Number(account.initial_balance ?? 0);
-      for (const t of txns || []) {
-        const paid = Number(t.paid_amount ?? 0);
-        if (t.type === "income") balance += paid;
-        else balance -= paid;
-      }
-      // Add back IRS withholding + supplier credits (non-cash deductions
-      // already embedded in paid_amount).
       const adj = await fetchAccountCashAdjustments([fromAccountId]);
-      balance += adj.get(fromAccountId) ?? 0;
-      return balance;
+      return computeAccountBalance(account as any, (txns ?? []) as any, adj);
     },
   });
 
@@ -90,7 +81,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
       const fromAccount = accounts.find((a) => a.id === fromAccountId);
       const toAccount = accounts.find((a) => a.id === toAccountId);
       const skipCheck = (fromAccount as any)?.skip_balance_check ?? false;
-      if (!skipCheck && sourceBalance !== undefined && numAmount > sourceBalance) {
+      if (!skipCheck && sourceBalance !== undefined && sourceBalance !== null && numAmount > sourceBalance) {
         throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
       }
 
@@ -174,7 +165,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
   const numAmount = parseFloat(amount);
   const fromAccountSkip = (accounts.find((a) => a.id === fromAccountId) as any)?.skip_balance_check ?? false;
   const insufficientBalance =
-    !fromAccountSkip && sourceBalance !== undefined && !isNaN(numAmount) && numAmount > sourceBalance;
+    !fromAccountSkip && sourceBalance !== undefined && sourceBalance !== null && !isNaN(numAmount) && numAmount > sourceBalance;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -209,20 +200,14 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
               }}
               placeholder="Selecionar conta…"
             />
-            {fromAccountId && sourceBalance !== undefined && (
+            {fromAccountId && sourceBalance === null && (
+              <p className="mt-1 text-xs text-muted-foreground italic">Sem controlo de saldo</p>
+            )}
+            {fromAccountId && sourceBalance !== undefined && sourceBalance !== null && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {fromAccountSkip ? (
-                  <>
-                    Saldo: <span className="font-mono font-semibold">€{sourceBalance.toFixed(2)}</span>
-                    {" · conta sem controlo de saldo"}
-                  </>
-                ) : (
-                  <>
-                    Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>
-                      €{sourceBalance.toFixed(2)}
-                    </span>
-                  </>
-                )}
+                Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>
+                  €{sourceBalance.toFixed(2)}
+                </span>
               </p>
             )}
           </div>

@@ -17,6 +17,7 @@ import {
   fetchSuggestedFxRate,
 } from "@/lib/currency";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
+import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 
 interface Props {
@@ -69,18 +70,15 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
     },
   });
 
-  function computeAccountBalance(accId: string) {
+  const { data: cashAdjustments } = useQuery({
+    queryKey: ["account-cash-adjustments"],
+    queryFn: () => fetchAccountCashAdjustments(),
+  });
+
+  function accountBalanceOf(accId: string): number | null {
     const acc = financialAccounts.find((a: any) => a.id === accId);
     if (!acc) return 0;
-    let bal = Number(acc.initial_balance ?? 0);
-    txSummary
-      .filter((t: any) => t.account_id === accId)
-      .forEach((t: any) => {
-        const amt = Number(t.paid_amount ?? 0);
-        if (t.type === "income") bal += amt;
-        else bal -= amt;
-      });
-    return bal;
+    return computeAccountBalance(acc as any, txSummary as any, cashAdjustments);
   }
 
   // Build per-row info incl. foreign-currency reference
@@ -186,7 +184,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const invoiceRefApplies = !!singleSupplier;
   const effectiveInvoiceRef = invoiceRefApplies ? invoiceRef.trim() : "";
 
-  const selectedBalance = accountId ? computeAccountBalance(accountId) : null;
+  const selectedBalance = accountId ? accountBalanceOf(accountId) : null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
   const accountOptions = financialAccounts.map((a: any) => ({
     value: a.id,
@@ -215,8 +213,8 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
       if (allExpenses) {
         const acc = financialAccounts.find((a: any) => a.id === accountId);
         const skipCheck = acc?.skip_balance_check ?? false;
-        if (!skipCheck) {
-          const accBal = computeAccountBalance(accountId);
+        const accBal = accountBalanceOf(accountId);
+        if (!skipCheck && accBal !== null) {
           if (totalCashOut > accBal + 0.05) {
             throw new Error(
               `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalCashOut)}`
@@ -616,22 +614,16 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
               placeholder="Selecionar conta…"
               searchPlaceholder="Pesquisar conta…"
             />
+            {accountId && selectedBalance === null && (
+              <p className="mt-1 text-[10px] text-muted-foreground italic">Sem controlo de saldo</p>
+            )}
             {selectedBalance !== null && (
               <p className="mt-1 text-[10px] text-muted-foreground">
-                {selectedAccount?.skip_balance_check ? (
-                  <>
-                    Saldo: {formatCurrency(selectedBalance)}
-                    {" · conta sem controlo de saldo"}
-                  </>
-                ) : (
-                  <>
-                    Saldo atual: {formatCurrency(selectedBalance)}
-                    {allExpenses && totalRemaining > selectedBalance && (
-                      <span className="ml-1 text-destructive font-semibold">
-                        — Saldo insuficiente!
-                      </span>
-                    )}
-                  </>
+                Saldo atual: {formatCurrency(selectedBalance)}
+                {allExpenses && totalRemaining > selectedBalance && (
+                  <span className="ml-1 text-destructive font-semibold">
+                    — Saldo insuficiente!
+                  </span>
                 )}
               </p>
             )}

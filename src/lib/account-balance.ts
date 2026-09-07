@@ -57,3 +57,35 @@ export async function fetchAccountCashAdjustments(
   }
   return map;
 }
+
+/**
+ * Fonte única do saldo de uma conta financeira.
+ *
+ * Devolve `null` quando a conta está configurada como "Sem Controle de Saldo"
+ * (`skip_balance_check = true`) — nesse caso o interface mostra
+ * "Sem controlo de saldo" em vez de um número.
+ *
+ * Caso contrário: initial_balance + Σ movimentos (income soma, expense
+ * subtrai, sempre por `paid_amount`) + ajustes não-monetários (retenção IRS +
+ * créditos de fornecedor) vindos de fetchAccountCashAdjustments.
+ *
+ * NÃO filtra `reversed_at` nem `status`: a RPC reverse_transaction põe
+ * paid_amount = 0 nos estornos cash_refund, e nos estornos supplier_credit o
+ * dinheiro saiu mesmo da conta.
+ */
+export function computeAccountBalance(
+  account: { id: string; initial_balance?: number | null; skip_balance_check?: boolean | null },
+  transactions: Array<{ account_id: string; type: string; paid_amount?: number | null }>,
+  adjustments?: Map<string, number>
+): number | null {
+  if (account.skip_balance_check) return null;
+
+  let balance = Number(account.initial_balance ?? 0);
+  for (const t of transactions) {
+    if (t.account_id !== account.id) continue;
+    const amt = Number(t.paid_amount ?? 0);
+    balance += t.type === "income" ? amt : -amt;
+  }
+  balance += adjustments?.get(account.id) ?? 0;
+  return balance;
+}
