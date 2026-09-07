@@ -161,33 +161,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     enabled: !!parentEventId,
   });
 
-  // ---- Ticket sales (preferência sobre income transactions se houver)
-  const { data: ticketSales = [] } = useQuery({
-    queryKey: ["fecho-ticket-sales", allEventIds],
-    queryFn: async () => {
-      const { data: zones } = await supabase
-        .from("event_ticket_zones")
-        .select("id")
-        .in("event_id", allEventIds);
-      if (!zones || zones.length === 0) return [];
-      const zoneIds = zones.map(z => z.id);
-      const { data: lots } = await supabase
-        .from("event_ticket_lots")
-        .select("id, iva_rate")
-        .in("zone_id", zoneIds);
-      if (!lots || lots.length === 0) return [];
-      const { data: sales } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lots.map(l => l.id));
-      return (sales || []).map((s: any) => {
-        const lot = lots.find((l: any) => l.id === s.lot_id);
-        const ivaRate = lot?.iva_rate || 0;
-        const gross = s.total_value != null ? Number(s.total_value) : Number(s.quantity) * Number(s.unit_price);
-        const net = gross / (1 + ivaRate / 100);
-        return { gross, net };
-      });
-    },
+  // ---- Receita: SSoT único (D24) — bilheteira + TX income, anti-duplicação 1.1.01
+  const { data: revenueBasis } = useEventRevenueBasis(eventId, childEventIds || [], {
+    skipForecast: true,
   });
 
   // ---- Despesas pagas por sócios
