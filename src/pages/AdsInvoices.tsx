@@ -116,6 +116,25 @@ export default function AdsInvoices() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const markMutation = useMutation({
+    mutationFn: async (v: { id: string; note: string | null }) => {
+      const { error } = await supabase
+        .from("ads_invoice_line")
+        .update(
+          v.note === null
+            ? { match_source: "none", match_note: null }
+            : { match_source: "fora_sistema", event_id: null, match_note: v.note },
+        )
+        .eq("id", v.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ads-invoice-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["ads-invoice-lines-counts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["ads-invoices"],
     queryFn: async () => {
@@ -136,7 +155,7 @@ export default function AdsInvoices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ads_invoice_line")
-        .select("invoice_id, event_id, is_adjustment");
+        .select("invoice_id, event_id, is_adjustment, match_source");
       if (error) throw error;
       return data ?? [];
     },
@@ -144,7 +163,7 @@ export default function AdsInvoices() {
 
   const missingByInvoice = new Map<string, number>();
   for (const l of allLines as any[]) {
-    if (l.is_adjustment || l.event_id) continue;
+    if (l.is_adjustment || l.event_id || l.match_source === "fora_sistema") continue;
     missingByInvoice.set(l.invoice_id, (missingByInvoice.get(l.invoice_id) ?? 0) + 1);
   }
 
@@ -196,8 +215,15 @@ export default function AdsInvoices() {
     const byEvent = new Map<string, number>();
     let adjustments = 0;
     let missing = 0;
+    let outOfScope = 0;
+    let outOfScopeLines = 0;
     for (const l of lines) {
       if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
+      if (l.match_source === "fora_sistema") {
+        outOfScope += Number(l.amount);
+        outOfScopeLines++;
+        continue;
+      }
       if (!l.event_id || l.match_source === "none") { missing++; continue; }
       byEvent.set(l.event_id, (byEvent.get(l.event_id) ?? 0) + Number(l.amount));
     }
@@ -352,6 +378,12 @@ export default function AdsInvoices() {
                     <TableCell className="text-right">{formatCurrency(adjustments)}</TableCell>
                   </TableRow>
                 )}
+                <TableRow>
+                  <TableCell className="text-muted-foreground">
+                    Fora do sistema ({outOfScopeLines} linha{outOfScopeLines === 1 ? "" : "s"})
+                  </TableCell>
+                  <TableCell className="text-right">{formatCurrency(outOfScope)}</TableCell>
+                </TableRow>
                 {missing > 0 && (
                   <TableRow>
                     <TableCell className="text-warning">Linhas sem evento</TableCell>
@@ -377,6 +409,7 @@ export default function AdsInvoices() {
                   <TableHead className="w-28">Origem</TableHead>
                   <TableHead>Porquê</TableHead>
                   <TableHead className="text-right w-28">Valor</TableHead>
+                  <TableHead className="w-44" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -394,6 +427,35 @@ export default function AdsInvoices() {
                       {l.match_note ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="text-right">
+                      {!readOnly && !l.is_adjustment && l.match_source === "fora_sistema" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={markMutation.isPending}
+                          onClick={() => markMutation.mutate({ id: l.id, note: null })}
+                        >
+                          Repor por resolver
+                        </Button>
+                      )}
+                      {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && !l.event_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={markMutation.isPending}
+                          onClick={() => {
+                            const note = window.prompt(
+                              "Porque é que esta linha não pertence a nenhum evento do sistema?",
+                              "evento anterior ao sistema",
+                            );
+                            if (!note || !note.trim()) return;
+                            markMutation.mutate({ id: l.id, note: note.trim() });
+                          }}
+                        >
+                          Marcar como fora do sistema
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

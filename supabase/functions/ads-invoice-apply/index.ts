@@ -11,7 +11,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 
-const VERSION = "v2.0_guard_duplicates_and_terms";
+const VERSION = "v2.1_out_of_scope_lines";
 
 /** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
 const PAYMENT_TERMS_DAYS = 60;
@@ -120,7 +120,11 @@ function checkReady(inv: any, lines: any[]): string | null {
   if (Math.abs(sum - Number(inv.total_amount)) >= 0.005) {
     return `soma das linhas (${sum}) difere do total da fatura (${inv.total_amount})`;
   }
-  const orphan = lines.filter((l) => !l.is_adjustment && (!l.event_id || l.match_source === "none"));
+  // 'fora_sistema' é uma decisão humana: a linha não pertence a nenhum evento
+  // do sistema e por isso não é órfã nem gera filha.
+  const orphan = lines.filter(
+    (l) => !l.is_adjustment && l.match_source !== "fora_sistema" && (!l.event_id || l.match_source === "none"),
+  );
   if (orphan.length > 0) {
     return `${orphan.length} linha(s) sem evento resolvido (linhas ${orphan.map((l) => l.line_no).join(", ")})`;
   }
@@ -259,12 +263,16 @@ async function handleGenerate(body: any, userId?: string) {
 
   const byEvent = new Map<string, any[]>();
   let adjustments = 0;
+  let outOfScope = 0;
+  let outOfScopeLines = 0;
   for (const l of lines) {
     if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
+    if (l.match_source === "fora_sistema") { outOfScope += Number(l.amount); outOfScopeLines++; continue; }
     if (!byEvent.has(l.event_id)) byEvent.set(l.event_id, []);
     byEvent.get(l.event_id)!.push(l);
   }
   adjustments = round2(adjustments);
+  outOfScope = round2(outOfScope);
 
   const subtotals = new Map<string, number>();
   for (const [eventId, evLines] of byEvent) {
@@ -272,9 +280,11 @@ async function handleGenerate(body: any, userId?: string) {
   }
   const childrenSum = round2(Array.from(subtotals.values()).reduce((a, v) => a + v, 0));
   const total = Number(inv.total_amount);
-  if (Math.abs(round2(childrenSum + adjustments) - total) >= 0.005) {
+  if (Math.abs(round2(childrenSum + adjustments + outOfScope) - total) >= 0.005) {
     return json({
-      error: `filhas (${childrenSum}) + ajustes (${adjustments}) ≠ total da fatura (${total})`,
+      error:
+        `filhas (${childrenSum}) + ajustes (${adjustments}) + fora do sistema (${outOfScope}) ` +
+        `≠ total da fatura (${total})`,
     }, 400);
   }
 
@@ -389,6 +399,7 @@ async function handleGenerate(body: any, userId?: string) {
       })),
       adjustments,
       children_sum: childrenSum,
+      out_of_scope: { amount: outOfScope, lines: outOfScopeLines },
       total,
       version: VERSION,
     });
@@ -499,6 +510,7 @@ async function handleGenerate(body: any, userId?: string) {
     parent_transaction_id: parent.id,
     adjustments,
     children_sum: childrenSum,
+    out_of_scope: { amount: outOfScope, lines: outOfScopeLines },
     total,
     original_attached: originalAttached,
     transactions: created,
