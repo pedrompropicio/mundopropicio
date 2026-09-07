@@ -11,22 +11,22 @@
  * e continua a viver em CardSessionDetail.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
 
-export async function fetchCardAccountBalance(accountId: string): Promise<number> {
+/** Devolve `null` quando a conta tem skip_balance_check (sem controlo de saldo). */
+export async function fetchCardAccountBalance(accountId: string): Promise<number | null> {
   const [{ data: account, error: accErr }, { data: txs, error: txErr }, adjustments] = await Promise.all([
-    supabase.from("financial_accounts").select("initial_balance").eq("id", accountId).maybeSingle(),
-    supabase.from("transactions").select("type, paid_amount").eq("account_id", accountId),
+    supabase
+      .from("financial_accounts")
+      .select("id, initial_balance, skip_balance_check")
+      .eq("id", accountId)
+      .maybeSingle(),
+    supabase.from("transactions").select("account_id, type, paid_amount").eq("account_id", accountId),
     fetchAccountCashAdjustments([accountId]),
   ]);
   if (accErr) throw accErr;
   if (txErr) throw txErr;
+  if (!account) return 0;
 
-  let balance = Number(account?.initial_balance ?? 0);
-  for (const t of txs ?? []) {
-    const amt = Number((t as any).paid_amount ?? 0);
-    balance += (t as any).type === "income" ? amt : -amt;
-  }
-  balance += adjustments.get(accountId) ?? 0;
-  return balance;
+  return computeAccountBalance(account as any, (txs ?? []) as any, adjustments);
 }
