@@ -210,18 +210,8 @@ export default function FinancialAccounts() {
     setShowForm(true);
   }
 
-  function computeBalance(accountId: string, initialBalance: number) {
-    const accountTxs = txSummary.filter((t) => t.account_id === accountId);
-    let balance = initialBalance;
-    accountTxs.forEach((t) => {
-      const amt = Number((t as any).paid_amount ?? 0);
-      if (t.type === "income") balance += amt;
-      else balance -= amt;
-    });
-    // Add back non-cash deductions (IRS withholding + supplier credits)
-    // that are embedded in the gross paid_amount.
-    balance += cashAdjustments?.get(accountId) ?? 0;
-    return balance;
+  function computeBalance(account: any): number | null {
+    return computeAccountBalance(account, txSummary as any, cashAdjustments);
   }
 
   function canSeeBalance(account: any) {
