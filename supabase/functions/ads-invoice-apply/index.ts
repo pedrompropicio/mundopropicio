@@ -239,7 +239,7 @@ function buildEventProof(inv: any, eventName: string, eventLines: any[], subtota
 async function handleGenerate(body: any, userId?: string) {
   const { inv, lines } = await loadInvoice(body.invoice_id);
 
-  if (inv.status === "applied" || inv.parent_transaction_id) {
+  if (body.dry_run !== true && (inv.status === "applied" || inv.parent_transaction_id)) {
     let createdRows: any[] = [];
     if (inv.parent_transaction_id) {
       const { data: created } = await admin
