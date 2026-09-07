@@ -63,6 +63,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const idsKey = ids.slice().sort().join(",");
 
+  // SSoT da receita (D24) — só para kind='income'. O custo mantém a lógica própria.
+  const { data: revenue } = useEventRevenueBasis(
+    kind === "income" ? eventId : undefined,
+    kind === "income" ? ids : [],
+  );
+
   // Valor da linha c/ ou s/IVA — arredondamento ao cêntimo LINHA A LINHA (Art.º 18 CIVA).
   const eff = (amount: number | null | undefined, ivaRate: number | null | undefined) =>
     lineValue(amount, ivaRate, withVat);
