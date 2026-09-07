@@ -11,7 +11,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 
-const VERSION = "v2.0_guard_duplicates_and_terms";
+const VERSION = "v2.1_out_of_scope_lines";
 
 /** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
 const PAYMENT_TERMS_DAYS = 60;
@@ -263,6 +263,8 @@ async function handleGenerate(body: any, userId?: string) {
 
   const byEvent = new Map<string, any[]>();
   let adjustments = 0;
+  let outOfScope = 0;
+  let outOfScopeLines = 0;
   for (const l of lines) {
     if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
     if (l.match_source === "fora_sistema") { outOfScope += Number(l.amount); outOfScopeLines++; continue; }
@@ -397,6 +399,7 @@ async function handleGenerate(body: any, userId?: string) {
       })),
       adjustments,
       children_sum: childrenSum,
+      out_of_scope: { amount: outOfScope, lines: outOfScopeLines },
       total,
       version: VERSION,
     });
@@ -507,6 +510,7 @@ async function handleGenerate(body: any, userId?: string) {
     parent_transaction_id: parent.id,
     adjustments,
     children_sum: childrenSum,
+    out_of_scope: { amount: outOfScope, lines: outOfScopeLines },
     total,
     original_attached: originalAttached,
     transactions: created,
