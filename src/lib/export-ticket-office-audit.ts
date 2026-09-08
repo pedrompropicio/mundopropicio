@@ -241,16 +241,17 @@ export function exportTicketOfficeAuditToPDF(
       sales: acc.sales + d.totalSales,
       expenses: acc.expenses + d.totalDirectExpenses,
       transfers: acc.transfers + d.totalTransfers,
+      advances: acc.advances + (d.totalAdvances || 0),
       balance: acc.balance + d.expectedBalance,
     }),
-    { sales: 0, expenses: 0, transfers: 0, balance: 0 }
+    { sales: 0, expenses: 0, transfers: 0, advances: 0, balance: 0 }
   );
 
   doc.setFillColor(245, 245, 250);
   doc.roundedRect(ml, cursor.y, cw, 16, 2, 2, "F");
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  const qw = cw / 4;
+  const qw = cw / 5;
 
   doc.setTextColor(100, 100, 100);
   doc.text("Vendas", ml + 4, cursor.y + 5);
@@ -271,11 +272,18 @@ export function exportTicketOfficeAuditToPDF(
   doc.text(fmtVal(grandTotals.transfers), ml + qw * 2 + 4, cursor.y + 12);
 
   doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text("Adiantamentos", ml + qw * 3 + 4, cursor.y + 5);
+  doc.setFontSize(10);
+  doc.text(fmtVal(grandTotals.advances), ml + qw * 3 + 4, cursor.y + 12);
+
+  doc.setFontSize(8);
   const balColor = grandTotals.balance >= 0 ? [34, 139, 34] : [200, 50, 50];
   doc.setTextColor(balColor[0], balColor[1], balColor[2]);
-  doc.text("Saldo Previsto", ml + qw * 3 + 4, cursor.y + 5);
+  doc.text("Saldo Previsto", ml + qw * 4 + 4, cursor.y + 5);
   doc.setFontSize(10);
-  doc.text(fmtVal(grandTotals.balance), ml + qw * 3 + 4, cursor.y + 12);
+  doc.text(fmtVal(grandTotals.balance), ml + qw * 4 + 4, cursor.y + 12);
+
 
   doc.setTextColor(0, 0, 0);
   cursor.y += 20;
