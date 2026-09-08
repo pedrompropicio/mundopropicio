@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92, #124, #125 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
+Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92, #124, #125, #126, #127 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
 
 ## Em que pé está
 
@@ -95,4 +95,4 @@ Não corrigir sem decisão explícita.
 - `.lovable/memory/features/financial-accounts-non-accounting-flag.md` — contas gerenciais fora da exportação contabilística
 - `.lovable/memory/features/standalone-invoices.md` — scanner e aba Conferência das faturas avulsas
 - `.lovable/memory/features/card-sessions.md`, `supplier-credits.md`, `transaction-installments.md`, `role-accountant.md`
-- Issues #90, #91, #92
+- Issues #90, #91, #92, #124, #125, #126, #127
