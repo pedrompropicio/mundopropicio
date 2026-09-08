@@ -6,8 +6,10 @@
  * transferências — por isso o saldo nunca fechava a zero depois de um fecho.
  *
  * Regras (todas obrigatórias):
- * - Vendas: só `financial_account_id === officeId` (igualdade estrita) e só de
- *   eventos atribuídos à bilheteira. Valor via `ticketSaleRevenue()`.
+ * - Vendas: só `financial_account_id === officeId` (igualdade estrita). Entram
+ *   sempre no total; só o `byEvent` exige evento atribuído. Valor via
+ *   `ticketSaleRevenue()`.
+
  * - Transações: `account_id === officeId`, status em {approved, paid},
  *   `reversed_at` nulo, `is_hidden` falso. SEMPRE por `paid_amount` (nunca
  *   fallback para `amount`). income soma; expense e transfer subtraem.
