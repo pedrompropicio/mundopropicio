@@ -246,6 +246,7 @@ export default function InvoiceGroupAudit() {
         )}
       </Card>
 
+      {progress && <p className="text-sm text-muted-foreground">{progress}</p>}
       {isLoading && <p className="text-sm text-muted-foreground">A carregar…</p>}
 
       {toUngroup.length > 0 && (
