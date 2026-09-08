@@ -12215,6 +12215,17 @@ export type Database = {
           },
         ]
       }
+      vw_event_daily_sales: {
+        Row: {
+          company_id: string | null
+          event_id: string | null
+          quantity: number | null
+          sale_date: string | null
+          source: string | null
+          total_value: number | null
+        }
+        Relationships: []
+      }
       vw_sync_health: {
         Row: {
           expected_runs_24h: number | null
