@@ -91,17 +91,37 @@ export default function InvoiceGroupAudit() {
   const runDryRun = async () => {
     setRunning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("audit-invoice-groups", {
-        body: { action: "dry-run" },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      // O OCR é lento: a função processa poucos grupos por chamada e devolve
+      // `remaining`. Repetimos com o mesmo run_at até terminar.
+      let runAt: string | undefined;
+      let remaining = 1;
+      let desagrupar = 0;
+      let rever = 0;
+      let total = 0;
+      let guard = 0;
+      while (remaining > 0 && guard < 200) {
+        guard++;
+        const { data, error } = await supabase.functions.invoke("audit-invoice-groups", {
+          body: { action: "dry-run", run_at: runAt, max_groups: 3 },
+        });
+        if (error) throw error;
+        const d = data as any;
+        if (d?.error) throw new Error(d.error);
+        runAt = d.run_at;
+        remaining = Number(d.remaining ?? 0);
+        desagrupar += Number(d.linhas_desagrupar ?? 0);
+        rever += Number(d.linhas_rever ?? 0);
+        total = Number(d.grupos_total ?? total);
+        setProgress(`${total - remaining}/${total} grupos analisados…`);
+      }
+      setProgress(null);
       toast({
         title: "Auditoria concluída",
-        description: `${(data as any).grupos_total} grupos · ${(data as any).linhas_desagrupar} a desagrupar · ${(data as any).linhas_rever} a rever.`,
+        description: `${total} grupos · ${desagrupar} linhas a desagrupar · ${rever} a rever.`,
       });
       await qc.invalidateQueries({ queryKey: ["invoice-group-audit"] });
     } catch (e: any) {
+      setProgress(null);
       toast({ title: "Erro na auditoria", description: e?.message ?? "Falhou", variant: "destructive" });
     } finally {
       setRunning(false);
