@@ -12745,6 +12745,19 @@ export type Database = {
           forecast_type: string
         }[]
       }
+      get_event_capacity_quality: {
+        Args: never
+        Returns: {
+          capacity: number
+          group_id: string
+          issue: string
+          trustworthy: boolean
+          zones: number
+          zones_equals_sold: number
+          zones_no_capacity: number
+          zones_sold_over_capacity: number
+        }[]
+      }
       get_event_cash_position: {
         Args: { p_company_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
