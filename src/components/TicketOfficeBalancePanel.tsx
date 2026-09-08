@@ -9,6 +9,13 @@ import helpTexts from "@/lib/help-texts";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { TicketOfficeSettlementModal } from "@/components/TicketOfficeSettlementModal";
+import {
+  computeTicketOfficeBalance,
+  isCountedTicketOfficeTxn,
+  isOpenTicketOfficeAdvance,
+} from "@/lib/ticket-office-balance";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+
 
 interface Props {
   officeId: string; // This is now the financial_account_id directly
