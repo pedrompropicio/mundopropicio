@@ -94,12 +94,15 @@ export function computeTicketOfficeBalance(input: TicketOfficeBalanceInput): Tic
   // Vendas
   sales.forEach((s) => {
     if (s.financial_account_id !== officeId) return;
-    const eventId = s.event_id || undefined;
-    if (!eventId || !assigned.has(eventId)) return;
     const value = ticketSaleRevenue(s);
+    if (!Number.isFinite(value) || value === 0) return;
     total += value;
-    byEvent[eventId] = (byEvent[eventId] || 0) + value;
+    const eventId = s.event_id || undefined;
+    if (eventId && eventId in byEvent) {
+      byEvent[eventId] += value;
+    }
   });
+
 
   // Transações
   transactions.forEach((t) => {
