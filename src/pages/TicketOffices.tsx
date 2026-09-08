@@ -13,6 +13,8 @@ import { FeverImportModal } from "@/components/FeverImportModal";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
+import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
+
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
 import { TicketOfficeAdvancesPanel } from "@/components/TicketOfficeAdvancesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
