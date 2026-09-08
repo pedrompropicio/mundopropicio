@@ -65,7 +65,7 @@ Regras da escrita, que não mudam:
 - `company_id` explícito, nunca a depender do default.
 - Sessões novas ganham zona e lote automaticamente. Canais novos aparecem sozinhos — quando a MyEntrada começar a vender será um terceiro canal, com recargo zero.
 
-**5. Gravar o dia**
+**6. Gravar o dia**
 Calcular o acumulado de agora (entradas e facturación) e subtrair o acumulado registado na última corrida com sucesso do dia anterior, que está no `import_audit` dessa corrida.
 
 Fazer upsert em `onebox_daily_sales` por `(event_id, sale_date)` com a data de hoje. **Upsert, nunca insert** — de 9h às 23h a mesma linha é reescrita quinze vezes com o acumulado do dia até àquele momento.
