@@ -2988,8 +2988,18 @@ function AddTransactionsToList({
                   <option key={id} value={id}>{name}</option>
                 ))}
               </select>
-            </div>
           </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Procurar</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Descrição, fornecedor, nº de fatura…"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
         </div>
 
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
