@@ -38,6 +38,12 @@ interface ExtractResult {
   document_type: string | null;
   /** Concise free-text description of the services/products billed (used for category matching). */
   service_description: string | null;
+  /** Name of the ISSUER (fornecedor emitente). Optional. */
+  supplier_name?: string | null;
+  /** NIF/VAT number of the ISSUER (never the customer's). Optional. */
+  supplier_nif?: string | null;
+  /** Invoice/document number as printed. Optional. */
+  document_number?: string | null;
   /** Subtotals per VAT rate (footer "Resumo do IVA / Base por taxa"). Empty when single-rate. */
   vat_breakdown: VatBreakdownRow[];
   raw?: string;
@@ -60,7 +66,7 @@ Deno.serve(async (req) => {
     const mime = body.mimeType || "application/pdf";
 
     const systemPrompt =
-      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type; (5) a SHORT description (max ~150 chars, Portuguese) summarising the SERVICES OR PRODUCTS being billed/contracted (e.g. 'Aluguer de som e luz para palco principal', 'Cachê artístico DJ', 'Hospedagem 3 noites hotel X', 'Catering camarim 30 pax'); (6) the VAT BREAKDOWN footer (Portuguese invoices always show 'Resumo do IVA' / 'Base tributável' / 'Taxa' / 'IVA' / 'Total' summarised by rate at the bottom). For EACH VAT rate present (0, 6, 13, 23) report: rate (integer %), base (sum of bases excl. VAT at that rate), iva (VAT amount at that rate), total (base + iva). If the document only has a single rate, return ONE row anyway. If no VAT info is visible (e.g. transfer proof, contract without breakdown), return an empty array. Use null for amounts when truly absent.";
+      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type; (5) a SHORT description (max ~150 chars, Portuguese) summarising the SERVICES OR PRODUCTS being billed/contracted (e.g. 'Aluguer de som e luz para palco principal', 'Cachê artístico DJ', 'Hospedagem 3 noites hotel X', 'Catering camarim 30 pax'); (6) the VAT BREAKDOWN footer (Portuguese invoices always show 'Resumo do IVA' / 'Base tributável' / 'Taxa' / 'IVA' / 'Total' summarised by rate at the bottom). For EACH VAT rate present (0, 6, 13, 23) report: rate (integer %), base (sum of bases excl. VAT at that rate), iva (VAT amount at that rate), total (base + iva). If the document only has a single rate, return ONE row anyway. If no VAT info is visible (e.g. transfer proof, contract without breakdown), return an empty array. Use null for amounts when truly absent. (7) the ISSUER identification: 'supplier_name' = name of the establishment/company that issued the document; 'supplier_nif' = the NIF/contribuinte OF THE ISSUER (fornecedor emitente), digits only — never the NIF of the client/adquirente; if only the customer's NIF is visible, return null; (8) 'document_number' = the invoice/document number as printed. Return null in any of these when not visible; never invent them.";
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -125,6 +131,18 @@ Deno.serve(async (req) => {
                     type: ["string", "null"],
                     description: "Short PT-PT description of the services/products being billed or contracted (max ~150 chars). E.g. 'Aluguer de som e luz', 'Cachê artístico', 'Hospedagem hotel'. Null if unreadable.",
                   },
+                  supplier_name: {
+                    type: ["string", "null"],
+                    description: "Name of the establishment/company that ISSUED the document (fornecedor emitente), verbatim. Null if not visible.",
+                  },
+                  supplier_nif: {
+                    type: ["string", "null"],
+                    description: "NIF/contribuinte of the ISSUER (fornecedor emitente), digits only. Never the customer's/adquirente's NIF. If only the customer NIF is present, return null.",
+                  },
+                  document_number: {
+                    type: ["string", "null"],
+                    description: "Invoice/document number as printed (e.g. 'FT 2026/123', 'FS 1/4521'). Null if not visible.",
+                  },
                   vat_breakdown: {
                     type: "array",
                     description: "Subtotals per VAT rate from the document footer ('Resumo do IVA'/'Base por taxa'). One row per distinct rate present (0/6/13/23). Empty array if no VAT info visible.",
@@ -145,7 +163,7 @@ Deno.serve(async (req) => {
                     description: "Brief reason — e.g. 'contrato Maiara e Maraisa, cachê 50000€' or 'comprovativo TRF 1234.56€'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "vat_breakdown", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "supplier_name", "supplier_nif", "document_number", "vat_breakdown", "notes"],
                 additionalProperties: false,
               },
             },
@@ -207,6 +225,10 @@ Deno.serve(async (req) => {
       document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
       document_type: typeof parsed.document_type === "string" && validTypes.includes(parsed.document_type) ? parsed.document_type : null,
       service_description: typeof parsed.service_description === "string" && parsed.service_description.trim() ? parsed.service_description.trim().slice(0, 200) : null,
+      // Campos novos, todos OPCIONAIS: se o modelo não os devolver, fica null e a resposta é como antes.
+      supplier_name: typeof parsed.supplier_name === "string" && parsed.supplier_name.trim() ? parsed.supplier_name.trim().slice(0, 200) : null,
+      supplier_nif: typeof parsed.supplier_nif === "string" && parsed.supplier_nif.replace(/\D/g, "").length >= 8 ? parsed.supplier_nif.replace(/\D/g, "").slice(0, 20) : null,
+      document_number: typeof parsed.document_number === "string" && parsed.document_number.trim() ? parsed.document_number.trim().slice(0, 60) : null,
       vat_breakdown,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };

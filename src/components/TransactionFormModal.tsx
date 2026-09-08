@@ -207,6 +207,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
   // Ficheiro original lido pelo OCR — pode ser anexado às transações criadas.
   const [pendingInvoiceFile, setPendingInvoiceFile] = useState<File | null>(null);
+  // Emitente lido pelo OCR: mostrado em texto junto ao Fornecedor quando não houve match
+  // e usado para o botão "Guardar NIF no fornecedor".
+  const [ocrSupplierHint, setOcrSupplierHint] = useState<{ name: string | null; nif: string | null; matched: boolean } | null>(null);
+  const [savingSupplierNif, setSavingSupplierNif] = useState(false);
   // Quando o utilizador escolhe IVA médio (1 transação), guardamos o file aqui
   // para anexar via callback onSuccess da mutation single.
   const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
@@ -367,6 +371,47 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         body: { fileBase64, fileName: prepared.name, mimeType: prepared.type || "image/jpeg" },
       });
       if (error) throw error;
+
+      // --- Campos de identificação (data, descrição, nº de fatura, fornecedor) ---
+      // REGRA DE OURO: só preenche campos VAZIOS; nunca sobrescreve o que já foi escrito.
+      // Aplica-se sempre, inclusive no caminho do "Dividir por IVA".
+      {
+        const digitsOnly = (s?: string | null) => (s ?? "").replace(/\D/g, "");
+        const squash = (s?: string | null) => (s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+        const readName = typeof (data as any)?.supplier_name === "string" ? (data as any).supplier_name.trim() : "";
+        const readNif = digitsOnly((data as any)?.supplier_nif);
+        const readDocNumber = typeof (data as any)?.document_number === "string" ? (data as any).document_number.trim() : "";
+        const readDesc = typeof (data as any)?.service_description === "string" ? (data as any).service_description.trim() : "";
+        const readDate =
+          typeof (data as any)?.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test((data as any).document_date)
+            ? (data as any).document_date
+            : "";
+
+        let matchedId: string | null = null;
+        if (readNif) {
+          matchedId = (suppliers as any[]).find((s) => digitsOnly(s.nif) && digitsOnly(s.nif) === readNif)?.id ?? null;
+        }
+        if (!matchedId && readName) {
+          matchedId =
+            (suppliers as any[]).find(
+              (s) => squash(s.name) === squash(readName) || (s.trade_name && squash(s.trade_name) === squash(readName)),
+            )?.id ?? null;
+        }
+
+        const todayIso = new Date().toISOString().split("T")[0];
+        setForm((f) => {
+          const next = { ...f };
+          if (readDesc && !f.description.trim()) next.description = readDesc;
+          if (readDocNumber && !f.invoice_ref.trim()) next.invoice_ref = readDocNumber;
+          // A Data nasce com hoje por defeito — trata-se como "vazia" enquanto não for mudada.
+          if (readDate && (!f.date || f.date === todayIso)) next.date = readDate;
+          if (matchedId && !f.supplier_id) next.supplier_id = matchedId;
+          return next;
+        });
+
+        setOcrSupplierHint(readName || readNif ? { name: readName || null, nif: readNif || null, matched: !!matchedId } : null);
+      }
+
       const allowed: IvaRate[] = eventIva.rates as IvaRate[];
       const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(
         (data as any)?.vat_breakdown,
@@ -2995,6 +3040,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                             setPendingIvaSplit(null);
                             setAttachIvaSplitFile(null);
                             setAttachAfterCreateFile(null);
+                            setOcrSupplierHint(null);
                             toast({
                               title: "Leitura limpa",
                               description: "Podes anexar uma nova fatura.",
@@ -3312,6 +3358,44 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 overlayClassName="z-[110]"
                 contentClassName="z-[111]"
               />
+              {/* Emitente lido pelo OCR: caminho normal é NÃO haver match (poucos fornecedores têm NIF). */}
+              {ocrSupplierHint && !ocrSupplierHint.matched && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Lido na fatura:{" "}
+                  <span className="font-medium text-foreground">{ocrSupplierHint.name ?? "sem nome"}</span>
+                  {ocrSupplierHint.nif ? ` · NIF ${ocrSupplierHint.nif}` : ""} — escolhe o fornecedor na lista ou cria com o
+                  botão +.
+                </p>
+              )}
+              {ocrSupplierHint?.nif && selectedSupplier && !(selectedSupplier as any).nif && (
+                <button
+                  type="button"
+                  disabled={savingSupplierNif}
+                  onClick={async () => {
+                    setSavingSupplierNif(true);
+                    try {
+                      const { error } = await supabase
+                        .from("suppliers")
+                        .update({ nif: ocrSupplierHint.nif } as any)
+                        .eq("id", (selectedSupplier as any).id);
+                      if (error) throw error;
+                      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+                      toast({ title: "NIF guardado", description: `NIF ${ocrSupplierHint.nif} associado ao fornecedor.` });
+                    } catch (e) {
+                      toast({
+                        title: "Não foi possível guardar o NIF",
+                        description: e instanceof Error ? e.message : "Tenta de novo.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setSavingSupplierNif(false);
+                    }
+                  }}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-60"
+                >
+                  {savingSupplierNif ? "A guardar…" : `Guardar NIF ${ocrSupplierHint.nif} no fornecedor`}
+                </button>
+              )}
               {selectedSupplier && (
                 <div className="mt-2">
                   <SupplierBankDetails supplier={selectedSupplier} defaultExpanded />
