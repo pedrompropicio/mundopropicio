@@ -232,7 +232,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
                   <span className={`text-xs font-mono font-medium ${ev.balance > 0 ? "text-emerald-500" : ev.balance < 0 ? "text-red-400" : "text-muted-foreground"}`}>
                     {formatCurrency(ev.balance)}
                   </span>
-                  {canManage && Math.abs(ev.balance) > 0.01 && !ev.isConciliated && (
+                  {canManage && Math.abs(ev.balance) > 0.01 && (
                     <button
                       onClick={() => setSettlementModal({ open: true, eventId: ev.id })}
                       className="rounded-md p-1 text-muted-foreground hover:bg-primary/15 hover:text-primary transition-colors"
