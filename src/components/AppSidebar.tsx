@@ -101,6 +101,7 @@ export function AppSidebar({
     { to: "/eventos", icon: Calendar, label: "Eventos", show: hasPermission("manage_events") || hasPermission("view_events") || isAdmin },
     { to: "/transacoes", icon: ArrowUpDown, label: "Transações", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/bilheteiras", icon: Store, label: "Bilheteiras", show: hasPermission("manage_ticket_offices") || hasPermission("manage_accounts") || isAdmin },
+    { to: "/vendas", icon: TrendingUp, label: "Vendas", show: hasPermission("view_reports") || hasPermission("manage_ticket_offices") || isAdmin },
     { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas", show: hasPermission("manage_categories") || isAdmin },
     { to: "/contas", icon: Landmark, label: "Contas", show: hasPermission("manage_accounts") || hasPermission("view_balances") || isAdmin },
     { to: "/fornecedores", icon: Users, label: "Entidades", show: hasPermission("manage_suppliers") || isAdmin },

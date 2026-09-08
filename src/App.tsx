@@ -90,6 +90,7 @@ import { lazy, Suspense } from "react";
 
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
+import SalesBI from "./pages/SalesBI";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
 import StandaloneInvoiceScanner from "./pages/StandaloneInvoiceScanner";
@@ -481,6 +482,7 @@ function ProtectedLayout() {
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/bilhetes" element={<Navigate to="/bilheteiras" replace />} />
               <Route path="/bilheteiras" element={<TicketOffices />} />
+              <Route path="/vendas" element={<SalesBI />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/reembolsos" element={<Reimbursements />} />

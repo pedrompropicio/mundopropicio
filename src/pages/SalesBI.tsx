@@ -185,9 +185,6 @@ export default function SalesBI() {
             sum7 += qty;
             val7 += Number(r.value || 0);
           }
-          if (d >= d8 && d <= d14) {
-            // (d14 <= d <= d8)
-          }
           if (d >= d14 && d <= d8) sumPrev7 += qty;
           if (d >= d14 && d <= d1) daysWindow.add(d);
           if (d >= d30 && d <= d1) spark.set(d, (spark.get(d) ?? 0) + qty);
