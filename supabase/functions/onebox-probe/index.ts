@@ -1,6 +1,6 @@
 // onebox-probe — diagnóstico descartável.
-// Pergunta única: o login por FORMULÁRIO (/login/) do Superset em
-// dash.oneboxtds.com funciona a partir do servidor, mantendo cookies + CSRF?
+// Mecanismo provado: login por FORMULÁRIO (/login/) com csrf do HTML + cookies.
+// NÃO usar /api/v1/security/login (401 nesta instalação).
 // Não escreve em tabelas, não cria cron, nunca devolve credenciais/cookies/csrf.
 
 const corsHeaders = {
@@ -26,9 +26,8 @@ function redact(text: string): string {
     .replace(/(name="csrf_token"[^>]*value=")[^"]*(")/gi, "$1<redacted>$2");
 }
 
-const preview = (text: string) => redact(text).slice(0, 400);
+const preview = (text: string, n = 400) => redact(text).slice(0, n);
 
-// jar simples: nome -> valor
 const jar = new Map<string, string>();
 
 function absorbCookies(res: Response): number {
@@ -87,10 +86,8 @@ Deno.serve(async (req) => {
     csrf = m ? m[1] : null;
     out.step1_get_login = {
       status: res.status,
-      content_type: res.headers.get("content-type"),
       csrf_token_encontrado: Boolean(csrf),
       cookies_recebidos: cookies,
-      body_preview: preview(html),
     };
   } catch (e) {
     out.step1_get_login = { status: null, error: String((e as Error)?.message ?? e) };
@@ -116,59 +113,144 @@ Deno.serve(async (req) => {
       body: form.toString(),
     });
     const novos = absorbCookies(res);
-    const text = await res.text();
-    const location = res.headers.get("location");
+    await res.text();
     loginOk = res.status >= 300 && res.status < 400;
     out.step2_post_login = {
       status: res.status,
-      location,
+      location: res.headers.get("location"),
       cookies_novos: novos,
-      csrf_enviado: Boolean(csrf),
       login_aceite_provavel: loginOk,
-      body_preview: preview(text),
     };
   } catch (e) {
     out.step2_post_login = { status: null, error: String((e as Error)?.message ?? e) };
+    return json(200, out);
   }
 
-  // 3 — GET da página do dashboard com os cookies
+  if (!loginOk) {
+    return json(200, { ...out, aviso: "login não aceite — passos A/B/C saltados" });
+  }
+
+  // PASSO A — lista completa de gráficos do dashboard 43
   try {
-    const url = `${BASE}/superset/dashboard/43/?native_filters_key=YAu04AgWBog&show_filters=0`;
-    const res = await fetch(url, { redirect: "manual", headers: baseHeaders() });
+    const res = await fetch(`${BASE}/api/v1/dashboard/43/charts`, {
+      redirect: "manual",
+      headers: baseHeaders({
+        "Accept": "application/json, text/plain, */*",
+        "Referer": `${BASE}/superset/dashboard/43/`,
+      }),
+    });
     absorbCookies(res);
     const text = await res.text();
-    out.step3_dashboard_page = {
+    let charts: unknown = null;
+    try {
+      const parsed = JSON.parse(text);
+      const list = Array.isArray(parsed?.result) ? parsed.result : [];
+      charts = list.map((c: Record<string, unknown>) => ({
+        id: c?.id ?? (c?.form_data as Record<string, unknown> | undefined)?.slice_id ?? c?.slice_id ?? null,
+        slice_name: c?.slice_name ?? (c?.form_data as Record<string, unknown> | undefined)?.slice_name ?? null,
+      }));
+    } catch (_) {
+      // não é JSON — fica o preview
+    }
+    out.stepA_dashboard_charts = {
       status: res.status,
-      location: res.headers.get("location"),
       content_type: res.headers.get("content-type"),
-      body_preview: preview(text),
+      total: Array.isArray(charts) ? charts.length : null,
+      charts,
+      ...(charts === null ? { body_preview: preview(text, 600) } : {}),
     };
   } catch (e) {
-    out.step3_dashboard_page = { status: null, error: String((e as Error)?.message ?? e) };
+    out.stepA_dashboard_charts = { status: null, error: String((e as Error)?.message ?? e) };
   }
 
-  // 4 — API do dashboard, só se o login parecer aceite
-  if (loginOk) {
+  // PASSO B — token CSRF para chamadas de API
+  let apiCsrf: string | null = null;
+  try {
+    const res = await fetch(`${BASE}/api/v1/security/csrf_token/`, {
+      redirect: "manual",
+      headers: baseHeaders({
+        "Accept": "application/json, text/plain, */*",
+        "Referer": `${BASE}/superset/dashboard/43/`,
+      }),
+    });
+    absorbCookies(res);
+    const text = await res.text();
     try {
-      const res = await fetch(`${BASE}/api/v1/dashboard/43`, {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.result === "string" && parsed.result) apiCsrf = parsed.result;
+    } catch (_) { /* ignora */ }
+    out.stepB_csrf_token = { status: res.status, result_recebido: Boolean(apiCsrf) };
+  } catch (e) {
+    out.stepB_csrf_token = { status: null, error: String((e as Error)?.message ?? e) };
+  }
+
+  // PASSO C — dados de um gráfico (slice 180)
+  const csrfHeader: Record<string, string> = apiCsrf ? { "X-CSRFToken": apiCsrf } : {};
+  const attempts: Record<string, unknown>[] = [];
+  try {
+    const url = `${BASE}/api/v1/chart/data?form_data=${encodeURIComponent(
+      JSON.stringify({ slice_id: 180 }),
+    )}&dashboard_id=43`;
+    const res = await fetch(url, {
+      method: "POST",
+      redirect: "manual",
+      headers: baseHeaders({
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": BASE,
+        "Referer": `${BASE}/superset/dashboard/43/`,
+        ...csrfHeader,
+      }),
+      body: JSON.stringify({
+        datasource: { id: null, type: "table" },
+        queries: [],
+        form_data: { slice_id: 180 },
+        result_format: "json",
+        result_type: "results",
+      }),
+    });
+    const text = await res.text();
+    attempts.push({
+      metodo: "POST /api/v1/chart/data",
+      status: res.status,
+      content_type: res.headers.get("content-type"),
+      body_preview: preview(text, 600),
+    });
+  } catch (e) {
+    attempts.push({ metodo: "POST /api/v1/chart/data", status: null, error: String((e as Error)?.message ?? e) });
+  }
+
+  const primeiro = attempts[0] as { status?: number | null };
+  if (!(primeiro.status && primeiro.status >= 200 && primeiro.status < 300)) {
+    try {
+      const res = await fetch(`${BASE}/api/v1/chart/180/data/?format=json`, {
         redirect: "manual",
         headers: baseHeaders({
           "Accept": "application/json, text/plain, */*",
           "Referer": `${BASE}/superset/dashboard/43/`,
+          ...csrfHeader,
         }),
       });
       const text = await res.text();
-      out.step4_api_dashboard = {
+      attempts.push({
+        metodo: "GET /api/v1/chart/180/data/?format=json",
         status: res.status,
         content_type: res.headers.get("content-type"),
-        body_preview: preview(text),
-      };
+        body_preview: preview(text, 600),
+      });
     } catch (e) {
-      out.step4_api_dashboard = { status: null, error: String((e as Error)?.message ?? e) };
+      attempts.push({
+        metodo: "GET /api/v1/chart/180/data/?format=json",
+        status: null,
+        error: String((e as Error)?.message ?? e),
+      });
     }
-  } else {
-    out.step4_api_dashboard = { saltado: true, motivo: "login não aceite no passo 2" };
   }
+
+  const melhor =
+    attempts.find((a) => typeof a.status === "number" && (a.status as number) >= 200 && (a.status as number) < 300) ??
+    attempts[attempts.length - 1];
+  out.stepC_chart_data = { melhor_tentativa: melhor, todas: attempts };
 
   return json(200, out);
 });
