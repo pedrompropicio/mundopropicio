@@ -797,6 +797,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [eventFilter, setEventFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
 
   const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
 
@@ -1077,7 +1079,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
-                  const expanded = expandedGroups.has(row.groupId);
+                  const expanded = isGroupExpanded(row.groupId);
                   const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
