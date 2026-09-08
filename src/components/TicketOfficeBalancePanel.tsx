@@ -186,14 +186,22 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     let expectedBalance: number | null = null;
     let deviation: number | null = null;
     let deviationWarn = false;
+    let deviationMsg = "";
     if (retentionPct != null && Number.isFinite(retentionPct)) {
       const openSales = Object.entries(eventMap)
         .filter(([id]) => !settledEventIds.has(id))
         .reduce((s, [, e]) => s + e.sales, 0);
       expectedBalance = (retentionPct / 100) * openSales;
       deviation = globalBalance - expectedBalance;
-      deviationWarn = Math.abs(deviation) > Math.abs(expectedBalance) * 0.05;
+      if (Math.abs(expectedBalance) < 0.01) {
+        deviationWarn = Math.abs(deviation) > 0.01;
+        deviationMsg = "Sem eventos em aberto — o saldo devia estar a zero.";
+      } else {
+        deviationWarn = Math.abs(deviation) > Math.abs(expectedBalance) * 0.05;
+        deviationMsg = "Desvio acima de 5% — vendas por importar ou repasse por lançar";
+      }
     }
+
 
     return {
       events: Object.entries(eventMap).map(([id, data]) => ({
