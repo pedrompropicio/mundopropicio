@@ -2856,6 +2856,8 @@ function AddTransactionsToList({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [eventFilter, setEventFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
 
   const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
 
