@@ -566,7 +566,15 @@ export default function Transactions() {
     setDeletingId(id);
     setDeleteChecked(false);
     setDeleteWarnings([]);
+    setDeleteGroupSiblings([]);
     const warnings = await checkDependencies(id);
+    // Irmãs do grupo de fatura: são eliminadas em conjunto, logo listam-se nominalmente.
+    try {
+      const { fetchInvoiceGroupSiblingDetails } = await import("@/lib/invoice-group");
+      setDeleteGroupSiblings(await fetchInvoiceGroupSiblingDetails(id));
+    } catch {
+      setDeleteGroupSiblings([]);
+    }
     setDeleteWarnings(warnings);
     setDeleteChecked(true);
   };
