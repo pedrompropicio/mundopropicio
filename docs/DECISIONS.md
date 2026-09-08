@@ -480,3 +480,15 @@ Devolve também a decomposição por bucket (Bilheteira / A&B / Patrocínio / Ou
 **Consequência:** Aplica-se a toda a `ads-invoice-apply` e é o padrão a seguir em qualquer código futuro que apague ou reverta dados.
 
 **Estado:** vigente.
+
+## D-ERP16 — Taxa de conveniência não é receita de bilheteira (08/09/2026)
+
+**Contexto:** No H&K Madrid, o painel da Onebox mostra *Facturación* (18.815,75 €) e *Recargo promotor* (1.882,46 €) em separado, e um *Total ingresos* que é a soma. A leitura inicial foi registar o Total ingresos como bruto da bilheteira, o que dava um líquido correto por acaso — porque ambas as parcelas levam 10% de IVA dentro — mas inflacionava a receita em ~1.317 €, que são do El Corte Inglés e nunca passam pela MP.
+
+**Decisão:** `ticket_sales.total_value` guarda **exclusivamente o preço do bilhete** (a *Facturación*, com o IVA da praça dentro). A taxa de conveniência cobrada ao público **não entra na bilheteira**: a parte que reverte para a MP entra como receita autónoma na rubrica **1.3.04 Revenue Share**, no fecho e pelo valor apurado, nunca por percentagem estimada sobre um snapshot de vendas. A comissão do recinto sobre a bilheteira segue a mesma regra e entra em **4.3.01**.
+
+**Razão:** A receita do evento é calculada de `ticket_sales` (DR-2026-09-06-D24), não de linhas de BP. Meter no `total_value` dinheiro que pertence a terceiros contamina a base de receita de todos os ecrãs a jusante — card financeiro, Fecho e cachê variável — sem deixar rasto.
+
+**Consequência:** Vale para qualquer bilheteira com fee ao público separado do preço, não só a Onebox. O IVA aplica-se por praça (PT 6%, ES 10%) e o default da coluna `event_ticket_lots.iva_rate` é 6, o que obriga a passar 10 explicitamente em Espanha.
+
+**Estado:** vigente.
