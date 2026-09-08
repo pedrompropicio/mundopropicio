@@ -87,6 +87,9 @@ export default function Transactions() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
+  const [deleteGroupSiblings, setDeleteGroupSiblings] = useState<
+    { id: string; description: string | null; amount: number; date: string | null; due_date: string | null }[]
+  >([]);
   const [showHidden, setShowHidden] = useState(false);
   const [showBPViewer, setShowBPViewer] = useState(false);
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
