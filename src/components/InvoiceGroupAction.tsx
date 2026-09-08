@@ -13,7 +13,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { ensureInvoiceGroup, isGroupableInvoiceRef } from "@/lib/invoice-group";
+import {
+  ensureInvoiceGroup,
+  isGroupableInvoiceRef,
+  checkInvoiceDocumentsConsistency,
+} from "@/lib/invoice-group";
+
 
 interface SiblingLike {
   id: string;
@@ -40,6 +45,8 @@ interface Props {
 export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, compact, onGrouped }: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [docConflict, setDocConflict] = useState<boolean | null>(null);
+  const [conflictAck, setConflictAck] = useState(false);
   const qc = useQueryClient();
 
   if (!supplierId || !invoiceRef || siblings.length < 2) return null;
@@ -51,7 +58,24 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
   );
   const groupable = isGroupableInvoiceRef(invoiceRef);
 
+  async function openDialog() {
+    setConflictAck(false);
+    setDocConflict(null);
+    setOpen(true);
+    try {
+      const check = await checkInvoiceDocumentsConsistency(siblings.map((s) => s.id));
+      setDocConflict(check.kind === "conflict");
+    } catch {
+      setDocConflict(null);
+    }
+  }
+
   async function handleGroup() {
+    // Documentos anexos diferentes → exige uma segunda confirmação explícita.
+    if (docConflict && !conflictAck) {
+      setConflictAck(true);
+      return;
+    }
     setSaving(true);
     try {
       const res = await ensureInvoiceGroup(supplierId!, invoiceRef!, { force: true });
@@ -79,14 +103,16 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
     }
   }
 
+
   return (
     <>
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          setOpen(true);
+          void openDialog();
         }}
+
         title="Agrupar estas transações como uma única fatura"
         className={
           compact
@@ -125,6 +151,12 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
                     <span className="font-mono">{formatCurrency(totalWithIva)}</span>
                   </div>
                 </div>
+                {docConflict && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    As linhas têm documentos anexos diferentes — podem ser faturas diferentes.
+                    {conflictAck ? " Carrega outra vez para agrupar mesmo assim." : ""}
+                  </p>
+                )}
                 {!groupable && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Atenção: “{invoiceRef}” parece uma referência genérica (ex.: proforma). Confirma que é mesmo a
@@ -143,8 +175,13 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
               }}
               disabled={saving}
             >
-              {saving ? "A agrupar…" : "Agrupar fatura"}
+              {saving
+                ? "A agrupar…"
+                : docConflict && !conflictAck
+                  ? "Agrupar mesmo assim"
+                  : "Agrupar fatura"}
             </AlertDialogAction>
+
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

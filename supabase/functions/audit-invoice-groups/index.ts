@@ -45,15 +45,19 @@ Deno.serve(async (req) => {
     const action: string = body?.action === 'apply' ? 'apply' : 'dry-run';
 
     // ================= APPLY =================
+    // Preso à corrida MOSTRADA no painel: sem run_at no body, recusa.
     if (action === 'apply') {
-      const { data: last } = await admin
+      const runAt: string | null = typeof body?.run_at === 'string' && body.run_at ? body.run_at : null;
+      if (!runAt) {
+        return json({ error: 'Falta o run_at da auditoria mostrada no ecrã. Corre primeiro o dry-run.' }, 400);
+      }
+      const { data: check } = await admin
         .from('invoice_group_audit')
-        .select('run_at')
-        .eq('aplicado', false)
-        .order('run_at', { ascending: false })
+        .select('id')
+        .eq('run_at', runAt)
         .limit(1);
-      const runAt = last?.[0]?.run_at;
-      if (!runAt) return json({ error: 'Não existe dry-run pendente. Corre primeiro a auditoria.' }, 400);
+      if (!check?.length) return json({ error: 'Não existe auditoria com esse run_at.' }, 400);
+
 
       const { data: rows } = await admin
         .from('invoice_group_audit')
