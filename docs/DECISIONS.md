@@ -127,6 +127,12 @@
 **Porquê:** 526 transações foram liquidadas sem conta por escrita direta (1.247.597 €), invisíveis para a tesouraria. O botão "Marcar como Pago" da Lista de Contas a Pagar voltou a ser estritamente visual.
 **Estado:** vigente.
 
+## D-ERP15 — Saldo de bilheteira: fonte única, e a transferência quinzenal não se rateia (08/09/2026)
+**Decisão:** `computeTicketOfficeBalance` em `src/lib/ticket-office-balance.ts` é a única fórmula do saldo de uma bilheteira, no total e por evento. Conta `transfer` como saída, o que faz o saldo fechar em zero depois de um fecho confirmado sem precisar de ler os fechos.
+**Porquê:** existiam três fórmulas divergentes e nenhuma contava as transferências; o saldo subia depois de um fecho em vez de descer. O relatório usava ainda `paid_amount || amount`, fazendo uma despesa aprovada e não paga contar pelo valor inteiro.
+**Regra de negócio associada:** a transferência quinzenal da bilheteira cobre vários eventos e é arredondada. Não se rateia por estimativa — entra sem evento, e a alocação por evento nasce no fecho, a partir do apuramento da bilheteira. O adiantamento só nasce quando se sabe o evento.
+**Estado:** vigente. A vista analítica do relatório ainda não reconcilia por evento (issue #128).
+
 
 ## MP CRM
 > (A preencher — módulo de clientes/leads/promotores, distinto do Audience. Nota: o schema crm.* na BD é onde vive o Audience, não o módulo CRM.)
