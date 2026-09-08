@@ -26,7 +26,7 @@ Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558
 
 ## Factos que não se reinvestigam
 
-**`ticket_sales` é agregada** — sem comprador individual, email ou gclid. Liga-se ao evento por `zone_id → event_ticket_zones.event_id`; **não há `event_id` direto**. IVA da bilheteira: **6%**.
+**`ticket_sales` é agregada** — sem comprador individual, email ou gclid. Liga-se ao evento por `zone_id → event_ticket_zones.event_id`; **não há `event_id` direto**. IVA da bilheteira depende da praça: **Portugal 6%, Espanha 10%**. O default da coluna `event_ticket_lots.iva_rate` é **6** — lotes de eventos espanhóis têm de ser criados com `iva_rate = 10` explicitamente, senão o líquido sai inflacionado.
 
 **A transferência quinzenal não se rateia.** A Ticketline transfere 85% das vendas de todos os eventos em venda, em valores arredondados. Quem sabe quanto de cada transferência pertence a cada evento é a Ticketline, e só o diz no apuramento. Por isso: a quinzena entra como uma transferência sem evento; a alocação por evento nasce no fecho, como adiantamentos com `transaction_id` a apontar à transferência de origem (o campo não tem restrição de unicidade, vários eventos podem apontar à mesma). O arredondamento nunca precisa de lançamento de ajuste — desaparece no fecho.
 
