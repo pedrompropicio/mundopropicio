@@ -245,10 +245,12 @@ Deno.serve(async (req) => {
 
     const resumo = {
       run_at: runAt,
-      grupos_total: groups.size,
+      grupos_total: allGroups.size,
+      grupos_processados_agora: groups.size,
+      remaining: Math.max(0, pending.length - slice.length),
       grupos_ok_sem_leitura: gruposOk,
       grupos_analisados: gruposAnalisados,
-      linhas_total: auditRows.length,
+      linhas_gravadas_agora: auditRows.length,
       linhas_ok: auditRows.filter((r) => r.veredicto === 'ok').length,
       linhas_desagrupar: auditRows.filter((r) => r.veredicto === 'desagrupar').length,
       linhas_rever: auditRows.filter((r) => r.veredicto === 'rever').length,
