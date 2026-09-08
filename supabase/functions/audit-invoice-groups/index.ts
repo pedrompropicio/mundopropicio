@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
 
 
     // Documentos por transação
-    const txIds = (txs ?? []).map((t: any) => t.id);
+    const txIds = [...groups.values()].flat().map((t: any) => t.id);
     const docsByTx = new Map<string, string[]>();
     for (let i = 0; i < txIds.length; i += 200) {
       const chunk = txIds.slice(i, i + 200);
