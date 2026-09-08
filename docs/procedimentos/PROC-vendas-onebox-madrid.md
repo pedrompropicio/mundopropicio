@@ -11,6 +11,8 @@ A Onebox (Apache Superset) **não tem acesso programático** para a nossa conta:
 - Bilheteira: conta **ECI (El Corte Inglés)**, tipo `ticket_office`
 - Company MP: `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`
 
+**A sessão da Superset expira em poucas horas.** Verificado a 08/09/2026: viva às 18h, morta às 21h. Consequência prática: a captação de hora a hora só funciona nas horas em que o Pedro tiver estado no painel, e falha silenciosamente nas restantes. A hora da última captação no ecrã da bilheteira é o que revela isso — se estiver parada, a sessão precisa de ser reactivada à mão. Uma sincronização fiável só existe com acesso de API da GTS.
+
 ## O modelo
 
 Duas coisas diferentes, e é essencial não as confundir:
