@@ -2899,14 +2899,16 @@ function AddTransactionsToList({
     useMemo(() => pickerRows.filter((r) => r.kind === "group").map((r: any) => r.groupId), [pickerRows]),
   );
 
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const searchTerm = search.trim().toLowerCase();
+  const visibleRows = useMemo(() => pickerRows.filter((r) => pickerRowMatches(r, searchTerm)), [pickerRows, searchTerm]);
+  const autoExpanded = useMemo(() => defaultExpandedGroups(pickerRows, searchTerm), [pickerRows, searchTerm]);
+  const [expandOverrides, setExpandOverrides] = useState<Record<string, boolean>>({});
+  useEffect(() => { setExpandOverrides({}); }, [searchTerm]);
+  const isGroupExpanded = (gid: string) => expandOverrides[gid] ?? autoExpanded.has(gid);
   const toggleExpandedGroup = (gid: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(gid)) next.delete(gid); else next.add(gid);
-      return next;
-    });
+    setExpandOverrides((prev) => ({ ...prev, [gid]: !(prev[gid] ?? autoExpanded.has(gid)) }));
   };
+
   const toggleGroup = (ids: string[]) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
