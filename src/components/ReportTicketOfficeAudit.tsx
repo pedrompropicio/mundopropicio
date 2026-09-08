@@ -137,7 +137,7 @@ export default function ReportTicketOfficeAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, supplier_id, suppliers(name), events(name)")
+        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, suppliers(name), events(name)")
         .in("account_id", accountIds)
         .in("status", ["approved", "paid"])
         .order("date");
@@ -145,6 +145,20 @@ export default function ReportTicketOfficeAudit() {
       return data;
     },
   });
+
+  const { data: allAdvances = [] } = useQuery({
+    queryKey: ["report_to_advances", accountIds.length],
+    enabled: accountIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("financial_account_id, event_id, amount, transaction_id, settlement_id, advance_date")
+        .in("financial_account_id", accountIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
 
   // Build zone-to-event map
   const zoneEventMap = useMemo(() => {
