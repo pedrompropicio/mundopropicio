@@ -110,8 +110,9 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          setOpen(true);
+          void openDialog();
         }}
+
         title="Agrupar estas transações como uma única fatura"
         className={
           compact
@@ -150,6 +151,12 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
                     <span className="font-mono">{formatCurrency(totalWithIva)}</span>
                   </div>
                 </div>
+                {docConflict && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                    As linhas têm documentos anexos diferentes — podem ser faturas diferentes.
+                    {conflictAck ? " Carrega outra vez para agrupar mesmo assim." : ""}
+                  </p>
+                )}
                 {!groupable && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Atenção: “{invoiceRef}” parece uma referência genérica (ex.: proforma). Confirma que é mesmo a
@@ -168,8 +175,13 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
               }}
               disabled={saving}
             >
-              {saving ? "A agrupar…" : "Agrupar fatura"}
+              {saving
+                ? "A agrupar…"
+                : docConflict && !conflictAck
+                  ? "Agrupar mesmo assim"
+                  : "Agrupar fatura"}
             </AlertDialogAction>
+
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
