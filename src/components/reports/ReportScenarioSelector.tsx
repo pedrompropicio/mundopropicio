@@ -25,7 +25,7 @@ interface Props {
 
 /**
  * Seletor de versão do BP para relatórios estratégicos.
- * - Lista a versão Ativa + cenários (fixados por default; drafts se includeUnpinnedScenarios)
+ * - Lista o BP em produção + cenários (fixados por default; drafts se includeUnpinnedScenarios)
  * - Só visível quando 1 evento está selecionado e existirem cenários
  * - Mostra banner amarelo + badge quando o utilizador escolhe um cenário
  */
@@ -79,7 +79,7 @@ export function ReportScenarioSelector({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ACTIVE_VALUE}>
-                Versão Ativa{activeVersion ? ` · v${activeVersion.version_number}` : ""}
+                BP em produção{activeVersion ? ` · v${activeVersion.version_number}` : ""}
               </SelectItem>
               {scenarios.map((v) => (
                 <SelectItem key={v.id} value={v.id}>

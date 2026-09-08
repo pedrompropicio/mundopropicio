@@ -48,7 +48,7 @@ interface Props {
 }
 
 /**
- * Lista as alterações pendentes na Versão Ativa (Real vs. snapshot da v ativa)
+ * Lista as alterações pendentes vs. a Última Congelada (Real vs. snapshot da v ativa)
  * e permite reverter cada linha individualmente, ou todas de uma vez. Útil
  * quando se faz ajustes diretos no BP em produção e queremos comparar com a
  * última fotografia oficial antes de congelar uma nova versão.
@@ -94,7 +94,7 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       toast({
         title: "Linha revertida",
-        description: `"${entry.before?.description ?? entry.after?.description}" voltou ao estado da versão ativa.`,
+        description: `"${entry.before?.description ?? entry.after?.description}" voltou ao estado da Última Congelada.`,
       });
     },
     onError: (err: any) =>
@@ -131,7 +131,7 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       toast({
         title: "Alterações revertidas",
-        description: `${counts.total} linha(s) voltaram ao estado da versão ativa.`,
+        description: `${counts.total} linha(s) voltaram ao estado da Última Congelada.`,
       });
       setConfirmRevertAll(false);
     },
@@ -150,13 +150,13 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
-              Alterações pendentes vs. Versão Ativa
+              Alterações pendentes vs. Última Congelada
               {data?.versionNumber != null && (
                 <Badge variant="outline">v{data.versionNumber}</Badge>
               )}
             </DialogTitle>
             <DialogDescription>
-              Diferenças entre o BP atual e a fotografia da versão ativa
+              Diferenças entre o BP atual e a fotografia da Última Congelada
               {data?.versionApprovedAt && (
                 <>
                   {" "}
@@ -172,7 +172,7 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
             <div className="py-8 text-center text-sm text-muted-foreground">A carregar diff…</div>
           ) : counts.total === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              Sem alterações pendentes — o BP atual está sincronizado com a versão ativa.
+              Sem alterações pendentes — o BP atual está sincronizado com a Última Congelada.
             </div>
           ) : (
             <Tabs defaultValue="all" className="flex-1 flex flex-col min-h-0">
@@ -231,7 +231,7 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
           <AlertDialogHeader>
             <AlertDialogTitle>Reverter todas as alterações?</AlertDialogTitle>
             <AlertDialogDescription>
-              {counts.total} linha(s) voltarão ao estado da versão ativa v{data?.versionNumber}.
+              {counts.total} linha(s) voltarão ao estado da Última Congelada v{data?.versionNumber}.
               Esta ação não pode ser desfeita automaticamente.
             </AlertDialogDescription>
           </AlertDialogHeader>

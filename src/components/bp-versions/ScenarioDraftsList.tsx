@@ -119,7 +119,7 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
             <AlertDialogTitle>Descartar cenário?</AlertDialogTitle>
             <AlertDialogDescription>
               O cenário e todas as suas linhas serão eliminados (incluindo a cópia nos Splits, em
-              caso de turnê). A versão Ativa não é afetada. Esta ação não pode ser desfeita.
+              caso de turnê). O BP em produção não é afetado. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -146,10 +146,10 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Promover cenário "{confirmPromote?.label}" a Ativa?
+              Promover cenário "{confirmPromote?.label}" a versão congelada?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              A versão Ativa atual passa para o histórico (superseded) e o cenário toma o seu
+              O BP em produção atual passa para o histórico e o cenário toma o seu
               lugar. Em turnê, a promoção cascateia para todos os Splits. Esta ação afeta o BP em
               produção.
             </AlertDialogDescription>
@@ -164,7 +164,7 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
                 }
               }}
             >
-              Promover a Ativa
+              Promover a versão congelada
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

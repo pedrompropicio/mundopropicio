@@ -1327,7 +1327,7 @@ export default function PartnerEventDetail() {
                   )}
                 </>
               ) : (
-                <span className="italic opacity-70">Sem versão ativa registada</span>
+                <span className="italic opacity-70">Sem versão congelada registada</span>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">

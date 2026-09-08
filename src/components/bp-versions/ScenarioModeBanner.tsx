@@ -11,7 +11,7 @@ interface Props {
 
 /**
  * Banner global, proeminente e sticky que avisa o utilizador que está a operar
- * num cenário sandbox (não na Versão Ativa). Aparece em todas as abas dentro do
+ * num cenário sandbox (não no BP em produção). Aparece em todas as abas dentro do
  * EventScenarioProvider quando isScenarioMode = true.
  */
 export function ScenarioModeBanner({ eventId }: Props) {
@@ -59,7 +59,7 @@ export function ScenarioModeBanner({ eventId }: Props) {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Estás a editar um <strong className="text-foreground">cenário</strong> — as alterações <strong className="text-foreground">não afetam a Versão Ativa</strong> em produção.
+                Estás a editar um <strong className="text-foreground">cenário</strong> — as alterações <strong className="text-foreground">não afetam o BP em produção</strong>.
                 {assumptions && (assumptions.publico_estimado || assumptions.ticket_medio || assumptions.ocupacao_pct) ? (
                   <span className="ml-1">
                     {assumptions.publico_estimado ? ` Público: ${assumptions.publico_estimado.toLocaleString("pt-PT")}` : ""}
@@ -78,7 +78,7 @@ export function ScenarioModeBanner({ eventId }: Props) {
             className="shrink-0 border-warning/50 hover:bg-warning/10 hover:border-warning"
           >
             <X className="h-3.5 w-3.5 mr-1" />
-            Voltar à Versão Ativa
+            Voltar ao BP em produção
           </Button>
         </div>
       </div>

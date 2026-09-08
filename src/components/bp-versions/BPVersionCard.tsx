@@ -78,7 +78,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
               </Button>
               <HelpTooltip
                 size={13}
-                text="Cria a primeira versão imutável do BP deste evento. Passa a ser a Versão Ativa de produção."
+                text="Cria a primeira versão imutável do BP deste evento. Passa a ser a Última Congelada."
               />
             </div>
           )}
@@ -141,10 +141,10 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold">v{activeVersion.version_number}</p>
-            <Badge variant="default" className="text-[10px] uppercase tracking-wider">Ativa</Badge>
+            <Badge variant="default" className="text-[10px] uppercase tracking-wider">Última Congelada</Badge>
             <HelpTooltip
               size={13}
-              text="Versão Ativa = BP em produção. É a única que recebe transações reais, valida bypass e alimenta os relatórios contabilísticos (DRE, Rentabilidade)."
+              text="Última Congelada = a fotografia oficial mais recente do BP, a referência para sócios e relatórios. O BP em produção é o que estás a editar no ecrã; ao congelar, cria-se uma nova versão e a anterior passa a Histórico."
             />
             {isSplit && activeVersion.cascaded_from_version_id && (
               <Badge variant="outline" className="text-[10px] gap-1">
@@ -183,7 +183,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </Button>
             <HelpTooltip
               size={13}
-              text="Compara lado-a-lado a Versão Ativa com versões anteriores e/ou cenários fixados (até 4 colunas). Mostra diferenças por categoria."
+              text="Compara lado-a-lado a Última Congelada com versões anteriores e/ou cenários fixados (até 4 colunas). Mostra diferenças por categoria."
             />
           </div>
         )}
@@ -194,7 +194,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
           </Button>
           <HelpTooltip
             size={13}
-            text="Linha do tempo de todas as versões oficiais e cenários de trabalho. Permite reverter, arquivar, descartar ou promover cenários a Ativa."
+            text="Linha do tempo de todas as versões oficiais e cenários de trabalho. Permite reverter, arquivar, descartar ou promover cenários a versão congelada."
           />
         </div>
         {canManage && !isSplit && (
@@ -206,7 +206,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
               </Button>
               <HelpTooltip
                 size={13}
-                text="Cria um cenário sandbox (rascunho nomeado) clonando a Versão Ativa. Permite simular pressupostos sem afetar produção. Não recebe transações reais."
+                text="Cria um cenário sandbox (rascunho nomeado) clonando o BP em produção. Permite simular pressupostos sem afetar produção. Não recebe transações reais."
               />
             </div>
             <div className="flex items-center shrink-0">
