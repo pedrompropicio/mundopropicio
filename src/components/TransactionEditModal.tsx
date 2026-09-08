@@ -316,6 +316,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   // Quando existe, "Reverter" = eliminar irmã + apagar partner_advance_expenses dela; a principal
   // já está NORMAL pelo total.
   const invoiceGroupId = transaction.invoice_group_id ?? null;
+  // Sugestão de agrupamento quando as irmãs têm documentos anexos diferentes.
+  const [invoiceSuggestion, setInvoiceSuggestion] = useState<InvoiceGroupSuggestion | null>(null);
+  const [confirmUngroup, setConfirmUngroup] = useState(false);
+  const [ungrouping, setUngrouping] = useState(false);
 
   // Deteção por Nº fatura/ATCUD: irmãs do mesmo fornecedor com o mesmo nº.
   const detectedInvoiceRef = (transaction.invoice_ref ?? "").trim() || null;
