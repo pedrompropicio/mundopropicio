@@ -54,7 +54,7 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
   async function handleGroup() {
     setSaving(true);
     try {
-      const res = await ensureInvoiceGroup(supplierId!, invoiceRef!);
+      const res = await ensureInvoiceGroup(supplierId!, invoiceRef!, { force: true });
       if (!res.groupId) {
         toast({
           title: "Não foi possível agrupar",
