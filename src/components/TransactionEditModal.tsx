@@ -587,10 +587,18 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
       }
 
-      // Auto-agrupamento por Nº fatura/ATCUD (conservador: mesmo fornecedor).
+      // Auto-agrupamento por Nº fatura/ATCUD (conservador: mesmo fornecedor e
+      // documento anexo partilhado; documentos diferentes só com confirmação).
       {
         const auto = await autoGroupInvoiceForTransaction(transaction.id);
-        if (auto) {
+        if (auto?.suggestion) {
+          setInvoiceSuggestion({
+            supplierId: auto.supplierId,
+            supplierName: null,
+            invoiceRef: auto.invoiceRef,
+            total: auto.total,
+          });
+        } else if (auto) {
           toast({
             title: "Fatura agrupada",
             description: `Agrupada à fatura ${auto.invoiceRef} (${auto.total} itens).`,

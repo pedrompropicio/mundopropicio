@@ -6892,6 +6892,51 @@ export type Database = {
           },
         ]
       }
+      invoice_group_audit: {
+        Row: {
+          aplicado: boolean
+          company_id: string | null
+          confidence: string | null
+          document_type: string | null
+          file_url: string | null
+          id: string
+          invoice_group_id: string | null
+          numero_lido: string | null
+          ref_atual: string | null
+          run_at: string
+          transaction_id: string | null
+          veredicto: string | null
+        }
+        Insert: {
+          aplicado?: boolean
+          company_id?: string | null
+          confidence?: string | null
+          document_type?: string | null
+          file_url?: string | null
+          id?: string
+          invoice_group_id?: string | null
+          numero_lido?: string | null
+          ref_atual?: string | null
+          run_at?: string
+          transaction_id?: string | null
+          veredicto?: string | null
+        }
+        Update: {
+          aplicado?: boolean
+          company_id?: string | null
+          confidence?: string | null
+          document_type?: string | null
+          file_url?: string | null
+          id?: string
+          invoice_group_id?: string | null
+          numero_lido?: string | null
+          ref_atual?: string | null
+          run_at?: string
+          transaction_id?: string | null
+          veredicto?: string | null
+        }
+        Relationships: []
+      }
       lead_capture: {
         Row: {
           client_event_id: string | null
