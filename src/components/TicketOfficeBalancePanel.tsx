@@ -250,8 +250,28 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           {formatCurrency(summary.globalBalance)}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          Vendas − despesas diretas − transferências (adiantamentos já saíram)
+          Vendas − despesas − transferências − adiantamentos em aberto
         </p>
+        {summary.retentionPct != null && (
+          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/40 pt-2">
+            <div>
+              <p className="text-[10px] text-muted-foreground">Saldo esperado ({summary.retentionPct}%)</p>
+              <p className="text-sm font-mono font-semibold">{formatCurrency(summary.expectedBalance ?? 0)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground">Desvio</p>
+              <p className={`text-sm font-mono font-semibold ${summary.deviationWarn ? "text-amber-500" : "text-muted-foreground"}`}>
+                {formatCurrency(summary.deviation ?? 0)}
+              </p>
+            </div>
+            {summary.deviationWarn && (
+              <p className="col-span-2 flex items-center justify-center gap-1 text-[10px] text-amber-500">
+                <AlertCircle className="h-3 w-3" /> Desvio acima de 5% — vendas por importar ou repasse por lançar
+              </p>
+            )}
+          </div>
+        )}
+
         {summary.hasInconsistency && (
           <p className="flex items-center justify-center gap-1 text-[10px] text-destructive mt-1">
             <AlertCircle className="h-3 w-3" /> Sem eventos em venda — saldo deveria ser zero
