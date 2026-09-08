@@ -7712,7 +7712,15 @@ export type Database = {
           sale_date?: string
           total_value?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "onebox_daily_sales_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       onebox_sync_runs: {
         Row: {
