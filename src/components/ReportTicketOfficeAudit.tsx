@@ -218,14 +218,18 @@ export default function ReportTicketOfficeAudit() {
           .filter((s: any) => s.event_id === a.event_id && s.financial_account_id === office.id)
           .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
 
+        // Cada transação entra numa coluna só: expense → despesas, transfer → transferências
         const eventExpenses = accountTxns
-          .filter(
-            (t: any) =>
-              isCountedTicketOfficeTxn(t, office.id) &&
-              (t.type === "expense" || t.type === "transfer") &&
-              t.event_id === a.event_id
-          )
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "expense" && t.event_id === a.event_id)
           .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+        const eventTransfers = accountTxns
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "transfer" && t.event_id === a.event_id)
+          .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+        const eventAdvances = officeAdvances
+          .filter((adv: any) => isOpenTicketOfficeAdvance(adv) && adv.event_id === a.event_id)
+          .reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0);
 
         return {
           eventId: a.event_id,
@@ -234,32 +238,52 @@ export default function ReportTicketOfficeAudit() {
           isConciliated: a.is_conciliated,
           totalSales: officeSales,
           totalExpenses: eventExpenses,
+          totalTransfers: eventTransfers,
+          totalAdvances: eventAdvances,
           balance: byEvent[a.event_id] ?? 0,
         };
       }).filter(Boolean);
 
-      // Transferências / saídas sem evento
-      const transfers = accountTxns
-        .filter(
-          (t: any) =>
-            isCountedTicketOfficeTxn(t, office.id) &&
-            (t.type === "transfer" || (t.type === "expense" && !t.event_id))
-        )
+      const countedTxns = accountTxns.filter((t: any) => isCountedTicketOfficeTxn(t, office.id));
+
+      // Totais da bilheteira — cada movimento numa coluna só, para reconciliar com o Saldo Previsto
+      const totalSales = salesWithEvent
+        .filter((s: any) => s.financial_account_id === office.id)
+        .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
+
+      const totalIncome = countedTxns
+        .filter((t: any) => t.type === "income")
         .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
-      const totalSales = events.reduce((s: number, e: any) => s + e.totalSales, 0);
-      const totalDirectExpenses = events.reduce((s: number, e: any) => s + e.totalExpenses, 0);
+      const totalDirectExpenses = countedTxns
+        .filter((t: any) => t.type === "expense")
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+      const transfers = countedTxns
+        .filter((t: any) => t.type === "transfer")
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+      const totalAdvances = officeAdvances
+        .filter((adv: any) => isOpenTicketOfficeAdvance(adv))
+        .reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0);
+
+      const noEventOut = countedTxns
+        .filter((t: any) => !t.event_id && (t.type === "transfer" || t.type === "expense"))
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       return {
         officeId: office.id,
         officeName: office.name,
         financialAccountId: accountId,
-        totalSales,
+        totalSales: totalSales + totalIncome,
         totalDirectExpenses,
         totalTransfers: transfers,
+        totalAdvances,
+        noEventOut,
         expectedBalance: total,
         events,
       };
+
     });
   }, [offices, assignments, allSales, accountTxns, allAdvances, zoneEventMap]);
 
