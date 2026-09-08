@@ -184,14 +184,47 @@ Deno.serve(async (req) => {
     out.stepB_csrf_token = { status: null, error: String((e as Error)?.message ?? e) };
   }
 
-  // PASSO C — dados de um gráfico (slice 180)
-  const csrfHeader: Record<string, string> = apiCsrf ? { "X-CSRFToken": apiCsrf } : {};
-  const attempts: Record<string, unknown>[] = [];
+  // PASSO C1 — metadados do gráfico 180
+  let queryContext: unknown = null;
   try {
-    const url = `${BASE}/api/v1/chart/data?form_data=${encodeURIComponent(
-      JSON.stringify({ slice_id: 180 }),
-    )}&dashboard_id=43`;
-    const res = await fetch(url, {
+    const res = await fetch(`${BASE}/api/v1/chart/180`, {
+      redirect: "manual",
+      headers: baseHeaders({
+        "Accept": "application/json, text/plain, */*",
+        "Referer": `${BASE}/superset/dashboard/43/`,
+      }),
+    });
+    absorbCookies(res);
+    const text = await res.text();
+    let info: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(text);
+      const r = (parsed?.result ?? {}) as Record<string, unknown>;
+      const qc = r?.query_context;
+      if (typeof qc === "string" && qc.trim()) {
+        try { queryContext = JSON.parse(qc); } catch (_) { queryContext = null; }
+      } else if (qc && typeof qc === "object") {
+        queryContext = qc;
+      }
+      info = {
+        datasource_id: r?.datasource_id ?? null,
+        datasource_type: r?.datasource_type ?? null,
+        query_context_existe: Boolean(queryContext),
+      };
+    } catch (_) {
+      info = { body_preview: preview(text, 400) };
+    }
+    out.stepC1_chart_meta = { status: res.status, ...info };
+  } catch (e) {
+    out.stepC1_chart_meta = { status: null, error: String((e as Error)?.message ?? e) };
+  }
+
+  if (!queryContext) {
+    return json(200, { ...out, aviso: "sem query_context — C2/C3 saltados" });
+  }
+
+  const postQueryContext = async (withCsrf: boolean) => {
+    const res = await fetch(`${BASE}/api/v1/chart/data`, {
       method: "POST",
       redirect: "manual",
       headers: baseHeaders({
@@ -199,58 +232,35 @@ Deno.serve(async (req) => {
         "Accept": "application/json, text/plain, */*",
         "Origin": BASE,
         "Referer": `${BASE}/superset/dashboard/43/`,
-        ...csrfHeader,
+        ...(withCsrf && csrf ? { "X-CSRFToken": csrf } : {}),
       }),
-      body: JSON.stringify({
-        datasource: { id: null, type: "table" },
-        queries: [],
-        form_data: { slice_id: 180 },
-        result_format: "json",
-        result_type: "results",
-      }),
+      body: JSON.stringify(queryContext),
     });
     const text = await res.text();
-    attempts.push({
-      metodo: "POST /api/v1/chart/data",
+    return {
       status: res.status,
       content_type: res.headers.get("content-type"),
-      body_preview: preview(text, 600),
-    });
+      body_preview: preview(text, 800),
+    };
+  };
+
+  // PASSO C2 — POST com o query_context tal e qual
+  let c2: Awaited<ReturnType<typeof postQueryContext>> | null = null;
+  try {
+    c2 = await postQueryContext(false);
+    out.stepC2_chart_data = c2;
   } catch (e) {
-    attempts.push({ metodo: "POST /api/v1/chart/data", status: null, error: String((e as Error)?.message ?? e) });
+    out.stepC2_chart_data = { status: null, error: String((e as Error)?.message ?? e) };
   }
 
-  const primeiro = attempts[0] as { status?: number | null };
-  if (!(primeiro.status && primeiro.status >= 200 && primeiro.status < 300)) {
+  // PASSO C3 — uma única repetição com X-CSRFToken do HTML do login
+  if (c2 && c2.status === 400 && /csrf/i.test(c2.body_preview) && csrf) {
     try {
-      const res = await fetch(`${BASE}/api/v1/chart/180/data/?format=json`, {
-        redirect: "manual",
-        headers: baseHeaders({
-          "Accept": "application/json, text/plain, */*",
-          "Referer": `${BASE}/superset/dashboard/43/`,
-          ...csrfHeader,
-        }),
-      });
-      const text = await res.text();
-      attempts.push({
-        metodo: "GET /api/v1/chart/180/data/?format=json",
-        status: res.status,
-        content_type: res.headers.get("content-type"),
-        body_preview: preview(text, 600),
-      });
+      out.stepC3_chart_data_com_csrf = await postQueryContext(true);
     } catch (e) {
-      attempts.push({
-        metodo: "GET /api/v1/chart/180/data/?format=json",
-        status: null,
-        error: String((e as Error)?.message ?? e),
-      });
+      out.stepC3_chart_data_com_csrf = { status: null, error: String((e as Error)?.message ?? e) };
     }
   }
-
-  const melhor =
-    attempts.find((a) => typeof a.status === "number" && (a.status as number) >= 200 && (a.status as number) < 300) ??
-    attempts[attempts.length - 1];
-  out.stepC_chart_data = { melhor_tentativa: melhor, todas: attempts };
 
   return json(200, out);
 });
