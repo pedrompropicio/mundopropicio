@@ -692,6 +692,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           .in("id", advanceIds);
       }
 
+      // Carimbo de conciliação: um fecho confirmado marca a atribuição como conciliada.
+      if (confirm && eventId) {
+        await (supabase as any)
+          .from("event_ticket_office_assignments")
+          .update({
+            is_conciliated: true,
+            conciliated_at: new Date().toISOString(),
+            conciliated_by: user?.email || "system",
+          })
+          .eq("event_id", eventId)
+          .eq("financial_account_id", officeId);
+      }
+
       await logAudit({
         entity_type: "ticket_office_settlement",
         entity_id: settlementId,
