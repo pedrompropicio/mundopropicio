@@ -76,7 +76,7 @@ export function exportTicketOfficeAuditToExcel(
       ["AUDITORIA DE BILHETEIRAS — Sintético"],
       [`Gerado em ${new Date().toLocaleDateString("pt-PT")}`],
       [],
-      ["Bilheteira", "Vendas (€)", "Desp. Diretas (€)", "Transferências (€)", "Saldo Previsto (€)", "Eventos"],
+      ["Bilheteira", "Vendas (€)", "Desp. Diretas (€)", "Transferências (€)", "Adiantamentos (€)", "Saldo Previsto (€)", "Eventos"],
     ];
 
     syntheticData.forEach((office) => {
@@ -85,6 +85,7 @@ export function exportTicketOfficeAuditToExcel(
         office.totalSales,
         office.totalDirectExpenses,
         office.totalTransfers,
+        office.totalAdvances || 0,
         office.expectedBalance,
         office.events.length,
       ]);
@@ -94,7 +95,8 @@ export function exportTicketOfficeAuditToExcel(
           `  ↳ ${ev.eventName}`,
           ev.totalSales,
           ev.totalExpenses,
-          "",
+          ev.totalTransfers || 0,
+          ev.totalAdvances || 0,
           ev.balance,
           statusLabel(ev.eventStatus) + (ev.isConciliated ? " ✓" : ""),
         ]);
@@ -106,16 +108,18 @@ export function exportTicketOfficeAuditToExcel(
         sales: acc.sales + d.totalSales,
         expenses: acc.expenses + d.totalDirectExpenses,
         transfers: acc.transfers + d.totalTransfers,
+        advances: acc.advances + (d.totalAdvances || 0),
         balance: acc.balance + d.expectedBalance,
         events: acc.events + d.events.length,
       }),
-      { sales: 0, expenses: 0, transfers: 0, balance: 0, events: 0 }
+      { sales: 0, expenses: 0, transfers: 0, advances: 0, balance: 0, events: 0 }
     );
     rows.push([]);
-    rows.push(["TOTAL", totals.sales, totals.expenses, totals.transfers, totals.balance, totals.events]);
+    rows.push(["TOTAL", totals.sales, totals.expenses, totals.transfers, totals.advances, totals.balance, totals.events]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
+
     applyPTNumberFormat(ws);
     XLSX.utils.book_append_sheet(wb, ws, "Sintético");
   } else {
