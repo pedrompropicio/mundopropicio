@@ -1962,6 +1962,21 @@ export default function Transactions() {
                     </ul>
                   </div>
                 )}
+                {deleteChecked && deleteGroupSiblings.length > 0 && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 space-y-1">
+                    <p className="text-xs font-semibold text-destructive">
+                      Grupo de fatura — estas {deleteGroupSiblings.length} transação(ões) serão eliminadas em conjunto:
+                    </p>
+                    <ul className="text-xs text-destructive list-disc pl-4 space-y-0.5">
+                      {deleteGroupSiblings.map((s) => (
+                        <li key={s.id}>
+                          {s.description ?? "(sem descrição)"} — {s.date ?? s.due_date ?? "sem data"} —{" "}
+                          {Number(s.amount).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
