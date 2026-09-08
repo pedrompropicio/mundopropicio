@@ -7684,6 +7684,75 @@ export type Database = {
         }
         Relationships: []
       }
+      onebox_daily_sales: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          quantity: number
+          sale_date: string
+          total_value: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          quantity?: number
+          sale_date: string
+          total_value?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          quantity?: number
+          sale_date?: string
+          total_value?: number
+        }
+        Relationships: []
+      }
+      onebox_sync_runs: {
+        Row: {
+          company_id: string
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          import_audit: Json | null
+          mode: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode: string
+          started_at?: string
+          status: string
+          triggered_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       operacao_chamado_sla: {
         Row: {
           priority: string
