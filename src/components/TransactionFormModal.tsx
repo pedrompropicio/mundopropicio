@@ -2009,18 +2009,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
 
       // Verificação INDEPENDENTE da descrição: mesmo fornecedor + mesmo nº de fatura
-      // é sempre suspeito, mesmo que a descrição seja diferente (incidente 2026-09).
+      // E MESMO VALOR é sempre suspeito (incidente 2026-09). Se o nº coincide mas o
+      // valor difere, é o caso legítimo da fatura repartida por várias linhas de BP —
+      // esse risco já é coberto pelo diálogo de documentos divergentes.
       const refRaw = form.invoice_ref.trim();
       if (form.supplier_id && refRaw) {
-        const { normalizeInvoiceRef } = await import("@/lib/invoice-group");
-        const refNorm = normalizeInvoiceRef(refRaw);
+        const amount = parseFloat(form.amount) || 0;
         const { data: sameRef } = await supabase
           .from("transactions")
           .select("id, description, amount, status, due_date, supplier_id, event_id, specification, invoice_ref")
           .eq("supplier_id", form.supplier_id)
-          .limit(50);
+          .eq("invoice_ref", refRaw);
         const hits = (sameRef ?? []).filter(
-          (m: any) => normalizeInvoiceRef(m.invoice_ref ?? "") === refNorm,
+          (m: any) => Math.abs(Number(m.amount ?? 0) - amount) < 0.01,
         );
         if (hits.length > 0) {
           setDuplicateMatches(hits);
@@ -2028,6 +2029,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           return;
         }
       }
+
     } catch {
       // If check fails, proceed anyway
     }

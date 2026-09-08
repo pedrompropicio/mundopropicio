@@ -60,3 +60,7 @@ verify_jwt = true
 
 [functions.ads-invoice-apply]
 verify_jwt = true
+
+# Auditoria por OCR dos grupos de fatura existentes (admin/platform_admin).
+[functions.audit-invoice-groups]
+verify_jwt = true
