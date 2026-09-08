@@ -15,10 +15,18 @@ Cada evento tem **uma única versão `active`** por força do índice único par
 
 | `version_id` | Significado | Vê transações reais? |
 |---|---|---|
-| `null` | Versão Ativa (produção) | ✅ Sim, via `transaction_id` |
+| `null` | Versão Ativa (produção) | ✅ Sim, via `transactions.forecast_id` |
 | `uuid` de cenário | Sandbox isolado | ❌ Não — snapshot estático |
 
+O vínculo canónico é **`transactions.forecast_id`** (N transações : 1 linha). `event_forecasts.transaction_id` é apenas a **âncora** (a primeira TX vinculada), reconstruída pelo trigger `trg_sync_tx_forecast_to_anchor` — nunca a escrever à mão.
+
 `create_bp_snapshot` clona TODOS os forecasts ativos para novas linhas com `version_id = <novo_cenário>`. Editar o cenário não toca a Ativa, e vice-versa.
+
+### Reescrever o BP não pode perder vínculos
+A FK `transactions_forecast_id_fkey` é `ON DELETE SET NULL`: qualquer `DELETE FROM event_forecasts ... version_id IS NULL` limpa em silêncio o `forecast_id` das transações do evento, e reinserir a linha com o mesmo id **não** o restaura. Por isso `promote_scenario_draft_to_active`, `promote_scenario_to_active` e `_revert_event_to_version` chamam `bp_capture_tx_links(event_id)` **antes** do DELETE e `bp_restore_tx_links(event_id, links)` depois de as linhas novas estarem vivas — no Master e em cada Split. A reposição faz-se pelo mesmo id e, quando o id não sobreviveu, por `(category_id, description)` e **só** quando existe exactamente uma linha viva candidata. O resultado (`relinked`, `by_id`, `by_description`, `ambiguous`, `unmatched`) fica no `metadata.tx_links` do registo em `bp_version_audit_log`.
+
+`bp_version_linked_tx_count(event_id)` — a trava da reversão — conta os vínculos reais (`transactions` JOIN `event_forecasts` por `forecast_id`), não a âncora.
+
 
 ## Transações vivem SEMPRE na Ativa
 
