@@ -971,13 +971,23 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
               </select>
             </div>
           </div>
-          {(dateFrom || dateTo || eventFilter !== "all") && (
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Procurar</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Descrição, fornecedor, nº de fatura…"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          {(dateFrom || dateTo || eventFilter !== "all" || search) && (
             <button
-              onClick={() => { setDateFrom(""); setDateTo(""); setEventFilter("all"); }}
+              onClick={() => { setDateFrom(""); setDateTo(""); setEventFilter("all"); setSearch(""); }}
               className="text-xs text-primary hover:underline"
             >
               Limpar filtros
             </button>
+
           )}
         </div>
 
