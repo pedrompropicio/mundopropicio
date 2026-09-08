@@ -20,6 +20,8 @@ interface SyntheticEvent {
   isConciliated: boolean;
   totalSales: number;
   totalExpenses: number;
+  totalTransfers?: number;
+  totalAdvances?: number;
   balance: number;
 }
 
@@ -28,9 +30,11 @@ interface SyntheticOffice {
   totalSales: number;
   totalDirectExpenses: number;
   totalTransfers: number;
+  totalAdvances?: number;
   expectedBalance: number;
   events: SyntheticEvent[];
 }
+
 
 interface AnalyticalLine {
   date: string;
