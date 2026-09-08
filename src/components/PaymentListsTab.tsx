@@ -1026,7 +1026,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {pickerRows.map((row) => {
+                {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
                     const paid = Number(t.paid_amount ?? 0);
