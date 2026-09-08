@@ -848,8 +848,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <div className="text-sm">
             <p className="font-semibold text-primary">A editar bilheteira de um cenário sandbox</p>
             <p className="text-muted-foreground text-xs mt-0.5">
-              As alterações em zonas e lotes ficam isoladas neste cenário e não afetam a Versão Ativa em produção.
-              As vendas reais (Log de Vendas) continuam vinculadas à Versão Ativa.
+              As alterações em zonas e lotes ficam isoladas neste cenário e não afetam o BP em produção.
+              As vendas reais (Log de Vendas) continuam vinculadas ao BP em produção.
             </p>
           </div>
         </div>
@@ -1373,7 +1373,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         )}
       </div>
 
-      {/* Sales Log — sempre vinculado à Versão Ativa, nunca aos cenários sandbox */}
+      {/* Sales Log — sempre vinculado ao BP em produção, nunca aos cenários sandbox */}
       {!isScenarioMode && (
         <SalesLogPanel
           eventId={eventId}
@@ -1384,7 +1384,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       )}
       {isScenarioMode && (
         <div className="glass rounded-xl p-4 text-xs text-muted-foreground border border-dashed">
-          Log de vendas reais não está disponível em modo cenário — volta à Versão Ativa para registar/visualizar vendas.
+          Log de vendas reais não está disponível em modo cenário — volta ao BP em produção para registar/visualizar vendas.
         </div>
       )}
 

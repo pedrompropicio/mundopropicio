@@ -103,7 +103,7 @@ export function PromoteScenarioDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Rocket className="h-5 w-5 text-primary" />
-            Promover cenário "{scenario.scenario_label}" a versão ativa
+            Promover cenário "{scenario.scenario_label}" a versão congelada
           </DialogTitle>
           <DialogDescription>
             O BP do evento será reescrito com este cenário. Em Master, a promoção propaga aos Splits.
@@ -203,7 +203,7 @@ export function PromoteScenarioDialog({
           </Button>
           <Button onClick={handleConfirm} disabled={promote.isPending || blocked}>
             <Rocket className="h-4 w-4 mr-1.5" />
-            {promote.isPending ? "A promover…" : "Promover a ativa"}
+            {promote.isPending ? "A promover…" : "Promover a versão congelada"}
           </Button>
         </DialogFooter>
       </DialogContent>

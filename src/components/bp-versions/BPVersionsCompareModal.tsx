@@ -364,8 +364,10 @@ function labelOf(v: BPVersionRow | null): string {
   if (!v) return "—";
   const base = `v${v.version_number}`;
   if (v.scenario_label) return `${base} (${v.scenario_label})`;
-  if (v.state === "active") return `${base} (Ativa)`;
+  if (v.state === "active") return `${base} (Última Congelada)`;
   if (v.state === "draft") return `${base} (Rascunho)`;
+  if (v.state === "working_draft") return `${base} (Cenário)`;
+  if (v.state === "superseded") return `${base} (Histórico)`;
   if (v.state === "archived") return `${base} (Arquivada)`;
   return base;
 }

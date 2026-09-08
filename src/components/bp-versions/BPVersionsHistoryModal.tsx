@@ -46,9 +46,10 @@ const STATE_META: Record<
   string,
   { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }
 > = {
-  active: { label: "Ativa", variant: "default" },
+  active: { label: "Última Congelada", variant: "default" },
   draft: { label: "Rascunho", variant: "outline" },
-  superseded: { label: "Substituída", variant: "secondary" },
+  superseded: { label: "Histórico", variant: "secondary" },
+  working_draft: { label: "Cenário", variant: "outline" },
   archived: { label: "Arquivada", variant: "outline", className: "opacity-60" },
 };
 
@@ -574,8 +575,8 @@ function RevertConfirmDialog({
             <div className="space-y-3">
               <p>
                 Esta ação <strong>substitui o BP atual</strong> pelas linhas guardadas na versão
-                v{version?.version_number}. A versão atual passa a "Substituída" e uma nova versão
-                ativa retroativa será criada. Em Masters, a reversão propaga-se aos Splits.
+                v{version?.version_number}. A versão atual passa a "Histórico" e uma nova versão
+                congelada retroativa será criada. Em Masters, a reversão propaga-se aos Splits.
               </p>
               {linkedTxCount > 0 && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">

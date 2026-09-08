@@ -2211,7 +2211,7 @@ const descRef = useRef<HTMLInputElement>(null);
             <p className="font-semibold">A editar um cenário sandbox</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               As alterações ficam isoladas neste cenário e <strong>não afetam o BP em produção</strong>.
-              Para aplicar, promove o cenário a Ativa no card de versões em cima.
+              Para aplicar, promove o cenário a versão congelada no card de versões em cima.
               Geração de transações, aprovações e adoção Master↔Split estão desativadas em modo cenário.
             </p>
           </div>

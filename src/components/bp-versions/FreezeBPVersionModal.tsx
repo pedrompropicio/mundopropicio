@@ -85,7 +85,7 @@ export function FreezeBPVersionModal({ open, onOpenChange, eventId, isMaster }: 
             Congelar nova versão do BP
             <HelpTooltip
               size={14}
-              text="Cria uma fotografia imutável do BP. Escolhe entre rascunho (snapshot guardado), aprovar (substitui a Versão Ativa) ou cenário (sandbox paralelo nomeado)."
+              text="Cria uma fotografia imutável do BP. Escolhe entre rascunho (snapshot guardado), aprovar (passa a ser a Última Congelada) ou cenário (sandbox paralelo nomeado)."
             />
           </DialogTitle>
           <DialogDescription>
@@ -113,10 +113,10 @@ export function FreezeBPVersionModal({ open, onOpenChange, eventId, isMaster }: 
                 <RadioGroupItem value="active" id="mode-active" className="mt-0.5" />
                 <div className="space-y-0.5">
                   <Label htmlFor="mode-active" className="font-medium cursor-pointer">
-                    Aprovar imediatamente (versão ativa)
+                    Aprovar imediatamente (Última Congelada)
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Substitui a versão ativa atual. Vira referência oficial para sócios e relatórios.
+                    Substitui a Última Congelada atual. Vira referência oficial para sócios e relatórios.
                   </p>
                 </div>
               </div>
@@ -127,7 +127,7 @@ export function FreezeBPVersionModal({ open, onOpenChange, eventId, isMaster }: 
                     Cenário (paralelo, para análise)
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Snapshot nomeado (ex: "Pessimista 12k") para comparar com a versão ativa sem promover.
+                    Snapshot nomeado (ex: "Pessimista 12k") para comparar com o BP em produção sem promover.
                   </p>
                 </div>
               </div>

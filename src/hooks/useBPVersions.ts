@@ -91,7 +91,7 @@ export function useFreezeBPVersion() {
         vars.scenarioLabel
           ? `Cenário "${vars.scenarioLabel}" criado`
           : vars.approveImmediately
-            ? "Nova versão ativa criada"
+            ? "Nova versão congelada criada"
             : "Rascunho de versão criado"
       );
     },
@@ -224,7 +224,7 @@ export function usePromoteScenario(eventId: string) {
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
       qc.invalidateQueries({ queryKey: ["event_forecasts"] });
-      toast.success("Cenário promovido — agora é a versão ativa");
+      toast.success("Cenário promovido — agora é a versão congelada");
     },
     onError: (err: any) => {
       const msg = err?.message ?? "Falha ao promover cenário";
@@ -476,7 +476,7 @@ export function usePromoteScenarioDraft(eventId: string) {
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
       qc.invalidateQueries({ queryKey: ["event_forecasts"] });
-      toast.success("Cenário promovido — agora é a versão Ativa");
+      toast.success("Cenário promovido — agora é a versão congelada");
     },
     onError: (err: any) => toast.error(err?.message ?? "Falha ao promover cenário"),
   });

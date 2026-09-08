@@ -18,7 +18,7 @@ interface Props {
 }
 
 /**
- * Permite alternar a vista (e edição) do BP entre a versão Ativa e qualquer
+ * Permite alternar a vista (e edição) do BP entre o BP em produção e qualquer
  * cenário working_draft existente. Render apenas se houver pelo menos 1 cenário.
  */
 export function BPScenarioSelector({ eventId, selectedVersionId, onSelectVersion }: Props) {
@@ -49,11 +49,11 @@ export function BPScenarioSelector({ eventId, selectedVersionId, onSelectVersion
             A editar
             <HelpTooltip
               size={13}
-              text="Alterna entre a Versão Ativa (BP em produção, recebe transações reais) e cenários sandbox (rascunhos isolados, só para simulação)."
+              text="Alterna entre o BP em produção (recebe transações reais) e cenários sandbox (rascunhos isolados, só para simulação)."
             />
           </p>
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
-            Escolhe a versão do BP que queres visualizar e editar nesta vista.
+            Escolhe o que queres visualizar e editar nesta vista.
           </p>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function BPScenarioSelector({ eventId, selectedVersionId, onSelectVersion
         ) : (
           <Badge variant="default" className="text-[10px] gap-1">
             <GitBranch className="h-2.5 w-2.5" />
-            Versão Ativa
+            BP em produção
           </Badge>
         )}
         <Select
@@ -83,7 +83,7 @@ export function BPScenarioSelector({ eventId, selectedVersionId, onSelectVersion
             <SelectItem value="__active__">
               <div className="flex items-center gap-2">
                 <GitBranch className="h-3.5 w-3.5" />
-                <span>Versão Ativa (BP em produção)</span>
+                <span>BP em produção</span>
               </div>
             </SelectItem>
             {drafts.map((d) => (
