@@ -128,7 +128,8 @@
 **Estado:** vigente.
 
 ## D-ERP15 — Saldo de bilheteira: fonte única, e a transferência quinzenal não se rateia (08/09/2026)
-**Decisão:** `computeTicketOfficeBalance` em `src/lib/ticket-office-balance.ts` é a única fórmula do saldo de uma bilheteira, no total e por evento. Conta `transfer` como saída, o que faz o saldo fechar em zero depois de um fecho confirmado sem precisar de ler os fechos.
+**Decisão:** `computeTicketOfficeBalance` em `src/lib/ticket-office-balance.ts` é a única fórmula do saldo de uma bilheteira, no total e por evento. Conta como saída tanto as despesas como as transferências, o que faz o saldo fechar em zero depois de um fecho totalmente registado.
+**Nota de correção (08/09):** neste sistema **não existem transações de tipo `transfer`** — o `transactions_type_check` só aceita `income` e `expense`. Uma transferência entre contas é um **par**: `expense` na conta de origem e `income` na de destino, ambas na rubrica `10.3 Transferências Internas`, ligadas apenas pela descrição. É o que o `TransferFormModal` faz. O tipo `transfer` continua previsto na fórmula do saldo por robustez, mas nunca ocorre.
 **Porquê:** existiam três fórmulas divergentes e nenhuma contava as transferências; o saldo subia depois de um fecho em vez de descer. O relatório usava ainda `paid_amount || amount`, fazendo uma despesa aprovada e não paga contar pelo valor inteiro.
 **Regra de negócio associada:** a transferência quinzenal da bilheteira cobre vários eventos e é arredondada. Não se rateia por estimativa — entra sem evento, e a alocação por evento nasce no fecho, a partir do apuramento da bilheteira. O adiantamento só nasce quando se sabe o evento.
 **Estado:** vigente. A vista analítica do relatório ainda não reconcilia por evento (issue #128).
