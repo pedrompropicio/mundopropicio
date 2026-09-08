@@ -149,9 +149,9 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
               Promover cenário "{confirmPromote?.label}" a versão congelada?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              O BP em produção atual passa para o histórico e o cenário toma o seu
-              lugar. Em turnê, a promoção cascateia para todos os Splits. Esta ação afeta o BP em
-              produção.
+              A Última Congelada atual passa a Histórico e o cenário toma o seu
+              lugar. Em turnê, a promoção cascateia para todos os Splits. Esta ação reescreve o BP
+              em produção.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
