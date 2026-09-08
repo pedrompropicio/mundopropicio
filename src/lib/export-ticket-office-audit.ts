@@ -20,6 +20,8 @@ interface SyntheticEvent {
   isConciliated: boolean;
   totalSales: number;
   totalExpenses: number;
+  totalTransfers?: number;
+  totalAdvances?: number;
   balance: number;
 }
 
@@ -28,9 +30,11 @@ interface SyntheticOffice {
   totalSales: number;
   totalDirectExpenses: number;
   totalTransfers: number;
+  totalAdvances?: number;
   expectedBalance: number;
   events: SyntheticEvent[];
 }
+
 
 interface AnalyticalLine {
   date: string;
@@ -72,7 +76,7 @@ export function exportTicketOfficeAuditToExcel(
       ["AUDITORIA DE BILHETEIRAS — Sintético"],
       [`Gerado em ${new Date().toLocaleDateString("pt-PT")}`],
       [],
-      ["Bilheteira", "Vendas (€)", "Desp. Diretas (€)", "Transferências (€)", "Saldo Previsto (€)", "Eventos"],
+      ["Bilheteira", "Vendas (€)", "Desp. Diretas (€)", "Transferências (€)", "Adiantamentos (€)", "Saldo Previsto (€)", "Eventos"],
     ];
 
     syntheticData.forEach((office) => {
@@ -81,6 +85,7 @@ export function exportTicketOfficeAuditToExcel(
         office.totalSales,
         office.totalDirectExpenses,
         office.totalTransfers,
+        office.totalAdvances || 0,
         office.expectedBalance,
         office.events.length,
       ]);
@@ -90,7 +95,8 @@ export function exportTicketOfficeAuditToExcel(
           `  ↳ ${ev.eventName}`,
           ev.totalSales,
           ev.totalExpenses,
-          "",
+          ev.totalTransfers || 0,
+          ev.totalAdvances || 0,
           ev.balance,
           statusLabel(ev.eventStatus) + (ev.isConciliated ? " ✓" : ""),
         ]);
@@ -102,16 +108,18 @@ export function exportTicketOfficeAuditToExcel(
         sales: acc.sales + d.totalSales,
         expenses: acc.expenses + d.totalDirectExpenses,
         transfers: acc.transfers + d.totalTransfers,
+        advances: acc.advances + (d.totalAdvances || 0),
         balance: acc.balance + d.expectedBalance,
         events: acc.events + d.events.length,
       }),
-      { sales: 0, expenses: 0, transfers: 0, balance: 0, events: 0 }
+      { sales: 0, expenses: 0, transfers: 0, advances: 0, balance: 0, events: 0 }
     );
     rows.push([]);
-    rows.push(["TOTAL", totals.sales, totals.expenses, totals.transfers, totals.balance, totals.events]);
+    rows.push(["TOTAL", totals.sales, totals.expenses, totals.transfers, totals.advances, totals.balance, totals.events]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
+
     applyPTNumberFormat(ws);
     XLSX.utils.book_append_sheet(wb, ws, "Sintético");
   } else {
@@ -233,16 +241,17 @@ export function exportTicketOfficeAuditToPDF(
       sales: acc.sales + d.totalSales,
       expenses: acc.expenses + d.totalDirectExpenses,
       transfers: acc.transfers + d.totalTransfers,
+      advances: acc.advances + (d.totalAdvances || 0),
       balance: acc.balance + d.expectedBalance,
     }),
-    { sales: 0, expenses: 0, transfers: 0, balance: 0 }
+    { sales: 0, expenses: 0, transfers: 0, advances: 0, balance: 0 }
   );
 
   doc.setFillColor(245, 245, 250);
   doc.roundedRect(ml, cursor.y, cw, 16, 2, 2, "F");
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  const qw = cw / 4;
+  const qw = cw / 5;
 
   doc.setTextColor(100, 100, 100);
   doc.text("Vendas", ml + 4, cursor.y + 5);
@@ -263,11 +272,18 @@ export function exportTicketOfficeAuditToPDF(
   doc.text(fmtVal(grandTotals.transfers), ml + qw * 2 + 4, cursor.y + 12);
 
   doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text("Adiantamentos", ml + qw * 3 + 4, cursor.y + 5);
+  doc.setFontSize(10);
+  doc.text(fmtVal(grandTotals.advances), ml + qw * 3 + 4, cursor.y + 12);
+
+  doc.setFontSize(8);
   const balColor = grandTotals.balance >= 0 ? [34, 139, 34] : [200, 50, 50];
   doc.setTextColor(balColor[0], balColor[1], balColor[2]);
-  doc.text("Saldo Previsto", ml + qw * 3 + 4, cursor.y + 5);
+  doc.text("Saldo Previsto", ml + qw * 4 + 4, cursor.y + 5);
   doc.setFontSize(10);
-  doc.text(fmtVal(grandTotals.balance), ml + qw * 3 + 4, cursor.y + 12);
+  doc.text(fmtVal(grandTotals.balance), ml + qw * 4 + 4, cursor.y + 12);
+
 
   doc.setTextColor(0, 0, 0);
   cursor.y += 20;
@@ -299,9 +315,9 @@ function renderSyntheticPDF(
   c: Cursor,
   checkPage: (n: number) => boolean
 ) {
-  const colW = [cw * 0.28, cw * 0.14, cw * 0.14, cw * 0.14, cw * 0.14, cw * 0.16];
+  const colW = [cw * 0.24, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.11];
   const colX = [ml];
-  for (let i = 1; i < 6; i++) colX.push(colX[i - 1] + colW[i - 1]);
+  for (let i = 1; i < 7; i++) colX.push(colX[i - 1] + colW[i - 1]);
 
   function drawHeader() {
     doc.setFillColor(30, 30, 40);
@@ -313,8 +329,9 @@ function renderSyntheticPDF(
     doc.text("Vendas (€)", colX[1] + colW[1] - 2, c.y + 5.5, { align: "right" });
     doc.text("Desp. Diretas (€)", colX[2] + colW[2] - 2, c.y + 5.5, { align: "right" });
     doc.text("Transferências (€)", colX[3] + colW[3] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Saldo Previsto (€)", colX[4] + colW[4] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Estado", colX[5] + 2, c.y + 5.5);
+    doc.text("Adiantamentos (€)", colX[4] + colW[4] - 2, c.y + 5.5, { align: "right" });
+    doc.text("Saldo Previsto (€)", colX[5] + colW[5] - 2, c.y + 5.5, { align: "right" });
+    doc.text("Estado", colX[6] + 2, c.y + 5.5);
     doc.setTextColor(0, 0, 0);
     c.y += 10;
   }
@@ -334,34 +351,37 @@ function renderSyntheticPDF(
     doc.text(fmtVal(office.totalDirectExpenses), colX[2] + colW[2] - 2, c.y + 4, { align: "right" });
     doc.setTextColor(0, 0, 0);
     doc.text(fmtVal(office.totalTransfers), colX[3] + colW[3] - 2, c.y + 4, { align: "right" });
+    doc.text(fmtVal(office.totalAdvances || 0), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
     const bc = office.expectedBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
     doc.setTextColor(bc[0], bc[1], bc[2]);
-    doc.text(fmtVal(office.expectedBalance), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
+    doc.text(fmtVal(office.expectedBalance), colX[5] + colW[5] - 2, c.y + 4, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    doc.text(`${office.events.length} evento(s)`, colX[5] + 2, c.y + 4);
+    doc.text(`${office.events.length} evento(s)`, colX[6] + 2, c.y + 4);
     c.y += 8;
 
     office.events.forEach((ev) => {
       if (checkPage(7)) { drawHeader(); }
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.text(`  ↳ ${ev.eventName.substring(0, 35)}`, colX[0] + 4, c.y + 4);
+      doc.text(`  ↳ ${ev.eventName.substring(0, 30)}`, colX[0] + 4, c.y + 4);
       doc.setTextColor(34, 139, 34);
       doc.text(fmtVal(ev.totalSales), colX[1] + colW[1] - 2, c.y + 4, { align: "right" });
       doc.setTextColor(200, 120, 0);
       doc.text(fmtVal(ev.totalExpenses), colX[2] + colW[2] - 2, c.y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
-      doc.text("—", colX[3] + colW[3] - 2, c.y + 4, { align: "right" });
+      doc.text(fmtVal(ev.totalTransfers || 0), colX[3] + colW[3] - 2, c.y + 4, { align: "right" });
+      doc.text(fmtVal(ev.totalAdvances || 0), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
       const ebc = ev.balance >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setTextColor(ebc[0], ebc[1], ebc[2]);
-      doc.text(fmtVal(ev.balance), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
+      doc.text(fmtVal(ev.balance), colX[5] + colW[5] - 2, c.y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
-      doc.text(statusLabel(ev.eventStatus) + (ev.isConciliated ? " ✓" : ""), colX[5] + 2, c.y + 4);
+      doc.text(statusLabel(ev.eventStatus) + (ev.isConciliated ? " ✓" : ""), colX[6] + 2, c.y + 4);
       c.y += 7;
     });
 
     c.y += 2;
   });
+
 }
 
 // ─── Analytical PDF (configurable 2nd/3rd level) ───
