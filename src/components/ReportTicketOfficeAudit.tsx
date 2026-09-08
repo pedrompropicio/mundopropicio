@@ -40,6 +40,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/lib/export-ticket-office-audit";
+import {
+  computeTicketOfficeBalance,
+  isCountedTicketOfficeTxn,
+  isOpenTicketOfficeAdvance,
+} from "@/lib/ticket-office-balance";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+
 
 type ViewMode = "synthetic" | "analytical";
 type AnalyticalGroupBy = "event" | "type";
