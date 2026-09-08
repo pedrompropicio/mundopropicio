@@ -123,6 +123,14 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         })
         .eq("id", id);
       if (error) throw error;
+      // Estornar o fecho retira o carimbo de conciliação da atribuição.
+      if (settlement?.event_id) {
+        await (supabase as any)
+          .from("event_ticket_office_assignments")
+          .update({ is_conciliated: false, conciliated_at: null, conciliated_by: null })
+          .eq("event_id", settlement.event_id)
+          .eq("financial_account_id", officeId);
+      }
       await logAudit({
         entity_type: "ticket_office_settlement",
         entity_id: id,
