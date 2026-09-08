@@ -636,6 +636,45 @@ function buildPickerRows(txs: any[]): PickerRow[] {
   );
 }
 
+/** Texto pesquisável de uma transação do picker (inclui itens dentro de grupos). */
+function pickerSearchText(tx: any): string {
+  return [
+    tx?.description,
+    tx?.specification,
+    tx?.invoice_ref,
+    tx?.suppliers?.name,
+    (tx?.suppliers as any)?.trade_name,
+    tx?.events?.name,
+    tx?.account_categories?.code,
+    tx?.account_categories?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/** A pesquisa vê dentro dos grupos: basta um item da fatura dar match. */
+function pickerRowMatches(row: PickerRow, term: string): boolean {
+  if (!term) return true;
+  const txs = row.kind === "single" ? [row.tx] : row.txs;
+  return txs.some((t) => pickerSearchText(t).includes(term));
+}
+
+/**
+ * Grupos expandidos por omissão: até 3 itens (para as descrições ficarem visíveis)
+ * e, enquanto houver pesquisa, qualquer grupo com um item que dê match.
+ */
+function defaultExpandedGroups(rows: PickerRow[], term: string): Set<string> {
+  const out = new Set<string>();
+  for (const r of rows) {
+    if (r.kind !== "group") continue;
+    if (r.txs.length <= 3) out.add(r.groupId);
+    else if (term && r.txs.some((t: any) => pickerSearchText(t).includes(term))) out.add(r.groupId);
+  }
+  return out;
+}
+
+
 function groupWithIvaTotal(txs: any[]): number {
   return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
 }
