@@ -17,7 +17,7 @@ Nada em execução.
 
 ## Próximo passo concreto
 
-Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558/2026 — é o primeiro uso a sério do wizard. Ver "Factos" para os valores.
+Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558/2026 — é o primeiro uso a sério do wizard. Ver "Factos" para os valores. Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenhar o cron; a carga manual repete-se por extração do dashboard enquanto isso.
 
 ## Bloqueios
 
