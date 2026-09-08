@@ -142,6 +142,10 @@ export function TicketOfficeTicketingTab({ officeId, officeName }: Props) {
         quantity: parseInt(saleForm.quantity) || 0,
         unit_price: parseFloat(saleForm.unit_price) || 0,
         notes: saleForm.notes || null,
+        // Sem estes dois campos a venda fica órfã: o bruto do fecho e o hasSalesLog
+        // filtram por financial_account_id.
+        financial_account_id: officeId,
+        source: "manual",
       };
       const lotId = saleForm.lot_id && saleForm.lot_id !== "__none__" ? saleForm.lot_id : null;
       if (lotId) {
