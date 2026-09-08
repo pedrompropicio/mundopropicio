@@ -183,42 +183,42 @@ export default function ReportTicketOfficeAudit() {
     return map;
   }, [allZones]);
 
-  // Helper: detect if a transaction is a commission (not a bank transfer)
-  const isCommission = (description: string) => /comiss[ãa]o/i.test(description);
-
-  // Build synthetic audit data
+  // Build synthetic audit data — fonte única em src/lib/ticket-office-balance.ts
   const auditData = useMemo(() => {
+    const salesWithEvent = allSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+
     return offices.map((office: any) => {
       const officeAssignments = assignments.filter(
         (a: any) => a.financial_account_id === office.id
       );
       const accountId = office.financial_account_id;
+      const assignedEventIds = officeAssignments.filter((a: any) => a.events).map((a: any) => a.event_id);
+      const officeAdvances = (allAdvances as any[]).filter((a: any) => a.financial_account_id === office.id);
 
-      // First pass: compute per-event sales
-      const eventSalesMap: Record<string, number> = {};
+      const { total, byEvent } = computeTicketOfficeBalance({
+        officeId: office.id,
+        assignedEventIds,
+        sales: salesWithEvent,
+        transactions: accountTxns as any[],
+        advances: officeAdvances,
+      });
+
       const events = officeAssignments.map((a: any) => {
         const ev = a.events;
         if (!ev) return null;
 
-        const eventZoneIds = allZones
-          .filter((z: any) => z.event_id === a.event_id)
-          .map((z: any) => z.id);
+        const officeSales = salesWithEvent
+          .filter((s: any) => s.event_id === a.event_id && s.financial_account_id === office.id)
+          .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
 
-        const officeSales = allSales
+        const eventExpenses = accountTxns
           .filter(
-            (s: any) =>
-              eventZoneIds.includes(s.zone_id) &&
-              (!s.financial_account_id || s.financial_account_id === office.id)
+            (t: any) =>
+              isCountedTicketOfficeTxn(t, office.id) &&
+              (t.type === "expense" || t.type === "transfer") &&
+              t.event_id === a.event_id
           )
-          .reduce((sum: number, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
-
-        eventSalesMap[a.event_id] = officeSales;
-
-        const eventExpenses = accountId
-          ? accountTxns
-              .filter((t: any) => t.account_id === accountId && t.type === "expense" && t.event_id === a.event_id)
-              .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
-          : 0;
+          .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
         return {
           eventId: a.event_id,
@@ -227,33 +227,18 @@ export default function ReportTicketOfficeAudit() {
           isConciliated: a.is_conciliated,
           totalSales: officeSales,
           totalExpenses: eventExpenses,
-          balance: officeSales - eventExpenses,
+          balance: byEvent[a.event_id] ?? 0,
         };
       }).filter(Boolean);
 
-      // Identify commissions (no event_id, but description matches "comissão")
-      const commissionTxns = accountId
-        ? accountTxns.filter((t: any) => t.account_id === accountId && t.type === "expense" && !t.event_id && isCommission(t.description))
-        : [];
-      const totalCommissions = commissionTxns.reduce((s: number, t: any) => s + Number(t.paid_amount || t.amount), 0);
-
-      // Distribute commissions proportionally across events
-      const totalAllSales = Object.values(eventSalesMap).reduce((s, v) => s + v, 0);
-      if (totalCommissions > 0 && totalAllSales > 0) {
-        events.forEach((ev: any) => {
-          const proportion = ev.totalSales / totalAllSales;
-          const evCommission = totalCommissions * proportion;
-          ev.totalExpenses += evCommission;
-          ev.balance = ev.totalSales - ev.totalExpenses;
-        });
-      }
-
-      // Transfers are only actual bank transfers (not commissions)
-      const transfers = accountId
-        ? accountTxns
-            .filter((t: any) => t.account_id === accountId && t.type === "expense" && !t.event_id && !isCommission(t.description))
-            .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
-        : 0;
+      // Transferências / saídas sem evento
+      const transfers = accountTxns
+        .filter(
+          (t: any) =>
+            isCountedTicketOfficeTxn(t, office.id) &&
+            (t.type === "transfer" || (t.type === "expense" && !t.event_id))
+        )
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       const totalSales = events.reduce((s: number, e: any) => s + e.totalSales, 0);
       const totalDirectExpenses = events.reduce((s: number, e: any) => s + e.totalExpenses, 0);
@@ -265,11 +250,12 @@ export default function ReportTicketOfficeAudit() {
         totalSales,
         totalDirectExpenses,
         totalTransfers: transfers,
-        expectedBalance: totalSales - totalDirectExpenses - transfers,
+        expectedBalance: total,
         events,
       };
     });
-  }, [offices, assignments, allZones, allSales, accountTxns]);
+  }, [offices, assignments, allSales, accountTxns, allAdvances, zoneEventMap]);
+
 
   // Build analytical lines per office
   const analyticalData = useMemo(() => {
