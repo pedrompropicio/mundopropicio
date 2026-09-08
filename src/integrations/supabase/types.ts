@@ -13059,6 +13059,14 @@ export type Database = {
           skipped_count: number
         }[]
       }
+      rename_bp_version: {
+        Args: {
+          _new_description?: string
+          _new_label?: string
+          _version_id: string
+        }
+        Returns: undefined
+      }
       renegotiate_transaction_installments: {
         Args: {
           p_changed_by: string
