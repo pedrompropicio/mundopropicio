@@ -29,21 +29,30 @@ O painel só dá acumulado. As vendas do dia obtêm-se por **diferença entre ca
 **1. Abrir o painel**
 Usar uma aba do Chrome do Pedro com a sessão já iniciada. Não navegar para `/login/` — isso destrói a sessão dele.
 
-**2. Extrair**
-A tabela de vendas é a 7.ª `<table>` da página (índice 6). Colunas por linha de canal: `0` canal, `1` entradas, `7` facturación, `8` recargos, `9` total ingresos. As linhas de sessão são as que têm `Subtotal` na 2.ª célula e a data no formato `DD/MM/AAAA HH:MM` na 1.ª.
+**2. Recarregar e confirmar que a sessão está viva**
+Antes de extrair seja o que for, recarregar a página com `location.reload()` — nunca navegar para `/login/`, isso destrói a sessão do Pedro.
 
-Extrair também o resumo do painel: a 4.ª tabela (índice 3) dá as entradas, a 6.ª (índice 5) dá Facturación, Recargo promotor, Costes canal, Descuentos e Total ingresos.
+Depois do reload, confirmar que continuamos no dashboard. Se `location.pathname` contiver `/login`, **a sessão expirou e a corrida termina aqui**: não extrai, não escreve, regista falha em `onebox_sync_runs` com o motivo "sessão da Superset expirada". Só o Pedro pode reactivar a sessão, entrando no painel.
+
+Confirmar também que a página tem pelo menos 7 tabelas — abaixo disso ainda está a renderizar.
+
+**3. Extrair**
+A tabela de vendas é a 7.ª `<table>` da página (índice 6). Colunas por linha de canal: `0` canal, `1` entradas, `7` facturación, `8` recargos, `9` total ingresos. As linhas de sessão são as que têm `Subtotal` na 2.ª célula e a data `DD/MM/AAAA HH:MM` na 1.ª.
+
+Extrair também o resumo: a 4.ª tabela (índice 3) dá as entradas, a 6.ª (índice 5) dá Facturación, Recargo promotor, Costes canal, Descuentos e Total ingresos. E a 2.ª tabela (índice 1) dá **"Datos actualizados"** — guardar sempre este valor.
 
 **Ignorar a última linha da tabela**, que é o total geral e não uma sessão.
 
-**3. Conferir — e é aqui que a corrida se decide**
+**4. Conferir — e é aqui que a corrida se decide**
 A soma das linhas extraídas tem de bater **ao cêntimo** com o resumo do painel, em entradas, facturación, recargos e total.
 
 **Se não bater, a corrida termina aqui.** Não escreve nada em `ticket_sales` nem em `onebox_daily_sales`. Regista em `onebox_sync_runs` com `status` de falha e o motivo. O lote anterior fica intacto. Vale mais ficar com dados de ontem do que escrever dados errados hoje.
 
 Motivos típicos de falha: computador desligado, Chrome fechado, sessão da Superset expirada, tabela ainda por renderizar.
 
-**4. Substituir o acumulado**
+Comparar ainda o **"Datos actualizados"** com o da corrida anterior, guardado no `import_audit`. Se for igual, o painel não produziu nada de novo: não é erro, mas fica assinalado como `sem_alteracao` e não se reescreve o acumulado à toa.
+
+**5. Substituir o acumulado**
 Apagar as linhas de `ticket_sales` do evento com `source = 'onebox_import'` e inserir as novas, **numa só instrução**, para não poder ficar meio aplicado.
 
 Regras da escrita, que não mudam:
