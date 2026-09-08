@@ -524,3 +524,15 @@ prova de que duas linhas são o mesmo documento. Juntar por engano é destrutivo
 Ver `.lovable/memory/features/invoice-groups.md`.
 
 **Estado:** vigente.
+
+## D-ERP18 — Trocar a versão do BP nunca pode apagar o vínculo das transações (08/09/2026)
+
+**Contexto:** a FK `transactions.forecast_id` é `ON DELETE SET NULL` e as funções que trocam a versão do BP apagam as linhas vivas antes de as repor. O vínculo era destruído sem erro e sem rasto.
+
+**Decisão:** qualquer função que apague linhas vivas de `event_forecasts` tem de capturar os vínculos antes do `DELETE` e repô-los depois, com o resultado registado no audit. A reposição liga por id ou por rubrica + descrição, e **nunca adivinha** quando há mais do que uma candidata — o que não puder ser reposto fica contado como `unmatched`, visível, nunca silencioso.
+
+**Razão:** é a mesma regra da DR-2026-09-07 — uma guarda que não consegue correr não conta como guarda que passou. Um vínculo apagado em silêncio tira a transação da linha de BP e do realizado sem que ninguém saiba.
+
+**Consequência:** vale para as três funções actuais e para qualquer futura. A trava passa a contar `transactions.forecast_id` e não `event_forecasts.transaction_id`, que é só a âncora.
+
+**Estado:** vigente.

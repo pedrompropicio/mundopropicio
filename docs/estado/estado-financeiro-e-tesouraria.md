@@ -91,6 +91,9 @@ Não corrigir sem decisão explícita.
 
 **O ramo 10.1 não alimenta o mapa de sugestão de rubricas.** Guarda acrescentada a `coala_capture_category_change` em 07/09: sem ela, cada aporte espelhado escrevia uma linha em `coala_supplier_category_map`.
 
+**Cartão de fatura agrupada no picker de Listas de Pagamento.** `buildPickerRows` colapsa as transações com o mesmo `invoice_group_id` numa linha única identificada só por fornecedor + `invoice_ref`; as descrições dos itens não são renderizadas com o grupo fechado. Uma transação elegível parece não existir, e a pesquisa por descrição não lhe acerta — o que leva o utilizador a lançá-la outra vez. Caso real a 08/09: `FT 11.1/66` da KARINUR, duas transações de 345,00 € do Tour M&M. Corrigido a 08/09: grupos de 3 itens ou menos abrem por omissão, e a pesquisa passa a ler as descrições dentro dos grupos e a expandir o grupo com match. A selecção continua atómica por fatura.
+
+
 ## Onde ler mais
 
 - `.lovable/memory/features/payment-amount-invariants.md` — soma de pagamentos e paid_amount nunca excedem o bruto

@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-07 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento
+Atualizado: 2026-09-08 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento · vínculo BP↔TX blindado contra troca de versão do BP
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -73,7 +73,7 @@ Propagação às filhas por `parent_transaction_id` mantida. Medido em Live: **1
 Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS NOT NULL`, `type <> 'expense'`, `event_id` nulo, evento sem BP.
 
 ## Próximo passo concreto
-**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão.
+**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão. O rascunho de cenário do Coala (v51, 355 linhas, 23 transações vinculadas) está pronto a promover — a reposição de vínculos já corre em todos os caminhos.
 
 ## Bloqueios
 Nenhum.
@@ -101,6 +101,21 @@ Nenhum.
 **Sessão de cartão é multi-evento por natureza.** A sessão `ffdea120` tocou 6 eventos e tem despesas sem evento (rubricas 10.x). `card_session_items` existe com o formato certo mas tem zero itens na história — o gestor regista directo e cada despesa vira transação na hora.
 
 **Deploy directo de edge functions a 03/09:** o Publish não tinha levado `approve-transaction`, `close-camarim-session`, `close-card-session` nem `fetch-ticketline-reports` (esta ficou em v2.39 após dois Publish sem erro). As quatro foram deployadas directamente a 03/09 — desde então a versão em produção é a do repo. Regra operacional: confirmar a versão em produção após cada Publish que toque em edge functions.
+
+**Trocar a versão do BP apagava os vínculos, em silêncio (corrigido 08/09).** `transactions.forecast_id` tem FK `ON DELETE SET NULL`, e três funções apagam as linhas vivas antes de as repor: `promote_scenario_draft_to_active`, `promote_scenario_to_active` e `_revert_event_to_version`. O `DELETE` bastava para limpar o `forecast_id` de todas as transações do evento — sem erro, sem exceção, sem rasto no `transaction_audit_log`. Reinserir a linha com o mesmo id **não** restaura nada: o SET NULL já correu. Era por isso que o `COALESCE(carry.old_forecast_id, ...)` do `promote_scenario_to_active`, escrito precisamente para manter ids estáveis, não protegia coisa nenhuma. Nunca chegou a acontecer em Live — nenhuma reversão nem promoção tinha corrido até 08/09.
+
+**A blindagem: capturar antes, repor depois.** `public.bp_capture_tx_links(_event_id)` devolve `{tx_id, forecast_id, category_id, description}` de todas as transações ligadas a linhas vivas do evento, e é chamada **antes** de cada `DELETE`. `public.bp_restore_tx_links(_event_id, _links)` corre depois de as linhas novas estarem vivas: procura primeiro a mesma linha pelo id, depois pelo par `(category_id, description)` e **só liga quando há exactamente uma candidata**; nunca adivinha. Devolve `{relinked, by_id, by_description, ambiguous, unmatched}`, que fica gravado no `metadata` do `bp_version_audit_log` sob a chave `tx_links`. Escreve apenas `transactions.forecast_id` — a âncora é reconstruída sozinha pelo trigger.
+
+**Âncora e vínculo são coisas diferentes.** `transactions.forecast_id` é o vínculo canónico (N transações : 1 linha). `event_forecasts.transaction_id` é a **âncora**: a primeira transação a ligar-se, mantida em sincronia por `trg_sync_tx_forecast_to_anchor` e `trg_sync_forecast_anchor_to_tx`. Confundir as duas foi o defeito da trava: `bp_version_linked_tx_count` contava âncoras e por isso dava zero em eventos com vínculos reais — **Henry&Klaus Porto tinha 25 transações ligadas e âncora a zero**, porque o backfill de 02/09 escreveu a FK sem passar pelo trigger. Passou a contar os vínculos reais.
+
+**Renomear uma linha num cenário parte a reposição.** A reposição reconhece a linha pelo par rubrica + descrição. Uma linha renomeada no cenário não é reconhecida e as transações dela voltam sem vínculo, contadas em `unmatched` no audit. Não desaparece em silêncio, mas tem de ser reagarrada à mão.
+
+**Há duas gerações de versionamento a viver na mesma base.** A documentada em `.lovable/memory/features/bp-versions-scenarios.md`: cenários em `draft` com `scenario_label`, criados por `create_bp_snapshot` e promovidos por `promote_scenario_to_active`, que cria uma versão nova e oficial. E outra, que não estava documentada em lado nenhum: `create_scenario_draft` → estado `working_draft` → `promote_scenario_draft_to_active`, que **reaproveita a própria linha do cenário** e antes de 08/09 mantinha o `scenario_label`, o que criaria a primeira Ativa etiquetada como cenário. Corrigido: ao promover, o `scenario_label` passa para a `description` e é limpo. `scenario_label` é o discriminador que decide o que é cenário — uma Ativa com etiqueta seria promovível outra vez e apareceria do lado errado do histórico.
+
+**O CHECK do audit tinha derivado do código.** `bp_version_audit_log_action_check` rejeitava quatro ações que as funções já escreviam: `renamed`, `scenario_promoted_cascade`, `scenario_draft_discarded` e `scenario_draft_discarded_cascade`. As três últimas são anteriores a 08/09 — descartar um cenário pelo caixote do lixo, e promover um cenário num evento com splits, rebentavam com erro de constraint e nunca ninguém tinha feito nenhuma das duas. Lista passou de 23 para 27 valores.
+
+**Provado em Live a 08/09 — Conferência de Mulheres Plenitude.** Cenário "v2 - Atual" promovido pela Juliana às 18:58. Audit: `relinked: 1, by_id: 0, by_description: 1, ambiguous: 0, unmatched: 0`. A transação "Campanha de Mupis" (1.777,00 €) reagarrou-se à linha nova dos Muppies. A v2 ficou activa com o `scenario_label` limpo e o nome na `description`; a v1 ficou `superseded`; 34 linhas vivas, 137.187,15 €, sem duplicação.
+
 
 ## Onde ler mais
 - `src/lib/bp-tx-matching.ts`, `src/lib/bp-line-required.ts`, `src/lib/bp-budget-excess.ts`, `src/components/LinkBpLineDialog.tsx`, `src/components/RaiseBudgetDialog.tsx`
