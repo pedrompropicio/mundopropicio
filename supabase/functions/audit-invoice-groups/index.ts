@@ -74,18 +74,36 @@ Deno.serve(async (req) => {
       return json({ action, run_at: runAt, aplicadas: applied });
     }
 
-    // ================= DRY-RUN =================
+    // ================= DRY-RUN (incremental) =================
+    // O OCR é lento: cada chamada processa no máximo `max_groups` grupos e devolve
+    // `remaining`. O painel repete a chamada com o mesmo `run_at` até remaining = 0.
+    const maxGroups: number = Math.max(1, Math.min(Number(body?.max_groups ?? 3), 10));
+    const runAt: string = typeof body?.run_at === 'string' && body.run_at ? body.run_at : new Date().toISOString();
+
     const { data: txs } = await admin
       .from('transactions')
       .select('id, invoice_group_id, invoice_ref, amount, date, due_date, supplier_id, description, company_id')
       .not('invoice_group_id', 'is', null);
 
-    const groups = new Map<string, any[]>();
+    const allGroups = new Map<string, any[]>();
     for (const t of txs ?? []) {
-      const list = groups.get(t.invoice_group_id) ?? [];
+      const list = allGroups.get(t.invoice_group_id) ?? [];
       list.push(t);
-      groups.set(t.invoice_group_id, list);
+      allGroups.set(t.invoice_group_id, list);
     }
+
+    // Grupos já auditados nesta corrida
+    const { data: done } = await admin
+      .from('invoice_group_audit')
+      .select('invoice_group_id')
+      .eq('run_at', runAt);
+    const doneSet = new Set((done ?? []).map((d: any) => d.invoice_group_id));
+
+    const pending = [...allGroups.keys()].filter((g) => !doneSet.has(g)).sort();
+    const slice = pending.slice(0, maxGroups);
+    const groups = new Map<string, any[]>();
+    for (const g of slice) groups.set(g, allGroups.get(g)!);
+
 
     // Documentos por transação
     const txIds = (txs ?? []).map((t: any) => t.id);
