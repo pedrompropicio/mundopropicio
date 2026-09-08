@@ -13,6 +13,7 @@ import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
 import { NewScenarioDraftModal } from "./NewScenarioDraftModal";
 import { ScenarioDraftsList } from "./ScenarioDraftsList";
 import { ActiveVersionDiffModal } from "./ActiveVersionDiffModal";
+import { InlineVersionNameEdit } from "./InlineVersionNameEdit";
 
 interface Props {
   eventId: string;
@@ -113,7 +114,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
           <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-medium">
-              {pendingChanges} alteração{pendingChanges > 1 ? "ões" : ""} pendente{pendingChanges > 1 ? "s" : ""} desde v{diff?.versionNumber}
+              {pendingChanges} {pendingChanges > 1 ? "alterações pendentes" : "alteração pendente"} desde v{diff?.versionNumber}
             </p>
             <p className="text-[11px] text-muted-foreground">
               Edições feitas após o último congelamento. Considera congelar uma nova versão.
@@ -158,10 +159,18 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-            Aprovada {dateLabel} por {author}
-            {activeVersion.description ? ` · ${activeVersion.description}` : ""}
-          </p>
+          <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+            <span>Aprovada {dateLabel} por {author} ·</span>
+            <InlineVersionNameEdit
+              eventId={eventId}
+              versionId={activeVersion.id}
+              field="description"
+              value={activeVersion.description}
+              canManage={canManage}
+            >
+              <span className="truncate">{activeVersion.description ?? "Sem nome"}</span>
+            </InlineVersionNameEdit>
+          </div>
         </div>
       </div>
 
