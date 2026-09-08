@@ -37,7 +37,17 @@ Deno.serve(async (req) => {
     return json(500, { error: "ONEBOX_USERNAME / ONEBOX_PASSWORD não configurados" });
   }
 
-  const out: Record<string, unknown> = {};
+  let provider = "db";
+  try {
+    const body = await req.json();
+    if (typeof body?.provider === "string" && body.provider.trim()) {
+      provider = body.provider.trim();
+    }
+  } catch (_) {
+    // sem corpo ou corpo inválido → mantém o default
+  }
+
+  const out: Record<string, unknown> = { provider_usado: provider };
 
   let loginText = "";
   try {
@@ -51,7 +61,7 @@ Deno.serve(async (req) => {
         "Origin": BASE,
         "Referer": `${BASE}/login/`,
       },
-      body: JSON.stringify({ username, password, provider: "db", refresh: true }),
+      body: JSON.stringify({ username, password, provider, refresh: true }),
     });
     loginText = await res.text();
     out.login_status = res.status;
