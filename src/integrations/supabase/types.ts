@@ -6693,6 +6693,7 @@ export type Database = {
       }
       financial_accounts: {
         Row: {
+          advance_retention_pct: number | null
           balance_visible_to_all: boolean
           card_number: string | null
           company_id: string
@@ -6716,6 +6717,7 @@ export type Database = {
           withholds_revenue: boolean
         }
         Insert: {
+          advance_retention_pct?: number | null
           balance_visible_to_all?: boolean
           card_number?: string | null
           company_id?: string
@@ -6739,6 +6741,7 @@ export type Database = {
           withholds_revenue?: boolean
         }
         Update: {
+          advance_retention_pct?: number | null
           balance_visible_to_all?: boolean
           card_number?: string | null
           company_id?: string
