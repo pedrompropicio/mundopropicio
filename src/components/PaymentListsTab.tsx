@@ -636,6 +636,45 @@ function buildPickerRows(txs: any[]): PickerRow[] {
   );
 }
 
+/** Texto pesquisável de uma transação do picker (inclui itens dentro de grupos). */
+function pickerSearchText(tx: any): string {
+  return [
+    tx?.description,
+    tx?.specification,
+    tx?.invoice_ref,
+    tx?.suppliers?.name,
+    (tx?.suppliers as any)?.trade_name,
+    tx?.events?.name,
+    tx?.account_categories?.code,
+    tx?.account_categories?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/** A pesquisa vê dentro dos grupos: basta um item da fatura dar match. */
+function pickerRowMatches(row: PickerRow, term: string): boolean {
+  if (!term) return true;
+  const txs = row.kind === "single" ? [row.tx] : row.txs;
+  return txs.some((t) => pickerSearchText(t).includes(term));
+}
+
+/**
+ * Grupos expandidos por omissão: até 3 itens (para as descrições ficarem visíveis)
+ * e, enquanto houver pesquisa, qualquer grupo com um item que dê match.
+ */
+function defaultExpandedGroups(rows: PickerRow[], term: string): Set<string> {
+  const out = new Set<string>();
+  for (const r of rows) {
+    if (r.kind !== "group") continue;
+    if (r.txs.length <= 3) out.add(r.groupId);
+    else if (term && r.txs.some((t: any) => pickerSearchText(t).includes(term))) out.add(r.groupId);
+  }
+  return out;
+}
+
+
 function groupWithIvaTotal(txs: any[]): number {
   return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
 }
@@ -758,6 +797,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [eventFilter, setEventFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
 
   const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
 
@@ -807,14 +848,17 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     useMemo(() => pickerRows.filter((r) => r.kind === "group").map((r: any) => r.groupId), [pickerRows]),
   );
 
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const searchTerm = search.trim().toLowerCase();
+  const visibleRows = useMemo(() => pickerRows.filter((r) => pickerRowMatches(r, searchTerm)), [pickerRows, searchTerm]);
+  const autoExpanded = useMemo(() => defaultExpandedGroups(pickerRows, searchTerm), [pickerRows, searchTerm]);
+  // Fechar/abrir à mão sobrepõe-se ao estado de omissão; muda a pesquisa → volta à omissão.
+  const [expandOverrides, setExpandOverrides] = useState<Record<string, boolean>>({});
+  useEffect(() => { setExpandOverrides({}); }, [searchTerm]);
+  const isGroupExpanded = (gid: string) => expandOverrides[gid] ?? autoExpanded.has(gid);
   const toggleExpandedGroup = (gid: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(gid)) next.delete(gid); else next.add(gid);
-      return next;
-    });
+    setExpandOverrides((prev) => ({ ...prev, [gid]: !(prev[gid] ?? autoExpanded.has(gid)) }));
   };
+
   const toggleGroup = (ids: string[]) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -927,13 +971,23 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
               </select>
             </div>
           </div>
-          {(dateFrom || dateTo || eventFilter !== "all") && (
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Procurar</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Descrição, fornecedor, nº de fatura…"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          {(dateFrom || dateTo || eventFilter !== "all" || search) && (
             <button
-              onClick={() => { setDateFrom(""); setDateTo(""); setEventFilter("all"); }}
+              onClick={() => { setDateFrom(""); setDateTo(""); setEventFilter("all"); setSearch(""); }}
               className="text-xs text-primary hover:underline"
             >
               Limpar filtros
             </button>
+
           )}
         </div>
 
@@ -972,7 +1026,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {pickerRows.map((row) => {
+                {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
                     const paid = Number(t.paid_amount ?? 0);
@@ -1035,7 +1089,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
-                  const expanded = expandedGroups.has(row.groupId);
+                  const expanded = isGroupExpanded(row.groupId);
                   const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
@@ -2802,6 +2856,8 @@ function AddTransactionsToList({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [eventFilter, setEventFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
 
   const { data: approvedTx = [], isLoading } = useEligibleTransactionsForList();
 
@@ -2845,14 +2901,16 @@ function AddTransactionsToList({
     useMemo(() => pickerRows.filter((r) => r.kind === "group").map((r: any) => r.groupId), [pickerRows]),
   );
 
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const searchTerm = search.trim().toLowerCase();
+  const visibleRows = useMemo(() => pickerRows.filter((r) => pickerRowMatches(r, searchTerm)), [pickerRows, searchTerm]);
+  const autoExpanded = useMemo(() => defaultExpandedGroups(pickerRows, searchTerm), [pickerRows, searchTerm]);
+  const [expandOverrides, setExpandOverrides] = useState<Record<string, boolean>>({});
+  useEffect(() => { setExpandOverrides({}); }, [searchTerm]);
+  const isGroupExpanded = (gid: string) => expandOverrides[gid] ?? autoExpanded.has(gid);
   const toggleExpandedGroup = (gid: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(gid)) next.delete(gid); else next.add(gid);
-      return next;
-    });
+    setExpandOverrides((prev) => ({ ...prev, [gid]: !(prev[gid] ?? autoExpanded.has(gid)) }));
   };
+
   const toggleGroup = (ids: string[]) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -2930,8 +2988,18 @@ function AddTransactionsToList({
                   <option key={id} value={id}>{name}</option>
                 ))}
               </select>
-            </div>
           </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Procurar</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Descrição, fornecedor, nº de fatura…"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
         </div>
 
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
@@ -2966,7 +3034,7 @@ function AddTransactionsToList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {pickerRows.map((row) => {
+                {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
                     const bank = checkPaymentBankability(t);
@@ -3004,7 +3072,7 @@ function AddTransactionsToList({
 
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
-                  const expanded = expandedGroups.has(row.groupId);
+                  const expanded = isGroupExpanded(row.groupId);
                   const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
