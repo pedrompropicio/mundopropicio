@@ -130,12 +130,15 @@ export default function InvoiceGroupAudit() {
   };
 
   const applyFixes = async () => {
+    if (!lastRunAt) return;
     setApplying(true);
     try {
+      // Envia o run_at MOSTRADO no ecrã — a função nunca adivinha a corrida.
       const { data, error } = await supabase.functions.invoke("audit-invoice-groups", {
-        body: { action: "apply" },
+        body: { action: "apply", run_at: lastRunAt },
       });
       if (error) throw error;
+
       if ((data as any)?.error) throw new Error((data as any).error);
       toast({ title: "Correções aplicadas", description: `${(data as any).aplicadas} linhas desagrupadas.` });
       setConfirmApply(false);
