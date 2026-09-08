@@ -3040,6 +3040,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                             setPendingIvaSplit(null);
                             setAttachIvaSplitFile(null);
                             setAttachAfterCreateFile(null);
+                            setOcrSupplierHint(null);
                             toast({
                               title: "Leitura limpa",
                               description: "Podes anexar uma nova fatura.",
