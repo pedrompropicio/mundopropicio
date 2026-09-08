@@ -3072,7 +3072,7 @@ function AddTransactionsToList({
 
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
-                  const expanded = expandedGroups.has(row.groupId);
+                  const expanded = isGroupExpanded(row.groupId);
                   const groupBlocked = row.txs.some((t: any) => !isBankable(t));
                   return (
                     <Fragment key={row.key}>
