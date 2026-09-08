@@ -1389,8 +1389,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           const note = noteMap[tx.id];
           if (!note) continue;
           const sup: any = note.suppliers;
-          // Mark as reimbursement so UI shows "Beneficiário" labels
-          tx.is_reimbursement = true;
+          // Flag só de UI: esta transação PAGA uma nota de reembolso (mostra "Beneficiário").
+          // NÃO escrever is_reimbursement — esse é o flag real da BD das linhas de despesa
+          // dentro de uma nota, e é lido pela guarda da liquidação em massa.
+          (tx as any).is_reimbursement_payment = true;
           // IBAN priority: explicit override on the note → supplier's registered IBAN
           if (!tx.iban_override) {
             tx.iban_override = note.payment_iban ?? sup?.iban ?? tx.iban_override;
@@ -1602,7 +1604,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           description: [ref ? `Fatura ${ref}` : "Fatura agrupada", name === "-" ? null : name]
             .filter(Boolean)
             .join(" - "),
-          isReimbursement: !!tx.is_reimbursement,
+          isReimbursement: !!(tx as any).is_reimbursement_payment || !!tx.is_reimbursement,
           preExcludeReason: open <= 0 || isPaid ? "Sem valor em aberto" : undefined,
           groupTransactionIds: [tx.id],
           groupRef: ref || null,
@@ -1618,7 +1620,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         iban,
         amount: open,
         description,
-        isReimbursement: !!tx.is_reimbursement,
+        isReimbursement: !!(tx as any).is_reimbursement_payment || !!tx.is_reimbursement,
         preExcludeReason:
           open <= 0 || isPaid
             ? "Sem valor em aberto"
@@ -1776,7 +1778,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         payment_reference: tx?.payment_reference,
         invoice_ref: tx?.invoice_ref ?? null,
         invoice_group_id: tx?.invoice_group_id ?? null,
-        is_reimbursement: !!tx?.is_reimbursement,
+        is_reimbursement: !!(tx as any)?.is_reimbursement_payment || !!tx?.is_reimbursement,
         declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
         has_installments: installmentTxIds.has(tx?.id),
       };
@@ -2140,8 +2142,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     ) : (
                       <CopyLine label="IBAN" value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
                     )}
-                    <CopyLine label={tx?.is_reimbursement ? "Beneficiário" : "Fornecedor"} value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
-                    <CopyLine label={tx?.is_reimbursement ? "Email Beneficiário" : "Email Fornecedor"} value={tx?.suppliers?.email} />
+                    <CopyLine label={(tx as any)?.is_reimbursement_payment || tx?.is_reimbursement ? "Beneficiário" : "Fornecedor"} value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
+                    <CopyLine label={(tx as any)?.is_reimbursement_payment || tx?.is_reimbursement ? "Email Beneficiário" : "Email Fornecedor"} value={tx?.suppliers?.email} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
                     )}
