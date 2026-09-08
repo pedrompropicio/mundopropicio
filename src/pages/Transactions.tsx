@@ -1946,7 +1946,7 @@ export default function Transactions() {
           )
         )}
       </div>
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); } }}>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); setDeleteGroupSiblings([]); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar transação?</AlertDialogTitle>
@@ -1985,7 +1985,7 @@ export default function Transactions() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={!deleteChecked}
-              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); }}
+              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); setDeleteGroupSiblings([]); }}
             >
               {deleteWarnings.length > 0 ? "Eliminar Mesmo Assim" : "Eliminar"}
             </AlertDialogAction>
