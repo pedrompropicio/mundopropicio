@@ -315,9 +315,9 @@ function renderSyntheticPDF(
   c: Cursor,
   checkPage: (n: number) => boolean
 ) {
-  const colW = [cw * 0.28, cw * 0.14, cw * 0.14, cw * 0.14, cw * 0.14, cw * 0.16];
+  const colW = [cw * 0.24, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.11];
   const colX = [ml];
-  for (let i = 1; i < 6; i++) colX.push(colX[i - 1] + colW[i - 1]);
+  for (let i = 1; i < 7; i++) colX.push(colX[i - 1] + colW[i - 1]);
 
   function drawHeader() {
     doc.setFillColor(30, 30, 40);
@@ -329,8 +329,9 @@ function renderSyntheticPDF(
     doc.text("Vendas (€)", colX[1] + colW[1] - 2, c.y + 5.5, { align: "right" });
     doc.text("Desp. Diretas (€)", colX[2] + colW[2] - 2, c.y + 5.5, { align: "right" });
     doc.text("Transferências (€)", colX[3] + colW[3] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Saldo Previsto (€)", colX[4] + colW[4] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Estado", colX[5] + 2, c.y + 5.5);
+    doc.text("Adiantamentos (€)", colX[4] + colW[4] - 2, c.y + 5.5, { align: "right" });
+    doc.text("Saldo Previsto (€)", colX[5] + colW[5] - 2, c.y + 5.5, { align: "right" });
+    doc.text("Estado", colX[6] + 2, c.y + 5.5);
     doc.setTextColor(0, 0, 0);
     c.y += 10;
   }
@@ -350,34 +351,37 @@ function renderSyntheticPDF(
     doc.text(fmtVal(office.totalDirectExpenses), colX[2] + colW[2] - 2, c.y + 4, { align: "right" });
     doc.setTextColor(0, 0, 0);
     doc.text(fmtVal(office.totalTransfers), colX[3] + colW[3] - 2, c.y + 4, { align: "right" });
+    doc.text(fmtVal(office.totalAdvances || 0), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
     const bc = office.expectedBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
     doc.setTextColor(bc[0], bc[1], bc[2]);
-    doc.text(fmtVal(office.expectedBalance), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
+    doc.text(fmtVal(office.expectedBalance), colX[5] + colW[5] - 2, c.y + 4, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    doc.text(`${office.events.length} evento(s)`, colX[5] + 2, c.y + 4);
+    doc.text(`${office.events.length} evento(s)`, colX[6] + 2, c.y + 4);
     c.y += 8;
 
     office.events.forEach((ev) => {
       if (checkPage(7)) { drawHeader(); }
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.text(`  ↳ ${ev.eventName.substring(0, 35)}`, colX[0] + 4, c.y + 4);
+      doc.text(`  ↳ ${ev.eventName.substring(0, 30)}`, colX[0] + 4, c.y + 4);
       doc.setTextColor(34, 139, 34);
       doc.text(fmtVal(ev.totalSales), colX[1] + colW[1] - 2, c.y + 4, { align: "right" });
       doc.setTextColor(200, 120, 0);
       doc.text(fmtVal(ev.totalExpenses), colX[2] + colW[2] - 2, c.y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
-      doc.text("—", colX[3] + colW[3] - 2, c.y + 4, { align: "right" });
+      doc.text(fmtVal(ev.totalTransfers || 0), colX[3] + colW[3] - 2, c.y + 4, { align: "right" });
+      doc.text(fmtVal(ev.totalAdvances || 0), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
       const ebc = ev.balance >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setTextColor(ebc[0], ebc[1], ebc[2]);
-      doc.text(fmtVal(ev.balance), colX[4] + colW[4] - 2, c.y + 4, { align: "right" });
+      doc.text(fmtVal(ev.balance), colX[5] + colW[5] - 2, c.y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
-      doc.text(statusLabel(ev.eventStatus) + (ev.isConciliated ? " ✓" : ""), colX[5] + 2, c.y + 4);
+      doc.text(statusLabel(ev.eventStatus) + (ev.isConciliated ? " ✓" : ""), colX[6] + 2, c.y + 4);
       c.y += 7;
     });
 
     c.y += 2;
   });
+
 }
 
 // ─── Analytical PDF (configurable 2nd/3rd level) ───
