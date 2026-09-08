@@ -3034,7 +3034,7 @@ function AddTransactionsToList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {pickerRows.map((row) => {
+                {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
                     const bank = checkPaymentBankability(t);
