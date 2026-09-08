@@ -83,12 +83,26 @@ export default function TicketOffices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, event_id")
+        .select("account_id, type, amount, paid_amount, status, event_id, reversed_at, is_hidden")
         .in("account_id", officeIds);
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: allAdvances = [] } = useQuery({
+    queryKey: ["ticket_office_advances_all", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("financial_account_id, event_id, amount, transaction_id, settlement_id")
+        .in("financial_account_id", officeIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
 
   const { data: allAssignments = [] } = useQuery({
     queryKey: ["ticket_office_assignments_all", officeIds],
