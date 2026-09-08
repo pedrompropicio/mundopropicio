@@ -35,6 +35,14 @@
 
 **Um chat por frente. O nome do chat é o nome da frente.** Se um tema muda de frente a meio, muda-se de chat — não se continua no errado.
 
+## Procedimentos
+
+| Procedimento | Ficheiro |
+|---|---|
+| Fecho de evento | `procedimentos/PROC-fecho-evento.md` |
+| Revisão semanal | `procedimentos/PROC-revisao-semanal.md` |
+| Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
+
 ## Ritual de arranque (obrigatório, por esta ordem)
 
 1. Ler `docs/INDEX.md` (este ficheiro).
