@@ -371,6 +371,47 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         body: { fileBase64, fileName: prepared.name, mimeType: prepared.type || "image/jpeg" },
       });
       if (error) throw error;
+
+      // --- Campos de identificação (data, descrição, nº de fatura, fornecedor) ---
+      // REGRA DE OURO: só preenche campos VAZIOS; nunca sobrescreve o que já foi escrito.
+      // Aplica-se sempre, inclusive no caminho do "Dividir por IVA".
+      {
+        const digitsOnly = (s?: string | null) => (s ?? "").replace(/\D/g, "");
+        const squash = (s?: string | null) => (s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+        const readName = typeof (data as any)?.supplier_name === "string" ? (data as any).supplier_name.trim() : "";
+        const readNif = digitsOnly((data as any)?.supplier_nif);
+        const readDocNumber = typeof (data as any)?.document_number === "string" ? (data as any).document_number.trim() : "";
+        const readDesc = typeof (data as any)?.service_description === "string" ? (data as any).service_description.trim() : "";
+        const readDate =
+          typeof (data as any)?.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test((data as any).document_date)
+            ? (data as any).document_date
+            : "";
+
+        let matchedId: string | null = null;
+        if (readNif) {
+          matchedId = (suppliers as any[]).find((s) => digitsOnly(s.nif) && digitsOnly(s.nif) === readNif)?.id ?? null;
+        }
+        if (!matchedId && readName) {
+          matchedId =
+            (suppliers as any[]).find(
+              (s) => squash(s.name) === squash(readName) || (s.trade_name && squash(s.trade_name) === squash(readName)),
+            )?.id ?? null;
+        }
+
+        const todayIso = new Date().toISOString().split("T")[0];
+        setForm((f) => {
+          const next = { ...f };
+          if (readDesc && !f.description.trim()) next.description = readDesc;
+          if (readDocNumber && !f.invoice_ref.trim()) next.invoice_ref = readDocNumber;
+          // A Data nasce com hoje por defeito — trata-se como "vazia" enquanto não for mudada.
+          if (readDate && (!f.date || f.date === todayIso)) next.date = readDate;
+          if (matchedId && !f.supplier_id) next.supplier_id = matchedId;
+          return next;
+        });
+
+        setOcrSupplierHint(readName || readNif ? { name: readName || null, nif: readNif || null, matched: !!matchedId } : null);
+      }
+
       const allowed: IvaRate[] = eventIva.rates as IvaRate[];
       const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(
         (data as any)?.vat_breakdown,
