@@ -3358,6 +3358,44 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 overlayClassName="z-[110]"
                 contentClassName="z-[111]"
               />
+              {/* Emitente lido pelo OCR: caminho normal é NÃO haver match (poucos fornecedores têm NIF). */}
+              {ocrSupplierHint && !ocrSupplierHint.matched && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Lido na fatura:{" "}
+                  <span className="font-medium text-foreground">{ocrSupplierHint.name ?? "sem nome"}</span>
+                  {ocrSupplierHint.nif ? ` · NIF ${ocrSupplierHint.nif}` : ""} — escolhe o fornecedor na lista ou cria com o
+                  botão +.
+                </p>
+              )}
+              {ocrSupplierHint?.nif && selectedSupplier && !(selectedSupplier as any).nif && (
+                <button
+                  type="button"
+                  disabled={savingSupplierNif}
+                  onClick={async () => {
+                    setSavingSupplierNif(true);
+                    try {
+                      const { error } = await supabase
+                        .from("suppliers")
+                        .update({ nif: ocrSupplierHint.nif } as any)
+                        .eq("id", (selectedSupplier as any).id);
+                      if (error) throw error;
+                      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+                      toast({ title: "NIF guardado", description: `NIF ${ocrSupplierHint.nif} associado ao fornecedor.` });
+                    } catch (e) {
+                      toast({
+                        title: "Não foi possível guardar o NIF",
+                        description: e instanceof Error ? e.message : "Tenta de novo.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setSavingSupplierNif(false);
+                    }
+                  }}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-60"
+                >
+                  {savingSupplierNif ? "A guardar…" : `Guardar NIF ${ocrSupplierHint.nif} no fornecedor`}
+                </button>
+              )}
               {selectedSupplier && (
                 <div className="mt-2">
                   <SupplierBankDetails supplier={selectedSupplier} defaultExpanded />
