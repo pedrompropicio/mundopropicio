@@ -492,3 +492,35 @@ Devolve também a decomposição por bucket (Bilheteira / A&B / Patrocínio / Ou
 **Consequência:** Vale para qualquer bilheteira com fee ao público separado do preço, não só a Onebox. O IVA aplica-se por praça (PT 6%, ES 10%) e o default da coluna `event_ticket_lots.iva_rate` é 6, o que obriga a passar 10 explicitamente em Espanha.
 
 **Estado:** vigente.
+
+## D-ERP17 — Fatura só se agrupa sozinha quando o documento é o mesmo (08/09/2026)
+
+**Contexto:** A 08/09/2026 apareceram três talões da BP Estoril lançados com o mesmo nº
+`FS 270072003/167876`, dois dos quais eram o **mesmo talão duplicado** e um era um documento
+diferente. O auto-agrupamento por fornecedor + nº de fatura juntou-os num único
+`invoice_group_id`, o que os tornaria uma transferência única e propagaria eliminações e
+liquidações entre documentos sem relação. A correção do incidente foi manual.
+
+**Decisão:**
+1. O agrupamento **automático** por fornecedor + nº de fatura só acontece quando as linhas
+   **partilham o documento anexo** (mesmo `transaction_documents.file_url`) ou quando
+   **nenhuma tem documento**. Documentos diferentes nunca agrupam sozinhos: aparece um
+   diálogo e exige-se confirmação humana explícita — inclusive no botão manual
+   "Agrupar fatura", que passa a pedir uma segunda confirmação.
+2. O **número impresso no documento manda** sobre o campo preenchido à mão: quando o OCR lê
+   um número diferente, substitui o `invoice_ref` e avisa.
+3. Existe **auditoria por OCR dos grupos já existentes** (`audit-invoice-groups` + painel
+   `/admin/auditoria-grupos-fatura`) que só **desagrupa**, nunca junta, e cuja aplicação está
+   presa à corrida mostrada no ecrã.
+4. O aviso de duplicado por fornecedor + nº de fatura só dispara quando o **valor também
+   coincide**. Nº igual com valor diferente é a fatura legítima repartida por várias linhas
+   de BP.
+
+**Razão:** O nº de fatura é digitado à mão e repete-se por erro; o ficheiro anexo é a única
+prova de que duas linhas são o mesmo documento. Juntar por engano é destrutivo (pagamento
+único, propagação de eliminação); não juntar é apenas inconveniente.
+
+**Consequência:** Grupos legados não são mexidos automaticamente — passam pela auditoria.
+Ver `.lovable/memory/features/invoice-groups.md`.
+
+**Estado:** vigente.
