@@ -74,8 +74,8 @@ Na primeira corrida de sempre não há dia anterior: não se escreve linha diár
 
 Uma diferença negativa é possível e legítima — há devoluções. Grava-se na mesma e assinala-se no `import_audit`.
 
-**6. Registar a corrida**
-Escrever sempre em `onebox_sync_runs`, com sucesso ou sem ele: `status`, `mode` (`hourly` ou `daily`), `triggered_by`, `error_message` quando falha, e no `import_audit` o que foi extraído, o resultado da conferência, o acumulado e a diferença do dia.
+**7. Registar a corrida**
+Escrever sempre em `onebox_sync_runs`, com sucesso ou sem ele: `status`, `mode` (`hourly` ou `daily`), `triggered_by`, `error_message` quando falha, e no `import_audit` o que foi extraído, o resultado da conferência, o acumulado, a diferença do dia e sempre o valor de **"Datos actualizados"**.
 
 É desta tabela que sai a hora da última captação mostrada no ecrã da bilheteira. Sem ela, ninguém sabe se está a olhar para números de agora ou da semana passada.
 
