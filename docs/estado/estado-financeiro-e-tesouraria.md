@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92, #124, #125, #126, #127 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
+Atualizado: 2026-09-08 · Issues abertas: #90, #91, #92, #124, #125, #126, #127, #134, #135 · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
 
 ## Em que pé está
 
@@ -16,13 +16,16 @@ Atualizado: 2026-09-07 · Issues abertas: #90, #91, #92, #124, #125, #126, #127 
 
 - **Conta-espelho de sócio (07/09).** `financial_accounts` ganhou `partner_id` (→ `event_partners`) e `mirror_partner_aporte`. Numa conta com essa flag, o trigger `trg_sync_partner_aporte_mirror` cria automaticamente um aporte (`10.1.01`, receita, transitório, IVA 0) de valor igual a cada despesa paga por ali, atribuído ao sócio da conta, com evento do sócio e `flow = partner_settlement`. A ponte `partner_aporte_mirror` liga despesa↔aporte e garante idempotência: o espelho sincroniza com o `paid_amount` — se este mudar ou a transação for estornada ou apagada, o aporte acompanha ou desaparece. Aplicado à conta "Pgto Mágicos Acerto Madrid": 18 espelhos, 56.761,50 € de aporte do Henry Vargas, saldo da conta a 0,00. Os modais de pagamento avisam antes de confirmar que a conta gera aporte automático. Rubricas novas `10.1.04 · Empréstimo a Sócio` e `10.1.05 · Reembolso de Empréstimo de Sócio`, que ao contrário das 10.1.01/02/03 não exigem sócio de evento.
 
+- **Grupos de fatura — porta fechada ao agrupamento errado (08/09).** Depois do incidente dos três talões da BP Estoril com o mesmo nº `FS 270072003/167876` (dois eram o mesmo talão duplicado), o agrupamento automático por fornecedor + nº de fatura só junta linhas que **partilham o documento anexo** ou que **não têm documento nenhum**. Com documentos diferentes aparece o diálogo "É mesmo a mesma fatura?" e nada é escrito sem resposta; o botão manual "Agrupar fatura" também compara os anexos e exige uma segunda confirmação quando divergem. O número lido no documento substitui o que estiver escrito à mão, com aviso. Há botão "Desagrupar fatura" na edição, e o aviso de eliminação lista nome, data e valor das irmãs do grupo. O aviso de duplicado por fornecedor + nº passou a consultar a base filtrada (já não dependia de um lote de 50 linhas, que deixava passar fornecedores grandes como a CORNUCOPILANDIA com 38 linhas na mesma fatura) e só dispara quando o **valor também coincide** — nº igual com valor diferente é a fatura legítima repartida por várias rubricas de BP. Decisão em D-ERP17.
+- **Auditoria dos grupos existentes, em produção.** Tabela `invoice_group_audit`, edge function `audit-invoice-groups` (`verify_jwt = true`, só admin/platform_admin) e painel Admin → "Auditoria de grupos de fatura" (`/admin/auditoria-grupos-fatura`). O dry-run é incremental porque o OCR é lento (3 grupos por chamada, o painel repete até acabar) e nunca altera transações; o apply **só desagrupa, nunca junta**, e está preso ao `run_at` mostrado no ecrã — sem ele a função recusa, para não apanhar uma corrida antiga. Última corrida: **18 grupos ok, 0 linhas a desagrupar, 22 por rever à mão** (issue #134). O modo apply nunca foi corrido.
+
 ## A trabalhar agora
 
 Nada em execução.
 
 ## Próximo passo concreto
 
-Testar em Live o ciclo novo das Faturas Ads, por esta ordem: (1) abrir a fatura 254484037 de julho e carregar em "Gerar lançamentos" — tem de devolver 409 e listar os quatro lançamentos manuais da Delia de 03/08; (2) reabrir uma fatura confirmada e verificar que as campanhas Meta destrancaram; (3) reatribuir uma linha à mão e confirmar o carimbo de autor no tooltip. A reversão não se testa em Live enquanto não houver uma fatura aplicada que se possa perder sem custo.
+Percorrer no painel de Admin as 22 linhas por rever da auditoria de grupos de fatura (#134): 7 sem documento anexo, 9 sem número legível, 2 proformas, 3 comprovativos de transferência e 1 outro caso. Decidir à parte a linha de 27.318,75 € do EVIL ANGELS II, cujo único anexo é a nota de crédito NC A1/175 dentro do grupo da fatura FAC A1/4831 (#135). Depois disso, testar em Live o ciclo novo das Faturas Ads, por esta ordem: (1) abrir a fatura 254484037 de julho e carregar em "Gerar lançamentos" — tem de devolver 409 e listar os quatro lançamentos manuais da Delia de 03/08; (2) reabrir uma fatura confirmada e verificar que as campanhas Meta destrancaram; (3) reatribuir uma linha à mão e confirmar o carimbo de autor no tooltip. A reversão não se testa em Live enquanto não houver uma fatura aplicada que se possa perder sem custo.
 
 ## Bloqueios
 
@@ -93,6 +96,7 @@ Não corrigir sem decisão explícita.
 - `.lovable/memory/features/payment-amount-invariants.md` — soma de pagamentos e paid_amount nunca excedem o bruto
 - `.lovable/memory/features/payment-account-ownership.md` — conta e pagamento só na transação-mãe; "Marcar como Pago" é visual
 - `.lovable/memory/features/financial-accounts-non-accounting-flag.md` — contas gerenciais fora da exportação contabilística
+- `.lovable/memory/features/invoice-groups.md` — agrupamento por documento, desagrupar, auditoria OCR e painel Admin
 - `.lovable/memory/features/standalone-invoices.md` — scanner e aba Conferência das faturas avulsas
 - `.lovable/memory/features/card-sessions.md`, `supplier-credits.md`, `transaction-installments.md`, `role-accountant.md`
-- Issues #90, #91, #92, #124, #125, #126, #127
+- Issues #90, #91, #92, #124, #125, #126, #127, #134, #135
