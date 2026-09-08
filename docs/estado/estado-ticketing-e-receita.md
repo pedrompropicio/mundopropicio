@@ -17,7 +17,7 @@ Nada em execução.
 
 ## Próximo passo concreto
 
-Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558/2026 — é o primeiro uso a sério do wizard. Ver "Factos" para os valores.
+Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558/2026 — é o primeiro uso a sério do wizard. Ver "Factos" para os valores. Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenhar o cron; a carga manual repete-se por extração do dashboard enquanto isso.
 
 ## Bloqueios
 
@@ -26,7 +26,7 @@ Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558
 
 ## Factos que não se reinvestigam
 
-**`ticket_sales` é agregada** — sem comprador individual, email ou gclid. Liga-se ao evento por `zone_id → event_ticket_zones.event_id`; **não há `event_id` direto**. IVA da bilheteira: **6%**.
+**`ticket_sales` é agregada** — sem comprador individual, email ou gclid. Liga-se ao evento por `zone_id → event_ticket_zones.event_id`; **não há `event_id` direto**. IVA da bilheteira depende da praça: **Portugal 6%, Espanha 10%**. O default da coluna `event_ticket_lots.iva_rate` é **6** — lotes de eventos espanhóis têm de ser criados com `iva_rate = 10` explicitamente, senão o líquido sai inflacionado.
 
 **A transferência quinzenal não se rateia.** A Ticketline transfere 85% das vendas de todos os eventos em venda, em valores arredondados. Quem sabe quanto de cada transferência pertence a cada evento é a Ticketline, e só o diz no apuramento. Por isso: a quinzena entra como uma transferência sem evento; a alocação por evento nasce no fecho, como adiantamentos com `transaction_id` a apontar à transferência de origem (o campo não tem restrição de unicidade, vários eventos podem apontar à mesma). O arredondamento nunca precisa de lançamento de ajuste — desaparece no fecho.
 
@@ -43,6 +43,10 @@ Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558
 **`is_conciliated` é um carimbo manual, agora ligado ao fecho.** Confirmar um fecho marca-o; estornar desmarca-o. O botão manual em `EventTicketing.tsx` continua a existir. Deixou de esconder o botão de abrir o fecho.
 
 **O estorno de um fecho apaga a transferência criada**, mesmo que o crédito já tenha sido confirmado como liquidado. Comportamento anterior, mantido — mas discutível depois de o dinheiro ter entrado.
+
+**A economia da bilheteira do H&K Madrid (Onebox/GTS, confirmada pela Lorena Zambrano a 08/09).** A *Facturación* do painel é o preço do bilhete e **já leva os 10% de IVA dentro** — não é base tributável. O *Recargo promotor* é a **taxa de conveniência** cobrada ao público por cima do bilhete, 10% arredondado ao cêntimo por bilhete (daí o agregado dar 10,0047% e não 10% exatos; um bilhete de 48,75 € gera 4,88 € de taxa, não 4,875 €). Dessa taxa, **3 pontos percentuais são revenue share da MP e 7 ficam no El Corte Inglés** — o painel dá o valor real do lado do canal na coluna *Costes canal*, que é a que se usa, nunca a percentagem teórica. No fecho final o **Teatro fica com 10% do líquido do bilhete (s/IVA)**. O revenue share e a comissão do Teatro **nascem no fecho da bilheteira, com o apuramento na mão — nunca por estimativa sobre o snapshot de vendas**, tal como o revenue share da Ticketline na Anitta. Fica por esclarecer com a GTS o que é a coluna *Descuentos* do painel e se a *Facturación* já está líquida dela.
+
+**Carga manual das vendas do H&K Madrid (08/09).** O painel Onebox é Apache Superset (`dash.oneboxtds.com/superset/dashboard/43`) e a conta da MP lê o dashboard mas **não tem permissão no datasource**, pelo que não há API nem endpoint de dados — a extração foi feita da tabela renderizada. Modelo no ERP: **uma zona por sessão** (nome `DD/MM/AAAA HH:MM`, `session_id` preenchido, capacidade 893), **um lote por zona** com `iva_rate = 10`, e **uma linha de `ticket_sales` por sessão × canal**, com o canal em `notes` (`Onebox • MB Teatro Albéniz` / `Onebox • Web – El Corte Inglés`) e `source = 'onebox_import'`. `total_value` guarda **só a Facturación**, nunca o Total ingresos — a taxa de conveniência não é receita de bilheteira. Toda a carga partilha `import_batch_id = 0be00b09-0809-4e26-9f01-000000000001` e reverte-se num único `delete`. Estado a 08/09: 39 zonas, 16 lotes, 29 vendas, 359 bilhetes, 18.815,75 € de facturación. A automação por cron está **bloqueada** à espera da resposta da GTS sobre API; a Lorena já avisou que provavelmente não será possível porque parte das vendas entra pelo El Corte Inglés.
 
 ## Onde ler mais
 
