@@ -202,11 +202,17 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
-      // Guarda: reembolsos só podem ser liquidados via Nota de Reembolso
-      const reimb = transactions.filter((t: any) => t.is_reimbursement);
+      // Guarda: só as LINHAS DE DESPESA de uma nota (is_reimbursement real na BD) são
+      // bloqueadas. Uma transação que PAGA uma nota (is_reimbursement_payment, flag só de UI)
+      // liquida-se normalmente.
+      const reimb = transactions.filter((t: any) => t.is_reimbursement === true);
       if (reimb.length > 0) {
-        throw new Error(`${reimb.length} transação(ões) marcada(s) como reembolso. Liquide-as via Nota de Reembolso.`);
+        const names = reimb
+          .map((t: any) => t.description || t.specification || t.id)
+          .join("; ");
+        throw new Error(`Transações marcadas como reembolso não podem ser liquidadas aqui: ${names}. Liquide-as via Nota de Reembolso.`);
       }
+
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
 
