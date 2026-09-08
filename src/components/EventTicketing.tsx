@@ -284,6 +284,50 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     (to: any) => !officeAssignments.some((a: any) => a.financial_account_id === to.id)
   );
 
+  // Indicador discreto da última captação Onebox — só em eventos cuja bilheteira
+  // seja a conta ECI (El Corte Inglés).
+  const hasEciOffice = officeAssignments.some((a: any) =>
+    /ECI|Corte Ingl/i.test(String(a.financial_accounts?.name ?? "")),
+  );
+
+  const { data: lastOneboxRun } = useQuery({
+    queryKey: ["onebox_last_success_run", eventId],
+    enabled: hasEciOffice,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("onebox_sync_runs" as any)
+        .select("started_at, finished_at, status")
+        .eq("status", "success")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const oneboxCapturedLabel = useMemo(() => {
+    const iso = lastOneboxRun?.finished_at ?? lastOneboxRun?.started_at;
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const time = new Intl.DateTimeFormat("pt-PT", {
+      timeZone: "Europe/Lisbon",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+    const dayKey = (v: Date) =>
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(v);
+    if (dayKey(d) === dayKey(new Date())) return `captado às ${time}`;
+    const day = new Intl.DateTimeFormat("pt-PT", {
+      timeZone: "Europe/Lisbon",
+      day: "2-digit",
+      month: "2-digit",
+    }).format(d);
+    return `captado ${day} ${time}`;
+  }, [lastOneboxRun]);
+
+
   const addOfficeMutation = useMutation({
     mutationFn: async () => {
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
