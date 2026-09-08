@@ -427,6 +427,30 @@ export function useDiscardScenarioDraft(eventId: string) {
   });
 }
 
+/** Renomeia uma versão (description) ou um cenário (scenario_label). */
+export function useRenameBPVersion(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      versionId: string;
+      newLabel?: string | null;
+      newDescription?: string | null;
+    }) => {
+      const { error } = await supabase.rpc("rename_bp_version" as any, {
+        _version_id: input.versionId,
+        _new_label: input.newLabel ?? null,
+        _new_description: input.newDescription ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      toast.success("Nome atualizado");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao renomear"),
+  });
+}
+
 /** Promove um cenário working_draft a Ativa (cascade Master→Splits). */
 export function usePromoteScenarioDraft(eventId: string) {
   const qc = useQueryClient();
