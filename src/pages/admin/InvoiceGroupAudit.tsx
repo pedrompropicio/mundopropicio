@@ -43,6 +43,7 @@ export default function InvoiceGroupAudit() {
   const [running, setRunning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [confirmApply, setConfirmApply] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ["invoice-group-audit"],
