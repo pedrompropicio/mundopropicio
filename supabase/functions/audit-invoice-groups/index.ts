@@ -169,7 +169,6 @@ Deno.serve(async (req) => {
       return out;
     }
 
-    const runAt = new Date().toISOString();
     const auditRows: any[] = [];
     let gruposOk = 0;
     let gruposAnalisados = 0;
