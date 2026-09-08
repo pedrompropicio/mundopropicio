@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { InlineVersionNameEdit } from "./InlineVersionNameEdit";
 
 interface Props {
   eventId: string;
@@ -63,10 +64,18 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
             >
 
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium truncate">
-                    {d.scenario_label ?? `Cenário v${d.version_number}`}
-                  </span>
+                <div className="flex items-center gap-2 flex-wrap text-sm font-medium">
+                  {d.scenario_label ? (
+                    <InlineVersionNameEdit
+                      eventId={eventId}
+                      versionId={d.id}
+                      field="label"
+                      value={d.scenario_label}
+                      canManage={canManage && !isCascaded}
+                    />
+                  ) : (
+                    <span className="truncate">{`Cenário v${d.version_number}`}</span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
                   Criado {dateLabel} por {d.created_by_label ?? "—"}

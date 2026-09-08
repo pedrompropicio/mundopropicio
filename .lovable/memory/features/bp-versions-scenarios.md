@@ -43,3 +43,8 @@ UI partilhada via `EventScenarioContext` (provider em `EventDetail`, consumido p
 - `SalesLogPanel` está bloqueado em modo cenário (vendas reais só vivem na Versão Ativa) — aparece um aviso a pedir para voltar à Ativa.
 - Em modo cenário, eventos `completed` desbloqueiam edição (sandbox isolado da produção).
 
+
+## Nota 08/09/2026 — promoção limpa a etiqueta + renomear versões
+- `promote_scenario_draft_to_active` passa o `scenario_label` para `description` (`COALESCE(_new_active_description, description, scenario_label)`) e limpa `scenario_label = NULL`, no Master e em cada Split. Invariante: **nenhuma versão `active` tem `scenario_label`** — é esse o campo que discrimina cenário.
+- RPC `rename_bp_version(_version_id, _new_label, _new_description)` (SECURITY DEFINER, admin/manager): edita `scenario_label` só em versões que já o têm e nunca para vazio/NULL; nas oficiais ignora `_new_label`. `description` vazia grava NULL. Regista `action = 'renamed'` em `bp_version_audit_log`.
+- UI: lápis inline (`InlineVersionNameEdit`) no card da Ativa, no histórico e na lista de cenários em construção; só admin/manager.

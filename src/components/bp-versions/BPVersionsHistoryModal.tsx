@@ -32,6 +32,7 @@ import {
   useToggleScenarioPin,
   type BPVersionRow,
 } from "@/hooks/useBPVersions";
+import { InlineVersionNameEdit } from "./InlineVersionNameEdit";
 
 interface Props {
   open: boolean;
@@ -152,6 +153,7 @@ export function BPVersionsHistoryModal({
                     <Section
                       title="Versões oficiais"
                       icon={<GitBranch className="h-4 w-4" />}
+                      eventId={eventId}
                       versions={official}
                       isSplit={isSplit}
                       canManage={canManage}
@@ -167,6 +169,7 @@ export function BPVersionsHistoryModal({
                       <Section
                         title="Cenários de trabalho"
                         icon={<Sparkles className="h-4 w-4" />}
+                        eventId={eventId}
                         versions={scenarios}
                         isSplit={isSplit}
                         canManage={canManage}
@@ -275,6 +278,7 @@ export function BPVersionsHistoryModal({
 interface SectionProps {
   title: string;
   icon: React.ReactNode;
+  eventId: string;
   versions: BPVersionRow[];
   isSplit: boolean;
   canManage: boolean;
@@ -288,7 +292,7 @@ interface SectionProps {
 }
 
 function Section({
-  title, icon, versions, isSplit, canManage, pinnedCount,
+  title, icon, eventId, versions, isSplit, canManage, pinnedCount,
   onArchive, onUnarchive, onDiscard, onRevert, onPromote, onTogglePin,
 }: SectionProps) {
   if (versions.length === 0) return null;
@@ -302,6 +306,7 @@ function Section({
         {versions.map((v) => (
           <VersionRow
             key={v.id}
+            eventId={eventId}
             version={v}
             isSplit={isSplit}
             canManage={canManage}
@@ -320,6 +325,7 @@ function Section({
 }
 
 interface VersionRowProps {
+  eventId: string;
   version: BPVersionRow;
   isSplit: boolean;
   canManage: boolean;
@@ -333,7 +339,7 @@ interface VersionRowProps {
 }
 
 function VersionRow({
-  version, isSplit, canManage, pinnedCount,
+  eventId, version, isSplit, canManage, pinnedCount,
   onArchive, onUnarchive, onDiscard, onRevert, onPromote, onTogglePin,
 }: VersionRowProps) {
   const meta = STATE_META[version.state] ?? STATE_META.draft;
@@ -376,10 +382,18 @@ function VersionRow({
               {meta.label}
             </Badge>
             {version.scenario_label && (
-              <Badge variant="secondary" className="text-[10px] gap-1">
-                <Sparkles className="h-2.5 w-2.5" />
-                {version.scenario_label}
-              </Badge>
+              <InlineVersionNameEdit
+                eventId={eventId}
+                versionId={version.id}
+                field="label"
+                value={version.scenario_label}
+                canManage={canManage && !isSplit}
+              >
+                <Badge variant="secondary" className="text-[10px] gap-1">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  {version.scenario_label}
+                </Badge>
+              </InlineVersionNameEdit>
             )}
             {version.is_pinned_scenario && (
               <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary">
@@ -406,7 +420,20 @@ function VersionRow({
           {version.scenario_assumptions && (
             <ScenarioAssumptionChips assumptions={version.scenario_assumptions} />
           )}
-          {version.description && (
+          {!version.scenario_label && (
+            <div className="text-xs text-foreground/80 mt-1">
+              <InlineVersionNameEdit
+                eventId={eventId}
+                versionId={version.id}
+                field="description"
+                value={version.description}
+                canManage={canManage && !isSplit}
+              >
+                <span className="line-clamp-2">{version.description ?? "Sem nome"}</span>
+              </InlineVersionNameEdit>
+            </div>
+          )}
+          {version.scenario_label && version.description && (
             <p className="text-xs text-foreground/80 mt-1 line-clamp-2">{version.description}</p>
           )}
         </div>
