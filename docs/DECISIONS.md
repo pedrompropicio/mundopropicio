@@ -536,3 +536,24 @@ Ver `.lovable/memory/features/invoice-groups.md`.
 **Consequência:** vale para as três funções actuais e para qualquer futura. A trava passa a contar `transactions.forecast_id` e não `event_forecasts.transaction_id`, que é só a âncora.
 
 **Estado:** vigente.
+
+## Nomenclatura das versões de BP (08/09/2026)
+
+Contexto: o termo "Versão Ativa" fazia dois trabalhos diferentes no UI — a etiqueta do snapshot congelado e o oposto de "cenário sandbox". Existiam três mapeamentos state→label independentes e divergentes (STATE_META no BPVersionsHistoryModal, labelOf no BPVersionsCompareModal, e um Badge hardcoded no BPVersionCard), pelo que mudar um não propagava.
+
+Decisão — vocabulário único, a usar em todo o novo código:
+
+| Conceito | Termo no UI | Verdade técnica |
+|---|---|---|
+| Linhas vivas do BP, editáveis | **BP em produção** | `event_forecasts.version_id IS NULL` |
+| Fotografia oficial mais recente | **Última Congelada** | `bp_versions.state = 'active'` |
+| Fotografia oficial anterior | **Histórico** | `state = 'superseded'` |
+| Snapshot guardado sem promover | **Rascunho** | `state = 'draft'` |
+| Sandbox nomeado, isolado | **Cenário** | `state = 'working_draft'` |
+| Fora de circulação | **Arquivada** | `state = 'archived'` |
+
+"Ativa" está proibido como texto de UI: sugere "em vigor / editável", quando o que a etiqueta marca é apenas "última versão congelada". Promover um cenário diz-se "promover a versão congelada", nunca "promover a Ativa".
+
+Os literais de estado em BD ('active', 'superseded', ...) NÃO mudam — a decisão é exclusivamente de camada de apresentação. Alterá-los partiria RPCs, RLS e o Portal do Sócio.
+
+Termo técnico `superseded` nunca é exposto ao utilizador.
