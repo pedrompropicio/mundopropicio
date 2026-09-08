@@ -23,7 +23,8 @@ import { AccountantReviewBlock } from "@/components/AccountantReviewBadge";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
-import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings } from "@/lib/invoice-group";
+import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings, clearInvoiceGroupForTransaction } from "@/lib/invoice-group";
+import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/components/InvoiceGroupSuggestDialog";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import { fetchBpLinesForCategory, relinkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
 import { isCapitalCategoryCode, capitalNeedsPartner } from "@/lib/capital-branch";
@@ -316,6 +317,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   // Quando existe, "Reverter" = eliminar irmã + apagar partner_advance_expenses dela; a principal
   // já está NORMAL pelo total.
   const invoiceGroupId = transaction.invoice_group_id ?? null;
+  // Sugestão de agrupamento quando as irmãs têm documentos anexos diferentes.
+  const [invoiceSuggestion, setInvoiceSuggestion] = useState<InvoiceGroupSuggestion | null>(null);
+  const [confirmUngroup, setConfirmUngroup] = useState(false);
+  const [ungrouping, setUngrouping] = useState(false);
 
   // Deteção por Nº fatura/ATCUD: irmãs do mesmo fornecedor com o mesmo nº.
   const detectedInvoiceRef = (transaction.invoice_ref ?? "").trim() || null;
@@ -587,10 +592,18 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
       }
 
-      // Auto-agrupamento por Nº fatura/ATCUD (conservador: mesmo fornecedor).
+      // Auto-agrupamento por Nº fatura/ATCUD (conservador: mesmo fornecedor e
+      // documento anexo partilhado; documentos diferentes só com confirmação).
       {
         const auto = await autoGroupInvoiceForTransaction(transaction.id);
-        if (auto) {
+        if (auto?.suggestion) {
+          setInvoiceSuggestion({
+            supplierId: auto.supplierId,
+            supplierName: null,
+            invoiceRef: auto.invoiceRef,
+            total: auto.total,
+          });
+        } else if (auto) {
           toast({
             title: "Fatura agrupada",
             description: `Agrupada à fatura ${auto.invoiceRef} (${auto.total} itens).`,
@@ -1482,9 +1495,62 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
             {invoiceGroupId && (
-              <p className="mt-1 text-[10px] font-medium text-primary">
-                📎 Grupo de fatura ativo — paga com transferência única na Lista de Pagamento.
-              </p>
+              <div className="mt-1 space-y-1">
+                <p className="text-[10px] font-medium text-primary">
+                  📎 Grupo de fatura ativo — paga com transferência única na Lista de Pagamento.
+                </p>
+                {!confirmUngroup ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmUngroup(true)}
+                    className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                  >
+                    Desagrupar fatura
+                  </button>
+                ) : (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 space-y-1">
+                    <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                      Retirar esta transação do grupo de fatura? Se ficar só uma linha no grupo, também é
+                      desagrupada.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={ungrouping}
+                        onClick={async () => {
+                          setUngrouping(true);
+                          try {
+                            const res = await clearInvoiceGroupForTransaction(transaction.id);
+                            toast({
+                              title: "Fatura desagrupada",
+                              description: res.alsoCleared
+                                ? "Esta linha e a única restante ficaram sem grupo."
+                                : "Esta linha ficou sem grupo de fatura.",
+                            });
+                            setConfirmUngroup(false);
+                            await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                            void refetchInvoiceSiblings();
+                          } catch (e: any) {
+                            toast({ title: "Erro", description: e?.message ?? "Falha a desagrupar.", variant: "destructive" });
+                          } finally {
+                            setUngrouping(false);
+                          }
+                        }}
+                        className="rounded bg-amber-600 px-2 py-1 text-[10px] font-medium text-white disabled:opacity-50"
+                      >
+                        {ungrouping ? "A desagrupar…" : "Confirmar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmUngroup(false)}
+                        className="rounded border border-border px-2 py-1 text-[10px]"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {!invoiceGroupId && needsInvoiceGrouping && (
               <div className="mt-2 space-y-1">
@@ -2044,6 +2110,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         </form>
           </TabsContent>
         </Tabs>
+
+        <InvoiceGroupSuggestDialog
+          suggestion={invoiceSuggestion}
+          onGrouped={() => void refetchInvoiceSiblings()}
+          onClose={() => setInvoiceSuggestion(null)}
+        />
       </div>
     </div>,
     document.body

@@ -133,6 +133,7 @@ import AcceptInvitation from "./pages/AcceptInvitation";
 import Companies from "./pages/admin/Companies";
 import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
+import InvoiceGroupAudit from "./pages/admin/InvoiceGroupAudit";
 import SystemInvariants from "./pages/admin/SystemInvariants";
 import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
 import CoalaSync from "./pages/admin/CoalaSync";
@@ -566,6 +567,7 @@ function ProtectedLayout() {
               <Route path="/admin/lembretes" element={<Reminders />} />
               
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
+              <Route path="/admin/auditoria-grupos-fatura" element={<InvoiceGroupAudit />} />
               <Route path="/admin/invariantes" element={<SystemInvariants />} />
               <Route path="/admin/upload-coala-fotos" element={<UploadCoalaFotos />} />
               <Route path="/admin/sync-health" element={<SyncHealth />} />

@@ -45,6 +45,7 @@ import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 import { findExistingInstallments, existingInstallmentsMessage, type ExistingInstallment } from "@/lib/installment-guard";
 import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/components/InvoiceGroupSuggestDialog";
 
 
 
@@ -211,6 +212,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // e usado para o botão "Guardar NIF no fornecedor".
   const [ocrSupplierHint, setOcrSupplierHint] = useState<{ name: string | null; nif: string | null; matched: boolean } | null>(null);
   const [savingSupplierNif, setSavingSupplierNif] = useState(false);
+  // Sugestão de agrupamento de fatura quando as irmãs têm documentos DIFERENTES.
+  const [invoiceSuggestion, setInvoiceSuggestion] = useState<InvoiceGroupSuggestion | null>(null);
   // Quando o utilizador escolhe IVA médio (1 transação), guardamos o file aqui
   // para anexar via callback onSuccess da mutation single.
   const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
@@ -399,10 +402,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
 
         const todayIso = new Date().toISOString().split("T")[0];
+        // O Nº de fatura é a única EXCEÇÃO à regra "só preenche vazios": o número
+        // impresso no documento manda sempre (incidente 2026-09 — refs herdadas de
+        // outro talão agruparam faturas diferentes).
+        const previousRef = form.invoice_ref.trim();
+        if (readDocNumber && previousRef && previousRef !== readDocNumber) {
+          toast({
+            title: "Nº de fatura substituído",
+            description: `Substituído pelo lido no documento (antes: ${previousRef}).`,
+          });
+        }
         setForm((f) => {
           const next = { ...f };
           if (readDesc && !f.description.trim()) next.description = readDesc;
-          if (readDocNumber && !f.invoice_ref.trim()) next.invoice_ref = readDocNumber;
+          if (readDocNumber) next.invoice_ref = readDocNumber;
           // A Data nasce com hoje por defeito — trata-se como "vazia" enquanto não for mudada.
           if (readDate && (!f.date || f.date === todayIso)) next.date = readDate;
           if (matchedId && !f.supplier_id) next.supplier_id = matchedId;
@@ -1763,13 +1776,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         setAttachAfterCreateFile(null);
         setPendingInvoiceFile(null);
       }
-      // Auto-agrupamento por Nº fatura/ATCUD: se já existirem transações do MESMO
-      // fornecedor com o mesmo nº e sem grupo, cria/junta ao grupo de fatura.
+      // Auto-agrupamento por Nº fatura/ATCUD: só agrupa quando as linhas partilham
+      // o documento anexo (ou nenhuma tem). Documentos diferentes → sugestão a confirmar.
+      let holdOpenForSuggestion = false;
       if (newTxId) {
         const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
         const auto = await autoGroupInvoiceForTransaction(newTxId);
 
-        if (auto) {
+        if (auto?.suggestion) {
+          holdOpenForSuggestion = true;
+          setInvoiceSuggestion({
+            supplierId: auto.supplierId,
+            supplierName: (suppliers as any[]).find((s) => s.id === auto.supplierId)?.name ?? null,
+            invoiceRef: auto.invoiceRef,
+            total: auto.total,
+          });
+        } else if (auto) {
           queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
           toast({
             title: "Fatura agrupada",
@@ -1778,7 +1800,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       }
       if (newTxId) onCreated?.(newTxId);
-      onClose();
+      if (!holdOpenForSuggestion) onClose();
       toast({
         title: isSplit
           ? "Rateio criado com sucesso!"
@@ -1981,6 +2003,27 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         });
         if (relevant.length > 0) {
           setDuplicateMatches(relevant);
+          setShowDuplicateConfirm(true);
+          return;
+        }
+      }
+
+      // Verificação INDEPENDENTE da descrição: mesmo fornecedor + mesmo nº de fatura
+      // é sempre suspeito, mesmo que a descrição seja diferente (incidente 2026-09).
+      const refRaw = form.invoice_ref.trim();
+      if (form.supplier_id && refRaw) {
+        const { normalizeInvoiceRef } = await import("@/lib/invoice-group");
+        const refNorm = normalizeInvoiceRef(refRaw);
+        const { data: sameRef } = await supabase
+          .from("transactions")
+          .select("id, description, amount, status, due_date, supplier_id, event_id, specification, invoice_ref")
+          .eq("supplier_id", form.supplier_id)
+          .limit(50);
+        const hits = (sameRef ?? []).filter(
+          (m: any) => normalizeInvoiceRef(m.invoice_ref ?? "") === refNorm,
+        );
+        if (hits.length > 0) {
+          setDuplicateMatches(hits);
           setShowDuplicateConfirm(true);
           return;
         }
@@ -4035,6 +4078,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             title: "IVA médio aplicado",
             description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€${attach && fileToAttach ? " — fatura será anexada" : ""}. Verifica e guarda.`,
           });
+        }}
+      />
+
+      <InvoiceGroupSuggestDialog
+        suggestion={invoiceSuggestion}
+        onGrouped={() => queryClient.invalidateQueries({ queryKey: ["invoice-group"] })}
+        onClose={() => {
+          setInvoiceSuggestion(null);
+          onClose();
         }}
       />
     </div>

@@ -87,6 +87,9 @@ export default function Transactions() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
+  const [deleteGroupSiblings, setDeleteGroupSiblings] = useState<
+    { id: string; description: string | null; amount: number; date: string | null; due_date: string | null }[]
+  >([]);
   const [showHidden, setShowHidden] = useState(false);
   const [showBPViewer, setShowBPViewer] = useState(false);
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
@@ -566,7 +569,15 @@ export default function Transactions() {
     setDeletingId(id);
     setDeleteChecked(false);
     setDeleteWarnings([]);
+    setDeleteGroupSiblings([]);
     const warnings = await checkDependencies(id);
+    // Irmãs do grupo de fatura: são eliminadas em conjunto, logo listam-se nominalmente.
+    try {
+      const { fetchInvoiceGroupSiblingDetails } = await import("@/lib/invoice-group");
+      setDeleteGroupSiblings(await fetchInvoiceGroupSiblingDetails(id));
+    } catch {
+      setDeleteGroupSiblings([]);
+    }
     setDeleteWarnings(warnings);
     setDeleteChecked(true);
   };
@@ -1935,7 +1946,7 @@ export default function Transactions() {
           )
         )}
       </div>
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); } }}>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); setDeleteGroupSiblings([]); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar transação?</AlertDialogTitle>
@@ -1951,6 +1962,21 @@ export default function Transactions() {
                     </ul>
                   </div>
                 )}
+                {deleteChecked && deleteGroupSiblings.length > 0 && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 space-y-1">
+                    <p className="text-xs font-semibold text-destructive">
+                      Grupo de fatura — estas {deleteGroupSiblings.length} transação(ões) serão eliminadas em conjunto:
+                    </p>
+                    <ul className="text-xs text-destructive list-disc pl-4 space-y-0.5">
+                      {deleteGroupSiblings.map((s) => (
+                        <li key={s.id}>
+                          {s.description ?? "(sem descrição)"} — {s.date ?? s.due_date ?? "sem data"} —{" "}
+                          {Number(s.amount).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1959,7 +1985,7 @@ export default function Transactions() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={!deleteChecked}
-              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); }}
+              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); setDeleteGroupSiblings([]); }}
             >
               {deleteWarnings.length > 0 ? "Eliminar Mesmo Assim" : "Eliminar"}
             </AlertDialogAction>
