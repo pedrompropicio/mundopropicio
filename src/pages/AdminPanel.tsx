@@ -74,6 +74,12 @@ const adminCards = [
     description: "Verificação diária automática de policies RLS antigas (auth.uid() IS NOT NULL); histórico e execução manual",
   },
   {
+    to: "/admin/auditoria-grupos-fatura",
+    icon: ShieldCheck,
+    title: "Auditoria de grupos de fatura",
+    description: "Lê os documentos anexos das transações agrupadas e deteta faturas diferentes agrupadas por erro",
+  },
+  {
     to: "/admin/sync-coala",
     icon: Cloud,
     title: "Sync Coala (Drive)",
