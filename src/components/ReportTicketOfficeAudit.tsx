@@ -410,11 +410,13 @@ export default function ReportTicketOfficeAudit() {
         sales: acc.sales + d.totalSales,
         expenses: acc.expenses + d.totalDirectExpenses,
         transfers: acc.transfers + d.totalTransfers,
+        advances: acc.advances + (d.totalAdvances || 0),
         balance: acc.balance + d.expectedBalance,
       }),
-      { sales: 0, expenses: 0, transfers: 0, balance: 0 }
+      { sales: 0, expenses: 0, transfers: 0, advances: 0, balance: 0 }
     );
   }, [filteredData]);
+
 
   const buildExportData = (officeFilter = selectedOffice) => {
     const exportSource = officeFilter === "all"
