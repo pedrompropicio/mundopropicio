@@ -13,6 +13,8 @@ import { FeverImportModal } from "@/components/FeverImportModal";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
+import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
+
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
 import { TicketOfficeAdvancesPanel } from "@/components/TicketOfficeAdvancesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,12 +85,26 @@ export default function TicketOffices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, event_id")
+        .select("account_id, type, amount, paid_amount, status, event_id, reversed_at, is_hidden")
         .in("account_id", officeIds);
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: allAdvances = [] } = useQuery({
+    queryKey: ["ticket_office_advances_all", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("financial_account_id, event_id, amount, transaction_id, settlement_id")
+        .in("financial_account_id", officeIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
 
   const { data: allAssignments = [] } = useQuery({
     queryKey: ["ticket_office_assignments_all", officeIds],
@@ -119,46 +135,33 @@ export default function TicketOffices() {
 
   const officeBalances = useMemo(() => {
     const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
-    const officeEventMap: Record<string, Set<string>> = {};
+    const officeEventMap: Record<string, string[]> = {};
     allAssignments.forEach((a: any) => {
-      if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = new Set();
-      officeEventMap[a.financial_account_id].add(a.event_id);
+      if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = [];
+      officeEventMap[a.financial_account_id].push(a.event_id);
     });
     const zoneEventMap: Record<string, string> = {};
     allZones.forEach((z: any) => { zoneEventMap[z.id] = z.event_id; });
-    const salesByOffice: Record<string, number> = {};
-    offices.forEach((o: any) => {
-      const assignedEvents = officeEventMap[o.id] || new Set();
-      let total = 0;
-      officeSales.forEach((s: any) => {
-        const saleEventId = zoneEventMap[s.zone_id];
-        if (saleEventId && assignedEvents.has(saleEventId)) {
-          if (!s.financial_account_id || s.financial_account_id === o.id) {
-            total += s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price);
-          }
-        }
-      });
-      salesByOffice[o.id] = total;
-    });
-    const expensesByAccount: Record<string, number> = {};
+    const salesWithEvent = officeSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+
     const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
-      if (t.type === "expense") {
-        const paid = Number(t.paid_amount || 0);
-        if (t.event_id) {
-          expensesByAccount[t.account_id] = (expensesByAccount[t.account_id] || 0) + paid;
-        } else {
-          transfersByAccount[t.account_id] = (transfersByAccount[t.account_id] || 0) + paid;
-        }
+      if (t.type === "expense" && !t.event_id) {
+        transfersByAccount[t.account_id] = (transfersByAccount[t.account_id] || 0) + Number(t.paid_amount || 0);
       }
     });
+
     offices.forEach((o: any) => {
-      const sales = salesByOffice[o.id] || 0;
-      const expenses = expensesByAccount[o.id] || 0;
-      const transfers = transfersByAccount[o.id] || 0;
+      const { total } = computeTicketOfficeBalance({
+        officeId: o.id,
+        assignedEventIds: officeEventMap[o.id] || [],
+        sales: salesWithEvent,
+        transactions: txnSums as any[],
+        advances: (allAdvances as any[]).filter((a: any) => a.financial_account_id === o.id),
+      });
       map[o.id] = {
-        retained: sales - expenses - transfers,
-        transferred: transfers,
+        retained: total,
+        transferred: transfersByAccount[o.id] || 0,
         bankBalance: Number(o.initial_balance || 0) +
           txnSums.filter((t: any) => t.account_id === o.id)
             .reduce((sum: number, t: any) => {
@@ -168,7 +171,8 @@ export default function TicketOffices() {
       };
     });
     return map;
-  }, [offices, officeSales, txnSums, allAssignments, allZones]);
+  }, [offices, officeSales, txnSums, allAssignments, allZones, allAdvances]);
+
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

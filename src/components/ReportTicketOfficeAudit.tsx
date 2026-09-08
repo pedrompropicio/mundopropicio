@@ -40,6 +40,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/lib/export-ticket-office-audit";
+import {
+  computeTicketOfficeBalance,
+  isCountedTicketOfficeTxn,
+  isOpenTicketOfficeAdvance,
+} from "@/lib/ticket-office-balance";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+
 
 type ViewMode = "synthetic" | "analytical";
 type AnalyticalGroupBy = "event" | "type";
@@ -137,7 +144,7 @@ export default function ReportTicketOfficeAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, supplier_id, suppliers(name), events(name)")
+        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, suppliers(name), events(name)")
         .in("account_id", accountIds)
         .in("status", ["approved", "paid"])
         .order("date");
@@ -145,6 +152,20 @@ export default function ReportTicketOfficeAudit() {
       return data;
     },
   });
+
+  const { data: allAdvances = [] } = useQuery({
+    queryKey: ["report_to_advances", accountIds.length],
+    enabled: accountIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("financial_account_id, event_id, amount, transaction_id, settlement_id, advance_date")
+        .in("financial_account_id", accountIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
 
   // Build zone-to-event map
   const zoneEventMap = useMemo(() => {
@@ -169,42 +190,42 @@ export default function ReportTicketOfficeAudit() {
     return map;
   }, [allZones]);
 
-  // Helper: detect if a transaction is a commission (not a bank transfer)
-  const isCommission = (description: string) => /comiss[ãa]o/i.test(description);
-
-  // Build synthetic audit data
+  // Build synthetic audit data — fonte única em src/lib/ticket-office-balance.ts
   const auditData = useMemo(() => {
+    const salesWithEvent = allSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+
     return offices.map((office: any) => {
       const officeAssignments = assignments.filter(
         (a: any) => a.financial_account_id === office.id
       );
       const accountId = office.financial_account_id;
+      const assignedEventIds = officeAssignments.filter((a: any) => a.events).map((a: any) => a.event_id);
+      const officeAdvances = (allAdvances as any[]).filter((a: any) => a.financial_account_id === office.id);
 
-      // First pass: compute per-event sales
-      const eventSalesMap: Record<string, number> = {};
+      const { total, byEvent } = computeTicketOfficeBalance({
+        officeId: office.id,
+        assignedEventIds,
+        sales: salesWithEvent,
+        transactions: accountTxns as any[],
+        advances: officeAdvances,
+      });
+
       const events = officeAssignments.map((a: any) => {
         const ev = a.events;
         if (!ev) return null;
 
-        const eventZoneIds = allZones
-          .filter((z: any) => z.event_id === a.event_id)
-          .map((z: any) => z.id);
+        const officeSales = salesWithEvent
+          .filter((s: any) => s.event_id === a.event_id && s.financial_account_id === office.id)
+          .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
 
-        const officeSales = allSales
+        const eventExpenses = accountTxns
           .filter(
-            (s: any) =>
-              eventZoneIds.includes(s.zone_id) &&
-              (!s.financial_account_id || s.financial_account_id === office.id)
+            (t: any) =>
+              isCountedTicketOfficeTxn(t, office.id) &&
+              (t.type === "expense" || t.type === "transfer") &&
+              t.event_id === a.event_id
           )
-          .reduce((sum: number, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
-
-        eventSalesMap[a.event_id] = officeSales;
-
-        const eventExpenses = accountId
-          ? accountTxns
-              .filter((t: any) => t.account_id === accountId && t.type === "expense" && t.event_id === a.event_id)
-              .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
-          : 0;
+          .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
         return {
           eventId: a.event_id,
@@ -213,33 +234,18 @@ export default function ReportTicketOfficeAudit() {
           isConciliated: a.is_conciliated,
           totalSales: officeSales,
           totalExpenses: eventExpenses,
-          balance: officeSales - eventExpenses,
+          balance: byEvent[a.event_id] ?? 0,
         };
       }).filter(Boolean);
 
-      // Identify commissions (no event_id, but description matches "comissão")
-      const commissionTxns = accountId
-        ? accountTxns.filter((t: any) => t.account_id === accountId && t.type === "expense" && !t.event_id && isCommission(t.description))
-        : [];
-      const totalCommissions = commissionTxns.reduce((s: number, t: any) => s + Number(t.paid_amount || t.amount), 0);
-
-      // Distribute commissions proportionally across events
-      const totalAllSales = Object.values(eventSalesMap).reduce((s, v) => s + v, 0);
-      if (totalCommissions > 0 && totalAllSales > 0) {
-        events.forEach((ev: any) => {
-          const proportion = ev.totalSales / totalAllSales;
-          const evCommission = totalCommissions * proportion;
-          ev.totalExpenses += evCommission;
-          ev.balance = ev.totalSales - ev.totalExpenses;
-        });
-      }
-
-      // Transfers are only actual bank transfers (not commissions)
-      const transfers = accountId
-        ? accountTxns
-            .filter((t: any) => t.account_id === accountId && t.type === "expense" && !t.event_id && !isCommission(t.description))
-            .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
-        : 0;
+      // Transferências / saídas sem evento
+      const transfers = accountTxns
+        .filter(
+          (t: any) =>
+            isCountedTicketOfficeTxn(t, office.id) &&
+            (t.type === "transfer" || (t.type === "expense" && !t.event_id))
+        )
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       const totalSales = events.reduce((s: number, e: any) => s + e.totalSales, 0);
       const totalDirectExpenses = events.reduce((s: number, e: any) => s + e.totalExpenses, 0);
@@ -251,117 +257,97 @@ export default function ReportTicketOfficeAudit() {
         totalSales,
         totalDirectExpenses,
         totalTransfers: transfers,
-        expectedBalance: totalSales - totalDirectExpenses - transfers,
+        expectedBalance: total,
         events,
       };
     });
-  }, [offices, assignments, allZones, allSales, accountTxns]);
+  }, [offices, assignments, allSales, accountTxns, allAdvances, zoneEventMap]);
+
 
   // Build analytical lines per office
   const analyticalData = useMemo(() => {
     // Always compute analytical data so PDF export works from any view mode
     const result: Record<string, AnalyticalLine[]> = {};
 
+    const salesWithEvent = allSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+
     offices.forEach((office: any) => {
       const lines: AnalyticalLine[] = [];
       const officeAssignments = assignments.filter((a: any) => a.financial_account_id === office.id);
-      const assignedEventIds = officeAssignments.map((a: any) => a.event_id);
-      const accountId = office.financial_account_id;
+      const assignedEventIds = officeAssignments.filter((a: any) => a.events).map((a: any) => a.event_id);
+      const assigned = new Set<string>(assignedEventIds);
 
-      // Sales lines
-      assignedEventIds.forEach((eventId: string) => {
-        const eventZoneIds = allZones
-          .filter((z: any) => z.event_id === eventId)
-          .map((z: any) => z.id);
-
-        allSales
-          .filter(
-            (s: any) =>
-              eventZoneIds.includes(s.zone_id) &&
-              (!s.financial_account_id || s.financial_account_id === office.id)
-          )
-          .forEach((s: any) => {
-            const zoneName = zoneNameMap[s.zone_id] || "";
-            const saleAmount = s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price);
-            lines.push({
-              date: s.sale_date,
-              type: "sale",
-              description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
-              eventName: eventNameMap[eventId] || "",
-              eventId: eventId,
-              amount: saleAmount,
-            });
+      // Sales lines — mesma base da vista sintética (igualdade estrita + ticketSaleRevenue)
+      salesWithEvent
+        .filter((s: any) => s.financial_account_id === office.id && s.event_id && assigned.has(s.event_id))
+        .forEach((s: any) => {
+          const zoneName = zoneNameMap[s.zone_id] || "";
+          lines.push({
+            date: s.sale_date,
+            type: "sale",
+            description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
+            eventName: eventNameMap[s.event_id] || "",
+            eventId: s.event_id,
+            amount: ticketSaleRevenue(s),
           });
-      });
-
-      // Compute per-event sales totals for proportional commission distribution
-      const eventSalesMap: Record<string, number> = {};
-      assignedEventIds.forEach((eventId: string) => {
-        const eventZoneIds = allZones
-          .filter((z: any) => z.event_id === eventId)
-          .map((z: any) => z.id);
-        eventSalesMap[eventId] = allSales
-          .filter((s: any) => eventZoneIds.includes(s.zone_id) && (!s.financial_account_id || s.financial_account_id === office.id))
-          .reduce((sum: number, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
-      });
-      const totalOfficeSales = Object.values(eventSalesMap).reduce((s, v) => s + v, 0);
+        });
 
       // Transaction lines
-      if (accountId) {
-        accountTxns
-          .filter((t: any) => t.account_id === accountId)
-          .forEach((t: any) => {
-            const amt = Number(t.paid_amount || t.amount);
-            const evName = t.events?.name || eventNameMap[t.event_id] || "";
-            const supplierName = t.suppliers?.name ? ` — ${t.suppliers.name}` : "";
+      accountTxns
+        .filter((t: any) => isCountedTicketOfficeTxn(t, office.id))
+        .forEach((t: any) => {
+          const amt = Number(t.paid_amount || 0);
+          if (!amt) return;
+          const evName = t.events?.name || eventNameMap[t.event_id] || "—";
+          const supplierName = t.suppliers?.name ? ` — ${t.suppliers.name}` : "";
 
-            if (t.type === "expense" && t.event_id) {
-              // Event-specific expense
-              lines.push({
-                date: t.date,
-                type: "expense",
-                description: `${t.description}${supplierName}`,
-                eventName: evName,
-                eventId: t.event_id,
-                amount: -amt,
-              });
-            } else if (t.type === "expense" && !t.event_id && isCommission(t.description)) {
-              // Commission: distribute proportionally across events
-              if (totalOfficeSales > 0) {
-                assignedEventIds.forEach((eventId: string) => {
-                  const proportion = (eventSalesMap[eventId] || 0) / totalOfficeSales;
-                  if (proportion > 0) {
-                    const evCommission = amt * proportion;
-                    lines.push({
-                      date: t.date,
-                      type: "expense",
-                      description: `${t.description} (proporcional)${supplierName}`,
-                      eventName: eventNameMap[eventId] || "",
-                      eventId: eventId,
-                      amount: -evCommission,
-                    });
-                  }
-                });
-              }
-            } else if (t.type === "expense" && !t.event_id) {
-              // Actual bank transfer (not commission)
-              lines.push({
-                date: t.date,
-                type: "transfer",
-                description: `${t.description}${supplierName}`,
-                eventName: "—",
-                eventId: undefined,
-                amount: -amt,
-              });
-            }
-            // Income transactions on ticket office accounts are NOT included
-            // because the revenue is already captured via ticket_sales records.
+          if (t.type === "expense") {
+            lines.push({
+              date: t.date,
+              type: t.event_id ? "expense" : "transfer",
+              description: `${t.description}${supplierName}`,
+              eventName: t.event_id ? evName : "—",
+              eventId: t.event_id || undefined,
+              amount: -amt,
+            });
+          } else if (t.type === "transfer") {
+            lines.push({
+              date: t.date,
+              type: "transfer",
+              description: `${t.description}${supplierName}`,
+              eventName: t.event_id ? evName : "—",
+              eventId: t.event_id || undefined,
+              amount: -amt,
+            });
+          } else if (t.type === "income") {
+            lines.push({
+              date: t.date,
+              type: "income",
+              description: `${t.description}${supplierName}`,
+              eventName: t.event_id ? evName : "—",
+              eventId: t.event_id || undefined,
+              amount: amt,
+            });
+          }
+        });
+
+      // Adiantamentos em aberto (sem transação e sem fecho)
+      (allAdvances as any[])
+        .filter((a: any) => a.financial_account_id === office.id && isOpenTicketOfficeAdvance(a))
+        .forEach((a: any) => {
+          lines.push({
+            date: a.advance_date || "",
+            type: "transfer",
+            description: "Adiantamento à empresa",
+            eventName: eventNameMap[a.event_id] || "—",
+            eventId: a.event_id || undefined,
+            amount: -Number(a.amount || 0),
           });
-      }
+        });
 
       // Sort by date, then type (sales first, then expenses)
       lines.sort((a, b) => {
-        const d = a.date.localeCompare(b.date);
+        const d = (a.date || "").localeCompare(b.date || "");
         if (d !== 0) return d;
         const typeOrder = { sale: 0, income: 1, expense: 2, transfer: 3 };
         return typeOrder[a.type] - typeOrder[b.type];
@@ -378,7 +364,8 @@ export default function ReportTicketOfficeAudit() {
     });
 
     return result;
-  }, [offices, assignments, allZones, allSales, accountTxns, zoneNameMap, eventNameMap]);
+  }, [offices, assignments, allSales, accountTxns, allAdvances, zoneNameMap, eventNameMap, zoneEventMap]);
+
 
   const filteredData = selectedOffice === "all"
     ? auditData

@@ -9,6 +9,13 @@ import helpTexts from "@/lib/help-texts";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { TicketOfficeSettlementModal } from "@/components/TicketOfficeSettlementModal";
+import {
+  computeTicketOfficeBalance,
+  isCountedTicketOfficeTxn,
+  isOpenTicketOfficeAdvance,
+} from "@/lib/ticket-office-balance";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+
 
 interface Props {
   officeId: string; // This is now the financial_account_id directly
@@ -49,7 +56,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       const zoneIds = zones.map((z: any) => z.id);
       const { data: sales, error: sErr } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id")
+        .select("zone_id, quantity, unit_price, total_value, financial_account_id")
         .in("zone_id", zoneIds);
       if (sErr) throw sErr;
 
@@ -67,7 +74,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, paid_amount, event_id, description")
+        .select("account_id, type, amount, paid_amount, status, event_id, description, reversed_at, is_hidden")
         .eq("account_id", officeId);
       if (error) throw error;
       return data;
@@ -88,7 +95,44 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     },
   });
 
+  // Regra de retenção da bilheteira (opcional)
+  const { data: office } = useQuery({
+    queryKey: ["ticket_office_retention", officeId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("financial_accounts")
+        .select("id, advance_retention_pct")
+        .eq("id", officeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fechos confirmados (para saber que eventos já foram fechados)
+  const { data: confirmedSettlements = [] } = useQuery({
+    queryKey: ["ticket_office_confirmed_settlements", officeId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("ticket_office_settlements")
+        .select("event_id, status")
+        .eq("financial_account_id", officeId)
+        .eq("status", "confirmed");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const summary = useMemo(() => {
+    const assignedEventIds = assignments.filter((a: any) => a.events).map((a: any) => a.event_id);
+    const { total, byEvent } = computeTicketOfficeBalance({
+      officeId,
+      assignedEventIds,
+      sales: ticketSales as any[],
+      transactions: accountTxns as any[],
+      advances: pendingAdvances as any[],
+    });
+
     const eventMap: Record<string, { name: string; status: string; sales: number; directExpenses: number; advances: number; isConciliated: boolean }> = {};
     assignments.forEach((a: any) => {
       if (a.events) {
@@ -104,51 +148,58 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     });
 
     ticketSales
-      .filter((s: any) => !s.financial_account_id || s.financial_account_id === officeId)
+      .filter((s: any) => s.financial_account_id === officeId)
       .forEach((s: any) => {
         if (eventMap[s.event_id]) {
-          eventMap[s.event_id].sales += s.quantity * Number(s.unit_price);
+          eventMap[s.event_id].sales += ticketSaleRevenue(s);
         }
       });
 
     accountTxns.forEach((t: any) => {
+      if (!isCountedTicketOfficeTxn(t, officeId)) return;
       if (t.type === "expense" && t.event_id && eventMap[t.event_id]) {
         eventMap[t.event_id].directExpenses += Number(t.paid_amount || 0);
       }
     });
 
-    // Advances tied to a transaction are already counted in totalTransfersOut.
-    // Advances WITHOUT a linked transaction represent value moved out of the office
-    // that wasn't recorded as a transfer — count them as outflow as well.
-    const advanceTxnIds = new Set(
-      pendingAdvances.map((a: any) => a.transaction_id).filter(Boolean)
-    );
-    let advancesWithoutTxn = 0;
     pendingAdvances.forEach((a: any) => {
-      if (eventMap[a.event_id]) {
-        eventMap[a.event_id].advances += Number(a.amount);
+      if (isOpenTicketOfficeAdvance(a) && eventMap[a.event_id]) {
+        eventMap[a.event_id].advances += Number(a.amount || 0);
       }
-      if (!a.transaction_id) advancesWithoutTxn += Number(a.amount);
     });
 
     const totalTransfersOut = accountTxns
-      .filter((t: any) => t.type === "expense" && !t.event_id)
+      .filter((t: any) => isCountedTicketOfficeTxn(t, officeId) && (t.type === "transfer" || (t.type === "expense" && !t.event_id)))
       .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
     const totalSales = Object.values(eventMap).reduce((s, e) => s + e.sales, 0);
     const totalDirectExpenses = Object.values(eventMap).reduce((s, e) => s + e.directExpenses, 0);
     const totalAdvancesPending = Object.values(eventMap).reduce((s, e) => s + e.advances, 0);
-    const globalBalance =
-      totalSales - totalDirectExpenses - totalTransfersOut - advancesWithoutTxn;
+    const globalBalance = total;
 
     const activeEvents = Object.values(eventMap).filter((e) => e.status !== "completed");
     const hasInconsistency = activeEvents.length === 0 && Math.abs(globalBalance) > 0.01;
+
+    // Saldo esperado pela regra de retenção
+    const retentionPct = office?.advance_retention_pct != null ? Number(office.advance_retention_pct) : null;
+    const settledEventIds = new Set((confirmedSettlements as any[]).map((s: any) => s.event_id));
+    let expectedBalance: number | null = null;
+    let deviation: number | null = null;
+    let deviationWarn = false;
+    if (retentionPct != null && Number.isFinite(retentionPct)) {
+      const openSales = Object.entries(eventMap)
+        .filter(([id]) => !settledEventIds.has(id))
+        .reduce((s, [, e]) => s + e.sales, 0);
+      expectedBalance = (retentionPct / 100) * openSales;
+      deviation = globalBalance - expectedBalance;
+      deviationWarn = Math.abs(deviation) > Math.abs(expectedBalance) * 0.05;
+    }
 
     return {
       events: Object.entries(eventMap).map(([id, data]) => ({
         id,
         ...data,
-        balance: data.sales - data.directExpenses - data.advances,
+        balance: byEvent[id] ?? 0,
       })),
       totalSales,
       totalDirectExpenses,
@@ -156,8 +207,13 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       totalAdvancesPending,
       globalBalance,
       hasInconsistency,
+      retentionPct,
+      expectedBalance,
+      deviation,
+      deviationWarn,
     };
-  }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId]);
+  }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId, office, confirmedSettlements]);
+
 
   if (assignments.length === 0) {
     return (
@@ -194,8 +250,28 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           {formatCurrency(summary.globalBalance)}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          Vendas − despesas diretas − transferências (adiantamentos já saíram)
+          Vendas − despesas − transferências − adiantamentos em aberto
         </p>
+        {summary.retentionPct != null && (
+          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/40 pt-2">
+            <div>
+              <p className="text-[10px] text-muted-foreground">Saldo esperado ({summary.retentionPct}%)</p>
+              <p className="text-sm font-mono font-semibold">{formatCurrency(summary.expectedBalance ?? 0)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground">Desvio</p>
+              <p className={`text-sm font-mono font-semibold ${summary.deviationWarn ? "text-amber-500" : "text-muted-foreground"}`}>
+                {formatCurrency(summary.deviation ?? 0)}
+              </p>
+            </div>
+            {summary.deviationWarn && (
+              <p className="col-span-2 flex items-center justify-center gap-1 text-[10px] text-amber-500">
+                <AlertCircle className="h-3 w-3" /> Desvio acima de 5% — vendas por importar ou repasse por lançar
+              </p>
+            )}
+          </div>
+        )}
+
         {summary.hasInconsistency && (
           <p className="flex items-center justify-center gap-1 text-[10px] text-destructive mt-1">
             <AlertCircle className="h-3 w-3" /> Sem eventos em venda — saldo deveria ser zero
