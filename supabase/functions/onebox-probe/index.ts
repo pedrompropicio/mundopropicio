@@ -1,7 +1,8 @@
 // onebox-probe — diagnóstico descartável.
-// Pergunta única: a API do Superset em dash.oneboxtds.com aceita login de um
-// cliente não-browser, ou a Cloudflare bloqueia?
+// Pergunta única: o acesso anónimo ao dashboard público 43 em dash.oneboxtds.com
+// funciona a partir do servidor, ou depende de cookie/CSRF de browser?
 // Não escreve em tabelas, não cria cron, não devolve credenciais nem tokens.
+// Nota: os secrets ONEBOX_USERNAME/ONEBOX_PASSWORD já não são usados.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,80 +27,42 @@ function redact(text: string): string {
     .replace(/(Bearer\s+)[A-Za-z0-9._-]+/g, "$1<redacted>");
 }
 
-const preview = (text: string) => redact(text).slice(0, 300);
+const preview = (text: string) => redact(text).slice(0, 400);
+
+const TARGETS: { name: string; url: string }[] = [
+  { name: "dashboard_43", url: `${BASE}/api/v1/dashboard/43` },
+  { name: "dashboard_43_charts", url: `${BASE}/api/v1/dashboard/43/charts` },
+  { name: "chart_180_data", url: `${BASE}/api/v1/chart/180/data/?format=json` },
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const username = Deno.env.get("ONEBOX_USERNAME");
-  const password = Deno.env.get("ONEBOX_PASSWORD");
-  if (!username || !password) {
-    return json(500, { error: "ONEBOX_USERNAME / ONEBOX_PASSWORD não configurados" });
-  }
+  const out: Record<string, unknown> = { modo: "anonimo_sem_auth" };
 
-  let provider = "db";
-  try {
-    const body = await req.json();
-    if (typeof body?.provider === "string" && body.provider.trim()) {
-      provider = body.provider.trim();
-    }
-  } catch (_) {
-    // sem corpo ou corpo inválido → mantém o default
-  }
-
-  const out: Record<string, unknown> = { provider_usado: provider };
-
-  let loginText = "";
-  try {
-    const res = await fetch(`${BASE}/api/v1/security/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
-        "User-Agent": UA,
-        "Origin": BASE,
-        "Referer": `${BASE}/login/`,
-      },
-      body: JSON.stringify({ username, password, provider, refresh: true }),
-    });
-    loginText = await res.text();
-    out.login_status = res.status;
-    out.login_content_type = res.headers.get("content-type");
-    out.login_body_preview = preview(loginText);
-  } catch (e) {
-    out.login_status = null;
-    out.login_error = String((e as Error)?.message ?? e);
-    return json(200, { ...out, token_recebido: false });
-  }
-
-  let token: string | null = null;
-  try {
-    const parsed = JSON.parse(loginText);
-    if (typeof parsed?.access_token === "string" && parsed.access_token) {
-      token = parsed.access_token;
-    }
-  } catch (_) {
-    // corpo não é JSON (provável HTML de desafio Cloudflare)
-  }
-  out.token_recebido = Boolean(token);
-
-  if (token) {
+  for (const t of TARGETS) {
     try {
-      const res = await fetch(`${BASE}/api/v1/dashboard/43`, {
+      const res = await fetch(t.url, {
         headers: {
-          "Authorization": `Bearer ${token}`,
           "Accept": "application/json, text/plain, */*",
+          "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
           "User-Agent": UA,
           "Referer": `${BASE}/superset/dashboard/43/`,
         },
       });
       const text = await res.text();
-      out.dashboard_status = res.status;
-      out.dashboard_body_preview = preview(text);
+      out[t.name] = {
+        url: t.url,
+        status: res.status,
+        content_type: res.headers.get("content-type"),
+        body_preview: preview(text),
+      };
     } catch (e) {
-      out.dashboard_status = null;
-      out.dashboard_error = String((e as Error)?.message ?? e);
+      out[t.name] = {
+        url: t.url,
+        status: null,
+        error: String((e as Error)?.message ?? e),
+      };
     }
   }
 
