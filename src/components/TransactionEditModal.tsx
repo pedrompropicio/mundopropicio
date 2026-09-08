@@ -2110,6 +2110,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         </form>
           </TabsContent>
         </Tabs>
+
+        <InvoiceGroupSuggestDialog
+          suggestion={invoiceSuggestion}
+          onGrouped={() => void refetchInvoiceSiblings()}
+          onClose={() => setInvoiceSuggestion(null)}
+        />
       </div>
     </div>,
     document.body
