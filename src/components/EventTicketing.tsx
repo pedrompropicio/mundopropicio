@@ -1170,9 +1170,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       {/* === Vendas por Zona (realizado) === */}
       {realizedZones.length > 0 && (
         <div className="glass rounded-xl p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-2">
             Vendas por Zona (realizado)
+            {hasEciOffice && oneboxCapturedLabel && (
+              <span className="text-[11px] font-normal normal-case tracking-normal text-muted-foreground">
+                {oneboxCapturedLabel}
+              </span>
+            )}
           </h3>
+
           <p className="text-xs text-muted-foreground mb-3">
             Vendas reais registadas em todas as origens (sync automático, importações e lançamentos manuais).
           </p>
