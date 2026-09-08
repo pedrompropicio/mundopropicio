@@ -219,6 +219,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       expectedBalance,
       deviation,
       deviationWarn,
+      deviationMsg,
     };
   }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId, office, confirmedSettlements]);
 
@@ -274,7 +275,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
             </div>
             {summary.deviationWarn && (
               <p className="col-span-2 flex items-center justify-center gap-1 text-[10px] text-amber-500">
-                <AlertCircle className="h-3 w-3" /> Desvio acima de 5% — vendas por importar ou repasse por lançar
+                <AlertCircle className="h-3 w-3" /> {summary.deviationMsg}
               </p>
             )}
           </div>
