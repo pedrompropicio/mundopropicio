@@ -13,7 +13,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { ensureInvoiceGroup, isGroupableInvoiceRef } from "@/lib/invoice-group";
+import {
+  ensureInvoiceGroup,
+  isGroupableInvoiceRef,
+  checkInvoiceDocumentsConsistency,
+} from "@/lib/invoice-group";
+
 
 interface SiblingLike {
   id: string;
@@ -40,6 +45,8 @@ interface Props {
 export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, compact, onGrouped }: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [docConflict, setDocConflict] = useState<boolean | null>(null);
+  const [conflictAck, setConflictAck] = useState(false);
   const qc = useQueryClient();
 
   if (!supplierId || !invoiceRef || siblings.length < 2) return null;
@@ -51,7 +58,24 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
   );
   const groupable = isGroupableInvoiceRef(invoiceRef);
 
+  async function openDialog() {
+    setConflictAck(false);
+    setDocConflict(null);
+    setOpen(true);
+    try {
+      const check = await checkInvoiceDocumentsConsistency(siblings.map((s) => s.id));
+      setDocConflict(check.kind === "conflict");
+    } catch {
+      setDocConflict(null);
+    }
+  }
+
   async function handleGroup() {
+    // Documentos anexos diferentes → exige uma segunda confirmação explícita.
+    if (docConflict && !conflictAck) {
+      setConflictAck(true);
+      return;
+    }
     setSaving(true);
     try {
       const res = await ensureInvoiceGroup(supplierId!, invoiceRef!, { force: true });
@@ -78,6 +102,7 @@ export default function InvoiceGroupAction({ supplierId, invoiceRef, siblings, c
       setSaving(false);
     }
   }
+
 
   return (
     <>
