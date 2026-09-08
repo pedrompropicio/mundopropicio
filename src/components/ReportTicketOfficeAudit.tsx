@@ -218,6 +218,11 @@ export default function ReportTicketOfficeAudit() {
           .filter((s: any) => s.event_id === a.event_id && s.financial_account_id === office.id)
           .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
 
+        // Receitas lançadas como transação também entram na coluna Vendas (como na linha da bilheteira)
+        const eventIncome = accountTxns
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "income" && t.event_id === a.event_id)
+          .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
         // Cada transação entra numa coluna só: expense → despesas, transfer → transferências
         const eventExpenses = accountTxns
           .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "expense" && t.event_id === a.event_id)
@@ -236,7 +241,8 @@ export default function ReportTicketOfficeAudit() {
           eventName: ev.name,
           eventStatus: ev.status,
           isConciliated: a.is_conciliated,
-          totalSales: officeSales,
+          totalSales: officeSales + eventIncome,
+
           totalExpenses: eventExpenses,
           totalTransfers: eventTransfers,
           totalAdvances: eventAdvances,
@@ -428,6 +434,7 @@ export default function ReportTicketOfficeAudit() {
       totalSales: d.totalSales,
       totalDirectExpenses: d.totalDirectExpenses,
       totalTransfers: d.totalTransfers,
+      totalAdvances: d.totalAdvances || 0,
       expectedBalance: d.expectedBalance,
       events: d.events.map((e: any) => ({
         eventName: e.eventName,
@@ -435,9 +442,12 @@ export default function ReportTicketOfficeAudit() {
         isConciliated: e.isConciliated,
         totalSales: e.totalSales,
         totalExpenses: e.totalExpenses,
+        totalTransfers: e.totalTransfers || 0,
+        totalAdvances: e.totalAdvances || 0,
         balance: e.balance,
       })),
     }));
+
 
     const analyticalExport = exportSource.map((d: any) => ({
       officeName: d.officeName,
