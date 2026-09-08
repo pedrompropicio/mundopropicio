@@ -218,14 +218,18 @@ export default function ReportTicketOfficeAudit() {
           .filter((s: any) => s.event_id === a.event_id && s.financial_account_id === office.id)
           .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
 
+        // Cada transação entra numa coluna só: expense → despesas, transfer → transferências
         const eventExpenses = accountTxns
-          .filter(
-            (t: any) =>
-              isCountedTicketOfficeTxn(t, office.id) &&
-              (t.type === "expense" || t.type === "transfer") &&
-              t.event_id === a.event_id
-          )
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "expense" && t.event_id === a.event_id)
           .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+        const eventTransfers = accountTxns
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "transfer" && t.event_id === a.event_id)
+          .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+        const eventAdvances = officeAdvances
+          .filter((adv: any) => isOpenTicketOfficeAdvance(adv) && adv.event_id === a.event_id)
+          .reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0);
 
         return {
           eventId: a.event_id,
@@ -234,32 +238,52 @@ export default function ReportTicketOfficeAudit() {
           isConciliated: a.is_conciliated,
           totalSales: officeSales,
           totalExpenses: eventExpenses,
+          totalTransfers: eventTransfers,
+          totalAdvances: eventAdvances,
           balance: byEvent[a.event_id] ?? 0,
         };
       }).filter(Boolean);
 
-      // Transferências / saídas sem evento
-      const transfers = accountTxns
-        .filter(
-          (t: any) =>
-            isCountedTicketOfficeTxn(t, office.id) &&
-            (t.type === "transfer" || (t.type === "expense" && !t.event_id))
-        )
+      const countedTxns = accountTxns.filter((t: any) => isCountedTicketOfficeTxn(t, office.id));
+
+      // Totais da bilheteira — cada movimento numa coluna só, para reconciliar com o Saldo Previsto
+      const totalSales = salesWithEvent
+        .filter((s: any) => s.financial_account_id === office.id)
+        .reduce((sum: number, s: any) => sum + ticketSaleRevenue(s), 0);
+
+      const totalIncome = countedTxns
+        .filter((t: any) => t.type === "income")
         .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
-      const totalSales = events.reduce((s: number, e: any) => s + e.totalSales, 0);
-      const totalDirectExpenses = events.reduce((s: number, e: any) => s + e.totalExpenses, 0);
+      const totalDirectExpenses = countedTxns
+        .filter((t: any) => t.type === "expense")
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+      const transfers = countedTxns
+        .filter((t: any) => t.type === "transfer")
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
+
+      const totalAdvances = officeAdvances
+        .filter((adv: any) => isOpenTicketOfficeAdvance(adv))
+        .reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0);
+
+      const noEventOut = countedTxns
+        .filter((t: any) => !t.event_id && (t.type === "transfer" || t.type === "expense"))
+        .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       return {
         officeId: office.id,
         officeName: office.name,
         financialAccountId: accountId,
-        totalSales,
+        totalSales: totalSales + totalIncome,
         totalDirectExpenses,
         totalTransfers: transfers,
+        totalAdvances,
+        noEventOut,
         expectedBalance: total,
         events,
       };
+
     });
   }, [offices, assignments, allSales, accountTxns, allAdvances, zoneEventMap]);
 
@@ -386,11 +410,13 @@ export default function ReportTicketOfficeAudit() {
         sales: acc.sales + d.totalSales,
         expenses: acc.expenses + d.totalDirectExpenses,
         transfers: acc.transfers + d.totalTransfers,
+        advances: acc.advances + (d.totalAdvances || 0),
         balance: acc.balance + d.expectedBalance,
       }),
-      { sales: 0, expenses: 0, transfers: 0, balance: 0 }
+      { sales: 0, expenses: 0, transfers: 0, advances: 0, balance: 0 }
     );
   }, [filteredData]);
+
 
   const buildExportData = (officeFilter = selectedOffice) => {
     const exportSource = officeFilter === "all"
@@ -542,7 +568,7 @@ export default function ReportTicketOfficeAudit() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
@@ -579,6 +605,18 @@ export default function ReportTicketOfficeAudit() {
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              Adiantamentos
+            </div>
+            <p className="text-lg font-mono font-bold">
+              {formatCurrency(grandTotals.advances)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Wallet className="h-3.5 w-3.5" />
               Saldo Previsto
             </div>
@@ -604,6 +642,7 @@ export default function ReportTicketOfficeAudit() {
                   <TableHead className="text-right">Vendas</TableHead>
                   <TableHead className="text-right">Desp. Diretas</TableHead>
                   <TableHead className="text-right">Transferências</TableHead>
+                  <TableHead className="text-right">Adiantamentos</TableHead>
                   <TableHead className="text-right">Saldo Previsto</TableHead>
                   <TableHead className="text-center">Eventos</TableHead>
                 </TableRow>
@@ -611,7 +650,7 @@ export default function ReportTicketOfficeAudit() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Nenhuma bilheteira encontrada
                     </TableCell>
                   </TableRow>
@@ -637,6 +676,7 @@ export default function ReportTicketOfficeAudit() {
                           <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(office.totalSales)}</TableCell>
                           <TableCell className="text-right font-mono text-amber-500">{formatCurrency(office.totalDirectExpenses)}</TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(office.totalTransfers)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(office.totalAdvances || 0)}</TableCell>
                           <TableCell className={cn("text-right font-mono font-semibold", office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400")}>
                             {formatCurrency(office.expectedBalance)}
                           </TableCell>
@@ -650,16 +690,24 @@ export default function ReportTicketOfficeAudit() {
                               <TableCell className="text-xs font-semibold text-muted-foreground">Evento</TableCell>
                               <TableCell className="text-xs font-semibold text-muted-foreground text-right">Vendas</TableCell>
                               <TableCell className="text-xs font-semibold text-muted-foreground text-right">Despesas</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-right">Transf.</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-right">Adiant.</TableCell>
                               <TableCell className="text-xs font-semibold text-muted-foreground text-right">Saldo</TableCell>
                               <TableCell className="text-xs font-semibold text-muted-foreground text-center">Estado</TableCell>
-                              <TableCell className="text-xs font-semibold text-muted-foreground text-center">Conciliado</TableCell>
                             </TableRow>
                             {office.events.map((ev: any) => (
                               <TableRow key={`${office.officeId}-${ev.eventId}`} className="bg-muted/10">
                                 <TableCell></TableCell>
-                                <TableCell className="text-sm pl-6">{ev.eventName}</TableCell>
+                                <TableCell className="text-sm pl-6">
+                                  <div className="flex items-center gap-2">
+                                    {ev.isConciliated ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/40" />}
+                                    {ev.eventName}
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-right font-mono text-sm text-emerald-500">{formatCurrency(ev.totalSales)}</TableCell>
                                 <TableCell className="text-right font-mono text-sm text-amber-500">{formatCurrency(ev.totalExpenses)}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(ev.totalTransfers || 0)}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(ev.totalAdvances || 0)}</TableCell>
                                 <TableCell className={cn("text-right font-mono text-sm font-medium", ev.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
                                   {formatCurrency(ev.balance)}
                                 </TableCell>
@@ -668,18 +716,15 @@ export default function ReportTicketOfficeAudit() {
                                     {ev.eventStatus === "completed" ? "Finalizado" : ev.eventStatus === "confirmed" ? "Confirmado" : ev.eventStatus === "cancelled" ? "Cancelado" : "Planeamento"}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="text-center">
-                                  {ev.isConciliated ? <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" /> : <AlertCircle className="h-4 w-4 text-muted-foreground/40 mx-auto" />}
-                                </TableCell>
                               </TableRow>
                             ))}
-                            {office.totalTransfers > 0 && (
+                            {office.noEventOut > 0 && (
                               <TableRow className="bg-muted/10 border-t">
                                 <TableCell></TableCell>
-                                <TableCell className="text-sm pl-6 text-muted-foreground italic">Transferências para contas bancárias</TableCell>
+                                <TableCell className="text-sm pl-6 text-muted-foreground italic">Saídas sem evento associado</TableCell>
                                 <TableCell></TableCell>
-                                <TableCell className="text-right font-mono text-sm">{formatCurrency(office.totalTransfers)}</TableCell>
-                                <TableCell colSpan={3}></TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(office.noEventOut)}</TableCell>
+                                <TableCell colSpan={4}></TableCell>
                               </TableRow>
                             )}
                           </>
@@ -695,6 +740,7 @@ export default function ReportTicketOfficeAudit() {
                     <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(grandTotals.sales)}</TableCell>
                     <TableCell className="text-right font-mono text-amber-500">{formatCurrency(grandTotals.expenses)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(grandTotals.transfers)}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(grandTotals.advances)}</TableCell>
                     <TableCell className={cn("text-right font-mono", grandTotals.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
                       {formatCurrency(grandTotals.balance)}
                     </TableCell>
@@ -703,6 +749,7 @@ export default function ReportTicketOfficeAudit() {
                     </TableCell>
                   </TableRow>
                 )}
+
               </TableBody>
             </Table>
           </CardContent>

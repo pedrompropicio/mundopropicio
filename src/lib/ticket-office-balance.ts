@@ -6,8 +6,10 @@
  * transferências — por isso o saldo nunca fechava a zero depois de um fecho.
  *
  * Regras (todas obrigatórias):
- * - Vendas: só `financial_account_id === officeId` (igualdade estrita) e só de
- *   eventos atribuídos à bilheteira. Valor via `ticketSaleRevenue()`.
+ * - Vendas: só `financial_account_id === officeId` (igualdade estrita). Entram
+ *   sempre no total; só o `byEvent` exige evento atribuído. Valor via
+ *   `ticketSaleRevenue()`.
+
  * - Transações: `account_id === officeId`, status em {approved, paid},
  *   `reversed_at` nulo, `is_hidden` falso. SEMPRE por `paid_amount` (nunca
  *   fallback para `amount`). income soma; expense e transfer subtraem.
@@ -94,12 +96,15 @@ export function computeTicketOfficeBalance(input: TicketOfficeBalanceInput): Tic
   // Vendas
   sales.forEach((s) => {
     if (s.financial_account_id !== officeId) return;
-    const eventId = s.event_id || undefined;
-    if (!eventId || !assigned.has(eventId)) return;
     const value = ticketSaleRevenue(s);
+    if (!Number.isFinite(value) || value === 0) return;
     total += value;
-    byEvent[eventId] = (byEvent[eventId] || 0) + value;
+    const eventId = s.event_id || undefined;
+    if (eventId && eventId in byEvent) {
+      byEvent[eventId] += value;
+    }
   });
+
 
   // Transações
   transactions.forEach((t) => {

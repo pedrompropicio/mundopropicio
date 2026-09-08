@@ -186,14 +186,22 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     let expectedBalance: number | null = null;
     let deviation: number | null = null;
     let deviationWarn = false;
+    let deviationMsg = "";
     if (retentionPct != null && Number.isFinite(retentionPct)) {
       const openSales = Object.entries(eventMap)
         .filter(([id]) => !settledEventIds.has(id))
         .reduce((s, [, e]) => s + e.sales, 0);
       expectedBalance = (retentionPct / 100) * openSales;
       deviation = globalBalance - expectedBalance;
-      deviationWarn = Math.abs(deviation) > Math.abs(expectedBalance) * 0.05;
+      if (Math.abs(expectedBalance) < 0.01) {
+        deviationWarn = Math.abs(deviation) > 0.01;
+        deviationMsg = "Sem eventos em aberto — o saldo devia estar a zero.";
+      } else {
+        deviationWarn = Math.abs(deviation) > Math.abs(expectedBalance) * 0.05;
+        deviationMsg = "Desvio acima de 5% — vendas por importar ou repasse por lançar";
+      }
     }
+
 
     return {
       events: Object.entries(eventMap).map(([id, data]) => ({
@@ -211,6 +219,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       expectedBalance,
       deviation,
       deviationWarn,
+      deviationMsg,
     };
   }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId, office, confirmedSettlements]);
 
@@ -266,7 +275,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
             </div>
             {summary.deviationWarn && (
               <p className="col-span-2 flex items-center justify-center gap-1 text-[10px] text-amber-500">
-                <AlertCircle className="h-3 w-3" /> Desvio acima de 5% — vendas por importar ou repasse por lançar
+                <AlertCircle className="h-3 w-3" /> {summary.deviationMsg}
               </p>
             )}
           </div>
