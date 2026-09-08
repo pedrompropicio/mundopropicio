@@ -146,10 +146,12 @@ export default function TicketOffices() {
 
     const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
-      if (t.type === "expense" && !t.event_id) {
+      if (!t.account_id || !isCountedTicketOfficeTxn(t, t.account_id)) return;
+      if (t.type === "transfer" || (t.type === "expense" && !t.event_id)) {
         transfersByAccount[t.account_id] = (transfersByAccount[t.account_id] || 0) + Number(t.paid_amount || 0);
       }
     });
+
 
     offices.forEach((o: any) => {
       const { total } = computeTicketOfficeBalance({
