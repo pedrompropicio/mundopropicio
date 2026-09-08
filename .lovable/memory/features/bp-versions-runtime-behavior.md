@@ -15,10 +15,18 @@ Cada evento tem **uma única versão `active`** por força do índice único par
 
 | `version_id` | Significado | Vê transações reais? |
 |---|---|---|
-| `null` | Versão Ativa (produção) | ✅ Sim, via `transaction_id` |
+| `null` | Versão Ativa (produção) | ✅ Sim, via `transactions.forecast_id` |
 | `uuid` de cenário | Sandbox isolado | ❌ Não — snapshot estático |
 
+O vínculo canónico é **`transactions.forecast_id`** (N transações : 1 linha). `event_forecasts.transaction_id` é apenas a **âncora** (a primeira TX vinculada), reconstruída pelo trigger `trg_sync_tx_forecast_to_anchor` — nunca a escrever à mão.
+
 `create_bp_snapshot` clona TODOS os forecasts ativos para novas linhas com `version_id = <novo_cenário>`. Editar o cenário não toca a Ativa, e vice-versa.
+
+### Reescrever o BP não pode perder vínculos
+A FK `transactions_forecast_id_fkey` é `ON DELETE SET NULL`: qualquer `DELETE FROM event_forecasts ... version_id IS NULL` limpa em silêncio o `forecast_id` das transações do evento, e reinserir a linha com o mesmo id **não** o restaura. Por isso `promote_scenario_draft_to_active`, `promote_scenario_to_active` e `_revert_event_to_version` chamam `bp_capture_tx_links(event_id)` **antes** do DELETE e `bp_restore_tx_links(event_id, links)` depois de as linhas novas estarem vivas — no Master e em cada Split. A reposição faz-se pelo mesmo id e, quando o id não sobreviveu, por `(category_id, description)` e **só** quando existe exactamente uma linha viva candidata. O resultado (`relinked`, `by_id`, `by_description`, `ambiguous`, `unmatched`) fica no `metadata.tx_links` do registo em `bp_version_audit_log`.
+
+`bp_version_linked_tx_count(event_id)` — a trava da reversão — conta os vínculos reais (`transactions` JOIN `event_forecasts` por `forecast_id`), não a âncora.
+
 
 ## Transações vivem SEMPRE na Ativa
 
@@ -63,3 +71,11 @@ Compara **planeado do cenário** vs **transações reais (Ativa)**. Útil para "
 
 ## Nota 06/08/2026
 A vista **Planilha** do BP passou a ser Handsontable (`BPPlanilha.tsx`); o Univer foi aposentado.
+
+## Nota 08/09/2026 — cenários em `working_draft` (funções não documentadas)
+
+Além do circuito `create_bp_snapshot` / `promote_scenario_to_active`, existe na base um circuito paralelo de **rascunho de cenário** em estado `working_draft`:
+
+- **`create_scenario_draft(_event_id, _scenario_label, _scenario_assumptions, _description)`** — exige admin/manager/editor, sobe ao Master se lhe passarem um Split, cria a versão `working_draft` e **clona as linhas Ativas** para o cenário; cascade automático para cada Split via `cascaded_from_version_id`. Devolve o id da versão.
+- **`discard_scenario_draft(_version_id)`** — só aceita `working_draft`; apaga as versões cascateadas dos Splits e a do Master (as linhas caem por FK), deixando registo em `bp_version_audit_log`.
+- **`promote_scenario_draft_to_active(_scenario_version_id, _new_active_label, _new_active_description)`** — só admin/manager. Não cria versão nova: passa a Ativa atual a `superseded`, promove o próprio `working_draft` a `active`, apaga as linhas Ativas e faz `version_id = NULL` nas do cenário — logo **as linhas ficam com ids novos** e a reposição de vínculos dá-se quase toda por `(category_id, description)`. Cascade a cada Split.

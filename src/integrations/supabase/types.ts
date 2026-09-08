@@ -12308,6 +12308,11 @@ export type Database = {
         Args: { _edits?: Json; _event_id: string; _version_id?: string }
         Returns: Json
       }
+      bp_capture_tx_links: { Args: { _event_id: string }; Returns: Json }
+      bp_restore_tx_links: {
+        Args: { _event_id: string; _links: Json }
+        Returns: Json
+      }
       bp_tx_link_allowed: {
         Args: {
           _fc_company: string
