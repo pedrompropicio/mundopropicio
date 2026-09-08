@@ -38,6 +38,12 @@ interface ExtractResult {
   document_type: string | null;
   /** Concise free-text description of the services/products billed (used for category matching). */
   service_description: string | null;
+  /** Name of the ISSUER (fornecedor emitente). Optional. */
+  supplier_name?: string | null;
+  /** NIF/VAT number of the ISSUER (never the customer's). Optional. */
+  supplier_nif?: string | null;
+  /** Invoice/document number as printed. Optional. */
+  document_number?: string | null;
   /** Subtotals per VAT rate (footer "Resumo do IVA / Base por taxa"). Empty when single-rate. */
   vat_breakdown: VatBreakdownRow[];
   raw?: string;
@@ -124,6 +130,18 @@ Deno.serve(async (req) => {
                   service_description: {
                     type: ["string", "null"],
                     description: "Short PT-PT description of the services/products being billed or contracted (max ~150 chars). E.g. 'Aluguer de som e luz', 'Cachê artístico', 'Hospedagem hotel'. Null if unreadable.",
+                  },
+                  supplier_name: {
+                    type: ["string", "null"],
+                    description: "Name of the establishment/company that ISSUED the document (fornecedor emitente), verbatim. Null if not visible.",
+                  },
+                  supplier_nif: {
+                    type: ["string", "null"],
+                    description: "NIF/contribuinte of the ISSUER (fornecedor emitente), digits only. Never the customer's/adquirente's NIF. If only the customer NIF is present, return null.",
+                  },
+                  document_number: {
+                    type: ["string", "null"],
+                    description: "Invoice/document number as printed (e.g. 'FT 2026/123', 'FS 1/4521'). Null if not visible.",
                   },
                   vat_breakdown: {
                     type: "array",
