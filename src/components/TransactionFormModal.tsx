@@ -207,6 +207,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
   // Ficheiro original lido pelo OCR — pode ser anexado às transações criadas.
   const [pendingInvoiceFile, setPendingInvoiceFile] = useState<File | null>(null);
+  // Emitente lido pelo OCR: mostrado em texto junto ao Fornecedor quando não houve match
+  // e usado para o botão "Guardar NIF no fornecedor".
+  const [ocrSupplierHint, setOcrSupplierHint] = useState<{ name: string | null; nif: string | null; matched: boolean } | null>(null);
+  const [savingSupplierNif, setSavingSupplierNif] = useState(false);
   // Quando o utilizador escolhe IVA médio (1 transação), guardamos o file aqui
   // para anexar via callback onSuccess da mutation single.
   const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
