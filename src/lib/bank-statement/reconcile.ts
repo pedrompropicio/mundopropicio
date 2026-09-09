@@ -68,6 +68,12 @@ export interface ReconcileMatch {
   matched_sepa_export_id: string | null;
   /** Todas as transações cobertas pela linha (um lote SEPA cobre N). */
   transactionIds: string[];
+  /** Nº de exportações SEPA empatadas da MESMA lista (dupla geração). */
+  sepaExportCount?: number;
+  /** Soma dos `paid_amount` (bruto) das transações cobertas. */
+  systemGross?: number;
+  /** Bruto do sistema − líquido do banco = retenção na fonte. */
+  retention?: number;
 }
 
 export interface ReconcileResult {
@@ -75,6 +81,8 @@ export interface ReconcileResult {
   /** Ids de transações já explicadas por alguma linha. */
   explainedTransactionIds: Set<string>;
   counts: { sepa: number; amount: number; description: number; unmatched: number };
+  /** Retenção na fonte total apurada nos lotes SEPA casados. */
+  retentionTotal: number;
 }
 
 function effectiveDate(t: { payment_date?: string | null; date?: string | null }): string {
@@ -89,81 +97,100 @@ function daysApart(a: string, b: string): number {
   return Math.abs(da - db) / 86_400_000;
 }
 
+/**
+ * As camadas correm como PASSAGENS sobre todas as linhas, não linha a linha.
+ * Uma transação só pode explicar UMA linha: o que o lote SEPA consome (todas as
+ * transações do `transaction_ids`) fica fora das camadas seguintes, mesmo que a
+ * linha do lote apareça depois no ficheiro. Uma linha já casada também não
+ * volta a ser candidata.
+ */
 export function reconcileStatement(
   lines: ReconcileLineInput[],
   transactions: ReconcileTransaction[],
   sepaExports: ReconcileSepaExport[],
+  opts?: { preUsedTransactionIds?: Iterable<string> },
 ): ReconcileResult {
   const matches = new Map<string, ReconcileMatch>();
-  const usedTransactionIds = new Set<string>();
+  const usedTransactionIds = new Set<string>(opts?.preUsedTransactionIds ?? []);
   const usedExportIds = new Set<string>();
   const counts = { sepa: 0, amount: 0, description: 0, unmatched: 0 };
+  let retentionTotal = 0;
+  const grossById = new Map(transactions.map((t) => [t.id, Math.abs(Number(t.paid_amount ?? 0))]));
 
+  // ---- Passagem (a): lotes SEPA ------------------------------------------
   for (const line of lines) {
+    if (!line.description.toUpperCase().includes(SEPA_BATCH_MARKER)) continue;
     const abs = Math.abs(line.amount);
-    const desc = normalizeForMatch(line.description);
+    const byAmount = sepaExports.filter(
+      (e) => !usedExportIds.has(e.id) && Math.abs(Number(e.total_amount ?? 0) - abs) <= CENT,
+    );
+    // O `msg_id` (PAGAMENTOS-MP-11082026-12080959) não viaja inteiro na
+    // descrição do banco: o que viaja é a DATA, ora DDMMAAAA ora abreviada.
+    const tokens = extractDateTokens(line.description);
+    const byDate = byAmount.filter((e) => {
+      const d = extractMsgIdDate(e.msg_id);
+      if (!d) return false;
+      return tokens.some((t) => t === d.ddmmyyyy || t === d.ddmmyy || t === d.ddmmyyyy.slice(0, 6));
+    });
+    const pool = byDate.length > 0 ? byDate : byAmount;
+    // Empate entre exportações da MESMA lista de pagamento é dupla geração,
+    // não ambiguidade: são o mesmo lote. Só recusa se as listas diferirem.
+    const listIds = new Set(pool.map((e) => e.payment_list_id));
+    if (pool.length === 0 || listIds.size !== 1) continue;
+    const chosen = pool[0];
+    pool.forEach((e) => usedExportIds.add(e.id));
+    const ids = Array.from(new Set(pool.flatMap((e) => (e.transaction_ids ?? []).filter(Boolean))));
+    ids.forEach((id) => usedTransactionIds.add(id));
+    const systemGross =
+      Math.round(ids.reduce((acc, id) => acc + (grossById.get(id) ?? 0), 0) * 100) / 100;
+    // O banco paga o LÍQUIDO; o sistema registou o BRUTO. A diferença é a
+    // retenção na fonte — não é divergência.
+    const retention = Math.round((systemGross - abs) * 100) / 100;
+    if (Math.abs(retention) > CENT) retentionTotal += retention;
+    matches.set(line.key, {
+      key: line.key,
+      layer: "sepa",
+      matched_transaction_id: null,
+      matched_payment_list_id: chosen.payment_list_id,
+      matched_sepa_export_id: chosen.id,
+      transactionIds: ids,
+      sepaExportCount: pool.length,
+      systemGross,
+      retention: Math.abs(retention) > CENT ? retention : 0,
+    });
+    counts.sepa++;
+  }
 
-    // (a) Lote SEPA — total + data presente na descrição
-    if (line.description.toUpperCase().includes(SEPA_BATCH_MARKER)) {
-      const byAmount = sepaExports.filter(
-        (e) => !usedExportIds.has(e.id) && Math.abs(Number(e.total_amount ?? 0) - abs) <= CENT,
-      );
-      // O `msg_id` (PAGAMENTOS-MP-11082026-12080959) não viaja inteiro na
-      // descrição do banco: o que viaja é a DATA, ora DDMMAAAA ora abreviada
-      // a seis dígitos. Casa-se por total + data; se ficar ambíguo, não casa.
-      const tokens = extractDateTokens(line.description);
-      const byDate = byAmount.filter((e) => {
-        const d = extractMsgIdDate(e.msg_id);
-        if (!d) return false;
-        return tokens.some((t) => t === d.ddmmyyyy || t === d.ddmmyy || t === d.ddmmyyyy.slice(0, 6));
-      });
-      const chosen =
-        byDate.length === 1 ? byDate[0] : byDate.length === 0 && byAmount.length === 1 ? byAmount[0] : undefined;
-      if (chosen) {
-
-        usedExportIds.add(chosen.id);
-        const ids = (chosen.transaction_ids ?? []).filter(Boolean);
-        ids.forEach((id) => usedTransactionIds.add(id));
-        matches.set(line.key, {
-          key: line.key,
-          layer: "sepa",
-          matched_transaction_id: null,
-          matched_payment_list_id: chosen.payment_list_id,
-          matched_sepa_export_id: chosen.id,
-          transactionIds: ids,
-        });
-        counts.sepa++;
-        continue;
-      }
-    }
-
-    // (b) Valor exato dentro da janela de cinco dias
-    const amountCandidates = transactions.filter((t) => {
+  // ---- Passagem (b): valor exato dentro da janela de cinco dias ----------
+  for (const line of lines) {
+    if (matches.has(line.key)) continue;
+    const abs = Math.abs(line.amount);
+    const candidates = transactions.filter((t) => {
       if (usedTransactionIds.has(t.id)) return false;
       const paid = Math.abs(Number(t.paid_amount ?? 0));
       if (paid <= 0 || Math.abs(paid - abs) > CENT) return false;
       return daysApart(effectiveDate(t), line.bookingDate) <= AMOUNT_WINDOW_DAYS;
     });
-    if (amountCandidates.length > 0) {
-      // Empate: fica a mais próxima na data.
-      const chosen = amountCandidates.sort(
-        (a, b) =>
-          daysApart(effectiveDate(a), line.bookingDate) - daysApart(effectiveDate(b), line.bookingDate),
-      )[0];
-      usedTransactionIds.add(chosen.id);
-      matches.set(line.key, {
-        key: line.key,
-        layer: "amount",
-        matched_transaction_id: chosen.id,
-        matched_payment_list_id: null,
-        matched_sepa_export_id: null,
-        transactionIds: [chosen.id],
-      });
-      counts.amount++;
-      continue;
-    }
+    if (candidates.length === 0) continue;
+    const chosen = candidates.sort(
+      (a, b) => daysApart(effectiveDate(a), line.bookingDate) - daysApart(effectiveDate(b), line.bookingDate),
+    )[0];
+    usedTransactionIds.add(chosen.id);
+    matches.set(line.key, {
+      key: line.key,
+      layer: "amount",
+      matched_transaction_id: chosen.id,
+      matched_payment_list_id: null,
+      matched_sepa_export_id: null,
+      transactionIds: [chosen.id],
+    });
+    counts.amount++;
+  }
 
-    // (c) Descrição por semelhança (Dice ≥ 0,8) com valor ao cêntimo
+  // ---- Passagem (c): descrição por semelhança (Dice ≥ 0,8) --------------
+  for (const line of lines) {
+    if (matches.has(line.key)) continue;
+    const abs = Math.abs(line.amount);
     let best: { t: ReconcileTransaction; score: number } | null = null;
     for (const t of transactions) {
       if (usedTransactionIds.has(t.id)) continue;
@@ -176,24 +203,27 @@ export function reconcileStatement(
       );
       if (score >= DICE_THRESHOLD && (!best || score > best.score)) best = { t, score };
     }
-    if (best) {
-      usedTransactionIds.add(best.t.id);
-      matches.set(line.key, {
-        key: line.key,
-        layer: "description",
-        matched_transaction_id: best.t.id,
-        matched_payment_list_id: null,
-        matched_sepa_export_id: null,
-        transactionIds: [best.t.id],
-      });
-      counts.description++;
-      continue;
-    }
-
-    counts.unmatched++;
+    if (!best) continue;
+    usedTransactionIds.add(best.t.id);
+    matches.set(line.key, {
+      key: line.key,
+      layer: "description",
+      matched_transaction_id: best.t.id,
+      matched_payment_list_id: null,
+      matched_sepa_export_id: null,
+      transactionIds: [best.t.id],
+    });
+    counts.description++;
   }
 
-  return { matches, explainedTransactionIds: usedTransactionIds, counts };
+  counts.unmatched = lines.filter((l) => !matches.has(l.key)).length;
+
+  return {
+    matches,
+    explainedTransactionIds: usedTransactionIds,
+    counts,
+    retentionTotal: Math.round(retentionTotal * 100) / 100,
+  };
 }
 
 /**
