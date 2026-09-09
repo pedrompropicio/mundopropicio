@@ -378,6 +378,7 @@ export default function SalesBIDetail() {
       capacity: {
         trustworthy: !!cap?.trustworthy,
         capacity: cap?.capacity ?? null,
+        occupied: cap?.occupied ?? null,
         issue: cap?.issue ?? null,
       },
       points: model.points,
