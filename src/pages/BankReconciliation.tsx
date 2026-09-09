@@ -403,12 +403,15 @@ export default function BankReconciliation() {
           raw: l.raw as any,
           line_hash: hashes[i],
           bank_ref: extractBankRef(l.description),
-          status: m ? "matched" : "unmatched",
+          // Anterior ao corte: entra para o histórico com estado próprio e fica
+          // fora da conciliação, das contas por explicar e da decomposição.
+          status: isPreCutoff(l.bookingDate) ? "pre_cutoff" : m ? "matched" : "unmatched",
           matched_transaction_id: m?.matched_transaction_id ?? null,
           matched_payment_list_id: m?.matched_payment_list_id ?? null,
           matched_sepa_export_id: m?.matched_sepa_export_id ?? null,
           matched_by: m ? `auto:${m.layer}` : null,
           matched_at: m ? new Date().toISOString() : null,
+
         });
       }
 
@@ -563,20 +566,34 @@ export default function BankReconciliation() {
               <div>
                 <p className="font-medium">Saldo do extrato não bate com o implantado.</p>
                 <p className="text-muted-foreground">
-                  O extrato abre em {formatCurrency(cutoffMismatch.opening)} e o sistema tem {formatCurrency(cutoffMismatch.implanted)} implantados
-                  (diferença {formatCurrency(cutoffMismatch.diff)}). Importa-se de qualquer forma, mas a data de corte ou o saldo implantado estão errados.
+                  No {cutoffMismatch.label} o extrato declara {formatCurrency(cutoffMismatch.reference)} e o sistema tem{" "}
+                  {formatCurrency(cutoffMismatch.implanted)} implantados (diferença {formatCurrency(cutoffMismatch.diff)}).
+                  Importa-se de qualquer forma, mas a data de corte ou o saldo implantado estão errados.
                 </p>
               </div>
             </div>
           )}
           <div className="grid gap-2 text-sm md:grid-cols-3 lg:grid-cols-6">
             <div><p className="text-xs text-muted-foreground">Período</p><p>{formatDatePT(parsed.periodFrom)} → {formatDatePT(parsed.periodTo)}</p></div>
-            <div><p className="text-xs text-muted-foreground">Linhas</p><p>{parsed.lines.length}</p></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Linhas</p>
+              <p>{parsed.lines.length}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {preCutoffParsed.length} anteriores ao corte · {parsed.lines.length - preCutoffParsed.length} a conciliar
+              </p>
+            </div>
             <div><p className="text-xs text-muted-foreground">Lote SEPA</p><p>{preview.counts.sepa}</p></div>
             <div><p className="text-xs text-muted-foreground">Valor exato</p><p>{preview.counts.amount}</p></div>
             <div><p className="text-xs text-muted-foreground">Descrição</p><p>{preview.counts.description}</p></div>
             <div><p className="text-xs text-muted-foreground">Por explicar</p><p className="font-semibold text-warning">{preview.counts.unmatched}</p></div>
           </div>
+          {preCutoffParsed.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {preCutoffParsed.length} movimento(s) até {formatDatePT(cutoff)} ({formatCurrency(preCutoffParsedTotal)}) já
+              estão dentro do saldo implantado: importam-se para o histórico, mas não se conciliam.
+            </p>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={saveImport} disabled={saving || !parsed.coherent}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
