@@ -70,6 +70,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   // Reset/load when opening
   useEffect(() => {
     if (!open) return;
+    setOpenGroupExpanded(false);
+    setOpenSearch("");
+
     if (existingSettlement) {
       setEventId(existingSettlement.event_id);
       setAdjustedNet(existingSettlement.net_adjusted != null ? String(existingSettlement.net_adjusted) : "");
