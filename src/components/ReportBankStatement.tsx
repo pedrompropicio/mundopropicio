@@ -67,41 +67,15 @@ export default function ReportBankStatement() {
     setGenerated(true);
   }
 
-  // Compute running balance
-  const statementLines = (() => {
-    if (!generated || !canSeeBalance) return [];
-    const initialBalance = Number(selectedAccount?.initial_balance ?? 0);
-
-    // Get ALL transactions for this account before the start date to compute opening balance
-    // For simplicity, we compute from initial balance + filtered transactions
-    let runningBalance = initialBalance;
-
-    // We need pre-period transactions to get correct opening balance
-    // The query only returns filtered transactions, so we'll fetch all for this account
-    return transactions.map((t: any) => {
-      const amount = Number(t.amount);
-      const isIncome = t.type === "income";
-      if (isIncome) {
-        runningBalance += amount;
-      } else {
-        runningBalance -= amount;
-      }
-      return {
-        ...t,
-        runningBalance,
-        signedAmount: isIncome ? amount : -amount,
-      };
-    });
-  })();
-
-  // Fetch all transactions for opening balance calculation
+  // Movimentos anteriores à Data Início, para o saldo de abertura.
+  // Valor por `paid_amount` (fonte única computeAccountBalance, D-ERP12).
   const { data: allAccountTx = [] } = useQuery({
     queryKey: ["bank-statement-all-tx", selectedAccountId, dateFromStr],
     queryFn: async () => {
       if (!selectedAccountId || !dateFromStr) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, date, payment_date")
+        .select("type, amount, paid_amount, date, payment_date")
         .eq("account_id", selectedAccountId)
         .lt("date", dateFromStr);
       if (error) throw error;
@@ -109,6 +83,7 @@ export default function ReportBankStatement() {
     },
     enabled: generated && !!selectedAccountId && !!dateFromStr,
   });
+
 
   const txIdsForDocs = useMemo(() => transactions.map((t: any) => t.id), [transactions]);
 
@@ -128,8 +103,9 @@ export default function ReportBankStatement() {
     enabled: generated && txIdsForDocs.length > 0,
   });
 
-  // Saldo de abertura: parte do initial_balance (saldo ao fecho da data de
+  // Saldo de abertura: parte do initial_balance (saldo ao FECHO da data de
   // corte, quando definida) e só soma movimentos posteriores ao corte.
+  // Sem Data Início não há nada antes: a abertura é o próprio saldo inicial.
   const balanceCutoff = (selectedAccount as any)?.initial_balance_date ?? null;
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
@@ -137,7 +113,7 @@ export default function ReportBankStatement() {
     if (dateFromStr) {
       allAccountTx.forEach((t: any) => {
         if (!countsAfterCutoff(t, balanceCutoff)) return;
-        const amt = Number(t.amount);
+        const amt = Number(t.paid_amount ?? 0);
         if (t.type === "income") bal += amt;
         else bal -= amt;
       });
@@ -145,22 +121,27 @@ export default function ReportBankStatement() {
     return bal;
   })();
 
-  // Recompute running balance with correct opening
+  // Linhas do extrato: o corte vale em TODAS as linhas, não só na abertura —
+  // o que é anterior ao corte já está dentro do initial_balance. Valor por
+  // `paid_amount`, para o relatório e o módulo Contas darem o mesmo número.
   const lines = (() => {
     if (!generated || !canSeeBalance) return [];
     let runningBalance = openingBalance;
-    return transactions.map((t: any) => {
-      const amount = Number(t.amount);
-      const isIncome = t.type === "income";
-      if (isIncome) runningBalance += amount;
-      else runningBalance -= amount;
-      return {
-        ...t,
-        runningBalance,
-        signedAmount: isIncome ? amount : -amount,
-      };
-    });
+    return transactions
+      .filter((t: any) => countsAfterCutoff(t, balanceCutoff))
+      .map((t: any) => {
+        const amount = Number(t.paid_amount ?? 0);
+        const isIncome = t.type === "income";
+        if (isIncome) runningBalance += amount;
+        else runningBalance -= amount;
+        return {
+          ...t,
+          runningBalance,
+          signedAmount: isIncome ? amount : -amount,
+        };
+      });
   })();
+
 
   const closingBalance = lines.length > 0 ? lines[lines.length - 1].runningBalance : openingBalance;
   const totalIncome = lines.filter((l) => l.signedAmount > 0).reduce((s, l) => s + l.signedAmount, 0);
@@ -240,6 +221,14 @@ export default function ReportBankStatement() {
       {/* Results */}
       {generated && canSeeBalance && (
         <>
+          {/* Data de implantação do saldo inicial (D-ERP25) */}
+          {balanceCutoff && (
+            <p className="text-xs text-muted-foreground">
+              Saldo implantado a {formatDatePT(balanceCutoff)}:{" "}
+              {isUncontrolledBalance ? "Não controlado" : formatCurrency(Number(selectedAccount?.initial_balance ?? 0))}
+            </p>
+          )}
+
           {/* Export buttons */}
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -259,6 +248,8 @@ export default function ReportBankStatement() {
               <FileText className="mr-1.5 h-4 w-4" /> PDF
             </Button>
           </div>
+
+
 
           {/* Summary cards */}
           <div className="grid gap-4 sm:grid-cols-4">

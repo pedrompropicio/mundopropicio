@@ -15,7 +15,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { OpenCardSessionModal } from "@/components/cards/OpenCardSessionModal";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 
 export default function CardSessions() {
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ export default function CardSessions() {
     queryFn: async () => {
       const { data } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance, is_active")
+        .select("id, name, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("type", "prepaid_card")
         .eq("is_active", true)
         .order("name");
@@ -39,8 +39,9 @@ export default function CardSessions() {
 
   /**
    * D17 — dois saldos por cartão:
-   *  - contabilístico: mesma fórmula do módulo Contas (initial_balance +
-   *    Σ movimentos pagos + ajustes não-monetários);
+   *  - contabilístico: fonte única computeAccountBalance (D-ERP12), com data de
+   *    corte do saldo inicial (D-ERP25) e "não controlado" quando a conta tem
+   *    skip_balance_check;
    *  - real estimado: contabilístico − itens da sessão aberta ainda não
    *    integrados (submitted + approved), que já saíram do cartão.
    */
@@ -49,21 +50,22 @@ export default function CardSessions() {
     enabled: cards.length > 0,
     queryFn: async () => {
       const ids = cards.map((c: any) => c.id);
+      const cutoffs = buildAccountCutoffs(cards as any);
       const [{ data: txs }, adjustments] = await Promise.all([
-        supabase.from("transactions").select("account_id, type, paid_amount").in("account_id", ids),
-        fetchAccountCashAdjustments(ids),
+        supabase
+          .from("transactions")
+          .select("account_id, type, paid_amount, date, payment_date")
+          .in("account_id", ids),
+        fetchAccountCashAdjustments(ids, cutoffs),
       ]);
-      const m = new Map<string, number>();
-      cards.forEach((c: any) => m.set(c.id, Number(c.initial_balance ?? 0)));
-      for (const t of (txs ?? []) as any[]) {
-        const cur = m.get(t.account_id) ?? 0;
-        const amt = Number(t.paid_amount ?? 0);
-        m.set(t.account_id, t.type === "income" ? cur + amt : cur - amt);
+      const m = new Map<string, number | null>();
+      for (const c of cards as any[]) {
+        m.set(c.id, computeAccountBalance(c, (txs ?? []) as any, adjustments));
       }
-      for (const [accId, adj] of adjustments) m.set(accId, (m.get(accId) ?? 0) + adj);
       return m;
     },
   });
+
 
   const { data: sessions = [] } = useQuery({
     queryKey: ["card-sessions"],
@@ -76,7 +78,7 @@ export default function CardSessions() {
     },
   });
 
-  const balances = accountBalances ?? new Map<string, number>();
+  const balances = accountBalances ?? new Map<string, number | null>();
 
   const openSessionIds = (sessions as any[]).filter((s) => s.status !== "closed").map((s) => s.id);
   const { data: openItemsBySession } = useQuery({
@@ -121,7 +123,11 @@ export default function CardSessions() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((c: any) => {
-          const bal = balances.get(c.id) ?? 0;
+          // null = conta sem controlo de saldo (skip_balance_check): o saldo
+          // não é número, nunca zero nem negativo.
+          const balRaw = balances.get(c.id) ?? null;
+          const uncontrolled = balRaw === null;
+          const bal = balRaw ?? 0;
           const active = activeSessionByCard.get(c.id);
           const openGross = active ? (openItemsBySession?.get(active.id) ?? 0) : 0;
           return (
@@ -144,16 +150,23 @@ export default function CardSessions() {
                 <div className="space-y-0.5 text-sm">
                   <div>
                     <span className="text-muted-foreground">Saldo contabilístico: </span>
-                    <span className="font-semibold text-foreground">{formatCurrency(bal)}</span>
-                  </div>
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">Saldo real estimado: </span>
-                    <span className="font-medium text-foreground">{formatCurrency(bal - openGross)}</span>
-                    {openGross > 0 && (
-                      <span className="text-muted-foreground"> (− {formatCurrency(openGross)} em itens)</span>
+                    {uncontrolled ? (
+                      <span className="italic text-muted-foreground">Não controlado</span>
+                    ) : (
+                      <span className="font-semibold text-foreground">{formatCurrency(bal)}</span>
                     )}
                   </div>
+                  {!uncontrolled && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Saldo real estimado: </span>
+                      <span className="font-medium text-foreground">{formatCurrency(bal - openGross)}</span>
+                      {openGross > 0 && (
+                        <span className="text-muted-foreground"> (− {formatCurrency(openGross)} em itens)</span>
+                      )}
+                    </div>
+                  )}
                 </div>
+
                 {active ? (
                   <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-xs">
                     <div><span className="text-muted-foreground">Portador: </span>{active.holder_name}</div>

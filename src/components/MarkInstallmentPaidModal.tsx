@@ -74,13 +74,14 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, supplier_id")
+        .select("id, supplier_id, reversed_at, reversal_kind")
         .eq("id", transactionId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
+
 
   const { data: availableCredits = [] } = useAvailableSupplierCredits(tx?.supplier_id, open);
 
@@ -103,6 +104,26 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
         .eq("id", installment.id);
       if (error) throw error;
 
+      // Estorno que volta a ser pago: limpar o carimbo de estorno. Enquanto
+      // reversed_at ficar preenchido, o BP e os agregados do sócio deixam de
+      // contar o custo (filtram reversed_at IS NULL). O motivo do estorno
+      // (reversal_reason) e a auditoria mantêm-se. Mesma regra do
+      // TransactionPaymentModal e do BatchPaymentModal.
+      if ((tx as any)?.reversed_at) {
+        const { error: revErr } = await supabase
+          .from("transactions")
+          .update({ reversed_at: null, reversal_kind: null } as any)
+          .eq("id", transactionId);
+        if (revErr) throw revErr;
+        await supabase.from("transaction_audit_log").insert({
+          transaction_id: transactionId,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Estorno",
+          old_value: `Estornada em ${String((tx as any).reversed_at).slice(0, 10)}`,
+          new_value: "Carimbo de estorno limpo — parcela liquidada",
+        } as any);
+      }
+
       // Abate do crédito de fornecedor (transacional, só depois de confirmado).
       if (creditToApply) {
         await applySupplierCredit({
@@ -112,6 +133,7 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
           paymentId: installment.id,
         });
       }
+
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-timeline", transactionId] });

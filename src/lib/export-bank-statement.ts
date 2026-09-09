@@ -29,14 +29,20 @@ export function exportBankStatementToExcel(
   const wb = XLSX.utils.book_new();
   const bal = (v: number) => (uncontrolled ? "Não controlado" : v);
 
+  const implantLine = account.initial_balance_date
+    ? [`Saldo implantado a ${fmtDate(account.initial_balance_date)}: ${uncontrolled ? "Não controlado" : fmtVal(Number(account.initial_balance ?? 0))}`]
+    : null;
+
   const rows: any[][] = [
     [`EXTRATO BANCÁRIO — ${account.name}`],
     [`Período: ${dateFrom ? fmtDate(dateFrom) : "Início"} a ${dateTo ? fmtDate(dateTo) : "Atual"}`],
+    ...(implantLine ? [implantLine] : []),
     ...(uncontrolled ? [["Conta sem controlo de saldo — saldos não apurados"]] : []),
     [],
     ["Data", "Descrição", "Evento", "Entrada (€)", "Saída (€)", "Saldo (€)"],
     [dateFrom || "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
   ];
+
 
   lines.forEach((l: any) => {
     rows.push([
@@ -126,8 +132,17 @@ export function exportBankStatementToPDF(
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   doc.text(`Período: ${dateFrom ? fmtDate(dateFrom) : "Início"} a ${dateTo ? fmtDate(dateTo) : "Atual"} — Gerado em ${new Date().toLocaleDateString("pt-PT")}`, ml, y);
+  if (account.initial_balance_date) {
+    y += 4.5;
+    doc.text(
+      `Saldo implantado a ${fmtDate(account.initial_balance_date)}: ${uncontrolled ? "Não controlado" : fmtVal(Number(account.initial_balance ?? 0))}`,
+      ml,
+      y
+    );
+  }
   doc.setTextColor(0, 0, 0);
   y += 8;
+
 
   // Summary bar
   doc.setFillColor(245, 245, 250);

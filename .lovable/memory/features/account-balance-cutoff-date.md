@@ -15,11 +15,19 @@ type: feature
   Helpers: `effectivePaymentDate`, `countsAfterCutoff`, `buildAccountCutoffs`.
 - Propagada a: módulo Contas, `TransactionPaymentModal`, `BatchPaymentModal`,
   `TransferFormModal`, `card-account-balance.ts`, `card-session-balance.ts`,
-  Extrato (abertura arranca do saldo inicial na data de corte) e
-  `get_event_cash_position`.
+  `CardSessions.tsx` (usa a fonte única — o cálculo inline antigo era o saldo
+  CONTABILÍSTICO da conta do cartão, não o da sessão), Extrato e
+  `get_event_cash_position` / `get_event_cash_position_invariant` (os dois lados
+  filtram `skip_balance_check` e o corte; sem isso `is_balanced` era falso por
+  construção).
+- Extrato: o corte vale na abertura **e em todas as linhas** (o anterior ao corte
+  já está no `initial_balance`), a abertura funciona sem Data Início, as linhas
+  usam `paid_amount` (não `amount`) e o cabeçalho mostra
+  "Saldo implantado a <data>: <valor>" no ecrã, no Excel e no PDF.
 - Implantação: modal por conta na página de Contas, **só admin**, com preview
   "sistema calcula hoje" vs "depois de implantar" antes de gravar, e registo de
   autor/hora em `system_audit_log`. O sistema nunca implanta valores.
+
 
 ## skip_balance_check nunca é número
 
@@ -27,7 +35,7 @@ Onde a conta tem `skip_balance_check`, o saldo mostra-se "não controlado"/"N/C"
 nunca zero nem negativo — ecrã e exports do Extrato, Projeção de Tesouraria
 (contas ficam fora, com aviso) e `get_event_cash_position` (não as soma).
 O Fluxo de Caixa é relatório de movimentos: mostra aviso de que o acumulado não é
-saldo. Nas sessões de cartão/camarim o saldo mostrado é o da sessão, por desenho.
+saldo. Nas sessões de camarim o saldo mostrado é o da sessão, por desenho.
 
 ## Estorno que volta a ser pago
 
@@ -35,6 +43,7 @@ saldo. Nas sessões de cartão/camarim o saldo mostrado é o da sessão, por des
 **Aguardando** e tem de ser aprovada de novo (o picker das listas exige
 `approved`). Nunca escrever "volta a A pagar".
 Ao liquidar de novo uma transação com `reversed_at`, a liquidação limpa
-`reversed_at` e `reversal_kind` (mantém `reversal_reason` + auditoria), no modal
-individual e no pagamento em lote. Sem isso o custo sai do banco mas desaparece do
+`reversed_at` e `reversal_kind` (mantém `reversal_reason` + auditoria), nos TRÊS
+caminhos: modal individual, pagamento em lote e `MarkInstallmentPaidModal`
+(este só escreve em `transactions` para isto — o resto é `transaction_payments`). Sem isso o custo sai do banco mas desaparece do
 BP e dos agregados do sócio, que filtram `reversed_at IS NULL`.
