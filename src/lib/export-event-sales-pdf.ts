@@ -324,7 +324,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   // ── FOLHA 3 — só versão interna ──────────────────────────────────────
   if (internal) {
     doc.addPage();
-    y = 18;
+    y = pageIdent(doc, params.tourName, identMeta);
     y = sectionTitle(doc, "Qualidade dos dados — lotação", y);
     if (params.qualityIssues.length === 0) {
       doc.setFontSize(9);
