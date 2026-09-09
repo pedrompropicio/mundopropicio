@@ -82,6 +82,7 @@ export const ALL_PERMISSIONS = [
   { key: "manage_suppliers", label: "Gerir Entidades / Beneficiários", group: "Operacional" },
   { key: "manage_quotations", label: "Gerir Cotações", group: "Operacional" },
   { key: "manage_accounts", label: "Gerir Contas", group: "Operacional" },
+  { key: "manage_bank_reconciliation", label: "Conciliação Bancária", group: "Operacional" },
   { key: "manage_tickets", label: "Gerir Bilhetes", group: "Operacional" },
   { key: "manage_ticket_offices", label: "Gerir Bilheteiras", group: "Operacional" },
   { key: "manage_payment_lists", label: "Gerir Listas de Pagamento", group: "Operacional" },
