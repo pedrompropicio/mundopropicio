@@ -546,7 +546,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       // Propagate to invoice-group siblings (fatura com várias taxas de IVA).
       // Cada irmã é liquidada PELO SEU PRÓPRIO total (base + IVA), na mesma data e conta.
       // Cria também o registo individual em transaction_payments para a irmã.
-      if ((transaction as any).invoice_group_id) {
+      if (propagates && (transaction as any).invoice_group_id) {
         const { data: siblings } = await (supabase as any)
           .from("transactions")
           .select("*")
@@ -605,8 +605,16 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             old_value: `${sibCurrentPaid.toFixed(2)} €`,
             new_value: `${sibNewPaid.toFixed(2)} € — em conjunto com transação ${transaction.id}`,
           });
+
+          // A irmã pode ser uma MÃE de rateio: a liquidação tem de descer às filhas dela,
+          // senão os eventos ficam com a despesa em aberto e a mãe diz que está paga.
+          await settleChildrenOf(
+            sib.id,
+            `Liquidado com a transação-mãe ${sib.id} (rateio, via grupo de fatura)`,
+          );
         }
       }
+
 
       return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05 };
     },
