@@ -91,14 +91,24 @@ export function reconcileStatement(
     const abs = Math.abs(line.amount);
     const desc = normalizeForMatch(line.description);
 
-    // (a) Lote SEPA
+    // (a) Lote SEPA — total + data presente na descrição
     if (line.description.toUpperCase().includes(SEPA_BATCH_MARKER)) {
       const byAmount = sepaExports.filter(
         (e) => !usedExportIds.has(e.id) && Math.abs(Number(e.total_amount ?? 0) - abs) <= CENT,
       );
-      const byRef = byAmount.filter((e) => e.msg_id && desc.includes(normalizeForMatch(e.msg_id)));
-      const chosen = byRef[0] ?? (byAmount.length === 1 ? byAmount[0] : undefined);
+      // O `msg_id` (PAGAMENTOS-MP-11082026-12080959) não viaja inteiro na
+      // descrição do banco: o que viaja é a DATA, ora DDMMAAAA ora abreviada
+      // a seis dígitos. Casa-se por total + data; se ficar ambíguo, não casa.
+      const tokens = extractDateTokens(line.description);
+      const byDate = byAmount.filter((e) => {
+        const d = extractMsgIdDate(e.msg_id);
+        if (!d) return false;
+        return tokens.some((t) => t === d.ddmmyyyy || t === d.ddmmyy || t === d.ddmmyyyy.slice(0, 6));
+      });
+      const chosen =
+        byDate.length === 1 ? byDate[0] : byDate.length === 0 && byAmount.length === 1 ? byAmount[0] : undefined;
       if (chosen) {
+
         usedExportIds.add(chosen.id);
         const ids = (chosen.transaction_ids ?? []).filter(Boolean);
         ids.forEach((id) => usedTransactionIds.add(id));
