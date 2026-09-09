@@ -36,15 +36,6 @@ const daysBetween = (fromISO: string, toISOStr: string) => {
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
 };
 
-interface SnapRow {
-  event_id: string;
-  provider: string | null;
-  zone_label: string;
-  seats_available: number | null;
-  capacity: number | null;
-  source: string | null;
-  captured_at: string;
-}
 
 interface ZoneRow {
   id: string;
