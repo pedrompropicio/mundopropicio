@@ -6,7 +6,7 @@
  * "Hoje" é sempre Europe/Lisbon.
  */
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -135,6 +135,7 @@ function BarsChart({ points }: { points: { date: string; qty: number; ma: number
 
 export default function SalesBIDetail() {
   const { groupId = "" } = useParams();
+  const navigate = useNavigate();
   const [days, setDays] = useState<number>(30);
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
