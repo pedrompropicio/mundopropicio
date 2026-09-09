@@ -86,14 +86,21 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      // `.select()` confirma que a linha foi realmente escrita: sem isto, um
+      // update travado por RLS devolve sucesso vazio e o modal fechava sem
+      // nada ter sido gravado.
+      const { data, error } = await supabase
         .from("financial_accounts")
         .update({
           initial_balance: nextAccount.initial_balance,
           initial_balance_date: nextAccount.initial_balance_date,
         })
-        .eq("id", account.id);
+        .eq("id", account.id)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Nada foi gravado — sem permissão para alterar esta conta.");
+      }
 
       await logAudit({
         entity_type: "financial_account",
@@ -122,7 +129,11 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
       onClose();
     },
     onError: (err: any) =>
-      toast({ title: "Erro ao implantar saldo", description: err.message, variant: "destructive" }),
+      toast({
+        title: "Erro ao implantar saldo",
+        description: err?.message ?? "Não foi possível gravar. Tenta de novo.",
+        variant: "destructive",
+      }),
   });
 
   const fmt = (v: number | null) => (v === null ? "Saldo não controlado" : formatCurrency(v));
