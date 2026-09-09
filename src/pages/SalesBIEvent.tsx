@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
+import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
+import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -84,6 +86,8 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
 
 export default function SalesBIEvent() {
   const { groupId = "", eventId = "" } = useParams();
+  const { withIva, setWithIva, ivaSuffix } = useIvaMode();
+  const { rateOf } = useEventIvaRates();
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
@@ -201,7 +205,9 @@ export default function SalesBIEvent() {
       channels.add(ch);
       const a = agg.get(s.zone_id) ?? { qty: 0, value: 0, byChannel: new Map<string, number>() };
       a.qty += Number(s.quantity ?? 0);
-      a.value += Number(s.total_value ?? 0);
+      // valor BRUTO na base; converte-se com a taxa DESTE evento quando "Sem IVA"
+      const vGross = Number(s.total_value ?? 0);
+      a.value += withIva ? vGross : netOfIva(vGross, rateOf(eventId));
       a.byChannel.set(ch, (a.byChannel.get(ch) ?? 0) + Number(s.quantity ?? 0));
       agg.set(s.zone_id, a);
     }
@@ -232,16 +238,18 @@ export default function SalesBIEvent() {
       totalSessoes: rows.length,
       precoMedio: totalQty > 0 ? totalValue / totalQty : 0,
     };
-  }, [hasSnaps, zonesQ.data, salesQ.data]);
+  }, [hasSnaps, zonesQ.data, salesQ.data, withIva, rateOf, eventId]);
 
   const isLoading =
     eventQ.isLoading || snapsQ.isLoading || (!hasSnaps && (zonesQ.isLoading || salesQ.isLoading));
+
+  const ivaSfx = withIva ? "" : " s/ IVA";
 
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-hidden">
       <div>
         <Link
-          to={`/vendas/${groupId}`}
+          to={`/vendas/${groupId}${ivaSuffix}`}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar
@@ -255,6 +263,9 @@ export default function SalesBIEvent() {
               : ` · há ${int(Math.abs(daysLeft))} dias`
             : ""}
         </p>
+        <div className="mt-3">
+          <IvaToggle withIva={withIva} onChange={setWithIva} />
+        </div>
       </div>
 
       {isLoading ? (
@@ -318,7 +329,7 @@ export default function SalesBIEvent() {
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi label="Bilhetes vendidos" value={int(sessionsModel.totalQty)} />
-            <Kpi label="Receita" value={money(sessionsModel.totalValue)} />
+            <Kpi label={`Receita${ivaSfx}`} value={money(sessionsModel.totalValue)} />
             <Kpi
               label="Ocupação global"
               value={sessionsModel.ocupGlobal !== null ? pct(sessionsModel.ocupGlobal) : "—"}
@@ -327,7 +338,7 @@ export default function SalesBIEvent() {
               label="Sessões sem venda"
               value={`${int(sessionsModel.semVenda)} de ${int(sessionsModel.totalSessoes)}`}
             />
-            <Kpi label="Preço médio" value={money(sessionsModel.precoMedio)} />
+            <Kpi label={`Preço médio${ivaSfx}`} value={money(sessionsModel.precoMedio)} />
           </div>
 
           <Card className="p-0">
@@ -338,7 +349,7 @@ export default function SalesBIEvent() {
                     <th className="p-3 font-medium">Sessão</th>
                     <th className="p-3 text-right font-medium">Bilhetes</th>
                     <th className="p-3 text-right font-medium">Ocupação</th>
-                    <th className="p-3 text-right font-medium">Receita</th>
+                    <th className="p-3 text-right font-medium">Receita{ivaSfx}</th>
                     {sessionsModel.channelList.map((c) => (
                       <th key={c} className="p-3 text-right font-medium">
                         {c}
