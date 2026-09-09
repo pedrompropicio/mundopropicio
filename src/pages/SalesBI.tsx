@@ -212,7 +212,11 @@ export default function SalesBI() {
 
         const cap = caps.get(p.group_id);
         const trustworthy = !!cap?.trustworthy && Number(cap?.capacity || 0) > 0;
-        const ocupacao = trustworthy ? (Number(p.total_qty || 0) / Number(cap!.capacity)) * 100 : null;
+        // OCUPAÇÃO DA SALA = occupied/capacity da bilheteira. NUNCA os nossos
+        // bilhetes (total_qty) divididos pela carga — são coisas diferentes.
+        const ocupados = trustworthy ? Number(cap!.occupied || 0) : null;
+        const carga = trustworthy ? Number(cap!.capacity || 0) : null;
+        const ocupacao = trustworthy ? (Number(cap!.occupied || 0) / Number(cap!.capacity)) * 100 : null;
 
         let state: SalesState;
         if (diasSerie >= 3 && med7 === 0) state = "Parou";
