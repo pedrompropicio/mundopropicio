@@ -465,19 +465,24 @@ export default function SalesBIDetail() {
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Bilhetes no período</p>
               <p className="text-lg font-semibold">{int(model.qty)}</p>
+              <p className="text-[10px] text-muted-foreground">até ontem — hoje ainda está a decorrer</p>
             </Card>
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Receita no período{ivaLbl}</p>
               <p className="text-lg font-semibold">{money(model.value)}</p>
+              <p className="text-[10px] text-muted-foreground">até ontem — hoje ainda está a decorrer</p>
             </Card>
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Média diária</p>
               <p className="text-lg font-semibold">{nf1.format(model.med)} bilh./dia</p>
+              <p className="text-[10px] text-muted-foreground">{salesAvgDaysLabel(model.medDays)}</p>
             </Card>
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Receita/dia{ivaLbl}</p>
               <p className="text-lg font-semibold">{money(model.medValue)}</p>
+              <p className="text-[10px] text-muted-foreground">{salesAvgDaysLabel(model.medDays)}</p>
             </Card>
+
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Tração vs. período anterior</p>
               <p className="text-lg">
