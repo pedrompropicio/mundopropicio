@@ -297,8 +297,36 @@ export default function BankReconciliation() {
       .filter((l) => l.status === "unmatched")
       .reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
     const unexplainedSystem = txWithoutLine.reduce((acc, t) => acc + Number(t.paid_amount ?? 0), 0);
-    return { system, declared, diff, unexplainedBank, unexplainedSystem, periodTo };
-  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine]);
+    // Decomposição da diferença (sistema − banco), parcela a parcela:
+    //  · linha do banco por explicar: o banco moveu, o sistema não → −amount
+    //  · transação sem movimento: o sistema moveu, o banco não → sinal do tipo
+    //  · retenção na fonte: o sistema registou bruto, o banco pagou líquido
+    const contribBank = Math.round(-unexplainedBank * 100) / 100;
+    const contribSystem =
+      Math.round(
+        txWithoutLine.reduce(
+          (acc, t: any) => acc + (t.type === "income" ? 1 : -1) * Number(t.paid_amount ?? 0),
+          0,
+        ) * 100,
+      ) / 100;
+    const contribRetention = Math.round(-retentionTotal * 100) / 100;
+    const residual =
+      diff === null
+        ? null
+        : Math.round((diff - (contribBank + contribSystem + contribRetention)) * 100) / 100;
+    return {
+      system,
+      declared,
+      diff,
+      unexplainedBank,
+      unexplainedSystem,
+      contribBank,
+      contribSystem,
+      contribRetention,
+      residual,
+      periodTo,
+    };
+  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine, retentionTotal]);
 
   // ---- Upload + pré-visualização -----------------------------------------
   async function onFile(file: File) {
