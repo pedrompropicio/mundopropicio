@@ -15,6 +15,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
+import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
+import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -136,6 +138,8 @@ function BarsChart({ points }: { points: { date: string; qty: number; ma: number
 export default function SalesBIDetail() {
   const { groupId = "" } = useParams();
   const navigate = useNavigate();
+  const { withIva, setWithIva, ivaSuffix } = useIvaMode();
+  const { rateOf } = useEventIvaRates();
   const [days, setDays] = useState<number>(30);
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
@@ -213,7 +217,10 @@ export default function SalesBIDetail() {
     for (const r of series) {
       const d = r.sale_date.slice(0, 10);
       const q = Number(r.qty || 0);
-      const v = Number(r.value || 0);
+      // cada linha converte-se com a taxa do SEU evento; os totais são a soma
+      // das linhas já convertidas — nunca uma taxa média sobre o agregado.
+      const vGross = Number(r.value || 0);
+      const v = withIva ? vGross : netOfIva(vGross, rateOf(r.event_id));
       const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
       c.total += q;
       totalQty += q;
@@ -276,12 +283,14 @@ export default function SalesBIDetail() {
       cities,
     };
 
-  }, [seriesQ.data, eventsQ.data, days, today, todayISO, periodEnd, groupId]);
+  }, [seriesQ.data, eventsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
+
+  const ivaLbl = withIva ? null : <span className="ml-1 text-[10px]">s/ IVA</span>;
 
   return (
     <div className="space-y-4">
       <div>
-        <Link to="/vendas" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link to={`/vendas${ivaSuffix}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar a Vendas
         </Link>
         <h1 className="mt-1 text-xl font-bold tracking-tight lg:text-2xl">{model.tourName}</h1>
@@ -291,7 +300,8 @@ export default function SalesBIDetail() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
         {PERIODS.map((p) => (
           <Button
             key={p}
@@ -303,6 +313,8 @@ export default function SalesBIDetail() {
             {p} dias
           </Button>
         ))}
+        </div>
+        <IvaToggle withIva={withIva} onChange={setWithIva} />
       </div>
 
       {isLoading ? (
@@ -317,7 +329,7 @@ export default function SalesBIDetail() {
               <p className="text-lg font-semibold">{int(model.qty)}</p>
             </Card>
             <Card className="p-3 tabular-nums">
-              <p className="text-xs text-muted-foreground">Receita no período</p>
+              <p className="text-xs text-muted-foreground">Receita no período{ivaLbl}</p>
               <p className="text-lg font-semibold">{money(model.value)}</p>
             </Card>
             <Card className="p-3 tabular-nums">
@@ -325,7 +337,7 @@ export default function SalesBIDetail() {
               <p className="text-lg font-semibold">{nf1.format(model.med)} bilh./dia</p>
             </Card>
             <Card className="p-3 tabular-nums">
-              <p className="text-xs text-muted-foreground">Receita/dia</p>
+              <p className="text-xs text-muted-foreground">Receita/dia{ivaLbl}</p>
               <p className="text-lg font-semibold">{money(model.medValue)}</p>
             </Card>
             <Card className="p-3 tabular-nums">
@@ -335,7 +347,7 @@ export default function SalesBIDetail() {
               </p>
             </Card>
             <Card className="p-3 tabular-nums">
-              <p className="text-xs text-muted-foreground">Total do evento</p>
+              <p className="text-xs text-muted-foreground">Total do evento{ivaLbl}</p>
               <p className="text-lg font-semibold">{int(model.totalQty)}</p>
               <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
             </Card>
@@ -358,7 +370,7 @@ export default function SalesBIDetail() {
                     <th className="p-3 font-medium">Cidade</th>
                     <th className="p-3 font-medium">Data</th>
                     <th className="p-3 text-right font-medium">Bilhetes</th>
-                    <th className="p-3 text-right font-medium">Receita</th>
+                    <th className="p-3 text-right font-medium">Receita{ivaLbl}</th>
                     <th className="p-3 text-right font-medium">Média/dia</th>
                     <th className="p-3 text-right font-medium">Tração</th>
                     <th className="p-3 text-right font-medium">Total acumulado</th>
@@ -371,11 +383,11 @@ export default function SalesBIDetail() {
                       className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
                       role="link"
                       tabIndex={0}
-                      onClick={() => navigate(`/vendas/${groupId}/${c.id}`)}
+                      onClick={() => navigate(`/vendas/${groupId}/${c.id}${ivaSuffix}`)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          navigate(`/vendas/${groupId}/${c.id}`);
+                          navigate(`/vendas/${groupId}/${c.id}${ivaSuffix}`);
                         }
                       }}
                     >
