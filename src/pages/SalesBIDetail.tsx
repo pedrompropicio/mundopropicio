@@ -155,7 +155,7 @@ export default function SalesBIDetail() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_daily_sales_series" as any, {
         p_start: start,
-        p_end: end,
+        p_end: seriesEnd,
         p_event_ids: [groupId],
         p_provider: null,
       });
@@ -275,7 +275,7 @@ export default function SalesBIDetail() {
       cities,
     };
 
-  }, [seriesQ.data, eventsQ.data, days, today, todayISO, end, groupId]);
+  }, [seriesQ.data, eventsQ.data, days, today, todayISO, periodEnd, groupId]);
 
   return (
     <div className="space-y-4">
