@@ -106,6 +106,15 @@ export default function BankReconciliation() {
 
   const account = useMemo(() => (accounts as any[]).find((a) => a.id === accountId), [accounts, accountId]);
 
+  /**
+   * Data de corte da conta (D-ERP25): o saldo implantado é o saldo ao FECHO
+   * deste dia. Movimentos com data igual ou anterior já estão dentro dele —
+   * não se conciliam, importam-se só para o histórico e para a cadeia de saldos.
+   */
+  const cutoff = account?.initial_balance_date ? String(account.initial_balance_date).slice(0, 10) : null;
+  const isPreCutoff = (bookingDate: string) => !!cutoff && String(bookingDate).slice(0, 10) <= cutoff;
+
+
   // Transações liquidadas na conta — universo do matching (nunca alteradas).
   const { data: txns = [] } = useQuery({
     queryKey: ["bank-recon-txns", accountId],
@@ -190,6 +199,9 @@ export default function BankReconciliation() {
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
   const ignoredLines = (savedLines as any[]).filter((l) => l.status === "ignored");
+  // Anteriores ao corte: ficam à parte, só para o histórico.
+  const preCutoffLines = (savedLines as any[]).filter((l) => l.status === "pre_cutoff");
+  const preCutoffTotal = preCutoffLines.reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
 
   const txWithoutLine = useMemo(() => {
     if (!currentStatement) return [] as ReconcileTransaction[];
@@ -198,8 +210,10 @@ export default function BankReconciliation() {
       savedExplainedIds,
       currentStatement.period_from,
       currentStatement.period_to,
+      cutoff,
     );
-  }, [txns, savedExplainedIds, currentStatement]);
+  }, [txns, savedExplainedIds, currentStatement, cutoff]);
+
 
   // ---- Confronto sistema × banco ------------------------------------------
   // O ecrã existe para tornar visível uma diferença. Confrontar abertura +
@@ -251,16 +265,21 @@ export default function BankReconciliation() {
       setParsed(p);
       setFileName(file.name);
       setFileRef(file);
-      const lines = p.lines.map((l, i) => ({
-        key: String(i),
-        description: l.description,
-        amount: l.amount,
-        bookingDate: l.bookingDate,
-        valueDate: l.valueDate,
-      }));
+      // Só as linhas POSTERIORES ao corte entram nas camadas de conciliação.
+      // A chave é o índice na lista completa, para o gravar voltar a casar.
+      const lines = p.lines
+        .map((l, i) => ({
+          key: String(i),
+          description: l.description,
+          amount: l.amount,
+          bookingDate: l.bookingDate,
+          valueDate: l.valueDate,
+        }))
+        .filter((l) => !isPreCutoff(l.bookingDate));
       setPreview(
         reconcileStatement(lines, txns as ReconcileTransaction[], sepaExports as ReconcileSepaExport[]),
       );
+
     } catch (err: any) {
       setParsed(null);
       setPreview(null);
@@ -268,13 +287,37 @@ export default function BankReconciliation() {
     }
   }
 
+  /** Linhas do ficheiro que já estão dentro do saldo implantado. */
+  const preCutoffParsed = useMemo(
+    () => (parsed ? parsed.lines.filter((l) => isPreCutoff(l.bookingDate)) : []),
+    [parsed, cutoff],
+  );
+  const preCutoffParsedTotal = preCutoffParsed.reduce((acc, l) => acc + l.amount, 0);
+
+  /**
+   * O saldo implantado é o saldo ao FECHO da data de corte. Se o extrato cobre
+   * essa data, compara-se com o `balance_after` da última linha até ao corte —
+   * não com a abertura do ficheiro, que é o saldo ANTES dos movimentos do dia.
+   * Só se o extrato começar depois do corte é que a abertura serve de referência.
+   */
   const cutoffMismatch = useMemo(() => {
-    if (!parsed || !account?.initial_balance_date) return null;
-    if (parsed.openingBalance === null) return null;
-    const implanted = Number(account.initial_balance ?? 0);
-    const diff = Math.round((parsed.openingBalance - implanted) * 100) / 100;
-    return Math.abs(diff) <= 0.01 ? null : { diff, opening: parsed.openingBalance, implanted };
-  }, [parsed, account]);
+    if (!parsed || !cutoff) return null;
+    const implanted = Number(account?.initial_balance ?? 0);
+    const upTo = parsed.lines.filter((l) => l.bookingDate <= cutoff);
+    let reference: number | null;
+    let label: string;
+    if (upTo.length > 0) {
+      reference = upTo[upTo.length - 1].balanceAfter;
+      label = "fecho da data de corte";
+    } else {
+      reference = parsed.openingBalance;
+      label = "abertura do extrato";
+    }
+    if (reference === null) return null;
+    const diff = Math.round((reference - implanted) * 100) / 100;
+    return Math.abs(diff) <= 0.01 ? null : { diff, reference, implanted, label };
+  }, [parsed, account, cutoff]);
+
 
   async function saveImport() {
     if (!parsed || !preview || !accountId || !fileRef) return;
@@ -360,12 +403,15 @@ export default function BankReconciliation() {
           raw: l.raw as any,
           line_hash: hashes[i],
           bank_ref: extractBankRef(l.description),
-          status: m ? "matched" : "unmatched",
+          // Anterior ao corte: entra para o histórico com estado próprio e fica
+          // fora da conciliação, das contas por explicar e da decomposição.
+          status: isPreCutoff(l.bookingDate) ? "pre_cutoff" : m ? "matched" : "unmatched",
           matched_transaction_id: m?.matched_transaction_id ?? null,
           matched_payment_list_id: m?.matched_payment_list_id ?? null,
           matched_sepa_export_id: m?.matched_sepa_export_id ?? null,
           matched_by: m ? `auto:${m.layer}` : null,
           matched_at: m ? new Date().toISOString() : null,
+
         });
       }
 
@@ -520,20 +566,34 @@ export default function BankReconciliation() {
               <div>
                 <p className="font-medium">Saldo do extrato não bate com o implantado.</p>
                 <p className="text-muted-foreground">
-                  O extrato abre em {formatCurrency(cutoffMismatch.opening)} e o sistema tem {formatCurrency(cutoffMismatch.implanted)} implantados
-                  (diferença {formatCurrency(cutoffMismatch.diff)}). Importa-se de qualquer forma, mas a data de corte ou o saldo implantado estão errados.
+                  No {cutoffMismatch.label} o extrato declara {formatCurrency(cutoffMismatch.reference)} e o sistema tem{" "}
+                  {formatCurrency(cutoffMismatch.implanted)} implantados (diferença {formatCurrency(cutoffMismatch.diff)}).
+                  Importa-se de qualquer forma, mas a data de corte ou o saldo implantado estão errados.
                 </p>
               </div>
             </div>
           )}
           <div className="grid gap-2 text-sm md:grid-cols-3 lg:grid-cols-6">
             <div><p className="text-xs text-muted-foreground">Período</p><p>{formatDatePT(parsed.periodFrom)} → {formatDatePT(parsed.periodTo)}</p></div>
-            <div><p className="text-xs text-muted-foreground">Linhas</p><p>{parsed.lines.length}</p></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Linhas</p>
+              <p>{parsed.lines.length}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {preCutoffParsed.length} anteriores ao corte · {parsed.lines.length - preCutoffParsed.length} a conciliar
+              </p>
+            </div>
             <div><p className="text-xs text-muted-foreground">Lote SEPA</p><p>{preview.counts.sepa}</p></div>
             <div><p className="text-xs text-muted-foreground">Valor exato</p><p>{preview.counts.amount}</p></div>
             <div><p className="text-xs text-muted-foreground">Descrição</p><p>{preview.counts.description}</p></div>
             <div><p className="text-xs text-muted-foreground">Por explicar</p><p className="font-semibold text-warning">{preview.counts.unmatched}</p></div>
           </div>
+          {preCutoffParsed.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {preCutoffParsed.length} movimento(s) até {formatDatePT(cutoff)} ({formatCurrency(preCutoffParsedTotal)}) já
+              estão dentro do saldo implantado: importam-se para o histórico, mas não se conciliam.
+            </p>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={saveImport} disabled={saving || !parsed.coherent}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
@@ -724,6 +784,37 @@ export default function BankReconciliation() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Anteriores ao corte — só para se perceber que estão lá e porquê */}
+      {currentStatement && preCutoffLines.length > 0 && (
+        <div className="glass rounded-xl p-4 text-sm opacity-80">
+          <p className="font-medium">
+            Anteriores ao corte ({preCutoffLines.length}) · {formatCurrency(preCutoffTotal)}
+          </p>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Movimentos até {formatDatePT(cutoff)} — já dentro do saldo implantado, por isso não se conciliam.
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {preCutoffLines.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                  <TableCell className="max-w-[420px] truncate">{l.description}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+
 
       {/* Conciliação manual */}
       <Dialog open={!!manualLine} onOpenChange={(o) => !o && setManualLine(null)}>

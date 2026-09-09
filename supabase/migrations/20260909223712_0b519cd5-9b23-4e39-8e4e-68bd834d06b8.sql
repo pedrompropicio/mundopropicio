@@ -1,0 +1,2 @@
+ALTER TABLE public.bank_statement_lines DROP CONSTRAINT bank_statement_lines_status_chk;
+ALTER TABLE public.bank_statement_lines ADD CONSTRAINT bank_statement_lines_status_chk CHECK (status = ANY (ARRAY['unmatched'::text, 'matched'::text, 'ignored'::text, 'pre_cutoff'::text]));

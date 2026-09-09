@@ -201,17 +201,24 @@ export function reconcileStatement(
  * dentro do período do extrato, que não ficaram ligadas a nenhuma linha do
  * banco. É a classe de erro dos Bombeiros — dinheiro dado como pago que nunca
  * saiu da conta. Tem o mesmo peso que as linhas por explicar.
+ *
+ * `cutoffDate` (a `initial_balance_date` da conta) exclui o que já está dentro
+ * do saldo implantado: essas transações não se conciliam, por definição.
  */
 export function findTransactionsWithoutBankLine(
   transactions: ReconcileTransaction[],
   explainedIds: Set<string>,
   periodFrom: string,
   periodTo: string,
+  cutoffDate?: string | null,
 ): ReconcileTransaction[] {
+  const cutoff = cutoffDate ? cutoffDate.slice(0, 10) : null;
   return transactions.filter((t) => {
     if (explainedIds.has(t.id)) return false;
     const eff = effectiveDate(t);
     if (!eff) return false;
+    if (cutoff && eff <= cutoff) return false;
     return eff >= periodFrom.slice(0, 10) && eff <= periodTo.slice(0, 10);
   });
 }
+
