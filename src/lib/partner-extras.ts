@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { calcTotalWithIva } from "@/lib/iva";
 import type { QueryClient } from "@tanstack/react-query";
 
 /**
