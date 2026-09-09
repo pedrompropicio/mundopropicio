@@ -67,26 +67,30 @@ function Variation({ v }: { v: number | null }) {
 
 function BarsChart({ points }: { points: { date: string; qty: number; ma: number | null }[] }) {
   const w = 900;
-  const h = 220;
+  const chartH = 220;
+  const axisH = 22;
+  const h = chartH + axisH;
   const pad = 8;
   const max = Math.max(...points.map((p) => Math.max(p.qty, p.ma ?? 0)), 1);
   const bw = (w - pad * 2) / Math.max(points.length, 1);
-  const y = (v: number) => h - pad - (v / max) * (h - pad * 2);
+  const y = (v: number) => chartH - pad - (v / max) * (chartH - pad * 2);
   const line = points
     .map((p, i) => (p.ma === null ? null : `${pad + i * bw + bw / 2},${y(p.ma)}`))
     .filter(Boolean)
     .join(" ");
+  const step = points.length <= 14 ? 1 : Math.ceil(points.length / 10);
+  const showLabel = (i: number) => i === 0 || i === points.length - 1 || i % step === 0;
+  const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
       className="w-full"
-      style={{ height: 220 }}
-      preserveAspectRatio="none"
+      style={{ height: h }}
       role="img"
       aria-label="Bilhetes por dia com média móvel de 7 dias"
     >
       {points.map((p, i) => {
-        const bh = h - pad - y(p.qty);
+        const bh = chartH - pad - y(p.qty);
         return (
           <rect
             key={p.date}
@@ -96,7 +100,9 @@ function BarsChart({ points }: { points: { date: string; qty: number; ma: number
             height={Math.max(bh, p.qty > 0 ? 1 : 0)}
             className="fill-primary"
             opacity={0.8}
-          />
+          >
+            <title>{`${fmtDay(p.date)} — ${int(p.qty)} bilhetes`}</title>
+          </rect>
         );
       })}
       {line ? (
@@ -108,9 +114,24 @@ function BarsChart({ points }: { points: { date: string; qty: number; ma: number
           vectorEffect="non-scaling-stroke"
         />
       ) : null}
+      {points.map((p, i) =>
+        showLabel(i) ? (
+          <text
+            key={`l-${p.date}`}
+            x={pad + i * bw + bw / 2}
+            y={chartH + 15}
+            textAnchor="middle"
+            fontSize={11}
+            className="fill-current text-muted-foreground"
+          >
+            {ddmm(p.date)}
+          </text>
+        ) : null,
+      )}
     </svg>
   );
 }
+
 
 export default function SalesBIDetail() {
   const { groupId = "" } = useParams();
@@ -119,7 +140,7 @@ export default function SalesBIDetail() {
   const todayISO = toISO(today);
 
   const end = toISO(addDays(today, -1));
-  const start = toISO(addDays(today, -(2 * days) - 30));
+  const start = "2020-01-01";
 
   const seriesQ = useQuery({
     queryKey: ["bi-detail-series", groupId, start, end],
@@ -176,7 +197,9 @@ export default function SalesBIDetail() {
     let qty = 0;
     let value = 0;
     let prevQty = 0;
-    const byDay = new Map<string, number>();
+    let totalQty = 0;
+    let totalValue = 0;
+    const allByDay = new Map<string, number>();
     const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number }>();
 
     for (const r of series) {
@@ -185,10 +208,12 @@ export default function SalesBIDetail() {
       const v = Number(r.value || 0);
       const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
       c.total += q;
+      totalQty += q;
+      totalValue += v;
+      allByDay.set(d, (allByDay.get(d) ?? 0) + q);
       if (d >= pStart && d <= pEnd) {
         qty += q;
         value += v;
-        byDay.set(d, (byDay.get(d) ?? 0) + q);
         c.qty += q;
         c.value += v;
       }
@@ -201,16 +226,15 @@ export default function SalesBIDetail() {
 
     const variacao = prevQty > 0 ? ((qty - prevQty) / prevQty) * 100 : null;
 
-    // Gráfico: dias de calendário + média móvel de 7 dias (usa dias antes do período)
+    // Gráfico: dias de calendário do período + média móvel de 7 dias
     const points: { date: string; qty: number; ma: number | null }[] = [];
     for (let i = days; i >= 1; i--) {
       const d = toISO(addDays(today, -i));
       let sum = 0;
       for (let k = 0; k < 7; k++) {
-        const dk = toISO(addDays(today, -(i + k)));
-        sum += byDay.get(dk) ?? seriesDayFallback(series, dk);
+        sum += allByDay.get(toISO(addDays(today, -(i + k)))) ?? 0;
       }
-      points.push({ date: d, qty: byDay.get(d) ?? 0, ma: sum / 7 });
+      points.push({ date: d, qty: allByDay.get(d) ?? 0, ma: sum / 7 });
     }
 
     const cities = cityList
@@ -238,9 +262,12 @@ export default function SalesBIDetail() {
       med: qty / days,
       medValue: value / days,
       variacao,
+      totalQty,
+      totalValue,
       points,
       cities,
     };
+
   }, [seriesQ.data, eventsQ.data, days, today, todayISO, end, groupId]);
 
   return (
@@ -276,7 +303,7 @@ export default function SalesBIDetail() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Bilhetes no período</p>
               <p className="text-lg font-semibold">{int(model.qty)}</p>
@@ -299,7 +326,13 @@ export default function SalesBIDetail() {
                 <Variation v={model.variacao} />
               </p>
             </Card>
+            <Card className="p-3 tabular-nums">
+              <p className="text-xs text-muted-foreground">Total do evento</p>
+              <p className="text-lg font-semibold">{int(model.totalQty)}</p>
+              <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
+            </Card>
           </div>
+
 
           <Card className="p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -345,11 +378,4 @@ export default function SalesBIDetail() {
       )}
     </div>
   );
-}
-
-/** Soma de um dia fora da janela do período (usada pela média móvel). */
-function seriesDayFallback(series: SeriesRow[], iso: string): number {
-  let s = 0;
-  for (const r of series) if (r.sale_date.slice(0, 10) === iso) s += Number(r.qty || 0);
-  return s;
 }
