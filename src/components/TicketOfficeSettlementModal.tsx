@@ -394,7 +394,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       }),
     [grossRevenue, totalDeductions, totalAdvances, venueRetainedNum, selectedInvoice, payInvoiceRemainder]
   );
-  const { invoiceRemainder, remainderApplied, netCalculated, venueRetainedExceedsInvoice } = settlementCalc;
+  const { invoiceRemainder, remainderApplied, venueRetainedExceedsInvoice } = settlementCalc;
+  // Líquido sempre ao cêntimo (evita resíduos de arredondamento no repasse).
+  const netCalculated = roundCents(settlementCalc.netCalculated);
+
 
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
