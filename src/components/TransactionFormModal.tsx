@@ -1461,12 +1461,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           // D1: a FK canónica vai NO INSERT — nascer aprovado exige linha de BP.
-          // Extra do Sócio nunca consome BP: sem linha, por definição.
-          forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
+          // A isenção de BP segue a TRANSITÓRIA, não a fatura: só o extra TOTAL
+          // (principal transitória) nasce sem linha. No extra PARCIAL a principal
+          // é despesa do evento e leva linha do BP como qualquer outra.
+          forecast_id: principalIsTransitory ? null : (selectedForecastId || null),
           supplier_id: data.supplier_id || null,
           account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
-          pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
+          pl_override_note: principalIsTransitory ? null : (data.pl_override_note.trim() || null),
           date: data.date,
           due_date: firstParcelDueDate,
           status: partnerStatus,
