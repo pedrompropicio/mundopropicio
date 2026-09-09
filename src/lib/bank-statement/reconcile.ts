@@ -13,7 +13,7 @@
  *       transação da mesma conta, com data efetiva a ±5 dias;
  *   (c) descrição por semelhança — Dice ≥ 0,8 com o valor a bater ao cêntimo.
  */
-import { normalizeForMatch, stringSimilarity } from "@/lib/string-similarity";
+import { stringSimilarity } from "@/lib/string-similarity";
 import { extractDateTokens } from "@/lib/bank-statement/parse-santander";
 
 /**
