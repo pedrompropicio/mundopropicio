@@ -301,9 +301,11 @@ export default function SalesBIDetail() {
       points.push({ date: d, qty: allByDay.get(d) ?? 0, value: valueByDay.get(d) ?? 0, ma: sum / 7 });
     }
 
+    const caps = zoneCapsQ.data;
     const cities = cityList
       .map((e) => {
         const c = byCity.get(e.id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
+        const t = caps?.get(e.id) ?? null;
         return {
           id: e.id,
           name: e.name,
@@ -314,6 +316,10 @@ export default function SalesBIDetail() {
           variacao: c.prevQty > 0 ? ((c.qty - c.prevQty) / c.prevQty) * 100 : null,
           total: c.total,
           source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
+          // Ocupação da sala (bilheteira): occupied / capacity, nunca os nossos bilhetes.
+          salaCapacity: t && t.capacity > 0 ? t.capacity : null,
+          salaOccupied: t && t.capacity > 0 ? t.occupied : null,
+          salaPct: t && t.capacity > 0 ? (t.occupied / t.capacity) * 100 : null,
         };
       })
       .sort((a, b) => b.qty - a.qty);
@@ -333,7 +339,21 @@ export default function SalesBIDetail() {
       cities,
     };
 
-  }, [seriesQ.data, eventsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
+  }, [seriesQ.data, eventsQ.data, zoneCapsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
+
+  // Ocupação da sala do tour — da RPC (agrega por tour)
+  const sala = useMemo(() => {
+    const cap = (capacityQ.data ?? []).find((c) => c.group_id === groupId);
+    if (!cap || !cap.trustworthy || !cap.capacity) {
+      return { pct: null as number | null, occupied: null as number | null, capacity: null as number | null, issue: cap?.issue ?? null };
+    }
+    return {
+      pct: (Number(cap.occupied || 0) / Number(cap.capacity)) * 100,
+      occupied: Number(cap.occupied || 0),
+      capacity: Number(cap.capacity),
+      issue: null as string | null,
+    };
+  }, [capacityQ.data, groupId]);
 
   const ivaLbl = withIva ? null : <span className="ml-1 text-[10px]">s/ IVA</span>;
 
