@@ -1264,13 +1264,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             // A FK canónica só desce à filha quando a linha escolhida é do evento dela
             // (rateio Master: a linha é do Master e fica na mãe).
             forecast_id:
-              selectedForecast && (selectedForecast as any).event_id === entry.event_id
+              !isPartnerExtra && selectedForecast && (selectedForecast as any).event_id === entry.event_id
                 ? selectedForecastId
                 : null,
             supplier_id: data.supplier_id || null,
             account_id: null,
             specification: data.type === "expense" ? (data.specification || null) : null,
-            pl_override_note: needsOverride ? (data.pl_override_note.trim() || null) : null,
+            pl_override_note: isPartnerExtra ? null : (needsOverride ? (data.pl_override_note.trim() || null) : null),
             date: data.date,
             due_date: parseDueDateForDb(data.due_date),
             status: childStatus,
@@ -1305,11 +1305,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           iva_rate: data.iva_rate,
           event_id: null,
           category_id: data.category_id || null,
-          forecast_id: selectedForecastId || null,
+          forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
           supplier_id: data.supplier_id || null,
           account_id: parentAccountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
-          pl_override_note: data.pl_override_note.trim() || null,
+          pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
           status: parentStatus,
@@ -1436,11 +1436,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           // D1: a FK canónica vai NO INSERT — nascer aprovado exige linha de BP.
-          forecast_id: selectedForecastId || null,
+          // Extra do Sócio nunca consome BP: sem linha, por definição.
+          forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
           supplier_id: data.supplier_id || null,
           account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
-          pl_override_note: data.pl_override_note.trim() || null,
+          pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
           date: data.date,
           due_date: firstParcelDueDate,
           status: partnerStatus,
@@ -1470,7 +1471,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
         // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
         // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
-        if (insertedTx?.id && selectedForecastId) {
+        if (insertedTx?.id && selectedForecastId && !isPartnerExtra) {
           // Fase 2: escrita dupla — transactions.forecast_id (canónico, N:1) +
           // âncora legada event_forecasts.transaction_id só se ainda estiver livre.
           let fkErr: any = null;
@@ -1587,11 +1588,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               iva_rate: data.iva_rate,
               event_id: data.event_id || null,
               category_id: data.category_id || null,
-              forecast_id: selectedForecastId || null,
+              forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
               supplier_id: data.supplier_id || null,
               account_id: accountId,
               specification: data.type === "expense" ? (data.specification || null) : null,
-              pl_override_note: data.pl_override_note.trim() || null,
+              pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
               date: data.date,
               due_date: inst.scheduled_date,
               status: partnerStatus,
@@ -2147,7 +2148,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
         return;
       }
-      if (plOverride && !selectedCategoryIsCapital && !form.pl_override_note.trim()) {
+      if (plOverride && !selectedCategoryIsCapital && !isPartnerExtra && !form.pl_override_note.trim()) {
         toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
         return;
       }
@@ -2169,7 +2170,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
       // • "master" → expense consumes Master BP rateio (sub-event BP not required)
       const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital && !isPartnerExtra) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -2180,7 +2181,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       }
     }
-    if (plOverride && !selectedCategoryIsCapital && !form.pl_override_note.trim()) {
+    if (plOverride && !selectedCategoryIsCapital && !isPartnerExtra && !form.pl_override_note.trim()) {
       toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
@@ -2253,7 +2254,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // Participação): trânsito de capital, por definição nunca está no BP.
     // Fica sempre disponível, mesmo em modo "Do BP".
     if (isCapitalCategoryCode(c.code)) return true;
-    if (hasPLRestriction && effectiveEventId && !plOverride) {
+    // Extra do Sócio: custo do sócio, nunca do evento — não passa pelo BP.
+    if (hasPLRestriction && effectiveEventId && !plOverride && !isPartnerExtra) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
       const isInMasterBP = masterDetection.masterCategoryIds.includes(c.id);
@@ -2441,6 +2443,55 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
+          {/* 🧳 Extra do Sócio — decidido ANTES do BP: é custo do sócio, não do evento.
+              Sempre visível em despesa; desativado quando não há evento ou sócios. */}
+          {form.type === "expense" && !form.is_reimbursement && !isPaidByPartner && (() => {
+            const extraEventId = form.event_id || (isSplit ? splitMasterEventId : "");
+            const noEvent = !extraEventId;
+            const noPartners = !noEvent && eventPartners.length === 0;
+            const disabled = noEvent || noPartners;
+            const tip = noEvent
+              ? "Escolhe primeiro o evento"
+              : noPartners
+                ? "Este evento não tem sócios"
+                : "Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE nem no BP.";
+            return (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  title={tip}
+                  onClick={() => {
+                    const next = !isPartnerExtra;
+                    setIsPartnerExtra(next);
+                    setPartnerExtraId("");
+                    setPartnerExtraPartialAmount("");
+                    if (next) {
+                      // Extra do Sócio não passa pelo BP: recolhe o painel e limpa a justificação.
+                      setPlExpanded(false);
+                      setPlOverride(false);
+                      setForm((prev) => ({ ...prev, pl_override_note: "" }));
+                      setSelectedForecastId(null);
+                    } else {
+                      // Repõe o estado anterior: o BP volta a valer.
+                      setPlExpanded(true);
+                      setForm((prev) => ({ ...prev, category_id: "", pl_override_note: "" }));
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    isPartnerExtra
+                      ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 ring-1 ring-orange-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  🧳 {isPartnerExtra ? "Extra do Sócio Ativo" : "Extra do Sócio"}
+                </button>
+                <HelpTooltip text={tip} size={12} />
+              </div>
+            );
+          })()}
+
+
           {/* Split config panel — shown when split is active */}
           {isSplit && (
             <>
@@ -2532,7 +2583,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
-          {hasPL && effectiveEventId && plExpanded && (() => {
+          {hasPL && effectiveEventId && plExpanded && !isPartnerExtra && (() => {
             const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
@@ -2833,14 +2884,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
-          {hasPL && effectiveEventId && !plExpanded && (
+          {hasPL && effectiveEventId && !plExpanded && !isPartnerExtra && (
             <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
               BP — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
             </button>
           )}
 
           {/* Alternador do âmbito da categoria — sempre visível quando o evento tem BP */}
-          {hasPLRestriction && effectiveEventId && (
+          {hasPLRestriction && effectiveEventId && !isPartnerExtra && (
             <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-secondary/20 p-1 w-fit">
               <button
                 type="button"
@@ -3478,26 +3529,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     O vínculo a sócio faz-se no modal de pagamento (liquidação) ou no
                     painel "Despesas Pagas por Sócios" do evento. */}
 
-                {/* Extra do Sócio toggle — despesa paga pela empresa que será descontada do sócio no fecho */}
-                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && !isPaidByPartner && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !isPartnerExtra;
-                      setIsPartnerExtra(next);
-                      setPartnerExtraId("");
-                      setPartnerExtraPartialAmount("");
-                    }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                      isPartnerExtra
-                        ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 ring-1 ring-orange-500/30"
-                        : "bg-secondary text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    🧳 Extra do Sócio
-                    <HelpTooltip text="Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE." size={12} />
-                  </button>
-                )}
+                {/* Toggle "🧳 Extra do Sócio" movido para junto do selector de Evento
+                    (antes do painel do BP): o extra é custo do sócio e não passa pelo BP. */}
 
                 {/* Caução / Transitória shortcut — admin/manager only.
                     Ativa is_transitory e abre selector "Pago por" (MP ou um sócio).

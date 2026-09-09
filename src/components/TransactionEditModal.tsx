@@ -1870,13 +1870,34 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         toast({ title: "Split parcial criado", description: `${partial.toFixed(2)} € serão descontados do sócio no fecho.` });
                       } else {
                         if (!confirm("Converter esta despesa em Extra do Sócio? Será marcada como transitória e descontada do sócio no fecho.")) return;
+                        // Guarda a linha de BP que ficará sem transação (aviso não bloqueante).
+                        const previousForecastId = (transaction as any).forecast_id ?? null;
+                        let orphanLine: { description: string | null; amount: number } | null = null;
+                        if (previousForecastId) {
+                          const { data: fc } = await supabase
+                            .from("event_forecasts")
+                            .select("description, amount")
+                            .eq("id", previousForecastId)
+                            .maybeSingle();
+                          if (fc) orphanLine = { description: (fc as any).description, amount: Number((fc as any).amount) };
+                        }
                         await supabase.from("partner_advance_expenses").insert({
                           event_id: form.event_id,
                           partner_id: convertPartnerId,
                           transaction_id: transaction.id,
                         } as any);
-                        await supabase.from("transactions").update({ is_transitory: true, exclude_from_result: false }).eq("id", transaction.id);
+                        // O extra é custo do sócio: nunca consome verba do BP → limpa o vínculo.
+                        await supabase
+                          .from("transactions")
+                          .update({ is_transitory: true, exclude_from_result: false, forecast_id: null })
+                          .eq("id", transaction.id);
                         toast({ title: "Convertido em Extra do Sócio" });
+                        if (orphanLine) {
+                          toast({
+                            title: "Linha de BP sem transação",
+                            description: `A linha de BP «${orphanLine.description ?? "sem descrição"}» (${orphanLine.amount.toFixed(2)} €) ficou no BP do evento sem transação associada. Se foi criada só para esta despesa, remove-a no Business Plan.`,
+                          });
+                        }
                       }
                       queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
                       queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
