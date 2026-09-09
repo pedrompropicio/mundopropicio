@@ -681,3 +681,17 @@ O cartão SALDO TOTAL somava tudo com a fórmula bancária e dava −1.994.414,6
 Corolário: a data de corte do saldo inicial (D-ERP25) passa a sair em pt-PT na coluna Saldo Inicial, via `formatDatePT`.
 
 **Estado:** vigente.
+
+## D-ERP28 — O extrato do banco é um facto externo; a conciliação só liga (09/09/2026)
+
+Contexto: o Santander Totta foi implantado com corte a 31/08/2026 e saldo 122.363,05 €. O sistema calculava 407.199,12 € e o banco, a 09/09, estava em 439.403,92 €. A diferença de 32.204,80 € eram movimentos de setembro por lançar, e não havia como a ver: não existia importação de extrato — nem tabela, nem parser, nem ecrã.
+
+Decisão — **o extrato tem tabela própria e é lido, não interpretado.** `bank_statements` e `bank_statement_lines` guardam o que o banco declara, incluindo a linha original em `raw`. A identidade de uma linha (`line_hash`) é conta + data de movimento + data-valor + descrição normalizada + valor + **saldo após o movimento**. O saldo entra de propósito: é o único campo que distingue dois movimentos iguais no mesmo dia. Reimportar o mesmo ficheiro não cria uma única linha nova.
+
+Decisão — **um ficheiro que não fecha não entra.** O saldo de cada linha tem de ser o saldo da anterior mais o movimento; se partir, a importação é recusada e diz-se em que linha. Contra o sistema a validação é mais fraca de propósito: se o saldo de abertura do extrato não bater com o `initial_balance` implantado (D-ERP25), importa-se **e avisa-se em destaque** — o erro está no corte ou no saldo implantado, não no ficheiro do banco.
+
+Decisão — **a conciliação NUNCA altera transações.** Não liquida, não muda status, não escreve `paid_amount`. Só liga. Corre em camadas e pára na primeira que casa: lote SEPA (por `payment_list_sepa_exports`, total + referência do `msg_id` na descrição, ligando de uma vez às N transações do lote), valor exato (`paid_amount` da mesma conta, ±5 dias na data efetiva) e descrição por semelhança (motor Dice já existente, ≥ 0,8, com o valor ao cêntimo). O que não casa fica `unmatched` e explica-se à mão, ou marca-se ignorada com nota obrigatória.
+
+Decisão — **os dois lados do desencontro têm o mesmo peso.** Ao lado das linhas do banco por explicar mostra-se, com o mesmo destaque, a lista de transações marcadas como pagas na conta, no período do extrato, sem qualquer movimento no banco. É a classe de erro dos Bombeiros: 1.328,45 € dados como pagos a 11/08 que nunca saíram, porque a linha caiu do ficheiro SEPA por não ter fornecedor. Um extrato conciliado a 100% do lado do banco pode continuar a esconder dinheiro que o sistema jura ter pago.
+
+Nada foi reimplementado: o lote SEPA usa o histórico `payment_list_sepa_exports`, a semelhança usa o motor Dice (agora com casa única em `src/lib/string-similarity.ts`) e o saldo continua a vir de `computeAccountBalance`. O lançamento automático das linhas sem contrapartida é lote seguinte e não foi feito.
