@@ -353,22 +353,26 @@ export default function SalesBI() {
                   </p>
                 </div>
 
-                {/* Ocupação */}
+                {/* Ocupação da sala — bilheteira (occupied/capacity), não os nossos bilhetes */}
                 <div className="md:col-span-2 tabular-nums">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Ocupação da sala</p>
                   {r.ocupacao !== null ? (
                     <>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{ width: `${Math.min(Math.max(r.ocupacao, 0), 100)}%` }}
                         />
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{nf1.format(r.ocupacao)}% de ocupação</p>
+                      <p className="mt-1 text-sm font-semibold">{nf1.format(r.ocupacao)}%</p>
+                      <p className="text-xs text-muted-foreground">
+                        {int(r.ocupados ?? 0)} de {int(r.carga ?? 0)} lugares
+                      </p>
                     </>
                   ) : (
                     <>
                       <p className="text-sm font-semibold text-muted-foreground">—</p>
-                      <p className="text-xs text-muted-foreground">{r.issue ?? "lotação não fiável"}</p>
+                      <p className="text-xs text-muted-foreground">{r.issue ?? "sem observação de lotação da bilheteira"}</p>
                     </>
                   )}
                 </div>
