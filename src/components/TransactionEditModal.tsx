@@ -1725,6 +1725,32 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         toast({ title: "Reversão parcial concluída", description: `${partial.toFixed(2)} € voltaram para o evento.` });
                       } else {
                         if (!confirm("Reverter Extra do Sócio na totalidade? A despesa volta a ser uma despesa normal do evento.")) return;
+                        // Reverter = "afinal o custo é do evento". A partir daqui a
+                        // despesa consome verba, logo aplica-se a D1+D8: num evento
+                        // `with_bp` tem de ter linha de BP.
+                        //
+                        // Só travamos se a transação já estiver `approved`/`paid`:
+                        // se está `pending`, volta a passar pelo circuito de
+                        // aprovação e é lá que a linha é pedida — travar aqui seria
+                        // pedir duas vezes a mesma coisa.
+                        const alreadyApproved = transaction.status === "approved" || transaction.status === "paid";
+                        if (alreadyApproved) {
+                          let needs = false;
+                          try {
+                            needs = await needsBpLineBeforeApproval({
+                              ...(transaction as any),
+                              is_transitory: false,
+                            });
+                          } catch (err: any) {
+                            toast({ title: "Não foi possível validar a linha de BP", description: err.message, variant: "destructive" });
+                            return;
+                          }
+                          if (needs) {
+                            // Nada é escrito até o utilizador escolher a linha.
+                            setRevertNeedsBpLine(true);
+                            return;
+                          }
+                        }
                         await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
                         await supabase.from("transactions").update({ is_transitory: false }).eq("id", transaction.id);
                         toast({ title: "Extra do Sócio revertido" });
