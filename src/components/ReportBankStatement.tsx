@@ -221,6 +221,14 @@ export default function ReportBankStatement() {
       {/* Results */}
       {generated && canSeeBalance && (
         <>
+          {/* Data de implantação do saldo inicial (D-ERP25) */}
+          {balanceCutoff && (
+            <p className="text-xs text-muted-foreground">
+              Saldo implantado a {formatDatePT(balanceCutoff)}:{" "}
+              {isUncontrolledBalance ? "Não controlado" : formatCurrency(Number(selectedAccount?.initial_balance ?? 0))}
+            </p>
+          )}
+
           {/* Export buttons */}
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -240,6 +248,8 @@ export default function ReportBankStatement() {
               <FileText className="mr-1.5 h-4 w-4" /> PDF
             </Button>
           </div>
+
+
 
           {/* Summary cards */}
           <div className="grid gap-4 sm:grid-cols-4">
