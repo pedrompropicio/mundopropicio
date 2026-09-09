@@ -267,7 +267,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
 
   // ── FOLHA 2 — anexo analítico ────────────────────────────────────────
   doc.addPage();
-  y = 18;
+  y = pageIdent(doc, params.tourName, identMeta);
   y = sectionTitle(doc, "Anexo analítico — por cidade", y);
   autoTable(doc, {
     startY: y + 2,
