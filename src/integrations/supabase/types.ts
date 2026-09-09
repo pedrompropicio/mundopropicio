@@ -504,6 +504,174 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_statement_lines: {
+        Row: {
+          amount: number
+          balance_after: number | null
+          booking_date: string
+          company_id: string
+          created_at: string
+          created_transaction_id: string | null
+          description: string
+          financial_account_id: string
+          id: string
+          line_hash: string
+          matched_at: string | null
+          matched_by: string | null
+          matched_payment_list_id: string | null
+          matched_sepa_export_id: string | null
+          matched_transaction_id: string | null
+          note: string | null
+          raw: Json | null
+          statement_id: string
+          status: string
+          value_date: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after?: number | null
+          booking_date: string
+          company_id?: string
+          created_at?: string
+          created_transaction_id?: string | null
+          description?: string
+          financial_account_id: string
+          id?: string
+          line_hash: string
+          matched_at?: string | null
+          matched_by?: string | null
+          matched_payment_list_id?: string | null
+          matched_sepa_export_id?: string | null
+          matched_transaction_id?: string | null
+          note?: string | null
+          raw?: Json | null
+          statement_id: string
+          status?: string
+          value_date?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number | null
+          booking_date?: string
+          company_id?: string
+          created_at?: string
+          created_transaction_id?: string | null
+          description?: string
+          financial_account_id?: string
+          id?: string
+          line_hash?: string
+          matched_at?: string | null
+          matched_by?: string | null
+          matched_payment_list_id?: string | null
+          matched_sepa_export_id?: string | null
+          matched_transaction_id?: string | null
+          note?: string | null
+          raw?: Json | null
+          statement_id?: string
+          status?: string
+          value_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_created_transaction_id_fkey"
+            columns: ["created_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_matched_payment_list_id_fkey"
+            columns: ["matched_payment_list_id"]
+            isOneToOne: false
+            referencedRelation: "payment_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_matched_sepa_export_id_fkey"
+            columns: ["matched_sepa_export_id"]
+            isOneToOne: false
+            referencedRelation: "payment_list_sepa_exports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_matched_transaction_id_fkey"
+            columns: ["matched_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statements: {
+        Row: {
+          closing_balance: number | null
+          company_id: string
+          file_name: string
+          file_url: string | null
+          financial_account_id: string
+          id: string
+          imported_at: string
+          imported_by: string | null
+          n_lines: number
+          opening_balance: number | null
+          period_from: string | null
+          period_to: string | null
+          status: string
+        }
+        Insert: {
+          closing_balance?: number | null
+          company_id?: string
+          file_name: string
+          file_url?: string | null
+          financial_account_id: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          n_lines?: number
+          opening_balance?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          status?: string
+        }
+        Update: {
+          closing_balance?: number | null
+          company_id?: string
+          file_name?: string
+          file_url?: string | null
+          financial_account_id?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          n_lines?: number
+          opening_balance?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statements_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bilheteira_sync_log: {
         Row: {
           changes: Json | null
