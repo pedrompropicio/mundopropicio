@@ -427,6 +427,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const [convertPartialAmount, setConvertPartialAmount] = useState("");
   const [revertIsPartial, setRevertIsPartial] = useState(false);
   const [revertPartialAmount, setRevertPartialAmount] = useState("");
+  /** Reversão total de Extra do Sócio pendente de escolha de linha de BP. */
+  const [revertNeedsBpLine, setRevertNeedsBpLine] = useState(false);
 
   const { data: installmentGroupRows = [] } = useInstallmentGroup(transaction);
   const isInstallmentGroup = installmentGroupRows.length >= 2;
