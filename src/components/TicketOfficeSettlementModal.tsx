@@ -217,11 +217,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       // 2) Master transactions whose Splits reference this event (Master has event_id NULL)
       const { data: splits } = await (supabase as any)
         .from("transactions")
-        .select("parent_transaction_id")
+        .select("id, amount, iva_rate, parent_transaction_id")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .not("parent_transaction_id", "is", null);
       const masterIds = Array.from(new Set((splits || []).map((s: any) => s.parent_transaction_id).filter(Boolean)));
+      // Parte deste evento em cada Master de rateio (soma dos filhos deste evento, c/IVA).
+      const eventShareByMaster = new Map<string, number>();
+      (splits || []).forEach((s: any) => {
+        if (!s.parent_transaction_id) return;
+        const gross = roundCents(Number(s.amount || 0) * (1 + Number(s.iva_rate || 0) / 100));
+        eventShareByMaster.set(
+          s.parent_transaction_id,
+          roundCents((eventShareByMaster.get(s.parent_transaction_id) || 0) + gross),
+        );
+      });
       let masterTxns: any[] = [];
       if (masterIds.length > 0) {
         const { data } = await (supabase as any)
@@ -247,7 +257,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
       const all = [...(direct || []), ...masterTxns];
       const seen = new Set<string>();
-      return all.filter((t) => {
+      const eligible = all.filter((t) => {
         if (seen.has(t.id)) return false;
         seen.add(t.id);
         // Always keep transactions already linked to this settlement (when editing).
@@ -260,6 +270,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         if (t.status === "paid" && t.account_id === officeId) return true;
         return false;
       });
+
+      // 4) Filhos de rateio nunca são pagáveis (não recebem account_id): se o Master
+      // já está na lista, o filho é uma opção falsa e sai. Se o Master não estiver,
+      // o filho fica para não desaparecer despesa nenhuma.
+      const presentIds = new Set(eligible.map((t: any) => t.id));
+      return eligible
+        .filter((t: any) => !(t.parent_transaction_id && presentIds.has(t.parent_transaction_id)))
+        .map((t: any) => ({
+          ...t,
+          _isRateioMaster: eventShareByMaster.has(t.id),
+          _eventShareGross: eventShareByMaster.get(t.id) ?? null,
+        }));
+
     },
   });
 
