@@ -25,7 +25,7 @@ import { lisbonToday } from "@/lib/date-lisbon";
 
 type PeriodPreset = "yesterday" | "7d" | "30d" | "custom";
 
-const PROVIDERS = ["Ticketline", "BOL", "Fever", "Outras"] as const;
+const PROVIDERS = ["Ticketline", "BOL", "Fever", "Onebox", "Outras"] as const;
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
