@@ -1390,14 +1390,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // quem lança pode aprovar; proposta de editor mantém o estado normal da transação.
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
         const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (effectiveAutoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
-        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (effectiveAutoMarkPaid ? parseFloat(data.amount) : 0));
         const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (data.date) : (effectiveAutoMarkPaid ? data.date : null));
 
-        // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
-        // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
+        // ============================================================
+        // Split parcial do Extra do Sócio — A FATURA REPARTE-SE, NÃO SE DUPLICA.
+        // Invariante (D-ERP17): SOMA dos `amount` das transações com o mesmo
+        // `invoice_group_id` == total da fatura. Ou seja:
+        //   principal.amount = total − X   e   irmã.amount = X
+        // Se a principal nascesse pelo TOTAL e a irmã por X, os mesmos euros
+        // ficariam ao mesmo tempo no custo do evento (principal) e no débito ao
+        // sócio (irmã) → dupla contagem no acerto. Nunca mudar isto sem mudar
+        // também a reversão parcial no TransactionEditModal.
+        // ============================================================
         const totalAmtNum = parseFloat(data.amount) || 0;
         const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
         const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
+        // Base da principal já líquida da parte do sócio.
+        const principalNetAmount = isPartnerExtraPartial
+          ? Number((totalAmtNum - partnerExtraPartialNum).toFixed(2))
+          : totalAmtNum;
+        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? principalNetAmount : (effectiveAutoMarkPaid ? principalNetAmount : 0));
         const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
         // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
         let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
@@ -1425,7 +1437,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           : [];
         const firstParcelNet = useInstallments
           ? installmentNets[0] ?? 0
-          : parseFloat(data.amount);
+          : principalNetAmount;
         const firstParcelDueDate = useInstallments
           ? installmentRows[0]?.scheduled_date || parseDueDateForDb(data.due_date)
           : parseDueDateForDb(data.due_date);
@@ -1676,8 +1688,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
         if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
           if (isPartnerExtraPartial) {
-            // Split parcial: cria transação irmã transitória com o valor parcial,
-            // partilhando o invoice_group_id da fatura. É essa irmã que vai a partner_advance_expenses.
+            // Split parcial: a principal já nasceu por (total − X) acima; aqui nasce a
+            // irmã transitória por X. Soma do grupo == total da fatura (invariante D-ERP17).
+            // Estado e pago seguem a principal: se a principal nasce paga, a irmã também;
+            // se nasce pendente, a irmã fica pendente (antes estava fixa em 'paid').
             const { data: siblingTx, error: siblingErr } = await supabase
               .from("transactions")
               .insert({
@@ -1691,9 +1705,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 account_id: null,
                 date: data.date,
                 due_date: parseDueDateForDb(data.due_date),
-                status: "paid",
-                paid_amount: partnerExtraPartialNum,
-                payment_date: data.date,
+                status: partnerStatus,
+                paid_amount: partnerPaidAmount > 0 ? partnerExtraPartialNum : 0,
+                payment_date: partnerPaidAmount > 0 ? (partnerPaymentDate ?? data.date) : null,
                 is_transitory: true,
                 exclude_from_result: false,
                 invoice_ref: data.invoice_ref.trim() || null,
@@ -2085,6 +2099,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
       if (partialAmt <= 0 || partialAmt >= totalAmt) {
         toast({ title: "Valor parcial do extra inválido", description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} €). Deixe vazio para abater a fatura inteira.`, variant: "destructive" });
+        return;
+      }
+      // A fatura reparte-se: a principal nasce por (total − X). Com "Pagar em parcelas"
+      // as parcelas são calculadas a partir do total, pelo que a repartição não é
+      // representável sem arbitrar em que parcela entra a parte do sócio.
+      if (useInstallments) {
+        toast({
+          title: "Não é possível combinar parcelas com extra parcial",
+          description: "Lança a fatura em parcelas primeiro e converte depois a parte do sócio na transação em causa.",
+          variant: "destructive",
+        });
         return;
       }
     }
@@ -3712,8 +3737,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     {!isSplit && (
                       <div>
                         <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          Apenas parte da fatura é extra (€)
-                          <HelpTooltip text={`Deixe vazio se a fatura inteira é extra do sócio. Preencha um valor menor que o total da fatura para abater apenas essa parcela — a fatura é registada pelo total e entra normalmente no DRE/BP; a parcela do sócio vai como transação irmã transitória vinculada à mesma fatura.`} size={12} />
+                          Apenas parte da fatura é extra — valor s/ IVA (€)
+                          <HelpTooltip text={`Deixe vazio se a fatura inteira é extra do sócio. Preencha um valor s/IVA menor que o total da fatura: a fatura reparte-se — a despesa do evento fica pelo restante e a parte do sócio vai numa transação irmã transitória vinculada à mesma fatura. A soma das duas continua a valer a fatura inteira.`} size={12} />
                         </label>
                         <input
                           type="number"
@@ -3725,7 +3750,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           disabled={totalAmt <= 0}
                           placeholder={
                             totalAmt > 0
-                              ? `Vazio = fatura inteira (${totalAmt.toFixed(2)} €)`
+                              ? `Vazio = fatura inteira (${totalAmt.toFixed(2)} € s/IVA)`
                               : "Preenche o Valor (€) da fatura primeiro"
                           }
                           className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -3739,11 +3764,32 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                             O valor parcial deve ser maior que 0 e menor que o total da fatura ({totalAmt.toFixed(2)} €).
                           </p>
                         )}
+                        {isPartial && (() => {
+                          const mult = 1 + (Number(form.iva_rate) || 0) / 100;
+                          const principalNet = Number((totalAmt - partialAmt).toFixed(2));
+                          return (
+                            <div className="mt-2 space-y-0.5 rounded-md border border-border/60 bg-background/60 p-2 text-[10px]">
+                              <div className="font-medium text-muted-foreground">Como fica a repartição</div>
+                              <div className="flex justify-between gap-3">
+                                <span>Despesa do evento</span>
+                                <span className="font-mono">{principalNet.toFixed(2)} € s/IVA · {(principalNet * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <span>Extra do sócio</span>
+                                <span className="font-mono">{partialAmt.toFixed(2)} € s/IVA · {(partialAmt * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                              <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
+                                <span>Total da fatura</span>
+                                <span className="font-mono">{totalAmt.toFixed(2)} € s/IVA · {(totalAmt * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                     <p className="text-[10px] text-muted-foreground">
                       {isPartial
-                        ? `🧳 Fatura registada por ${totalAmt.toFixed(2)} € (entra DRE/BP). ${partialAmt.toFixed(2)} € serão descontados do sócio no fecho via transação irmã transitória vinculada à mesma fatura.`
+                        ? `🧳 A fatura reparte-se: ${(totalAmt - partialAmt).toFixed(2)} € ficam como despesa do evento (DRE/BP) e ${partialAmt.toFixed(2)} € vão para o sócio numa transação irmã transitória. A soma continua a valer ${totalAmt.toFixed(2)} €.`
                         : "🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP."}
                     </p>
                   </div>
