@@ -123,7 +123,7 @@ export default function SalesBIEvent() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("id, name, total_capacity")
+        .select("id, name, total_capacity, on_sale")
         .eq("event_id", eventId);
       if (error) throw error;
       return (data ?? []) as unknown as ZoneRow[];
