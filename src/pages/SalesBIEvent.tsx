@@ -41,7 +41,20 @@ interface ZoneRow {
   id: string;
   name: string;
   total_capacity: number | null;
+  on_sale: boolean | null;
 }
+
+const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+/** Nome da sessão: "DD/MM/AAAA HH:MM" → { dayISO, weekday } */
+const parseSessionName = (name: string) => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(name.trim());
+  if (!m) return null;
+  const [, d, mo, y] = m;
+  const dayISO = `${y}-${mo}-${d}`;
+  const wd = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d))).getUTCDay();
+  return { dayISO, weekday: WEEKDAYS[wd] };
+};
+
 
 interface SaleRow {
   zone_id: string | null;
