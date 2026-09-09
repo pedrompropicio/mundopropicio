@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { lisbonToday, formatLisbonDateTime } from "@/lib/date-lisbon";
+import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
+import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -114,6 +116,8 @@ function Sparkline({ data }: { data: number[] }) {
 
 export default function SalesBI() {
   const navigate = useNavigate();
+  const { withIva, setWithIva, ivaSuffix } = useIvaMode();
+  const { groupRateOf } = useEventIvaRates();
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
   const start = toISO(addDays(today, -37));
@@ -240,7 +244,10 @@ export default function SalesBI() {
             Eventos por realizar, ordenados por quem precisa de atenção.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">Leitura de {formatLisbonDateTime(new Date())}</p>
+        <div className="flex flex-col items-end gap-1">
+          <IvaToggle withIva={withIva} onChange={setWithIva} />
+          <p className="text-xs text-muted-foreground">Leitura de {formatLisbonDateTime(new Date())}</p>
+        </div>
       </div>
 
       {isLoading ? (
@@ -259,11 +266,11 @@ export default function SalesBI() {
               className="p-4 cursor-pointer transition-colors hover:bg-accent/40"
               role="link"
               tabIndex={0}
-              onClick={() => navigate(`/vendas/${r.p.group_id}`)}
+              onClick={() => navigate(`/vendas/${r.p.group_id}${ivaSuffix}`)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  navigate(`/vendas/${r.p.group_id}`);
+                  navigate(`/vendas/${r.p.group_id}${ivaSuffix}`);
                 }
               }}
             >
@@ -302,7 +309,10 @@ export default function SalesBI() {
                   ) : (
                     <>
                       <p className="text-sm font-semibold">{nf1.format(r.med7)} bilh./dia</p>
-                      <p className="text-xs text-muted-foreground">{money(r.medValue7)} /dia</p>
+                      <p className="text-xs text-muted-foreground">
+                        {money(withIva ? r.medValue7 : netOfIva(r.medValue7, groupRateOf(r.p.group_id)))} /dia
+                        {!withIva ? <span className="ml-1">s/ IVA</span> : null}
+                      </p>
                     </>
                   )}
                 </div>
@@ -324,7 +334,12 @@ export default function SalesBI() {
                 {/* Total */}
                 <div className="md:col-span-1 tabular-nums">
                   <p className="text-sm font-semibold">{int(r.p.total_qty)}</p>
-                  <p className="text-xs text-muted-foreground">{money(r.p.total_value)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {money(withIva ? Number(r.p.total_value || 0) : netOfIva(Number(r.p.total_value || 0), groupRateOf(r.p.group_id)))}
+                    {!withIva ? (
+                      <span className="ml-1">{groupRateOf(r.p.group_id) === null ? "taxas mistas" : "s/ IVA"}</span>
+                    ) : null}
+                  </p>
                 </div>
 
                 {/* Ocupação */}
