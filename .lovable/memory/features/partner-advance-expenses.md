@@ -24,7 +24,7 @@ type: feature
 ## Fluxos de entrada
 1. **Criação direta** (`TransactionFormModal`): toggle "🧳 Extra do Sócio" + selector de sócio (suporta split parcial)
 2. **Conversão posterior** (`TransactionEditModal`): bloco "Converter em Extra do Sócio" — total OU parcial
-3. **Desmembramento via Split multi-evento**: selecionar "Sócio" como destino
+3. **Não existe caminho via rateio multi-evento**: o Extra do Sócio **não se combina** com rateio (em `TransactionSplitConfig` cada perna é só `{evento, percentagem}` — nunca houve destino "Sócio"). Com o rateio activo o toggle 🧳 fica visível mas **desactivado**: reparte-se primeiro pelos eventos e converte-se depois a perna do evento onde o sócio está.
 
 ## Split parcial (apenas parte da fatura é extra) — A FATURA REPARTE-SE, NÃO SE DUPLICA
 Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é despesa normal da empresa):
