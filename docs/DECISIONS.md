@@ -583,3 +583,11 @@ Decisão — o BI de Vendas tem **entrada própria na barra lateral** e vive em 
 O critério da separação é a pergunta a que cada um responde. **Um relatório responde a "dá-me esta lista"**: abre vazio, exige filtros, produz um extracto para conferir ou exportar. **O BI responde a "o que está a acontecer"**: abre já preenchido, ordenado por quem precisa de atenção, sem o utilizador escolher nada. Misturar os dois na mesma gaveta obriga a quem quer o segundo a comportar-se como quem quer o primeiro.
 
 Nota: os ~30 relatórios existentes **ficam para auditoria à parte** — há relatórios sem sentido e com informação partida desde a criação. Essa revisão não bloqueia o BI nem se faz de arrasto.
+
+## D-ERP19 — O adiantamento abate-se numa secção só, nunca em duas (09/09/2026)
+
+Contexto: no fecho da Ticketline da Anitta EDA 2026, os 11 adiantamentos (1.103.500,00 €) apareciam ao mesmo tempo na secção "Adiantamentos já recebidos" (onde são abatidos automaticamente) e na lista de "Despesas pagas pela bilheteira (c/IVA)" como deduções marcáveis. A causa: um adiantamento é, na prática, uma despesa `paid` na conta da própria bilheteira — exactamente o critério que a lista de deduções usava. Marcar um deles subtraía o valor duas vezes ao líquido a transferir, sem qualquer aviso.
+
+Decisão — **cada abatimento tem um e um só sítio no fecho.** As transações referidas por `event_ticket_office_advances.transaction_id` (do evento e da bilheteira em causa) são **sempre** excluídas da lista de deduções, independentemente do estado do adiantamento. Única excepção: se a transação já estiver ligada a este fecho por `settlement_id` — caso de edição de um fecho antigo — mantém-se visível, para não alterar retroactivamente um fecho já confirmado.
+
+Decisão — **a lista de deduções passa a distinguir factos de candidatos.** Grupo "Pagas por esta bilheteira" (despesas já `paid` na conta desta bilheteira: dinheiro que saiu mesmo) primeiro; grupo "Em aberto neste evento — marca só se foram pagas pela bilheteira" (pending/approved, de qualquer conta) depois. O cálculo não muda: o total de deduções continua a ser a soma do que estiver marcado, venha do grupo que vier. A separação é de leitura — juntar as duas naturezas na mesma lista sem cabeçalho convida a marcar coisas que a bilheteira nunca pagou.

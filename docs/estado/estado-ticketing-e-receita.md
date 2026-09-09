@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-08 · Issues: #73, #78, #128, #129, #130
+Atualizado: 2026-09-09 · Issues: #73, #78, #128, #129, #130
 
 ## Em que pé está
 
@@ -44,6 +44,8 @@ Contagem a 08/09/2026: `bol` 4 eventos / 233 linhas / 1.776 bilhetes · `ticketl
 **Apuramento 2558/2026 — Ticketline × Anitta, conferido a 07/09.** Bruto 2.424.200,00 (27.047 bilhetes: internet 2.211.170,00 / 24.544 · postos TL 213.030,00 / 2.503, valor que bate ao cêntimo com `ticket_sales`). Deduções 12.863,83: FT FA.2026/2744 de 21/07 (comissão 2% dos postos físicos 4.019,43 + dez caixas de pulseiras 1.400,00) e FT FA.2026/2809 de 29/07 (campanha 2.905,30 + comissionamento das vendas geradas 2.133,67). Onze adiantamentos entre 24/02 e 07/08, 1.103.500,00. Saldo 1.307.836,17, pago a 04/09: **905.000,00 para a EIN** por instrução da MP e **402.836,17 para a MP** (comprovativo Millennium, operação 1889514698). **Não há comissão sobre vendas de internet** — é por isso que o revenue share corre no sentido inverso, da Ticketline para a MP: 5% sobre 2.211.170,00 = 110.558,50 + IVA = 135.986,96, faturado pela MP em 07/09 (FT 2026 101), de que 4% entram como receita do evento e 1% fica como ativo exclusivo MP+EIN.
 
 **As quatro despesas das faturas da Ticketline já estão no BP da Anitta**, cada uma com a sua linha: 2.6.07 Comissão bilhetes 4.019,43 · 4.1.09 Pulseiras Open Bar 980,00 · 4.1.09 Pulseiras Staff 420,00 · 3.2.01 Tráfego Pago Via Bilheteira 5.038,97. Como o evento fecha pelo BP, o custo já lá está; falta-lhes só a liquidação, que o fecho da bilheteira converte de previsto em realizado sem tocar no resultado.
+
+**O adiantamento abate-se numa secção só (corrigido 09/09/2026, D-ERP19).** Um adiantamento é uma despesa `paid` na conta da própria bilheteira — o mesmo critério que a lista de deduções do wizard usava. Por isso os 11 adiantamentos da Anitta (1.103.500,00 €) apareciam a dobrar: abatidos automaticamente em "Adiantamentos já recebidos" e ainda marcáveis como deduções, com risco de duplo abate silencioso no líquido a transferir. Agora a query `settlement_eligible_txns` exclui **sempre** as transações referidas por `event_ticket_office_advances.transaction_id` desse evento e dessa bilheteira, qualquer que seja o estado do adiantamento; a única excepção é uma transação já ligada a este fecho por `settlement_id` (edição de fecho antigo). A lista passou também a ter dois cabeçalhos: "Pagas por esta bilheteira" (despesas `paid` na conta da bilheteira — dinheiro que saiu mesmo) e "Em aberto neste evento — marca só se foram pagas pela bilheteira" (pending/approved, de qualquer conta). O cálculo não mudou. Na Anitta × Ticketline ficam **2 linhas no grupo (a)** — repasse de 905.000,00 à EIN e saldo do apuramento 2558/2026 de 402.836,17 — e **14 no grupo (b)**; antes da correção o grupo (a) tinha 13, das quais 11 eram adiantamentos.
 
 **`is_conciliated` é um carimbo manual, agora ligado ao fecho.** Confirmar um fecho marca-o; estornar desmarca-o. O botão manual em `EventTicketing.tsx` continua a existir. Deixou de esconder o botão de abrir o fecho.
 
