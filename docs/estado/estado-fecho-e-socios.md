@@ -97,6 +97,12 @@ A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146
 
 **Decisões de 30/08:** a última versão do BP contém só linhas com custo real; o snapshot faz-se **antes** da limpeza. O guarda-chuva de rubrica para despesas de equipa nasce a zero. O sistema não decide tratamento fiscal — produz a composição por taxa e uma pessoa decide `redebito` ou `reembolso`.
 
+**Existe UM único Extra do Sócio em toda a Live e ZERO splits parciais alguma vez criados.** Medido a 09/09/2026. Tudo o que se corrigiu neste caminho era defeito latente, não estrago instalado.
+
+**`transactions.paid_amount` NÃO é derivado de `transaction_payments`** — 624 de 706 transações liquidadas não têm linhas lá. As guardas só limitam cada campo contra o bruto da própria transação; nunca se reconstrói `paid_amount` a partir do razão de pagamentos.
+
+**Pagar uma transação de um grupo de fatura liquida automaticamente as irmãs**, cada uma pelo seu remanescente, com linha própria em `transaction_payments`. Nunca correu em produção até 09/09/2026: zero dos 147 pagamentos têm essa marca.
+
 ## Onde ler mais
 
 - `docs/procedimentos/PROC-fecho-evento.md`
