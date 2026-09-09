@@ -951,6 +951,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         const candidates = eligibleTxns.filter(
                           (t: any) => !(t.status === "paid" && t.account_id === officeId)
                         );
+                        const selectedInOpen = candidates.filter((t: any) => selectedTxnIds.has(t.id)).length;
+                        // Nunca pode existir dedução marcada escondida.
+                        const openExpanded = openGroupExpanded || selectedInOpen > 0;
+                        const q = openSearch.trim().toLowerCase();
+                        const visibleCandidates = q
+                          ? candidates.filter((t: any) =>
+                              `${t.description ?? ""} ${t.suppliers?.name ?? ""}`.toLowerCase().includes(q)
+                            )
+                          : candidates;
                         const renderRow = (t: any) => {
                           const checked = selectedTxnIds.has(t.id);
                           return (
@@ -973,6 +982,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                   {t.suppliers?.name ?? "—"}
                                   {t.account_categories?.code && ` · ${t.account_categories.code}`}
                                 </p>
+                                {t._isRateioMaster && (
+                                  <p className="text-[11px] text-muted-foreground truncate">
+                                    fatura completa {formatCurrency(txnGross(t))} · parte deste evento{" "}
+                                    {formatCurrency(Number(t._eventShareGross || 0))}
+                                  </p>
+                                )}
                               </div>
                               <span className="font-mono text-sm font-semibold whitespace-nowrap">
                                 {formatCurrency(txnGross(t))}
@@ -992,12 +1007,41 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                             )}
                             {candidates.length > 0 && (
                               <>
-                                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-y border-border">
-                                  Em aberto neste evento — marca só se foram pagas pela bilheteira
-                                </p>
-                                <ul className="divide-y divide-border">{candidates.map(renderRow)}</ul>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenGroupExpanded((v) => !v)}
+                                  className="w-full text-left px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-y border-border hover:bg-muted"
+                                >
+                                  {candidates.length} despesa{candidates.length === 1 ? "" : "s"} em aberto neste evento
+                                  {selectedInOpen > 0 && ` · ${selectedInOpen} marcada${selectedInOpen === 1 ? "" : "s"}`}
+                                  {" · "}
+                                  {openExpanded ? "esconder" : "mostrar"}
+                                </button>
+                                {openExpanded && (
+                                  <>
+                                    <div className="px-3 py-2 border-b border-border">
+                                      <p className="text-[11px] text-muted-foreground mb-1.5">
+                                        Marca só se foram pagas pela bilheteira.
+                                      </p>
+                                      <Input
+                                        value={openSearch}
+                                        onChange={(e) => setOpenSearch(e.target.value)}
+                                        placeholder="Pesquisar por descrição ou fornecedor…"
+                                        className="h-8 text-xs"
+                                      />
+                                    </div>
+                                    {visibleCandidates.length === 0 ? (
+                                      <p className="p-4 text-xs text-muted-foreground text-center">
+                                        Nenhuma despesa corresponde à pesquisa.
+                                      </p>
+                                    ) : (
+                                      <ul className="divide-y divide-border">{visibleCandidates.map(renderRow)}</ul>
+                                    )}
+                                  </>
+                                )}
                               </>
                             )}
+
                           </>
                         );
                       })()
