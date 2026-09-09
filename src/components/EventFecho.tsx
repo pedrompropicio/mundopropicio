@@ -22,6 +22,7 @@ import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+import { fetchPartnerExtras } from "@/lib/partner-extras";
 
 
 interface Props {
