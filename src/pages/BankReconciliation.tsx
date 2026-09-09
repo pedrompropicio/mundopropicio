@@ -199,6 +199,9 @@ export default function BankReconciliation() {
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
   const ignoredLines = (savedLines as any[]).filter((l) => l.status === "ignored");
+  // Anteriores ao corte: ficam à parte, só para o histórico.
+  const preCutoffLines = (savedLines as any[]).filter((l) => l.status === "pre_cutoff");
+  const preCutoffTotal = preCutoffLines.reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
 
   const txWithoutLine = useMemo(() => {
     if (!currentStatement) return [] as ReconcileTransaction[];
@@ -207,8 +210,10 @@ export default function BankReconciliation() {
       savedExplainedIds,
       currentStatement.period_from,
       currentStatement.period_to,
+      cutoff,
     );
-  }, [txns, savedExplainedIds, currentStatement]);
+  }, [txns, savedExplainedIds, currentStatement, cutoff]);
+
 
   // ---- Confronto sistema × banco ------------------------------------------
   // O ecrã existe para tornar visível uma diferença. Confrontar abertura +
@@ -260,16 +265,21 @@ export default function BankReconciliation() {
       setParsed(p);
       setFileName(file.name);
       setFileRef(file);
-      const lines = p.lines.map((l, i) => ({
-        key: String(i),
-        description: l.description,
-        amount: l.amount,
-        bookingDate: l.bookingDate,
-        valueDate: l.valueDate,
-      }));
+      // Só as linhas POSTERIORES ao corte entram nas camadas de conciliação.
+      // A chave é o índice na lista completa, para o gravar voltar a casar.
+      const lines = p.lines
+        .map((l, i) => ({
+          key: String(i),
+          description: l.description,
+          amount: l.amount,
+          bookingDate: l.bookingDate,
+          valueDate: l.valueDate,
+        }))
+        .filter((l) => !isPreCutoff(l.bookingDate));
       setPreview(
         reconcileStatement(lines, txns as ReconcileTransaction[], sepaExports as ReconcileSepaExport[]),
       );
+
     } catch (err: any) {
       setParsed(null);
       setPreview(null);
