@@ -154,12 +154,7 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="implant-date">Data de corte</Label>
-              <Input
-                id="implant-date"
-                type="date"
-                value={cutoff}
-                onChange={(e) => setCutoff(e.target.value)}
-              />
+              <DatePicker id="implant-date" value={cutoff} onChange={setCutoff} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="implant-balance">Saldo nessa data (€)</Label>
@@ -167,6 +162,7 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
                 id="implant-balance"
                 type="number"
                 step="0.01"
+                placeholder="0,00"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}
               />
