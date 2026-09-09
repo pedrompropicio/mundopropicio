@@ -180,3 +180,30 @@ export async function computeLineHash(
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+/**
+ * Código de referência do banco (o token final, do tipo `D485O347`).
+ *
+ * O lote SEPA, a sua comissão e o seu imposto de selo são o MESMO
+ * acontecimento visto em três linhas, e o banco liga-as por este código.
+ * Só serve para agrupar na leitura — nunca para lançar nada.
+ */
+export function extractBankRef(description: string): string | null {
+  const tokens = (description || "")
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/)
+    .filter(Boolean);
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i];
+    if (t.length < 6 || t.length > 12) continue;
+    if (!/^[A-Z0-9]+$/.test(t)) continue;
+    if (!/[A-Z]/.test(t) || !/\d/.test(t)) continue;
+    return t;
+  }
+  return null;
+}
+
+/** Tokens numéricos de 6 ou 8 dígitos presentes na descrição (datas DDMMAA / DDMMAAAA). */
+export function extractDateTokens(description: string): string[] {
+  return ((description || "").match(/\d{6,8}/g) ?? []).filter((t) => t.length === 6 || t.length === 8);
+}
