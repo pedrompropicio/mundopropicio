@@ -150,6 +150,26 @@ function sectionTitle(doc: jsPDF, text: string, y: number): number {
   return y + 3;
 }
 
+/** Identificação compacta no topo das folhas de anexo. Devolve o y para o conteúdo. */
+function pageIdent(doc: jsPDF, tourName: string, meta: string): number {
+  const y = 14;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text(tourName, M, y);
+  const nameW = doc.getTextWidth(tourName);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text(meta, M + nameW + 3, y);
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.2);
+  doc.line(M, y + 2.5, PAGE_W - M, y + 2.5);
+  doc.setDrawColor(0, 0, 0);
+  return y + 8;
+}
+
 export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   const internal = params.variant === "internal";
   const branding = await fetchExportBranding(params.companyId ?? null);
@@ -161,6 +181,9 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     : `Valores sem IVA${params.ivaRate != null ? ` (taxa ${dec1(params.ivaRate)}% deduzida)` : " (taxa do evento deduzida linha a linha)"}`;
   const periodLine = `Período analisado: ${params.days} dias — ${fmtDay(params.periodStart)} a ${fmtDay(params.periodEnd)}`;
   const sfx = params.withIva ? "" : " s/ IVA";
+  const identMeta = `${params.days} dias — ${fmtDay(params.periodStart)} a ${fmtDay(params.periodEnd)} · ${
+    params.withIva ? "com IVA" : "sem IVA"
+  }${params.ivaRate != null ? ` (${dec1(params.ivaRate)}%)` : ""}`;
 
   // ── FOLHA 1 — síntese ────────────────────────────────────────────────
   let y = drawPdfExportHeader(doc, {
@@ -247,7 +270,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
 
   // ── FOLHA 2 — anexo analítico ────────────────────────────────────────
   doc.addPage();
-  y = 18;
+  y = pageIdent(doc, params.tourName, identMeta);
   y = sectionTitle(doc, "Anexo analítico — por cidade", y);
   autoTable(doc, {
     startY: y + 2,
@@ -304,7 +327,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   // ── FOLHA 3 — só versão interna ──────────────────────────────────────
   if (internal) {
     doc.addPage();
-    y = 18;
+    y = pageIdent(doc, params.tourName, identMeta);
     y = sectionTitle(doc, "Qualidade dos dados — lotação", y);
     if (params.qualityIssues.length === 0) {
       doc.setFontSize(9);
