@@ -1824,30 +1824,51 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                     <span>Apenas parte da fatura é extra do sócio</span>
                     <HelpTooltip
                       size={12}
-                      text={`Vazio = a fatura inteira (${Number(transaction.amount).toFixed(2)} €) vira Extra do Sócio (transitória). Ativo = a fatura mantém-se NORMAL pelo total e cria-se uma transação irmã transitória pelo valor parcial vinculada ao sócio.`}
+                      text={`Vazio = a fatura inteira (${Number(transaction.amount).toFixed(2)} € s/IVA) vira Extra do Sócio (transitória). Ativo = a fatura reparte-se: esta despesa passa a valer o restante e cria-se uma transação irmã transitória pela parte do sócio. A soma das duas continua a valer a fatura inteira.`}
                     />
                   </label>
 
-                  {convertIsPartial && (
-                    <div>
-                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                        Valor que é extra do sócio (€)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max={Number(transaction.amount)}
-                        value={convertPartialAmount}
-                        onChange={(e) => setConvertPartialAmount(e.target.value)}
-                        placeholder={`máx ${Number(transaction.amount).toFixed(2)}`}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        A fatura é registada por {Number(transaction.amount).toFixed(2)} € (entra DRE/BP). {(parseFloat(convertPartialAmount) || 0).toFixed(2)} € serão descontados do sócio no fecho via transação irmã transitória vinculada à mesma fatura.
-                      </p>
-                    </div>
-                  )}
+                  {convertIsPartial && (() => {
+                    const totalNet = Number(transaction.amount);
+                    const partialNet = parseFloat(convertPartialAmount) || 0;
+                    const mult = 1 + (Number(transaction.iva_rate) || 0) / 100;
+                    const principalNet = Number((totalNet - partialNet).toFixed(2));
+                    const showPreview = partialNet > 0 && partialNet < totalNet;
+                    return (
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                          Valor que é extra do sócio — s/ IVA (€)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={totalNet}
+                          value={convertPartialAmount}
+                          onChange={(e) => setConvertPartialAmount(e.target.value)}
+                          placeholder={`máx ${totalNet.toFixed(2)} s/IVA`}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                        {showPreview && (
+                          <div className="mt-2 space-y-0.5 rounded-md border border-border/60 bg-background/60 p-2 text-[10px]">
+                            <div className="font-medium text-muted-foreground">Como fica a repartição</div>
+                            <div className="flex justify-between gap-3">
+                              <span>Despesa do evento</span>
+                              <span className="font-mono">{principalNet.toFixed(2)} € s/IVA · {(principalNet * mult).toFixed(2)} € c/IVA</span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span>Extra do sócio</span>
+                              <span className="font-mono">{partialNet.toFixed(2)} € s/IVA · {(partialNet * mult).toFixed(2)} € c/IVA</span>
+                            </div>
+                            <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
+                              <span>Total da fatura</span>
+                              <span className="font-mono">{totalNet.toFixed(2)} € s/IVA · {(totalNet * mult).toFixed(2)} € c/IVA</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <button
                     type="button"
@@ -1859,14 +1880,65 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                           toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${(total - 0.01).toFixed(2)} €.`, variant: "destructive" });
                           return;
                         }
-                        if (!confirm(`Marcar ${partial.toFixed(2)} € como Extra do Sócio? A fatura mantém-se normal pelo total.`)) return;
+                        // ============================================================
+                        // A FATURA REPARTE-SE, NÃO SE DUPLICA.
+                        // Invariante (D-ERP17): a soma dos `amount` das transações com o
+                        // mesmo `invoice_group_id` é igual ao total da fatura:
+                        //   principal.amount = total − X   e   irmã.amount = X
+                        // Se a principal ficasse pelo total, os mesmos euros estariam ao
+                        // mesmo tempo no custo do evento e no débito ao sócio (dupla
+                        // contagem no acerto). É esta a invariante a preservar.
+                        // ============================================================
+                        const ivaMult = 1 + (Number(transaction.iva_rate) || 0) / 100;
+                        const grossBefore = total * ivaMult;
+                        const paidBefore = Number((transaction as any).paid_amount || 0);
+                        const newPrincipalNet = Number((total - partial).toFixed(2));
+                        const newPrincipalGross = Number((newPrincipalNet * ivaMult).toFixed(2));
+                        const siblingGross = Number((partial * ivaMult).toFixed(2));
+
+                        // (a) Razão de pagamentos individual: repartir a base deixaria a soma
+                        // das parcelas acima do bruto da principal (trg_validate_paid_amount…).
+                        const { count: payCount, error: payErr } = await supabase
+                          .from("transaction_payments")
+                          .select("id", { count: "exact", head: true })
+                          .eq("transaction_id", transaction.id);
+                        if (payErr) {
+                          toast({ title: "Não foi possível verificar os pagamentos", description: payErr.message, variant: "destructive" });
+                          return;
+                        }
+                        if ((payCount ?? 0) > 0) {
+                          toast({
+                            title: "Acerta primeiro os pagamentos",
+                            description: `Esta fatura tem ${payCount} pagamento(s) registado(s) no razão de pagamentos. Repartir a fatura deixaria os pagamentos a somar mais do que o valor da despesa. Remove ou corrige os pagamentos e volta a tentar.`,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        // (b) Pago só em parte: não há forma não-arbitrária de dividir o que já foi pago.
+                        const fullyPaid = paidBefore >= grossBefore - 0.01;
+                        if (paidBefore > 0.01 && !fullyPaid) {
+                          toast({
+                            title: "Fatura paga só em parte",
+                            description: `Já estão pagos ${paidBefore.toFixed(2)} € de ${grossBefore.toFixed(2)} € c/IVA. Não é possível repartir a fatura sem arbitrar a quem pertence o valor já pago — liquida-a por inteiro ou anula o pagamento primeiro.`,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        if (!confirm(
+                          `Repartir esta fatura?\n\nDespesa do evento: ${newPrincipalNet.toFixed(2)} € s/IVA (${newPrincipalGross.toFixed(2)} € c/IVA)\nExtra do sócio: ${partial.toFixed(2)} € s/IVA (${siblingGross.toFixed(2)} € c/IVA)\n\nO total da fatura mantém-se ${total.toFixed(2)} € s/IVA.`
+                        )) return;
+
                         // 1) Garante invoice_group_id na principal
                         let groupId = transaction.invoice_group_id ?? null;
                         if (!groupId) {
                           groupId = crypto.randomUUID();
                           await supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id);
                         }
-                        // 2) Cria irmã transitória pelo valor parcial
+                        // 2) Cria PRIMEIRO a irmã transitória pela parte do sócio; só depois se
+                        //    reduz a principal (amount + paid_amount no MESMO update, senão a
+                        //    trava trg_validate_paid_amount_not_exceeds_gross recusa).
+                        //    Estado e pago seguem a principal.
                         const { data: sibling, error: sErr } = await supabase
                           .from("transactions")
                           .insert({
@@ -1882,8 +1954,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                             due_date: transaction.due_date,
                             invoice_ref: transaction.invoice_ref,
                             invoice_group_id: groupId,
-                            status: "paid",
-                            payment_date: transaction.payment_date ?? transaction.date,
+                            status: transaction.status,
+                            paid_amount: fullyPaid ? siblingGross : 0,
+                            payment_date: fullyPaid ? (transaction.payment_date ?? transaction.date) : null,
                             is_transitory: true,
                             exclude_from_result: false,
                             currency: transaction.currency ?? "EUR",
@@ -1891,13 +1964,30 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                           .select("id")
                           .single();
                         if (sErr || !sibling) { toast({ title: "Erro a criar irmã", description: sErr?.message, variant: "destructive" }); return; }
-                        // 3) Vincula a irmã ao partner_advance_expenses
+                        // 3) Reduz a principal para (total − X)
+                        const { error: redErr } = await supabase
+                          .from("transactions")
+                          .update({
+                            amount: newPrincipalNet,
+                            paid_amount: fullyPaid ? newPrincipalGross : 0,
+                          } as any)
+                          .eq("id", transaction.id);
+                        if (redErr) {
+                          // Não deixar a irmã sozinha a duplicar euros: desfaz o passo 2.
+                          await supabase.from("transactions").delete().eq("id", sibling.id);
+                          toast({ title: "Não foi possível repartir a fatura", description: redErr.message, variant: "destructive" });
+                          return;
+                        }
+                        // 4) Vincula a irmã ao partner_advance_expenses
                         await supabase.from("partner_advance_expenses").insert({
                           event_id: form.event_id,
                           partner_id: convertPartnerId,
                           transaction_id: sibling.id,
                         } as any);
-                        toast({ title: "Split parcial criado", description: `${partial.toFixed(2)} € serão descontados do sócio no fecho.` });
+                        toast({
+                          title: "Fatura repartida",
+                          description: `Despesa do evento ${newPrincipalNet.toFixed(2)} € · extra do sócio ${partial.toFixed(2)} € (s/IVA).`,
+                        });
                       } else {
                         if (!confirm("Converter esta despesa em Extra do Sócio? Será marcada como transitória e descontada do sócio no fecho.")) return;
                         // Guarda a linha de BP que ficará sem transação (aviso não bloqueante).
