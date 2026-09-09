@@ -785,6 +785,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     () => (selectedForecastId ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId) : null),
     [selectedForecastId, relevantForecasts],
   );
+
+  // 🧳 Extra do Sócio — a isenção de BP segue a TRANSITÓRIA, não a fatura.
+  // Extra TOTAL: a transação é transitória por inteiro, é custo do sócio e não
+  // consome BP → isenta de categoria/linha do BP.
+  // Extra PARCIAL: a principal NÃO é transitória (é despesa do evento como
+  // qualquer outra) → tem de ter categoria do BP e linha do BP. Só a irmã
+  // transitória é isenta.
+  const partnerExtraIsPartialUi = useMemo(() => {
+    if (!isPartnerExtra || isSplit) return false;
+    const total = parseFloat(form.amount) || 0;
+    const partial = parseFloat(partnerExtraPartialAmount) || 0;
+    return partial > 0 && partial < total;
+  }, [isPartnerExtra, isSplit, form.amount, partnerExtraPartialAmount]);
+  /** Verdadeiro só quando a transação principal fica transitória (extra total). */
+  const partnerExtraBypassesBp = isPartnerExtra && !partnerExtraIsPartialUi;
   const selectedForecastL2Id = useMemo(
     () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
     [selectedForecast, categories],
