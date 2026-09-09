@@ -64,10 +64,14 @@ export function buildAccountCutoffs(
  * @param cutoffs    Optional Map<account_id, initial_balance_date>: pagamentos
  *                   com data igual ou anterior ao corte são história e ficam
  *                   fora do ajuste.
+ * @param bounds     Janela opcional sobre a data efetiva do pagamento, para
+ *                   relatórios por período (Extrato). Não substitui o corte:
+ *                   os dois filtros aplicam-se em conjunto.
  */
 export async function fetchAccountCashAdjustments(
   accountIds?: string[],
-  cutoffs?: AccountCutoffs
+  cutoffs?: AccountCutoffs,
+  bounds?: { gte?: string; lt?: string; lte?: string }
 ): Promise<AccountCashAdjustments> {
   let query = supabase
     .from("transaction_payments")
@@ -88,6 +92,12 @@ export async function fetchAccountCashAdjustments(
   for (const row of data ?? []) {
     if (!row.account_id) continue;
     if (!countsAfterCutoff(row as any, cutoffs?.get(row.account_id))) continue;
+    if (bounds) {
+      const eff = effectivePaymentDate(row as any);
+      if (bounds.gte && (!eff || eff < bounds.gte.slice(0, 10))) continue;
+      if (bounds.lt && (!eff || eff >= bounds.lt.slice(0, 10))) continue;
+      if (bounds.lte && (!eff || eff > bounds.lte.slice(0, 10))) continue;
+    }
     const w = Number(row.withholding_amount ?? 0);
     const c = Number(row.credit_amount ?? 0);
     const inc = w + c;
@@ -96,6 +106,7 @@ export async function fetchAccountCashAdjustments(
   }
   return map;
 }
+
 
 /**
  * Fonte única do saldo de uma conta financeira.
