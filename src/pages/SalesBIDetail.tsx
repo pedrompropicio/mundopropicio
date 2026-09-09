@@ -79,15 +79,26 @@ interface EventRow {
 
 const PERIODS = [7, 14, 30, 90] as const;
 
-function Variation({ v }: { v: number | null }) {
-  if (v === null) return <span className="text-muted-foreground">—</span>;
-  return (
-    <span className={cn("font-semibold", v < 0 ? "text-destructive" : "text-success")}>
-      {v > 0 ? "+" : ""}
-      {nfInt.format(Math.round(v))}%
-    </span>
-  );
+function Variation({ t }: { t: Traction }) {
+  if (t.pct !== null) {
+    return (
+      <span className={cn("font-semibold", t.pct < 0 ? "text-destructive" : "text-success")}>
+        {t.pct > 0 ? "+" : ""}
+        {nfInt.format(Math.round(t.pct))}%
+      </span>
+    );
+  }
+  if (t.shortBase) {
+    return (
+      <span className="inline-block">
+        <span>{int(t.qty)} vs {int(t.prevQty)}</span>
+        <span className="block text-[10px] text-muted-foreground">base curta</span>
+      </span>
+    );
+  }
+  return <span className="text-muted-foreground">—</span>;
 }
+
 
 function BarsChart({ points }: { points: { date: string; qty: number; ma: number | null }[] }) {
   const w = 900;
