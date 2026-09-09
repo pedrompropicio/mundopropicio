@@ -321,15 +321,18 @@ export default function SalesBIDetail() {
     const caps = zoneCapsQ.data;
     const cities = cityList
       .map((e) => {
-        const c = byCity.get(e.id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
+        const c = byCity.get(e.id) ?? { qty: 0, value: 0, prevQty: 0, total: 0, firstSale: null };
         const t = caps?.get(e.id) ?? null;
+        // Denominador honesto: dias desde o arranque de venda dentro do período.
+        const medDays = salesAvgDays(c.firstSale, pStart, pEnd, days);
         return {
           id: e.id,
           name: e.name,
           date: e.date?.slice(0, 10) ?? null,
           qty: c.qty,
           value: c.value,
-          med: c.qty / days,
+          med: c.qty / medDays,
+          medDays,
           variacao: traction(c.qty, c.prevQty, days),
           total: c.total,
           source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
@@ -341,20 +344,24 @@ export default function SalesBIDetail() {
       })
       .sort((a, b) => b.qty - a.qty);
 
+    const medDays = salesAvgDays(firstSale, pStart, pEnd, days);
+
     return {
       tourName,
       nextDate,
       nextIn,
       qty,
       value,
-      med: qty / days,
-      medValue: value / days,
+      med: qty / medDays,
+      medValue: value / medDays,
+      medDays,
       variacao,
       totalQty,
       totalValue,
       points,
       cities,
     };
+
 
   }, [seriesQ.data, eventsQ.data, zoneCapsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
 
