@@ -85,6 +85,13 @@ interface SeriesRow {
 interface CapacityRow {
   group_id: string;
   capacity: number;
+  available: number;
+  occupied: number;
+  blocked: number;
+  zones: number;
+  zones_oversold: number;
+  last_observed: string | null;
+  stale: boolean;
   trustworthy: boolean;
   issue: string | null;
 }
@@ -205,7 +212,11 @@ export default function SalesBI() {
 
         const cap = caps.get(p.group_id);
         const trustworthy = !!cap?.trustworthy && Number(cap?.capacity || 0) > 0;
-        const ocupacao = trustworthy ? (Number(p.total_qty || 0) / Number(cap!.capacity)) * 100 : null;
+        // OCUPAÇÃO DA SALA = occupied/capacity da bilheteira. NUNCA os nossos
+        // bilhetes (total_qty) divididos pela carga — são coisas diferentes.
+        const ocupados = trustworthy ? Number(cap!.occupied || 0) : null;
+        const carga = trustworthy ? Number(cap!.capacity || 0) : null;
+        const ocupacao = trustworthy ? (Number(cap!.occupied || 0) / Number(cap!.capacity)) * 100 : null;
 
         let state: SalesState;
         if (diasSerie >= 3 && med7 === 0) state = "Parou";
@@ -219,7 +230,7 @@ export default function SalesBI() {
         const sparkData: number[] = [];
         for (let i = 30; i >= 1; i--) sparkData.push(spark.get(toISO(addDays(today, -i))) ?? 0);
 
-        return { p, med7, medValue7, prev7, variacao, diasSerie, diasParaEvento, trustworthy, ocupacao, issue: cap?.issue ?? null, state, sparkData };
+        return { p, med7, medValue7, prev7, variacao, diasSerie, diasParaEvento, trustworthy, ocupacao, ocupados, carga, issue: cap?.issue ?? null, state, sparkData };
       })
       .sort((a, b) => {
         const s = STATE_ORDER[a.state] - STATE_ORDER[b.state];
@@ -342,22 +353,26 @@ export default function SalesBI() {
                   </p>
                 </div>
 
-                {/* Ocupação */}
+                {/* Ocupação da sala — bilheteira (occupied/capacity), não os nossos bilhetes */}
                 <div className="md:col-span-2 tabular-nums">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Ocupação da sala</p>
                   {r.ocupacao !== null ? (
                     <>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{ width: `${Math.min(Math.max(r.ocupacao, 0), 100)}%` }}
                         />
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{nf1.format(r.ocupacao)}% de ocupação</p>
+                      <p className="mt-1 text-sm font-semibold">{nf1.format(r.ocupacao)}%</p>
+                      <p className="text-xs text-muted-foreground">
+                        {int(r.ocupados ?? 0)} de {int(r.carga ?? 0)} lugares
+                      </p>
                     </>
                   ) : (
                     <>
                       <p className="text-sm font-semibold text-muted-foreground">—</p>
-                      <p className="text-xs text-muted-foreground">{r.issue ?? "lotação não fiável"}</p>
+                      <p className="text-xs text-muted-foreground">{r.issue ?? "sem observação de lotação da bilheteira"}</p>
                     </>
                   )}
                 </div>

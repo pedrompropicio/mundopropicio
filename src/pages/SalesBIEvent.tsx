@@ -1,8 +1,8 @@
 /**
  * Terceiro nível do BI de Vendas — uma cidade/evento.
  *
- * MODO A (zonas): quando existem linhas em bilheteira_zone_snapshots.
- *   Retrato de agora + velocidade fixa de 7 dias.
+ * MODO A (zonas): quando existem linhas em event_zone_capacities (lotação real
+ *   das bilheteiras). Retrato de agora + velocidade fixa de 7 dias.
  * MODO B (sessões): quando não existem snapshots — as "zonas" do ERP são
  *   sessões (ex.: Henry & Klauss - Madrid) e as vendas vêm de ticket_sales.
  */
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
+import { fetchZoneCapacities, type ZoneCapacityRow } from "@/lib/zone-capacities";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,15 +36,6 @@ const daysBetween = (fromISO: string, toISOStr: string) => {
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
 };
 
-interface SnapRow {
-  event_id: string;
-  provider: string | null;
-  zone_label: string;
-  seats_available: number | null;
-  capacity: number | null;
-  source: string | null;
-  captured_at: string;
-}
 
 interface ZoneRow {
   id: string;
@@ -101,25 +93,20 @@ export default function SalesBIEvent() {
     },
   });
 
-  const snapsQ = useQuery({
-    queryKey: ["bi-event-snaps", eventId],
+  // Lotação real da bilheteira (histórico completo; usa-se a última observação
+  // por zone_label). Substitui bilheteira_zone_snapshots, que só capturava
+  // parte dos lotes.
+  const capsQ = useQuery({
+    queryKey: ["bi-event-caps", eventId],
     enabled: !!eventId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bilheteira_zone_snapshots")
-        .select("event_id, provider, zone_label, seats_available, capacity, source, captured_at")
-        .eq("event_id", eventId)
-        .order("captured_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as SnapRow[];
-    },
+    queryFn: async () => fetchZoneCapacities([eventId as string]),
   });
 
-  const hasSnaps = (snapsQ.data?.length ?? 0) > 0;
+  const hasSnaps = (capsQ.data?.length ?? 0) > 0;
 
   const zonesQ = useQuery({
     queryKey: ["bi-event-zones", eventId],
-    enabled: !!eventId && snapsQ.isSuccess && !hasSnaps,
+    enabled: !!eventId && capsQ.isSuccess && !hasSnaps,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
@@ -132,7 +119,7 @@ export default function SalesBIEvent() {
 
   const salesQ = useQuery({
     queryKey: ["bi-event-sales", eventId, (zonesQ.data ?? []).length],
-    enabled: !!eventId && snapsQ.isSuccess && !hasSnaps && (zonesQ.data?.length ?? 0) > 0,
+    enabled: !!eventId && capsQ.isSuccess && !hasSnaps && (zonesQ.data?.length ?? 0) > 0,
     queryFn: async () => {
       const zoneIds = (zonesQ.data ?? []).map((z) => z.id);
       const { data, error } = await supabase
@@ -147,30 +134,38 @@ export default function SalesBIEvent() {
   const eventDate = eventQ.data?.date?.slice(0, 10) ?? null;
   const daysLeft = eventDate ? daysBetween(todayISO, eventDate) : null;
 
-  // ---- MODO A: zonas ----
+  // ---- MODO A: zonas (lotação da bilheteira) ----
   const zonesModel = useMemo(() => {
-    const rows = snapsQ.data ?? [];
+    const rows = capsQ.data ?? [];
     if (rows.length === 0) return null;
-    const target = Date.now() - 7 * 86400000;
-    const byZone = new Map<string, SnapRow[]>();
+    const targetISO = (() => {
+      const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - 7 * 86400000);
+      return d.toISOString().slice(0, 10);
+    })();
+    const dist = (iso: string) => Math.abs(daysBetween(iso.slice(0, 10), targetISO));
+
+    const byZone = new Map<string, ZoneCapacityRow[]>();
     for (const r of rows) {
       const list = byZone.get(r.zone_label) ?? [];
       list.push(r);
       byZone.set(r.zone_label, list);
     }
+
     const zones = Array.from(byZone.entries()).map(([label, list]) => {
-      const sorted = [...list].sort((a, b) => +new Date(b.captured_at) - +new Date(a.captured_at));
+      const sorted = [...list].sort((a, b) => String(b.observed_on).localeCompare(String(a.observed_on)));
       const latest = sorted[0];
-      const ref = sorted.reduce((best, r) =>
-        Math.abs(+new Date(r.captured_at) - target) < Math.abs(+new Date(best.captured_at) - target) ? r : best,
-      sorted[0]);
-      const porVender = Number(latest.seats_available ?? 0);
-      const ha7 = Number(ref.seats_available ?? 0);
-      const saiu = ha7 - porVender;
+      const ref = sorted.reduce((best, r) => (dist(r.observed_on) < dist(best.observed_on) ? r : best), sorted[0]);
+      const capacity = latest.capacity != null ? Number(latest.capacity) : null;
+      const occupied = Number(latest.occupied ?? 0);
+      const blocked = Number(latest.blocked ?? 0);
+      const porVender = Number(latest.available ?? 0);
+      // saíram 7d = occupied de agora menos occupied da observação ~hoje-7.
+      // Pode dar negativo (devoluções/libertações) e mostra-se tal como é.
+      const saiu = occupied - Number(ref.occupied ?? 0);
       const ritmo = saiu / 7;
       const esgota = ritmo > 0 ? Math.ceil(porVender / ritmo) : null;
-      const capacity = latest.capacity != null ? Number(latest.capacity) : null;
-      const ocup = capacity && capacity > 0 ? ((capacity - porVender) / capacity) * 100 : null;
+      const ocup = capacity && capacity > 0 ? (occupied / capacity) * 100 : null;
+      const oversold = capacity != null && occupied > capacity;
       let pill: { label: string; tone: "ok" | "warn" | "bad" | "muted" };
       if (porVender === 0) pill = { label: "esgotada", tone: "ok" };
       else if (ritmo <= 0) pill = { label: "parada", tone: "bad" };
@@ -178,18 +173,36 @@ export default function SalesBIEvent() {
         pill = { label: "esgota a tempo", tone: "ok" };
       else if (daysLeft !== null && esgota !== null && esgota <= daysLeft) pill = { label: "à justa", tone: "warn" };
       else pill = { label: "não chega lá", tone: "bad" };
-      return { label, porVender, saiu, ritmo, esgota, capacity, ocup, pill, capturedAt: latest.captured_at };
+      return {
+        label,
+        capacity,
+        occupied,
+        blocked,
+        porVender,
+        saiu,
+        ritmo,
+        esgota,
+        ocup,
+        oversold,
+        pill,
+        observedOn: String(latest.observed_on).slice(0, 10),
+      };
     });
     zones.sort((a, b) => b.porVender - a.porVender);
+    const totalCarga = zones.reduce((s, z) => s + (z.capacity ?? 0), 0);
+    const totalOcupado = zones.reduce((s, z) => s + z.occupied, 0);
     return {
       zones,
+      totalCarga,
+      totalOcupado,
       totalPorVender: zones.reduce((s, z) => s + z.porVender, 0),
       totalSaiu: zones.reduce((s, z) => s + z.saiu, 0),
       totalRitmo: zones.reduce((s, z) => s + z.ritmo, 0),
+      ocupGlobal: totalCarga > 0 ? (totalOcupado / totalCarga) * 100 : null,
       esgotadas: zones.filter((z) => z.porVender === 0).length,
-      capturedAt: zones[0]?.capturedAt ?? null,
+      capturedAt: zones[0]?.observedOn ?? null,
     };
-  }, [snapsQ.data, daysLeft]);
+  }, [capsQ.data, daysLeft, today]);
 
   // ---- MODO B: sessões ----
   const sessionsModel = useMemo(() => {
@@ -241,7 +254,7 @@ export default function SalesBIEvent() {
   }, [hasSnaps, zonesQ.data, salesQ.data, withIva, rateOf, eventId]);
 
   const isLoading =
-    eventQ.isLoading || snapsQ.isLoading || (!hasSnaps && (zonesQ.isLoading || salesQ.isLoading));
+    eventQ.isLoading || capsQ.isLoading || (!hasSnaps && (zonesQ.isLoading || salesQ.isLoading));
 
   const ivaSfx = withIva ? "" : " s/ IVA";
 
@@ -274,27 +287,32 @@ export default function SalesBIEvent() {
         </div>
       ) : zonesModel ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <Kpi label="Carga total" value={int(zonesModel.totalCarga)} />
+            <Kpi label="Ocupado" value={int(zonesModel.totalOcupado)} />
             <Kpi label="Lugares por vender" value={int(zonesModel.totalPorVender)} />
+            <Kpi
+              label="Ocupação da sala"
+              value={zonesModel.ocupGlobal !== null ? pct(zonesModel.ocupGlobal) : "—"}
+            />
             <Kpi label="Saíram nos últimos 7 dias" value={int(zonesModel.totalSaiu)} />
             <Kpi label="Ritmo diário" value={`${nf1.format(zonesModel.totalRitmo)}/dia`} />
-            <Kpi
-              label="Zonas esgotadas"
-              value={`${int(zonesModel.esgotadas)} de ${int(zonesModel.zones.length)}`}
-            />
           </div>
 
           <Card className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-sm">
+              <table className="w-full min-w-[1040px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="p-3 font-medium">Zona</th>
+                    <th className="p-3 text-right font-medium">Carga</th>
+                    <th className="p-3 text-right font-medium">Ocupado</th>
                     <th className="p-3 text-right font-medium">Por vender</th>
+                    <th className="p-3 text-right font-medium">Bloqueado</th>
+                    <th className="p-3 text-right font-medium">Ocupação da sala</th>
                     <th className="p-3 text-right font-medium">Saíram 7d</th>
                     <th className="p-3 text-right font-medium">Ritmo/dia</th>
                     <th className="p-3 text-right font-medium">Esgota em</th>
-                    <th className="p-3 text-right font-medium">Ocupação</th>
                     <th className="p-3 font-medium">Leitura</th>
                   </tr>
                 </thead>
@@ -302,14 +320,30 @@ export default function SalesBIEvent() {
                   {zonesModel.zones.map((z) => (
                     <tr key={z.label} className="border-b last:border-0">
                       <td className="p-3 font-medium">{z.label}</td>
+                      <td className="p-3 text-right">
+                        {z.capacity !== null ? int(z.capacity) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="p-3 text-right">{int(z.occupied)}</td>
                       <td className="p-3 text-right">{int(z.porVender)}</td>
+                      <td className="p-3 text-right">{int(z.blocked)}</td>
+                      <td className="p-3 text-right">
+                        {z.ocup !== null ? (
+                          <>
+                            {pct(z.ocup)}
+                            {z.oversold && (
+                              <span className="ml-1 text-xs text-muted-foreground" title="ocupado acima da carga — libertações/devoluções">
+                                ⚠
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className={cn("p-3 text-right", z.saiu < 0 && "text-destructive")}>{int(z.saiu)}</td>
                       <td className="p-3 text-right">{nf1.format(z.ritmo)}</td>
                       <td className="p-3 text-right">
                         {z.esgota !== null ? `${int(z.esgota)} dias` : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="p-3 text-right">
-                        {z.ocup !== null ? pct(z.ocup) : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="p-3">
                         <Pill label={z.pill.label} tone={z.pill.tone} />
@@ -320,8 +354,9 @@ export default function SalesBIEvent() {
               </table>
             </div>
             <p className="p-3 text-xs text-muted-foreground">
-              Retrato de agora, com velocidade calculada sobre os últimos 7 dias. Ocupação só aparece quando a
-              bilheteira envia lotação da zona.
+              Retrato de agora, com velocidade calculada sobre os últimos 7 dias. Ocupação da sala é o que a
+              bilheteira diz que está tomado (inclui cortesias, protocolo e reservas) — não são os bilhetes vendidos
+              por nós.
             </p>
           </Card>
         </>

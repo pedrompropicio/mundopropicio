@@ -24,6 +24,7 @@ import { lisbonToday } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 import { exportEventSalesPdf, type EventSalesPdfVariant } from "@/lib/export-event-sales-pdf";
+import { fetchZoneCapacities, totalsByEvent } from "@/lib/zone-capacities";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,6 +59,13 @@ interface SeriesRow {
 interface CapacityRow {
   group_id: string;
   capacity: number | null;
+  available: number | null;
+  occupied: number | null;
+  blocked: number | null;
+  zones: number | null;
+  zones_oversold: number | null;
+  last_observed: string | null;
+  stale: boolean;
   trustworthy: boolean;
   issue: string | null;
 }
@@ -206,6 +214,15 @@ export default function SalesBIDetail() {
     },
   });
 
+  // Ocupação da sala por cidade — a RPC agrega por tour, por isso aqui lê-se a
+  // tabela, SEMPRE com a última observação por (event_id, zone_label).
+  const eventIds = useMemo(() => (eventsQ.data ?? []).map((e) => e.id), [eventsQ.data]);
+  const zoneCapsQ = useQuery({
+    queryKey: ["bi-detail-zone-caps", groupId, eventIds.length],
+    enabled: eventIds.length > 0,
+    queryFn: async () => totalsByEvent(await fetchZoneCapacities(eventIds)),
+  });
+
   const isLoading = seriesQ.isLoading || eventsQ.isLoading;
 
   const model = useMemo(() => {
@@ -284,9 +301,11 @@ export default function SalesBIDetail() {
       points.push({ date: d, qty: allByDay.get(d) ?? 0, value: valueByDay.get(d) ?? 0, ma: sum / 7 });
     }
 
+    const caps = zoneCapsQ.data;
     const cities = cityList
       .map((e) => {
         const c = byCity.get(e.id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
+        const t = caps?.get(e.id) ?? null;
         return {
           id: e.id,
           name: e.name,
@@ -297,6 +316,10 @@ export default function SalesBIDetail() {
           variacao: c.prevQty > 0 ? ((c.qty - c.prevQty) / c.prevQty) * 100 : null,
           total: c.total,
           source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
+          // Ocupação da sala (bilheteira): occupied / capacity, nunca os nossos bilhetes.
+          salaCapacity: t && t.capacity > 0 ? t.capacity : null,
+          salaOccupied: t && t.capacity > 0 ? t.occupied : null,
+          salaPct: t && t.capacity > 0 ? (t.occupied / t.capacity) * 100 : null,
         };
       })
       .sort((a, b) => b.qty - a.qty);
@@ -316,7 +339,21 @@ export default function SalesBIDetail() {
       cities,
     };
 
-  }, [seriesQ.data, eventsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
+  }, [seriesQ.data, eventsQ.data, zoneCapsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
+
+  // Ocupação da sala do tour — da RPC (agrega por tour)
+  const sala = useMemo(() => {
+    const cap = (capacityQ.data ?? []).find((c) => c.group_id === groupId);
+    if (!cap || !cap.trustworthy || !cap.capacity) {
+      return { pct: null as number | null, occupied: null as number | null, capacity: null as number | null, issue: cap?.issue ?? null };
+    }
+    return {
+      pct: (Number(cap.occupied || 0) / Number(cap.capacity)) * 100,
+      occupied: Number(cap.occupied || 0),
+      capacity: Number(cap.capacity),
+      issue: null as string | null,
+    };
+  }, [capacityQ.data, groupId]);
 
   const ivaLbl = withIva ? null : <span className="ml-1 text-[10px]">s/ IVA</span>;
 
@@ -341,6 +378,7 @@ export default function SalesBIDetail() {
       capacity: {
         trustworthy: !!cap?.trustworthy,
         capacity: cap?.capacity ?? null,
+        occupied: cap?.occupied ?? null,
         issue: cap?.issue ?? null,
       },
       points: model.points,
@@ -397,7 +435,7 @@ export default function SalesBIDetail() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Bilhetes no período</p>
               <p className="text-lg font-semibold">{int(model.qty)}</p>
@@ -425,6 +463,25 @@ export default function SalesBIDetail() {
               <p className="text-lg font-semibold">{int(model.totalQty)}</p>
               <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
             </Card>
+            {/* Ocupação da sala = bilheteira (occupied/capacity). NÃO são os nossos bilhetes. */}
+            <Card className="p-3 tabular-nums">
+              <p className="text-xs text-muted-foreground">Ocupação da sala</p>
+              {sala.pct !== null ? (
+                <>
+                  <p className="text-lg font-semibold">{nf1.format(sala.pct)}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    {int(sala.occupied ?? 0)} de {int(sala.capacity ?? 0)} lugares
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold text-muted-foreground">—</p>
+                  <p className="text-xs text-muted-foreground">
+                    {sala.issue ?? "sem observação de lotação da bilheteira"}
+                  </p>
+                </>
+              )}
+            </Card>
           </div>
 
 
@@ -438,7 +495,7 @@ export default function SalesBIDetail() {
 
           <Card className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[860px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="p-3 font-medium">Cidade</th>
@@ -448,6 +505,7 @@ export default function SalesBIDetail() {
                     <th className="p-3 text-right font-medium">Média/dia</th>
                     <th className="p-3 text-right font-medium">Tração</th>
                     <th className="p-3 text-right font-medium">Total acumulado</th>
+                    <th className="p-3 text-right font-medium">Ocupação da sala</th>
                   </tr>
                 </thead>
                 <tbody className="tabular-nums">
@@ -474,6 +532,18 @@ export default function SalesBIDetail() {
                         <Variation v={c.variacao} />
                       </td>
                       <td className="p-3 text-right">{int(c.total)}</td>
+                      <td className="p-3 text-right">
+                        {c.salaPct !== null ? (
+                          <>
+                            {nf1.format(c.salaPct)}%
+                            <span className="block text-xs text-muted-foreground">
+                              {int(c.salaOccupied ?? 0)} de {int(c.salaCapacity ?? 0)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

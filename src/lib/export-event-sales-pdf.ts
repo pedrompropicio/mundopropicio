@@ -62,8 +62,11 @@ export interface EventSalesPdfParams {
   med: number;
   medValue: number;
   variacao: number | null;
-  /** Lotação: só se usa quando `trustworthy`. */
-  capacity: { trustworthy: boolean; capacity: number | null; issue: string | null };
+  /**
+   * Ocupação da sala (bilheteira): `occupied` / `capacity`. Só se usa quando
+   * `trustworthy`. NÃO é o mesmo que os bilhetes vendidos por nós.
+   */
+  capacity: { trustworthy: boolean; capacity: number | null; occupied: number | null; issue: string | null };
   points: { date: string; qty: number; value: number; ma: number | null }[];
   cities: EventSalesPdfCity[];
   /** Eventos com lotação não fiável (motivo do get_event_capacity_quality). */
@@ -200,10 +203,16 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     doc.setTextColor(0, 0, 0);
   }
 
-  const occ =
-    params.capacity.trustworthy && params.capacity.capacity
-      ? pct((params.totalQty / params.capacity.capacity) * 100)
-      : "—";
+  // OCUPAÇÃO DA SALA = occupied/capacity da bilheteira (inclui cortesias,
+  // protocolo, reservas e canais que não registamos). Nunca os nossos bilhetes.
+  const salaOk = params.capacity.trustworthy && !!params.capacity.capacity;
+  const salaPctNum = salaOk
+    ? (Number(params.capacity.occupied || 0) / Number(params.capacity.capacity)) * 100
+    : null;
+  const occ = salaPctNum === null ? "—" : pct(salaPctNum);
+  const occSub = salaOk
+    ? `${int(Number(params.capacity.occupied || 0))} de ${int(Number(params.capacity.capacity))} lugares`
+    : "";
 
   const kpis: [string, string][] = [
     ["Total do evento (bilhetes)", int(params.totalQty)],
@@ -216,7 +225,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
       "Tração vs. período anterior",
       params.variacao === null ? "—" : `${params.variacao > 0 ? "+" : ""}${pct(params.variacao)}`,
     ],
-    ["Ocupação", occ],
+    ["Ocupação da sala", occSub ? `${occ}\n${occSub}` : occ],
   ];
 
   autoTable(doc, {
@@ -236,10 +245,12 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     `. O acumulado é ${int(params.totalQty)} bilhetes` +
     (params.withIva ? "" : " (receita apresentada sem IVA)") +
     ".";
-  if (params.capacity.trustworthy && params.capacity.capacity) {
-    reading += ` Corresponde a ${occ} da lotação (${int(params.capacity.capacity)} lugares).`;
+  if (salaOk) {
+    reading +=
+      ` A ocupação da sala, segundo a bilheteira, é de ${occ} (${occSub}) — inclui cortesias, protocolo,` +
+      ` reservas e canais que não registamos, e é um número distinto dos bilhetes vendidos por nós.`;
   } else if (internal) {
-    reading += " A lotação registada não é utilizável, pelo que a ocupação não é apresentada.";
+    reading += " Não há observação de lotação da bilheteira utilizável, pelo que a ocupação da sala não é apresentada.";
   }
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
