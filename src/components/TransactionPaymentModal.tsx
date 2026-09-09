@@ -468,29 +468,80 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         }
       }
 
-      // Propagate payment to child transactions (split/rateio)
-      if (hasChildren) {
-        for (const child of childTransactions) {
-          const childSplitAmt = child.split_amount != null ? Number(child.split_amount) : null;
-          const childPct = Number(child.split_percentage ?? 0);
-          const childPayment = childSplitAmt != null
-            ? +(addAmount * childSplitAmt / Number(transaction.amount)).toFixed(2)
-            : +(addAmount * childPct / 100).toFixed(2);
+      // A propagação (filhas de rateio e irmãs de grupo de fatura) só acontece quando
+      // ESTA transação fica TOTALMENTE liquidada. Num pagamento parcial não se propaga
+      // nada: senão pagar 300 € de uma linha de 800 € liquidava a 100% a irmã de 200 €.
+      const propagates = newPaid >= amount - 0.01;
+
+      /**
+       * Liquida cada filha de rateio pelo seu PRÓPRIO remanescente (base + IVA),
+       * com a mesma data/conta/método, e com linha própria em transaction_payments
+       * e no transaction_audit_log. Usado para as filhas da transação paga e para as
+       * filhas das irmãs de grupo de fatura (mesmo tratamento).
+       */
+      const settleChildrenOf = async (parentId: string, originLabel: string) => {
+        const { data: kids } = await (supabase as any)
+          .from("transactions")
+          .select("*")
+          .eq("parent_transaction_id", parentId);
+        const who = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+        for (const child of kids ?? []) {
           const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 0));
           const childCurrentPaid = Number(child.paid_amount ?? 0);
-          const childNewPaid = Math.min(Math.round((childCurrentPaid + childPayment) * 100) / 100, childTotal);
-          const childStatus = isFullyPaid(childNewPaid, Number(child.amount), Number(child.iva_rate ?? 0)) ? "paid" : "approved";
+          const childRemaining = Math.max(0, +(childTotal - childCurrentPaid).toFixed(2));
+          if (childRemaining <= 0) continue;
+          const childNewPaid = Math.round((childCurrentPaid + childRemaining) * 100) / 100;
+          const childStatus = isFullyPaid(childNewPaid, Number(child.amount), Number(child.iva_rate ?? 0))
+            ? "paid"
+            : "approved";
 
-          await supabase
+          await (supabase as any)
             .from("transactions")
             .update({
               paid_amount: childNewPaid,
               status: childStatus,
               payment_date: format(paymentDate, "yyyy-MM-dd"),
-            } as any)
+              account_id: accountId || child.account_id || null,
+              payment_method: paymentMethod,
+              payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
+              payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+            })
             .eq("id", child.id);
+
+          const { error: kidPaymentError } = await (supabase as any).from("transaction_payments").insert({
+            transaction_id: child.id,
+            amount: childRemaining,
+            payment_date: format(paymentDate, "yyyy-MM-dd"),
+            account_id: accountId || child.account_id || null,
+            payment_method: paymentMethod,
+            payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
+            payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+            invoice_ref: invoiceRef.trim() || child.invoice_ref || null,
+            withholding_amount: 0,
+            credit_amount: 0,
+            notes: originLabel,
+            created_by: who,
+          });
+          if (kidPaymentError) throw kidPaymentError;
+
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: child.id,
+            changed_by: who,
+            field_name: "Liquidação rateio",
+            old_value: `${childCurrentPaid.toFixed(2)} €`,
+            new_value: `${childNewPaid.toFixed(2)} € — ${originLabel}`,
+          });
         }
+      };
+
+      // Propagate payment to child transactions (split/rateio)
+      if (propagates && hasChildren) {
+        await settleChildrenOf(
+          transaction.id,
+          `Liquidado com a transação-mãe ${transaction.id} (rateio)`,
+        );
       }
+
 
       // Propagate to invoice-group siblings (fatura com várias taxas de IVA).
       // Cada irmã é liquidada PELO SEU PRÓPRIO total (base + IVA), na mesma data e conta.
