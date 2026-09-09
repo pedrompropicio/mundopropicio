@@ -106,6 +106,15 @@ export default function BankReconciliation() {
 
   const account = useMemo(() => (accounts as any[]).find((a) => a.id === accountId), [accounts, accountId]);
 
+  /**
+   * Data de corte da conta (D-ERP25): o saldo implantado é o saldo ao FECHO
+   * deste dia. Movimentos com data igual ou anterior já estão dentro dele —
+   * não se conciliam, importam-se só para o histórico e para a cadeia de saldos.
+   */
+  const cutoff = account?.initial_balance_date ? String(account.initial_balance_date).slice(0, 10) : null;
+  const isPreCutoff = (bookingDate: string) => !!cutoff && String(bookingDate).slice(0, 10) <= cutoff;
+
+
   // Transações liquidadas na conta — universo do matching (nunca alteradas).
   const { data: txns = [] } = useQuery({
     queryKey: ["bank-recon-txns", accountId],
