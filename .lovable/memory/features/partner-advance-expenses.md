@@ -64,3 +64,10 @@ Renderização:
 
 ## Escopo Master+Subs
 Mesma lógica de `partner_paid_expenses`: query `event_id IN (master_id, ...sub_ids)` quando renderizado no Master de turnê.
+
+## Duas naturezas de extra, uma fonte única
+Existem **duas** naturezas legítimas de "Extra do Sócio", ambas a abater no acerto e **nenhuma custo do evento**:
+- `partner_advance_expenses` — a empresa pagou uma despesa que é custo do sócio; ligada 1:1 a uma transação real (transitória).
+- `event_partner_extras` — o sócio deve algo **sem desembolso da empresa**; registo manual, sem transação, sem conta e sem IVA (é assim de propósito — é um valor, não uma fatura).
+
+As duas são lidas pela **fonte única `src/lib/partner-extras.ts`** (`fetchPartnerExtras`, `partnerExtraValue`, `sumPartnerExtras`), consumida pelo painel da aba Sócios, pelo Fecho do Evento e pelo Encontro de Contas. Antes cada ecrã lia só metade e o saldo do mesmo sócio divergia entre os dois ecrãs de fecho.
