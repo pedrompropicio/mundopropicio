@@ -637,7 +637,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         });
         return;
       }
+      if ((result as any)?.skippedPropagation) {
+        toast({
+          title: "Pagamento parcial — não propagado",
+          description:
+            "A liquidação das filhas do rateio e das restantes transações da fatura só acontece quando esta transação fica totalmente liquidada.",
+        });
+      }
       onClose();
+
       // Record undo for the status change (approve→paid or pending→approved on partial)
       if (result?.undoSnapshot && user) {
         const { recordUndo } = await import("@/lib/undo");
