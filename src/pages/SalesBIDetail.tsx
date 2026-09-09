@@ -153,7 +153,7 @@ export default function SalesBIDetail() {
   const { groupId = "" } = useParams();
   const navigate = useNavigate();
   const { withIva, setWithIva, ivaSuffix } = useIvaMode();
-  const { rateOf } = useEventIvaRates();
+  const { rateOf, groupRateOf } = useEventIvaRates();
   const [days, setDays] = useState<number>(30);
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
@@ -320,6 +320,36 @@ export default function SalesBIDetail() {
 
   const ivaLbl = withIva ? null : <span className="ml-1 text-[10px]">s/ IVA</span>;
 
+  // O PDF herda exatamente o ecrã: tour, período e estado do IVA.
+  const handleExport = async (variant: EventSalesPdfVariant) => {
+    const cap = (capacityQ.data ?? []).find((c) => c.group_id === groupId);
+    await exportEventSalesPdf({
+      variant,
+      tourName: model.tourName,
+      days,
+      periodStart: toISO(addDays(today, -days)),
+      periodEnd,
+      withIva,
+      ivaRate: groupRateOf(groupId),
+      totalQty: model.totalQty,
+      totalValue: model.totalValue,
+      qty: model.qty,
+      value: model.value,
+      med: model.med,
+      medValue: model.medValue,
+      variacao: model.variacao,
+      capacity: {
+        trustworthy: !!cap?.trustworthy,
+        capacity: cap?.capacity ?? null,
+        issue: cap?.issue ?? null,
+      },
+      points: model.points,
+      cities: model.cities,
+      qualityIssues:
+        cap && !cap.trustworthy ? [{ name: model.tourName, issue: cap.issue ?? "—" }] : [],
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -348,6 +378,17 @@ export default function SalesBIDetail() {
         ))}
         </div>
         <IvaToggle withIva={withIva} onChange={setWithIva} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-7 text-xs">
+              <FileDown className="mr-1 h-3.5 w-3.5" /> Exportar PDF
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport("internal")}>Versão interna</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("partner")}>Versão sócio / artista</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {isLoading ? (
