@@ -301,7 +301,10 @@ export default function BankReconciliation() {
     // Decomposição da diferença (sistema − banco), parcela a parcela:
     //  · linha do banco por explicar: o banco moveu, o sistema não → −amount
     //  · transação sem movimento: o sistema moveu, o banco não → sinal do tipo
-    //  · retenção na fonte: o sistema registou bruto, o banco pagou líquido
+    // A retenção na fonte NÃO entra aqui: o saldo do sistema já sai líquido,
+    // porque `fetchAccountCashAdjustments` desconta a retenção ao caixa. Mostra-se
+    // à parte, para explicar porque é que o total do lote no banco (líquido) não
+    // é igual ao bruto registado nas transações.
     const contribBank = Math.round(-unexplainedBank * 100) / 100;
     const contribSystem =
       Math.round(
@@ -310,11 +313,9 @@ export default function BankReconciliation() {
           0,
         ) * 100,
       ) / 100;
-    const contribRetention = Math.round(-retentionTotal * 100) / 100;
+    const contribRetention = 0;
     const residual =
-      diff === null
-        ? null
-        : Math.round((diff - (contribBank + contribSystem + contribRetention)) * 100) / 100;
+      diff === null ? null : Math.round((diff - (contribBank + contribSystem)) * 100) / 100;
     return {
       system,
       declared,
