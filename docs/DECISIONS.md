@@ -667,3 +667,17 @@ Três regras que se apuraram no mesmo dia e que se explicam melhor juntas.
 **(b) A parte do sócio não entra no rateio.** Numa fatura que cobre vários eventos e inclui parte do sócio, lançam-se duas transações do mesmo documento: o valor dos eventos rateado pelos eventos, e a parte do sócio como transação própria no evento dele, com Extra do Sócio total. Partilham fornecedor e nº de fatura e ficam no mesmo `invoice_group_id`; a soma do grupo continua a ser o total da fatura (D-ERP17). O toggle 🧳 fica desactivado com rateio activo. **Converter uma FILHA de rateio em Extra do Sócio foi avaliado e recusado**: os sócios não se herdam do Master no modal de edição (0 de 22 subeventos da Live têm sócios próprios, pelo que o bloco nem aparece), a mãe passaria a divergir da soma das filhas sem que nada o verifique, a irmã do parcial nasceria sem `parent_transaction_id` e sairia da árvore do rateio, e o BP do Master continuaria a consumir verba com a perna já convertida.
 
 **(c) `parent_transaction_id` tem dois significados, e só `split_percentage` os separa.** Filha de RATEIO (com `split_percentage`) reparte o CUSTO por eventos — o dinheiro sai uma vez, na mãe, e a filha nunca tem conta nem linha em `transaction_payments`; medido na Live: 137 filhas de rateio, zero com conta. PARCELA (sem `split_percentage`) é um PAGAMENTO real, na sua data e da sua conta — 12 na Live, e as que foram pagas têm conta e razão próprios. A propagação da liquidação desce às filhas de rateio e **nunca** toca em parcelas: liquidar o pai não faz sair o dinheiro das parcelas seguintes. Confundir os dois é o erro fácil deste modelo.
+
+## D-ERP27 — Na página de Contas há três dinheiros diferentes, e só um é caixa (09/09/2026)
+
+O cartão SALDO TOTAL somava tudo com a fórmula bancária e dava −1.994.414,66 €, um número que não significa nada: as bilheteiras entravam a −3.657.013,07 € (Ticketline) e −59.352,72 € (BOL) porque a receita de bilhetes vive em `ticket_sales` e não em `transactions` — a conta só via as saídas —, e a "Acerto EIN · Anitta EDA 2026" entrava a +905.000,00 € quando é um valor a receber, não caixa.
+
+**SALDO TOTAL é caixa, e só caixa:** contas de tipo `bank`, `cash` e `prepaid_card`, e apenas as que têm controlo de saldo. As que ficam de fora por `skip_balance_check` são nomeadas em texto pequeno debaixo do valor (hoje Conta Pagamento Brasil e Eventos Históricos), para ninguém as supor contadas.
+
+**Retido em bilheteiras é cartão próprio.** As contas `ticket_office` deixam de usar `computeAccountBalance` na coluna Saldo Atual e passam pela fonte única `computeTicketOfficeBalance` (D-ERP15), com vendas, transações, adiantamentos e eventos atribuídos buscados como no ecrã de Bilheteiras. É dinheiro que existe mas ainda não está na conta bancária: nunca soma ao caixa.
+
+**Acertos em curso é cartão próprio.** As contas `other` (Acerto EIN, Pgto Mágicos Acerto Madrid, Pagamento Diretoria) são valores a receber ou a pagar, não caixa. Ficam fora do SALDO TOTAL e mantêm-se na tabela como estão.
+
+Corolário: a data de corte do saldo inicial (D-ERP25) passa a sair em pt-PT na coluna Saldo Inicial, via `formatDatePT`.
+
+**Estado:** vigente.
