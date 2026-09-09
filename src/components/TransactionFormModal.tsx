@@ -2435,6 +2435,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                    setSplitAutoConfigured(false);
                    setSplitMasterEventId("");
                   setSplitExpanded(true);
+                  // Extra do Sócio não se combina com rateio multi-evento.
+                  setIsPartnerExtra(false);
+                  setPartnerExtraId("");
+                  setPartnerExtraPartialAmount("");
                 } else {
                   setSplitEntries([]);
                    setSplitAutoConfigured(false);
