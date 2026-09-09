@@ -181,6 +181,9 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     : `Valores sem IVA${params.ivaRate != null ? ` (taxa ${dec1(params.ivaRate)}% deduzida)` : " (taxa do evento deduzida linha a linha)"}`;
   const periodLine = `Período analisado: ${params.days} dias — ${fmtDay(params.periodStart)} a ${fmtDay(params.periodEnd)}`;
   const sfx = params.withIva ? "" : " s/ IVA";
+  const identMeta = `${params.days} dias — ${fmtDay(params.periodStart)} a ${fmtDay(params.periodEnd)} · ${
+    params.withIva ? "com IVA" : "sem IVA"
+  }${params.ivaRate != null ? ` (${dec1(params.ivaRate)}%)` : ""}`;
 
   // ── FOLHA 1 — síntese ────────────────────────────────────────────────
   let y = drawPdfExportHeader(doc, {
