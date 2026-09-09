@@ -7,6 +7,7 @@
  */
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { Loader2, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -112,6 +113,7 @@ function Sparkline({ data }: { data: number[] }) {
 }
 
 export default function SalesBI() {
+  const navigate = useNavigate();
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
   const start = toISO(addDays(today, -37));
@@ -252,7 +254,19 @@ export default function SalesBI() {
       ) : (
         <div className="space-y-3">
           {rows.map((r) => (
-            <Card key={r.p.group_id} className="p-4">
+            <Card
+              key={r.p.group_id}
+              className="p-4 cursor-pointer transition-colors hover:bg-accent/40"
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate(`/vendas/${r.p.group_id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/vendas/${r.p.group_id}`);
+                }
+              }}
+            >
               <div className="grid gap-4 md:grid-cols-12 md:items-center">
                 {/* Identificação */}
                 <div className="md:col-span-3 min-w-0">
