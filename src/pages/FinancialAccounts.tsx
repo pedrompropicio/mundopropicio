@@ -411,7 +411,29 @@ export default function FinancialAccounts() {
           <p className={`mt-1 text-2xl font-bold ${totalBalance >= 0 ? "text-success" : "text-destructive"}`}>
             {isAdmin ? formatCurrency(totalBalance) : "—"}
           </p>
+          <p className="text-[10px] text-muted-foreground">Só caixa: contas bancárias, caixa e cartões pré-pagos</p>
+          {isAdmin && uncontrolledCashNames.length > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Fora do total, sem controlo de saldo: {uncontrolledCashNames.join(", ")}
+            </p>
+          )}
           {!isAdmin && <p className="text-xs text-muted-foreground">Visível apenas para contas autorizadas</p>}
+        </div>
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Retido em Bilheteiras</p>
+          <p className="mt-1 text-2xl font-bold text-warning">
+            {isAdmin ? formatCurrency(ticketOfficeRetained) : "—"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">Dinheiro que existe mas ainda não está no banco</p>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acertos em Curso</p>
+          <p className="mt-1 text-2xl font-bold text-primary">
+            {isAdmin ? formatCurrency(settlementTotal) : "—"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {settlementAccounts.length} conta(s) de acerto — não é caixa
+          </p>
         </div>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipos</p>
