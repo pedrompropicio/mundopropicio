@@ -616,7 +616,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
 
 
-      return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05 };
+      const skippedPropagation =
+        !propagates && (hasChildren || !!(transaction as any).invoice_group_id);
+      return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05, skippedPropagation };
+
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
