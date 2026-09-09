@@ -2633,7 +2633,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
-          {hasPL && effectiveEventId && plExpanded && !isPartnerExtra && (() => {
+          {hasPL && effectiveEventId && plExpanded && !partnerExtraBypassesBp && (() => {
             const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
@@ -2934,14 +2934,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
-          {hasPL && effectiveEventId && !plExpanded && !isPartnerExtra && (
+          {hasPL && effectiveEventId && !plExpanded && !partnerExtraBypassesBp && (
             <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
               BP — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
             </button>
           )}
 
           {/* Alternador do âmbito da categoria — sempre visível quando o evento tem BP */}
-          {hasPLRestriction && effectiveEventId && !isPartnerExtra && (
+          {hasPLRestriction && effectiveEventId && !partnerExtraBypassesBp && (
             <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-secondary/20 p-1 w-fit">
               <button
                 type="button"
