@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import {
   computeAccountBalance,
@@ -37,11 +38,16 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [cutoff, setCutoff] = useState<string>(account.initial_balance_date ?? "");
-  const [balance, setBalance] = useState<string>(String(account.initial_balance ?? 0));
+  // Só pré-preenche o saldo quando já existe uma implantação (data de corte
+  // definida). Em contas por implantar o campo abre vazio para ninguém gravar
+  // zero por engano.
+  const [balance, setBalance] = useState<string>(
+    account.initial_balance_date ? String(account.initial_balance ?? 0) : ""
+  );
 
   useEffect(() => {
     setCutoff(account.initial_balance_date ?? "");
-    setBalance(String(account.initial_balance ?? 0));
+    setBalance(account.initial_balance_date ? String(account.initial_balance ?? 0) : "");
   }, [account.id]);
 
   const { data: txs = [] } = useQuery({
