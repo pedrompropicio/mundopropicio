@@ -14,6 +14,18 @@
  *   (c) descrição por semelhança — Dice ≥ 0,8 com o valor a bater ao cêntimo.
  */
 import { normalizeForMatch, stringSimilarity } from "@/lib/string-similarity";
+import { extractDateTokens } from "@/lib/bank-statement/parse-santander";
+
+/**
+ * Data dentro do `msg_id` do lote (PAGAMENTOS-MP-11082026-12080959 → 11/08/2026),
+ * nas duas formas que o extrato do Santander usa.
+ */
+export function extractMsgIdDate(msgId: string | null | undefined): { ddmmyyyy: string; ddmmyy: string } | null {
+  const m = (msgId || "").match(/(\d{2})(\d{2})(\d{4})/);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  return { ddmmyyyy: `${dd}${mm}${yyyy}`, ddmmyy: `${dd}${mm}${yyyy.slice(2)}` };
+}
 
 export const SEPA_BATCH_MARKER = "LOTE TRF CRED SEPA+";
 export const DICE_THRESHOLD = 0.8;
