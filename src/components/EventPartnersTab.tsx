@@ -367,6 +367,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                         partnerName={p.suppliers?.name || "Sócio"}
                         eventId={eventId}
                         canEdit={canEdit}
+                        calcBasis={event?.partner_calc_basis}
+                        expenseIncludesIva={p.expense_includes_iva ?? null}
                       />
                     </TableCell>
                   </TableRow>

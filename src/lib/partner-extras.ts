@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { calcTotalWithIva } from "@/lib/iva";
 import type { QueryClient } from "@tanstack/react-query";
 
 /**
@@ -38,6 +39,28 @@ export const ORIGIN_LABEL: Record<PartnerExtraOrigin, string> = {
   transacao: "Despesa",
   manual: "Manual",
 };
+
+/**
+ * VALOR DO EXTRA NA BASE DE APURAMENTO DO SÓCIO (D-ERP9).
+ *
+ * Origem 'transacao' → tem fatura e taxa: base c/IVA mostra o bruto
+ * (`calcTotalWithIva`), base s/IVA mostra a base líquida.
+ *
+ * EXCEÇÃO: os extras de origem 'manual' (`event_partner_extras`) NÃO têm taxa
+ * nem documento — são um valor, não uma fatura. Entram sempre pelo valor
+ * escrito, em qualquer das bases.
+ */
+export function partnerExtraValue(extra: PartnerExtraItem, usesGrossExpenses: boolean): number {
+  const amount = Number(extra.amount || 0);
+  if (extra.origem === "manual" || !usesGrossExpenses) return amount;
+  return calcTotalWithIva(amount, Number(extra.iva_rate || 0));
+}
+
+/** Soma de extras na base do sócio. */
+export function sumPartnerExtras(extras: PartnerExtraItem[], usesGrossExpenses: boolean): number {
+  return extras.reduce((s, e) => s + partnerExtraValue(e, usesGrossExpenses), 0);
+}
+
 
 export async function fetchPartnerExtras(eventIds: string[]): Promise<PartnerExtraItem[]> {
   const ids = eventIds.filter(Boolean);

@@ -17,7 +17,8 @@ import { Trash2, Plus, Pencil, Check, X, Paperclip, FileText, ExternalLink } fro
 import { toast } from "@/hooks/use-toast";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { fetchPartnerExtras, invalidatePartnerExtras, ORIGIN_LABEL, type PartnerExtraItem } from "@/lib/partner-extras";
+import { fetchPartnerExtras, invalidatePartnerExtras, ORIGIN_LABEL, partnerExtraValue, sumPartnerExtras, type PartnerExtraItem } from "@/lib/partner-extras";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 
@@ -26,9 +27,15 @@ interface Props {
   partnerName: string;
   eventId: string;
   canEdit: boolean;
+  /** `events.partner_calc_basis` — base contratual do evento. */
+  calcBasis?: string | null;
+  /** `event_partners.expense_includes_iva` — override do sócio (null = herda). */
+  expenseIncludesIva?: boolean | null;
 }
 
-export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }: Props) {
+export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, calcBasis, expenseIncludesIva }: Props) {
+  // Base POR SÓCIO (D-ERP9): override do sócio quando preenchido, senão o do evento.
+  const usesGross = partnerUsesGrossExpenses(calcBasis, expenseIncludesIva ?? null);
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -146,7 +153,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
     }
   }
 
-  const totalExtras = extras.reduce((s, e) => s + Number(e.amount), 0);
+  const totalExtras = sumPartnerExtras(extras, usesGross);
 
   return (
     <div className="mt-2 space-y-2">
@@ -156,6 +163,9 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
           {totalExtras > 0 && (
             <span className="ml-2 text-warning font-mono">({formatCurrency(totalExtras)})</span>
           )}
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            valores {usesGross ? "c/IVA" : "s/IVA"}
+          </span>
         </p>
         {canEdit && !showForm && (
           <DropdownMenu>
@@ -209,6 +219,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
             <ExtraRow
               key={`${extra.origem}-${extra.id}`}
               extra={extra}
+              usesGross={usesGross}
               canEdit={canEdit}
               onEdit={() => startEdit(extra)}
               onDelete={() => { if (window.confirm("Remover esta despesa extra?")) deleteMutation.mutate(extra.id); }}
@@ -245,8 +256,9 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
   );
 }
 
-function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload, onOpenTransaction }: {
+function ExtraRow({ extra, usesGross, canEdit, onEdit, onDelete, onFileUpload, onOpenTransaction }: {
   extra: PartnerExtraItem;
+  usesGross: boolean;
   canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -282,7 +294,7 @@ function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload, onOpenTransa
             {ORIGIN_LABEL[extra.origem]}
           </Badge>
           <span className="font-medium truncate">{extra.description}</span>
-          <span className="font-mono text-warning whitespace-nowrap">{formatCurrency(Number(extra.amount))}</span>
+          <span className="font-mono text-warning whitespace-nowrap">{formatCurrency(partnerExtraValue(extra, usesGross))}</span>
         </div>
         {extra.notes && <p className="text-muted-foreground truncate">{extra.notes}</p>}
         {docs.length > 0 && (

@@ -22,7 +22,7 @@ import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
-import { fetchPartnerExtras } from "@/lib/partner-extras";
+import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
 
 
 interface Props {
@@ -281,10 +281,13 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         return s + amt;
       }, 0);
 
-    // Extras analíticos
-    const extras = partnerExtras
-      .filter((e: any) => e.partner_id === p.id)
-      .reduce((s: number, e: any) => s + Number(e.amount), 0);
+    // Extras analíticos — na base do sócio. Origem 'transacao' segue c/IVA quando
+    // aplicável; origem 'manual' não tem taxa nem documento e entra sempre pelo
+    // valor escrito (ver `partnerExtraValue`).
+    const extras = sumPartnerExtras(
+      partnerExtras.filter((e) => e.partner_id === p.id),
+      usesGrossExpenses,
+    );
 
     // Saldo final: empresa paga sócio se positivo
     const balance = roundCents(partnerShare + paid - extras);
