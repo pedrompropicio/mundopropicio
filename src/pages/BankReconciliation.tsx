@@ -568,6 +568,76 @@ export default function BankReconciliation() {
     queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
   }
 
+  /**
+   * Voltar a conciliar sem reimportar: corre outra vez as camadas sobre as
+   * linhas já gravadas. Não apaga nada, não toca nas conciliações MANUAIS nem
+   * nas IGNORADAS, e deixa as anteriores ao corte de fora. Sem isto, corrigir
+   * o motor obrigava a apagar e reimportar o extrato.
+   */
+  async function rerunReconcile() {
+    if (!currentStatement) return;
+    setRerunning(true);
+    try {
+      const lines = (savedLines as any[]).filter(
+        (l) =>
+          l.status === "unmatched" ||
+          (l.status === "matched" && String(l.matched_by ?? "").startsWith("auto:")),
+      );
+      // Tudo o que foi ligado à mão continua consumido.
+      const preUsed = new Set<string>();
+      (savedLines as any[]).forEach((l) => {
+        if (l.status !== "matched" || !String(l.matched_by ?? "").startsWith("manual:")) return;
+        if (l.matched_transaction_id) preUsed.add(l.matched_transaction_id);
+        if (l.matched_sepa_export_id) {
+          (sepaSiblings.get(l.matched_sepa_export_id) ?? []).forEach((e) =>
+            (e.transaction_ids ?? []).forEach((id) => preUsed.add(id)),
+          );
+        }
+      });
+
+      const result = reconcileStatement(
+        lines.map((l) => ({
+          key: l.id,
+          description: l.description ?? "",
+          amount: Number(l.amount ?? 0),
+          bookingDate: String(l.booking_date).slice(0, 10),
+          valueDate: l.value_date,
+        })),
+        txns as ReconcileTransaction[],
+        sepaExports as ReconcileSepaExport[],
+        { preUsedTransactionIds: preUsed },
+      );
+
+      const now = new Date().toISOString();
+      for (const l of lines) {
+        const m = result.matches.get(l.id);
+        const { error } = await supabase
+          .from("bank_statement_lines")
+          .update({
+            status: m ? "matched" : "unmatched",
+            matched_transaction_id: m?.matched_transaction_id ?? null,
+            matched_payment_list_id: m?.matched_payment_list_id ?? null,
+            matched_sepa_export_id: m?.matched_sepa_export_id ?? null,
+            matched_by: m ? `auto:${m.layer}` : null,
+            matched_at: m ? now : null,
+          })
+          .eq("id", l.id);
+        if (error) throw error;
+      }
+
+      toast.success(
+        `Reconciliação refeita: ${result.counts.sepa} lote(s) SEPA, ${result.counts.amount} por valor, ` +
+          `${result.counts.description} por descrição, ${result.counts.unmatched} por explicar.`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement.id] });
+    } catch (err: any) {
+      toast.error("Erro ao voltar a conciliar: " + (err?.message ?? "desconhecido"));
+    } finally {
+      setRerunning(false);
+    }
+  }
+
+
   if (!allowed) {
     return <p className="text-sm text-muted-foreground">Sem permissão para a Conciliação Bancária.</p>;
   }
