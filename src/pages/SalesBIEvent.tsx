@@ -170,8 +170,9 @@ export default function SalesBIEvent() {
       let pill: { label: string; tone: "ok" | "warn" | "bad" | "muted" };
       if (porVender === 0) pill = { label: "esgotada", tone: "ok" };
       else if (ritmo <= 0) pill = { label: "parada", tone: "bad" };
-      else if (daysLeft !== null && esgota !== null && esgota <= daysLeft) pill = { label: "esgota a tempo", tone: "ok" };
-      else if (daysLeft !== null && esgota !== null && esgota <= daysLeft * 1.5) pill = { label: "apertado", tone: "warn" };
+      else if (daysLeft !== null && esgota !== null && esgota <= daysLeft * 0.8)
+        pill = { label: "esgota a tempo", tone: "ok" };
+      else if (daysLeft !== null && esgota !== null && esgota <= daysLeft) pill = { label: "à justa", tone: "warn" };
       else pill = { label: "não chega lá", tone: "bad" };
       return { label, porVender, saiu, ritmo, esgota, capacity, ocup, pill, capturedAt: latest.captured_at };
     });
