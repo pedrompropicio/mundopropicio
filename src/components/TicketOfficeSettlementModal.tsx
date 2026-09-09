@@ -21,6 +21,8 @@ import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
+import { roundCents } from "@/lib/iva";
+
 
 interface Props {
   open: boolean;
