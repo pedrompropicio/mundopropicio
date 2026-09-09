@@ -376,7 +376,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           new_value: `${formatCurrency(totalCreditApplied)} aplicado via crédito (saída de caixa: ${formatCurrency(netCashOut)})`,
         });
       }
-      await supabase.from("transaction_audit_log").insert(auditEntries);
+      // NOTA: o insert em transaction_audit_log fica DEPOIS de todos os
+      // auditEntries.push (Estorno, Câmbio do dia, Método de pagamento) —
+      // senão essas entradas nunca são gravadas.
+
 
       const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
       const finalPaid = newStatus === "paid" ? Math.max(newPaid, amount) : newPaid;
