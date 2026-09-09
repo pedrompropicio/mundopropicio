@@ -246,18 +246,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Partner advance expenses (Extras do Sócio — pagas pela empresa, abatidas no fecho)
+  // Extras do Sócio — união das duas naturezas (despesa paga pela empresa + registo manual).
+  // Ambas abatem ao acerto do sócio e nenhuma é custo do evento.
   const { data: partnerAdvances = [] } = useQuery({
     queryKey: ["partner-advance-expenses", allEventIdsKey],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("partner_advance_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, event_id, account_categories(name))")
-        .in("event_id", allEventIds)
-        .order("created_at");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => fetchPartnerExtras(allEventIds),
   });
 
   // BP (forecast) for BP × Real reconciliation
