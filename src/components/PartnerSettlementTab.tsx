@@ -70,7 +70,7 @@ interface PartnerSettlement {
   partnerShare: number;
   paidExpenses: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPaidByPartner: number;
-  partnerExtras: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
+  partnerExtras: { origem?: "transacao" | "manual"; originLabel?: string; description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPartnerExtras: number;
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
