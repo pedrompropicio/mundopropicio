@@ -484,11 +484,19 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       // ficou liquidada (paid_amount/status/payment_date), para o evento não a
       // mostrar em aberto. Escrever conta ou registo de pagamento na filha
       // duplicaria a mesma saída no saldo da conta (computeAccountBalance).
+      // `parent_transaction_id` tem DOIS significados:
+      //  - filha de RATEIO (tem `split_percentage`): reparte o CUSTO por eventos. O dinheiro
+      //    sai uma única vez, na mãe. A filha não tem conta nem registo de pagamento próprios.
+      //  - PARCELA de pagamento faseado (sem `split_percentage`): é um PAGAMENTO real, na sua
+      //    própria data e conta. Liquidar o pai não faz sair o dinheiro das parcelas seguintes,
+      //    por isso a propagação NUNCA lhes toca — cada uma liquida-se quando for paga.
       const settleChildrenOf = async (parentId: string, originLabel: string) => {
         const { data: kids } = await (supabase as any)
           .from("transactions")
           .select("*")
-          .eq("parent_transaction_id", parentId);
+          .eq("parent_transaction_id", parentId)
+          .not("split_percentage", "is", null);
+
         const who = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
         for (const child of kids ?? []) {
           const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 0));
