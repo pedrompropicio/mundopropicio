@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import {
   computeAccountBalance,
@@ -37,11 +38,16 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [cutoff, setCutoff] = useState<string>(account.initial_balance_date ?? "");
-  const [balance, setBalance] = useState<string>(String(account.initial_balance ?? 0));
+  // Só pré-preenche o saldo quando já existe uma implantação (data de corte
+  // definida). Em contas por implantar o campo abre vazio para ninguém gravar
+  // zero por engano.
+  const [balance, setBalance] = useState<string>(
+    account.initial_balance_date ? String(account.initial_balance ?? 0) : ""
+  );
 
   useEffect(() => {
     setCutoff(account.initial_balance_date ?? "");
-    setBalance(String(account.initial_balance ?? 0));
+    setBalance(account.initial_balance_date ? String(account.initial_balance ?? 0) : "");
   }, [account.id]);
 
   const { data: txs = [] } = useQuery({
@@ -80,14 +86,21 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      // `.select()` confirma que a linha foi realmente escrita: sem isto, um
+      // update travado por RLS devolve sucesso vazio e o modal fechava sem
+      // nada ter sido gravado.
+      const { data, error } = await supabase
         .from("financial_accounts")
         .update({
           initial_balance: nextAccount.initial_balance,
           initial_balance_date: nextAccount.initial_balance_date,
         })
-        .eq("id", account.id);
+        .eq("id", account.id)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Nada foi gravado — sem permissão para alterar esta conta.");
+      }
 
       await logAudit({
         entity_type: "financial_account",
@@ -116,7 +129,11 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
       onClose();
     },
     onError: (err: any) =>
-      toast({ title: "Erro ao implantar saldo", description: err.message, variant: "destructive" }),
+      toast({
+        title: "Erro ao implantar saldo",
+        description: err?.message ?? "Não foi possível gravar. Tenta de novo.",
+        variant: "destructive",
+      }),
   });
 
   const fmt = (v: number | null) => (v === null ? "Saldo não controlado" : formatCurrency(v));
@@ -137,12 +154,7 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="implant-date">Data de corte</Label>
-              <Input
-                id="implant-date"
-                type="date"
-                value={cutoff}
-                onChange={(e) => setCutoff(e.target.value)}
-              />
+              <DatePicker id="implant-date" value={cutoff} onChange={setCutoff} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="implant-balance">Saldo nessa data (€)</Label>
@@ -150,6 +162,7 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
                 id="implant-balance"
                 type="number"
                 step="0.01"
+                placeholder="0,00"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}
               />
@@ -176,7 +189,10 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || !cutoff || balance.trim() === ""}
+          >
             {saveMutation.isPending ? "A gravar…" : "Implantar saldo"}
           </Button>
         </DialogFooter>
