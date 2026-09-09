@@ -40,18 +40,18 @@ export default function ReportBankStatement() {
   const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
   const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
 
+  // Critério de data ÚNICO: todo o relatório (período, corte, ordenação) usa a
+  // data efetiva COALESCE(payment_date, date), como os outros consumidores da
+  // fonte única. Por isso a query não filtra por `date` — o período é aplicado
+  // em memória sobre a data efetiva.
   const { data: transactions = [] } = useQuery({
-    queryKey: ["bank-statement-tx", selectedAccountId, dateFromStr, dateToStr],
+    queryKey: ["bank-statement-tx", selectedAccountId],
     queryFn: async () => {
       if (!selectedAccountId) return [];
-      let q = supabase
+      const { data, error } = await supabase
         .from("transactions")
         .select("*, events(name), suppliers(name)")
-        .eq("account_id", selectedAccountId)
-        .order("date", { ascending: true });
-      if (dateFromStr) q = q.gte("date", dateFromStr);
-      if (dateToStr) q = q.lte("date", dateToStr);
-      const { data, error } = await q;
+        .eq("account_id", selectedAccountId);
       if (error) throw error;
       return data;
     },
@@ -61,29 +61,36 @@ export default function ReportBankStatement() {
   const selectedAccount = accounts.find((a: any) => a.id === selectedAccountId);
   const canSeeBalance = selectedAccount && (isAdmin || selectedAccount.balance_visible_to_all);
   const isUncontrolledBalance = selectedAccount?.skip_balance_check ?? false;
+  const balanceCutoff = (selectedAccount as any)?.initial_balance_date ?? null;
 
   function handleGenerate() {
     if (!selectedAccountId) return;
     setGenerated(true);
   }
 
-  // Movimentos anteriores à Data Início, para o saldo de abertura.
-  // Valor por `paid_amount` (fonte única computeAccountBalance, D-ERP12).
-  const { data: allAccountTx = [] } = useQuery({
-    queryKey: ["bank-statement-all-tx", selectedAccountId, dateFromStr],
+  // Ajustes de caixa (retenção na fonte + crédito de fornecedor): entram no
+  // saldo da fonte única computeAccountBalance, por isso têm de entrar aqui
+  // também — senão o Saldo Final do Extrato diverge do módulo Contas.
+  const { data: cashAdj } = useQuery({
+    queryKey: ["bank-statement-adj", selectedAccountId, dateFromStr, dateToStr, balanceCutoff],
     queryFn: async () => {
-      if (!selectedAccountId || !dateFromStr) return [];
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("type, amount, paid_amount, date, payment_date")
-        .eq("account_id", selectedAccountId)
-        .lt("date", dateFromStr);
-      if (error) throw error;
-      return data;
+      const cutoffs = buildAccountCutoffs([{ id: selectedAccountId, initial_balance_date: balanceCutoff }]);
+      const [before, inPeriod] = await Promise.all([
+        dateFromStr
+          ? fetchAccountCashAdjustments([selectedAccountId], cutoffs, { lt: dateFromStr })
+          : Promise.resolve(new Map<string, number>()),
+        fetchAccountCashAdjustments([selectedAccountId], cutoffs, {
+          gte: dateFromStr || undefined,
+          lte: dateToStr || undefined,
+        }),
+      ]);
+      return {
+        before: before.get(selectedAccountId) ?? 0,
+        inPeriod: inPeriod.get(selectedAccountId) ?? 0,
+      };
     },
-    enabled: generated && !!selectedAccountId && !!dateFromStr,
+    enabled: generated && !!selectedAccountId,
   });
-
 
   const txIdsForDocs = useMemo(() => transactions.map((t: any) => t.id), [transactions]);
 
@@ -103,32 +110,41 @@ export default function ReportBankStatement() {
     enabled: generated && txIdsForDocs.length > 0,
   });
 
-  // Saldo de abertura: parte do initial_balance (saldo ao FECHO da data de
-  // corte, quando definida) e só soma movimentos posteriores ao corte.
-  // Sem Data Início não há nada antes: a abertura é o próprio saldo inicial.
-  const balanceCutoff = (selectedAccount as any)?.initial_balance_date ?? null;
+  // Saldo de abertura: initial_balance (saldo ao FECHO da data de corte, quando
+  // definida) + movimentos posteriores ao corte e anteriores à Data Início +
+  // ajustes de caixa do mesmo intervalo.
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
     let bal = Number(selectedAccount.initial_balance ?? 0);
     if (dateFromStr) {
-      allAccountTx.forEach((t: any) => {
+      transactions.forEach((t: any) => {
         if (!countsAfterCutoff(t, balanceCutoff)) return;
+        const eff = effectivePaymentDate(t);
+        if (!eff || eff >= dateFromStr) return;
         const amt = Number(t.paid_amount ?? 0);
         if (t.type === "income") bal += amt;
         else bal -= amt;
       });
+      bal += cashAdj?.before ?? 0;
     }
     return bal;
   })();
 
-  // Linhas do extrato: o corte vale em TODAS as linhas, não só na abertura —
-  // o que é anterior ao corte já está dentro do initial_balance. Valor por
+  // Linhas do extrato: o corte vale em TODAS as linhas (o anterior ao corte já
+  // está no initial_balance) e o período é sobre a data efetiva. Valor por
   // `paid_amount`, para o relatório e o módulo Contas darem o mesmo número.
   const lines = (() => {
     if (!generated || !canSeeBalance) return [];
     let runningBalance = openingBalance;
-    return transactions
-      .filter((t: any) => countsAfterCutoff(t, balanceCutoff))
+    const out = transactions
+      .filter((t: any) => {
+        if (!countsAfterCutoff(t, balanceCutoff)) return false;
+        const eff = effectivePaymentDate(t);
+        if (dateFromStr && (!eff || eff < dateFromStr)) return false;
+        if (dateToStr && (!eff || eff > dateToStr)) return false;
+        return true;
+      })
+      .sort((a: any, b: any) => effectivePaymentDate(a).localeCompare(effectivePaymentDate(b)))
       .map((t: any) => {
         const amount = Number(t.paid_amount ?? 0);
         const isIncome = t.type === "income";
@@ -136,16 +152,35 @@ export default function ReportBankStatement() {
         else runningBalance -= amount;
         return {
           ...t,
+          date: effectivePaymentDate(t) || t.date,
           runningBalance,
           signedAmount: isIncome ? amount : -amount,
         };
       });
+
+    // Linha própria e identificada: o utilizador tem de ver de onde vem a
+    // diferença face ao movimento bancário.
+    const adj = cashAdj?.inPeriod ?? 0;
+    if (adj !== 0) {
+      runningBalance += adj;
+      out.push({
+        id: "__cash_adjustments__",
+        date: dateToStr || out[out.length - 1]?.date || "",
+        description: "Ajustes de caixa (retenção na fonte + crédito de fornecedor)",
+        events: null,
+        suppliers: null,
+        runningBalance,
+        signedAmount: adj,
+      } as any);
+    }
+    return out;
   })();
 
 
   const closingBalance = lines.length > 0 ? lines[lines.length - 1].runningBalance : openingBalance;
   const totalIncome = lines.filter((l) => l.signedAmount > 0).reduce((s, l) => s + l.signedAmount, 0);
   const totalExpense = lines.filter((l) => l.signedAmount < 0).reduce((s, l) => s + Math.abs(l.signedAmount), 0);
+
 
   return (
     <>
