@@ -214,6 +214,15 @@ export default function SalesBIDetail() {
     },
   });
 
+  // Ocupação da sala por cidade — a RPC agrega por tour, por isso aqui lê-se a
+  // tabela, SEMPRE com a última observação por (event_id, zone_label).
+  const eventIds = useMemo(() => (eventsQ.data ?? []).map((e) => e.id), [eventsQ.data]);
+  const zoneCapsQ = useQuery({
+    queryKey: ["bi-detail-zone-caps", groupId, eventIds.length],
+    enabled: eventIds.length > 0,
+    queryFn: async () => totalsByEvent(await fetchZoneCapacities(eventIds)),
+  });
+
   const isLoading = seriesQ.isLoading || eventsQ.isLoading;
 
   const model = useMemo(() => {
