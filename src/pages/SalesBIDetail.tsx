@@ -26,6 +26,8 @@ import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 import { exportEventSalesPdf, type EventSalesPdfVariant } from "@/lib/export-event-sales-pdf";
 import { fetchZoneCapacities, totalsByEvent } from "@/lib/zone-capacities";
 import { traction, type Traction } from "@/lib/traction";
+import { salesAvgDays, salesAvgDaysLabel } from "@/lib/sales-avg-days";
+
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
