@@ -189,7 +189,10 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || !cutoff || balance.trim() === ""}
+          >
             {saveMutation.isPending ? "A gravar…" : "Implantar saldo"}
           </Button>
         </DialogFooter>
