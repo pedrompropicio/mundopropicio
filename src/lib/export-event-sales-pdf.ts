@@ -64,7 +64,7 @@ export interface EventSalesPdfParams {
   variacao: number | null;
   /** Lotação: só se usa quando `trustworthy`. */
   capacity: { trustworthy: boolean; capacity: number | null; issue: string | null };
-  points: { date: string; qty: number; ma: number | null }[];
+  points: { date: string; qty: number; value: number; ma: number | null }[];
   cities: EventSalesPdfCity[];
   /** Eventos com lotação não fiável (motivo do get_event_capacity_quality). */
   qualityIssues: { name: string; issue: string }[];
@@ -232,15 +232,11 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   autoTable(doc, {
     startY: y + 2,
     head: [["Dia", "Bilhetes", `Receita${sfx}`]],
-    body: last7.map((p) => {
-      const c = params.cities.length; // placeholder evitado: receita diária vem em `points`
-      void c;
-      return [fmtDay(p.date), int(p.qty), (p as any).value != null ? money((p as any).value) : "—"];
-    }),
+    body: last7.map((p) => [fmtDay(p.date), int(p.qty), money(p.value)]),
     foot: [[
       "TOTAL",
       int(last7.reduce((a, p) => a + p.qty, 0)),
-      money(last7.reduce((a, p) => a + Number((p as any).value ?? 0), 0)),
+      money(last7.reduce((a, p) => a + Number(p.value || 0), 0)),
     ]],
     styles: { fontSize: 8, cellPadding: 1.6 },
     headStyles: { fillColor: [40, 40, 40] },
@@ -289,13 +285,13 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     body: params.points.map((p) => [
       fmtDay(p.date),
       int(p.qty),
-      (p as any).value != null ? money((p as any).value) : "—",
+      money(p.value),
       p.ma === null ? "—" : dec1(p.ma),
     ]),
     foot: [[
       "TOTAL",
       int(params.points.reduce((a, p) => a + p.qty, 0)),
-      money(params.points.reduce((a, p) => a + Number((p as any).value ?? 0), 0)),
+      money(params.points.reduce((a, p) => a + Number(p.value || 0), 0)),
       "",
     ]],
     styles: { fontSize: 7, cellPadding: 1.2 },
