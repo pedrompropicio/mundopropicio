@@ -280,9 +280,19 @@ export default function SalesBI() {
 
                 {/* Média diária */}
                 <div className="md:col-span-2 tabular-nums">
-                  <p className="text-sm font-semibold">{nf1.format(r.med7)} bilh./dia</p>
-                  <p className="text-xs text-muted-foreground">{money(r.medValue7)} /dia</p>
+                  {r.state === "Sem série" ? (
+                    <>
+                      <p className="text-sm font-semibold text-muted-foreground">—</p>
+                      <p className="text-xs text-muted-foreground">sem série diária</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold">{nf1.format(r.med7)} bilh./dia</p>
+                      <p className="text-xs text-muted-foreground">{money(r.medValue7)} /dia</p>
+                    </>
+                  )}
                 </div>
+
 
                 {/* Tração */}
                 <div className="md:col-span-2 tabular-nums">
