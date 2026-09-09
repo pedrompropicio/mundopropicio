@@ -591,3 +591,15 @@ Contexto: no fecho da Ticketline da Anitta EDA 2026, os 11 adiantamentos (1.103.
 Decisão — **cada abatimento tem um e um só sítio no fecho.** As transações referidas por `event_ticket_office_advances.transaction_id` (do evento e da bilheteira em causa) são **sempre** excluídas da lista de deduções, independentemente do estado do adiantamento. Única excepção: se a transação já estiver ligada a este fecho por `settlement_id` — caso de edição de um fecho antigo — mantém-se visível, para não alterar retroactivamente um fecho já confirmado.
 
 Decisão — **a lista de deduções passa a distinguir factos de candidatos.** Grupo "Pagas por esta bilheteira" (despesas já `paid` na conta desta bilheteira: dinheiro que saiu mesmo) primeiro; grupo "Em aberto neste evento — marca só se foram pagas pela bilheteira" (pending/approved, de qualquer conta) depois. O cálculo não muda: o total de deduções continua a ser a soma do que estiver marcado, venha do grupo que vier. A separação é de leitura — juntar as duas naturezas na mesma lista sem cabeçalho convida a marcar coisas que a bilheteira nunca pagou.
+
+## D-ERP20 — Fecho de bilheteira: dinheiro ao cêntimo, rateio só pelo Master, "em aberto" recolhido (2026-09-09)
+
+Contexto: o fecho da Ticketline da Anitta EDA 2026 (settlement `ed7b4b3c…`, bruto 2.424.200,00 · deduções 1.320.700,00 · 11 adiantamentos · líquido 0,00) correu bem, mas deixou três arestas na lista de "Despesas pagas pela bilheteira" e uma no arredondamento.
+
+Decisão — **o dinheiro escrito pelo fecho nunca tem mais de duas casas decimais.** O bruto c/IVA de cada dedução (o valor que vai a `paid_amount`), o total de deduções e o líquido calculado passam por `roundCents` (SSoT em `src/lib/iva.ts`). O `computeSettlement` mantém-se intacto: o arredondamento é aplicado nas entradas e na saída, não dentro da fórmula.
+
+Decisão — **um rateio abate-se uma vez, pelo Master.** Os filhos de rateio nunca recebem `account_id` nem são pagáveis, logo marcá-los era uma opção falsa. Quando o Master de um filho deste evento está na própria lista, o filho sai. Se o Master não estiver elegível, o filho fica — nunca se esconde uma despesa sem alternativa visível.
+
+Decisão — **o Master diz quanto é deste evento.** Cada Master de rateio mostra `fatura completa <total c/IVA> · parte deste evento <soma c/IVA dos filhos deste evento>` (ex.: META PLATFORMS, fatura completa 14.050,41 € · parte da Anitta 3.902,85 €). O valor marcável continua a ser o do Master: o fecho liquida a fatura inteira, e mostrar só o total esconderia que a maior parte pertence a outros eventos.
+
+Decisão — **"Em aberto neste evento" começa recolhido e tem pesquisa.** O grupo "Pagas por esta bilheteira" (factos) continua aberto; o grupo dos candidatos abre por clique no cabeçalho, que mostra a contagem, e ganha pesquisa por descrição ou fornecedor. Abre-se automaticamente e não pode ser fechado sobre uma dedução marcada — nenhuma dedução marcada fica escondida.
