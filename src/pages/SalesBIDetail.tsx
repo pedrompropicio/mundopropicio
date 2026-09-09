@@ -495,7 +495,7 @@ export default function SalesBIDetail() {
 
           <Card className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[860px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="p-3 font-medium">Cidade</th>
@@ -505,6 +505,7 @@ export default function SalesBIDetail() {
                     <th className="p-3 text-right font-medium">Média/dia</th>
                     <th className="p-3 text-right font-medium">Tração</th>
                     <th className="p-3 text-right font-medium">Total acumulado</th>
+                    <th className="p-3 text-right font-medium">Ocupação da sala</th>
                   </tr>
                 </thead>
                 <tbody className="tabular-nums">
