@@ -379,10 +379,3 @@ export default function SalesBIDetail() {
     </div>
   );
 }
-
-/** Soma de um dia fora da janela do período (usada pela média móvel). */
-function seriesDayFallback(series: SeriesRow[], iso: string): number {
-  let s = 0;
-  for (const r of series) if (r.sale_date.slice(0, 10) === iso) s += Number(r.qty || 0);
-  return s;
-}
