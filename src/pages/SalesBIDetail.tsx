@@ -184,7 +184,7 @@ export default function SalesBIDetail() {
     const events = eventsQ.data ?? [];
 
     const pStart = toISO(addDays(today, -days));
-    const pEnd = end;
+    const pEnd = periodEnd;
     const prevStart = toISO(addDays(today, -(2 * days)));
     const prevEnd = toISO(addDays(today, -days - 1));
 
