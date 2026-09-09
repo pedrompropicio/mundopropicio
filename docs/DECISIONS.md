@@ -631,3 +631,19 @@ Decidida pelo Pedro a 09/09/2026. Deriva de `claude/varios-fechos-por-evento-pos
 **Caso de referência — Anitta EDA 2026, v4 de 08/09.** Nível 1: EDA 70% / locais 30% (⅓ nominal cada), base c/IVA. Nível 2: com a Carvalheira, 20% dos 30%, base c/IVA, com despesas exclusivas. Nível 3: com a EIN, 30% s/IVA com receitas e despesas exclusivas, ⅓ cada assumindo a Carvalheira a ⅓. A diferença entre o ⅓ nominal e os 20% reais da Carvalheira (23.887,34 € sobre 597.183,45 €) fica inteira com a MP.
 
 **Estado:** decidida, por implementar (épica #146).
+
+## D-ERP21 — A trava da linha de BP aplica-se às transações que CONSOMEM verba (09/09/2026)
+
+O gate de `enforce_transaction_approval_permission` passou a isentar `is_transitory`, `exclude_from_result`, `reversed_at` e `is_hidden` — o mesmo predicado que o frontend já usava em `countsAsBudgetCommitment` e em `hasResultBlockingFlags`. O que não consome linha não pode ser obrigado a ter linha. Caso canónico: o Extra do Sócio é custo do SÓCIO, nunca do evento, e estava a ser obrigado a passar pelo BP na criação. Não reabre o D1: a órfã continua a não existir para os custos do evento. `src/lib/bp-line-required.ts` foi sincronizado com a mesma isenção no mesmo dia.
+
+## D-ERP22 — Reverter um Extra do Sócio exige linha de BP apenas quando já não há aprovação pela frente (09/09/2026)
+
+Reverter é dizer "afinal o custo é do evento", logo aplica-se o D1. Mas só se trava a reversão quando a transação está `approved` ou `paid`: nesse estado não volta a passar pelo circuito de aprovação e ficaria despesa paga sem linha para sempre. Em `pending` não se trava — a aprovação pede a linha, e travar aqui seria pedir duas vezes. O remédio é o `LinkBpLineDialog` em modo `pickOnly`, e o `forecast_id` grava-se no mesmo update que desliga `is_transitory`.
+
+## D-ERP23 — Extras do Sócio: duas naturezas, uma fonte, e o manual nunca converte IVA (09/09/2026)
+
+`partner_advance_expenses` (a empresa pagou algo que é custo do sócio) e `event_partner_extras` (o sócio deve algo sem desembolso da empresa) são ambas legítimas e ambas abatem ao acerto; nenhuma é custo do evento. Passam por uma fonte única, `src/lib/partner-extras.ts`, lida pelo painel da aba Sócios, pelo Fecho do Evento e pelo Encontro de Contas — antes cada ecrã lia só metade e o saldo do mesmo sócio divergia entre os dois ecrãs de fecho. Os valores mostram-se na base do sócio (`event_partners.expense_includes_iva`, a null herda de `events.partner_calc_basis`): origem transação segue c/IVA quando aplicável; o extra manual não tem taxa nem documento — é um valor, não uma fatura — e entra sempre pelo valor escrito.
+
+## D-ERP24 — A fatura reparte-se, não se duplica (09/09/2026)
+
+Quando só parte de uma fatura é Extra do Sócio, a principal passa a valer `total − X` e a irmã transitória vale X, com o mesmo `invoice_group_id`. Antes a principal ficava pelo total e os mesmos euros contavam duas vezes: no custo do evento e no débito ao sócio. `amount` e `paid_amount` são eixos independentes — o primeiro manda no custo e no BP, o segundo no saldo da conta, e `paid_amount` não é derivado de `transaction_payments`. A liquidação de grupo já reparte sozinha, por propagação às irmãs. Recusa-se a repartição quando há linhas em `transaction_payments` ou pagamento parcial, por não haver forma não-arbitrária de dividir o que já foi pago.

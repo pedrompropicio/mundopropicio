@@ -26,14 +26,18 @@ type: feature
 2. **Conversão posterior** (`TransactionEditModal`): bloco "Converter em Extra do Sócio" — total OU parcial
 3. **Desmembramento via Split multi-evento**: selecionar "Sócio" como destino
 
-## Split parcial (apenas parte da fatura é extra)
+## Split parcial (apenas parte da fatura é extra) — A FATURA REPARTE-SE, NÃO SE DUPLICA
 Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é despesa normal da empresa):
-- **Na criação** (`TransactionFormModal`): dentro do bloco "Extra do Sócio", campo "Apenas parte da fatura é extra (€)" — sempre visível enquanto não estiver em Split multi-evento; fica desativado até o utilizador preencher o Valor (€) da fatura
+- **Na criação** (`TransactionFormModal`): dentro do bloco "Extra do Sócio", campo "Apenas parte da fatura é extra (€, s/IVA)"; fica desativado até o utilizador preencher o Valor (€) da fatura, e mostra pré-visualização da repartição (principal e irmã, s/IVA e c/IVA)
 - **Na edição** (`TransactionEditModal`): toggle "Apenas parte da fatura é extra do sócio" no bloco "Converter em Extra do Sócio"
 - Vazio = fatura inteira é extra (principal fica `is_transitory=true`)
-- Preenchido com valor `> 0 && < total`: principal fica **NORMAL** (entra DRE/BP) com valor TOTAL; cria transação **irmã transitória** com valor parcial, ambas com **mesmo `invoice_group_id`** (gerado se necessário). A irmã é a que vai a `partner_advance_expenses`. A descrição da irmã é `"<descrição> — extra sócio (parcial)"`.
+- Preenchido com valor `> 0 && < total`: **a fatura reparte-se** — `principal.amount = total − X` (NORMAL, entra DRE/BP) e `irmã.amount = X` (transitória, é a que vai a `partner_advance_expenses`), ambas com o **mesmo `invoice_group_id`** (gerado se necessário) e a **mesma `iva_rate`**. A descrição da irmã é `"<descrição> — extra sócio (parcial)"`.
+- **Invariante (D-ERP24)**: a soma dos `amount` das transações do grupo é igual ao total da fatura. É essa invariante que impede a dupla contagem — antes a principal ficava pelo total e os mesmos euros contavam ao mesmo tempo no custo do evento e no débito ao sócio.
+- **Status e `paid_amount`**: a irmã **herda o `status` da principal**. Se a principal estava paga por inteiro, cada uma fica com o **seu próprio bruto** em `paid_amount`; se estava por pagar, ambas ficam a zero.
+- **Recusas**: a conversão é recusada quando a principal tem linhas em `transaction_payments` (o razão de pagamentos passaria a somar mais do que o bruto dela — é preciso acertar os pagamentos primeiro) ou quando está paga só em parte (`0 < paid_amount < bruto`), por não haver forma não-arbitrária de repartir o que já foi pago.
+- **Na criação, extra parcial não se combina com "Pagar em parcelas"**.
 - Validação: parcial deve ser `> 0` e `< amount`
-- Liquidação: a fatura é paga 1× pelo total (transação principal). A irmã fica `status='paid'` desde a criação mas como `is_transitory=true` não consome saldo.
+
 
 ## Reversão (Extra do Sócio → despesa normal)
 No `TransactionEditModal`, dentro do bloco laranja do Extra do Sócio:
@@ -60,3 +64,10 @@ Renderização:
 
 ## Escopo Master+Subs
 Mesma lógica de `partner_paid_expenses`: query `event_id IN (master_id, ...sub_ids)` quando renderizado no Master de turnê.
+
+## Duas naturezas de extra, uma fonte única
+Existem **duas** naturezas legítimas de "Extra do Sócio", ambas a abater no acerto e **nenhuma custo do evento**:
+- `partner_advance_expenses` — a empresa pagou uma despesa que é custo do sócio; ligada 1:1 a uma transação real (transitória).
+- `event_partner_extras` — o sócio deve algo **sem desembolso da empresa**; registo manual, sem transação, sem conta e sem IVA (é assim de propósito — é um valor, não uma fatura).
+
+As duas são lidas pela **fonte única `src/lib/partner-extras.ts`** (`fetchPartnerExtras`, `partnerExtraValue`, `sumPartnerExtras`), consumida pelo painel da aba Sócios, pelo Fecho do Evento e pelo Encontro de Contas. Antes cada ecrã lia só metade e o saldo do mesmo sócio divergia entre os dois ecrãs de fecho.
