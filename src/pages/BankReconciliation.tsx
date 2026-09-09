@@ -287,13 +287,37 @@ export default function BankReconciliation() {
     }
   }
 
+  /** Linhas do ficheiro que já estão dentro do saldo implantado. */
+  const preCutoffParsed = useMemo(
+    () => (parsed ? parsed.lines.filter((l) => isPreCutoff(l.bookingDate)) : []),
+    [parsed, cutoff],
+  );
+  const preCutoffParsedTotal = preCutoffParsed.reduce((acc, l) => acc + l.amount, 0);
+
+  /**
+   * O saldo implantado é o saldo ao FECHO da data de corte. Se o extrato cobre
+   * essa data, compara-se com o `balance_after` da última linha até ao corte —
+   * não com a abertura do ficheiro, que é o saldo ANTES dos movimentos do dia.
+   * Só se o extrato começar depois do corte é que a abertura serve de referência.
+   */
   const cutoffMismatch = useMemo(() => {
-    if (!parsed || !account?.initial_balance_date) return null;
-    if (parsed.openingBalance === null) return null;
-    const implanted = Number(account.initial_balance ?? 0);
-    const diff = Math.round((parsed.openingBalance - implanted) * 100) / 100;
-    return Math.abs(diff) <= 0.01 ? null : { diff, opening: parsed.openingBalance, implanted };
-  }, [parsed, account]);
+    if (!parsed || !cutoff) return null;
+    const implanted = Number(account?.initial_balance ?? 0);
+    const upTo = parsed.lines.filter((l) => l.bookingDate <= cutoff);
+    let reference: number | null;
+    let label: string;
+    if (upTo.length > 0) {
+      reference = upTo[upTo.length - 1].balanceAfter;
+      label = "fecho da data de corte";
+    } else {
+      reference = parsed.openingBalance;
+      label = "abertura do extrato";
+    }
+    if (reference === null) return null;
+    const diff = Math.round((reference - implanted) * 100) / 100;
+    return Math.abs(diff) <= 0.01 ? null : { diff, reference, implanted, label };
+  }, [parsed, account, cutoff]);
+
 
   async function saveImport() {
     if (!parsed || !preview || !accountId || !fileRef) return;
