@@ -150,6 +150,26 @@ function sectionTitle(doc: jsPDF, text: string, y: number): number {
   return y + 3;
 }
 
+/** Identificação compacta no topo das folhas de anexo. Devolve o y para o conteúdo. */
+function pageIdent(doc: jsPDF, tourName: string, meta: string): number {
+  const y = 14;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text(tourName, M, y);
+  const nameW = doc.getTextWidth(tourName);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text(meta, M + nameW + 3, y);
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.2);
+  doc.line(M, y + 2.5, PAGE_W - M, y + 2.5);
+  doc.setDrawColor(0, 0, 0);
+  return y + 8;
+}
+
 export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   const internal = params.variant === "internal";
   const branding = await fetchExportBranding(params.companyId ?? null);
