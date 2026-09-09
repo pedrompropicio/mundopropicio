@@ -2102,8 +2102,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Selecione o sócio para o Extra", variant: "destructive" });
       return;
     }
-    if (isPartnerExtra && !form.event_id && !(isSplit && splitMasterEventId)) {
+    // Extra do Sócio exige UM evento — e não se combina com rateio multi-evento.
+    if (isPartnerExtra && !form.event_id) {
       toast({ title: "Extra do Sócio exige um evento associado", variant: "destructive" });
+      return;
+    }
+    if (isPartnerExtra && isSplit) {
+      toast({
+        title: "Extra do Sócio não se combina com rateio",
+        description: "Reparte primeiro pelos eventos e depois converte a perna do evento do sócio.",
+        variant: "destructive",
+      });
       return;
     }
     // Validação do split parcial: se preenchido, tem de ser > 0 e < total
