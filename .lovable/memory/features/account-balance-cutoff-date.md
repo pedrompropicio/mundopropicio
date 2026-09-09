@@ -15,11 +15,19 @@ type: feature
   Helpers: `effectivePaymentDate`, `countsAfterCutoff`, `buildAccountCutoffs`.
 - Propagada a: módulo Contas, `TransactionPaymentModal`, `BatchPaymentModal`,
   `TransferFormModal`, `card-account-balance.ts`, `card-session-balance.ts`,
-  Extrato (abertura arranca do saldo inicial na data de corte) e
-  `get_event_cash_position`.
+  `CardSessions.tsx` (usa a fonte única — o cálculo inline antigo era o saldo
+  CONTABILÍSTICO da conta do cartão, não o da sessão), Extrato e
+  `get_event_cash_position` / `get_event_cash_position_invariant` (os dois lados
+  filtram `skip_balance_check` e o corte; sem isso `is_balanced` era falso por
+  construção).
+- Extrato: o corte vale na abertura **e em todas as linhas** (o anterior ao corte
+  já está no `initial_balance`), a abertura funciona sem Data Início, as linhas
+  usam `paid_amount` (não `amount`) e o cabeçalho mostra
+  "Saldo implantado a <data>: <valor>" no ecrã, no Excel e no PDF.
 - Implantação: modal por conta na página de Contas, **só admin**, com preview
   "sistema calcula hoje" vs "depois de implantar" antes de gravar, e registo de
   autor/hora em `system_audit_log`. O sistema nunca implanta valores.
+
 
 ## skip_balance_check nunca é número
 
