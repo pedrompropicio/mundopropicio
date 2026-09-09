@@ -182,8 +182,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const partnerPaidSettles = false as boolean;
   // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
-  const [isPartnerExtra, setIsPartnerExtra] = useState(false);
-  const [partnerExtraId, setPartnerExtraId] = useState("");
+  const [isPartnerExtra, setIsPartnerExtra] = useState(!!partnerExtraDefault?.partnerId);
+  const [partnerExtraId, setPartnerExtraId] = useState(partnerExtraDefault?.partnerId ?? "");
   // Split parcial: quando preenchido (>0 e < amount total), apenas X€ da fatura é extra do sócio.
   // Cria transação principal pelo total (entra DRE/BP) + transação irmã transitória pelo parcial,
   // ligadas pelo mesmo invoice_group_id. A irmã vincula-se a partner_advance_expenses.
