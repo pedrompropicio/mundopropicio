@@ -342,7 +342,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       if (!invoiceGroupId) return null;
       const { data: siblings, error } = await supabase
         .from("transactions")
-        .select("id, amount, is_transitory")
+        .select("id, amount, paid_amount, is_transitory")
         .eq("invoice_group_id", invoiceGroupId)
         .neq("id", transaction.id);
       if (error) throw error;
@@ -1776,23 +1776,86 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           {isPrincipalOfPartialSplit && canEditPartnerExtra && (
             <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
               <div className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                🧳 Esta fatura tem {Number(extraSibling?.amount ?? 0).toFixed(2)} € marcados como Extra do Sócio
-                {extraSibling?.link?.event_partners?.suppliers?.name ? ` (${extraSibling.link.event_partners.suppliers.name})` : ""}
+                🧳 Esta fatura está repartida
+                {extraSibling?.link?.event_partners?.suppliers?.name ? ` com ${extraSibling.link.event_partners.suppliers.name}` : ""}
+              </div>
+              <div className="flex flex-wrap gap-4 text-[11px]">
+                <div>
+                  <div className="text-muted-foreground">Despesa do evento</div>
+                  <div className="font-semibold">{Number(transaction.amount).toFixed(2)} €</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Extra do sócio</div>
+                  <div className="font-semibold">{Number(extraSibling?.amount ?? 0).toFixed(2)} €</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Total da fatura</div>
+                  <div className="font-semibold">
+                    {(Number(transaction.amount) + Number(extraSibling?.amount ?? 0)).toFixed(2)} €
+                  </div>
+                </div>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                A fatura está registada pelo total nesta transação (entra DRE/BP) e existe uma transação irmã transitória que abate do sócio no fecho.
+                A fatura está <strong>repartida</strong> entre esta transação (despesa do evento, entra DRE/BP) e uma
+                transação irmã transitória (extra do sócio, abate no fecho). A soma das duas é o total da fatura.
               </p>
               <button
                 type="button"
                 onClick={async () => {
                   if (!extraSibling?.id) return;
-                  if (!confirm("Eliminar o Extra do Sócio desta fatura? A fatura volta a ser 100% despesa do evento.")) return;
+                  const sibAmount = Number(extraSibling.amount ?? 0);
+                  const sibPaid = Number((extraSibling as any).paid_amount ?? 0);
+                  const mainAmount = Number(transaction.amount);
+                  const mainPaid = Number((transaction as any).paid_amount ?? 0);
+
+                  // A irmã pode ter pagamentos próprios no razão: eliminá-la levaria
+                  // essas linhas com ela (CASCADE) e o razão perderia o registo.
+                  const { data: sibPayments, error: payErr } = await supabase
+                    .from("transaction_payments")
+                    .select("id")
+                    .eq("transaction_id", extraSibling.id)
+                    .limit(1);
+                  if (payErr) {
+                    toast({ title: "Não foi possível verificar os pagamentos", description: payErr.message, variant: "destructive" });
+                    return;
+                  }
+                  if (sibPayments?.length) {
+                    toast({
+                      title: "Não é possível remover o Extra do Sócio",
+                      description:
+                        "A transação irmã do sócio tem pagamentos registados no razão. Apagá-la levaria esses pagamentos com ela. Acerta primeiro os pagamentos da irmã e volta a tentar.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  const newAmount = +(mainAmount + sibAmount).toFixed(2);
+                  const newPaid = +(mainPaid + sibPaid).toFixed(2);
+                  if (
+                    !confirm(
+                      `Eliminar o Extra do Sócio desta fatura? A fatura volta a ser 100% despesa do evento: esta transação passa de ${mainAmount.toFixed(2)} € para ${newAmount.toFixed(2)} €.`,
+                    )
+                  )
+                    return;
+
+                  // D-ERP24: a soma do grupo é o total da fatura. Ao remover o split,
+                  // o valor da irmã volta à principal ANTES de apagar — se este update
+                  // falhar, aborta tudo e nada é apagado.
+                  const { error: updErr } = await supabase
+                    .from("transactions")
+                    .update({ amount: newAmount, paid_amount: newPaid })
+                    .eq("id", transaction.id);
+                  if (updErr) {
+                    toast({ title: "Erro a devolver o valor à fatura", description: `${updErr.message} — nada foi apagado.`, variant: "destructive" });
+                    return;
+                  }
+
                   await supabase.from("partner_advance_expenses").delete().eq("transaction_id", extraSibling.id);
                   await supabase.from("transactions").delete().eq("id", extraSibling.id);
                   queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
                   queryClient.invalidateQueries({ queryKey: ["transactions"] });
                   queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
-                  toast({ title: "Extra do Sócio removido", description: "A fatura volta a ser despesa do evento." });
+                  toast({ title: "Extra do Sócio removido", description: `A fatura volta a ser despesa do evento por ${newAmount.toFixed(2)} €.` });
                   onClose();
                 }}
                 className="text-xs text-destructive hover:underline"
