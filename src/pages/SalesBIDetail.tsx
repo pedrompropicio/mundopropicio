@@ -560,7 +560,13 @@ export default function SalesBIDetail() {
                       <td className="p-3 text-muted-foreground">{fmtDay(c.date)}</td>
                       <td className="p-3 text-right">{int(c.qty)}</td>
                       <td className="p-3 text-right">{money(c.value)}</td>
-                      <td className="p-3 text-right">{nf1.format(c.med)}</td>
+                      <td className="p-3 text-right">
+                        {nf1.format(c.med)}
+                        <span className="block text-[10px] text-muted-foreground">
+                          {salesAvgDaysLabel(c.medDays)}
+                        </span>
+                      </td>
+
                       <td className="p-3 text-right">
                         <Variation t={c.variacao} />
                       </td>
