@@ -230,7 +230,7 @@ export default function SalesBI() {
         const sparkData: number[] = [];
         for (let i = 30; i >= 1; i--) sparkData.push(spark.get(toISO(addDays(today, -i))) ?? 0);
 
-        return { p, med7, medValue7, prev7, variacao, diasSerie, diasParaEvento, trustworthy, ocupacao, issue: cap?.issue ?? null, state, sparkData };
+        return { p, med7, medValue7, prev7, variacao, diasSerie, diasParaEvento, trustworthy, ocupacao, ocupados, carga, issue: cap?.issue ?? null, state, sparkData };
       })
       .sort((a, b) => {
         const s = STATE_ORDER[a.state] - STATE_ORDER[b.state];
