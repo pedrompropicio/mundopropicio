@@ -3815,6 +3815,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                 <span>Total da fatura</span>
                                 <span className="font-mono">{totalAmt.toFixed(2)} € s/IVA · {(totalAmt * mult).toFixed(2)} € c/IVA</span>
                               </div>
+                              <div className="border-t border-border/60 pt-1 text-muted-foreground">
+                                A parte do evento precisa de categoria e linha do BP; a parte do sócio não.
+                              </div>
                             </div>
                           );
                         })()}
