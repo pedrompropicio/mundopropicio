@@ -29,6 +29,8 @@ const fmtDay = (iso?: string | null) => {
 };
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
+import { tractionText, type Traction } from "@/lib/traction";
+
 export type EventSalesPdfVariant = "internal" | "partner";
 
 export interface EventSalesPdfCity {
@@ -38,7 +40,7 @@ export interface EventSalesPdfCity {
   qty: number;
   value: number;
   med: number;
-  variacao: number | null;
+  variacao: Traction;
   total: number;
   /** Origem da série (bilheteira) — só usada na versão interna. */
   source: string | null;
@@ -61,7 +63,7 @@ export interface EventSalesPdfParams {
   value: number;
   med: number;
   medValue: number;
-  variacao: number | null;
+  variacao: Traction;
   /**
    * Ocupação da sala (bilheteira): `occupied` / `capacity`. Só se usa quando
    * `trustworthy`. NÃO é o mesmo que os bilhetes vendidos por nós.
@@ -223,7 +225,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     [`Média diária${sfx}`, money(params.medValue)],
     [
       "Tração vs. período anterior",
-      params.variacao === null ? "—" : `${params.variacao > 0 ? "+" : ""}${pct(params.variacao)}`,
+      tractionText(params.variacao, nfInt),
     ],
     ["Ocupação da sala", occSub ? `${occ}\n${occSub}` : occ],
   ];
@@ -238,10 +240,11 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   y = (doc as any).lastAutoTable.finalY + 7;
 
   // parágrafo de leitura gerado dos números
-  const dir = params.variacao === null ? null : params.variacao >= 0 ? "acima" : "abaixo";
+  const vPct = params.variacao.pct;
+  const dir = vPct === null ? null : vPct >= 0 ? "acima" : "abaixo";
   let reading =
     `Nos últimos ${int(params.days)} dias vendeu ${int(params.qty)} bilhetes, uma média de ${dec1(params.med)} por dia` +
-    (dir ? `, ${pct(Math.abs(params.variacao as number))} ${dir} dos ${int(params.days)} dias anteriores` : "") +
+    (dir ? `, ${pct(Math.abs(vPct as number))} ${dir} dos ${int(params.days)} dias anteriores` : "") +
     `. O acumulado é ${int(params.totalQty)} bilhetes` +
     (params.withIva ? "" : " (receita apresentada sem IVA)") +
     ".";
@@ -292,7 +295,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
       int(c.qty),
       money(c.value),
       dec1(c.med),
-      c.variacao === null ? "—" : `${c.variacao > 0 ? "+" : ""}${pct(c.variacao)}`,
+      tractionText(c.variacao, nfInt),
       int(c.total),
     ]),
     foot: [[
