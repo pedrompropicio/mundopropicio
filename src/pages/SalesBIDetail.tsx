@@ -532,6 +532,18 @@ export default function SalesBIDetail() {
                         <Variation v={c.variacao} />
                       </td>
                       <td className="p-3 text-right">{int(c.total)}</td>
+                      <td className="p-3 text-right">
+                        {c.salaPct !== null ? (
+                          <>
+                            {nf1.format(c.salaPct)}%
+                            <span className="block text-xs text-muted-foreground">
+                              {int(c.salaOccupied ?? 0)} de {int(c.salaCapacity ?? 0)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
