@@ -463,6 +463,25 @@ export default function SalesBIDetail() {
               <p className="text-lg font-semibold">{int(model.totalQty)}</p>
               <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
             </Card>
+            {/* Ocupação da sala = bilheteira (occupied/capacity). NÃO são os nossos bilhetes. */}
+            <Card className="p-3 tabular-nums">
+              <p className="text-xs text-muted-foreground">Ocupação da sala</p>
+              {sala.pct !== null ? (
+                <>
+                  <p className="text-lg font-semibold">{nf1.format(sala.pct)}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    {int(sala.occupied ?? 0)} de {int(sala.capacity ?? 0)} lugares
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold text-muted-foreground">—</p>
+                  <p className="text-xs text-muted-foreground">
+                    {sala.issue ?? "sem observação de lotação da bilheteira"}
+                  </p>
+                </>
+              )}
+            </Card>
           </div>
 
 
