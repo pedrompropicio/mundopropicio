@@ -2219,7 +2219,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
       // • "master" → expense consumes Master BP rateio (sub-event BP not required)
       const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital && !isPartnerExtra) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital && !partnerExtraBypassesBp) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
