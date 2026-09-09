@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark } from "lucide-react";
+import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw } from "lucide-react";
 import {
   parseSantanderStatement,
   computeLineHash,
@@ -84,6 +84,7 @@ export default function BankReconciliation() {
   const [fileRef, setFileRef] = useState<File | null>(null);
   const [preview, setPreview] = useState<ReconcileResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
   const [statementId, setStatementId] = useState<string | null>(null);
   const [manualLine, setManualLine] = useState<any | null>(null);
   const [manualTxId, setManualTxId] = useState<string>("");
@@ -183,18 +184,40 @@ export default function BankReconciliation() {
   });
 
   // ---- Triângulo do saldo -------------------------------------------------
+  const txById = useMemo(() => new Map((txns as any[]).map((t) => [t.id, t])), [txns]);
+
+  /**
+   * Exportações SEPA irmãs: mesma lista de pagamento e mesmo total. A dupla
+   * geração de um lote (dois `msg_id` com um minuto de diferença) é o MESMO
+   * acontecimento — as suas transações contam como explicadas de uma vez.
+   */
+  const sepaSiblings = useMemo(() => {
+    const byExport = new Map<string, ReconcileSepaExport[]>();
+    (sepaExports as ReconcileSepaExport[]).forEach((e) => {
+      const sibs = (sepaExports as ReconcileSepaExport[]).filter(
+        (o) =>
+          o.payment_list_id === e.payment_list_id &&
+          Math.abs(Number(o.total_amount ?? 0) - Number(e.total_amount ?? 0)) <= 0.01,
+      );
+      byExport.set(e.id, sibs);
+    });
+    return byExport;
+  }, [sepaExports]);
+
   const savedExplainedIds = useMemo(() => {
     const s = new Set<string>();
     // Uma linha IGNORADA não explica nada: filtra-se por status.
     (savedLines as any[]).forEach((l) => {
-      if (l.status === "matched" && l.matched_transaction_id) s.add(l.matched_transaction_id);
-    });
-    (sepaExports as ReconcileSepaExport[]).forEach((e) => {
-      const used = (savedLines as any[]).some((l) => l.status === "matched" && l.matched_sepa_export_id === e.id);
-      if (used) (e.transaction_ids ?? []).forEach((id) => s.add(id));
+      if (l.status !== "matched") return;
+      if (l.matched_transaction_id) s.add(l.matched_transaction_id);
+      if (l.matched_sepa_export_id) {
+        (sepaSiblings.get(l.matched_sepa_export_id) ?? []).forEach((e) =>
+          (e.transaction_ids ?? []).forEach((id) => s.add(id)),
+        );
+      }
     });
     return s;
-  }, [savedLines, sepaExports]);
+  }, [savedLines, sepaSiblings]);
 
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
@@ -202,6 +225,31 @@ export default function BankReconciliation() {
   // Anteriores ao corte: ficam à parte, só para o histórico.
   const preCutoffLines = (savedLines as any[]).filter((l) => l.status === "pre_cutoff");
   const preCutoffTotal = preCutoffLines.reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
+
+  /**
+   * Por linha de lote SEPA conciliada: quantas exportações teve (dupla geração)
+   * e a retenção na fonte (bruto do sistema − líquido do banco).
+   */
+  const sepaInfo = useMemo(() => {
+    const m = new Map<string, { exportCount: number; systemGross: number; retention: number }>();
+    (savedLines as any[]).forEach((l) => {
+      if (l.status !== "matched" || !l.matched_sepa_export_id) return;
+      const sibs = sepaSiblings.get(l.matched_sepa_export_id) ?? [];
+      const ids = Array.from(new Set(sibs.flatMap((e) => (e.transaction_ids ?? []).filter(Boolean))));
+      const systemGross =
+        Math.round(
+          ids.reduce((acc, id) => acc + Math.abs(Number(txById.get(id)?.paid_amount ?? 0)), 0) * 100,
+        ) / 100;
+      const retention = Math.round((systemGross - Math.abs(Number(l.amount ?? 0))) * 100) / 100;
+      m.set(l.id, { exportCount: sibs.length, systemGross, retention: Math.abs(retention) > 0.01 ? retention : 0 });
+    });
+    return m;
+  }, [savedLines, sepaSiblings, txById]);
+
+  const retentionTotal = useMemo(
+    () => Math.round(Array.from(sepaInfo.values()).reduce((a, i) => a + i.retention, 0) * 100) / 100,
+    [sepaInfo],
+  );
 
   const txWithoutLine = useMemo(() => {
     if (!currentStatement) return [] as ReconcileTransaction[];
@@ -250,8 +298,37 @@ export default function BankReconciliation() {
       .filter((l) => l.status === "unmatched")
       .reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
     const unexplainedSystem = txWithoutLine.reduce((acc, t) => acc + Number(t.paid_amount ?? 0), 0);
-    return { system, declared, diff, unexplainedBank, unexplainedSystem, periodTo };
-  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine]);
+    // Decomposição da diferença (sistema − banco), parcela a parcela:
+    //  · linha do banco por explicar: o banco moveu, o sistema não → −amount
+    //  · transação sem movimento: o sistema moveu, o banco não → sinal do tipo
+    // A retenção na fonte NÃO entra aqui: o saldo do sistema já sai líquido,
+    // porque `fetchAccountCashAdjustments` desconta a retenção ao caixa. Mostra-se
+    // à parte, para explicar porque é que o total do lote no banco (líquido) não
+    // é igual ao bruto registado nas transações.
+    const contribBank = Math.round(-unexplainedBank * 100) / 100;
+    const contribSystem =
+      Math.round(
+        txWithoutLine.reduce(
+          (acc, t: any) => acc + (t.type === "income" ? 1 : -1) * Number(t.paid_amount ?? 0),
+          0,
+        ) * 100,
+      ) / 100;
+    const contribRetention = 0;
+    const residual =
+      diff === null ? null : Math.round((diff - (contribBank + contribSystem)) * 100) / 100;
+    return {
+      system,
+      declared,
+      diff,
+      unexplainedBank,
+      unexplainedSystem,
+      contribBank,
+      contribSystem,
+      contribRetention,
+      residual,
+      periodTo,
+    };
+  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine, retentionTotal]);
 
   // ---- Upload + pré-visualização -----------------------------------------
   async function onFile(file: File) {
@@ -493,6 +570,76 @@ export default function BankReconciliation() {
     queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
   }
 
+  /**
+   * Voltar a conciliar sem reimportar: corre outra vez as camadas sobre as
+   * linhas já gravadas. Não apaga nada, não toca nas conciliações MANUAIS nem
+   * nas IGNORADAS, e deixa as anteriores ao corte de fora. Sem isto, corrigir
+   * o motor obrigava a apagar e reimportar o extrato.
+   */
+  async function rerunReconcile() {
+    if (!currentStatement) return;
+    setRerunning(true);
+    try {
+      const lines = (savedLines as any[]).filter(
+        (l) =>
+          l.status === "unmatched" ||
+          (l.status === "matched" && String(l.matched_by ?? "").startsWith("auto:")),
+      );
+      // Tudo o que foi ligado à mão continua consumido.
+      const preUsed = new Set<string>();
+      (savedLines as any[]).forEach((l) => {
+        if (l.status !== "matched" || !String(l.matched_by ?? "").startsWith("manual:")) return;
+        if (l.matched_transaction_id) preUsed.add(l.matched_transaction_id);
+        if (l.matched_sepa_export_id) {
+          (sepaSiblings.get(l.matched_sepa_export_id) ?? []).forEach((e) =>
+            (e.transaction_ids ?? []).forEach((id) => preUsed.add(id)),
+          );
+        }
+      });
+
+      const result = reconcileStatement(
+        lines.map((l) => ({
+          key: l.id,
+          description: l.description ?? "",
+          amount: Number(l.amount ?? 0),
+          bookingDate: String(l.booking_date).slice(0, 10),
+          valueDate: l.value_date,
+        })),
+        txns as ReconcileTransaction[],
+        sepaExports as ReconcileSepaExport[],
+        { preUsedTransactionIds: preUsed },
+      );
+
+      const now = new Date().toISOString();
+      for (const l of lines) {
+        const m = result.matches.get(l.id);
+        const { error } = await supabase
+          .from("bank_statement_lines")
+          .update({
+            status: m ? "matched" : "unmatched",
+            matched_transaction_id: m?.matched_transaction_id ?? null,
+            matched_payment_list_id: m?.matched_payment_list_id ?? null,
+            matched_sepa_export_id: m?.matched_sepa_export_id ?? null,
+            matched_by: m ? `auto:${m.layer}` : null,
+            matched_at: m ? now : null,
+          })
+          .eq("id", l.id);
+        if (error) throw error;
+      }
+
+      toast.success(
+        `Reconciliação refeita: ${result.counts.sepa} lote(s) SEPA, ${result.counts.amount} por valor, ` +
+          `${result.counts.description} por descrição, ${result.counts.unmatched} por explicar.`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement.id] });
+    } catch (err: any) {
+      toast.error("Erro ao voltar a conciliar: " + (err?.message ?? "desconhecido"));
+    } finally {
+      setRerunning(false);
+    }
+  }
+
+
   if (!allowed) {
     return <p className="text-sm text-muted-foreground">Sem permissão para a Conciliação Bancária.</p>;
   }
@@ -505,7 +652,7 @@ export default function BankReconciliation() {
     refGroups.set(l.bank_ref, (refGroups.get(l.bank_ref) ?? 0) + 1);
   });
 
-  const txById = new Map((txns as any[]).map((t) => [t.id, t]));
+  
 
   return (
     <div className="space-y-4">
@@ -635,18 +782,43 @@ export default function BankReconciliation() {
               </p>
             </div>
           </div>
-          <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-2">
+          <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">
                 Linhas do banco por explicar ({unmatchedLines.length})
               </p>
               <p className="font-semibold">{formatCurrency(triangle.unexplainedBank)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Pesa {formatCurrency(triangle.contribBank)} na diferença
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">
                 Transações sem movimento no banco ({txWithoutLine.length})
               </p>
               <p className="font-semibold">{formatCurrency(triangle.unexplainedSystem)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Pesa {formatCurrency(triangle.contribSystem)} na diferença
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Retenção na fonte (lotes SEPA)</p>
+              <p className="font-semibold">{formatCurrency(retentionTotal)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Banco paga líquido, sistema registou bruto — já descontada no saldo do sistema, não pesa na diferença
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Resto sem explicação</p>
+              <p
+                className={`font-semibold ${
+                  triangle.residual !== null && Math.abs(triangle.residual) > 0.01
+                    ? "text-destructive"
+                    : "text-success"
+                }`}
+              >
+                {triangle.residual === null ? "—" : formatCurrency(triangle.residual)}
+              </p>
             </div>
           </div>
         </div>
@@ -665,6 +837,16 @@ export default function BankReconciliation() {
               {formatDatePT(s.period_from)} → {formatDatePT(s.period_to)} · {s.n_lines} linhas
             </button>
           ))}
+          {currentStatement && (
+            <Button size="sm" variant="outline" onClick={rerunReconcile} disabled={rerunning}>
+              {rerunning ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+              )}
+              Voltar a conciliar
+            </Button>
+          )}
         </div>
       )}
 
@@ -699,9 +881,26 @@ export default function BankReconciliation() {
                     <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell><Badge variant="outline">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {l.matched_sepa_export_id
-                        ? "Lote SEPA (lista de pagamento)"
-                        : txById.get(l.matched_transaction_id)?.description ?? "—"}
+                      {l.matched_sepa_export_id ? (
+                        <div className="space-y-0.5">
+                          <p>Lote SEPA (lista de pagamento)</p>
+                          {sepaInfo.get(l.id)?.exportCount! > 1 && (
+                            <p className="text-warning">
+                              Lote gerado {sepaInfo.get(l.id)!.exportCount}× (dupla geração) — tratado como um só
+                            </p>
+                          )}
+                          {!!sepaInfo.get(l.id)?.retention && (
+                            <p>
+                              Sistema {formatCurrency(sepaInfo.get(l.id)!.systemGross)} bruto ·{" "}
+                              <span className="text-foreground">
+                                retenção na fonte {formatCurrency(sepaInfo.get(l.id)!.retention)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        txById.get(l.matched_transaction_id)?.description ?? "—"
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
