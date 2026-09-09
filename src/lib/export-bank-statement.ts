@@ -42,11 +42,12 @@ export function exportBankStatementToExcel(
     ["Data", "Descrição", "Evento", "Entrada (€)", "Saída (€)", "Saldo (€)"],
     [dateFrom || "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
   ];
-
+  const rows2: any[][] = rows;
+  void rows2;
 
   lines.forEach((l: any) => {
     rows.push([
-      l.date,
+      l.date ? fmtDate(l.date) : "",
       l.description,
       l.events?.name ?? "",
       l.signedAmount > 0 ? l.signedAmount : "",
@@ -54,6 +55,7 @@ export function exportBankStatementToExcel(
       bal(l.runningBalance),
     ]);
   });
+
 
   const totalIncome = lines.filter((l: any) => l.signedAmount > 0).reduce((s: number, l: any) => s + l.signedAmount, 0);
   const totalExpense = lines.filter((l: any) => l.signedAmount < 0).reduce((s: number, l: any) => s + Math.abs(l.signedAmount), 0);
