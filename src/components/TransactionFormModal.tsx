@@ -133,9 +133,11 @@ interface TransactionFormModalProps {
   onCreated?: (transactionId: string) => void;
   /** Optional title override (e.g. "Nova despesa liquidada"). */
   titleOverride?: string;
+  /** Pré-ativa o toggle "🧳 Extra do Sócio" já com o sócio (event_partners.id) escolhido. */
+  partnerExtraDefault?: { partnerId: string };
 }
 
-export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
+export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride, partnerExtraDefault }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
   // Só admin/manager podem criar transações já liquidadas (histórico/importações).
   const canCreatePaid = authIsAdmin || authIsManager;
