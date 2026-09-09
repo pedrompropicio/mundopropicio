@@ -40,10 +40,9 @@ export function exportBankStatementToExcel(
     ...(uncontrolled ? [["Conta sem controlo de saldo — saldos não apurados"]] : []),
     [],
     ["Data", "Descrição", "Evento", "Entrada (€)", "Saída (€)", "Saldo (€)"],
-    [dateFrom || "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
+    [dateFrom ? fmtDate(dateFrom) : "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
   ];
-  const rows2: any[][] = rows;
-  void rows2;
+
 
   lines.forEach((l: any) => {
     rows.push([
