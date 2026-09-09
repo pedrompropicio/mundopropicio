@@ -158,6 +158,7 @@ function sectionTitle(doc: jsPDF, text: string, y: number): number {
 /** Identificação compacta no topo das folhas de anexo. Devolve o y para o conteúdo. */
 function pageIdent(doc: jsPDF, tourName: string, meta: string): number {
   const y = 14;
+  const usable = PAGE_W - M * 2;
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
@@ -166,13 +167,62 @@ function pageIdent(doc: jsPDF, tourName: string, meta: string): number {
   doc.setFontSize(7.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text(meta, M + nameW + 3, y);
+  const metaW = doc.getTextWidth(meta);
+  // Nome comprido: o meta desce para uma segunda linha em vez de passar a margem.
+  const wraps = nameW + 3 + metaW > usable;
+  const metaY = wraps ? y + 4.2 : y;
+  doc.text(meta, wraps ? M : M + nameW + 3, metaY);
   doc.setTextColor(0, 0, 0);
   doc.setDrawColor(210, 210, 210);
   doc.setLineWidth(0.2);
-  doc.line(M, y + 2.5, PAGE_W - M, y + 2.5);
+  doc.line(M, metaY + 2.5, PAGE_W - M, metaY + 2.5);
   doc.setDrawColor(0, 0, 0);
-  return y + 8;
+  return metaY + 8;
+}
+
+interface KpiCell {
+  rotulo: string;
+  valor: string;
+  nota?: string;
+}
+
+/**
+ * Faixa de indicadores em grelha fixa (2 linhas × 4 colunas), desenhada à mão.
+ * Uma autoTable dava larguras de coluna dependentes do texto e desalinhava as
+ * células com nota (3 linhas) contra as sem nota (2 linhas).
+ */
+function drawKpiGrid(doc: jsPDF, kpis: KpiCell[], y: number): number {
+  const usable = PAGE_W - M * 2;
+  const colW = usable / 4;
+  const rowH = 15;
+  for (let row = 0; row < 2; row++) {
+    const top = y + row * rowH;
+    for (let col = 0; col < 4; col++) {
+      const cell = kpis[row * 4 + col];
+      if (!cell) continue;
+      const x = M + col * colW;
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120, 120, 120);
+      doc.text(cell.rotulo, x, top + 3.5);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text(cell.valor, x, top + 8.6);
+      if (cell.nota) {
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(120, 120, 120);
+        doc.text(cell.nota, x, top + 12.3);
+      }
+    }
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.2);
+    doc.line(M, top + rowH - 1, PAGE_W - M, top + rowH - 1);
+  }
+  doc.setDrawColor(0, 0, 0);
+  doc.setTextColor(0, 0, 0);
+  return y + 2 * rowH;
 }
 
 export async function exportEventSalesPdf(params: EventSalesPdfParams) {
@@ -216,28 +266,20 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     ? `${int(Number(params.capacity.occupied || 0))} de ${int(Number(params.capacity.capacity))} lugares`
     : "";
 
-  const kpis: [string, string][] = [
-    ["Total do evento (bilhetes)", int(params.totalQty)],
-    [`Total do evento (receita)${sfx}`, money(params.totalValue)],
-    ["Bilhetes no período", int(params.qty)],
-    [`Receita no período${sfx}`, money(params.value)],
-    ["Média diária (bilhetes)", `${dec1(params.med)} /dia`],
-    [`Média diária${sfx}`, money(params.medValue)],
-    [
-      "Tração vs. período anterior",
-      tractionText(params.variacao, nfInt),
-    ],
-    ["Ocupação da sala", occSub ? `${occ}\n${occSub}` : occ],
+  const [tracVal, tracNote] = tractionText(params.variacao, nfInt).split("\n");
+
+  const kpis: KpiCell[] = [
+    { rotulo: "Total do evento (bilhetes)", valor: int(params.totalQty) },
+    { rotulo: `Total do evento (receita)${sfx}`, valor: money(params.totalValue) },
+    { rotulo: "Bilhetes no período", valor: int(params.qty) },
+    { rotulo: `Receita no período${sfx}`, valor: money(params.value) },
+    { rotulo: "Média diária (bilhetes)", valor: `${dec1(params.med)} /dia` },
+    { rotulo: `Média diária${sfx}`, valor: money(params.medValue) },
+    { rotulo: "Tração vs. período anterior", valor: tracVal, nota: tracNote },
+    { rotulo: "Ocupação da sala", valor: occ, nota: occSub || undefined },
   ];
 
-  autoTable(doc, {
-    startY: y,
-    body: [kpis.slice(0, 4).map(([k, v]) => `${k}\n${v}`), kpis.slice(4).map(([k, v]) => `${k}\n${v}`)],
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2, valign: "middle" },
-    margin: { left: M, right: M },
-  });
-  y = (doc as any).lastAutoTable.finalY + 7;
+  y = drawKpiGrid(doc, kpis, y) + 7;
 
   // parágrafo de leitura gerado dos números
   const vPct = params.variacao.pct;
@@ -381,7 +423,10 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     const footer = internal
       ? "Origem: bilheteiras (mirrors diários) e registo de vendas. A média diária é sobre dias de calendário. Uso interno."
       : `Dados de bilheteira · Extração ${stamp}`;
-    doc.text(doc.splitTextToSize(footer, PAGE_W - M * 2 - 30), M, PAGE_H - 10);
+    // A última linha do rodapé assenta sempre em PAGE_H - 10, à altura do
+    // número da página; as anteriores sobem, para não invadir a margem.
+    const footerLines: string[] = doc.splitTextToSize(footer, PAGE_W - M * 2 - 34);
+    doc.text(footerLines, M, PAGE_H - 10 - (footerLines.length - 1) * 3.2);
     doc.text(`página ${int(i)} de ${int(total)}`, PAGE_W - M, PAGE_H - 10, { align: "right" });
     doc.setTextColor(0, 0, 0);
   }
