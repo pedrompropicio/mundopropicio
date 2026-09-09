@@ -12749,14 +12749,17 @@ export type Database = {
       get_event_capacity_quality: {
         Args: never
         Returns: {
+          available: number
+          blocked: number
           capacity: number
           group_id: string
           issue: string
+          last_observed: string
+          occupied: number
+          stale: boolean
           trustworthy: boolean
           zones: number
-          zones_equals_sold: number
-          zones_no_capacity: number
-          zones_sold_over_capacity: number
+          zones_oversold: number
         }[]
       }
       get_event_cash_position: {
