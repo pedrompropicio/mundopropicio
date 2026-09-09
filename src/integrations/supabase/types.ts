@@ -6707,6 +6707,7 @@ export type Database = {
           iban: string | null
           id: string
           initial_balance: number
+          initial_balance_date: string | null
           is_accounting: boolean
           is_active: boolean
           is_hidden: boolean
@@ -6731,6 +6732,7 @@ export type Database = {
           iban?: string | null
           id?: string
           initial_balance?: number
+          initial_balance_date?: string | null
           is_accounting?: boolean
           is_active?: boolean
           is_hidden?: boolean
@@ -6755,6 +6757,7 @@ export type Database = {
           iban?: string | null
           id?: string
           initial_balance?: number
+          initial_balance_date?: string | null
           is_accounting?: boolean
           is_active?: boolean
           is_hidden?: boolean

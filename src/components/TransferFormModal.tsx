@@ -6,7 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 
@@ -28,7 +28,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance, skip_balance_check")
+        .select("id, name, initial_balance, initial_balance_date, skip_balance_check")
         .eq("is_active", true)
         .eq("is_hidden", false)
         .order("name");
@@ -61,11 +61,14 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
 
       const { data: txns, error } = await supabase
         .from("transactions")
-        .select("account_id, type, paid_amount")
+        .select("account_id, type, paid_amount, date, payment_date")
         .eq("account_id", fromAccountId);
       if (error) throw error;
 
-      const adj = await fetchAccountCashAdjustments([fromAccountId]);
+      const adj = await fetchAccountCashAdjustments(
+        [fromAccountId],
+        buildAccountCutoffs([account as any])
+      );
       return computeAccountBalance(account as any, (txns ?? []) as any, adj);
     },
   });

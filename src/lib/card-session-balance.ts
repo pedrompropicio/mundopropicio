@@ -17,7 +17,7 @@
  * Data efetiva = `payment_date` com fallback para `date` (coerente com Contas).
  */
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, countsAfterCutoff } from "@/lib/account-balance";
 
 export interface CardAccountTx {
   id: string;
@@ -65,16 +65,25 @@ export async function fetchCardSessionAccountSync(params: {
   const { accountId, sessionId, openedAt } = params;
   const loadIds = new Set((params.loadInTransactionIds ?? []).filter(Boolean) as string[]);
 
-  const [{ data: account, error: accErr }, { data: txs, error: txErr }, adjustments] = await Promise.all([
-    supabase.from("financial_accounts").select("initial_balance").eq("id", accountId).maybeSingle(),
+  const [{ data: account, error: accErr }, { data: txs, error: txErr }] = await Promise.all([
+    supabase
+      .from("financial_accounts")
+      .select("id, initial_balance, initial_balance_date")
+      .eq("id", accountId)
+      .maybeSingle(),
     supabase
       .from("transactions")
       .select("id, description, type, paid_amount, date, payment_date, card_session_id")
       .eq("account_id", accountId),
-    fetchAccountCashAdjustments([accountId]),
   ]);
   if (accErr) throw accErr;
   if (txErr) throw txErr;
+
+  const cutoff = (account as any)?.initial_balance_date ?? null;
+  const adjustments = await fetchAccountCashAdjustments(
+    [accountId],
+    new Map([[accountId, cutoff]])
+  );
 
   const base = Number(account?.initial_balance ?? 0) + (adjustments.get(accountId) ?? 0);
   // Comparação de datas: opened_at é timestamp; a data efetiva é YYYY-MM-DD.
@@ -86,6 +95,8 @@ export async function fetchCardSessionAccountSync(params: {
   let directTotal = 0;
 
   for (const raw of (txs ?? []) as CardAccountTx[]) {
+    // Data de corte do saldo inicial: o que é anterior já está no initial_balance.
+    if (!countsAfterCutoff(raw, cutoff)) continue;
     const signed = txSignedAmount(raw);
     accountBalance += signed;
     const eff = txEffectiveDate(raw);
@@ -119,17 +130,27 @@ export function resolveOpening(overrideOpening: number | null | undefined, dynam
 
 /** Saldo calculado da conta a uma data (exclusivo): usado na abertura de sessões novas. */
 export async function fetchAccountBalanceAsOf(accountId: string, beforeDay?: string): Promise<number> {
-  const [{ data: account, error: accErr }, { data: txs, error: txErr }, adjustments] = await Promise.all([
-    supabase.from("financial_accounts").select("initial_balance").eq("id", accountId).maybeSingle(),
+  const [{ data: account, error: accErr }, { data: txs, error: txErr }] = await Promise.all([
+    supabase
+      .from("financial_accounts")
+      .select("initial_balance, initial_balance_date")
+      .eq("id", accountId)
+      .maybeSingle(),
     supabase.from("transactions").select("type, paid_amount, date, payment_date").eq("account_id", accountId),
-    fetchAccountCashAdjustments([accountId]),
   ]);
   if (accErr) throw accErr;
   if (txErr) throw txErr;
 
+  const cutoff = (account as any)?.initial_balance_date ?? null;
+  const adjustments = await fetchAccountCashAdjustments(
+    [accountId],
+    new Map([[accountId, cutoff]])
+  );
+
   let balance = Number(account?.initial_balance ?? 0) + (adjustments.get(accountId) ?? 0);
   const cut = beforeDay ? beforeDay.slice(0, 10) : null;
   for (const t of (txs ?? []) as any[]) {
+    if (!countsAfterCutoff(t, cutoff)) continue;
     if (cut) {
       const eff = txEffectiveDate(t);
       if (!eff || eff >= cut) continue;
