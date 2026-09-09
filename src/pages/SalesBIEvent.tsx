@@ -403,12 +403,14 @@ export default function SalesBIEvent() {
         </>
       ) : sessionsModel ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <Kpi label="Sessões à venda" value={int(sessionsModel.totalSessoes)} />
             <Kpi label="Bilhetes vendidos" value={int(sessionsModel.totalQty)} />
             <Kpi label={`Receita${ivaSfx}`} value={money(sessionsModel.totalValue)} />
             <Kpi
-              label="Ocupação global"
+              label="Ocupação (bilhetes nossos)"
               value={sessionsModel.ocupGlobal !== null ? pct(sessionsModel.ocupGlobal) : "—"}
+              sub={`${int(sessionsModel.totalQty)} de ${int(sessionsModel.totalCap)} lugares à venda`}
             />
             <Kpi
               label="Sessões sem venda"
@@ -417,6 +419,45 @@ export default function SalesBIEvent() {
             <Kpi label={`Preço médio${ivaSfx}`} value={money(sessionsModel.precoMedio)} />
           </div>
 
+          {sessionsModel.days.length > 0 && (
+            <Card className="p-0">
+              <p className="p-3 text-sm font-semibold">Por dia de espetáculo</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="p-3 font-medium">Data</th>
+                      <th className="p-3 font-medium">Dia</th>
+                      <th className="p-3 text-right font-medium">Sessões</th>
+                      <th className="p-3 text-right font-medium">Carga</th>
+                      <th className="p-3 text-right font-medium">Bilhetes</th>
+                      <th className="p-3 text-right font-medium">Receita{ivaSfx}</th>
+                      <th className="p-3 text-right font-medium">Ocupação (bilhetes nossos)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="tabular-nums">
+                    {sessionsModel.days.map((d) => (
+                      <tr key={d.dayISO} className="border-b last:border-0">
+                        <td className="p-3 font-medium">{fmtDay(d.dayISO)}</td>
+                        <td className="p-3 text-muted-foreground">{d.weekday}</td>
+                        <td className="p-3 text-right">{int(d.sessoes)}</td>
+                        <td className="p-3 text-right">{int(d.cap)}</td>
+                        <td className="p-3 text-right">{int(d.qty)}</td>
+                        <td className="p-3 text-right">{money(d.value)}</td>
+                        <td className="p-3 text-right">
+                          {d.ocup !== null ? pct(d.ocup) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="p-3 text-xs text-muted-foreground">
+                Só sessões à venda. Ocupação calculada sobre os nossos bilhetes, não sobre observação da bilheteira.
+              </p>
+            </Card>
+          )}
+
           <Card className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-sm">
@@ -424,7 +465,7 @@ export default function SalesBIEvent() {
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="p-3 font-medium">Sessão</th>
                     <th className="p-3 text-right font-medium">Bilhetes</th>
-                    <th className="p-3 text-right font-medium">Ocupação</th>
+                    <th className="p-3 text-right font-medium">Ocupação (bilhetes nossos)</th>
                     <th className="p-3 text-right font-medium">Receita{ivaSfx}</th>
                     {sessionsModel.channelList.map((c) => (
                       <th key={c} className="p-3 text-right font-medium">
@@ -457,9 +498,43 @@ export default function SalesBIEvent() {
               </table>
             </div>
             <p className="p-3 text-xs text-muted-foreground">
-              Retrato de agora: bilhetes acumulados por sessão, sem seletor de período.
+              Retrato de agora: bilhetes acumulados por sessão, sem seletor de período. Só sessões à venda.
             </p>
           </Card>
+
+          {sessionsModel.notLaunched.length > 0 && (
+            <Card className="p-0">
+              <p className="p-3 text-sm font-semibold">Ainda não lançadas</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="p-3 font-medium">Sessão</th>
+                      <th className="p-3 text-right font-medium">Carga</th>
+                      <th className="p-3 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="tabular-nums">
+                    {sessionsModel.notLaunched.map((r) => (
+                      <tr key={r.id} className="border-b last:border-0">
+                        <td className="p-3 font-medium">{r.name}</td>
+                        <td className="p-3 text-right">
+                          {r.cap !== null ? int(r.cap) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="p-3">
+                          <Pill label="não lançada" tone="muted" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="p-3 text-xs text-muted-foreground">
+                Sessões ainda não colocadas à venda ao público. Não entram em nenhum indicador nem cálculo de
+                ocupação.
+              </p>
+            </Card>
+          )}
         </>
       ) : (
         <Card className="p-8 text-center text-sm text-muted-foreground">
