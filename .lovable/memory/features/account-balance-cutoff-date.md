@@ -24,6 +24,16 @@ type: feature
   já está no `initial_balance`), a abertura funciona sem Data Início, as linhas
   usam `paid_amount` (não `amount`) e o cabeçalho mostra
   "Saldo implantado a <data>: <valor>" no ecrã, no Excel e no PDF.
+  O Extrato usa **um único critério de data** — `COALESCE(payment_date, date)` —
+  na seleção do período, no corte e na ordenação (a query já não filtra por
+  `date`; o período aplica-se em memória). E chama
+  `fetchAccountCashAdjustments(ids, cutoffs, bounds)`: os ajustes anteriores à
+  Data Início entram na abertura e os do período aparecem em **linha própria
+  identificada** ("Ajustes de caixa (retenção na fonte + crédito de fornecedor)"),
+  nunca escondidos dentro de outra linha. Sem isto o Saldo Final divergia do
+  módulo Contas (caso real: Santander Totta, retenção de 207,00 € paga depois de
+  31/08 → 284.629,07 vs 284.836,07). Datas do Excel em pt-PT.
+
 - Implantação: modal por conta na página de Contas, **só admin**, com preview
   "sistema calcula hoje" vs "depois de implantar" antes de gravar, e registo de
   autor/hora em `system_audit_log`. O sistema nunca implanta valores.
