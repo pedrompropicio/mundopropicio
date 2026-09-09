@@ -365,7 +365,19 @@ export default function SalesBIDetail() {
                 </thead>
                 <tbody className="tabular-nums">
                   {model.cities.map((c) => (
-                    <tr key={c.id} className="border-b last:border-0">
+                    <tr
+                      key={c.id}
+                      className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => navigate(`/vendas/${groupId}/${c.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/vendas/${groupId}/${c.id}`);
+                        }
+                      }}
+                    >
                       <td className="p-3 font-medium">{c.name}</td>
                       <td className="p-3 text-muted-foreground">{fmtDay(c.date)}</td>
                       <td className="p-3 text-right">{int(c.qty)}</td>

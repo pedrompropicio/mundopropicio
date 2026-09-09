@@ -92,6 +92,7 @@ import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import SalesBI from "./pages/SalesBI";
 import SalesBIDetail from "./pages/SalesBIDetail";
+import SalesBIEvent from "./pages/SalesBIEvent";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
 import StandaloneInvoiceScanner from "./pages/StandaloneInvoiceScanner";
@@ -485,6 +486,7 @@ function ProtectedLayout() {
               <Route path="/bilheteiras" element={<TicketOffices />} />
               <Route path="/vendas" element={<SalesBI />} />
               <Route path="/vendas/:groupId" element={<SalesBIDetail />} />
+              <Route path="/vendas/:groupId/:eventId" element={<SalesBIEvent />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/reembolsos" element={<Reimbursements />} />
