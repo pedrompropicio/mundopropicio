@@ -1,8 +1,8 @@
 /**
  * Terceiro nível do BI de Vendas — uma cidade/evento.
  *
- * MODO A (zonas): quando existem linhas em bilheteira_zone_snapshots.
- *   Retrato de agora + velocidade fixa de 7 dias.
+ * MODO A (zonas): quando existem linhas em event_zone_capacities (lotação real
+ *   das bilheteiras). Retrato de agora + velocidade fixa de 7 dias.
  * MODO B (sessões): quando não existem snapshots — as "zonas" do ERP são
  *   sessões (ex.: Henry & Klauss - Madrid) e as vendas vêm de ticket_sales.
  */
