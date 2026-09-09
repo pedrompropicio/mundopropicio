@@ -103,8 +103,9 @@ export default function ReportBankStatement() {
     enabled: generated && txIdsForDocs.length > 0,
   });
 
-  // Saldo de abertura: parte do initial_balance (saldo ao fecho da data de
+  // Saldo de abertura: parte do initial_balance (saldo ao FECHO da data de
   // corte, quando definida) e só soma movimentos posteriores ao corte.
+  // Sem Data Início não há nada antes: a abertura é o próprio saldo inicial.
   const balanceCutoff = (selectedAccount as any)?.initial_balance_date ?? null;
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
@@ -112,7 +113,7 @@ export default function ReportBankStatement() {
     if (dateFromStr) {
       allAccountTx.forEach((t: any) => {
         if (!countsAfterCutoff(t, balanceCutoff)) return;
-        const amt = Number(t.amount);
+        const amt = Number(t.paid_amount ?? 0);
         if (t.type === "income") bal += amt;
         else bal -= amt;
       });
@@ -120,22 +121,27 @@ export default function ReportBankStatement() {
     return bal;
   })();
 
-  // Recompute running balance with correct opening
+  // Linhas do extrato: o corte vale em TODAS as linhas, não só na abertura —
+  // o que é anterior ao corte já está dentro do initial_balance. Valor por
+  // `paid_amount`, para o relatório e o módulo Contas darem o mesmo número.
   const lines = (() => {
     if (!generated || !canSeeBalance) return [];
     let runningBalance = openingBalance;
-    return transactions.map((t: any) => {
-      const amount = Number(t.amount);
-      const isIncome = t.type === "income";
-      if (isIncome) runningBalance += amount;
-      else runningBalance -= amount;
-      return {
-        ...t,
-        runningBalance,
-        signedAmount: isIncome ? amount : -amount,
-      };
-    });
+    return transactions
+      .filter((t: any) => countsAfterCutoff(t, balanceCutoff))
+      .map((t: any) => {
+        const amount = Number(t.paid_amount ?? 0);
+        const isIncome = t.type === "income";
+        if (isIncome) runningBalance += amount;
+        else runningBalance -= amount;
+        return {
+          ...t,
+          runningBalance,
+          signedAmount: isIncome ? amount : -amount,
+        };
+      });
   })();
+
 
   const closingBalance = lines.length > 0 ? lines[lines.length - 1].runningBalance : openingBalance;
   const totalIncome = lines.filter((l) => l.signedAmount > 0).reduce((s, l) => s + l.signedAmount, 0);
