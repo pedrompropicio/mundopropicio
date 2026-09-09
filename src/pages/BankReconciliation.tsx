@@ -84,6 +84,7 @@ export default function BankReconciliation() {
   const [fileRef, setFileRef] = useState<File | null>(null);
   const [preview, setPreview] = useState<ReconcileResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
   const [statementId, setStatementId] = useState<string | null>(null);
   const [manualLine, setManualLine] = useState<any | null>(null);
   const [manualTxId, setManualTxId] = useState<string>("");
