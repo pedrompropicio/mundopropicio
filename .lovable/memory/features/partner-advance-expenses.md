@@ -24,7 +24,10 @@ type: feature
 ## Fluxos de entrada
 1. **Criação direta** (`TransactionFormModal`): toggle "🧳 Extra do Sócio" + selector de sócio (suporta split parcial)
 2. **Conversão posterior** (`TransactionEditModal`): bloco "Converter em Extra do Sócio" — total OU parcial
-3. **Não existe caminho via rateio multi-evento**: o Extra do Sócio **não se combina** com rateio (em `TransactionSplitConfig` cada perna é só `{evento, percentagem}` — nunca houve destino "Sócio"). Com o rateio activo o toggle 🧳 fica visível mas **desactivado**: reparte-se primeiro pelos eventos e converte-se depois a perna do evento onde o sócio está.
+3. **Não existe caminho via rateio multi-evento**: o Extra do Sócio **não se combina** com rateio (em `TransactionSplitConfig` cada perna é só `{evento, percentagem}` — nunca houve destino "Sócio"). Com o rateio activo o toggle 🧳 fica visível mas **desactivado**, com a mensagem: *"A parte do sócio não entra no rateio. Lança-a como transação própria no evento do sócio, com o mesmo nº de fatura — fica amarrada a esta pelo grupo de fatura."*
+   **Caminho certo** numa fatura que cobre vários eventos e inclui parte do sócio: lançam-se **DUAS transações do mesmo documento** — (i) o valor dos eventos, rateado pelos eventos, e (ii) a parte do sócio como transação própria no evento dele, com Extra do Sócio **total**. As duas partilham fornecedor e nº de fatura e ficam no **mesmo `invoice_group_id`**; a soma do grupo continua a ser o total da fatura (D-ERP17).
+   ⚠️ **Nunca propor converter uma FILHA de rateio em Extra do Sócio** — tem cinco defeitos conhecidos: os sócios não se herdam do Master no modal de edição; a mãe passa a divergir da soma das filhas sem que nada o verifique; a irmã do parcial nasce sem `parent_transaction_id` e sai da árvore do rateio; o BP do Master continua a consumir verba com a perna já convertida; e não há sinal na UI de que a transação é filha de um rateio.
+
 
 ## Split parcial (apenas parte da fatura é extra) — A FATURA REPARTE-SE, NÃO SE DUPLICA
 Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é despesa normal da empresa):

@@ -2114,7 +2114,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     if (isPartnerExtra && isSplit) {
       toast({
         title: "Extra do Sócio não se combina com rateio",
-        description: "Reparte primeiro pelos eventos e depois converte a perna do evento do sócio.",
+        description: "A parte do sócio não entra no rateio. Lança-a como transação própria no evento do sócio, com o mesmo nº de fatura — fica amarrada a esta pelo grupo de fatura.",
         variant: "destructive",
       });
       return;
@@ -2509,7 +2509,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             const noPartners = !noEvent && eventPartners.length === 0;
             const disabled = isSplit || noEvent || noPartners;
             const tip = isSplit
-              ? "Reparte primeiro pelos eventos e depois converte a perna do evento do sócio."
+              ? "A parte do sócio não entra no rateio. Lança-a como transação própria no evento do sócio, com o mesmo nº de fatura — fica amarrada a esta pelo grupo de fatura."
               : noEvent
                 ? "Escolhe primeiro o evento"
                 : noPartners
