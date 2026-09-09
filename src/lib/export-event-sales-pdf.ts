@@ -63,7 +63,10 @@ export interface EventSalesPdfParams {
   value: number;
   med: number;
   medValue: number;
+  /** Dias de venda usados como denominador das médias (ver src/lib/sales-avg-days.ts). */
+  medDays: number;
   variacao: Traction;
+
   /**
    * Ocupação da sala (bilheteira): `occupied` / `capacity`. Só se usa quando
    * `trustworthy`. NÃO é o mesmo que os bilhetes vendidos por nós.
