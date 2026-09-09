@@ -493,6 +493,8 @@ export default function SalesBIDetail() {
               <p className="text-xs text-muted-foreground">Total do evento{ivaLbl}</p>
               <p className="text-lg font-semibold">{int(model.totalQty)}</p>
               <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
+              <p className="text-[10px] text-muted-foreground">vida do evento, até hoje inclusive</p>
+
             </Card>
             {/* Ocupação da sala = bilheteira (occupied/capacity). NÃO são os nossos bilhetes. */}
             <Card className="p-3 tabular-nums">
