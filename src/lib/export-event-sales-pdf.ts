@@ -252,43 +252,6 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   } else if (internal) {
     reading += " Não há observação de lotação da bilheteira utilizável, pelo que a ocupação da sala não é apresentada.";
   }
-
-  const kpis: [string, string][] = [
-    ["Total do evento (bilhetes)", int(params.totalQty)],
-    [`Total do evento (receita)${sfx}`, money(params.totalValue)],
-    ["Bilhetes no período", int(params.qty)],
-    [`Receita no período${sfx}`, money(params.value)],
-    ["Média diária (bilhetes)", `${dec1(params.med)} /dia`],
-    [`Média diária${sfx}`, money(params.medValue)],
-    [
-      "Tração vs. período anterior",
-      params.variacao === null ? "—" : `${params.variacao > 0 ? "+" : ""}${pct(params.variacao)}`,
-    ],
-    ["Ocupação", occ],
-  ];
-
-  autoTable(doc, {
-    startY: y,
-    body: [kpis.slice(0, 4).map(([k, v]) => `${k}\n${v}`), kpis.slice(4).map(([k, v]) => `${k}\n${v}`)],
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2, valign: "middle" },
-    margin: { left: M, right: M },
-  });
-  y = (doc as any).lastAutoTable.finalY + 7;
-
-  // parágrafo de leitura gerado dos números
-  const dir = params.variacao === null ? null : params.variacao >= 0 ? "acima" : "abaixo";
-  let reading =
-    `Nos últimos ${int(params.days)} dias vendeu ${int(params.qty)} bilhetes, uma média de ${dec1(params.med)} por dia` +
-    (dir ? `, ${pct(Math.abs(params.variacao as number))} ${dir} dos ${int(params.days)} dias anteriores` : "") +
-    `. O acumulado é ${int(params.totalQty)} bilhetes` +
-    (params.withIva ? "" : " (receita apresentada sem IVA)") +
-    ".";
-  if (params.capacity.trustworthy && params.capacity.capacity) {
-    reading += ` Corresponde a ${occ} da lotação (${int(params.capacity.capacity)} lugares).`;
-  } else if (internal) {
-    reading += " A lotação registada não é utilizável, pelo que a ocupação não é apresentada.";
-  }
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   const wrapped = doc.splitTextToSize(reading, PAGE_W - M * 2);
