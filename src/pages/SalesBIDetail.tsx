@@ -140,7 +140,7 @@ export default function SalesBIDetail() {
   const todayISO = toISO(today);
 
   const end = toISO(addDays(today, -1));
-  const start = toISO(addDays(today, -(2 * days) - 30));
+  const start = "2020-01-01";
 
   const seriesQ = useQuery({
     queryKey: ["bi-detail-series", groupId, start, end],
