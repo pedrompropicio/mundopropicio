@@ -462,28 +462,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       setParsing(false);
     }
   }, [implementation]);
-  // String similarity (Dice coefficient) for description matching
-  const stringSimilarity = (a: string, b: string): number => {
-    const na = norm(a);
-    const nb = norm(b);
-    if (na === nb) return 1;
-    if (na.length < 2 || nb.length < 2) return 0;
-    const bigrams = (s: string) => {
-      const set: Record<string, number> = {};
-      for (let i = 0; i < s.length - 1; i++) {
-        const bi = s.substring(i, i + 2);
-        set[bi] = (set[bi] || 0) + 1;
-      }
-      return set;
-    };
-    const bg1 = bigrams(na);
-    const bg2 = bigrams(nb);
-    let intersection = 0;
-    for (const bi in bg1) {
-      if (bg2[bi]) intersection += Math.min(bg1[bi], bg2[bi]);
-    }
-    return (2 * intersection) / (na.length - 1 + nb.length - 1);
-  };
+  // String similarity (Dice coefficient) — motor único em src/lib/string-similarity.ts
+  const stringSimilarity = diceSimilarity;
+
 
   // Analyze apportionment: find rows that appear in ALL active sheets with strict criteria
   const analyzeApportionment = useCallback(async () => {
