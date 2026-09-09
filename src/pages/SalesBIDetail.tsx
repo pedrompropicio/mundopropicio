@@ -139,11 +139,18 @@ export default function SalesBIDetail() {
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
 
-  const end = toISO(addDays(today, -1));
+  // DUAS JANELAS DE PROPÓSITO — não as unifiques:
+  // - série lida até HOJE (inclusive): alimenta os totais de vida do evento,
+  //   que têm de bater com o cartão do /vendas (get_sales_position).
+  // - período (até hoje-1): alimenta médias, tração e gráfico, porque o dia
+  //   de hoje está incompleto e puxaria as médias para baixo.
+  const seriesEnd = todayISO;
+  const periodEnd = toISO(addDays(today, -1));
   const start = "2020-01-01";
 
   const seriesQ = useQuery({
-    queryKey: ["bi-detail-series", groupId, start, end],
+    queryKey: ["bi-detail-series", groupId, start, seriesEnd],
+
     enabled: !!groupId,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_daily_sales_series" as any, {
