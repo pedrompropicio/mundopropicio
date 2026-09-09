@@ -28,8 +28,16 @@ import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark } from "lucide-
 import {
   parseSantanderStatement,
   computeLineHash,
+  extractBankRef,
   type ParsedStatement,
 } from "@/lib/bank-statement/parse-santander";
+import {
+  computeAccountBalance,
+  fetchAccountCashAdjustments,
+  buildAccountCutoffs,
+  effectivePaymentDate,
+} from "@/lib/account-balance";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import {
   reconcileStatement,
   findTransactionsWithoutBankLine,
@@ -37,6 +45,26 @@ import {
   type ReconcileSepaExport,
   type ReconcileTransaction,
 } from "@/lib/bank-statement/reconcile";
+
+const PAGE = 1000;
+
+/**
+ * O PostgREST corta em 1000 linhas em silêncio. Sem paginar, o motor perde
+ * candidatos e a lista inversa enche-se de falsos positivos.
+ */
+async function fetchAllPages<T>(
+  run: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await run(from, from + PAGE - 1);
+    if (error) throw error;
+    const batch = data ?? [];
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return out;
+}
 
 const LAYER_LABEL: Record<string, string> = {
   sepa: "Lote SEPA",
@@ -82,24 +110,29 @@ export default function BankReconciliation() {
     queryKey: ["bank-recon-txns", accountId],
     enabled: !!accountId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers(name)")
-        .eq("account_id", accountId)
-        .gt("paid_amount", 0);
-      if (error) throw error;
-      return (data || []).map((t: any) => ({ ...t, supplier_name: t.suppliers?.name ?? null }));
+      const data = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers(name)")
+          .eq("account_id", accountId)
+          .gt("paid_amount", 0)
+          .order("id")
+          .range(from, to) as any,
+      );
+      return data.map((t: any) => ({ ...t, supplier_name: t.suppliers?.name ?? null }));
     },
   });
 
   const { data: sepaExports = [] } = useQuery({
     queryKey: ["bank-recon-sepa"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("payment_list_sepa_exports")
-        .select("id, payment_list_id, msg_id, total_amount, transaction_ids");
-      if (error) throw error;
-      return data || [];
+      return await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("payment_list_sepa_exports")
+          .select("id, payment_list_id, msg_id, total_amount, transaction_ids")
+          .order("id")
+          .range(from, to) as any,
+      );
     },
   });
 
@@ -127,25 +160,27 @@ export default function BankReconciliation() {
     queryKey: ["bank-recon-lines", currentStatement?.id],
     enabled: !!currentStatement?.id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bank_statement_lines")
-        .select("*")
-        .eq("statement_id", currentStatement.id)
-        .order("booking_date")
-        .order("created_at");
-      if (error) throw error;
-      return data || [];
+      return await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("bank_statement_lines")
+          .select("*")
+          .eq("statement_id", currentStatement.id)
+          .order("booking_date")
+          .order("created_at")
+          .range(from, to) as any,
+      );
     },
   });
 
   // ---- Triângulo do saldo -------------------------------------------------
   const savedExplainedIds = useMemo(() => {
     const s = new Set<string>();
+    // Uma linha IGNORADA não explica nada: filtra-se por status.
     (savedLines as any[]).forEach((l) => {
-      if (l.matched_transaction_id) s.add(l.matched_transaction_id);
+      if (l.status === "matched" && l.matched_transaction_id) s.add(l.matched_transaction_id);
     });
     (sepaExports as ReconcileSepaExport[]).forEach((e) => {
-      const used = (savedLines as any[]).some((l) => l.matched_sepa_export_id === e.id);
+      const used = (savedLines as any[]).some((l) => l.status === "matched" && l.matched_sepa_export_id === e.id);
       if (used) (e.transaction_ids ?? []).forEach((id) => s.add(id));
     });
     return s;
