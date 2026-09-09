@@ -781,18 +781,43 @@ export default function BankReconciliation() {
               </p>
             </div>
           </div>
-          <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-2">
+          <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">
                 Linhas do banco por explicar ({unmatchedLines.length})
               </p>
               <p className="font-semibold">{formatCurrency(triangle.unexplainedBank)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Pesa {formatCurrency(triangle.contribBank)} na diferença
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">
                 Transações sem movimento no banco ({txWithoutLine.length})
               </p>
               <p className="font-semibold">{formatCurrency(triangle.unexplainedSystem)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Pesa {formatCurrency(triangle.contribSystem)} na diferença
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Retenção na fonte (lotes SEPA)</p>
+              <p className="font-semibold">{formatCurrency(retentionTotal)}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Banco paga líquido, sistema registou bruto — pesa {formatCurrency(triangle.contribRetention)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Resto sem explicação</p>
+              <p
+                className={`font-semibold ${
+                  triangle.residual !== null && Math.abs(triangle.residual) > 0.01
+                    ? "text-destructive"
+                    : "text-success"
+                }`}
+              >
+                {triangle.residual === null ? "—" : formatCurrency(triangle.residual)}
+              </p>
             </div>
           </div>
         </div>
@@ -811,6 +836,16 @@ export default function BankReconciliation() {
               {formatDatePT(s.period_from)} → {formatDatePT(s.period_to)} · {s.n_lines} linhas
             </button>
           ))}
+          {currentStatement && (
+            <Button size="sm" variant="outline" onClick={rerunReconcile} disabled={rerunning}>
+              {rerunning ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+              )}
+              Voltar a conciliar
+            </Button>
+          )}
         </div>
       )}
 
