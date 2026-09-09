@@ -479,6 +479,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
        * e no transaction_audit_log. Usado para as filhas da transação paga e para as
        * filhas das irmãs de grupo de fatura (mesmo tratamento).
        */
+      // O movimento de caixa é da MÃE: só ela tem account_id e linha em
+      // transaction_payments. A filha de rateio regista apenas que a sua parte
+      // ficou liquidada (paid_amount/status/payment_date), para o evento não a
+      // mostrar em aberto. Escrever conta ou registo de pagamento na filha
+      // duplicaria a mesma saída no saldo da conta (computeAccountBalance).
       const settleChildrenOf = async (parentId: string, originLabel: string) => {
         const { data: kids } = await (supabase as any)
           .from("transactions")
@@ -501,28 +506,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               paid_amount: childNewPaid,
               status: childStatus,
               payment_date: format(paymentDate, "yyyy-MM-dd"),
-              account_id: accountId || child.account_id || null,
-              payment_method: paymentMethod,
-              payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
-              payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
             })
             .eq("id", child.id);
 
-          const { error: kidPaymentError } = await (supabase as any).from("transaction_payments").insert({
-            transaction_id: child.id,
-            amount: childRemaining,
-            payment_date: format(paymentDate, "yyyy-MM-dd"),
-            account_id: accountId || child.account_id || null,
-            payment_method: paymentMethod,
-            payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
-            payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
-            invoice_ref: invoiceRef.trim() || child.invoice_ref || null,
-            withholding_amount: 0,
-            credit_amount: 0,
-            notes: originLabel,
-            created_by: who,
-          });
-          if (kidPaymentError) throw kidPaymentError;
+
 
           await supabase.from("transaction_audit_log").insert({
             transaction_id: child.id,
