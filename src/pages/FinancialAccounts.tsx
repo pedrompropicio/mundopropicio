@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,8 @@ import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/Suppli
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
+import { formatDatePT } from "@/lib/utils";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -145,6 +147,112 @@ export default function FinancialAccounts() {
     queryFn: () => fetchAccountCashAdjustments(undefined, cutoffs),
   });
 
+  // ---- Bilheteiras: fonte própria (D-ERP15) ----------------------------------
+  // A receita de bilhetes vive em `ticket_sales`, não em `transactions`; com a
+  // fórmula bancária a conta só vê as saídas. O saldo retido calcula-se com
+  // computeTicketOfficeBalance, exactamente como no ecrã de Bilheteiras.
+  const officeIds = useMemo(
+    () => (accounts as any[]).filter((a) => a.type === "ticket_office").map((a) => a.id),
+    [accounts]
+  );
+
+  const { data: officeAssignments = [] } = useQuery({
+    queryKey: ["fa-office-assignments", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_office_assignments")
+        .select("financial_account_id, event_id")
+        .in("financial_account_id", officeIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const officeEventIds = useMemo(
+    () => [...new Set((officeAssignments as any[]).map((a) => a.event_id))],
+    [officeAssignments]
+  );
+
+  const { data: officeZones = [] } = useQuery({
+    queryKey: ["fa-office-zones", officeEventIds],
+    enabled: officeEventIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_zones")
+        .select("id, event_id")
+        .in("event_id", officeEventIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const officeZoneIds = useMemo(() => (officeZones as any[]).map((z) => z.id), [officeZones]);
+
+  const { data: officeSales = [] } = useQuery({
+    queryKey: ["fa-office-sales", officeZoneIds],
+    enabled: officeZoneIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("zone_id, quantity, unit_price, total_value, financial_account_id")
+        .in("zone_id", officeZoneIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: officeTxns = [] } = useQuery({
+    queryKey: ["fa-office-txns", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("account_id, type, paid_amount, status, event_id, reversed_at, is_hidden")
+        .in("account_id", officeIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: officeAdvances = [] } = useQuery({
+    queryKey: ["fa-office-advances", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("financial_account_id, event_id, amount, transaction_id, settlement_id")
+        .in("financial_account_id", officeIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const ticketOfficeBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (officeIds.length === 0) return map;
+    const officeEventMap: Record<string, string[]> = {};
+    (officeAssignments as any[]).forEach((a) => {
+      if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = [];
+      officeEventMap[a.financial_account_id].push(a.event_id);
+    });
+    const zoneEventMap: Record<string, string> = {};
+    (officeZones as any[]).forEach((z) => { zoneEventMap[z.id] = z.event_id; });
+    const salesWithEvent = (officeSales as any[]).map((s) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+
+    officeIds.forEach((id: string) => {
+      const { total } = computeTicketOfficeBalance({
+        officeId: id,
+        assignedEventIds: officeEventMap[id] || [],
+        sales: salesWithEvent,
+        transactions: officeTxns as any[],
+        advances: (officeAdvances as any[]).filter((a) => a.financial_account_id === id),
+      });
+      map[id] = total;
+    });
+    return map;
+  }, [officeIds, officeAssignments, officeZones, officeSales, officeTxns, officeAdvances]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {
@@ -216,6 +324,12 @@ export default function FinancialAccounts() {
   }
 
   function computeBalance(account: any): number | null {
+    // Bilheteira: fonte própria (D-ERP15) — a fórmula bancária ignoraria a
+    // receita de bilhetes, que vive em ticket_sales.
+    if (account.type === "ticket_office") {
+      if (account.skip_balance_check) return null;
+      return ticketOfficeBalances[account.id] ?? 0;
+    }
     return computeAccountBalance(account, txSummary as any, cashAdjustments);
   }
 
@@ -235,11 +349,30 @@ export default function FinancialAccounts() {
   const activeAccounts = accounts.filter((a: any) => a.is_active);
   const inactiveAccounts = accounts.filter((a: any) => !a.is_active);
 
-  // Summary cards — exclude skip_balance_check accounts from total
+  // SALDO TOTAL é caixa, e só caixa: banco, caixa e cartão pré-pago, apenas com
+  // controlo de saldo. Bilheteiras (dinheiro retido por terceiros) e contas de
+  // acerto (valores a receber/pagar) têm cartões próprios e nunca somam ao caixa.
+  const CASH_TYPES = ["bank", "cash", "prepaid_card"];
   const totalBalance = activeAccounts.reduce((sum: number, acc: any) => {
+    if (!CASH_TYPES.includes(acc.type)) return sum;
     if (!canSeeBalance(acc) || acc.skip_balance_check) return sum;
     return sum + (computeBalance(acc) ?? 0);
   }, 0);
+
+  const uncontrolledCashNames = activeAccounts
+    .filter((a: any) => CASH_TYPES.includes(a.type) && a.skip_balance_check)
+    .map((a: any) => a.name);
+
+  const ticketOfficeRetained = activeAccounts.reduce((sum: number, acc: any) => {
+    if (acc.type !== "ticket_office" || acc.skip_balance_check) return sum;
+    return sum + (ticketOfficeBalances[acc.id] ?? 0);
+  }, 0);
+
+  const settlementAccounts = activeAccounts.filter((a: any) => a.type === "other");
+  const settlementTotal = settlementAccounts.reduce(
+    (sum: number, acc: any) => sum + (acc.skip_balance_check ? 0 : computeBalance(acc) ?? 0),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -278,7 +411,29 @@ export default function FinancialAccounts() {
           <p className={`mt-1 text-2xl font-bold ${totalBalance >= 0 ? "text-success" : "text-destructive"}`}>
             {isAdmin ? formatCurrency(totalBalance) : "—"}
           </p>
+          <p className="text-[10px] text-muted-foreground">Só caixa: contas bancárias, caixa e cartões pré-pagos</p>
+          {isAdmin && uncontrolledCashNames.length > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Fora do total, sem controlo de saldo: {uncontrolledCashNames.join(", ")}
+            </p>
+          )}
           {!isAdmin && <p className="text-xs text-muted-foreground">Visível apenas para contas autorizadas</p>}
+        </div>
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Retido em Bilheteiras</p>
+          <p className="mt-1 text-2xl font-bold text-warning">
+            {isAdmin ? formatCurrency(ticketOfficeRetained) : "—"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">Dinheiro que existe mas ainda não está no banco</p>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acertos em Curso</p>
+          <p className="mt-1 text-2xl font-bold text-primary">
+            {isAdmin ? formatCurrency(settlementTotal) : "—"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {settlementAccounts.length} conta(s) de acerto — não é caixa
+          </p>
         </div>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipos</p>
@@ -524,7 +679,7 @@ export default function FinancialAccounts() {
                             <>
                               {formatCurrency(Number(acc.initial_balance))}
                               {acc.initial_balance_date && (
-                                <p className="text-[10px] text-muted-foreground">a {acc.initial_balance_date}</p>
+                                <p className="text-[10px] text-muted-foreground">a {formatDatePT(acc.initial_balance_date)}</p>
                               )}
                             </>
                           ) : "••••••"}

@@ -100,6 +100,16 @@ Não corrigir sem decisão explícita.
 **Cartão de fatura agrupada no picker de Listas de Pagamento.** `buildPickerRows` colapsa as transações com o mesmo `invoice_group_id` numa linha única identificada só por fornecedor + `invoice_ref`; as descrições dos itens não são renderizadas com o grupo fechado. Uma transação elegível parece não existir, e a pesquisa por descrição não lhe acerta — o que leva o utilizador a lançá-la outra vez. Caso real a 08/09: `FT 11.1/66` da KARINUR, duas transações de 345,00 € do Tour M&M. Corrigido a 08/09: grupos de 3 itens ou menos abrem por omissão, e a pesquisa passa a ler as descrições dentro dos grupos e a expandir o grupo com match. A selecção continua atómica por fatura.
 
 
+## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
+
+**SALDO TOTAL é caixa, e só caixa.** Soma apenas `bank`, `cash` e `prepaid_card` com controlo de saldo. Debaixo do valor nomeiam-se as contas de caixa que ficaram fora por `skip_balance_check` — hoje a Conta Pagamento Brasil e a Eventos Históricos. Antes somava tudo e dava −1.994.414,66 €.
+
+**As bilheteiras têm fonte própria.** Na coluna Saldo Atual, as contas `ticket_office` passam por `computeTicketOfficeBalance` (D-ERP15) e não pela fórmula bancária: a receita de bilhetes vive em `ticket_sales` e a conta só veria as saídas (Ticketline aparecia a −3.657.013,07 €, BOL a −59.352,72 €). O total dos saldos retidos tem cartão próprio, "Retido em Bilheteiras", e nunca soma ao caixa.
+
+**Acertos não são caixa.** As contas `other` (Acerto EIN · Anitta EDA 2026, Pgto Mágicos Acerto Madrid, Pagamento Diretoria) saíram do SALDO TOTAL para o cartão "Acertos em Curso". A Acerto EIN entrava a +905.000,00 € como se fosse dinheiro em conta.
+
+**Santander implantado.** Corte a 31/08 (D-ERP25), saldo correcto a 407.199,12 €. A data de corte passou a sair em pt-PT na coluna Saldo Inicial.
+
 ## Onde ler mais
 
 - `.lovable/memory/features/payment-amount-invariants.md` — soma de pagamentos e paid_amount nunca excedem o bruto
