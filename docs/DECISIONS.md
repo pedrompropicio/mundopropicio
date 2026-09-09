@@ -603,3 +603,31 @@ Decisão — **um rateio abate-se uma vez, pelo Master.** Os filhos de rateio nu
 Decisão — **o Master diz quanto é deste evento.** Cada Master de rateio mostra `fatura completa <total c/IVA> · parte deste evento <soma c/IVA dos filhos deste evento>` (ex.: META PLATFORMS, fatura completa 14.050,41 € · parte da Anitta 3.902,85 €). O valor marcável continua a ser o do Master: o fecho liquida a fatura inteira, e mostrar só o total esconderia que a maior parte pertence a outros eventos.
 
 Decisão — **"Em aberto neste evento" começa recolhido e tem pesquisa.** O grupo "Pagas por esta bilheteira" (factos) continua aberto; o grupo dos candidatos abre por clique no cabeçalho, que mostra a contagem, e ganha pesquisa por descrição ou fornecedor. Abre-se automaticamente e não pode ser fechado sobre uma dedução marcada — nenhuma dedução marcada fica escondida.
+
+## DR-2026-09-09-D25 — Apuramentos múltiplos por evento (fechos bilaterais, MP residual)
+
+Decidida pelo Pedro a 09/09/2026. Deriva de `claude/varios-fechos-por-evento-possibilidade-2026-09-03.md` e `claude/apuramentos-multiplos-decisoes-2026-09-09.md` no projecto Claude. O padrão cobre 100% dos casos conhecidos em Portugal e no Brasil (Pedro, 09/09).
+
+**Um evento tem N apuramentos.** Todos os eventos existentes ficam com exactamente 1 — a raiz, que apanha tudo o que não está marcado. Cascata e fechos exclusivos coexistem: um apuramento pode receber X% do resultado de um pai, calculado na base indicada, e um pai pode ter vários filhos sobre a mesma quota (fechos bilaterais irmãos).
+
+**Participantes por apuramento**, com % de lucro, % de perda e base de IVA por participante. A Mundo Propício é **participante explícita** — deixa de ser "a diferença para 100%" injectada por `src/lib/house-partner.ts`. Não existe entidade "grupo": grupo = participantes do apuramento.
+
+**Cada sócio é pago por exactamente um apuramento** (`settles`). Nos outros pode aparecer como quota nominal (`nominal`), só para calcular a parte de terceiros. Zero ou dois `settles` para o mesmo sócio é erro de configuração, recusado na hora.
+
+**A MP é a residual.** Fica com a sua quota em cada fecho mais as diferenças nominal−real dos outros sócios. É isso que torna a Conferência 2 calculável.
+
+**Perímetro por linha.** Receitas **e** despesas de BP e de transações podem ser marcadas com um apuramento; sem marca pertencem à raiz. Activos exclusivos entram no ERP como receita marcada com o seu apuramento — fora do resultado da raiz, dentro do seu. `exclude_from_result` deixa de ser o mecanismo para isto.
+
+**Ajustes de base** (ex.: devolver o IVA dedutível das despesas do pai) são **regras calculadas**, nunca valores lançados à mão.
+
+**Operações de terceiro** (bares, food, bengaleiro, merchandising, estacionamento) passam a entidade genérica com resultado próprio e uma forma de participação por apuramento: % do bruto | quota do resultado completo | per capita | fee. O A&B actual é o primeiro caso.
+
+**Encontro de Contas e PDF por apuramento, estanques.** Cada sócio vê só os apuramentos em que participa; nenhum documento revela a existência dos outros.
+
+**Fecho selado (#82) é por apuramento**, com versão do BP congelada.
+
+**Invariante.** C1 = Σ pago a cada sócio no seu apuramento `settles` + residual da MP = receitas − despesas do evento (na base de cada um) + activos exclusivos. C2 = residual da MP = quota declarada da MP + Σ (nominal − real) dos outros + exclusivos que só a ela cabem. Recalculadas a cada alteração; um ajuste que as quebre é recusado.
+
+**Caso de referência — Anitta EDA 2026, v4 de 08/09.** Nível 1: EDA 70% / locais 30% (⅓ nominal cada), base c/IVA. Nível 2: com a Carvalheira, 20% dos 30%, base c/IVA, com despesas exclusivas. Nível 3: com a EIN, 30% s/IVA com receitas e despesas exclusivas, ⅓ cada assumindo a Carvalheira a ⅓. A diferença entre o ⅓ nominal e os 20% reais da Carvalheira (23.887,34 € sobre 597.183,45 €) fica inteira com a MP.
+
+**Estado:** decidida, por implementar (épica #146).

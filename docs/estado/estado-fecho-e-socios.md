@@ -32,6 +32,8 @@ A linha nova é **`Comissão Durex`, 750,00 € a 0% de IVA**, id `29cb9c41`, ru
 
 Acompanhar a conferência dos sócios e manter o diff v4 ↔ BP atualizado. Só se regera a planilha quando o Pedro fechar o lote de ajustes — nunca a cada linha que entra. Corrigir as três linhas de hospedagem a 0% (#68), 33.783,35 €, pagador EIN, que saem a 6% na fatura dela.
 
+A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146 — Apuramentos múltiplos por evento, fechos bilaterais, MP residual (D25)**, pela sub-tarefa (a) — entidade apuramento, participantes com modos `settles`/`nominal`, MP explícita e migração dos eventos existentes para um apuramento raiz.
+
 ## Bloqueios
 
 - **#65** é a mesma ferida da #64 vista do `EventFecho.tsx` — ainda por tratar.
@@ -68,7 +70,7 @@ Acompanhar a conferência dos sócios e manter o diff v4 ↔ BP atualizado. Só 
 
 **Δ de método por reconciliar:** a query canónica de excedido dá 61.464,91 na Anitta contra os 63.544,11 do ecrã — 2.079,20 na rubrica 2.2.01 Aéreo. Número de fecho sai do ecrã ou da planilha, nunca de SQL ad-hoc.
 
-**Nível 2 vive na planilha:** cascata MP/EIN, ativos exclusivos (bares 93.969,63 · Bengaleiro 138,82 · Oeiras 50.000), encontros de contas. `event_partners` não ganha conceito de ativo por sócio.
+**Nível 2 vive na planilha:** cascata MP/EIN, ativos exclusivos (bares 93.969,63 · Bengaleiro 138,82 · Oeiras 50.000), encontros de contas — **até à D25; a partir daí passa a apuramento no sistema**. `event_partners` não ganha conceito de ativo por sócio.
 
 **Anitta, três linhas sem transação e sem pagador sócio** (Estrutura WC CNA 9.745, Copos 9.120, Assessoria de Imprensa 2.500): confirmado que aconteceram, à espera de fatura. Não zerar.
 
