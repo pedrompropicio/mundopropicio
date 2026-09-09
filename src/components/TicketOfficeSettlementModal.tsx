@@ -41,6 +41,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   const [eventId, setEventId] = useState<string>("");
   const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
+  // Grupo "em aberto" recolhido por defeito (enche o ecrã de despesas alheias à bilheteira)
+  const [openGroupExpanded, setOpenGroupExpanded] = useState(false);
+  const [openSearch, setOpenSearch] = useState("");
+
   const [adjustedNet, setAdjustedNet] = useState<string>("");
   const [adjustmentNotes, setAdjustmentNotes] = useState("");
   const [transferAccountId, setTransferAccountId] = useState<string>("");
