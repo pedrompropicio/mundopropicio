@@ -2303,8 +2303,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // Participação): trânsito de capital, por definição nunca está no BP.
     // Fica sempre disponível, mesmo em modo "Do BP".
     if (isCapitalCategoryCode(c.code)) return true;
-    // Extra do Sócio: custo do sócio, nunca do evento — não passa pelo BP.
-    if (hasPLRestriction && effectiveEventId && !plOverride && !isPartnerExtra) {
+    // Extra do Sócio TOTAL: custo do sócio, nunca do evento — não passa pelo BP.
+    // Extra PARCIAL: a principal é despesa do evento, logo o BP volta a mandar.
+    if (hasPLRestriction && effectiveEventId && !plOverride && !partnerExtraBypassesBp) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
       const isInMasterBP = masterDetection.masterCategoryIds.includes(c.id);
