@@ -2230,7 +2230,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       }
     }
-    if (plOverride && !selectedCategoryIsCapital && !isPartnerExtra && !form.pl_override_note.trim()) {
+    if (plOverride && !selectedCategoryIsCapital && !partnerExtraBypassesBp && !form.pl_override_note.trim()) {
       toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
