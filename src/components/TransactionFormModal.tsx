@@ -1688,8 +1688,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
         if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
           if (isPartnerExtraPartial) {
-            // Split parcial: cria transação irmã transitória com o valor parcial,
-            // partilhando o invoice_group_id da fatura. É essa irmã que vai a partner_advance_expenses.
+            // Split parcial: a principal já nasceu por (total − X) acima; aqui nasce a
+            // irmã transitória por X. Soma do grupo == total da fatura (invariante D-ERP17).
+            // Estado e pago seguem a principal: se a principal nasce paga, a irmã também;
+            // se nasce pendente, a irmã fica pendente (antes estava fixa em 'paid').
             const { data: siblingTx, error: siblingErr } = await supabase
               .from("transactions")
               .insert({
@@ -1703,9 +1705,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 account_id: null,
                 date: data.date,
                 due_date: parseDueDateForDb(data.due_date),
-                status: "paid",
-                paid_amount: partnerExtraPartialNum,
-                payment_date: data.date,
+                status: partnerStatus,
+                paid_amount: partnerPaidAmount > 0 ? partnerExtraPartialNum : 0,
+                payment_date: partnerPaidAmount > 0 ? (partnerPaymentDate ?? data.date) : null,
                 is_transitory: true,
                 exclude_from_result: false,
                 invoice_ref: data.invoice_ref.trim() || null,
