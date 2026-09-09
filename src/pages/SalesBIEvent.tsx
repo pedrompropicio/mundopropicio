@@ -238,27 +238,55 @@ export default function SalesBIEvent() {
       agg.set(s.zone_id, a);
     }
     const channelList = Array.from(channels).sort();
-    const rows = zones
+    const all = zones
       .map((z) => {
         const a = agg.get(z.id) ?? { qty: 0, value: 0, byChannel: new Map<string, number>() };
         const cap = z.total_capacity != null ? Number(z.total_capacity) : null;
         const ocup = cap && cap > 0 ? (a.qty / cap) * 100 : null;
+        const onSale = z.on_sale !== false; // null = "não sabemos" conta como à venda
         let pill: { label: string; tone: "ok" | "warn" | "bad" | "muted" };
-        if (a.qty === 0) pill = { label: "sem venda", tone: "muted" };
+        if (!onSale) pill = { label: "não lançada", tone: "muted" };
+        else if (a.qty === 0) pill = { label: "sem venda", tone: "muted" };
         else if (ocup !== null && ocup >= 5) pill = { label: "a andar", tone: "ok" };
         else if (ocup !== null && ocup >= 2) pill = { label: "lento", tone: "warn" };
         else pill = { label: "parado", tone: "bad" };
-        return { id: z.id, name: z.name, qty: a.qty, value: a.value, cap, ocup, byChannel: a.byChannel, pill };
+        return { id: z.id, name: z.name, qty: a.qty, value: a.value, cap, ocup, byChannel: a.byChannel, pill, onSale };
       })
       .sort((a, b) => b.qty - a.qty);
+
+    // Sessões não lançadas ficam fora de TODOS os cálculos.
+    const rows = all.filter((r) => r.onSale);
+    const notLaunched = all
+      .filter((r) => !r.onSale)
+      .sort((a, b) => (parseSessionName(a.name)?.dayISO ?? a.name).localeCompare(parseSessionName(b.name)?.dayISO ?? b.name) || a.name.localeCompare(b.name));
     const totalQty = rows.reduce((s, r) => s + r.qty, 0);
     const totalValue = rows.reduce((s, r) => s + r.value, 0);
     const totalCap = rows.reduce((s, r) => s + (r.cap ?? 0), 0);
+
+    // Por dia de espetáculo — só sessões à venda
+    const byDay = new Map<string, { weekday: string; sessoes: number; cap: number; qty: number; value: number }>();
+    for (const r of rows) {
+      const p = parseSessionName(r.name);
+      if (!p) continue;
+      const d = byDay.get(p.dayISO) ?? { weekday: p.weekday, sessoes: 0, cap: 0, qty: 0, value: 0 };
+      d.sessoes += 1;
+      d.cap += r.cap ?? 0;
+      d.qty += r.qty;
+      d.value += r.value;
+      byDay.set(p.dayISO, d);
+    }
+    const days = Array.from(byDay.entries())
+      .map(([dayISO, d]) => ({ dayISO, ...d, ocup: d.cap > 0 ? (d.qty / d.cap) * 100 : null }))
+      .sort((a, b) => a.dayISO.localeCompare(b.dayISO));
+
     return {
       rows,
+      notLaunched,
+      days,
       channelList,
       totalQty,
       totalValue,
+      totalCap,
       ocupGlobal: totalCap > 0 ? (totalQty / totalCap) * 100 : null,
       semVenda: rows.filter((r) => r.qty === 0).length,
       totalSessoes: rows.length,
