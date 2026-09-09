@@ -2498,17 +2498,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* 🧳 Extra do Sócio — decidido ANTES do BP: é custo do sócio, não do evento.
-              Sempre visível em despesa; desativado quando não há evento ou sócios. */}
+              Sempre visível em despesa; desativado sem evento, sem sócios ou em rateio
+              multi-evento (um extra é dívida de UM sócio, definido por evento). */}
           {form.type === "expense" && !form.is_reimbursement && !isPaidByPartner && (() => {
-            const extraEventId = form.event_id || (isSplit ? splitMasterEventId : "");
-            const noEvent = !extraEventId;
+            const noEvent = !form.event_id;
             const noPartners = !noEvent && eventPartners.length === 0;
-            const disabled = noEvent || noPartners;
-            const tip = noEvent
-              ? "Escolhe primeiro o evento"
-              : noPartners
-                ? "Este evento não tem sócios"
-                : "Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE nem no BP.";
+            const disabled = isSplit || noEvent || noPartners;
+            const tip = isSplit
+              ? "Reparte primeiro pelos eventos e depois converte a perna do evento do sócio."
+              : noEvent
+                ? "Escolhe primeiro o evento"
+                : noPartners
+                  ? "Este evento não tem sócios"
+                  : "Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE nem no BP.";
             return (
               <div className="flex items-center gap-2">
                 <button
