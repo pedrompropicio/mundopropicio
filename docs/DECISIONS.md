@@ -557,3 +557,29 @@ Decisão — vocabulário único, a usar em todo o novo código:
 Os literais de estado em BD ('active', 'superseded', ...) NÃO mudam — a decisão é exclusivamente de camada de apresentação. Alterá-los partiria RPCs, RLS e o Portal do Sócio.
 
 Termo técnico `superseded` nunca é exposto ao utilizador.
+
+## Fiabilidade da lotação (09/09/2026)
+
+Contexto: o BI de Vendas precisa de ocupação, e a lotação por zona (`event_ticket_zones.total_capacity`) está preenchida de forma desigual — muita dela nasceu do import, não da sala.
+
+Decisão — a lotação de um grupo de eventos (`coalesce(parent_event_id, id)`, `management_type = 'own'`) só é utilizável quando as três condições se verificam:
+
+1. nenhuma zona tem `total_capacity` nulo;
+2. nenhuma zona tem vendido acima da lotação;
+3. **não** todas as zonas têm lotação exatamente igual ao vendido.
+
+A terceira condição é a que se erra com facilidade. Uma zona esgotada tem **legitimamente** lotação igual ao vendido — não é erro nenhum. Só se torna sinal de preenchimento automático pelo import quando acontece em **todas** as zonas do grupo, porque a probabilidade de um tour inteiro esgotar zona a zona ao bilhete é nula.
+
+Decisão complementar, sem excepções: **onde a lotação não é fiável, não se apresenta ocupação nem se estima**. Mostra-se um traço. A razão é prática — um número inventado de ocupação acaba num PDF que vai para um sócio ou para um artista, e a partir daí passa a ser tratado como facto. Vale mais o traço.
+
+A 09/09/2026, de 12 tours só 4 passam: Madrid, Ivete, Maiara e Maraisa, e Plenitude. A limpeza dos restantes é trabalho de dados, não de código.
+
+## BI de Vendas separado dos Relatórios (09/09/2026)
+
+Contexto: existiam ~30 relatórios em `/relatorios` e a tentação era acrescentar lá mais um. Não é a mesma coisa.
+
+Decisão — o BI de Vendas tem **entrada própria na barra lateral** e vive em `/vendas`, `/vendas/:groupId` e `/vendas/:groupId/:eventId`, fora de `/relatorios`.
+
+O critério da separação é a pergunta a que cada um responde. **Um relatório responde a "dá-me esta lista"**: abre vazio, exige filtros, produz um extracto para conferir ou exportar. **O BI responde a "o que está a acontecer"**: abre já preenchido, ordenado por quem precisa de atenção, sem o utilizador escolher nada. Misturar os dois na mesma gaveta obriga a quem quer o segundo a comportar-se como quem quer o primeiro.
+
+Nota: os ~30 relatórios existentes **ficam para auditoria à parte** — há relatórios sem sentido e com informação partida desde a criação. Essa revisão não bloqueia o BI nem se faz de arrasto.
