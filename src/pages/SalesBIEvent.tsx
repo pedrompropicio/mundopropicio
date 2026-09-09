@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
+import { fetchZoneCapacities, type ZoneCapacityRow } from "@/lib/zone-capacities";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
