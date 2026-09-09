@@ -58,7 +58,7 @@ export function exportBankStatementToExcel(
 
   const totalIncome = lines.filter((l: any) => l.signedAmount > 0).reduce((s: number, l: any) => s + l.signedAmount, 0);
   const totalExpense = lines.filter((l: any) => l.signedAmount < 0).reduce((s: number, l: any) => s + Math.abs(l.signedAmount), 0);
-  rows.push([dateTo || "—", "SALDO FINAL", "", totalIncome, totalExpense, bal(closingBalance)]);
+  rows.push([dateTo ? fmtDate(dateTo) : "—", "SALDO FINAL", "", totalIncome, totalExpense, bal(closingBalance)]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 12 }, { wch: 35 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
