@@ -911,8 +911,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         Sem transações pendentes elegíveis. Use <strong>+ Nova despesa</strong> para registar.
                       </p>
                     ) : (
-                      <ul className="divide-y divide-border">
-                        {eligibleTxns.map((t: any) => {
+                      (() => {
+                        const paidByOffice = eligibleTxns.filter(
+                          (t: any) => t.status === "paid" && t.account_id === officeId
+                        );
+                        const candidates = eligibleTxns.filter(
+                          (t: any) => !(t.status === "paid" && t.account_id === officeId)
+                        );
+                        const renderRow = (t: any) => {
                           const checked = selectedTxnIds.has(t.id);
                           return (
                             <li
@@ -940,8 +946,28 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                               </span>
                             </li>
                           );
-                        })}
-                      </ul>
+                        };
+                        return (
+                          <>
+                            {paidByOffice.length > 0 && (
+                              <>
+                                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-b border-border">
+                                  Pagas por esta bilheteira
+                                </p>
+                                <ul className="divide-y divide-border">{paidByOffice.map(renderRow)}</ul>
+                              </>
+                            )}
+                            {candidates.length > 0 && (
+                              <>
+                                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-y border-border">
+                                  Em aberto neste evento — marca só se foram pagas pela bilheteira
+                                </p>
+                                <ul className="divide-y divide-border">{candidates.map(renderRow)}</ul>
+                              </>
+                            )}
+                          </>
+                        );
+                      })()
                     )}
                   </div>
                   <div className="flex justify-between items-center text-sm pt-1">
