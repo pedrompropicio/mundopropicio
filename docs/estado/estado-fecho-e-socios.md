@@ -1,6 +1,6 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-09-09 · Issues: #82, #65, #85, #68, #133, #146, #147, #148 · P0 aberto: nenhum
+Atualizado: 2026-09-09 · Issues: #82, #65, #85, #68, #133, #146, #147, #148, #150 · P0 aberto: nenhum
 
 ## Em que pé está
 
@@ -95,6 +95,8 @@ A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146
 
 **A conta "Pgto Mágicos Acerto Madrid" é o veículo de devolução do H&K, não financiamento de eventos.** A MP financiou o evento de Madrid acima dos seus 30%; o H&K devolve esse excesso pagando, em reais, contas que a MP tinha no Brasil. As despesas de outros eventos pagas por ali são contas da MP e o H&K é só o canal — não existe dívida entre eventos. Por isso o aporte tem `flow = partner_settlement` e não `event_cash`: nunca entrou no caixa de Madrid.
 
+**`parent_transaction_id` tem dois significados, e só `split_percentage` os separa** (D-ERP26c). Filha de RATEIO (com `split_percentage`) reparte o CUSTO por eventos: o dinheiro sai uma vez, na mãe, e a filha nunca tem conta nem linha em `transaction_payments` — 137 filhas de rateio na Live, zero com conta. PARCELA (sem `split_percentage`) é um pagamento real, na sua data e da sua conta — 12 na Live, e as que foram pagas têm conta e razão próprios. A propagação da liquidação desce às filhas de rateio e nunca toca em parcelas: liquidar o pai não faz sair o dinheiro das parcelas seguintes.
+
 **Decisões de 30/08:** a última versão do BP contém só linhas com custo real; o snapshot faz-se **antes** da limpeza. O guarda-chuva de rubrica para despesas de equipa nasce a zero. O sistema não decide tratamento fiscal — produz a composição por taxa e uma pessoa decide `redebito` ou `reembolso`.
 
 **Existe UM único Extra do Sócio em toda a Live e ZERO splits parciais alguma vez criados.** Medido a 09/09/2026. Tudo o que se corrigiu neste caminho era defeito latente, não estrago instalado.
@@ -108,5 +110,5 @@ A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146
 - `docs/procedimentos/PROC-fecho-evento.md`
 - `docs/estado/estado-ticketing-e-receita.md` — apuramento 2558/2026 e o fecho da Ticketline
 - `.lovable/memory/features/fecho-filter-parity.md`, `partner-settlement.md`, `partner-advance-expenses.md`, `event-cost-basis.md`
-- `docs/DECISIONS.md` — D-ERP3, D-ERP4, D-ERP9, D-ERP10, D-ERP21–D-ERP24, e a nomenclatura das versões de BP
-- Issues #82, #65, #85, #68, #133, #146, #147, #148
+- `docs/DECISIONS.md` — D-ERP26 (três fronteiras do Extra do Sócio e do rateio), D-ERP3, D-ERP4, D-ERP9, D-ERP10, D-ERP21–D-ERP24, e a nomenclatura das versões de BP
+- Issues #82, #65, #85, #68, #133, #146, #147, #148, #150 — #150: mães de rateio divergentes da soma das filhas, sem validação
