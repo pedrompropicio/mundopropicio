@@ -785,6 +785,37 @@ export default function BankReconciliation() {
         </Tabs>
       )}
 
+      {/* Anteriores ao corte — só para se perceber que estão lá e porquê */}
+      {currentStatement && preCutoffLines.length > 0 && (
+        <div className="glass rounded-xl p-4 text-sm opacity-80">
+          <p className="font-medium">
+            Anteriores ao corte ({preCutoffLines.length}) · {formatCurrency(preCutoffTotal)}
+          </p>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Movimentos até {formatDatePT(cutoff)} — já dentro do saldo implantado, por isso não se conciliam.
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {preCutoffLines.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                  <TableCell className="max-w-[420px] truncate">{l.description}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+
+
       {/* Conciliação manual */}
       <Dialog open={!!manualLine} onOpenChange={(o) => !o && setManualLine(null)}>
         <DialogContent>
