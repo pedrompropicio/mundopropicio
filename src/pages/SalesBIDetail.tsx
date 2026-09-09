@@ -26,6 +26,8 @@ import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 import { exportEventSalesPdf, type EventSalesPdfVariant } from "@/lib/export-event-sales-pdf";
 import { fetchZoneCapacities, totalsByEvent } from "@/lib/zone-capacities";
 import { traction, type Traction } from "@/lib/traction";
+import { salesAvgDays, salesAvgDaysLabel } from "@/lib/sales-avg-days";
+
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -266,8 +268,10 @@ export default function SalesBIDetail() {
     let totalValue = 0;
     const allByDay = new Map<string, number>();
     const valueByDay = new Map<string, number>();
-    const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number }>();
+    const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number; firstSale: string | null }>();
     const sourceByCity = new Map<string, Set<string>>();
+    let firstSale: string | null = null;
+
 
     for (const r of series) {
       const d = r.sale_date.slice(0, 10);
@@ -276,10 +280,13 @@ export default function SalesBIDetail() {
       // das linhas já convertidas — nunca uma taxa média sobre o agregado.
       const vGross = Number(r.value || 0);
       const v = withIva ? vGross : netOfIva(vGross, rateOf(r.event_id));
-      const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
+      const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0, firstSale: null };
       c.total += q;
+      if (q > 0 && (c.firstSale === null || d < c.firstSale)) c.firstSale = d;
+      if (q > 0 && (firstSale === null || d < firstSale)) firstSale = d;
       totalQty += q;
       totalValue += v;
+
       allByDay.set(d, (allByDay.get(d) ?? 0) + q);
       valueByDay.set(d, (valueByDay.get(d) ?? 0) + v);
       if (r.provider) {
@@ -316,15 +323,18 @@ export default function SalesBIDetail() {
     const caps = zoneCapsQ.data;
     const cities = cityList
       .map((e) => {
-        const c = byCity.get(e.id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
+        const c = byCity.get(e.id) ?? { qty: 0, value: 0, prevQty: 0, total: 0, firstSale: null };
         const t = caps?.get(e.id) ?? null;
+        // Denominador honesto: dias desde o arranque de venda dentro do período.
+        const medDays = salesAvgDays(c.firstSale, pStart, pEnd, days);
         return {
           id: e.id,
           name: e.name,
           date: e.date?.slice(0, 10) ?? null,
           qty: c.qty,
           value: c.value,
-          med: c.qty / days,
+          med: c.qty / medDays,
+          medDays,
           variacao: traction(c.qty, c.prevQty, days),
           total: c.total,
           source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
@@ -336,20 +346,24 @@ export default function SalesBIDetail() {
       })
       .sort((a, b) => b.qty - a.qty);
 
+    const medDays = salesAvgDays(firstSale, pStart, pEnd, days);
+
     return {
       tourName,
       nextDate,
       nextIn,
       qty,
       value,
-      med: qty / days,
-      medValue: value / days,
+      med: qty / medDays,
+      medValue: value / medDays,
+      medDays,
       variacao,
       totalQty,
       totalValue,
       points,
       cities,
     };
+
 
   }, [seriesQ.data, eventsQ.data, zoneCapsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
 
@@ -386,6 +400,7 @@ export default function SalesBIDetail() {
       value: model.value,
       med: model.med,
       medValue: model.medValue,
+      medDays: model.medDays,
       variacao: model.variacao,
       capacity: {
         trustworthy: !!cap?.trustworthy,
@@ -451,19 +466,24 @@ export default function SalesBIDetail() {
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Bilhetes no período</p>
               <p className="text-lg font-semibold">{int(model.qty)}</p>
+              <p className="text-[10px] text-muted-foreground">até ontem — hoje ainda está a decorrer</p>
             </Card>
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Receita no período{ivaLbl}</p>
               <p className="text-lg font-semibold">{money(model.value)}</p>
+              <p className="text-[10px] text-muted-foreground">até ontem — hoje ainda está a decorrer</p>
             </Card>
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Média diária</p>
               <p className="text-lg font-semibold">{nf1.format(model.med)} bilh./dia</p>
+              <p className="text-[10px] text-muted-foreground">{salesAvgDaysLabel(model.medDays)}</p>
             </Card>
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Receita/dia{ivaLbl}</p>
               <p className="text-lg font-semibold">{money(model.medValue)}</p>
+              <p className="text-[10px] text-muted-foreground">{salesAvgDaysLabel(model.medDays)}</p>
             </Card>
+
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Tração vs. período anterior</p>
               <p className="text-lg">
@@ -474,6 +494,8 @@ export default function SalesBIDetail() {
               <p className="text-xs text-muted-foreground">Total do evento{ivaLbl}</p>
               <p className="text-lg font-semibold">{int(model.totalQty)}</p>
               <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
+              <p className="text-[10px] text-muted-foreground">vida do evento, até hoje inclusive</p>
+
             </Card>
             {/* Ocupação da sala = bilheteira (occupied/capacity). NÃO são os nossos bilhetes. */}
             <Card className="p-3 tabular-nums">
@@ -539,7 +561,13 @@ export default function SalesBIDetail() {
                       <td className="p-3 text-muted-foreground">{fmtDay(c.date)}</td>
                       <td className="p-3 text-right">{int(c.qty)}</td>
                       <td className="p-3 text-right">{money(c.value)}</td>
-                      <td className="p-3 text-right">{nf1.format(c.med)}</td>
+                      <td className="p-3 text-right">
+                        {nf1.format(c.med)}
+                        <span className="block text-[10px] text-muted-foreground">
+                          {salesAvgDaysLabel(c.medDays)}
+                        </span>
+                      </td>
+
                       <td className="p-3 text-right">
                         <Variation t={c.variacao} />
                       </td>
