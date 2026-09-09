@@ -266,8 +266,10 @@ export default function SalesBIDetail() {
     let totalValue = 0;
     const allByDay = new Map<string, number>();
     const valueByDay = new Map<string, number>();
-    const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number }>();
+    const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number; firstSale: string | null }>();
     const sourceByCity = new Map<string, Set<string>>();
+    let firstSale: string | null = null;
+
 
     for (const r of series) {
       const d = r.sale_date.slice(0, 10);
