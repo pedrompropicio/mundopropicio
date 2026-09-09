@@ -183,18 +183,40 @@ export default function BankReconciliation() {
   });
 
   // ---- Triângulo do saldo -------------------------------------------------
+  const txById = useMemo(() => new Map((txns as any[]).map((t) => [t.id, t])), [txns]);
+
+  /**
+   * Exportações SEPA irmãs: mesma lista de pagamento e mesmo total. A dupla
+   * geração de um lote (dois `msg_id` com um minuto de diferença) é o MESMO
+   * acontecimento — as suas transações contam como explicadas de uma vez.
+   */
+  const sepaSiblings = useMemo(() => {
+    const byExport = new Map<string, ReconcileSepaExport[]>();
+    (sepaExports as ReconcileSepaExport[]).forEach((e) => {
+      const sibs = (sepaExports as ReconcileSepaExport[]).filter(
+        (o) =>
+          o.payment_list_id === e.payment_list_id &&
+          Math.abs(Number(o.total_amount ?? 0) - Number(e.total_amount ?? 0)) <= 0.01,
+      );
+      byExport.set(e.id, sibs);
+    });
+    return byExport;
+  }, [sepaExports]);
+
   const savedExplainedIds = useMemo(() => {
     const s = new Set<string>();
     // Uma linha IGNORADA não explica nada: filtra-se por status.
     (savedLines as any[]).forEach((l) => {
-      if (l.status === "matched" && l.matched_transaction_id) s.add(l.matched_transaction_id);
-    });
-    (sepaExports as ReconcileSepaExport[]).forEach((e) => {
-      const used = (savedLines as any[]).some((l) => l.status === "matched" && l.matched_sepa_export_id === e.id);
-      if (used) (e.transaction_ids ?? []).forEach((id) => s.add(id));
+      if (l.status !== "matched") return;
+      if (l.matched_transaction_id) s.add(l.matched_transaction_id);
+      if (l.matched_sepa_export_id) {
+        (sepaSiblings.get(l.matched_sepa_export_id) ?? []).forEach((e) =>
+          (e.transaction_ids ?? []).forEach((id) => s.add(id)),
+        );
+      }
     });
     return s;
-  }, [savedLines, sepaExports]);
+  }, [savedLines, sepaSiblings]);
 
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
@@ -202,6 +224,31 @@ export default function BankReconciliation() {
   // Anteriores ao corte: ficam à parte, só para o histórico.
   const preCutoffLines = (savedLines as any[]).filter((l) => l.status === "pre_cutoff");
   const preCutoffTotal = preCutoffLines.reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
+
+  /**
+   * Por linha de lote SEPA conciliada: quantas exportações teve (dupla geração)
+   * e a retenção na fonte (bruto do sistema − líquido do banco).
+   */
+  const sepaInfo = useMemo(() => {
+    const m = new Map<string, { exportCount: number; systemGross: number; retention: number }>();
+    (savedLines as any[]).forEach((l) => {
+      if (l.status !== "matched" || !l.matched_sepa_export_id) return;
+      const sibs = sepaSiblings.get(l.matched_sepa_export_id) ?? [];
+      const ids = Array.from(new Set(sibs.flatMap((e) => (e.transaction_ids ?? []).filter(Boolean))));
+      const systemGross =
+        Math.round(
+          ids.reduce((acc, id) => acc + Math.abs(Number(txById.get(id)?.paid_amount ?? 0)), 0) * 100,
+        ) / 100;
+      const retention = Math.round((systemGross - Math.abs(Number(l.amount ?? 0))) * 100) / 100;
+      m.set(l.id, { exportCount: sibs.length, systemGross, retention: Math.abs(retention) > 0.01 ? retention : 0 });
+    });
+    return m;
+  }, [savedLines, sepaSiblings, txById]);
+
+  const retentionTotal = useMemo(
+    () => Math.round(Array.from(sepaInfo.values()).reduce((a, i) => a + i.retention, 0) * 100) / 100,
+    [sepaInfo],
+  );
 
   const txWithoutLine = useMemo(() => {
     if (!currentStatement) return [] as ReconcileTransaction[];
