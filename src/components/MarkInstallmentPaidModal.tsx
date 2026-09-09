@@ -74,13 +74,14 @@ export function MarkInstallmentPaidModal({ open, onOpenChange, installment, tran
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, supplier_id")
+        .select("id, supplier_id, reversed_at, reversal_kind")
         .eq("id", transactionId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
+
 
   const { data: availableCredits = [] } = useAvailableSupplierCredits(tx?.supplier_id, open);
 
