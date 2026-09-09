@@ -197,7 +197,9 @@ export default function SalesBIDetail() {
     let qty = 0;
     let value = 0;
     let prevQty = 0;
-    const byDay = new Map<string, number>();
+    let totalQty = 0;
+    let totalValue = 0;
+    const allByDay = new Map<string, number>();
     const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number }>();
 
     for (const r of series) {
@@ -206,10 +208,12 @@ export default function SalesBIDetail() {
       const v = Number(r.value || 0);
       const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
       c.total += q;
+      totalQty += q;
+      totalValue += v;
+      allByDay.set(d, (allByDay.get(d) ?? 0) + q);
       if (d >= pStart && d <= pEnd) {
         qty += q;
         value += v;
-        byDay.set(d, (byDay.get(d) ?? 0) + q);
         c.qty += q;
         c.value += v;
       }
@@ -222,16 +226,15 @@ export default function SalesBIDetail() {
 
     const variacao = prevQty > 0 ? ((qty - prevQty) / prevQty) * 100 : null;
 
-    // Gráfico: dias de calendário + média móvel de 7 dias (usa dias antes do período)
+    // Gráfico: dias de calendário do período + média móvel de 7 dias
     const points: { date: string; qty: number; ma: number | null }[] = [];
     for (let i = days; i >= 1; i--) {
       const d = toISO(addDays(today, -i));
       let sum = 0;
       for (let k = 0; k < 7; k++) {
-        const dk = toISO(addDays(today, -(i + k)));
-        sum += byDay.get(dk) ?? seriesDayFallback(series, dk);
+        sum += allByDay.get(toISO(addDays(today, -(i + k)))) ?? 0;
       }
-      points.push({ date: d, qty: byDay.get(d) ?? 0, ma: sum / 7 });
+      points.push({ date: d, qty: allByDay.get(d) ?? 0, ma: sum / 7 });
     }
 
     const cities = cityList
@@ -259,9 +262,12 @@ export default function SalesBIDetail() {
       med: qty / days,
       medValue: value / days,
       variacao,
+      totalQty,
+      totalValue,
       points,
       cities,
     };
+
   }, [seriesQ.data, eventsQ.data, days, today, todayISO, end, groupId]);
 
   return (
