@@ -4,14 +4,19 @@ Atualizado: 2026-09-09 · Issues: #82, #65, #85, #68, #133 · P0 aberto: nenhum
 
 ## Em que pé está
 
-A **Anitta EDA 2026 foi apurada, conferida e entregue aos sócios** a 08/09, em planilha gerada fora do ERP (gerador v23). A versão do BP que sustenta essa entrega está **congelada como v4** — é a fotografia do que os sócios receberam. O apuramento continua a fazer-se em planilha; o ecrã de Fecho já não diverge do contrato. A Anitta está entregue, **não sacramentada**. A Ivete ainda não fechou.
+A **Anitta EDA 2026 foi apurada, conferida e entregue aos sócios** a 08/09, em planilha gerada fora do ERP (gerador v23). A versão do BP que sustenta essa entrega está **congelada como v4**. A Anitta está entregue, **não sacramentada**; a Ivete ainda não fechou. A **fase de conferência pelos sócios** está aberta — ajustes ao BP nesta fase são normais, e é para os poder medir contra o que foi enviado que a v4 existe.
 
-Abriu com a entrega a **fase de conferência pelos sócios**. Ajustes ao BP nesta fase são normais e esperados — é para os poder medir contra o que foi enviado que a v4 existe.
+O **Extra do Sócio foi arrumado de ponta a ponta a 09/09**:
+- **Deixou de passar pelo BP na criação** — é custo do sócio, não do evento (D-ERP21). O toggle "🧳 Extra do Sócio" **mudou de sítio**: fica a seguir ao evento, antes do painel do BP, e com ele ligado o painel do BP recolhe e deixa de ser exigido.
+- **A reversão total ganhou trava de linha de BP** (D-ERP22): em `approved`/`paid` abre-se o `LinkBpLineDialog` em `pickOnly` e nada se escreve até haver linha; em `pending` não se trava.
+- **Os extras passaram a ter fonte única** (`src/lib/partner-extras.ts`, D-ERP23), lida pelos três ecrãs — painel da aba Sócios, Fecho do Evento e Encontro de Contas. Antes cada um lia só metade das duas tabelas e o saldo do mesmo sócio divergia entre os dois ecrãs de fecho.
+- **A base c/IVA vs s/IVA passou a ser respeitada nos blocos de sócios** (extras e despesas pagas pelo sócio), por sócio, com indicação visível da base em vigor. O extra manual entra sempre pelo valor escrito.
+- **A entrada parcial passou a repartir a fatura** (D-ERP24): principal `total − X`, irmã transitória `X`, mesmo `invoice_group_id`. Antes contavam-se os mesmos euros duas vezes.
 
 ## A trabalhar agora
 
-- **Conferência dos sócios da Anitta.** Cada ajuste que entre no BP mede-se contra a v4 e decide-se, um a um, se entra numa reemissão da planilha ou se fica para um segundo fecho.
-- **#82** — fecho selado. É o que falta para um fecho entregue deixar de se recalcular sozinho quando alguém mexe num parâmetro. Precede o resto da frente.
+Nada em execução.
+
 
 ## Divergência viva: BP de hoje vs. o que foi enviado
 
