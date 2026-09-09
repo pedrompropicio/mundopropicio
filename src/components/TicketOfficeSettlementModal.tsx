@@ -363,13 +363,18 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  const txnGross = (t: any) => Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
+  // Dinheiro nunca fica com mais de duas casas: arredonda ao cêntimo o bruto de cada
+  // dedução (é este valor que vai a paid_amount na confirmação) e o total.
+  const txnGross = (t: any) => roundCents(Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100));
 
   const totalDeductions = useMemo(() => {
-    return eligibleTxns
-      .filter((t: any) => selectedTxnIds.has(t.id))
-      .reduce((acc: number, t: any) => acc + txnGross(t), 0);
+    return roundCents(
+      eligibleTxns
+        .filter((t: any) => selectedTxnIds.has(t.id))
+        .reduce((acc: number, t: any) => acc + txnGross(t), 0)
+    );
   }, [eligibleTxns, selectedTxnIds]);
+
 
   const venueRetainedNum = Number(venueRetainedAmount || 0);
   const selectedInvoice = useMemo(
