@@ -15,7 +15,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { OpenCardSessionModal } from "@/components/cards/OpenCardSessionModal";
-import { fetchAccountCashAdjustments } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 
 export default function CardSessions() {
   const navigate = useNavigate();
