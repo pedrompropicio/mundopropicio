@@ -104,6 +104,7 @@ export function AppSidebar({
     { to: "/vendas", icon: TrendingUp, label: "Vendas", show: hasPermission("view_reports") || hasPermission("manage_ticket_offices") || isAdmin },
     { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas", show: hasPermission("manage_categories") || isAdmin },
     { to: "/contas", icon: Landmark, label: "Contas", show: hasPermission("manage_accounts") || hasPermission("view_balances") || isAdmin },
+    { to: "/conciliacao-bancaria", icon: Landmark, label: "Conciliação", show: hasPermission("manage_bank_reconciliation") || isAdmin },
     { to: "/fornecedores", icon: Users, label: "Entidades", show: hasPermission("manage_suppliers") || isAdmin },
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
