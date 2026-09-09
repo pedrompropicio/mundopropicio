@@ -123,7 +123,11 @@ export default function CardSessions() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((c: any) => {
-          const bal = balances.get(c.id) ?? 0;
+          // null = conta sem controlo de saldo (skip_balance_check): o saldo
+          // não é número, nunca zero nem negativo.
+          const balRaw = balances.get(c.id) ?? null;
+          const uncontrolled = balRaw === null;
+          const bal = balRaw ?? 0;
           const active = activeSessionByCard.get(c.id);
           const openGross = active ? (openItemsBySession?.get(active.id) ?? 0) : 0;
           return (
@@ -146,16 +150,23 @@ export default function CardSessions() {
                 <div className="space-y-0.5 text-sm">
                   <div>
                     <span className="text-muted-foreground">Saldo contabilístico: </span>
-                    <span className="font-semibold text-foreground">{formatCurrency(bal)}</span>
-                  </div>
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">Saldo real estimado: </span>
-                    <span className="font-medium text-foreground">{formatCurrency(bal - openGross)}</span>
-                    {openGross > 0 && (
-                      <span className="text-muted-foreground"> (− {formatCurrency(openGross)} em itens)</span>
+                    {uncontrolled ? (
+                      <span className="italic text-muted-foreground">Não controlado</span>
+                    ) : (
+                      <span className="font-semibold text-foreground">{formatCurrency(bal)}</span>
                     )}
                   </div>
+                  {!uncontrolled && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Saldo real estimado: </span>
+                      <span className="font-medium text-foreground">{formatCurrency(bal - openGross)}</span>
+                      {openGross > 0 && (
+                        <span className="text-muted-foreground"> (− {formatCurrency(openGross)} em itens)</span>
+                      )}
+                    </div>
+                  )}
                 </div>
+
                 {active ? (
                   <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-xs">
                     <div><span className="text-muted-foreground">Portador: </span>{active.holder_name}</div>
