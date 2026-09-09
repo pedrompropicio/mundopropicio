@@ -38,6 +38,7 @@ import {
 } from "@/lib/house-partner";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
+import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
 
 
 
@@ -766,19 +767,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const extrasForPartner = isHouse
       ? []
       : partnerAdvances
-          .filter((pe: any) => pe.partner_id === p.id)
-          .map((pe: any) => {
-            const txEvId = pe.transactions?.event_id || pe.event_id;
-            return {
-              description: pe.transactions?.description || "—",
-              amount: usesGrossExpenses
-                ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
-                : Number(pe.transactions?.amount || 0),
-              date: pe.transactions?.date || "",
-              category: pe.transactions?.account_categories?.name || "—",
-              cityLabel: cityLabelByEvent[txEvId] || "—",
-            };
-          });
+          .filter((pe) => pe.partner_id === p.id)
+          .map((pe) => ({
+            origem: pe.origem,
+            originLabel: ORIGIN_LABEL[pe.origem],
+            description: pe.description,
+            // Manual não tem IVA por definição — a base gross só se aplica à origem 'transacao'.
+            amount: usesGrossExpenses && pe.origem === "transacao"
+              ? calcTotalWithIva(Number(pe.amount), Number(pe.iva_rate || 0))
+              : Number(pe.amount),
+            date: pe.data || "",
+            category: pe.category || "—",
+            cityLabel: cityLabelByEvent[pe.event_id] || "—",
+          }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
     // Items transitórios:
