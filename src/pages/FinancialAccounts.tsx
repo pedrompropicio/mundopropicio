@@ -324,6 +324,12 @@ export default function FinancialAccounts() {
   }
 
   function computeBalance(account: any): number | null {
+    // Bilheteira: fonte própria (D-ERP15) — a fórmula bancária ignoraria a
+    // receita de bilhetes, que vive em ticket_sales.
+    if (account.type === "ticket_office") {
+      if (account.skip_balance_check) return null;
+      return ticketOfficeBalances[account.id] ?? 0;
+    }
     return computeAccountBalance(account, txSummary as any, cashAdjustments);
   }
 
@@ -343,11 +349,30 @@ export default function FinancialAccounts() {
   const activeAccounts = accounts.filter((a: any) => a.is_active);
   const inactiveAccounts = accounts.filter((a: any) => !a.is_active);
 
-  // Summary cards — exclude skip_balance_check accounts from total
+  // SALDO TOTAL é caixa, e só caixa: banco, caixa e cartão pré-pago, apenas com
+  // controlo de saldo. Bilheteiras (dinheiro retido por terceiros) e contas de
+  // acerto (valores a receber/pagar) têm cartões próprios e nunca somam ao caixa.
+  const CASH_TYPES = ["bank", "cash", "prepaid_card"];
   const totalBalance = activeAccounts.reduce((sum: number, acc: any) => {
+    if (!CASH_TYPES.includes(acc.type)) return sum;
     if (!canSeeBalance(acc) || acc.skip_balance_check) return sum;
     return sum + (computeBalance(acc) ?? 0);
   }, 0);
+
+  const uncontrolledCashNames = activeAccounts
+    .filter((a: any) => CASH_TYPES.includes(a.type) && a.skip_balance_check)
+    .map((a: any) => a.name);
+
+  const ticketOfficeRetained = activeAccounts.reduce((sum: number, acc: any) => {
+    if (acc.type !== "ticket_office" || acc.skip_balance_check) return sum;
+    return sum + (ticketOfficeBalances[acc.id] ?? 0);
+  }, 0);
+
+  const settlementAccounts = activeAccounts.filter((a: any) => a.type === "other");
+  const settlementTotal = settlementAccounts.reduce(
+    (sum: number, acc: any) => sum + (acc.skip_balance_check ? 0 : computeBalance(acc) ?? 0),
+    0
+  );
 
   return (
     <div className="space-y-6">
