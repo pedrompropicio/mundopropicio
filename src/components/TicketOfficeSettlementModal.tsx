@@ -21,6 +21,8 @@ import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
+import { roundCents } from "@/lib/iva";
+
 
 interface Props {
   open: boolean;
@@ -39,6 +41,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   const [eventId, setEventId] = useState<string>("");
   const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
+  // Grupo "em aberto" recolhido por defeito (enche o ecrã de despesas alheias à bilheteira)
+  const [openGroupExpanded, setOpenGroupExpanded] = useState(false);
+  const [openSearch, setOpenSearch] = useState("");
+
   const [adjustedNet, setAdjustedNet] = useState<string>("");
   const [adjustmentNotes, setAdjustmentNotes] = useState("");
   const [transferAccountId, setTransferAccountId] = useState<string>("");
@@ -64,6 +70,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   // Reset/load when opening
   useEffect(() => {
     if (!open) return;
+    setOpenGroupExpanded(false);
+    setOpenSearch("");
+
     if (existingSettlement) {
       setEventId(existingSettlement.event_id);
       setAdjustedNet(existingSettlement.net_adjusted != null ? String(existingSettlement.net_adjusted) : "");
@@ -217,11 +226,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       // 2) Master transactions whose Splits reference this event (Master has event_id NULL)
       const { data: splits } = await (supabase as any)
         .from("transactions")
-        .select("parent_transaction_id")
+        .select("id, amount, iva_rate, parent_transaction_id")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .not("parent_transaction_id", "is", null);
       const masterIds = Array.from(new Set((splits || []).map((s: any) => s.parent_transaction_id).filter(Boolean)));
+      // Parte deste evento em cada Master de rateio (soma dos filhos deste evento, c/IVA).
+      const eventShareByMaster = new Map<string, number>();
+      (splits || []).forEach((s: any) => {
+        if (!s.parent_transaction_id) return;
+        const gross = roundCents(Number(s.amount || 0) * (1 + Number(s.iva_rate || 0) / 100));
+        eventShareByMaster.set(
+          s.parent_transaction_id,
+          roundCents((eventShareByMaster.get(s.parent_transaction_id) || 0) + gross),
+        );
+      });
       let masterTxns: any[] = [];
       if (masterIds.length > 0) {
         const { data } = await (supabase as any)
@@ -247,7 +266,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
       const all = [...(direct || []), ...masterTxns];
       const seen = new Set<string>();
-      return all.filter((t) => {
+      const eligible = all.filter((t) => {
         if (seen.has(t.id)) return false;
         seen.add(t.id);
         // Always keep transactions already linked to this settlement (when editing).
@@ -260,6 +279,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         if (t.status === "paid" && t.account_id === officeId) return true;
         return false;
       });
+
+      // 4) Filhos de rateio nunca são pagáveis (não recebem account_id): se o Master
+      // já está na lista, o filho é uma opção falsa e sai. Se o Master não estiver,
+      // o filho fica para não desaparecer despesa nenhuma.
+      const presentIds = new Set(eligible.map((t: any) => t.id));
+      return eligible
+        .filter((t: any) => !(t.parent_transaction_id && presentIds.has(t.parent_transaction_id)))
+        .map((t: any) => ({
+          ...t,
+          _isRateioMaster: eventShareByMaster.has(t.id),
+          _eventShareGross: eventShareByMaster.get(t.id) ?? null,
+        }));
+
     },
   });
 
@@ -338,13 +370,18 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  const txnGross = (t: any) => Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
+  // Dinheiro nunca fica com mais de duas casas: arredonda ao cêntimo o bruto de cada
+  // dedução (é este valor que vai a paid_amount na confirmação) e o total.
+  const txnGross = (t: any) => roundCents(Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100));
 
   const totalDeductions = useMemo(() => {
-    return eligibleTxns
-      .filter((t: any) => selectedTxnIds.has(t.id))
-      .reduce((acc: number, t: any) => acc + txnGross(t), 0);
+    return roundCents(
+      eligibleTxns
+        .filter((t: any) => selectedTxnIds.has(t.id))
+        .reduce((acc: number, t: any) => acc + txnGross(t), 0)
+    );
   }, [eligibleTxns, selectedTxnIds]);
+
 
   const venueRetainedNum = Number(venueRetainedAmount || 0);
   const selectedInvoice = useMemo(
@@ -364,7 +401,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       }),
     [grossRevenue, totalDeductions, totalAdvances, venueRetainedNum, selectedInvoice, payInvoiceRemainder]
   );
-  const { invoiceRemainder, remainderApplied, netCalculated, venueRetainedExceedsInvoice } = settlementCalc;
+  const { invoiceRemainder, remainderApplied, venueRetainedExceedsInvoice } = settlementCalc;
+  // Líquido sempre ao cêntimo (evita resíduos de arredondamento no repasse).
+  const netCalculated = roundCents(settlementCalc.netCalculated);
+
 
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
@@ -918,6 +958,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         const candidates = eligibleTxns.filter(
                           (t: any) => !(t.status === "paid" && t.account_id === officeId)
                         );
+                        const selectedInOpen = candidates.filter((t: any) => selectedTxnIds.has(t.id)).length;
+                        // Nunca pode existir dedução marcada escondida.
+                        const openExpanded = openGroupExpanded || selectedInOpen > 0;
+                        const q = openSearch.trim().toLowerCase();
+                        const visibleCandidates = q
+                          ? candidates.filter((t: any) =>
+                              `${t.description ?? ""} ${t.suppliers?.name ?? ""}`.toLowerCase().includes(q)
+                            )
+                          : candidates;
                         const renderRow = (t: any) => {
                           const checked = selectedTxnIds.has(t.id);
                           return (
@@ -940,6 +989,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                   {t.suppliers?.name ?? "—"}
                                   {t.account_categories?.code && ` · ${t.account_categories.code}`}
                                 </p>
+                                {t._isRateioMaster && (
+                                  <p className="text-[11px] text-muted-foreground truncate">
+                                    fatura completa {formatCurrency(txnGross(t))} · parte deste evento{" "}
+                                    {formatCurrency(Number(t._eventShareGross || 0))}
+                                  </p>
+                                )}
                               </div>
                               <span className="font-mono text-sm font-semibold whitespace-nowrap">
                                 {formatCurrency(txnGross(t))}
@@ -959,12 +1014,41 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                             )}
                             {candidates.length > 0 && (
                               <>
-                                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-y border-border">
-                                  Em aberto neste evento — marca só se foram pagas pela bilheteira
-                                </p>
-                                <ul className="divide-y divide-border">{candidates.map(renderRow)}</ul>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenGroupExpanded((v) => !v)}
+                                  className="w-full text-left px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-y border-border hover:bg-muted"
+                                >
+                                  {candidates.length} despesa{candidates.length === 1 ? "" : "s"} em aberto neste evento
+                                  {selectedInOpen > 0 && ` · ${selectedInOpen} marcada${selectedInOpen === 1 ? "" : "s"}`}
+                                  {" · "}
+                                  {openExpanded ? "esconder" : "mostrar"}
+                                </button>
+                                {openExpanded && (
+                                  <>
+                                    <div className="px-3 py-2 border-b border-border">
+                                      <p className="text-[11px] text-muted-foreground mb-1.5">
+                                        Marca só se foram pagas pela bilheteira.
+                                      </p>
+                                      <Input
+                                        value={openSearch}
+                                        onChange={(e) => setOpenSearch(e.target.value)}
+                                        placeholder="Pesquisar por descrição ou fornecedor…"
+                                        className="h-8 text-xs"
+                                      />
+                                    </div>
+                                    {visibleCandidates.length === 0 ? (
+                                      <p className="p-4 text-xs text-muted-foreground text-center">
+                                        Nenhuma despesa corresponde à pesquisa.
+                                      </p>
+                                    ) : (
+                                      <ul className="divide-y divide-border">{visibleCandidates.map(renderRow)}</ul>
+                                    )}
+                                  </>
+                                )}
                               </>
                             )}
+
                           </>
                         );
                       })()

@@ -11,6 +11,8 @@ Atualizado: 2026-09-09 · Issues: #73, #78, #128, #129, #130
 - **Auditoria reconciliável.** O relatório sintético e a exportação (Excel e PDF) fecham nos dois níveis: (vendas + income) − despesas − transferências − adiantamentos = saldo. Saiu o rateio de comissões por regex `/comiss[ãa]o/i`.
 - **Três defeitos corrigidos a 08/09:** o "Registar Venda" gravava vendas sem `financial_account_id`, que nunca entravam num fecho; `is_conciliated` escondia o botão de abrir o fecho; e `EventTicketOfficesTab.tsx` era um gémeo morto de uma secção de `EventTicketing.tsx` — apagado.
 
+- **Segundo lote de correcções ao fecho (09/09, D-ERP20).** Depois do fecho confirmado da Ticketline da Anitta: (1) `paid_amount` de cada dedução, total de deduções e líquido calculado arredondados ao cêntimo via `roundCents`; (2) filhos de rateio saem da lista quando o Master está lá — só o Master é pagável; (3) cada Master mostra `fatura completa … · parte deste evento …` (META PLATFORMS: 14.050,41 € contra 3.902,85 € da Anitta); (4) o grupo "Em aberto neste evento" nasce recolhido, com contagem no cabeçalho e pesquisa por descrição/fornecedor, e abre sozinho se houver dedução marcada. Em Live, o grupo dos candidatos passou de 14 para 10 linhas (saíram 4 filhos de rateio).
+
 ## A trabalhar agora
 
 Nada em execução.
