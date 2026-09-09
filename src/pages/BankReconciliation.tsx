@@ -805,7 +805,7 @@ export default function BankReconciliation() {
               <p className="text-xs text-muted-foreground">Retenção na fonte (lotes SEPA)</p>
               <p className="font-semibold">{formatCurrency(retentionTotal)}</p>
               <p className="text-[10px] text-muted-foreground">
-                Banco paga líquido, sistema registou bruto — pesa {formatCurrency(triangle.contribRetention)}
+                Banco paga líquido, sistema registou bruto — já descontada no saldo do sistema, não pesa na diferença
               </p>
             </div>
             <div>
