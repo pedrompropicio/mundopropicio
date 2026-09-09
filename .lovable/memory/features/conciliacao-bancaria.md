@@ -50,17 +50,28 @@ upsert com `ignoreDuplicates` → reimportar o mesmo ficheiro não cria linhas.
   menos o seu movimento) tem de igualar o `initial_balance`. Se não, importa
   e mostra aviso em destaque — o erro está no corte ou no saldo implantado.
 
-## Conciliação — camadas, por ordem, pára na primeira
+## Conciliação — três PASSAGENS sobre todas as linhas, por esta ordem
+
+Não é linha a linha: corre primeiro toda a camada SEPA, depois o valor, depois a
+descrição, com um registo partilhado do que já foi consumido. Sem isto, uma
+transação já coberta por um lote SEPA voltava a casar com outra linha mais
+abaixo no ficheiro (caso real: −3.000,00 € para Pedro Coelho de Araújo vs
+«Influencers»).
 
 1. **Lote SEPA** — descrição contém `LOTE TRF CRED SEPA+`; casa com
    `payment_list_sepa_exports` por `total_amount` (±0,01) **e** pela data
    presente na descrição, comparada com a data dentro do `msg_id`
    (`PAGAMENTOS-MP-11082026-12080959` → 11/08/2026), aceitando `DDMMAA` e
    `DDMMAAAA`. O `msg_id` **não** viaja inteiro na descrição do banco: só a
-   data e um código de referência. Se a data não desempatar, usa o total
-   isolado; com mais de um candidato não casa nenhum e fica por explicar.
-   Liga `matched_sepa_export_id` + `matched_payment_list_id` e cobre de uma vez
-   todas as transações de `transaction_ids`.
+   data e um código de referência. Liga `matched_sepa_export_id` +
+   `matched_payment_list_id` e cobre de uma vez todas as transações de
+   `transaction_ids`.
+
+   **Dupla geração não é ambiguidade:** candidatos empatados da MESMA
+   `payment_list_id` são o mesmo lote gerado duas vezes (dois `msg_id` a um
+   minuto) — casam como um só e somam as transações das irmãs. Só se recusa
+   quando os candidatos são de listas diferentes. O ecrã diz quantas
+   exportações teve a linha.
 
    As três linhas do mesmo acontecimento — o lote, a `COMISSÃO` e o `IMP.SELO`
    — partilham o código de referência do banco (`D485O347`), guardado em
@@ -78,6 +89,21 @@ Cada transação só é consumida por uma linha. `matched_by` guarda
 
 **Invariante absoluta:** a conciliação **só liga**. Não liquida, não muda
 `status`, não escreve `paid_amount`, não cria transações (D-ERP28).
+
+## Retenção na fonte
+
+No lote, o banco paga o LÍQUIDO e o sistema registou o BRUTO. A diferença é
+retenção e mostra-se na linha conciliada (bruto + retenção apurada), mas **não**
+entra na decomposição da diferença: o saldo do sistema já sai líquido, porque
+`fetchAccountCashAdjustments` desconta a retenção ao caixa. Medido a 09/09/2026:
+retenção 207,00 € e diferença de 32.204,80 € a fechar exatamente com as duas
+parcelas reais (26.084,80 € por explicar + 6.120,00 € SUPERSOUNDS).
+
+## Voltar a conciliar
+
+Ação no ecrã que corre outra vez as camadas sobre as linhas já importadas, sem
+apagar nada. Só toca nas `unmatched` e nas `auto:`; preserva as manuais (com as
+suas transações já consumidas), as ignoradas e as anteriores ao corte.
 
 ## Ecrã
 
