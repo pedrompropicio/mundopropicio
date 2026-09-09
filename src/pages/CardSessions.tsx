@@ -29,7 +29,7 @@ export default function CardSessions() {
     queryFn: async () => {
       const { data } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance, is_active")
+        .select("id, name, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("type", "prepaid_card")
         .eq("is_active", true)
         .order("name");
@@ -39,8 +39,9 @@ export default function CardSessions() {
 
   /**
    * D17 — dois saldos por cartão:
-   *  - contabilístico: mesma fórmula do módulo Contas (initial_balance +
-   *    Σ movimentos pagos + ajustes não-monetários);
+   *  - contabilístico: fonte única computeAccountBalance (D-ERP12), com data de
+   *    corte do saldo inicial (D-ERP25) e "não controlado" quando a conta tem
+   *    skip_balance_check;
    *  - real estimado: contabilístico − itens da sessão aberta ainda não
    *    integrados (submitted + approved), que já saíram do cartão.
    */
@@ -49,21 +50,22 @@ export default function CardSessions() {
     enabled: cards.length > 0,
     queryFn: async () => {
       const ids = cards.map((c: any) => c.id);
+      const cutoffs = buildAccountCutoffs(cards as any);
       const [{ data: txs }, adjustments] = await Promise.all([
-        supabase.from("transactions").select("account_id, type, paid_amount").in("account_id", ids),
-        fetchAccountCashAdjustments(ids),
+        supabase
+          .from("transactions")
+          .select("account_id, type, paid_amount, date, payment_date")
+          .in("account_id", ids),
+        fetchAccountCashAdjustments(ids, cutoffs),
       ]);
-      const m = new Map<string, number>();
-      cards.forEach((c: any) => m.set(c.id, Number(c.initial_balance ?? 0)));
-      for (const t of (txs ?? []) as any[]) {
-        const cur = m.get(t.account_id) ?? 0;
-        const amt = Number(t.paid_amount ?? 0);
-        m.set(t.account_id, t.type === "income" ? cur + amt : cur - amt);
+      const m = new Map<string, number | null>();
+      for (const c of cards as any[]) {
+        m.set(c.id, computeAccountBalance(c, (txs ?? []) as any, adjustments));
       }
-      for (const [accId, adj] of adjustments) m.set(accId, (m.get(accId) ?? 0) + adj);
       return m;
     },
   });
+
 
   const { data: sessions = [] } = useQuery({
     queryKey: ["card-sessions"],
