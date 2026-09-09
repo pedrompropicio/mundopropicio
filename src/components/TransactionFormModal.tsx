@@ -1498,7 +1498,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
         // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
         // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
-        if (insertedTx?.id && selectedForecastId && !isPartnerExtra) {
+        if (insertedTx?.id && selectedForecastId && !principalIsTransitory) {
           // Fase 2: escrita dupla — transactions.forecast_id (canónico, N:1) +
           // âncora legada event_forecasts.transaction_id só se ainda estiver livre.
           let fkErr: any = null;
