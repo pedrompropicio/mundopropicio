@@ -233,13 +233,27 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         masterTxns = data || [];
       }
 
+      // 3) Advance transactions of this event/office must NEVER appear as deductions:
+      // they are already subtracted by the "Adiantamentos já recebidos" section.
+      // Marking one here would subtract it twice from the net amount (duplo abate).
+      const { data: advRows } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("transaction_id")
+        .eq("event_id", eventId)
+        .eq("financial_account_id", officeId);
+      const advanceTxnIds = new Set<string>(
+        (advRows || []).map((a: any) => a.transaction_id).filter(Boolean)
+      );
+
       const all = [...(direct || []), ...masterTxns];
       const seen = new Set<string>();
       return all.filter((t) => {
         if (seen.has(t.id)) return false;
         seen.add(t.id);
-        // Always keep transactions already linked to this settlement (when editing)
+        // Always keep transactions already linked to this settlement (when editing).
+        // This is the ONLY exception to the advance exclusion above.
         if (existingSettlement && t.settlement_id === existingSettlement.id) return true;
+        if (advanceTxnIds.has(t.id)) return false;
         // Eligible: pending/approved (to be liquidated by the settlement) OR
         // already paid by this very box-office account (e.g. registered via "Nova despesa liquidada").
         if (t.status === "pending" || t.status === "approved") return true;
