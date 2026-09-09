@@ -55,6 +55,13 @@ interface SeriesRow {
   value: number;
 }
 
+interface CapacityRow {
+  group_id: string;
+  capacity: number | null;
+  trustworthy: boolean;
+  issue: string | null;
+}
+
 interface EventRow {
   id: string;
   name: string;
@@ -189,6 +196,16 @@ export default function SalesBIDetail() {
     },
   });
 
+  // Qualidade da lotação (só leitura da RPC existente; usada no PDF)
+  const capacityQ = useQuery({
+    queryKey: ["bi-capacity-quality"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_event_capacity_quality" as any);
+      if (error) throw error;
+      return (data ?? []) as unknown as CapacityRow[];
+    },
+  });
+
   const isLoading = seriesQ.isLoading || eventsQ.isLoading;
 
   const model = useMemo(() => {
@@ -219,7 +236,9 @@ export default function SalesBIDetail() {
     let totalQty = 0;
     let totalValue = 0;
     const allByDay = new Map<string, number>();
+    const valueByDay = new Map<string, number>();
     const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number }>();
+    const sourceByCity = new Map<string, Set<string>>();
 
     for (const r of series) {
       const d = r.sale_date.slice(0, 10);
@@ -233,6 +252,12 @@ export default function SalesBIDetail() {
       totalQty += q;
       totalValue += v;
       allByDay.set(d, (allByDay.get(d) ?? 0) + q);
+      valueByDay.set(d, (valueByDay.get(d) ?? 0) + v);
+      if (r.provider) {
+        const s = sourceByCity.get(r.event_id) ?? new Set<string>();
+        s.add(r.provider);
+        sourceByCity.set(r.event_id, s);
+      }
       if (d >= pStart && d <= pEnd) {
         qty += q;
         value += v;
@@ -249,14 +274,14 @@ export default function SalesBIDetail() {
     const variacao = prevQty > 0 ? ((qty - prevQty) / prevQty) * 100 : null;
 
     // Gráfico: dias de calendário do período + média móvel de 7 dias
-    const points: { date: string; qty: number; ma: number | null }[] = [];
+    const points: { date: string; qty: number; value: number; ma: number | null }[] = [];
     for (let i = days; i >= 1; i--) {
       const d = toISO(addDays(today, -i));
       let sum = 0;
       for (let k = 0; k < 7; k++) {
         sum += allByDay.get(toISO(addDays(today, -(i + k)))) ?? 0;
       }
-      points.push({ date: d, qty: allByDay.get(d) ?? 0, ma: sum / 7 });
+      points.push({ date: d, qty: allByDay.get(d) ?? 0, value: valueByDay.get(d) ?? 0, ma: sum / 7 });
     }
 
     const cities = cityList
@@ -271,6 +296,7 @@ export default function SalesBIDetail() {
           med: c.qty / days,
           variacao: c.prevQty > 0 ? ((c.qty - c.prevQty) / c.prevQty) * 100 : null,
           total: c.total,
+          source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
         };
       })
       .sort((a, b) => b.qty - a.qty);
