@@ -38,6 +38,8 @@ import Suppliers from "./pages/Suppliers";
 import Quotations from "./pages/Quotations";
 import AccountCategories from "./pages/AccountCategories";
 import FinancialAccounts from "./pages/FinancialAccounts";
+import BankReconciliation from "./pages/BankReconciliation";
+
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -480,6 +482,8 @@ function ProtectedLayout() {
               <Route path="/transacoes" element={<Transactions />} />
               <Route path="/plano-contas" element={<AccountCategories />} />
               <Route path="/contas" element={<FinancialAccounts />} />
+              <Route path="/conciliacao-bancaria" element={<BankReconciliation />} />
+
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/bilhetes" element={<Navigate to="/bilheteiras" replace />} />
