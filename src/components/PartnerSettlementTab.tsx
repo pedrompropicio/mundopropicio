@@ -38,6 +38,7 @@ import {
 } from "@/lib/house-partner";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
+import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
 
 
 
@@ -69,7 +70,7 @@ interface PartnerSettlement {
   partnerShare: number;
   paidExpenses: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPaidByPartner: number;
-  partnerExtras: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
+  partnerExtras: { origem?: "transacao" | "manual"; originLabel?: string; description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPartnerExtras: number;
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
@@ -246,18 +247,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Partner advance expenses (Extras do Sócio — pagas pela empresa, abatidas no fecho)
+  // Extras do Sócio — união das duas naturezas (despesa paga pela empresa + registo manual).
+  // Ambas abatem ao acerto do sócio e nenhuma é custo do evento.
   const { data: partnerAdvances = [] } = useQuery({
     queryKey: ["partner-advance-expenses", allEventIdsKey],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("partner_advance_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, event_id, account_categories(name))")
-        .in("event_id", allEventIds)
-        .order("created_at");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => fetchPartnerExtras(allEventIds),
   });
 
   // BP (forecast) for BP × Real reconciliation
@@ -773,19 +767,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const extrasForPartner = isHouse
       ? []
       : partnerAdvances
-          .filter((pe: any) => pe.partner_id === p.id)
-          .map((pe: any) => {
-            const txEvId = pe.transactions?.event_id || pe.event_id;
-            return {
-              description: pe.transactions?.description || "—",
-              amount: usesGrossExpenses
-                ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
-                : Number(pe.transactions?.amount || 0),
-              date: pe.transactions?.date || "",
-              category: pe.transactions?.account_categories?.name || "—",
-              cityLabel: cityLabelByEvent[txEvId] || "—",
-            };
-          });
+          .filter((pe) => pe.partner_id === p.id)
+          .map((pe) => ({
+            origem: pe.origem,
+            originLabel: ORIGIN_LABEL[pe.origem],
+            description: pe.description,
+            // Manual não tem IVA por definição — a base gross só se aplica à origem 'transacao'.
+            amount: usesGrossExpenses && pe.origem === "transacao"
+              ? calcTotalWithIva(Number(pe.amount), Number(pe.iva_rate || 0))
+              : Number(pe.amount),
+            date: pe.data || "",
+            category: pe.category || "—",
+            cityLabel: cityLabelByEvent[pe.event_id] || "—",
+          }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
     // Items transitórios:
@@ -1288,12 +1282,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           if (s.partnerExtras.length > 0) {
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
-            doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
+            doc.text("Extras do sócio (abatidos no acerto):", margin, y);
             y += 2.5;
             autoTable(doc, {
               startY: y,
-              head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+              head: [["Origem", "Descrição", "Cidade", "Categoria", "Data", "Valor"]],
               body: s.partnerExtras.map(e => [
+                e.originLabel,
                 e.description,
                 e.cityLabel,
                 e.category,
@@ -1301,14 +1296,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 `-${formatCurrency(e.amount)}`,
               ]),
               foot: [[
-                { content: "Total a abater", colSpan: 4, styles: { halign: "right" } },
+                { content: "Total a abater", colSpan: 5, styles: { halign: "right" } },
                 { content: `-${formatCurrency(s.totalPartnerExtras)}`, styles: { halign: "right" } },
               ]],
               margin: { left: margin + 4, right: margin },
               styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [120, 60, 60] },
               footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
-              columnStyles: { 4: { halign: "right" } },
+              columnStyles: { 0: { cellWidth: 18 }, 5: { halign: "right" } },
             });
             y = (doc as any).lastAutoTable.finalY + 1.5;
           }
@@ -2156,10 +2151,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
             {s.partnerExtras.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">🧳 Extras do sócio (pagas pela empresa, abatidas no fecho):</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">🧳 Extras do sócio (abatidos no acerto):</p>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Origem</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Cidade</TableHead>
                       <TableHead>Categoria</TableHead>
@@ -2170,6 +2166,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                   <TableBody>
                     {s.partnerExtras.map((e, i) => (
                       <TableRow key={i}>
+                        <TableCell className="text-xs text-muted-foreground">{e.originLabel}</TableCell>
                         <TableCell className="text-sm">{e.description}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{e.cityLabel}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
@@ -2178,7 +2175,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                       </TableRow>
                     ))}
                     <TableRow className="border-t-2 border-border bg-muted/30">
-                      <TableCell colSpan={4} className="font-bold text-xs">Total a abater</TableCell>
+                      <TableCell colSpan={5} className="font-bold text-xs">Total a abater</TableCell>
                       <TableCell className="text-right font-mono font-bold text-destructive">−{formatCurrency(s.totalPartnerExtras)}</TableCell>
                     </TableRow>
                   </TableBody>

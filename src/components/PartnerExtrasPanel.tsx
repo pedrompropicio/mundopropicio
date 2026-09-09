@@ -6,10 +6,20 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Trash2, Plus, Pencil, Check, X, Paperclip, FileText, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { fetchPartnerExtras, invalidatePartnerExtras, ORIGIN_LABEL, type PartnerExtraItem } from "@/lib/partner-extras";
+import { TransactionFormModal } from "@/components/TransactionFormModal";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
 
 interface Props {
   partnerId: string;
@@ -25,19 +35,27 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
+  const [showTxForm, setShowTxForm] = useState(false);
+  const [editingTx, setEditingTx] = useState<any>(null);
 
-  const { data: extras = [], isLoading } = useQuery({
-    queryKey: ["partner-extras", partnerId],
+  // Âmbito Master+Subs, como nos restantes blocos de sócios.
+  const { data: subEventIds = [] } = useQuery({
+    queryKey: ["sub-event-ids", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partner_extras")
-        .select("*")
-        .eq("partner_id", partnerId)
-        .order("created_at");
+      const { data, error } = await supabase.from("events").select("id").eq("parent_event_id", eventId);
       if (error) throw error;
-      return data;
+      return (data ?? []).map((e: any) => e.id as string);
     },
   });
+
+  const allEventIds = [eventId, ...subEventIds];
+
+  const { data: allExtras = [], isLoading } = useQuery({
+    queryKey: ["partner-extras-union", allEventIds.join(",")],
+    queryFn: () => fetchPartnerExtras(allEventIds),
+  });
+
+  const extras = allExtras.filter((e) => e.partner_id === partnerId);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -57,8 +75,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-extras", partnerId] });
-      queryClient.invalidateQueries({ queryKey: ["partner-extras-all"] });
+      invalidatePartnerExtras(queryClient);
       toast({ title: editingId ? "Despesa extra atualizada" : "Despesa extra adicionada" });
       resetForm();
     },
@@ -80,8 +97,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-extras", partnerId] });
-      queryClient.invalidateQueries({ queryKey: ["partner-extras-all"] });
+      invalidatePartnerExtras(queryClient);
       toast({ title: "Despesa extra removida" });
     },
   });
@@ -94,12 +110,25 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
     setNotes("");
   }
 
-  function startEdit(extra: any) {
+  function startEdit(extra: PartnerExtraItem) {
     setEditingId(extra.id);
     setDescription(extra.description);
     setAmount(String(extra.amount));
     setNotes(extra.notes || "");
     setShowForm(true);
+  }
+
+  async function openTransaction(transactionId: string) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*, suppliers(name), account_categories(id, name, code, parent_id), events(name)")
+      .eq("id", transactionId)
+      .maybeSingle();
+    if (error || !data) {
+      toast({ title: "Não foi possível abrir a transação", variant: "destructive" });
+      return;
+    }
+    setEditingTx(data);
   }
 
   async function handleFileUpload(extraId: string, file: File) {
@@ -117,7 +146,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
     }
   }
 
-  const totalExtras = extras.reduce((s: number, e: any) => s + Number(e.amount), 0);
+  const totalExtras = extras.reduce((s, e) => s + Number(e.amount), 0);
 
   return (
     <div className="mt-2 space-y-2">
@@ -129,9 +158,21 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
           )}
         </p>
         {canEdit && !showForm && (
-          <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setShowForm(true)}>
-            <Plus className="mr-1 h-3 w-3" /> Adicionar
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-6 text-xs">
+                <Plus className="mr-1 h-3 w-3" /> Adicionar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowTxForm(true)}>
+                Lançar despesa paga pela empresa
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowForm(true)}>
+                Registar extra sem pagamento
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -164,33 +205,56 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
 
       {extras.length > 0 && (
         <div className="space-y-1">
-          {extras.map((extra: any) => (
+          {extras.map((extra) => (
             <ExtraRow
-              key={extra.id}
+              key={`${extra.origem}-${extra.id}`}
               extra={extra}
               canEdit={canEdit}
               onEdit={() => startEdit(extra)}
               onDelete={() => { if (window.confirm("Remover esta despesa extra?")) deleteMutation.mutate(extra.id); }}
               onFileUpload={(file) => handleFileUpload(extra.id, file)}
+              onOpenTransaction={() => extra.transaction_id && openTransaction(extra.transaction_id)}
             />
           ))}
         </div>
       )}
 
       {!isLoading && extras.length === 0 && !showForm && (
-        <p className="text-xs text-muted-foreground italic py-1">Nenhuma despesa extra registada.</p>
+        <p className="text-xs text-muted-foreground italic py-1">
+          Nenhum extra registado. Há dois tipos: despesa paga pela empresa que é custo do sócio (nasce numa transação) ou extra sem pagamento (registo manual).
+        </p>
+      )}
+
+      {showTxForm && (
+        <TransactionFormModal
+          onClose={() => { setShowTxForm(false); invalidatePartnerExtras(queryClient); }}
+          defaults={{ event_id: eventId, type: "expense" }}
+          partnerExtraDefault={{ partnerId }}
+          titleOverride="Extra do Sócio — despesa paga pela empresa"
+        />
+      )}
+
+      {editingTx && (
+        <TransactionEditModal
+          transaction={editingTx}
+          canApprove={canEdit}
+          onClose={() => { setEditingTx(null); invalidatePartnerExtras(queryClient); }}
+        />
       )}
     </div>
   );
 }
 
-function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload }: {
-  extra: any;
+function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload, onOpenTransaction }: {
+  extra: PartnerExtraItem;
   canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onFileUpload: (file: File) => void;
+  onOpenTransaction: () => void;
 }) {
+  const isManual = extra.origem === "manual";
+
   const { data: docs = [] } = useQuery({
     queryKey: ["partner-extra-docs", extra.id],
     queryFn: async () => {
@@ -200,6 +264,7 @@ function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload }: {
       if (error) return [];
       return data || [];
     },
+    enabled: isManual,
   });
 
   async function openDoc(name: string) {
@@ -213,6 +278,9 @@ function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload }: {
     <div className="flex items-start gap-2 py-1 px-2 rounded bg-secondary/5 hover:bg-secondary/15 transition-colors text-xs group">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
+          <Badge variant={isManual ? "outline" : "secondary"} className="text-[10px] px-1 py-0 shrink-0">
+            {ORIGIN_LABEL[extra.origem]}
+          </Badge>
           <span className="font-medium truncate">{extra.description}</span>
           <span className="font-mono text-warning whitespace-nowrap">{formatCurrency(Number(extra.amount))}</span>
         </div>
@@ -228,7 +296,16 @@ function ExtraRow({ extra, canEdit, onEdit, onDelete, onFileUpload }: {
           </div>
         )}
       </div>
-      {canEdit && (
+      {!isManual && (
+        <button
+          onClick={onOpenTransaction}
+          className="p-1 rounded hover:bg-secondary transition-colors shrink-0 text-primary"
+          title="Abrir transação"
+        >
+          <ExternalLink className="h-3 w-3" />
+        </button>
+      )}
+      {canEdit && isManual && (
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <label className="p-1 rounded hover:bg-secondary cursor-pointer transition-colors">
             <Paperclip className="h-3 w-3 text-muted-foreground" />

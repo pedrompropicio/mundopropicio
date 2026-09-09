@@ -22,6 +22,7 @@ import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+import { fetchPartnerExtras } from "@/lib/partner-extras";
 
 
 interface Props {
@@ -181,17 +182,10 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
-  // ---- Extras de sócios (custos analíticos sem cash)
+  // ---- Extras de sócios (união das duas naturezas: transação + manual). Não são custo do evento.
   const { data: partnerExtras = [] } = useQuery({
     queryKey: ["fecho-partner-extras", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partner_extras")
-        .select("partner_id, amount, description")
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: () => fetchPartnerExtras([eventId]),
   });
 
   // ============= Cálculos =============
