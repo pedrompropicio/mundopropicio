@@ -1390,14 +1390,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // quem lança pode aprovar; proposta de editor mantém o estado normal da transação.
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
         const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (partnerPaidSettles ? "paid" : (effectiveAutoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
-        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? parseFloat(data.amount) : (effectiveAutoMarkPaid ? parseFloat(data.amount) : 0));
         const partnerPaymentDate = useInstallments ? null : (partnerPaidSettles ? (data.date) : (effectiveAutoMarkPaid ? data.date : null));
 
-        // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
-        // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
+        // ============================================================
+        // Split parcial do Extra do Sócio — A FATURA REPARTE-SE, NÃO SE DUPLICA.
+        // Invariante (D-ERP17): SOMA dos `amount` das transações com o mesmo
+        // `invoice_group_id` == total da fatura. Ou seja:
+        //   principal.amount = total − X   e   irmã.amount = X
+        // Se a principal nascesse pelo TOTAL e a irmã por X, os mesmos euros
+        // ficariam ao mesmo tempo no custo do evento (principal) e no débito ao
+        // sócio (irmã) → dupla contagem no acerto. Nunca mudar isto sem mudar
+        // também a reversão parcial no TransactionEditModal.
+        // ============================================================
         const totalAmtNum = parseFloat(data.amount) || 0;
         const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
         const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
+        // Base da principal já líquida da parte do sócio.
+        const principalNetAmount = isPartnerExtraPartial
+          ? Number((totalAmtNum - partnerExtraPartialNum).toFixed(2))
+          : totalAmtNum;
+        const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? principalNetAmount : (effectiveAutoMarkPaid ? principalNetAmount : 0));
         const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
         // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
         let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
@@ -1425,7 +1437,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           : [];
         const firstParcelNet = useInstallments
           ? installmentNets[0] ?? 0
-          : parseFloat(data.amount);
+          : principalNetAmount;
         const firstParcelDueDate = useInstallments
           ? installmentRows[0]?.scheduled_date || parseDueDateForDb(data.due_date)
           : parseDueDateForDb(data.due_date);
