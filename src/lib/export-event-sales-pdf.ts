@@ -62,8 +62,11 @@ export interface EventSalesPdfParams {
   med: number;
   medValue: number;
   variacao: number | null;
-  /** Lotação: só se usa quando `trustworthy`. */
-  capacity: { trustworthy: boolean; capacity: number | null; issue: string | null };
+  /**
+   * Ocupação da sala (bilheteira): `occupied` / `capacity`. Só se usa quando
+   * `trustworthy`. NÃO é o mesmo que os bilhetes vendidos por nós.
+   */
+  capacity: { trustworthy: boolean; capacity: number | null; occupied: number | null; issue: string | null };
   points: { date: string; qty: number; value: number; ma: number | null }[];
   cities: EventSalesPdfCity[];
   /** Eventos com lotação não fiável (motivo do get_event_capacity_quality). */
