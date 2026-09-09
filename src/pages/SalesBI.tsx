@@ -348,6 +348,7 @@ export default function SalesBI() {
                         {money(withIva ? r.medValue7 : netOfIva(r.medValue7, groupRateOf(r.p.group_id)))} /dia
                         {!withIva ? <span className="ml-1">s/ IVA</span> : null}
                       </p>
+                      <p className="text-[10px] text-muted-foreground">média dos últimos 7 dias</p>
                     </>
                   )}
                 </div>
