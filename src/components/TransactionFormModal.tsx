@@ -2443,6 +2443,55 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
+          {/* 🧳 Extra do Sócio — decidido ANTES do BP: é custo do sócio, não do evento.
+              Sempre visível em despesa; desativado quando não há evento ou sócios. */}
+          {form.type === "expense" && !form.is_reimbursement && !isPaidByPartner && (() => {
+            const extraEventId = form.event_id || (isSplit ? splitMasterEventId : "");
+            const noEvent = !extraEventId;
+            const noPartners = !noEvent && eventPartners.length === 0;
+            const disabled = noEvent || noPartners;
+            const tip = noEvent
+              ? "Escolhe primeiro o evento"
+              : noPartners
+                ? "Este evento não tem sócios"
+                : "Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE nem no BP.";
+            return (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  title={tip}
+                  onClick={() => {
+                    const next = !isPartnerExtra;
+                    setIsPartnerExtra(next);
+                    setPartnerExtraId("");
+                    setPartnerExtraPartialAmount("");
+                    if (next) {
+                      // Extra do Sócio não passa pelo BP: recolhe o painel e limpa a justificação.
+                      setPlExpanded(false);
+                      setPlOverride(false);
+                      setForm((prev) => ({ ...prev, pl_override_note: "" }));
+                      setSelectedForecastId(null);
+                    } else {
+                      // Repõe o estado anterior: o BP volta a valer.
+                      setPlExpanded(true);
+                      setForm((prev) => ({ ...prev, category_id: "", pl_override_note: "" }));
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    isPartnerExtra
+                      ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 ring-1 ring-orange-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  🧳 {isPartnerExtra ? "Extra do Sócio Ativo" : "Extra do Sócio"}
+                </button>
+                <HelpTooltip text={tip} size={12} />
+              </div>
+            );
+          })()}
+
+
           {/* Split config panel — shown when split is active */}
           {isSplit && (
             <>
