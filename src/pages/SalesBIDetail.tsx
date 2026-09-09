@@ -9,14 +9,21 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, FileDown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
+import { exportEventSalesPdf, type EventSalesPdfVariant } from "@/lib/export-event-sales-pdf";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -46,6 +53,13 @@ interface SeriesRow {
   provider: string;
   qty: number;
   value: number;
+}
+
+interface CapacityRow {
+  group_id: string;
+  capacity: number | null;
+  trustworthy: boolean;
+  issue: string | null;
 }
 
 interface EventRow {
@@ -139,7 +153,7 @@ export default function SalesBIDetail() {
   const { groupId = "" } = useParams();
   const navigate = useNavigate();
   const { withIva, setWithIva, ivaSuffix } = useIvaMode();
-  const { rateOf } = useEventIvaRates();
+  const { rateOf, groupRateOf } = useEventIvaRates();
   const [days, setDays] = useState<number>(30);
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
@@ -182,6 +196,16 @@ export default function SalesBIDetail() {
     },
   });
 
+  // Qualidade da lotação (só leitura da RPC existente; usada no PDF)
+  const capacityQ = useQuery({
+    queryKey: ["bi-capacity-quality"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_event_capacity_quality" as any);
+      if (error) throw error;
+      return (data ?? []) as unknown as CapacityRow[];
+    },
+  });
+
   const isLoading = seriesQ.isLoading || eventsQ.isLoading;
 
   const model = useMemo(() => {
@@ -212,7 +236,9 @@ export default function SalesBIDetail() {
     let totalQty = 0;
     let totalValue = 0;
     const allByDay = new Map<string, number>();
+    const valueByDay = new Map<string, number>();
     const byCity = new Map<string, { qty: number; value: number; prevQty: number; total: number }>();
+    const sourceByCity = new Map<string, Set<string>>();
 
     for (const r of series) {
       const d = r.sale_date.slice(0, 10);
@@ -226,6 +252,12 @@ export default function SalesBIDetail() {
       totalQty += q;
       totalValue += v;
       allByDay.set(d, (allByDay.get(d) ?? 0) + q);
+      valueByDay.set(d, (valueByDay.get(d) ?? 0) + v);
+      if (r.provider) {
+        const s = sourceByCity.get(r.event_id) ?? new Set<string>();
+        s.add(r.provider);
+        sourceByCity.set(r.event_id, s);
+      }
       if (d >= pStart && d <= pEnd) {
         qty += q;
         value += v;
@@ -242,14 +274,14 @@ export default function SalesBIDetail() {
     const variacao = prevQty > 0 ? ((qty - prevQty) / prevQty) * 100 : null;
 
     // Gráfico: dias de calendário do período + média móvel de 7 dias
-    const points: { date: string; qty: number; ma: number | null }[] = [];
+    const points: { date: string; qty: number; value: number; ma: number | null }[] = [];
     for (let i = days; i >= 1; i--) {
       const d = toISO(addDays(today, -i));
       let sum = 0;
       for (let k = 0; k < 7; k++) {
         sum += allByDay.get(toISO(addDays(today, -(i + k)))) ?? 0;
       }
-      points.push({ date: d, qty: allByDay.get(d) ?? 0, ma: sum / 7 });
+      points.push({ date: d, qty: allByDay.get(d) ?? 0, value: valueByDay.get(d) ?? 0, ma: sum / 7 });
     }
 
     const cities = cityList
@@ -264,6 +296,7 @@ export default function SalesBIDetail() {
           med: c.qty / days,
           variacao: c.prevQty > 0 ? ((c.qty - c.prevQty) / c.prevQty) * 100 : null,
           total: c.total,
+          source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
         };
       })
       .sort((a, b) => b.qty - a.qty);
@@ -286,6 +319,36 @@ export default function SalesBIDetail() {
   }, [seriesQ.data, eventsQ.data, days, today, todayISO, periodEnd, groupId, withIva, rateOf]);
 
   const ivaLbl = withIva ? null : <span className="ml-1 text-[10px]">s/ IVA</span>;
+
+  // O PDF herda exatamente o ecrã: tour, período e estado do IVA.
+  const handleExport = async (variant: EventSalesPdfVariant) => {
+    const cap = (capacityQ.data ?? []).find((c) => c.group_id === groupId);
+    await exportEventSalesPdf({
+      variant,
+      tourName: model.tourName,
+      days,
+      periodStart: toISO(addDays(today, -days)),
+      periodEnd,
+      withIva,
+      ivaRate: groupRateOf(groupId),
+      totalQty: model.totalQty,
+      totalValue: model.totalValue,
+      qty: model.qty,
+      value: model.value,
+      med: model.med,
+      medValue: model.medValue,
+      variacao: model.variacao,
+      capacity: {
+        trustworthy: !!cap?.trustworthy,
+        capacity: cap?.capacity ?? null,
+        issue: cap?.issue ?? null,
+      },
+      points: model.points,
+      cities: model.cities,
+      qualityIssues:
+        cap && !cap.trustworthy ? [{ name: model.tourName, issue: cap.issue ?? "—" }] : [],
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -315,6 +378,17 @@ export default function SalesBIDetail() {
         ))}
         </div>
         <IvaToggle withIva={withIva} onChange={setWithIva} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-7 text-xs">
+              <FileDown className="mr-1 h-3.5 w-3.5" /> Exportar PDF
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport("internal")}>Versão interna</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("partner")}>Versão sócio / artista</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {isLoading ? (
