@@ -78,7 +78,7 @@ export default function CardSessions() {
     },
   });
 
-  const balances = accountBalances ?? new Map<string, number>();
+  const balances = accountBalances ?? new Map<string, number | null>();
 
   const openSessionIds = (sessions as any[]).filter((s) => s.status !== "closed").map((s) => s.id);
   const { data: openItemsBySession } = useQuery({
