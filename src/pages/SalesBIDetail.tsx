@@ -6,7 +6,7 @@
  * "Hoje" é sempre Europe/Lisbon.
  */
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -135,6 +135,7 @@ function BarsChart({ points }: { points: { date: string; qty: number; ma: number
 
 export default function SalesBIDetail() {
   const { groupId = "" } = useParams();
+  const navigate = useNavigate();
   const [days, setDays] = useState<number>(30);
   const today = useMemo(() => lisbonToday(), []);
   const todayISO = toISO(today);
@@ -365,7 +366,19 @@ export default function SalesBIDetail() {
                 </thead>
                 <tbody className="tabular-nums">
                   {model.cities.map((c) => (
-                    <tr key={c.id} className="border-b last:border-0">
+                    <tr
+                      key={c.id}
+                      className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => navigate(`/vendas/${groupId}/${c.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/vendas/${groupId}/${c.id}`);
+                        }
+                      }}
+                    >
                       <td className="p-3 font-medium">{c.name}</td>
                       <td className="p-3 text-muted-foreground">{fmtDay(c.date)}</td>
                       <td className="p-3 text-right">{int(c.qty)}</td>
