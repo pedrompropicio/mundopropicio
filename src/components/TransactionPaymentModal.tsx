@@ -440,7 +440,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           new_value: `${methodLabel} — ${refInfo}`,
         });
       }
+      await supabase.from("transaction_audit_log").insert(auditEntries);
+
       const { error } = await supabase
+
         .from("transactions")
         .update(updateData)
         .eq("id", transaction.id);
