@@ -800,6 +800,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   }, [isPartnerExtra, isSplit, form.amount, partnerExtraPartialAmount]);
   /** Verdadeiro só quando a transação principal fica transitória (extra total). */
   const partnerExtraBypassesBp = isPartnerExtra && !partnerExtraIsPartialUi;
+  // Passa a parcial → o painel do BP volta a abrir (a parte do evento pede linha).
+  useEffect(() => {
+    if (partnerExtraIsPartialUi) setPlExpanded(true);
+  }, [partnerExtraIsPartialUi]);
   const selectedForecastL2Id = useMemo(
     () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
     [selectedForecast, categories],
