@@ -61,6 +61,23 @@ Contagem a 08/09/2026: `bol` 4 eventos / 233 linhas / 1.776 bilhetes · `ticketl
 
 **Acordo de colaboração MyEntrada (MYE Programas de Fidelización S.L.U., CIF B-64713456), assinado a 02/09.** Venda a grupos e coletivos, **ligada direto à Onebox e não passando pelo ECI — logo sem taxa de conveniência ao cliente**. Comissão de **10% sobre o preço base efetivamente pago, depois de descontados o IVA, os gastos de gestão/emissão/ticketing e quaisquer outras comissões** (cláusula 6.1). A diferença de fundo face ao ECI: os 7 pontos do ECI são financiados pelo público, os 10% da MyEntrada saem da receita líquida da MP. **No fecho, os 3 pontos de revenue share aplicam-se só ao volume dos canais ECI, nunca ao da MyEntrada**, e a comissão da MyEntrada é um custo sobre o líquido só do volume dela. Quando começarem a vender deve aparecer **um terceiro canal no painel, com recargo zero e costes canal zero** — é assim que se confirma a ligação direta. Duração de um ano com renovação tácita; denúncia com 30 dias. Liquidação mensal nos primeiros 15 dias do mês seguinte, com relatório detalhado e fatura de comissões; nas vendas de grupos que a MyEntrada cobra, transferem já líquido da comissão, com o localizador da reserva como referência. **Prazos que obrigam**: condições de desconto de um mês têm de ser comunicadas 10 dias antes do fim do mês anterior (cláusula 2.1) — para outubro, até **20 de setembro**, o mesmo dia em que acaba o 4x3; e durante uma promoção as condições dadas à MyEntrada não podem ser piores do que as de qualquer outro canal aberto ao público para a mesma sessão e categoria (cláusula 8.2).
 
+### Lançamento faseado das sessões (verificado 09/09/2026)
+
+O H&K Madrid tem **39 sessões no ERP**, de 21/11/2026 a 10/01/2027. **À venda ao público estão apenas 19**, de 21/11 a 13/12/2026. As restantes **20, de 18/12 a 10/01, NÃO estão à venda** — é decisão comercial do Pedro, lançamento por fases, com os blocos seguintes a abrir mais à frente. **Não é falha de configuração nem de comunicação.**
+
+As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 09/09/2026:
+21/11 17:00 e 20:00 · 22/11 12:00 e 18:00 · 27/11 20:00 · 28/11 17:00 e 20:00 · 29/11 12:00 e 18:00 · 04/12 20:00 · 05/12 17:00 e 20:00 · 06/12 12:00 e 18:00 · 11/12 20:00 · 12/12 17:00 e 20:00 · 13/12 12:00 e 18:00. **Nenhuma esgotada.**
+
+**CONSEQUÊNCIA PARA QUALQUER LEITURA DE OCUPAÇÃO:** a base de cálculo são **19 sessões × 893 lugares = 16.967**, não as 39 × 893 = 34.827. Com 375 bilhetes vendidos a 09/09, a ocupação é **2,2% e não 1,1%**. Percentagens calculadas sobre a temporada inteira estão erradas enquanto houver sessões retidas.
+
+**REGRA GERAL, que vale para todo o BI de Vendas:** as percentagens calculam-se sempre sobre o que está **LIBERTADO**, nunca sobre o total do recinto ou da temporada. É o mesmo conceito que a tabela `event_zone_capacities` já registra como `capacity_kind = 'released'` ao nível das zonas. Nas zonas quem diz o que está libertado é a bilheteira; nas sessões é o site público de venda.
+
+**SESSÕES COM ZERO VENDAS QUE SÃO ZEROS VERDADEIROS:** das 19 à venda, três não venderam um único bilhete — **04/12 às 20:00, 06/12 às 12:00 e 13/12 às 12:00**. As outras 20 sessões com zero não contam, porque não estão à venda.
+
+**PADRÃO OBSERVADO:** as sessões de **domingo às 12:00 vendem mal e em queda** — 22/11 fez 20 bilhetes, 29/11 fez 11, 06/12 fez 0 e 13/12 fez 0. As sessões das 18:00 nos mesmos domingos fizeram 29, 13, 8 e 4. É um **padrão de horário, não de data**.
+
+> **AVISO ANTI-REINVESTIGAÇÃO:** quem olhar para o BI e vir **20 sessões com zero bilhetes NÃO deve diagnosticar um problema de vendas nem de sincronização**. Essas sessões estão **retidas de propósito**. Confirmar sempre na página pública do El Corte Inglés que sessões estão listadas **antes** de investigar qualquer zero.
+
 ## BI de Vendas (09/09/2026)
 
 **Onde vive.** Três ecrãs: `/vendas` (topo, por tour), `/vendas/:groupId` (detalhe por cidade/evento-filho) e `/vendas/:groupId/:eventId` (zonas ou sessões). Ficheiros: `src/pages/SalesBI.tsx`, `src/pages/SalesBIDetail.tsx`, `src/pages/SalesBIEvent.tsx`, `src/lib/export-event-sales-pdf.ts`, `src/hooks/useEventIvaRates.ts`, `src/components/sales/IvaToggle.tsx`.
