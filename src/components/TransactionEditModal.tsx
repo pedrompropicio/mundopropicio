@@ -27,6 +27,8 @@ import { autoGroupInvoiceForTransaction, fetchInvoiceSiblings, clearInvoiceGroup
 import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/components/InvoiceGroupSuggestDialog";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 import { fetchBpLinesForCategory, relinkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
+import { needsBpLineBeforeApproval } from "@/lib/bp-line-required";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import { isCapitalCategoryCode, capitalNeedsPartner } from "@/lib/capital-branch";
 import { calcIvaAmount, calcTotalWithIva } from "@/lib/iva";
 import {
