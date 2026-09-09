@@ -278,10 +278,13 @@ export default function SalesBIDetail() {
       // das linhas já convertidas — nunca uma taxa média sobre o agregado.
       const vGross = Number(r.value || 0);
       const v = withIva ? vGross : netOfIva(vGross, rateOf(r.event_id));
-      const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0 };
+      const c = byCity.get(r.event_id) ?? { qty: 0, value: 0, prevQty: 0, total: 0, firstSale: null };
       c.total += q;
+      if (q > 0 && (c.firstSale === null || d < c.firstSale)) c.firstSale = d;
+      if (q > 0 && (firstSale === null || d < firstSale)) firstSale = d;
       totalQty += q;
       totalValue += v;
+
       allByDay.set(d, (allByDay.get(d) ?? 0) + q);
       valueByDay.set(d, (valueByDay.get(d) ?? 0) + v);
       if (r.provider) {
