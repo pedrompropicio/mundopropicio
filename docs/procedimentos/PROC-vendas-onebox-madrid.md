@@ -10,6 +10,7 @@ A Onebox (Apache Superset) **não tem acesso programático** para a nossa conta:
 - Evento: **H&K Madrid**, `bf9ce2d8-754e-4485-8427-e2d486c39919`
 - Bilheteira: conta **ECI (El Corte Inglés)**, tipo `ticket_office`
 - Company MP: `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`
+- A marca `on_sale` existe porque o lançamento das sessões é faseado por decisão comercial: as sessões retidas nunca devem ser lidas como fraqueza de vendas.
 
 **A sessão da Superset expira em poucas horas.** Verificado a 08/09/2026: viva às 18h, morta às 21h. Consequência prática: a captação de hora a hora só funciona nas horas em que o Pedro tiver estado no painel, e falha silenciosamente nas restantes. A hora da última captação no ecrã da bilheteira é o que revela isso — se estiver parada, a sessão precisa de ser reactivada à mão. Uma sincronização fiável só existe com acesso de API da GTS.
 
@@ -36,14 +37,37 @@ Depois do reload, confirmar que continuamos no dashboard. Se `location.pathname`
 
 Confirmar também que a página tem pelo menos 7 tabelas — abaixo disso ainda está a renderizar.
 
-**3. Extrair**
+**3. Atualizar que sessões estão à venda**
+
+Este passo é **independente da captação de vendas** e corre **sempre**, mesmo quando a sessão da Superset expirou e a extração falha. Lê uma página pública, sem credenciais e sem sessão iniciada.
+
+Página: `https://checkoutentradas2.elcorteingles.es/elcorteingles/events/59508` — é a página de venda oficial, a mesma a que se chega pelo botão COMPRAR em `https://www.elcorteingles.es/entradas/teatro/entradas-ilusion-show-madrid/`
+
+Como ler, verificado a 09/09/2026:
+- Abrir num separador **novo** do Chrome. Nunca no separador da Superset, para não perder a sessão do Pedro.
+- Se aparecer o banner de cookies, escolher **"Rechazar todas"** — nunca aceitar.
+- Clicar no separador **SESSÕES**.
+- Clicar em **"Mostrar mais"** repetidamente até desaparecer. A 09/09 foram precisos 6 cliques para chegar às 19 sessões.
+- **Armadilha:** o Chrome pode traduzir a página automaticamente. Quando traduz, as horas aparecem tanto como `17:00` como `20h00`, e o texto "Mostrar mais" fica dentro de um elemento `FONT` injetado pelo tradutor — clicar nesse elemento não faz nada, é preciso subir ao antecessor clicável. Uma expressão que apanhe ambos os formatos de hora resolve o primeiro problema.
+- Extrair dia, mês e hora de cada sessão listada.
+
+Escrita:
+- `on_sale = true` nas zonas de `event_ticket_zones` do evento `bf9ce2d8-754e-4485-8427-e2d486c39919` cujo nome (formato `DD/MM/AAAA HH:MM`) corresponda a uma sessão listada.
+- `on_sale = false` nas restantes.
+- Se a página não abrir, não renderizar, ou devolver **menos de 5 sessões**, **não escrever nada**. Deixar a marca como está e registar a falha. Vale mais a marca de ontem do que apagar a informação toda por um erro de leitura.
+- Se aparecer uma sessão na página que não exista no ERP, **não a criar**. Registar e assinalar para o Pedro ver — pode ser uma sessão nova que ainda não foi carregada.
+- Registar sempre em `onebox_sync_runs.import_audit`: quantas sessões listadas, quantas marcadas `true`, quantas `false`, e **quais mudaram de estado** desde a corrida anterior. As mudanças são o que interessa — é assim que se sabe que um bloco novo foi aberto.
+
+Estado a 09/09/2026, para comparação futura: 19 à venda, de 21/11 a 13/12; 20 não lançadas, de 18/12 a 10/01. Nenhuma esgotada. A página indica a temporada como "Del 21 de noviembre al 13 de diciembre de 2026".
+
+**4. Extrair**
 A tabela de vendas é a 7.ª `<table>` da página (índice 6). Colunas por linha de canal: `0` canal, `1` entradas, `7` facturación, `8` recargos, `9` total ingresos. As linhas de sessão são as que têm `Subtotal` na 2.ª célula e a data `DD/MM/AAAA HH:MM` na 1.ª.
 
 Extrair também o resumo: a 4.ª tabela (índice 3) dá as entradas, a 6.ª (índice 5) dá Facturación, Recargo promotor, Costes canal, Descuentos e Total ingresos. E a 2.ª tabela (índice 1) dá **"Datos actualizados"** — guardar sempre este valor.
 
 **Ignorar a última linha da tabela**, que é o total geral e não uma sessão.
 
-**4. Conferir — e é aqui que a corrida se decide**
+**5. Conferir — e é aqui que a corrida se decide**
 A soma das linhas extraídas tem de bater **ao cêntimo** com o resumo do painel, em entradas, facturación, recargos e total.
 
 **Se não bater, a corrida termina aqui.** Não escreve nada em `ticket_sales` nem em `onebox_daily_sales`. Regista em `onebox_sync_runs` com `status` de falha e o motivo. O lote anterior fica intacto. Vale mais ficar com dados de ontem do que escrever dados errados hoje.
@@ -52,7 +76,7 @@ Motivos típicos de falha: computador desligado, Chrome fechado, sessão da Supe
 
 Comparar ainda o **"Datos actualizados"** com o da corrida anterior, guardado no `import_audit`. Se for igual, o painel não produziu nada de novo: não é erro, mas fica assinalado como `sem_alteracao` e não se reescreve o acumulado à toa.
 
-**5. Substituir o acumulado**
+**6. Substituir o acumulado**
 Apagar as linhas de `ticket_sales` do evento com `source = 'onebox_import'` e inserir as novas, **numa só instrução**, para não poder ficar meio aplicado.
 
 Regras da escrita, que não mudam:
@@ -65,7 +89,7 @@ Regras da escrita, que não mudam:
 - `company_id` explícito, nunca a depender do default.
 - Sessões novas ganham zona e lote automaticamente. Canais novos aparecem sozinhos — quando a MyEntrada começar a vender será um terceiro canal, com recargo zero.
 
-**6. Gravar o dia**
+**7. Gravar o dia**
 Calcular o acumulado de agora (entradas e facturación) e subtrair o acumulado registado na última corrida com sucesso do dia anterior, que está no `import_audit` dessa corrida.
 
 Fazer upsert em `onebox_daily_sales` por `(event_id, sale_date)` com a data de hoje. **Upsert, nunca insert** — de 9h às 23h a mesma linha é reescrita quinze vezes com o acumulado do dia até àquele momento.
@@ -74,7 +98,7 @@ Na primeira corrida de sempre não há dia anterior: não se escreve linha diár
 
 Uma diferença negativa é possível e legítima — há devoluções. Grava-se na mesma e assinala-se no `import_audit`.
 
-**7. Registar a corrida**
+**8. Registar a corrida**
 Escrever sempre em `onebox_sync_runs`, com sucesso ou sem ele: `status`, `mode` (`hourly` ou `daily`), `triggered_by`, `error_message` quando falha, e no `import_audit` o que foi extraído, o resultado da conferência, o acumulado, a diferença do dia e sempre o valor de **"Datos actualizados"**.
 
 É desta tabela que sai a hora da última captação mostrada no ecrã da bilheteira. Sem ela, ninguém sabe se está a olhar para números de agora ou da semana passada.
