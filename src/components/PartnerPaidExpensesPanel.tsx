@@ -13,6 +13,8 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
+import { calcTotalWithIva } from "@/lib/iva";
 
 interface Props {
   eventId: string;
@@ -71,6 +73,26 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
     },
   });
 
+  // Base contratual do evento (D-ERP9) — cada sócio pode ter override próprio.
+  const { data: eventInfo } = useQuery({
+    queryKey: ["event-partner-calc-basis", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("partner_calc_basis")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Valor de uma despesa paga pelo sócio na base dele: c/IVA → bruto; s/IVA → base.
+  const paidExpenseValue = (tx: any, usesGross: boolean) =>
+    usesGross
+      ? calcTotalWithIva(Number(tx?.amount || 0), Number(tx?.iva_rate || 0))
+      : Number(tx?.amount || 0);
+
   // Already-linked expenses across the whole tree
   const allTreeIds = [eventId, ...subEventIds];
   const { data: paidExpenses = [] } = useQuery({
@@ -78,7 +100,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(suppliers(name)), transactions(description, amount, date, status, event_id, category_id, account_categories(name))")
+        .select("*, event_partners(suppliers(name)), transactions(description, amount, iva_rate, date, status, event_id, category_id, account_categories(name))")
         .in("event_id", allTreeIds)
         .order("created_at");
       if (error) throw error;
@@ -306,15 +328,24 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       {/* Per-partner list */}
       {partners.map((partner: any) => {
         const expenses = byPartner[partner.id] || [];
+        const usesGross = partnerUsesGrossExpenses(
+          eventInfo?.partner_calc_basis,
+          partner.expense_includes_iva ?? null,
+        );
         const total = expenses
           .filter((pe: any) => pe.status !== "pending_approval")
-          .reduce((s: number, pe: any) => s + Number(pe.transactions?.amount || 0), 0);
+          .reduce((s: number, pe: any) => s + paidExpenseValue(pe.transactions, usesGross), 0);
         const pendingCount = expenses.filter((pe: any) => pe.status === "pending_approval").length;
 
         return (
           <div key={partner.id} className="glass rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b border-border/50 flex items-center justify-between bg-muted/30">
-              <span className="text-sm font-semibold">{partner.suppliers?.name} ({partner.percentage}%)</span>
+              <span className="text-sm font-semibold">
+                {partner.suppliers?.name} ({partner.percentage}%)
+                <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                  valores {usesGross ? "c/IVA" : "s/IVA"}
+                </span>
+              </span>
               <div className="flex items-center gap-2">
                 {pendingCount > 0 && (
                   <Badge variant="outline" className="text-[10px] text-warning border-warning/40">
@@ -357,7 +388,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
                         <TableCell className="text-xs text-muted-foreground">{evName || "—"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{tx?.account_categories?.name || "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : ""}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(paidExpenseValue(tx, usesGross))}</TableCell>
                         {canEdit && (
                           <TableCell>
                             <div className="flex items-center gap-1">
