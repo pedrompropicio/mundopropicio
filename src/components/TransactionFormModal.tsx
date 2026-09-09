@@ -785,6 +785,25 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     () => (selectedForecastId ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId) : null),
     [selectedForecastId, relevantForecasts],
   );
+
+  // 🧳 Extra do Sócio — a isenção de BP segue a TRANSITÓRIA, não a fatura.
+  // Extra TOTAL: a transação é transitória por inteiro, é custo do sócio e não
+  // consome BP → isenta de categoria/linha do BP.
+  // Extra PARCIAL: a principal NÃO é transitória (é despesa do evento como
+  // qualquer outra) → tem de ter categoria do BP e linha do BP. Só a irmã
+  // transitória é isenta.
+  const partnerExtraIsPartialUi = useMemo(() => {
+    if (!isPartnerExtra || isSplit) return false;
+    const total = parseFloat(form.amount) || 0;
+    const partial = parseFloat(partnerExtraPartialAmount) || 0;
+    return partial > 0 && partial < total;
+  }, [isPartnerExtra, isSplit, form.amount, partnerExtraPartialAmount]);
+  /** Verdadeiro só quando a transação principal fica transitória (extra total). */
+  const partnerExtraBypassesBp = isPartnerExtra && !partnerExtraIsPartialUi;
+  // Passa a parcial → o painel do BP volta a abrir (a parte do evento pede linha).
+  useEffect(() => {
+    if (partnerExtraIsPartialUi) setPlExpanded(true);
+  }, [partnerExtraIsPartialUi]);
   const selectedForecastL2Id = useMemo(
     () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
     [selectedForecast, categories],
@@ -1351,14 +1370,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // 4. (removido) Vínculo "Pago por Sócio" já não é criado no lançamento —
         //    faz-se no modal de pagamento ou no painel do evento.
-        // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
-        if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
-          await supabase.from("partner_advance_expenses").insert({
-            event_id: splitMasterEventId,
-            partner_id: partnerExtraId,
-            transaction_id: parentId,
-          } as any);
-        }
+        // 4b. (removido) Extra do Sócio NÃO se combina com rateio multi-evento:
+        //    um extra é dívida de UM sócio, definido por evento (event_partners),
+        //    e o rateio existe para repartir custo por vários eventos. Reparte-se
+        //    primeiro pelos eventos e converte-se depois a perna do evento do sócio.
       } else {
         // --- SINGLE TRANSACTION ---
         // Auto-aprovação: a categoria tem linha(s) do BP APROVADAS para este tipo,
@@ -1450,12 +1465,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           // D1: a FK canónica vai NO INSERT — nascer aprovado exige linha de BP.
-          // Extra do Sócio nunca consome BP: sem linha, por definição.
-          forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
+          // A isenção de BP segue a TRANSITÓRIA, não a fatura: só o extra TOTAL
+          // (principal transitória) nasce sem linha. No extra PARCIAL a principal
+          // é despesa do evento e leva linha do BP como qualquer outra.
+          forecast_id: principalIsTransitory ? null : (selectedForecastId || null),
           supplier_id: data.supplier_id || null,
           account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
-          pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
+          pl_override_note: principalIsTransitory ? null : (data.pl_override_note.trim() || null),
           date: data.date,
           due_date: firstParcelDueDate,
           status: partnerStatus,
@@ -1485,7 +1502,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
         // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
         // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
-        if (insertedTx?.id && selectedForecastId && !isPartnerExtra) {
+        if (insertedTx?.id && selectedForecastId && !principalIsTransitory) {
           // Fase 2: escrita dupla — transactions.forecast_id (canónico, N:1) +
           // âncora legada event_forecasts.transaction_id só se ainda estiver livre.
           let fkErr: any = null;
@@ -1602,11 +1619,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               iva_rate: data.iva_rate,
               event_id: data.event_id || null,
               category_id: data.category_id || null,
-              forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
+              forecast_id: principalIsTransitory ? null : (selectedForecastId || null),
               supplier_id: data.supplier_id || null,
               account_id: accountId,
               specification: data.type === "expense" ? (data.specification || null) : null,
-              pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
+              pl_override_note: principalIsTransitory ? null : (data.pl_override_note.trim() || null),
               date: data.date,
               due_date: inst.scheduled_date,
               status: partnerStatus,
@@ -2089,8 +2106,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Selecione o sócio para o Extra", variant: "destructive" });
       return;
     }
-    if (isPartnerExtra && !form.event_id && !(isSplit && splitMasterEventId)) {
+    // Extra do Sócio exige UM evento — e não se combina com rateio multi-evento.
+    if (isPartnerExtra && !form.event_id) {
       toast({ title: "Extra do Sócio exige um evento associado", variant: "destructive" });
+      return;
+    }
+    if (isPartnerExtra && isSplit) {
+      toast({
+        title: "Extra do Sócio não se combina com rateio",
+        description: "Reparte primeiro pelos eventos e depois converte a perna do evento do sócio.",
+        variant: "destructive",
+      });
       return;
     }
     // Validação do split parcial: se preenchido, tem de ser > 0 e < total
@@ -2197,7 +2223,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
       // • "master" → expense consumes Master BP rateio (sub-event BP not required)
       const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital && !isPartnerExtra) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass && !selectedCategoryIsCapital && !partnerExtraBypassesBp) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -2208,7 +2234,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       }
     }
-    if (plOverride && !selectedCategoryIsCapital && !isPartnerExtra && !form.pl_override_note.trim()) {
+    if (plOverride && !selectedCategoryIsCapital && !partnerExtraBypassesBp && !form.pl_override_note.trim()) {
       toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
@@ -2281,8 +2307,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // Participação): trânsito de capital, por definição nunca está no BP.
     // Fica sempre disponível, mesmo em modo "Do BP".
     if (isCapitalCategoryCode(c.code)) return true;
-    // Extra do Sócio: custo do sócio, nunca do evento — não passa pelo BP.
-    if (hasPLRestriction && effectiveEventId && !plOverride && !isPartnerExtra) {
+    // Extra do Sócio TOTAL: custo do sócio, nunca do evento — não passa pelo BP.
+    // Extra PARCIAL: a principal é despesa do evento, logo o BP volta a mandar.
+    if (hasPLRestriction && effectiveEventId && !plOverride && !partnerExtraBypassesBp) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
       const isInMasterBP = masterDetection.masterCategoryIds.includes(c.id);
@@ -2408,6 +2435,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                    setSplitAutoConfigured(false);
                    setSplitMasterEventId("");
                   setSplitExpanded(true);
+                  // Extra do Sócio não se combina com rateio multi-evento.
+                  setIsPartnerExtra(false);
+                  setPartnerExtraId("");
+                  setPartnerExtraPartialAmount("");
                 } else {
                   setSplitEntries([]);
                    setSplitAutoConfigured(false);
@@ -2471,17 +2502,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* 🧳 Extra do Sócio — decidido ANTES do BP: é custo do sócio, não do evento.
-              Sempre visível em despesa; desativado quando não há evento ou sócios. */}
+              Sempre visível em despesa; desativado sem evento, sem sócios ou em rateio
+              multi-evento (um extra é dívida de UM sócio, definido por evento). */}
           {form.type === "expense" && !form.is_reimbursement && !isPaidByPartner && (() => {
-            const extraEventId = form.event_id || (isSplit ? splitMasterEventId : "");
-            const noEvent = !extraEventId;
+            const noEvent = !form.event_id;
             const noPartners = !noEvent && eventPartners.length === 0;
-            const disabled = noEvent || noPartners;
-            const tip = noEvent
-              ? "Escolhe primeiro o evento"
-              : noPartners
-                ? "Este evento não tem sócios"
-                : "Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE nem no BP.";
+            const disabled = isSplit || noEvent || noPartners;
+            const tip = isSplit
+              ? "Reparte primeiro pelos eventos e depois converte a perna do evento do sócio."
+              : noEvent
+                ? "Escolhe primeiro o evento"
+                : noPartners
+                  ? "Este evento não tem sócios"
+                  : "Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE nem no BP.";
             return (
               <div className="flex items-center gap-2">
                 <button
@@ -2610,7 +2643,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
-          {hasPL && effectiveEventId && plExpanded && !isPartnerExtra && (() => {
+          {hasPL && effectiveEventId && plExpanded && !partnerExtraBypassesBp && (() => {
             const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
@@ -2911,14 +2944,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
-          {hasPL && effectiveEventId && !plExpanded && !isPartnerExtra && (
+          {hasPL && effectiveEventId && !plExpanded && !partnerExtraBypassesBp && (
             <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
               BP — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
             </button>
           )}
 
           {/* Alternador do âmbito da categoria — sempre visível quando o evento tem BP */}
-          {hasPLRestriction && effectiveEventId && !isPartnerExtra && (
+          {hasPLRestriction && effectiveEventId && !partnerExtraBypassesBp && (
             <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-secondary/20 p-1 w-fit">
               <button
                 type="button"
@@ -3781,6 +3814,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                               <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
                                 <span>Total da fatura</span>
                                 <span className="font-mono">{totalAmt.toFixed(2)} € s/IVA · {(totalAmt * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                              <div className="border-t border-border/60 pt-1 text-muted-foreground">
+                                A parte do evento precisa de categoria e linha do BP; a parte do sócio não.
                               </div>
                             </div>
                           );
