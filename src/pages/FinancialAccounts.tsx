@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,8 @@ import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/Suppli
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
+import { formatDatePT } from "@/lib/utils";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -524,7 +526,7 @@ export default function FinancialAccounts() {
                             <>
                               {formatCurrency(Number(acc.initial_balance))}
                               {acc.initial_balance_date && (
-                                <p className="text-[10px] text-muted-foreground">a {acc.initial_balance_date}</p>
+                                <p className="text-[10px] text-muted-foreground">a {formatDatePT(acc.initial_balance_date)}</p>
                               )}
                             </>
                           ) : "••••••"}
