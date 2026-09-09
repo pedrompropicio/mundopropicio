@@ -37,6 +37,7 @@ Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é d
 - **Recusas**: a conversão é recusada quando a principal tem linhas em `transaction_payments` (o razão de pagamentos passaria a somar mais do que o bruto dela — é preciso acertar os pagamentos primeiro) ou quando está paga só em parte (`0 < paid_amount < bruto`), por não haver forma não-arbitrária de repartir o que já foi pago.
 - **Na criação, extra parcial não se combina com "Pagar em parcelas"**.
 - Validação: parcial deve ser `> 0` e `< amount`
+- **A isenção de BP segue a TRANSITÓRIA, não a fatura (D-ERP21)**: num extra **total** a principal é transitória por inteiro, não consome verba e nasce sem `forecast_id` nem `pl_override_note`. Num extra **parcial** a principal **não é transitória** — é despesa do evento como qualquer outra e leva **categoria do BP e linha do BP** (`forecast_id: selectedForecastId`, todas as travas do BP aplicam-se); só a irmã transitória é isenta. Na UI, assim que o campo parcial tem valor válido (`> 0` e `< total`) o painel do BP reabre e a categoria/linha voltam a ser pedidas; ao limpar o campo volta ao comportamento de extra total.
 
 
 ## Reversão (Extra do Sócio → despesa normal)
