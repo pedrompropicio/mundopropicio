@@ -41,9 +41,9 @@ Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é d
 
 ## Reversão (Extra do Sócio → despesa normal)
 No `TransactionEditModal`, dentro do bloco laranja do Extra do Sócio:
-- **Total** (toggle off): apaga `partner_advance_expenses` da transação e marca `is_transitory=false`. A despesa volta a entrar no DRE/BP.
+- **Total** (toggle off): apaga `partner_advance_expenses` da transação e marca `is_transitory=false`. A despesa volta a entrar no DRE/BP. Quando a transação está `approved` ou `paid`, a reversão é travada pela **linha de BP obrigatória (D-ERP22)**: como deixa de ser transitória e passa a consumir verba, abre-se `LinkBpLineDialog` em modo `pickOnly` e nada é escrito até a linha ser escolhida/criada; o `forecast_id` é gravado no mesmo update do `is_transitory=false`. Em `pending` não trava (a validação acontece na aprovação).
 - **Parcial** (toggle on, valor X€ < amount): reduz a transitória do sócio para `(amount − X)`, garante `invoice_group_id` partilhado e cria nova transação NORMAL pelo valor X com mesmo evento/fornecedor/categoria/fatura/data. Descrição: `"<descrição> — revertido do sócio"`.
-- **Reversão de split parcial existente** (transação principal NORMAL com irmã transitória detetada via `invoice_group_id`): bloco dedicado oferece "Remover Extra do Sócio desta fatura" — apaga `partner_advance_expenses` da irmã e elimina a irmã. A principal mantém o total e continua no DRE/BP.
+- **Reversão de split parcial existente** (transação principal NORMAL com irmã transitória detetada via `invoice_group_id`): a principal mostra um bloco dedicado com a **repartição lado a lado** — despesa do evento, extra do sócio e total da fatura. "Remover Extra do Sócio desta fatura" **soma o `amount` e o `paid_amount` da irmã à principal no MESMO update** e só depois apaga o `partner_advance_expenses` e a irmã; se esse update falhar, aborta tudo e nada é apagado. No fim, a principal sozinha volta a valer o total da fatura — é a invariante do **D-ERP24**. A remoção é **recusada quando a irmã tem linhas em `transaction_payments`**, porque apagá-la levaria essas linhas com ela e o razão de pagamentos perderia o registo.
 
 ## Bloqueio
 Operações de conversão/reversão exigem admin OU (manager E evento não concluído). Em eventos `status='completed'`, apenas admin pode mexer.
