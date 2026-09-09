@@ -127,13 +127,14 @@ export default function SalesBIEvent() {
   });
 
   const salesQ = useQuery({
-    queryKey: ["bi-event-sales", eventId],
-    enabled: !!eventId && snapsQ.isSuccess && !hasSnaps,
+    queryKey: ["bi-event-sales", eventId, (zonesQ.data ?? []).length],
+    enabled: !!eventId && snapsQ.isSuccess && !hasSnaps && (zonesQ.data?.length ?? 0) > 0,
     queryFn: async () => {
+      const zoneIds = (zonesQ.data ?? []).map((z) => z.id);
       const { data, error } = await supabase
         .from("ticket_sales")
         .select("zone_id, quantity, total_value, notes")
-        .eq("event_id", eventId);
+        .in("zone_id", zoneIds);
       if (error) throw error;
       return (data ?? []) as unknown as SaleRow[];
     },
