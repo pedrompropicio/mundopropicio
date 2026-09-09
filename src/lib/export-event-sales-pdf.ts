@@ -203,10 +203,55 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
     doc.setTextColor(0, 0, 0);
   }
 
-  const occ =
-    params.capacity.trustworthy && params.capacity.capacity
-      ? pct((params.totalQty / params.capacity.capacity) * 100)
-      : "—";
+  // OCUPAÇÃO DA SALA = occupied/capacity da bilheteira (inclui cortesias,
+  // protocolo, reservas e canais que não registamos). Nunca os nossos bilhetes.
+  const salaOk = params.capacity.trustworthy && !!params.capacity.capacity;
+  const salaPctNum = salaOk
+    ? (Number(params.capacity.occupied || 0) / Number(params.capacity.capacity)) * 100
+    : null;
+  const occ = salaPctNum === null ? "—" : pct(salaPctNum);
+  const occSub = salaOk
+    ? `${int(Number(params.capacity.occupied || 0))} de ${int(Number(params.capacity.capacity))} lugares`
+    : "";
+
+  const kpis: [string, string][] = [
+    ["Total do evento (bilhetes)", int(params.totalQty)],
+    [`Total do evento (receita)${sfx}`, money(params.totalValue)],
+    ["Bilhetes no período", int(params.qty)],
+    [`Receita no período${sfx}`, money(params.value)],
+    ["Média diária (bilhetes)", `${dec1(params.med)} /dia`],
+    [`Média diária${sfx}`, money(params.medValue)],
+    [
+      "Tração vs. período anterior",
+      params.variacao === null ? "—" : `${params.variacao > 0 ? "+" : ""}${pct(params.variacao)}`,
+    ],
+    ["Ocupação da sala", occSub ? `${occ}\n${occSub}` : occ],
+  ];
+
+  autoTable(doc, {
+    startY: y,
+    body: [kpis.slice(0, 4).map(([k, v]) => `${k}\n${v}`), kpis.slice(4).map(([k, v]) => `${k}\n${v}`)],
+    theme: "grid",
+    styles: { fontSize: 8, cellPadding: 2, valign: "middle" },
+    margin: { left: M, right: M },
+  });
+  y = (doc as any).lastAutoTable.finalY + 7;
+
+  // parágrafo de leitura gerado dos números
+  const dir = params.variacao === null ? null : params.variacao >= 0 ? "acima" : "abaixo";
+  let reading =
+    `Nos últimos ${int(params.days)} dias vendeu ${int(params.qty)} bilhetes, uma média de ${dec1(params.med)} por dia` +
+    (dir ? `, ${pct(Math.abs(params.variacao as number))} ${dir} dos ${int(params.days)} dias anteriores` : "") +
+    `. O acumulado é ${int(params.totalQty)} bilhetes` +
+    (params.withIva ? "" : " (receita apresentada sem IVA)") +
+    ".";
+  if (salaOk) {
+    reading +=
+      ` A ocupação da sala, segundo a bilheteira, é de ${occ} (${occSub}) — inclui cortesias, protocolo,` +
+      ` reservas e canais que não registamos, e é um número distinto dos bilhetes vendidos por nós.`;
+  } else if (internal) {
+    reading += " Não há observação de lotação da bilheteira utilizável, pelo que a ocupação da sala não é apresentada.";
+  }
 
   const kpis: [string, string][] = [
     ["Total do evento (bilhetes)", int(params.totalQty)],
