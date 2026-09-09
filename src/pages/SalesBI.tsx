@@ -190,10 +190,12 @@ export default function SalesBI() {
         let sumPrev7 = 0;
         const daysWindow = new Set<string>();
         const spark = new Map<string, number>();
+        const daily = new Map<string, number>();
 
         for (const r of rs) {
           const d = r.sale_date.slice(0, 10);
           const qty = Number(r.qty || 0);
+          daily.set(d, (daily.get(d) ?? 0) + qty);
           if (d >= d7 && d <= d1) {
             sum7 += qty;
             val7 += Number(r.value || 0);
@@ -203,10 +205,30 @@ export default function SalesBI() {
           if (d >= d30 && d <= d1) spark.set(d, (spark.get(d) ?? 0) + qty);
         }
 
+        // Tração com a janela deslocada k dias: med7 vs. os 7 dias anteriores.
+        const variacaoAt = (k: number): number | null => {
+          let a = 0;
+          let b = 0;
+          for (let i = 1 + k; i <= 7 + k; i++) a += daily.get(toISO(addDays(today, -i))) ?? 0;
+          for (let i = 8 + k; i <= 14 + k; i++) b += daily.get(toISO(addDays(today, -i))) ?? 0;
+          const m = a / 7;
+          const prev = b / 7;
+          return prev > 0 ? ((m - prev) / prev) * 100 : null;
+        };
+
         const med7 = sum7 / 7;
         const medValue7 = val7 / 7;
         const prev7 = sumPrev7 / 7;
         const variacao = prev7 > 0 ? ((med7 - prev7) / prev7) * 100 : null;
+        const variacao1 = variacaoAt(1);
+        const variacao2 = variacaoAt(2);
+        // "A cair" exige 3 dias seguidos abaixo de -25%: com um só dia, a janela
+        // deslizante fazia o estado mudar à meia-noite sem nada mudar no negócio
+        // (Raphael Ghanem: -29% a 08/09 e -19% a 09/09). NÃO simplificar para 1 dia.
+        const aCair =
+          variacao !== null && variacao <= -25 &&
+          variacao1 !== null && variacao1 <= -25 &&
+          variacao2 !== null && variacao2 <= -25;
         const diasSerie = daysWindow.size;
         const diasParaEvento = p.event_date ? daysBetween(todayISO, p.event_date.slice(0, 10)) : null;
 
@@ -220,7 +242,7 @@ export default function SalesBI() {
 
         let state: SalesState;
         if (diasSerie >= 3 && med7 === 0) state = "Parou";
-        else if (variacao !== null && variacao <= -25) state = "A cair";
+        else if (aCair) state = "A cair";
         else if (trustworthy && ocupacao !== null && ocupacao < 50 && diasParaEvento !== null && diasParaEvento <= 60) state = "Vigiar";
         else if (diasSerie < 3 && Number(p.total_qty || 0) > 0) state = "Sem série";
         else if (Number(p.total_qty || 0) === 0) state = "Por lançar";
@@ -230,8 +252,9 @@ export default function SalesBI() {
         const sparkData: number[] = [];
         for (let i = 30; i >= 1; i--) sparkData.push(spark.get(toISO(addDays(today, -i))) ?? 0);
 
-        return { p, med7, medValue7, prev7, variacao, diasSerie, diasParaEvento, trustworthy, ocupacao, ocupados, carga, issue: cap?.issue ?? null, state, sparkData };
+        return { p, med7, medValue7, prev7, variacao, variacao1, variacao2, diasSerie, diasParaEvento, trustworthy, ocupacao, ocupados, carga, issue: cap?.issue ?? null, state, sparkData };
       })
+
       .sort((a, b) => {
         const s = STATE_ORDER[a.state] - STATE_ORDER[b.state];
         if (s !== 0) return s;
