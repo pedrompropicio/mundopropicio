@@ -41,7 +41,20 @@ interface ZoneRow {
   id: string;
   name: string;
   total_capacity: number | null;
+  on_sale: boolean | null;
 }
+
+const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+/** Nome da sessão: "DD/MM/AAAA HH:MM" → { dayISO, weekday } */
+const parseSessionName = (name: string) => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(name.trim());
+  if (!m) return null;
+  const [, d, mo, y] = m;
+  const dayISO = `${y}-${mo}-${d}`;
+  const wd = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d))).getUTCDay();
+  return { dayISO, weekday: WEEKDAYS[wd] };
+};
+
 
 interface SaleRow {
   zone_id: string | null;
@@ -110,7 +123,7 @@ export default function SalesBIEvent() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("id, name, total_capacity")
+        .select("id, name, total_capacity, on_sale")
         .eq("event_id", eventId);
       if (error) throw error;
       return (data ?? []) as unknown as ZoneRow[];
@@ -225,27 +238,55 @@ export default function SalesBIEvent() {
       agg.set(s.zone_id, a);
     }
     const channelList = Array.from(channels).sort();
-    const rows = zones
+    const all = zones
       .map((z) => {
         const a = agg.get(z.id) ?? { qty: 0, value: 0, byChannel: new Map<string, number>() };
         const cap = z.total_capacity != null ? Number(z.total_capacity) : null;
         const ocup = cap && cap > 0 ? (a.qty / cap) * 100 : null;
+        const onSale = z.on_sale !== false; // null = "não sabemos" conta como à venda
         let pill: { label: string; tone: "ok" | "warn" | "bad" | "muted" };
-        if (a.qty === 0) pill = { label: "sem venda", tone: "muted" };
+        if (!onSale) pill = { label: "não lançada", tone: "muted" };
+        else if (a.qty === 0) pill = { label: "sem venda", tone: "muted" };
         else if (ocup !== null && ocup >= 5) pill = { label: "a andar", tone: "ok" };
         else if (ocup !== null && ocup >= 2) pill = { label: "lento", tone: "warn" };
         else pill = { label: "parado", tone: "bad" };
-        return { id: z.id, name: z.name, qty: a.qty, value: a.value, cap, ocup, byChannel: a.byChannel, pill };
+        return { id: z.id, name: z.name, qty: a.qty, value: a.value, cap, ocup, byChannel: a.byChannel, pill, onSale };
       })
       .sort((a, b) => b.qty - a.qty);
+
+    // Sessões não lançadas ficam fora de TODOS os cálculos.
+    const rows = all.filter((r) => r.onSale);
+    const notLaunched = all
+      .filter((r) => !r.onSale)
+      .sort((a, b) => (parseSessionName(a.name)?.dayISO ?? a.name).localeCompare(parseSessionName(b.name)?.dayISO ?? b.name) || a.name.localeCompare(b.name));
     const totalQty = rows.reduce((s, r) => s + r.qty, 0);
     const totalValue = rows.reduce((s, r) => s + r.value, 0);
     const totalCap = rows.reduce((s, r) => s + (r.cap ?? 0), 0);
+
+    // Por dia de espetáculo — só sessões à venda
+    const byDay = new Map<string, { weekday: string; sessoes: number; cap: number; qty: number; value: number }>();
+    for (const r of rows) {
+      const p = parseSessionName(r.name);
+      if (!p) continue;
+      const d = byDay.get(p.dayISO) ?? { weekday: p.weekday, sessoes: 0, cap: 0, qty: 0, value: 0 };
+      d.sessoes += 1;
+      d.cap += r.cap ?? 0;
+      d.qty += r.qty;
+      d.value += r.value;
+      byDay.set(p.dayISO, d);
+    }
+    const days = Array.from(byDay.entries())
+      .map(([dayISO, d]) => ({ dayISO, ...d, ocup: d.cap > 0 ? (d.qty / d.cap) * 100 : null }))
+      .sort((a, b) => a.dayISO.localeCompare(b.dayISO));
+
     return {
       rows,
+      notLaunched,
+      days,
       channelList,
       totalQty,
       totalValue,
+      totalCap,
       ocupGlobal: totalCap > 0 ? (totalQty / totalCap) * 100 : null,
       semVenda: rows.filter((r) => r.qty === 0).length,
       totalSessoes: rows.length,
@@ -362,12 +403,14 @@ export default function SalesBIEvent() {
         </>
       ) : sessionsModel ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <Kpi label="Sessões à venda" value={int(sessionsModel.totalSessoes)} />
             <Kpi label="Bilhetes vendidos" value={int(sessionsModel.totalQty)} />
             <Kpi label={`Receita${ivaSfx}`} value={money(sessionsModel.totalValue)} />
             <Kpi
-              label="Ocupação global"
+              label="Ocupação (bilhetes nossos)"
               value={sessionsModel.ocupGlobal !== null ? pct(sessionsModel.ocupGlobal) : "—"}
+              sub={`${int(sessionsModel.totalQty)} de ${int(sessionsModel.totalCap)} lugares à venda`}
             />
             <Kpi
               label="Sessões sem venda"
@@ -376,6 +419,45 @@ export default function SalesBIEvent() {
             <Kpi label={`Preço médio${ivaSfx}`} value={money(sessionsModel.precoMedio)} />
           </div>
 
+          {sessionsModel.days.length > 0 && (
+            <Card className="p-0">
+              <p className="p-3 text-sm font-semibold">Por dia de espetáculo</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="p-3 font-medium">Data</th>
+                      <th className="p-3 font-medium">Dia</th>
+                      <th className="p-3 text-right font-medium">Sessões</th>
+                      <th className="p-3 text-right font-medium">Carga</th>
+                      <th className="p-3 text-right font-medium">Bilhetes</th>
+                      <th className="p-3 text-right font-medium">Receita{ivaSfx}</th>
+                      <th className="p-3 text-right font-medium">Ocupação (bilhetes nossos)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="tabular-nums">
+                    {sessionsModel.days.map((d) => (
+                      <tr key={d.dayISO} className="border-b last:border-0">
+                        <td className="p-3 font-medium">{fmtDay(d.dayISO)}</td>
+                        <td className="p-3 text-muted-foreground">{d.weekday}</td>
+                        <td className="p-3 text-right">{int(d.sessoes)}</td>
+                        <td className="p-3 text-right">{int(d.cap)}</td>
+                        <td className="p-3 text-right">{int(d.qty)}</td>
+                        <td className="p-3 text-right">{money(d.value)}</td>
+                        <td className="p-3 text-right">
+                          {d.ocup !== null ? pct(d.ocup) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="p-3 text-xs text-muted-foreground">
+                Só sessões à venda. Ocupação calculada sobre os nossos bilhetes, não sobre observação da bilheteira.
+              </p>
+            </Card>
+          )}
+
           <Card className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-sm">
@@ -383,7 +465,7 @@ export default function SalesBIEvent() {
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="p-3 font-medium">Sessão</th>
                     <th className="p-3 text-right font-medium">Bilhetes</th>
-                    <th className="p-3 text-right font-medium">Ocupação</th>
+                    <th className="p-3 text-right font-medium">Ocupação (bilhetes nossos)</th>
                     <th className="p-3 text-right font-medium">Receita{ivaSfx}</th>
                     {sessionsModel.channelList.map((c) => (
                       <th key={c} className="p-3 text-right font-medium">
@@ -416,9 +498,43 @@ export default function SalesBIEvent() {
               </table>
             </div>
             <p className="p-3 text-xs text-muted-foreground">
-              Retrato de agora: bilhetes acumulados por sessão, sem seletor de período.
+              Retrato de agora: bilhetes acumulados por sessão, sem seletor de período. Só sessões à venda.
             </p>
           </Card>
+
+          {sessionsModel.notLaunched.length > 0 && (
+            <Card className="p-0">
+              <p className="p-3 text-sm font-semibold">Ainda não lançadas</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="p-3 font-medium">Sessão</th>
+                      <th className="p-3 text-right font-medium">Carga</th>
+                      <th className="p-3 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="tabular-nums">
+                    {sessionsModel.notLaunched.map((r) => (
+                      <tr key={r.id} className="border-b last:border-0">
+                        <td className="p-3 font-medium">{r.name}</td>
+                        <td className="p-3 text-right">
+                          {r.cap !== null ? int(r.cap) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="p-3">
+                          <Pill label="não lançada" tone="muted" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="p-3 text-xs text-muted-foreground">
+                Sessões ainda não colocadas à venda ao público. Não entram em nenhum indicador nem cálculo de
+                ocupação.
+              </p>
+            </Card>
+          )}
         </>
       ) : (
         <Card className="p-8 text-center text-sm text-muted-foreground">

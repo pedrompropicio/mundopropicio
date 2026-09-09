@@ -1,0 +1,2 @@
+ALTER TABLE public.event_ticket_zones ADD COLUMN IF NOT EXISTS on_sale boolean DEFAULT NULL;
+COMMENT ON COLUMN public.event_ticket_zones.on_sale IS 'Sessão/zona está à venda ao público. NULL = não sabemos (default para eventos que não sejam residências com sessões). true/false só onde verificado.';

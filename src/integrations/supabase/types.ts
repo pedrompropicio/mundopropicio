@@ -6170,6 +6170,7 @@ export type Database = {
           event_id: string
           id: string
           name: string
+          on_sale: boolean | null
           session_id: string | null
           sync_generated: boolean
           total_capacity: number | null
@@ -6182,6 +6183,7 @@ export type Database = {
           event_id: string
           id?: string
           name: string
+          on_sale?: boolean | null
           session_id?: string | null
           sync_generated?: boolean
           total_capacity?: number | null
@@ -6194,6 +6196,7 @@ export type Database = {
           event_id?: string
           id?: string
           name?: string
+          on_sale?: boolean | null
           session_id?: string | null
           sync_generated?: boolean
           total_capacity?: number | null
