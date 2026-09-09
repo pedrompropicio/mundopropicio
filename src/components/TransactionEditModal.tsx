@@ -2165,6 +2165,34 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           onGrouped={() => void refetchInvoiceSiblings()}
           onClose={() => setInvoiceSuggestion(null)}
         />
+
+        {/* D1+D8 — reversão total de Extra do Sócio: escolher a linha de BP antes de escrever. */}
+        {revertNeedsBpLine && (
+          <LinkBpLineDialog
+            transaction={transaction as any}
+            pickOnly
+            onClose={() => setRevertNeedsBpLine(false)}
+            onLinked={() => setRevertNeedsBpLine(false)}
+            onPicked={async (forecastId) => {
+              setRevertNeedsBpLine(false);
+              await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
+              const { error } = await supabase
+                .from("transactions")
+                .update({ is_transitory: false, forecast_id: forecastId })
+                .eq("id", transaction.id);
+              if (error) {
+                toast({ title: "Erro a reverter", description: error.message, variant: "destructive" });
+                return;
+              }
+              toast({ title: "Extra do Sócio revertido", description: "Despesa vinculada à linha de BP escolhida." });
+              queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
+              queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
+              queryClient.invalidateQueries({ queryKey: ["transactions"] });
+              queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
+              onClose();
+            }}
+          />
+        )}
       </div>
     </div>,
     document.body
