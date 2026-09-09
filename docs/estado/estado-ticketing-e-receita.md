@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-09 · Issues: #73, #78, #128, #129, #130
+Atualizado: 2026-09-09 · Issues: #73, #78, #128, #129, #130, #145
 
 ## Em que pé está
 
@@ -13,9 +13,13 @@ Atualizado: 2026-09-09 · Issues: #73, #78, #128, #129, #130
 
 - **Segundo lote de correcções ao fecho (09/09, D-ERP20).** Depois do fecho confirmado da Ticketline da Anitta: (1) `paid_amount` de cada dedução, total de deduções e líquido calculado arredondados ao cêntimo via `roundCents`; (2) filhos de rateio saem da lista quando o Master está lá — só o Master é pagável; (3) cada Master mostra `fatura completa … · parte deste evento …` (META PLATFORMS: 14.050,41 € contra 3.902,85 € da Anitta); (4) o grupo "Em aberto neste evento" nasce recolhido, com contagem no cabeçalho e pesquisa por descrição/fornecedor, e abre sozinho se houver dedução marcada. Em Live, o grupo dos candidatos passou de 14 para 10 linhas (saíram 4 filhos de rateio).
 
+- **Estudo de preços da Simone Mendes (08/09).** Lisboa 3 107 bilhetes vendidos e 140 555 €, preço médio 45,24 €; Porto 3 878 e 183 950 €, preço médio 47,43 €. Cinco dos nove setores esgotaram: em Lisboa as Galerias e a mobilidade condicionada, no Porto os dois balcões e a mobilidade reduzida — em ambos os casos o que sobra nesses setores são lugares de visibilidade condicionada, que o sistema conta como disponíveis mas nunca chegam à venda. Por isso a ocupação mede-se sobre a capacidade vendável (6 056 em Lisboa, 7 018 no Porto) e não sobre a nominal. Restam quatro zonas à venda, o mesmo par nas duas cidades: uma a 45 € e uma a 65 €. Proposta entregue: subir as quatro para 50 € e 70 €, os valores do Lote 3 que estava planeado e nunca foi aberto.
+
+- **Sync das cinco cidades do Ghanem reposto (09/09).** RG Lisboa, Santarém, Almada, Estoril e Albufeira tinham `enabled = false` desde 28/08 17:36 — as cinco no mesmo segundo, alteração em bloco. Reativadas com autorização do Pedro. Nada se perdeu: a captura horária continuou a correr e as vendas estavam em `ticketline_daily_sales`.
+
 ## A trabalhar agora
 
-Nada em execução.
+Nada em execução. A confirmar no próximo ciclo horário: se o import das cinco cidades do Ghanem repôs em `ticket_sales` as três semanas em falta (17/08 a 09/09) e se os totais batem com o que a captura horária já tinha registado.
 
 ## Próximo passo concreto
 
@@ -102,9 +106,17 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 
 **FRAGILIDADE CONHECIDA, por decidir — o limiar dos −25%.** A comparação de 7 contra 7 dias cai dentro do ruído do sinal diário. A 08/09 o Ghanem dava −29% e abria o ecrã como "A cair"; a 09/09 dava −19% e passou a "Estável", sem nada ter mudado no negócio além de a janela ter deslizado um dia. **Comparar 14 contra 14 não resolve** — engana ao contrário, porque apanha o pico do lançamento. **Correção proposta: exigir persistência** — entrar em "A cair" só ao fim de 3 dias seguidos abaixo de −25%, e sair só acima de −10%.
 
+**As vendas chegam por três caminhos e nunca pelo mesmo ao mesmo tempo.** `ticket_sales` é o snapshot cumulativo por evento (full-replace a cada import) e é o que todos os ecrãs de bilheteira, ocupação e fecho leem. `ticketline_daily_sales` é a série diária por `sale_date`, alimentada pela captura horária. `bol_daily_sales` é a série diária do Mapa Diário do BOL, desde a v1.6 do sync (15/08). Cada evento está numa fonte, nunca em duas — por isso as três somam sem duplicar, mas é preciso saber que existem.
+
+**Para "quanto se vendeu ontem" ou "nos últimos N dias" nunca se usa `ticket_sales`.** Nos eventos BOL é um cumulativo, e nos eventos com o import desligado está congelado na data em que parou. Usa-se a série diária da fonte respectiva. O custo de ignorar isto foi medido a 09/09: a leitura de tráfego pago deu ao Raphael Ghanem 208 bilhetes e ROAS 2,24× lendo só `ticket_sales`, quando com as três fontes são 577 bilhetes e 6,87× — a conclusão da análise chegou a ficar invertida.
+
+**Uma configuração de sync desativada não desliga a captura horária.** O `enabled = false` em `ticketline_sync_config` impede o import para `ticket_sales`, mas o cron `ticketline-capture-day-hourly` (`15 * * * *`, com selagem às 00:25) continua a correr sobre essa mesma configuração, com sucesso, e a escrever em `ticketline_daily_sales`. Resultado: as vendas continuam a ser capturadas, mas os ecrãs mostram o evento parado na data do último import. Foi o que aconteceu com cinco cidades do Ghanem durante três semanas.
+
+**A Ticketline devolve HTML em vez do XLSX de vez em quando.** Estado `html_response`, mensagem `XLSX sale_summary: HTML em vez de XLSX — title="Ticketline Manager"`. A 08/09 aconteceu sete vezes seguidas na SM - Lisboa, das 16h às 22h, e recuperou sozinho às 23h. Não se perde nada porque o import é full-replace e corre de hora a hora. O que falta é o aviso: nenhuma destas falhas gera alerta (issue #145). Estado dos crons a 09/09, últimas 48h: BOL 192 de 192 com sucesso; Ticketline 377 com sucesso e 7 falhas; captura horária 50 de 50.
+
 ## Onde ler mais
 
 - `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`
 - `src/lib/ticket-office-balance.ts`, `src/lib/ticket-sales-revenue.ts`, `src/lib/ticket-office-settlement-calc.ts`
 - `docs/DECISIONS.md` — D-ERP15
-- Issues #73, #78, #128, #129, #130
+- Issues #73, #78, #128, #129, #130, #145
