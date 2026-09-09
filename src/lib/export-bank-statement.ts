@@ -29,14 +29,20 @@ export function exportBankStatementToExcel(
   const wb = XLSX.utils.book_new();
   const bal = (v: number) => (uncontrolled ? "Não controlado" : v);
 
+  const implantLine = account.initial_balance_date
+    ? [`Saldo implantado a ${fmtDate(account.initial_balance_date)}: ${uncontrolled ? "Não controlado" : fmtVal(Number(account.initial_balance ?? 0))}`]
+    : null;
+
   const rows: any[][] = [
     [`EXTRATO BANCÁRIO — ${account.name}`],
     [`Período: ${dateFrom ? fmtDate(dateFrom) : "Início"} a ${dateTo ? fmtDate(dateTo) : "Atual"}`],
+    ...(implantLine ? [implantLine] : []),
     ...(uncontrolled ? [["Conta sem controlo de saldo — saldos não apurados"]] : []),
     [],
     ["Data", "Descrição", "Evento", "Entrada (€)", "Saída (€)", "Saldo (€)"],
     [dateFrom || "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
   ];
+
 
   lines.forEach((l: any) => {
     rows.push([
