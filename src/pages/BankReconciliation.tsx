@@ -186,21 +186,6 @@ export default function BankReconciliation() {
     return s;
   }, [savedLines, sepaExports]);
 
-  const triangle = useMemo(() => {
-    if (!currentStatement || !account) return null;
-    const implanted = Number(account.initial_balance ?? 0);
-    const movements = (savedLines as any[])
-      .filter((l) => l.status !== "ignored")
-      .reduce((s, l) => s + Number(l.amount ?? 0), 0);
-    const declared = Number(currentStatement.closing_balance ?? 0);
-    const reconciled = (savedLines as any[])
-      .filter((l) => l.status === "matched")
-      .reduce((s, l) => s + Number(l.amount ?? 0), 0);
-    const opening = Number(currentStatement.opening_balance ?? 0);
-    const diff = Math.round((opening + movements - declared) * 100) / 100;
-    return { implanted, movements, reconciled, declared, opening, diff };
-  }, [currentStatement, account, savedLines]);
-
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
   const ignoredLines = (savedLines as any[]).filter((l) => l.status === "ignored");
@@ -214,6 +199,44 @@ export default function BankReconciliation() {
       currentStatement.period_to,
     );
   }, [txns, savedExplainedIds, currentStatement]);
+
+  // ---- Confronto sistema × banco ------------------------------------------
+  // O ecrã existe para tornar visível uma diferença. Confrontar abertura +
+  // movimentos do próprio ficheiro dava sempre zero (o parser só aceita
+  // extratos coerentes). O confronto certo é SISTEMA × BANCO.
+  const { data: cashAdjustments } = useQuery({
+    queryKey: ["bank-recon-adjustments", accountId, currentStatement?.period_to],
+    enabled: !!accountId && !!currentStatement?.period_to,
+    queryFn: () =>
+      fetchAccountCashAdjustments(
+        [accountId],
+        buildAccountCutoffs(accounts as any[]),
+        { lte: currentStatement.period_to },
+      ),
+  });
+
+  const triangle = useMemo(() => {
+    if (!currentStatement || !account) return null;
+    const periodTo = String(currentStatement.period_to ?? "").slice(0, 10);
+    const upToPeriod = (txns as any[]).filter((t) => {
+      const eff = effectivePaymentDate(t);
+      return !eff || !periodTo || eff <= periodTo;
+    });
+    // Fonte única do saldo (D-ERP12/D-ERP25): mesma conta, mesma data de corte,
+    // mesmos ajustes de caixa que o módulo Contas.
+    const system = computeAccountBalance(
+      account as any,
+      upToPeriod.map((t) => ({ ...t, account_id: account.id })) as any,
+      cashAdjustments ?? undefined,
+    );
+    const declared = Number(currentStatement.closing_balance ?? 0);
+    const diff = system === null ? null : Math.round((system - declared) * 100) / 100;
+    const unexplainedBank = (savedLines as any[])
+      .filter((l) => l.status === "unmatched")
+      .reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
+    const unexplainedSystem = txWithoutLine.reduce((acc, t) => acc + Number(t.paid_amount ?? 0), 0);
+    return { system, declared, diff, unexplainedBank, unexplainedSystem, periodTo };
+  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine]);
 
   // ---- Upload + pré-visualização -----------------------------------------
   async function onFile(file: File) {
