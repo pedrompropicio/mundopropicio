@@ -451,6 +451,14 @@ export default function BankReconciliation() {
     return <p className="text-sm text-muted-foreground">Sem permissão para a Conciliação Bancária.</p>;
   }
 
+  // O lote SEPA, a sua comissão e o seu imposto de selo partilham o código de
+  // referência do banco: mostram-se agrupados. É só leitura — não lança nada.
+  const refGroups = new Map<string, number>();
+  (savedLines as any[]).forEach((l) => {
+    if (!l.bank_ref) return;
+    refGroups.set(l.bank_ref, (refGroups.get(l.bank_ref) ?? 0) + 1);
+  });
+
   const txById = new Map((txns as any[]).map((t) => [t.id, t]));
 
   return (
@@ -536,27 +544,50 @@ export default function BankReconciliation() {
         </div>
       )}
 
-      {/* Triângulo do saldo */}
+      {/* Confronto sistema × banco */}
       {currentStatement && triangle && (
-        <div className="glass grid gap-3 rounded-xl p-4 text-sm md:grid-cols-4">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Saldo de abertura do extrato</p>
-            <p className="text-lg font-bold">{formatCurrency(triangle.opening)}</p>
+        <div className="glass space-y-3 rounded-xl p-4 text-sm">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Saldo do sistema a {formatDatePT(triangle.periodTo)}
+              </p>
+              <p className="text-lg font-bold">
+                {triangle.system === null ? "Sem controlo de saldo" : formatCurrency(triangle.system)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Fonte única, com data de corte e ajustes de caixa
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Saldo declarado pelo banco</p>
+              <p className="text-lg font-bold">{formatCurrency(triangle.declared)}</p>
+              <p className="text-[10px] text-muted-foreground">Saldo após a última linha do extrato</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Diferença</p>
+              <p
+                className={`text-lg font-bold ${
+                  triangle.diff !== null && Math.abs(triangle.diff) > 0.01 ? "text-destructive" : "text-success"
+                }`}
+              >
+                {triangle.diff === null ? "—" : formatCurrency(triangle.diff)}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Movimentos do período</p>
-            <p className="text-lg font-bold">{formatCurrency(triangle.movements)}</p>
-            <p className="text-[10px] text-muted-foreground">Conciliados: {formatCurrency(triangle.reconciled)}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Saldo do banco declarado</p>
-            <p className="text-lg font-bold">{formatCurrency(triangle.declared)}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Diferença por explicar</p>
-            <p className={`text-lg font-bold ${Math.abs(triangle.diff) > 0.01 ? "text-destructive" : "text-success"}`}>
-              {formatCurrency(triangle.diff)}
-            </p>
+          <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-2">
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Linhas do banco por explicar ({unmatchedLines.length})
+              </p>
+              <p className="font-semibold">{formatCurrency(triangle.unexplainedBank)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Transações sem movimento no banco ({txWithoutLine.length})
+              </p>
+              <p className="font-semibold">{formatCurrency(triangle.unexplainedSystem)}</p>
+            </div>
           </div>
         </div>
       )}
@@ -597,7 +628,14 @@ export default function BankReconciliation() {
                 {matchedLines.map((l) => (
                   <TableRow key={l.id}>
                     <TableCell>{formatDatePT(l.booking_date)}</TableCell>
-                    <TableCell className="max-w-[420px] truncate">{l.description}</TableCell>
+                    <TableCell className="max-w-[420px] truncate">
+                      {l.description}
+                      {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
+                        <Badge variant="secondary" className="ml-2 align-middle text-[10px]">
+                          ref. {l.bank_ref} · {refGroups.get(l.bank_ref)} linhas
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell><Badge variant="outline">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -635,7 +673,14 @@ export default function BankReconciliation() {
                 {unmatchedLines.map((l) => (
                   <TableRow key={l.id}>
                     <TableCell>{formatDatePT(l.booking_date)}</TableCell>
-                    <TableCell className="max-w-[420px] truncate">{l.description}</TableCell>
+                    <TableCell className="max-w-[420px] truncate">
+                      {l.description}
+                      {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
+                        <Badge variant="secondary" className="ml-2 align-middle text-[10px]">
+                          ref. {l.bank_ref} · {refGroups.get(l.bank_ref)} linhas
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxId(""); }}>

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentCompanyId } from "@/hooks/useCompany";
 
 export const ISOLATED_BUCKETS = new Set<string>([
+  "bank-statements",
   "bp-version-snapshots",
   "cache-extra-documents",
   "camarim-documents",
@@ -35,6 +36,7 @@ export const GLOBAL_BUCKETS = new Set<string>([
 ]);
 
 export type Bucket =
+  | "bank-statements"
   | "bp-version-snapshots"
   | "cache-extra-documents"
   | "camarim-documents"
