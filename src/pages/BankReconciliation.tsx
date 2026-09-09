@@ -552,7 +552,7 @@ export default function BankReconciliation() {
     refGroups.set(l.bank_ref, (refGroups.get(l.bank_ref) ?? 0) + 1);
   });
 
-  const txById = new Map((txns as any[]).map((t) => [t.id, t]));
+  
 
   return (
     <div className="space-y-4">
