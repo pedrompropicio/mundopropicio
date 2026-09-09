@@ -1,6 +1,6 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-09-09 · Issues: #82, #65, #85, #68, #133 · P0 aberto: nenhum
+Atualizado: 2026-09-09 · Issues: #82, #65, #85, #68, #133, #146, #147, #148 · P0 aberto: nenhum
 
 ## Em que pé está
 
@@ -109,4 +109,4 @@ A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146
 - `docs/estado/estado-ticketing-e-receita.md` — apuramento 2558/2026 e o fecho da Ticketline
 - `.lovable/memory/features/fecho-filter-parity.md`, `partner-settlement.md`, `partner-advance-expenses.md`, `event-cost-basis.md`
 - `docs/DECISIONS.md` — D-ERP3, D-ERP4, D-ERP9, D-ERP10, D-ERP21–D-ERP24, e a nomenclatura das versões de BP
-- Issues #82, #65, #85, #68, #133
+- Issues #82, #65, #85, #68, #133, #146, #147, #148
