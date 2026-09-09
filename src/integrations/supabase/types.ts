@@ -12725,6 +12725,7 @@ export type Database = {
         }
         Returns: {
           event_date: string
+          event_id: string
           event_name: string
           group_id: string
           provider: string
