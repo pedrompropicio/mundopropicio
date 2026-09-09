@@ -1366,14 +1366,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // 4. (removido) Vínculo "Pago por Sócio" já não é criado no lançamento —
         //    faz-se no modal de pagamento ou no painel do evento.
-        // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
-        if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
-          await supabase.from("partner_advance_expenses").insert({
-            event_id: splitMasterEventId,
-            partner_id: partnerExtraId,
-            transaction_id: parentId,
-          } as any);
-        }
+        // 4b. (removido) Extra do Sócio NÃO se combina com rateio multi-evento:
+        //    um extra é dívida de UM sócio, definido por evento (event_partners),
+        //    e o rateio existe para repartir custo por vários eventos. Reparte-se
+        //    primeiro pelos eventos e converte-se depois a perna do evento do sócio.
       } else {
         // --- SINGLE TRANSACTION ---
         // Auto-aprovação: a categoria tem linha(s) do BP APROVADAS para este tipo,
