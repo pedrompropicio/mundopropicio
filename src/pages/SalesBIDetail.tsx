@@ -25,6 +25,7 @@ import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 import { exportEventSalesPdf, type EventSalesPdfVariant } from "@/lib/export-event-sales-pdf";
 import { fetchZoneCapacities, totalsByEvent } from "@/lib/zone-capacities";
+import { traction, type Traction } from "@/lib/traction";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -79,15 +80,26 @@ interface EventRow {
 
 const PERIODS = [7, 14, 30, 90] as const;
 
-function Variation({ v }: { v: number | null }) {
-  if (v === null) return <span className="text-muted-foreground">—</span>;
-  return (
-    <span className={cn("font-semibold", v < 0 ? "text-destructive" : "text-success")}>
-      {v > 0 ? "+" : ""}
-      {nfInt.format(Math.round(v))}%
-    </span>
-  );
+function Variation({ t }: { t: Traction }) {
+  if (t.pct !== null) {
+    return (
+      <span className={cn("font-semibold", t.pct < 0 ? "text-destructive" : "text-success")}>
+        {t.pct > 0 ? "+" : ""}
+        {nfInt.format(Math.round(t.pct))}%
+      </span>
+    );
+  }
+  if (t.shortBase) {
+    return (
+      <span className="inline-block">
+        <span>{int(t.qty)} vs {int(t.prevQty)}</span>
+        <span className="block text-[10px] text-muted-foreground">base curta</span>
+      </span>
+    );
+  }
+  return <span className="text-muted-foreground">—</span>;
 }
+
 
 function BarsChart({ points }: { points: { date: string; qty: number; ma: number | null }[] }) {
   const w = 900;
@@ -288,7 +300,7 @@ export default function SalesBIDetail() {
       byCity.set(r.event_id, c);
     }
 
-    const variacao = prevQty > 0 ? ((qty - prevQty) / prevQty) * 100 : null;
+    const variacao = traction(qty, prevQty, days);
 
     // Gráfico: dias de calendário do período + média móvel de 7 dias
     const points: { date: string; qty: number; value: number; ma: number | null }[] = [];
@@ -313,7 +325,7 @@ export default function SalesBIDetail() {
           qty: c.qty,
           value: c.value,
           med: c.qty / days,
-          variacao: c.prevQty > 0 ? ((c.qty - c.prevQty) / c.prevQty) * 100 : null,
+          variacao: traction(c.qty, c.prevQty, days),
           total: c.total,
           source: [...(sourceByCity.get(e.id) ?? [])].join(" + ") || null,
           // Ocupação da sala (bilheteira): occupied / capacity, nunca os nossos bilhetes.
@@ -455,7 +467,7 @@ export default function SalesBIDetail() {
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Tração vs. período anterior</p>
               <p className="text-lg">
-                <Variation v={model.variacao} />
+                <Variation t={model.variacao} />
               </p>
             </Card>
             <Card className="p-3 tabular-nums">
@@ -529,7 +541,7 @@ export default function SalesBIDetail() {
                       <td className="p-3 text-right">{money(c.value)}</td>
                       <td className="p-3 text-right">{nf1.format(c.med)}</td>
                       <td className="p-3 text-right">
-                        <Variation v={c.variacao} />
+                        <Variation t={c.variacao} />
                       </td>
                       <td className="p-3 text-right">{int(c.total)}</td>
                       <td className="p-3 text-right">

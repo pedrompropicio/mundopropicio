@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { lisbonToday, formatLisbonDateTime } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
+import { traction, tractionSortKey } from "@/lib/traction";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -205,30 +206,30 @@ export default function SalesBI() {
           if (d >= d30 && d <= d1) spark.set(d, (spark.get(d) ?? 0) + qty);
         }
 
-        // Tração com a janela deslocada k dias: med7 vs. os 7 dias anteriores.
-        const variacaoAt = (k: number): number | null => {
+        // Tração com a janela deslocada k dias: 7 dias vs. os 7 anteriores.
+        // Base curta (período anterior fraco) devolve pct null — ver lib/traction.
+        const variacaoAt = (k: number) => {
           let a = 0;
           let b = 0;
           for (let i = 1 + k; i <= 7 + k; i++) a += daily.get(toISO(addDays(today, -i))) ?? 0;
           for (let i = 8 + k; i <= 14 + k; i++) b += daily.get(toISO(addDays(today, -i))) ?? 0;
-          const m = a / 7;
-          const prev = b / 7;
-          return prev > 0 ? ((m - prev) / prev) * 100 : null;
+          return traction(a, b, 7);
         };
 
         const med7 = sum7 / 7;
         const medValue7 = val7 / 7;
         const prev7 = sumPrev7 / 7;
-        const variacao = prev7 > 0 ? ((med7 - prev7) / prev7) * 100 : null;
+        const variacao = traction(sum7, sumPrev7, 7);
         const variacao1 = variacaoAt(1);
         const variacao2 = variacaoAt(2);
         // "A cair" exige 3 dias seguidos abaixo de -25%: com um só dia, a janela
         // deslizante fazia o estado mudar à meia-noite sem nada mudar no negócio
         // (Raphael Ghanem: -29% a 08/09 e -19% a 09/09). NÃO simplificar para 1 dia.
+        // Uma queda calculada sobre base curta não conta como avaliação.
         const aCair =
-          variacao !== null && variacao <= -25 &&
-          variacao1 !== null && variacao1 <= -25 &&
-          variacao2 !== null && variacao2 <= -25;
+          variacao.pct !== null && variacao.pct <= -25 &&
+          variacao1.pct !== null && variacao1.pct <= -25 &&
+          variacao2.pct !== null && variacao2.pct <= -25;
         const diasSerie = daysWindow.size;
         const diasParaEvento = p.event_date ? daysBetween(todayISO, p.event_date.slice(0, 10)) : null;
 
@@ -258,8 +259,8 @@ export default function SalesBI() {
       .sort((a, b) => {
         const s = STATE_ORDER[a.state] - STATE_ORDER[b.state];
         if (s !== 0) return s;
-        const va = a.variacao ?? Number.POSITIVE_INFINITY;
-        const vb = b.variacao ?? Number.POSITIVE_INFINITY;
+        const va = tractionSortKey(a.variacao);
+        const vb = tractionSortKey(b.variacao);
         if (va !== vb) return va - vb;
         const da = a.diasParaEvento ?? Number.POSITIVE_INFINITY;
         const db = b.diasParaEvento ?? Number.POSITIVE_INFINITY;
@@ -354,13 +355,18 @@ export default function SalesBI() {
 
                 {/* Tração */}
                 <div className="md:col-span-2 tabular-nums">
-                  {r.variacao === null ? (
-                    <p className="text-sm font-semibold text-muted-foreground">—</p>
-                  ) : (
-                    <p className={cn("text-sm font-semibold", r.variacao < 0 ? "text-destructive" : "text-success")}>
-                      {r.variacao > 0 ? "+" : ""}
-                      {nfInt.format(Math.round(r.variacao))}%
+                  {r.variacao.pct !== null ? (
+                    <p className={cn("text-sm font-semibold", r.variacao.pct < 0 ? "text-destructive" : "text-success")}>
+                      {r.variacao.pct > 0 ? "+" : ""}
+                      {nfInt.format(Math.round(r.variacao.pct))}%
                     </p>
+                  ) : r.variacao.shortBase ? (
+                    <>
+                      <p className="text-sm">{int(r.variacao.qty)} vs {int(r.variacao.prevQty)}</p>
+                      <p className="text-[10px] text-muted-foreground">base curta</p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-semibold text-muted-foreground">—</p>
                   )}
                   <p className="text-xs text-muted-foreground">vs. 7 dias anteriores</p>
                 </div>
