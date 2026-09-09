@@ -81,6 +81,7 @@ export default function BankReconciliation() {
   const [accountId, setAccountId] = useState<string>("");
   const [parsed, setParsed] = useState<ParsedStatement | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [fileRef, setFileRef] = useState<File | null>(null);
   const [preview, setPreview] = useState<ReconcileResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [statementId, setStatementId] = useState<string | null>(null);
@@ -249,6 +250,7 @@ export default function BankReconciliation() {
       const p = parseSantanderStatement(buf);
       setParsed(p);
       setFileName(file.name);
+      setFileRef(file);
       const lines = p.lines.map((l, i) => ({
         key: String(i),
         description: l.description,
@@ -275,36 +277,80 @@ export default function BankReconciliation() {
   }, [parsed, account]);
 
   async function saveImport() {
-    if (!parsed || !preview || !accountId) return;
+    if (!parsed || !preview || !accountId || !fileRef) return;
     if (!parsed.coherent) {
       toast.error("Importação recusada: a cadeia de saldos do ficheiro não fecha.");
       return;
     }
     setSaving(true);
     try {
-      const { data: stmt, error: e1 } = await supabase
-        .from("bank_statements")
-        .insert({
-          financial_account_id: accountId,
-          file_name: fileName,
-          period_from: parsed.periodFrom,
-          period_to: parsed.periodTo,
-          opening_balance: parsed.openingBalance,
-          closing_balance: parsed.closingBalance,
-          n_lines: parsed.lines.length,
-          imported_by: user?.email ?? "sistema",
-        })
-        .select("id")
-        .single();
-      if (e1) throw e1;
+      // Hashes primeiro: são a identidade das linhas e a chave da guarda de
+      // reimportação.
+      const hashes: string[] = [];
+      for (const l of parsed.lines) hashes.push(await computeLineHash(accountId, l));
+
+      // Guarda de reimportação: um extrato da mesma conta, mesmo período, cujas
+      // linhas já sejam estas. Sem isto, reimportar criava um extrato fantasma
+      // com n_lines preenchido e zero linhas ligadas.
+      const { data: existingLines } = await supabase
+        .from("bank_statement_lines")
+        .select("id, statement_id, line_hash")
+        .eq("financial_account_id", accountId)
+        .in("line_hash", hashes.slice(0, 500));
+      const already = new Set((existingLines ?? []).map((l: any) => l.line_hash));
+      const reusable = (statements as any[]).find(
+        (st) =>
+          st.period_from === parsed.periodFrom &&
+          st.period_to === parsed.periodTo &&
+          (existingLines ?? []).some((l: any) => l.statement_id === st.id),
+      );
+      const newCount = hashes.filter((h) => !already.has(h)).length;
+
+      let stmtId: string;
+      let createdNow = false;
+      if (reusable && newCount === 0) {
+        stmtId = reusable.id;
+        toast.info(
+          `Este extrato já tinha sido importado: ${already.size} linha(s) já existentes, 0 novas.`,
+        );
+      } else {
+        // O extrato é um facto externo: o ficheiro original fica arquivado.
+        let fileUrl: string | null = null;
+        const up = await uploadToCompanyBucket(
+          "bank-statements" as any,
+          `${accountId}/${Date.now()}-${fileName}`,
+          fileRef,
+          { upsert: false },
+        );
+        if (up.error) toast.warning("Extrato importado, mas o ficheiro não ficou arquivado.");
+        else fileUrl = up.path;
+
+        const { data: stmt, error: e1 } = await supabase
+          .from("bank_statements")
+          .insert({
+            financial_account_id: accountId,
+            file_name: fileName,
+            file_url: fileUrl,
+            period_from: parsed.periodFrom,
+            period_to: parsed.periodTo,
+            opening_balance: parsed.openingBalance,
+            closing_balance: parsed.closingBalance,
+            n_lines: parsed.lines.length,
+            imported_by: user?.email ?? "sistema",
+          })
+          .select("id")
+          .single();
+        if (e1) throw e1;
+        stmtId = stmt.id;
+        createdNow = true;
+      }
 
       const rows = [] as any[];
       for (let i = 0; i < parsed.lines.length; i++) {
         const l = parsed.lines[i];
-        const hash = await computeLineHash(accountId, l);
         const m = preview.matches.get(String(i));
         rows.push({
-          statement_id: stmt.id,
+          statement_id: stmtId,
           financial_account_id: accountId,
           booking_date: l.bookingDate,
           value_date: l.valueDate,
@@ -312,7 +358,8 @@ export default function BankReconciliation() {
           amount: l.amount,
           balance_after: l.balanceAfter,
           raw: l.raw as any,
-          line_hash: hash,
+          line_hash: hashes[i],
+          bank_ref: extractBankRef(l.description),
           status: m ? "matched" : "unmatched",
           matched_transaction_id: m?.matched_transaction_id ?? null,
           matched_payment_list_id: m?.matched_payment_list_id ?? null,
@@ -322,18 +369,41 @@ export default function BankReconciliation() {
         });
       }
 
-      // Reimportar o mesmo ficheiro não cria linhas novas: o line_hash é único
-      // por conta, e as colisões são ignoradas em silêncio.
+      // O line_hash é único por conta: as colisões são ignoradas em silêncio.
       const { error: e2 } = await (supabase as any)
         .from("bank_statement_lines")
         .upsert(rows, { onConflict: "financial_account_id,line_hash", ignoreDuplicates: true });
       if (e2) throw e2;
 
-      toast.success(`Extrato importado: ${parsed.lines.length} linha(s).`);
-      setStatementId(stmt.id);
+      // Se nenhuma linha ficou ligada ao extrato novo, ele não existe: apaga-se.
+      if (createdNow) {
+        const { count } = await supabase
+          .from("bank_statement_lines")
+          .select("id", { count: "exact", head: true })
+          .eq("statement_id", stmtId);
+        if (!count) {
+          await supabase.from("bank_statements").delete().eq("id", stmtId);
+          toast.info("Este extrato já tinha sido importado por inteiro — nada de novo a guardar.");
+          setStatementId(reusable?.id ?? null);
+          setParsed(null);
+          setPreview(null);
+          setFileRef(null);
+          queryClient.invalidateQueries({ queryKey: ["bank-recon-statements", accountId] });
+          return;
+        }
+      }
+
+      toast.success(
+        newCount === parsed.lines.length
+          ? `Extrato importado: ${parsed.lines.length} linha(s).`
+          : `Extrato importado: ${newCount} linha(s) novas, ${parsed.lines.length - newCount} já existentes.`,
+      );
+      setStatementId(stmtId);
       setParsed(null);
       setPreview(null);
+      setFileRef(null);
       queryClient.invalidateQueries({ queryKey: ["bank-recon-statements", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", stmtId] });
     } catch (err: any) {
       toast.error("Erro ao importar: " + (err?.message ?? "desconhecido"));
     } finally {
