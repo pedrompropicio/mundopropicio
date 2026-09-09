@@ -880,9 +880,26 @@ export default function BankReconciliation() {
                     <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell><Badge variant="outline">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {l.matched_sepa_export_id
-                        ? "Lote SEPA (lista de pagamento)"
-                        : txById.get(l.matched_transaction_id)?.description ?? "—"}
+                      {l.matched_sepa_export_id ? (
+                        <div className="space-y-0.5">
+                          <p>Lote SEPA (lista de pagamento)</p>
+                          {sepaInfo.get(l.id)?.exportCount! > 1 && (
+                            <p className="text-warning">
+                              Lote gerado {sepaInfo.get(l.id)!.exportCount}× (dupla geração) — tratado como um só
+                            </p>
+                          )}
+                          {!!sepaInfo.get(l.id)?.retention && (
+                            <p>
+                              Sistema {formatCurrency(sepaInfo.get(l.id)!.systemGross)} bruto ·{" "}
+                              <span className="text-foreground">
+                                retenção na fonte {formatCurrency(sepaInfo.get(l.id)!.retention)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        txById.get(l.matched_transaction_id)?.description ?? "—"
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
