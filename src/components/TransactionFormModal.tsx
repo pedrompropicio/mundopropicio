@@ -2101,6 +2101,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Valor parcial do extra inválido", description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} €). Deixe vazio para abater a fatura inteira.`, variant: "destructive" });
         return;
       }
+      // A fatura reparte-se: a principal nasce por (total − X). Com "Pagar em parcelas"
+      // as parcelas são calculadas a partir do total, pelo que a repartição não é
+      // representável sem arbitrar em que parcela entra a parte do sócio.
+      if (useInstallments) {
+        toast({
+          title: "Não é possível combinar parcelas com extra parcial",
+          description: "Lança a fatura em parcelas primeiro e converte depois a parte do sócio na transação em causa.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
