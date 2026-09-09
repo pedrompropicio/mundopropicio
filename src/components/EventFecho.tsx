@@ -181,17 +181,10 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
-  // ---- Extras de sócios (custos analíticos sem cash)
+  // ---- Extras de sócios (união das duas naturezas: transação + manual). Não são custo do evento.
   const { data: partnerExtras = [] } = useQuery({
     queryKey: ["fecho-partner-extras", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partner_extras")
-        .select("partner_id, amount, description")
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: () => fetchPartnerExtras([eventId]),
   });
 
   // ============= Cálculos =============
