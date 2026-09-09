@@ -3737,8 +3737,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     {!isSplit && (
                       <div>
                         <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          Apenas parte da fatura é extra (€)
-                          <HelpTooltip text={`Deixe vazio se a fatura inteira é extra do sócio. Preencha um valor menor que o total da fatura para abater apenas essa parcela — a fatura é registada pelo total e entra normalmente no DRE/BP; a parcela do sócio vai como transação irmã transitória vinculada à mesma fatura.`} size={12} />
+                          Apenas parte da fatura é extra — valor s/ IVA (€)
+                          <HelpTooltip text={`Deixe vazio se a fatura inteira é extra do sócio. Preencha um valor s/IVA menor que o total da fatura: a fatura reparte-se — a despesa do evento fica pelo restante e a parte do sócio vai numa transação irmã transitória vinculada à mesma fatura. A soma das duas continua a valer a fatura inteira.`} size={12} />
                         </label>
                         <input
                           type="number"
@@ -3750,7 +3750,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           disabled={totalAmt <= 0}
                           placeholder={
                             totalAmt > 0
-                              ? `Vazio = fatura inteira (${totalAmt.toFixed(2)} €)`
+                              ? `Vazio = fatura inteira (${totalAmt.toFixed(2)} € s/IVA)`
                               : "Preenche o Valor (€) da fatura primeiro"
                           }
                           className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -3764,11 +3764,32 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                             O valor parcial deve ser maior que 0 e menor que o total da fatura ({totalAmt.toFixed(2)} €).
                           </p>
                         )}
+                        {isPartial && (() => {
+                          const mult = 1 + (Number(form.iva_rate) || 0) / 100;
+                          const principalNet = Number((totalAmt - partialAmt).toFixed(2));
+                          return (
+                            <div className="mt-2 space-y-0.5 rounded-md border border-border/60 bg-background/60 p-2 text-[10px]">
+                              <div className="font-medium text-muted-foreground">Como fica a repartição</div>
+                              <div className="flex justify-between gap-3">
+                                <span>Despesa do evento</span>
+                                <span className="font-mono">{principalNet.toFixed(2)} € s/IVA · {(principalNet * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <span>Extra do sócio</span>
+                                <span className="font-mono">{partialAmt.toFixed(2)} € s/IVA · {(partialAmt * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                              <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
+                                <span>Total da fatura</span>
+                                <span className="font-mono">{totalAmt.toFixed(2)} € s/IVA · {(totalAmt * mult).toFixed(2)} € c/IVA</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                     <p className="text-[10px] text-muted-foreground">
                       {isPartial
-                        ? `🧳 Fatura registada por ${totalAmt.toFixed(2)} € (entra DRE/BP). ${partialAmt.toFixed(2)} € serão descontados do sócio no fecho via transação irmã transitória vinculada à mesma fatura.`
+                        ? `🧳 A fatura reparte-se: ${(totalAmt - partialAmt).toFixed(2)} € ficam como despesa do evento (DRE/BP) e ${partialAmt.toFixed(2)} € vão para o sócio numa transação irmã transitória. A soma continua a valer ${totalAmt.toFixed(2)} €.`
                         : "🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP."}
                     </p>
                   </div>
