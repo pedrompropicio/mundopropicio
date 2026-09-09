@@ -647,3 +647,11 @@ Reverter é dizer "afinal o custo é do evento", logo aplica-se o D1. Mas só se
 ## D-ERP24 — A fatura reparte-se, não se duplica (09/09/2026)
 
 Quando só parte de uma fatura é Extra do Sócio, a principal passa a valer `total − X` e a irmã transitória vale X, com o mesmo `invoice_group_id`. Antes a principal ficava pelo total e os mesmos euros contavam duas vezes: no custo do evento e no débito ao sócio. `amount` e `paid_amount` são eixos independentes — o primeiro manda no custo e no BP, o segundo no saldo da conta, e `paid_amount` não é derivado de `transaction_payments`. A liquidação de grupo já reparte sozinha, por propagação às irmãs. Recusa-se a repartição quando há linhas em `transaction_payments` ou pagamento parcial, por não haver forma não-arbitrária de dividir o que já foi pago.
+
+## D-ERP25 — O saldo inicial de uma conta tem data: antes do corte é história (09/09/2026)
+
+`financial_accounts.initial_balance` é o saldo da conta ao FECHO de `initial_balance_date`. Movimentos com data efetiva (`COALESCE(payment_date, date)`) igual ou anterior ao corte já estão dentro desse valor e por isso deixam de somar; só o que vem depois conta. Sem data de corte (`NULL`) nada muda — o saldo inicial é um valor sem tempo e soma-se a tudo, e era exactamente isso que impedia pôr o saldo do banco numa conta com histórico já lançado: dava dupla contagem.
+
+A regra vive na fonte única `computeAccountBalance` (D-ERP12) e propaga-se a todos os consumidores: módulo Contas, Extrato, Projeção de Tesouraria, sessões de cartão e `get_event_cash_position`. A implantação faz-se num modal por conta, só para admin, que mostra lado a lado o saldo calculado hoje e o que passará a ser calculado, e grava quem implantou e quando em `system_audit_log`. Nenhum valor é implantado pelo sistema.
+
+Corolário do mesmo dia: onde a conta tem `skip_balance_check`, o saldo não é número — mostra-se "não controlado" e nunca zero nem negativo, incluindo no export do Extrato e na Projeção de Tesouraria, e `get_event_cash_position` deixa essas contas fora. E um estorno libertado para nova liquidação volta a `Aguardando` (não a "A pagar"): tem de ser aprovado outra vez. Quando é pago de novo, `reversed_at` e `reversal_kind` limpam-se — `reversal_reason` e a auditoria ficam — senão o custo desaparecia do BP e dos agregados do sócio, que filtram `reversed_at IS NULL`.

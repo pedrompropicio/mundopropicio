@@ -66,11 +66,19 @@ export default function ReportCashFlow() {
   const { data: accounts = [] } = useQuery({
     queryKey: ["cf-accounts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name").eq("is_active", true).order("name");
+      const { data, error } = await supabase
+        .from("financial_accounts")
+        .select("id, name, skip_balance_check, initial_balance_date")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  // Conta "Sem controlo de saldo": o acumulado não é saldo da conta (issue #90).
+  const selectedAccount = (accounts as any[]).find((a) => a.id === selectedAccountId);
+  const isUncontrolledBalance = selectedAccount?.skip_balance_check ?? false;
   const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
   const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
 
@@ -236,6 +244,12 @@ export default function ReportCashFlow() {
           <Label htmlFor="group-event" className="text-sm">Separar por evento</Label>
         </div>
       </div>
+
+      {isUncontrolledBalance && (
+        <p className="text-xs italic text-muted-foreground">
+          {selectedAccount?.name}: conta sem controlo de saldo — o acumulado é apenas o movimento do período, não o saldo da conta (saldo não controlado).
+        </p>
+      )}
 
       {generated && isLoading && (
         <p className="py-8 text-center text-muted-foreground">A carregar dados…</p>

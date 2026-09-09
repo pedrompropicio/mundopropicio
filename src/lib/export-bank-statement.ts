@@ -13,22 +13,29 @@ function fmtVal(v: number): string {
   return formatCurrency(v);
 }
 
+/**
+ * `uncontrolled` = conta com skip_balance_check: o saldo não é número.
+ * Nunca exportar 0 nem negativo nesse caso — sai "Não controlado".
+ */
 export function exportBankStatementToExcel(
   account: any,
   lines: any[],
   openingBalance: number,
   closingBalance: number,
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  uncontrolled = false
 ) {
   const wb = XLSX.utils.book_new();
+  const bal = (v: number) => (uncontrolled ? "Não controlado" : v);
 
   const rows: any[][] = [
     [`EXTRATO BANCÁRIO — ${account.name}`],
     [`Período: ${dateFrom ? fmtDate(dateFrom) : "Início"} a ${dateTo ? fmtDate(dateTo) : "Atual"}`],
+    ...(uncontrolled ? [["Conta sem controlo de saldo — saldos não apurados"]] : []),
     [],
     ["Data", "Descrição", "Evento", "Entrada (€)", "Saída (€)", "Saldo (€)"],
-    [dateFrom || "—", "SALDO INICIAL", "", "", "", openingBalance],
+    [dateFrom || "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
   ];
 
   lines.forEach((l: any) => {
@@ -38,13 +45,13 @@ export function exportBankStatementToExcel(
       l.events?.name ?? "",
       l.signedAmount > 0 ? l.signedAmount : "",
       l.signedAmount < 0 ? Math.abs(l.signedAmount) : "",
-      l.runningBalance,
+      bal(l.runningBalance),
     ]);
   });
 
   const totalIncome = lines.filter((l: any) => l.signedAmount > 0).reduce((s: number, l: any) => s + l.signedAmount, 0);
   const totalExpense = lines.filter((l: any) => l.signedAmount < 0).reduce((s: number, l: any) => s + Math.abs(l.signedAmount), 0);
-  rows.push([dateTo || "—", "SALDO FINAL", "", totalIncome, totalExpense, closingBalance]);
+  rows.push([dateTo || "—", "SALDO FINAL", "", totalIncome, totalExpense, bal(closingBalance)]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 12 }, { wch: 35 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
@@ -59,8 +66,12 @@ export function exportBankStatementToPDF(
   openingBalance: number,
   closingBalance: number,
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  uncontrolled = false
 ) {
+  // Conta sem controlo de saldo: nunca imprimir número (nem 0, nem negativo).
+  const balTxt = (v: number) => (uncontrolled ? "Não controlado" : fmtVal(v));
+  const balCell = (v: number) => (uncontrolled ? "N/C" : fmtVal(v));
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -130,9 +141,9 @@ export function exportBankStatementToPDF(
   doc.setTextColor(100, 100, 100);
   doc.text("Saldo Inicial", ml + 4, y + 5);
   doc.setFontSize(10);
-  const obColor = openingBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
+  const obColor = uncontrolled ? [120, 120, 120] : openingBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
   doc.setTextColor(obColor[0], obColor[1], obColor[2]);
-  doc.text(fmtVal(openingBalance), ml + 4, y + 12);
+  doc.text(balTxt(openingBalance), ml + 4, y + 12);
 
   doc.setFontSize(8);
   doc.setTextColor(34, 139, 34);
@@ -147,11 +158,11 @@ export function exportBankStatementToPDF(
   doc.text(fmtVal(totalExpense), ml + qw * 2 + 4, y + 12);
 
   doc.setFontSize(8);
-  const cbColor = closingBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
+  const cbColor = uncontrolled ? [120, 120, 120] : closingBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
   doc.setTextColor(cbColor[0], cbColor[1], cbColor[2]);
   doc.text("Saldo Final", ml + qw * 3 + 4, y + 5);
   doc.setFontSize(10);
-  doc.text(fmtVal(closingBalance), ml + qw * 3 + 4, y + 12);
+  doc.text(balTxt(closingBalance), ml + qw * 3 + 4, y + 12);
 
   doc.setTextColor(0, 0, 0);
   y += 20;
@@ -166,7 +177,7 @@ export function exportBankStatementToPDF(
   doc.setFontSize(7.5);
   doc.text(dateFrom ? fmtDate(dateFrom) : "—", colX[0] + 2, y + 4);
   doc.text("SALDO INICIAL", colX[1] + 2, y + 4);
-  doc.text(fmtVal(openingBalance), colX[5] + colW[5] - 2, y + 4, { align: "right" });
+  doc.text(balCell(openingBalance), colX[5] + colW[5] - 2, y + 4, { align: "right" });
   y += 8;
 
   // Transaction rows
@@ -192,9 +203,9 @@ export function exportBankStatementToPDF(
       doc.setTextColor(0, 0, 0);
     }
 
-    const balColor = line.runningBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
+    const balColor = uncontrolled ? [120, 120, 120] : line.runningBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
     doc.setTextColor(balColor[0], balColor[1], balColor[2]);
-    doc.text(fmtVal(line.runningBalance), colX[5] + colW[5] - 2, y + 4, { align: "right" });
+    doc.text(balCell(line.runningBalance), colX[5] + colW[5] - 2, y + 4, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 7;
   });
@@ -212,7 +223,7 @@ export function exportBankStatementToPDF(
   doc.setTextColor(200, 120, 0);
   doc.text(fmtVal(totalExpense), colX[4] + colW[4] - 2, y + 5, { align: "right" });
   doc.setTextColor(cbColor[0], cbColor[1], cbColor[2]);
-  doc.text(fmtVal(closingBalance), colX[5] + colW[5] - 2, y + 5, { align: "right" });
+  doc.text(balCell(closingBalance), colX[5] + colW[5] - 2, y + 5, { align: "right" });
 
   // Footer
   const totalPages = doc.getNumberOfPages();

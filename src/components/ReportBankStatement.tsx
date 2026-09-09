@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { countsAfterCutoff } from "@/lib/account-balance";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
@@ -100,7 +101,7 @@ export default function ReportBankStatement() {
       if (!selectedAccountId || !dateFromStr) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount")
+        .select("type, amount, date, payment_date")
         .eq("account_id", selectedAccountId)
         .lt("date", dateFromStr);
       if (error) throw error;
@@ -127,11 +128,15 @@ export default function ReportBankStatement() {
     enabled: generated && txIdsForDocs.length > 0,
   });
 
+  // Saldo de abertura: parte do initial_balance (saldo ao fecho da data de
+  // corte, quando definida) e só soma movimentos posteriores ao corte.
+  const balanceCutoff = (selectedAccount as any)?.initial_balance_date ?? null;
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
     let bal = Number(selectedAccount.initial_balance ?? 0);
     if (dateFromStr) {
       allAccountTx.forEach((t: any) => {
+        if (!countsAfterCutoff(t, balanceCutoff)) return;
         const amt = Number(t.amount);
         if (t.type === "income") bal += amt;
         else bal -= amt;
@@ -240,7 +245,7 @@ export default function ReportBankStatement() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
+              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr, isUncontrolledBalance)}
               disabled={lines.length === 0}
             >
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -248,7 +253,7 @@ export default function ReportBankStatement() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
+              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr, isUncontrolledBalance)}
               disabled={lines.length === 0}
             >
               <FileText className="mr-1.5 h-4 w-4" /> PDF

@@ -7,6 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { addDays, format, startOfDay, addMonths } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { fetchAccountCashAdjustments, buildAccountCutoffs, computeAccountBalance } from "@/lib/account-balance";
 
 export default function ReportTreasuryProjection() {
   const [horizon, setHorizon] = useState("3");
@@ -16,7 +17,7 @@ export default function ReportTreasuryProjection() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance, is_active, type")
+        .select("id, name, initial_balance, initial_balance_date, skip_balance_check, is_active, type")
         .eq("is_active", true);
       if (error) throw error;
       return data;
@@ -28,13 +29,22 @@ export default function ReportTreasuryProjection() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("amount, type, payment_date, account_id, status")
-        .eq("status", "paid")
+        .select("account_id, type, paid_amount, date, payment_date, status")
         .not("account_id", "is", null);
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: cashAdjustments } = useQuery({
+    queryKey: ["treasury-cash-adjustments", (accounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
+    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(accounts as any)),
+    enabled: accounts.length > 0,
+  });
+
+  // Contas "Sem controlo de saldo" não entram no saldo de partida: o seu saldo
+  // não é número (issue #90). Ficam sinalizadas no interface.
+  const uncontrolledAccounts = (accounts as any[]).filter((a) => a.skip_balance_check);
 
   const { data: pendingTxs = [] } = useQuery({
     queryKey: ["treasury-pending"],
@@ -49,11 +59,14 @@ export default function ReportTreasuryProjection() {
   });
 
   const projection = useMemo(() => {
-    // Current balance
-    const totalInitial = accounts.reduce((s, a) => s + Number(a.initial_balance), 0);
-    let currentBalance = totalInitial;
-    for (const tx of paidTxs) {
-      currentBalance += tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
+    // Saldo de partida pela fonte única (respeita skip_balance_check e a data
+    // de corte do saldo inicial). Contas sem controlo devolvem null e ficam
+    // fora da soma.
+    let currentBalance = 0;
+    for (const acc of accounts as any[]) {
+      const bal = computeAccountBalance(acc, paidTxs as any, cashAdjustments);
+      if (bal === null) continue;
+      currentBalance += bal;
     }
 
     const today = startOfDay(new Date());
@@ -84,7 +97,7 @@ export default function ReportTreasuryProjection() {
     }
 
     return days;
-  }, [accounts, paidTxs, pendingTxs, horizon]);
+  }, [accounts, paidTxs, pendingTxs, horizon, cashAdjustments]);
 
   const chartConfig = { balance: { label: "Saldo Projetado", color: "hsl(var(--primary))" } };
 
@@ -102,6 +115,16 @@ export default function ReportTreasuryProjection() {
           </SelectContent>
         </Select>
       </div>
+
+      {uncontrolledAccounts.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {uncontrolledAccounts.length === 1 ? "1 conta sem controlo de saldo" : `${uncontrolledAccounts.length} contas sem controlo de saldo`} — saldo não controlado, fora desta projeção
+          {": "}
+          {uncontrolledAccounts.map((a: any) => a.name).join(", ")}.
+        </p>
+      )}
+
+
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="glass rounded-xl p-3 text-center">

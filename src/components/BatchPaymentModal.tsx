@@ -18,7 +18,7 @@ import {
   fetchSuggestedFxRate,
 } from "@/lib/currency";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
-import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 
 interface Props {
@@ -50,7 +50,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, type, initial_balance, skip_balance_check")
+        .select("id, name, type, initial_balance, initial_balance_date, skip_balance_check")
         .eq("is_active", true)
         .eq("is_hidden", false)
         .order("name");
@@ -64,7 +64,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status")
+        .select("account_id, type, amount, paid_amount, status, date, payment_date")
         .not("account_id", "is", null);
       if (error) throw error;
       return data;
@@ -72,8 +72,8 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   });
 
   const { data: cashAdjustments } = useQuery({
-    queryKey: ["account-cash-adjustments"],
-    queryFn: () => fetchAccountCashAdjustments(),
+    queryKey: ["account-cash-adjustments", (financialAccounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
+    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(financialAccounts as any)),
   });
 
   function accountBalanceOf(accId: string): number | null {
@@ -313,8 +313,6 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(settleEur - withholding)})`,
           });
         }
-        await supabase.from("transaction_audit_log").insert(auditEntries);
-
         // Update transaction
         const updateData: any = {
           paid_amount: finalPaid,
@@ -323,6 +321,21 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           account_id: accountId,
         };
         if (effectiveInvoiceRef) updateData.invoice_ref = effectiveInvoiceRef;
+        // Estorno que volta a ser pago: limpar o carimbo (o motivo mantém-se),
+        // senão o BP e os agregados do sócio deixam de contar o custo.
+        if ((item as any).reversed_at) {
+          updateData.reversed_at = null;
+          updateData.reversal_kind = null;
+          auditEntries.push({
+            transaction_id: item.id,
+            changed_by: userName,
+            field_name: "Estorno",
+            old_value: `Estornada em ${String((item as any).reversed_at).slice(0, 10)}`,
+            new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+          });
+        }
+
+        await supabase.from("transaction_audit_log").insert(auditEntries);
 
         const { error } = await supabase
           .from("transactions")

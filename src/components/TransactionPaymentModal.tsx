@@ -17,7 +17,7 @@ import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
 import { fetchSupplierBankRows } from "@/lib/supplier-bank";
-import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
@@ -113,15 +113,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name, type, initial_balance, skip_balance_check").eq("is_active", true).eq("is_hidden", false).order("name");
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type, initial_balance, initial_balance_date, skip_balance_check").eq("is_active", true).eq("is_hidden", false).order("name");
       if (error) throw error;
       return data;
     },
   });
 
   const { data: cashAdjustments } = useQuery({
-    queryKey: ["account-cash-adjustments"],
-    queryFn: () => fetchAccountCashAdjustments(),
+    queryKey: ["account-cash-adjustments", (financialAccounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
+    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(financialAccounts as any)),
   });
 
   const { data: supplierData } = useQuery({
@@ -139,7 +139,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status")
+        .select("account_id, type, amount, paid_amount, status, date, payment_date")
         .not("account_id", "is", null);
       if (error) throw error;
       return data;
@@ -388,6 +388,21 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
       };
+      // Estorno que volta a ser pago: limpar o carimbo de estorno. Enquanto
+      // reversed_at ficar preenchido, o BP e os agregados do sócio deixam de
+      // contar o custo (filtram reversed_at IS NULL). O motivo do estorno
+      // (reversal_reason) e o histórico de auditoria mantêm-se.
+      if (transaction.reversed_at) {
+        updateData.reversed_at = null;
+        updateData.reversal_kind = null;
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Estorno",
+          old_value: `Estornada em ${String(transaction.reversed_at).slice(0, 10)}`,
+          new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+        });
+      }
       // Audit FX of the payment day (informativo, sem ajuste de valor)
       if (isForeign) {
         const rate = parseFloat(paymentFxRate) || 0;

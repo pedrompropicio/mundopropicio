@@ -281,7 +281,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
       toast({
         title: vars.release ? "Transação libertada para nova liquidação" : "Transação estornada",
         description: vars.release
-          ? "Voltou a 'A pagar'. Já pode entrar em nova lista de pagamento."
+          ? "Voltou a 'Aguardando' e tem de ser aprovada de novo antes de entrar numa lista de pagamento."
           : "Estado ficou 'Estornada'. Para permitir nova liquidação, use a opção 'Libertar para nova liquidação'.",
       });
       setReverseOpen(false);
@@ -426,7 +426,8 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
                   <span className="font-medium">Libertar para nova liquidação</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
                     Marque se foi pagamento duplicado ou erro de conta e a transação deve poder ser paga novamente.
-                    A transação volta a "A pagar" e é removida de todas as listas de pagamento (incluindo aprovadas/pagas).
+                    A transação volta a "Aguardando" e é removida de todas as listas de pagamento (incluindo aprovadas/pagas)
+                    — tem de ser aprovada de novo antes de entrar numa nova lista.
                     Se não marcar, o estado fica "Estornada" e a transação não entra em novas listas.
                   </span>
                 </span>

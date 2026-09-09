@@ -7,8 +7,9 @@ import { toast } from "@/hooks/use-toast";
 import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users, Trash2 } from "lucide-react";
+import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users, Trash2, Flag } from "lucide-react";
 import AccountAccessModal from "@/components/AccountAccessModal";
+import AccountBalanceImplantModal from "@/components/AccountBalanceImplantModal";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -19,7 +20,7 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { fetchAccountCashAdjustments, computeAccountBalance } from "@/lib/account-balance";
+import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -75,6 +76,7 @@ export default function FinancialAccounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
   const [accessModalAccount, setAccessModalAccount] = useState<{ id: string; name: string } | null>(null);
+  const [implantAccount, setImplantAccount] = useState<any | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<{ id: string; name: string } | null>(null);
 
   // Check if account has transactions
@@ -125,19 +127,22 @@ export default function FinancialAccounts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status")
+        .select("account_id, type, amount, paid_amount, status, date, payment_date")
         .not("account_id", "is", null);
       if (error) throw error;
       return data;
     },
   });
 
+  // Data de corte do saldo inicial, por conta.
+  const cutoffs = buildAccountCutoffs(accounts as any);
+
   // Adjustments for IRS withholding and supplier credits (non-cash deductions
   // already embedded in transactions.paid_amount). Added back to the gross
   // balance so the displayed value reflects the real cash position.
   const { data: cashAdjustments } = useQuery({
-    queryKey: ["financial-accounts-cash-adjustments"],
-    queryFn: () => fetchAccountCashAdjustments(),
+    queryKey: ["financial-accounts-cash-adjustments", (accounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
+    queryFn: () => fetchAccountCashAdjustments(undefined, cutoffs),
   });
 
   const saveMutation = useMutation({
@@ -360,9 +365,15 @@ export default function FinancialAccounts() {
                   step="0.01"
                   value={form.initial_balance}
                   onChange={(e) => setForm({ ...form, initial_balance: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  disabled={!isAdmin}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
                   placeholder="0.00"
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {isAdmin
+                    ? "Para definir o saldo a uma data (data de corte), use o botão de implantar saldo na lista."
+                    : "Só um administrador pode alterar o saldo inicial."}
+                </p>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
@@ -509,7 +520,14 @@ export default function FinancialAccounts() {
                         <TableCell className="text-right font-mono text-sm">
                           {acc.skip_balance_check ? (
                             <span className="text-xs text-muted-foreground italic">Sem controlo de saldo</span>
-                          ) : showBalance ? formatCurrency(Number(acc.initial_balance)) : "••••••"}
+                          ) : showBalance ? (
+                            <>
+                              {formatCurrency(Number(acc.initial_balance))}
+                              {acc.initial_balance_date && (
+                                <p className="text-[10px] text-muted-foreground">a {acc.initial_balance_date}</p>
+                              )}
+                            </>
+                          ) : "••••••"}
                         </TableCell>
                         <TableCell className="text-right">
                           {balance === null ? (
@@ -546,6 +564,15 @@ export default function FinancialAccounts() {
                               >
                                 <Users className="h-4 w-4" />
                               </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => setImplantAccount(acc)}
+                                  className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
+                                  title="Implantar saldo (data de corte)"
+                                >
+                                  <Flag className="h-4 w-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => startEdit(acc)}
                                 className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
@@ -624,6 +651,15 @@ export default function FinancialAccounts() {
           onClose={() => setAccessModalAccount(null)}
         />
       )}
+
+      {implantAccount && isAdmin && (
+        <AccountBalanceImplantModal
+          account={implantAccount}
+          onClose={() => setImplantAccount(null)}
+        />
+      )}
+
+
 
       {deletingAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingAccount(null)}>
