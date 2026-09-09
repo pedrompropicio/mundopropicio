@@ -435,7 +435,7 @@ export default function SalesBIDetail() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Bilhetes no período</p>
               <p className="text-lg font-semibold">{int(model.qty)}</p>
