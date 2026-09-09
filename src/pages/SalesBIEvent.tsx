@@ -296,27 +296,32 @@ export default function SalesBIEvent() {
         </div>
       ) : zonesModel ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <Kpi label="Carga total" value={int(zonesModel.totalCarga)} />
+            <Kpi label="Ocupado" value={int(zonesModel.totalOcupado)} />
             <Kpi label="Lugares por vender" value={int(zonesModel.totalPorVender)} />
+            <Kpi
+              label="Ocupação da sala"
+              value={zonesModel.ocupGlobal !== null ? pct(zonesModel.ocupGlobal) : "—"}
+            />
             <Kpi label="Saíram nos últimos 7 dias" value={int(zonesModel.totalSaiu)} />
             <Kpi label="Ritmo diário" value={`${nf1.format(zonesModel.totalRitmo)}/dia`} />
-            <Kpi
-              label="Zonas esgotadas"
-              value={`${int(zonesModel.esgotadas)} de ${int(zonesModel.zones.length)}`}
-            />
           </div>
 
           <Card className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-sm">
+              <table className="w-full min-w-[1040px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="p-3 font-medium">Zona</th>
+                    <th className="p-3 text-right font-medium">Carga</th>
+                    <th className="p-3 text-right font-medium">Ocupado</th>
                     <th className="p-3 text-right font-medium">Por vender</th>
+                    <th className="p-3 text-right font-medium">Bloqueado</th>
+                    <th className="p-3 text-right font-medium">Ocupação da sala</th>
                     <th className="p-3 text-right font-medium">Saíram 7d</th>
                     <th className="p-3 text-right font-medium">Ritmo/dia</th>
                     <th className="p-3 text-right font-medium">Esgota em</th>
-                    <th className="p-3 text-right font-medium">Ocupação</th>
                     <th className="p-3 font-medium">Leitura</th>
                   </tr>
                 </thead>
@@ -324,14 +329,30 @@ export default function SalesBIEvent() {
                   {zonesModel.zones.map((z) => (
                     <tr key={z.label} className="border-b last:border-0">
                       <td className="p-3 font-medium">{z.label}</td>
+                      <td className="p-3 text-right">
+                        {z.capacity !== null ? int(z.capacity) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="p-3 text-right">{int(z.occupied)}</td>
                       <td className="p-3 text-right">{int(z.porVender)}</td>
+                      <td className="p-3 text-right">{int(z.blocked)}</td>
+                      <td className="p-3 text-right">
+                        {z.ocup !== null ? (
+                          <>
+                            {pct(z.ocup)}
+                            {z.oversold && (
+                              <span className="ml-1 text-xs text-muted-foreground" title="ocupado acima da carga — libertações/devoluções">
+                                ⚠
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className={cn("p-3 text-right", z.saiu < 0 && "text-destructive")}>{int(z.saiu)}</td>
                       <td className="p-3 text-right">{nf1.format(z.ritmo)}</td>
                       <td className="p-3 text-right">
                         {z.esgota !== null ? `${int(z.esgota)} dias` : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="p-3 text-right">
-                        {z.ocup !== null ? pct(z.ocup) : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="p-3">
                         <Pill label={z.pill.label} tone={z.pill.tone} />
@@ -342,8 +363,9 @@ export default function SalesBIEvent() {
               </table>
             </div>
             <p className="p-3 text-xs text-muted-foreground">
-              Retrato de agora, com velocidade calculada sobre os últimos 7 dias. Ocupação só aparece quando a
-              bilheteira envia lotação da zona.
+              Retrato de agora, com velocidade calculada sobre os últimos 7 dias. Ocupação da sala é o que a
+              bilheteira diz que está tomado (inclui cortesias, protocolo e reservas) — não são os bilhetes vendidos
+              por nós.
             </p>
           </Card>
         </>
