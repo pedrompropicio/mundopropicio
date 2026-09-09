@@ -85,6 +85,13 @@ interface SeriesRow {
 interface CapacityRow {
   group_id: string;
   capacity: number;
+  available: number;
+  occupied: number;
+  blocked: number;
+  zones: number;
+  zones_oversold: number;
+  last_observed: string | null;
+  stale: boolean;
   trustworthy: boolean;
   issue: string | null;
 }
