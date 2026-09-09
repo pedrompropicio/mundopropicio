@@ -303,7 +303,7 @@ export default function SalesBIDetail() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
             <Card className="p-3 tabular-nums">
               <p className="text-xs text-muted-foreground">Bilhetes no período</p>
               <p className="text-lg font-semibold">{int(model.qty)}</p>
@@ -326,7 +326,13 @@ export default function SalesBIDetail() {
                 <Variation v={model.variacao} />
               </p>
             </Card>
+            <Card className="p-3 tabular-nums">
+              <p className="text-xs text-muted-foreground">Total do evento</p>
+              <p className="text-lg font-semibold">{int(model.totalQty)}</p>
+              <p className="text-xs text-muted-foreground">{money(model.totalValue)}</p>
+            </Card>
           </div>
+
 
           <Card className="p-4">
             <div className="mb-2 flex items-center justify-between">
