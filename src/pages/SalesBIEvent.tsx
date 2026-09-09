@@ -263,7 +263,7 @@ export default function SalesBIEvent() {
   }, [hasSnaps, zonesQ.data, salesQ.data, withIva, rateOf, eventId]);
 
   const isLoading =
-    eventQ.isLoading || snapsQ.isLoading || (!hasSnaps && (zonesQ.isLoading || salesQ.isLoading));
+    eventQ.isLoading || capsQ.isLoading || (!hasSnaps && (zonesQ.isLoading || salesQ.isLoading));
 
   const ivaSfx = withIva ? "" : " s/ IVA";
 
