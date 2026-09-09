@@ -9,7 +9,9 @@
  * Isenções (iguais às do trigger):
  *  - operações sem identidade de utilizador (service_role, crons, edge fns);
  *  - `parent_transaction_id IS NOT NULL` — filha de rateio ou parcela: a
- *    obrigação é do pai (e o master de rateio não tem event_id).
+ *    obrigação é do pai (e o master de rateio não tem event_id);
+ *  - transações que não consomem verba do BP: `is_transitory`,
+ *    `exclude_from_result`, `reversed_at` preenchido, `is_hidden`.
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,6 +21,10 @@ export type BpLineCandidate = {
   event_id?: string | null;
   forecast_id?: string | null;
   parent_transaction_id?: string | null;
+  is_transitory?: boolean | null;
+  exclude_from_result?: boolean | null;
+  reversed_at?: string | null;
+  is_hidden?: boolean | null;
 };
 
 /** Verificação estrutural (sem ir à BD): candidata a precisar de linha de BP. */
@@ -27,7 +33,11 @@ export function structurallyNeedsBpLine(tx: BpLineCandidate): boolean {
     tx.type === "expense" &&
     !!tx.event_id &&
     !tx.forecast_id &&
-    !tx.parent_transaction_id
+    !tx.parent_transaction_id &&
+    !tx.is_transitory &&
+    !tx.exclude_from_result &&
+    !tx.reversed_at &&
+    !tx.is_hidden
   );
 }
 
