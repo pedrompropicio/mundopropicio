@@ -400,6 +400,7 @@ export default function SalesBIDetail() {
       value: model.value,
       med: model.med,
       medValue: model.medValue,
+      medDays: model.medDays,
       variacao: model.variacao,
       capacity: {
         trustworthy: !!cap?.trustworthy,

@@ -30,6 +30,7 @@ const fmtDay = (iso?: string | null) => {
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 import { tractionText, type Traction } from "@/lib/traction";
+import { salesAvgDaysLabel } from "@/lib/sales-avg-days";
 
 export type EventSalesPdfVariant = "internal" | "partner";
 
@@ -40,6 +41,8 @@ export interface EventSalesPdfCity {
   qty: number;
   value: number;
   med: number;
+  /** Dias de venda usados no denominador da média. */
+  medDays: number;
   variacao: Traction;
   total: number;
   /** Origem da série (bilheteira) — só usada na versão interna. */
@@ -272,12 +275,12 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   const [tracVal, tracNote] = tractionText(params.variacao, nfInt).split("\n");
 
   const kpis: KpiCell[] = [
-    { rotulo: "Total do evento (bilhetes)", valor: int(params.totalQty) },
-    { rotulo: `Total do evento (receita)${sfx}`, valor: money(params.totalValue) },
-    { rotulo: "Bilhetes no período", valor: int(params.qty) },
-    { rotulo: `Receita no período${sfx}`, valor: money(params.value) },
-    { rotulo: "Média diária (bilhetes)", valor: `${dec1(params.med)} /dia` },
-    { rotulo: `Média diária${sfx}`, valor: money(params.medValue) },
+    { rotulo: "Total do evento (bilhetes)", valor: int(params.totalQty), nota: "até hoje" },
+    { rotulo: `Total do evento (receita)${sfx}`, valor: money(params.totalValue), nota: "até hoje" },
+    { rotulo: "Bilhetes no período", valor: int(params.qty), nota: "até ontem" },
+    { rotulo: `Receita no período${sfx}`, valor: money(params.value), nota: "até ontem" },
+    { rotulo: "Média diária (bilhetes)", valor: `${dec1(params.med)} /dia`, nota: salesAvgDaysLabel(params.medDays) },
+    { rotulo: `Média diária${sfx}`, valor: money(params.medValue), nota: salesAvgDaysLabel(params.medDays) },
     { rotulo: "Tração vs. período anterior", valor: tracVal, nota: tracNote },
     { rotulo: "Ocupação da sala", valor: occ, nota: occSub || undefined },
   ];
@@ -288,7 +291,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
   const vPct = params.variacao.pct;
   const dir = vPct === null ? null : vPct >= 0 ? "acima" : "abaixo";
   let reading =
-    `Nos últimos ${int(params.days)} dias vendeu ${int(params.qty)} bilhetes, uma média de ${dec1(params.med)} por dia` +
+    `Nos últimos ${int(params.days)} dias vendeu ${int(params.qty)} bilhetes, uma média de ${dec1(params.med)} por dia (${salesAvgDaysLabel(params.medDays)})` +
     (dir ? `, ${pct(Math.abs(vPct as number))} ${dir} dos ${int(params.days)} dias anteriores` : "") +
     `. O acumulado é ${int(params.totalQty)} bilhetes` +
     (params.withIva ? "" : " (receita apresentada sem IVA)") +
@@ -339,7 +342,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
       fmtDay(c.date),
       int(c.qty),
       money(c.value),
-      dec1(c.med),
+      `${dec1(c.med)} (${c.medDays}d)`,
       tractionText(c.variacao, nfInt),
       int(c.total),
     ]),
@@ -348,7 +351,7 @@ export async function exportEventSalesPdf(params: EventSalesPdfParams) {
       "",
       int(params.qty),
       money(params.value),
-      dec1(params.med),
+      `${dec1(params.med)} (${params.medDays}d)`,
       "",
       int(params.totalQty),
     ]],
