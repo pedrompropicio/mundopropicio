@@ -249,7 +249,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             // `amount` é sempre o valor LÍQUIDO (Core rule); o banco moveu o bruto.
             amount: base,
             iva_rate: ivaRate,
-            category_id: categoryId,
+            category_id: transitory ? (categoryId || null) : categoryId,
+            is_transitory: transitory,
             supplier_id: supplierId || null,
             event_id: eventId || null,
             account_id: accountId,
