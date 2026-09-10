@@ -838,7 +838,8 @@ export default function Transactions() {
         return paidAmount >= amount - 0.01 || t.status === "paid";
       })
       .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
-      .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
+      .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()))
+      .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -918,7 +919,7 @@ export default function Transactions() {
       const bInv = b.invoice_ref ?? "";
       return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap, onlyExcludedFromResult]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -1496,7 +1497,8 @@ export default function Transactions() {
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
             (onlyAdmin ? 1 : 0) +
-            (showHidden ? 1 : 0);
+            (showHidden ? 1 : 0) +
+            (onlyExcludedFromResult ? 1 : 0);
           return (
             <Button
               variant={activeCount > 0 ? "default" : "outline"}
