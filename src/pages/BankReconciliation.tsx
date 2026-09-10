@@ -615,17 +615,21 @@ export default function BankReconciliation() {
           l.status === "unmatched" ||
           (l.status === "matched" && String(l.matched_by ?? "").startsWith("auto:")),
       );
-      // Tudo o que foi ligado à mão continua consumido.
+      // Tudo o que está preso por uma linha fora desta passagem continua consumido
+      // (manuais, ignoradas, pré-corte e as que originaram transação via "created:").
+      const inPass = new Set(lines.map((l) => l.id));
       const preUsed = new Set<string>();
       (savedLines as any[]).forEach((l) => {
-        if (l.status !== "matched" || !String(l.matched_by ?? "").startsWith("manual:")) return;
+        if (inPass.has(l.id)) return;
         if (l.matched_transaction_id) preUsed.add(l.matched_transaction_id);
+        if (l.created_transaction_id) preUsed.add(l.created_transaction_id);
         if (l.matched_sepa_export_id) {
           (sepaSiblings.get(l.matched_sepa_export_id) ?? []).forEach((e) =>
             (e.transaction_ids ?? []).forEach((id) => preUsed.add(id)),
           );
         }
       });
+
 
       const result = reconcileStatement(
         lines.map((l) => ({
@@ -642,7 +646,10 @@ export default function BankReconciliation() {
 
       const now = new Date().toISOString();
       for (const l of lines) {
-        const m = result.matches.get(l.id);
+        let m = result.matches.get(l.id);
+        // Trava: nunca gravar uma transação já presa por outra linha (índice único).
+        if (m?.matched_transaction_id && preUsed.has(m.matched_transaction_id)) m = undefined;
+
         const { error } = await supabase
           .from("bank_statement_lines")
           .update({
@@ -655,7 +662,9 @@ export default function BankReconciliation() {
           })
           .eq("id", l.id);
         if (error) throw error;
+        if (m?.matched_transaction_id) preUsed.add(m.matched_transaction_id);
       }
+
 
       toast.success(
         `Reconciliação refeita: ${result.counts.sepa} lote(s) SEPA, ${result.counts.amount} por valor, ` +
