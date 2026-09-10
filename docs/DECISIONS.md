@@ -737,3 +737,23 @@ Decisão — **estes débitos não são despesa de evento.** O custo de ads por 
 A geração das despesas por evento a partir das faturas de ads é outra frente e não foi construída.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP31 — A fatura em PDF é a fonte de verdade das faturas de ads; os ajustes descem ao evento (09/09/2026)
+
+Contexto: assumiu-se, ao construir o `propose_google`, que a fatura do Google não trazia detalhe por campanha e que se podia reconstruí-la a partir do espelho da API. Traz. E o espelho não reporta os créditos promocionais: nos três meses medidos, o ERP somava 2.586,93 € e as faturas reais somam 2.273,03 € — 300,00 € de crédito promocional mais 13,90 € de desvios de mídia.
+
+Decisão 1 — **a fatura é o PDF.** O espelho da API serve para acompanhar campanhas, nunca para lançar custo. O `parse_google` lê o PDF (número, período real, mídia por campanha, atividade inválida, créditos promocionais, taxas regulatórias) e recusa gravar se a soma das linhas não fechar o total ao cêntimo. O `propose_google`, que constrói a partir do espelho, fica marcado como legado.
+
+Decisão 2 — **os ajustes não ficam a pairar sobre a fatura: descem ao evento.** Regra igual para Meta e Google:
+- ajuste que identifica a campanha de origem (típico da "Atividade inválida") desce inteiro ao evento dessa campanha;
+- ajuste anónimo (créditos promocionais, cupões, taxas regulatórias) é rateado à proporção da mídia de cada evento *na mesma fatura*, com o cêntimo residual na filha de maior valor;
+- os ajustes não geram transações próprias — somam-se às filhas, e o comprovativo de veiculação do evento mostra a parcela rateada em linha própria;
+- a geração é recusada se a soma das filhas mais o que está marcado como fora do sistema não der exatamente o total da fatura.
+
+Decisão 3 — **importar uma fatura tem três fases, sempre.** Escolher plataforma e ficheiro; ler e mostrar o que o parser encontrou sem gravar nada (`dry_run`); gravar a proposta só depois da confirmação humana. O PDF fica arquivado no bucket privado `ads-invoices`, em caminho isolado por empresa.
+
+Nota de infraestrutura: o `InvoiceService.ListInvoices` da Google Ads API v24 não é via para esta conta — o billing setup `8418160932` está aprovado mas em pagamentos automáticos, e a API devolve `BILLING_SETUP_NOT_ON_MONTHLY_INVOICING`. Não há `pdf_url` a puxar; o PDF entra à mão.
+
+**Estado:** vigente.
