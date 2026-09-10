@@ -109,6 +109,19 @@ export default function Transactions() {
   const highlightId = searchParams.get("highlight");
   const highlightRef = useRef<HTMLTableRowElement>(null);
 
+  // Deep-link só de leitura: ?event=<id>&excluded=1 (cartão "Fora do resultado" do evento).
+  const urlEventId = searchParams.get("event");
+  const urlExcluded = searchParams.get("excluded");
+  useEffect(() => {
+    if (!urlEventId && !urlExcluded) return;
+    if (urlEventId) setSelectedEventIds(new Set([urlEventId]));
+    if (urlExcluded === "1") setOnlyExcludedFromResult(true);
+    setViewMode("paid");
+    setPaidPeriod("all");
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlEventId, urlExcluded]);
+
   // When highlight param is set, switch to a view that shows the transaction
   useEffect(() => {
     if (!highlightId) return;
@@ -1860,6 +1873,7 @@ export default function Transactions() {
           setOnlyGrouped(false);
           setOnlyAdmin(false);
           setShowHidden(false);
+          setOnlyExcludedFromResult(false);
         }}
       />
 
