@@ -42,6 +42,7 @@
 | Fecho de evento | `procedimentos/PROC-fecho-evento.md` |
 | Revisão semanal | `procedimentos/PROC-revisao-semanal.md` |
 | Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
+| Rateio de day-offs de turnê | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 
 ## Ritual de arranque (obrigatório, por esta ordem)
 
