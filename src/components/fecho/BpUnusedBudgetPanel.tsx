@@ -75,7 +75,7 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
 
   const { data: fetchedCats = [] } = useQuery({
     queryKey: ["bp-unused-categories", missingIds.slice().sort().join(",")],
-    enabled: missingIds.length > 0,
+    enabled: hasBp && missingIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("account_categories")
