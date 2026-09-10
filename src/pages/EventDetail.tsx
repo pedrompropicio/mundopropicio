@@ -295,6 +295,8 @@ export default function EventDetail() {
   // --- Pagador de despesas (opcional; sem pagador = empresa configurada) ---
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
   const houseLabel = useEventHouseLabel(id);
+  // Mesmo critério de IVA dos cartões financeiros (partilhado com o Fecho).
+  const costBasis = useEventCostBasis(id!, event?.partner_calc_basis);
   const { data: orderingPartners = [] } = useQuery({
     queryKey: ["event-ordering-partners", id],
     queryFn: async () => {
