@@ -7,7 +7,9 @@
  * mesmo peso — linhas do banco por explicar e transações dadas como pagas que
  * nunca saíram da conta.
  *
- * Este lote não cria transações a partir das linhas do banco (lote seguinte).
+ * Uma linha por explicar PODE dar origem a um lançamento (D-ERP29), mas só
+ * depois de as camadas falharem e SEMPRE com confirmação humana: a regra
+ * (`bank_line_rules`) apenas pré-preenche o formulário.
  */
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,7 +26,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2 } from "lucide-react";
+import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
+import type { BankLineRule } from "@/lib/bank-statement/rules";
 import {
   parseSantanderStatement,
   computeLineHash,
@@ -90,6 +95,31 @@ export default function BankReconciliation() {
   const [manualTxId, setManualTxId] = useState<string>("");
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
   const [ignoreNote, setIgnoreNote] = useState("");
+  /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [launchLines, setLaunchLines] = useState<LaunchableLine[] | null>(null);
+
+  // Regras de lançamento: propõem o preenchimento, nunca criam nada.
+  const { data: rules = [] } = useQuery({
+    queryKey: ["bank-line-rules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bank_line_rules")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as BankLineRule[];
+    },
+    enabled: allowed,
+  });
+
+  const toLaunchable = (l: any): LaunchableLine => ({
+    id: l.id,
+    description: l.description,
+    amount: Number(l.amount ?? 0),
+    booking_date: l.booking_date,
+    value_date: l.value_date ?? null,
+  });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["bank-recon-accounts"],
