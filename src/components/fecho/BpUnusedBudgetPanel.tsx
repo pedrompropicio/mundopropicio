@@ -9,8 +9,8 @@ import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { computeUnusedBudget, type AmountLine } from "@/lib/event-cost-basis";
-import { describeFechoBasis, type FechoBasis } from "@/hooks/useFechoBasis";
+import { computeUnusedBudget, vatLabel, type AmountLine } from "@/lib/event-cost-basis";
+import { type FechoBasis } from "@/hooks/useFechoBasis";
 
 interface Props {
   eventId: string;
@@ -141,7 +141,7 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
         <PiggyBank className="h-4 w-4 text-primary" />
         <span className="font-semibold text-sm">Verba por usar</span>
         <span className="font-mono text-sm font-bold">{formatCurrency(totalView)}</span>
-        <Badge variant="outline" className="text-[10px]">{describeFechoBasis(basis)}</Badge>
+        <Badge variant="outline" className="text-[10px]">Despesas {vatLabel(basis.withVat)}</Badge>
       </div>
 
       <p className="px-4 py-2 text-[11px] text-muted-foreground border-b border-border/50">
