@@ -1093,6 +1093,23 @@ export default function EventDetail() {
           tooltip="Receitas − Custos (reflete o modo escolhido em cada card). Margem = Lucro ÷ Receitas."
         />
 
+        {excludedFromResult.count > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate(`/transacoes?event=${id}&excluded=1`)}
+            className="text-left"
+          >
+            <StatCard
+              title="Fora do resultado"
+              value={formatCurrency(excludedFromResult.value)}
+              icon={AlertTriangle}
+              variant="warning"
+              subtitle={`${excludedFromResult.count} transações · não entram no resultado do evento`}
+              tooltip="Despesas reais, pagas e faturadas, marcadas 'Fora do Resultado' por decisão de gestão. Clique para ver em Transações."
+            />
+          </button>
+        )}
+
         <StatCard
           title="Bilhetes"
           value={`${ticketsSold.toLocaleString()}`}
