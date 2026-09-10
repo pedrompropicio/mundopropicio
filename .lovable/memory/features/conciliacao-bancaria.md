@@ -138,3 +138,38 @@ banco porque a linha caiu do ficheiro SEPA por não ter fornecedor).
 Criação de transações a partir das linhas do banco, sugestões de lançamento e
 regras que aprendem. Liquidação, listas de pagamento e exportação SEPA
 intocadas.
+
+## Lançar a partir da linha do banco (D-ERP29 / D-ERP30)
+
+| Peça | Ficheiro |
+|---|---|
+| Regras (casar + sugerir padrão) | `src/lib/bank-statement/rules.ts` |
+| Formulário de lançamento | `src/components/bank/BankLineLaunchModal.tsx` |
+| Tabela | `public.bank_line_rules` (RLS do módulo financeiro + isolamento de empresa) |
+
+**Princípio inviolável:** a regra PROPÕE, a pessoa CONFIRMA. Nada é criado
+automaticamente, nem com regra a casar. Só se aplica a linhas `unmatched` —
+depois de as três camadas falharem.
+
+- Valor e data são factos do banco e não se editam. A transação nasce `paid`,
+  na conta do extrato, `payment_date` = data-valor, `paid_amount` = bruto,
+  `amount` = líquido. A linha fica `matched` com `created_transaction_id` e
+  `matched_by = created:<email>`.
+- **Várias linhas, um lançamento:** selecionam-se as linhas e cria-se UMA
+  transação pela soma; todas apontam para ela. Caso do TPA (16 linhas
+  `EST-0002TPA-...` de 07/09, 27.241,87 €, receita 1.1.03 F&B do Ivete Clareou,
+  com repartição bar/alimentação e taxas do adquirente por apurar no fecho A&B)
+  e das comissões de lote.
+- **Aprender:** sem regra a casar, propõe-se guardar uma, com o padrão sugerido
+  a partir da descrição normalizada sem a parte variável (número/código de
+  referência no fim). Separador **Regras** no ecrã lista, ativa/desativa e apaga.
+- **Google Ads (D-ERP30):** débito por limiar não é custo. A ação
+  `create_transfer` gera o PAR de transações da rubrica 10.3, como o
+  `TransferFormModal` — saída da conta do extrato, entrada em "Google Ads —
+  conta corrente" (`other`). O custo por evento vem da camada de faturas de
+  plataformas; lançar como despesa contaria duas vezes.
+- **Taxas bancárias:** comissão de gestão, imposto de selo e os selos/comissões
+  dos lotes SEPA vão para 10.6.01, sem evento.
+
+As camadas de conciliação, a liquidação, as listas de pagamento e os
+Recorrentes ficaram intocados.

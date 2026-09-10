@@ -7,7 +7,9 @@
  * mesmo peso — linhas do banco por explicar e transações dadas como pagas que
  * nunca saíram da conta.
  *
- * Este lote não cria transações a partir das linhas do banco (lote seguinte).
+ * Uma linha por explicar PODE dar origem a um lançamento (D-ERP29), mas só
+ * depois de as camadas falharem e SEMPRE com confirmação humana: a regra
+ * (`bank_line_rules`) apenas pré-preenche o formulário.
  */
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,7 +26,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2 } from "lucide-react";
+import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
+import type { BankLineRule } from "@/lib/bank-statement/rules";
 import {
   parseSantanderStatement,
   computeLineHash,
@@ -90,6 +95,31 @@ export default function BankReconciliation() {
   const [manualTxId, setManualTxId] = useState<string>("");
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
   const [ignoreNote, setIgnoreNote] = useState("");
+  /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [launchLines, setLaunchLines] = useState<LaunchableLine[] | null>(null);
+
+  // Regras de lançamento: propõem o preenchimento, nunca criam nada.
+  const { data: rules = [] } = useQuery({
+    queryKey: ["bank-line-rules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bank_line_rules")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as BankLineRule[];
+    },
+    enabled: allowed,
+  });
+
+  const toLaunchable = (l: any): LaunchableLine => ({
+    id: l.id,
+    description: l.description,
+    amount: Number(l.amount ?? 0),
+    booking_date: l.booking_date,
+    value_date: l.value_date ?? null,
+  });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["bank-recon-accounts"],
@@ -856,6 +886,7 @@ export default function BankReconciliation() {
             <TabsTrigger value="matched">Conciliadas ({matchedLines.length})</TabsTrigger>
             <TabsTrigger value="unmatched">Linhas do banco por explicar ({unmatchedLines.length})</TabsTrigger>
             <TabsTrigger value="missing">Transações sem movimento no banco ({txWithoutLine.length})</TabsTrigger>
+            <TabsTrigger value="rules">Regras ({(rules as BankLineRule[]).length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="matched" className="mt-3">
@@ -918,19 +949,54 @@ export default function BankReconciliation() {
           </TabsContent>
 
           <TabsContent value="unmatched" className="mt-3">
+            {/* Várias linhas podem dar UMA transação pela soma (TPA, comissões de lote). */}
+            {selectedIds.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-2 text-sm">
+                <span>
+                  {selectedIds.length} linha(s) selecionada(s) ·{" "}
+                  <strong>
+                    {formatCurrency(
+                      unmatchedLines
+                        .filter((l: any) => selectedIds.includes(l.id))
+                        .reduce((a: number, l: any) => a + Number(l.amount ?? 0), 0),
+                    )}
+                  </strong>
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setLaunchLines(
+                      unmatchedLines.filter((l: any) => selectedIds.includes(l.id)).map(toLaunchable),
+                    )
+                  }
+                >
+                  <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar pela soma
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>Limpar seleção</Button>
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
                   <TableHead className="text-right">Valor</TableHead><TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {unmatchedLines.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground">Nada por explicar.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground">Nada por explicar.</TableCell></TableRow>
                 )}
                 {unmatchedLines.map((l) => (
                   <TableRow key={l.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(l.id)}
+                        onCheckedChange={(v) =>
+                          setSelectedIds((prev) => (v ? [...prev, l.id] : prev.filter((x) => x !== l.id)))
+                        }
+                      />
+                    </TableCell>
                     <TableCell>{formatDatePT(l.booking_date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">
                       {l.description}
@@ -945,8 +1011,73 @@ export default function BankReconciliation() {
                       <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxId(""); }}>
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Conciliar
                       </Button>
+                      <Button size="sm" variant="outline" className="ml-1" onClick={() => setLaunchLines([toLaunchable(l)])}>
+                        <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar
+                      </Button>
                       <Button size="sm" variant="ghost" className="ml-1" onClick={() => { setIgnoreLine(l); setIgnoreNote(""); }}>
                         <EyeOff className="mr-1 h-3.5 w-3.5" /> Ignorar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="rules" className="mt-3">
+            <p className="mb-2 text-xs text-muted-foreground">
+              A regra propõe o preenchimento quando uma linha por explicar casa com o padrão. Nunca lança nada
+              sozinha — quem confirma é a pessoa. Grava-se ao lançar uma linha à mão.
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Regra</TableHead><TableHead>Padrão</TableHead><TableHead>Ação</TableHead>
+                  <TableHead className="text-right">Usos</TableHead><TableHead className="text-right">Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(rules as BankLineRule[]).length === 0 && (
+                  <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground">Ainda não há regras.</TableCell></TableRow>
+                )}
+                {(rules as BankLineRule[]).map((r) => (
+                  <TableRow key={r.id} className={r.is_active ? "" : "opacity-60"}>
+                    <TableCell>{r.name}</TableCell>
+                    <TableCell className="max-w-[320px] truncate font-mono text-xs">{r.pattern}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {r.action === "create_income" ? "Receita" : r.action === "create_transfer" ? "Transferência" : "Despesa"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{r.hits ?? 0}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("bank_line_rules")
+                            .update({ is_active: !r.is_active })
+                            .eq("id", r.id);
+                          if (error) toast.error(error.message);
+                          else queryClient.invalidateQueries({ queryKey: ["bank-line-rules"] });
+                        }}
+                      >
+                        {r.is_active ? "Desativar" : "Ativar"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          const { error } = await supabase.from("bank_line_rules").delete().eq("id", r.id);
+                          if (error) toast.error(error.message);
+                          else {
+                            toast.success("Regra apagada.");
+                            queryClient.invalidateQueries({ queryKey: ["bank-line-rules"] });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -1014,6 +1145,23 @@ export default function BankReconciliation() {
       )}
 
 
+
+      {/* Lançar a partir da linha do banco — sempre com confirmação humana */}
+      {launchLines && account && (
+        <BankLineLaunchModal
+          lines={launchLines}
+          accountId={account.id}
+          accountName={account.name}
+          rules={rules as BankLineRule[]}
+          onClose={() => setLaunchLines(null)}
+          onDone={() => {
+            setLaunchLines(null);
+            setSelectedIds([]);
+            queryClient.invalidateQueries({ queryKey: ["bank-recon-lines"] });
+            queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
+          }}
+        />
+      )}
 
       {/* Conciliação manual */}
       <Dialog open={!!manualLine} onOpenChange={(o) => !o && setManualLine(null)}>

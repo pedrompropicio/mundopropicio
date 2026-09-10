@@ -112,6 +112,16 @@ Não corrigir sem decisão explícita.
 
 **Santander implantado.** Corte a 31/08 (D-ERP25), saldo correcto a 407.199,12 €. A data de corte passou a sair em pt-PT na coluna Saldo Inicial.
 
+## Lançar a partir do banco (09/09/2026, D-ERP29 / D-ERP30)
+
+Nas linhas por explicar da conciliação há agora **Lançar**: abre um formulário já preenchido pela regra que casar (`bank_line_rules`) e cria a transação só depois de confirmação humana — nunca automaticamente. O valor e a data vêm do banco e não se editam; a transação nasce paga na conta do extrato e a linha fica ligada por `created_transaction_id`.
+
+Selecionando várias linhas cria-se **um** lançamento pela soma (o caso do TPA do bar do Ivete Clareou: 16 linhas de 07/09, 27.241,87 €, receita em 1.1.03 F&B, com a repartição bar/alimentação e as taxas do adquirente por apurar no fecho do A&B).
+
+Os débitos por limiar do Google Ads não são despesa: a regra gera o par de transferência (rubrica 10.3) para a conta "Google Ads — conta corrente", cujo saldo passa a ser o crédito por consumir. **Pendente do utilizador:** criar essa conta financeira (tipo `other`) — não foi criada por este trabalho, que não lançou nem criou dados.
+
+As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos dos lotes SEPA) vão para 10.6.01, sem evento.
+
 ## Onde ler mais
 
 - `.lovable/memory/features/payment-amount-invariants.md` — soma de pagamentos e paid_amount nunca excedem o bruto

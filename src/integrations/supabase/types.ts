@@ -504,6 +504,104 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_line_rules: {
+        Row: {
+          action: string
+          amount_max: number | null
+          amount_min: number | null
+          category_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description_template: string | null
+          direction: string
+          event_id: string | null
+          hits: number
+          id: string
+          is_active: boolean
+          iva_rate: number
+          last_used_at: string | null
+          match_type: string
+          name: string
+          pattern: string
+          supplier_id: string | null
+          target_account_id: string | null
+        }
+        Insert: {
+          action?: string
+          amount_max?: number | null
+          amount_min?: number | null
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description_template?: string | null
+          direction?: string
+          event_id?: string | null
+          hits?: number
+          id?: string
+          is_active?: boolean
+          iva_rate?: number
+          last_used_at?: string | null
+          match_type?: string
+          name: string
+          pattern: string
+          supplier_id?: string | null
+          target_account_id?: string | null
+        }
+        Update: {
+          action?: string
+          amount_max?: number | null
+          amount_min?: number | null
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description_template?: string | null
+          direction?: string
+          event_id?: string | null
+          hits?: number
+          id?: string
+          is_active?: boolean
+          iva_rate?: number
+          last_used_at?: string | null
+          match_type?: string
+          name?: string
+          pattern?: string
+          supplier_id?: string | null
+          target_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_line_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_line_rules_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_line_rules_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_line_rules_target_account_id_fkey"
+            columns: ["target_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_lines: {
         Row: {
           amount: number
