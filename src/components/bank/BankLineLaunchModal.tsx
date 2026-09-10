@@ -382,17 +382,19 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                   placeholder="Escolher conta…"
                 />
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Cria o par: saída de {accountName}, entrada na conta de destino, rubrica 10.3.
+                  {transferIncoming
+                    ? `Cria o par: entrada em ${accountName}, saída da conta de origem, rubrica 10.3.`
+                    : `Cria o par: saída de ${accountName}, entrada na conta de destino, rubrica 10.3.`}
                 </p>
               </div>
             ) : (
               <div>
-                <Label>Rubrica</Label>
+                <Label>Rubrica{transitory ? " (opcional)" : ""}</Label>
                 <SearchableSelect
                   options={categoryOptions}
                   value={categoryId}
                   onValueChange={setCategoryId}
-                  placeholder="Escolher rubrica…"
+                  placeholder={transitory ? "Sem rubrica" : "Escolher rubrica…"}
                 />
               </div>
             )}
