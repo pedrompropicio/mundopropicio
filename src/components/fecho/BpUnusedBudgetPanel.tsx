@@ -95,6 +95,7 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
 
   const { data: ack } = useQuery({
     queryKey: ["bp-review-ack", eventId],
+    enabled: hasBp,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_bp_review_acks")
