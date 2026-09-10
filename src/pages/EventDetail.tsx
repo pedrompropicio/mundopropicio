@@ -18,6 +18,7 @@ import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPi
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
+import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventFecho } from "@/components/EventFecho";
@@ -295,6 +296,8 @@ export default function EventDetail() {
   // --- Pagador de despesas (opcional; sem pagador = empresa configurada) ---
   const [payingFilter, setPayingFilter] = useState<string>(PAYING_FILTER_ALL);
   const houseLabel = useEventHouseLabel(id);
+  // Mesmo critério de IVA dos cartões financeiros (partilhado com o Fecho).
+  const costBasis = useEventCostBasis(id!, event?.partner_calc_basis);
   const { data: orderingPartners = [] } = useQuery({
     queryKey: ["event-ordering-partners", id],
     queryFn: async () => {
@@ -814,6 +817,25 @@ export default function EventDetail() {
   }, {});
   const pieData = Object.values(expenseByCategory);
 
+  // Cartão "Fora do resultado" — SÓ LEITURA. Isola exactamente `exclude_from_result`,
+  // ao contrário do contador da aba BP (que mistura os 4 flags bloqueadores).
+  // Transitórias, estornadas e escondidas ficam fora de propósito.
+  const excludedFromResult = (() => {
+    const rows = eventTransactions.filter(
+      (t: any) =>
+        t.exclude_from_result === true &&
+        t.is_transitory !== true &&
+        t.is_hidden !== true &&
+        t.reversed_at == null,
+    );
+    const value = rows.reduce(
+      (s: number, t: any) =>
+        s + (costBasis.withVat ? calcTotalWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)) : Number(t.amount ?? 0)),
+      0,
+    );
+    return { count: rows.length, value };
+  })();
+
   // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
   const inheritedOrdererMap = buildInheritedOrdererMap(orderingForecasts, eventTransactions);
   // Pagador efectivo = próprio da TX > herdado da linha BP vinculada.
@@ -1092,6 +1114,23 @@ export default function EventDetail() {
           subtitle={cardIncomeValue > 0 ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}%` : undefined}
           tooltip="Receitas − Custos (reflete o modo escolhido em cada card). Margem = Lucro ÷ Receitas."
         />
+
+        {excludedFromResult.count > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate(`/transacoes?event=${id}&excluded=1`)}
+            className="text-left"
+          >
+            <StatCard
+              title="Fora do resultado"
+              value={formatCurrency(excludedFromResult.value)}
+              icon={AlertTriangle}
+              variant="warning"
+              subtitle={`${excludedFromResult.count} transações · não entram no resultado do evento`}
+              tooltip="Despesas reais, pagas e faturadas, marcadas 'Fora do Resultado' por decisão de gestão. Clique para ver em Transações."
+            />
+          </button>
+        )}
 
         <StatCard
           title="Bilhetes"

@@ -91,6 +91,8 @@ export default function Transactions() {
     { id: string; description: string | null; amount: number; date: string | null; due_date: string | null }[]
   >([]);
   const [showHidden, setShowHidden] = useState(false);
+  // Só leitura: isola as transações marcadas `exclude_from_result` (badge 📋 "Fora do Resultado").
+  const [onlyExcludedFromResult, setOnlyExcludedFromResult] = useState(false);
   const [showBPViewer, setShowBPViewer] = useState(false);
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
   const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
@@ -106,6 +108,19 @@ export default function Transactions() {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const highlightRef = useRef<HTMLTableRowElement>(null);
+
+  // Deep-link só de leitura: ?event=<id>&excluded=1 (cartão "Fora do resultado" do evento).
+  const urlEventId = searchParams.get("event");
+  const urlExcluded = searchParams.get("excluded");
+  useEffect(() => {
+    if (!urlEventId && !urlExcluded) return;
+    if (urlEventId) setSelectedEventIds(new Set([urlEventId]));
+    if (urlExcluded === "1") setOnlyExcludedFromResult(true);
+    setViewMode("paid");
+    setPaidPeriod("all");
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlEventId, urlExcluded]);
 
   // When highlight param is set, switch to a view that shows the transaction
   useEffect(() => {
@@ -719,7 +734,8 @@ export default function Transactions() {
     })
     .filter((t) => !onlyPending || t.status === "pending")
     .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
-    .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
+    .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()))
+    .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true);
 
   // Group transactions: overdue, period, no-date
   const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
@@ -835,7 +851,8 @@ export default function Transactions() {
         return paidAmount >= amount - 0.01 || t.status === "paid";
       })
       .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
-      .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
+      .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()))
+      .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -915,7 +932,7 @@ export default function Transactions() {
       const bInv = b.invoice_ref ?? "";
       return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap, onlyExcludedFromResult]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -1493,7 +1510,8 @@ export default function Transactions() {
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
             (onlyAdmin ? 1 : 0) +
-            (showHidden ? 1 : 0);
+            (showHidden ? 1 : 0) +
+            (onlyExcludedFromResult ? 1 : 0);
           return (
             <Button
               variant={activeCount > 0 ? "default" : "outline"}
@@ -1763,7 +1781,8 @@ export default function Transactions() {
         if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
         if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
         if (onlyAdmin) chips.push({ key: "admin", label: "Apenas Adm/Financeiras", onRemove: () => setOnlyAdmin(false) });
-        if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
+         if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
+        if (onlyExcludedFromResult) chips.push({ key: "excl-result", label: "Fora do Resultado", onRemove: () => setOnlyExcludedFromResult(false) });
         if (chips.length === 0) return null;
         return (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -1786,11 +1805,34 @@ export default function Transactions() {
                 setOnlyNoDueDate(false);
                 setOnlyGrouped(false);
                 setShowHidden(false);
+                setOnlyExcludedFromResult(false);
               }}
               className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
             >
               Limpar tudo
             </button>
+          </div>
+        );
+      })()}
+
+      {/* Resumo do filtro "Fora do Resultado" — só leitura */}
+      {onlyExcludedFromResult && (() => {
+        const rows = viewMode === "open" ? filtered : paidTransactions;
+        const base = rows.reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
+        const gross = rows.reduce((s: number, t: any) => s + calcWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)), 0);
+        return (
+          <div className="glass rounded-xl border border-warning/30 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">📋 Fora do Resultado</p>
+            <p className="text-sm">
+              <span className="font-semibold">{rows.length}</span> transação(ões)
+            </p>
+            <p className="text-sm">
+              Base: <span className="font-mono font-semibold">{formatCurrency(base)}</span>
+            </p>
+            <p className="text-sm">
+              c/IVA: <span className="font-mono font-semibold">{formatCurrency(gross)}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">Não entram no resultado dos eventos.</p>
           </div>
         );
       })()}
@@ -1818,6 +1860,8 @@ export default function Transactions() {
         setOnlyAdmin={setOnlyAdmin}
         showHidden={showHidden}
         setShowHidden={setShowHidden}
+        onlyExcludedFromResult={onlyExcludedFromResult}
+        setOnlyExcludedFromResult={setOnlyExcludedFromResult}
         isAdmin={isAdmin}
         onClearAll={() => {
           setSelectedEventIds(new Set());
@@ -1829,6 +1873,7 @@ export default function Transactions() {
           setOnlyGrouped(false);
           setOnlyAdmin(false);
           setShowHidden(false);
+          setOnlyExcludedFromResult(false);
         }}
       />
 
