@@ -36,6 +36,8 @@ interface FilterPanelProps {
   setOnlyAdmin: (v: boolean) => void;
   showHidden: boolean;
   setShowHidden: (v: boolean) => void;
+  onlyExcludedFromResult: boolean;
+  setOnlyExcludedFromResult: (v: boolean) => void;
   isAdmin: boolean;
   onClearAll: () => void;
 }
@@ -126,6 +128,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     onlyGrouped, setOnlyGrouped,
     onlyAdmin, setOnlyAdmin,
     showHidden, setShowHidden,
+    onlyExcludedFromResult, setOnlyExcludedFromResult,
     isAdmin,
     onClearAll,
   } = props;
@@ -253,6 +256,11 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                 )}
                 <ToggleChip active={onlyGrouped} onClick={() => setOnlyGrouped(!onlyGrouped)} label="Agrupadas por fatura" />
                 <ToggleChip active={onlyAdmin} onClick={() => setOnlyAdmin(!onlyAdmin)} label="Apenas Adm/Financeiras" />
+                <ToggleChip
+                  active={onlyExcludedFromResult}
+                  onClick={() => setOnlyExcludedFromResult(!onlyExcludedFromResult)}
+                  label="Fora do Resultado"
+                />
                 {isAdmin && (
                   <ToggleChip active={showHidden} onClick={() => setShowHidden(!showHidden)} label="Mostrar ocultas" />
                 )}
