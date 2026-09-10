@@ -18,6 +18,7 @@ import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPi
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
+import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventFecho } from "@/components/EventFecho";
