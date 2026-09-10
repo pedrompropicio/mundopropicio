@@ -113,21 +113,29 @@ export default function ReportTicketOfficeAudit() {
 
   const zoneIds = allZones.map((z: any) => z.id);
 
-  // Fetch sales with date for analytical view
+  // Fetch sales with date for analytical view (paginado: o PostgREST corta em 1.000 linhas)
   const { data: allSales = [] } = useQuery({
     queryKey: ["report_to_sales", zoneIds.length],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
       const batchSize = 500;
+      const pageSize = 1000;
       let allData: any[] = [];
       for (let i = 0; i < zoneIds.length; i += batchSize) {
         const batch = zoneIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, total_value, financial_account_id, sale_date, notes")
-          .in("zone_id", batch);
-        if (error) throw error;
-        allData = allData.concat(data || []);
+        let from = 0;
+        for (;;) {
+          const { data, error } = await supabase
+            .from("ticket_sales")
+            .select("zone_id, quantity, unit_price, total_value, financial_account_id, sale_date, notes")
+            .in("zone_id", batch)
+            .order("id")
+            .range(from, from + pageSize - 1);
+          if (error) throw error;
+          allData = allData.concat(data || []);
+          if (!data || data.length < pageSize) break;
+          from += pageSize;
+        }
       }
       return allData;
     },
