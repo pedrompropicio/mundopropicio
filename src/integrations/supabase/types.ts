@@ -13157,6 +13157,14 @@ export type Database = {
           swift_bic_3: string
         }[]
       }
+      get_ticket_office_sales: {
+        Args: { p_account_id: string }
+        Returns: {
+          event_id: string
+          quantity: number
+          revenue: number
+        }[]
+      }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
