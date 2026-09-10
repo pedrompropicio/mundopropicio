@@ -10,3 +10,4 @@
 - [BP de receita](mem://features/bp-receita) — Sub-separadores Despesas|Receitas e linhas sintéticas por módulo (bilheteira/A&B) com previsto original, corrente e real
 - [Event revenue basis (SSoT)](mem://features/event-revenue-basis) — Função única da receita em 3 bases (real/previsto corrente/previsto+excedido) com buckets
 - [Data de corte do saldo inicial](mem://features/account-balance-cutoff-date) — financial_accounts.initial_balance_date corta movimentos até ao fecho desse dia; skip_balance_check mostra "não controlado" e nunca número; estorno repago limpa reversed_at/reversal_kind
+- [Vendas de bilheteira somadas na BD](mem://features/ticket-office-sales-scope) — get_ticket_office_sales é a origem única das vendas por bilheteira/evento; nunca somar ticket_sales no cliente (limite 1.000 linhas)
