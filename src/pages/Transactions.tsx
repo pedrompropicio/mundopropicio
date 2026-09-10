@@ -91,6 +91,8 @@ export default function Transactions() {
     { id: string; description: string | null; amount: number; date: string | null; due_date: string | null }[]
   >([]);
   const [showHidden, setShowHidden] = useState(false);
+  // Só leitura: isola as transações marcadas `exclude_from_result` (badge 📋 "Fora do Resultado").
+  const [onlyExcludedFromResult, setOnlyExcludedFromResult] = useState(false);
   const [showBPViewer, setShowBPViewer] = useState(false);
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
   const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
@@ -719,7 +721,8 @@ export default function Transactions() {
     })
     .filter((t) => !onlyPending || t.status === "pending")
     .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
-    .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
+    .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()))
+    .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true);
 
   // Group transactions: overdue, period, no-date
   const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
