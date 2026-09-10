@@ -17,6 +17,8 @@ O **Extra do Sócio foi arrumado de ponta a ponta a 09/09**:
 
 Nada em execução.
 
+O Fecho do Evento ganhou a 10/09 o painel **"Verba por usar"** — lista de revisão, por rubrica, da verba de BP não consumida (espelho do excesso por rubrica), logo a seguir à Síntese Operacional. Só leitura, mais um reconhecimento append-only em `event_bp_review_acks` (`unused_net` gravado sempre s/IVA, botão só com `manage_bp`, badge "Revisão desactualizada" quando os números mudam). Ver `.lovable/memory/features/bp-verba-por-usar.md`. Nada mudou no resultado, no acerto com sócios nem nos blockers de fecho.
+
 
 ## Divergência viva: BP de hoje vs. o que foi enviado
 
