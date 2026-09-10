@@ -646,7 +646,10 @@ export default function BankReconciliation() {
 
       const now = new Date().toISOString();
       for (const l of lines) {
-        const m = result.matches.get(l.id);
+        let m = result.matches.get(l.id);
+        // Trava: nunca gravar uma transação já presa por outra linha (índice único).
+        if (m?.matched_transaction_id && preUsed.has(m.matched_transaction_id)) m = undefined;
+
         const { error } = await supabase
           .from("bank_statement_lines")
           .update({
