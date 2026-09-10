@@ -201,7 +201,11 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
         if (!cat) throw new Error("Rubrica 10.3 (Transferências Internas) não encontrada.");
 
         const target = (accounts as any[]).find((a) => a.id === targetAccountId);
-        const label = `${description.trim()} (${accountName} → ${target?.name ?? "destino"})`;
+        // A direção segue o SINAL do movimento: crédito = dinheiro entrou na conta
+        // do extrato, logo a receita é aqui e a despesa é na conta de destino.
+        const fromName = transferIncoming ? (target?.name ?? "origem") : accountName;
+        const toName = transferIncoming ? accountName : (target?.name ?? "destino");
+        const label = `${description.trim()} (${fromName} → ${toName})`;
         const common = {
           amount: gross,
           iva_rate: 0,
@@ -212,19 +216,30 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
           payment_date: paymentDate,
           specification: note.trim() || null,
         };
-        const { data: out, error: e1 } = await supabase
+        // A transação da conta do extrato é sempre a primária (é a linha do banco).
+        const { data: onStatement, error: e1 } = await supabase
           .from("transactions")
-          .insert({ ...common, description: label, type: "expense", account_id: accountId } as any)
+          .insert({
+            ...common,
+            description: label,
+            type: transferIncoming ? "income" : "expense",
+            account_id: accountId,
+          } as any)
           .select("id")
           .single();
         if (e1) throw e1;
         const { error: e2 } = await supabase
           .from("transactions")
-          .insert({ ...common, description: label, type: "income", account_id: targetAccountId } as any)
+          .insert({
+            ...common,
+            description: label,
+            type: transferIncoming ? "expense" : "income",
+            account_id: targetAccountId,
+          } as any)
           .select("id")
           .single();
         if (e2) throw e2;
-        primaryTxId = out.id;
+        primaryTxId = onStatement.id;
       } else {
         const { data: tx, error } = await supabase
           .from("transactions")
