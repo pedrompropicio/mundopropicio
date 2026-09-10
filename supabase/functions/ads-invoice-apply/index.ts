@@ -85,19 +85,32 @@ function addDays(d: string, days: number): string {
 }
 
 /**
- * Trava anti-duplicação: procura lançamentos de tráfego pago que já cubram
- * esta fatura, mesmo feitos à mão e sem qualquer ligação à ads_invoice.
- * Critério: rubrica 3.2.01 Digital e (invoice_ref = nº da fatura
- * OU specification contém "ref. MM/AAAA" do período faturado).
- */
-async function findExistingTransactions(inv: any) {
+  * Trava anti-duplicação: procura lançamentos de tráfego pago que já cubram
+  * esta fatura, mesmo feitos à mão e sem qualquer ligação à ads_invoice.
+  * Critério: rubrica 3.2.01 Digital e
+  *   (a) invoice_ref = nº da fatura — qualquer fornecedor, o número identifica
+  *       a fatura sem ambiguidade;
+  *   (b) specification contém "ref. MM/AAAA" E o fornecedor é o da plataforma
+  *       (ou nulo, para apanhar lançamentos manuais antigos sem fornecedor).
+  * Meta e Google faturam os mesmos meses: sem o filtro de fornecedor, a fatura
+  * de uma plataforma era bloqueada pelos lançamentos da outra.
+  * Se supplierId vier nulo, mantém-se o critério amplo (recusar > duplicar).
+  */
+async function findExistingTransactions(inv: any, supplierId: string | null) {
   const spec = `ref. ${periodLabel(inv.billing_period)}`;
-  const { data, error } = await admin
+  let q = admin
     .from("transactions")
-    .select("id, date, amount, event_id, invoice_ref, specification, parent_transaction_id")
+    .select("id, date, amount, event_id, invoice_ref, specification, parent_transaction_id, supplier_id")
     .eq("category_id", CATEGORY_DIGITAL)
-    .eq("company_id", inv.company_id)
-    .or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
+    .eq("company_id", inv.company_id);
+  q = supplierId
+    ? q.or(
+        `invoice_ref.eq.${inv.invoice_number},` +
+          `and(specification.ilike.%${spec}%,supplier_id.eq.${supplierId}),` +
+          `and(specification.ilike.%${spec}%,supplier_id.is.null)`,
+      )
+    : q.or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
+  const { data, error } = await q;
   if (error) throw new Error(error.message);
   return data ?? [];
 }
