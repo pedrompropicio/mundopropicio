@@ -112,6 +112,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     setDescription((rule?.description_template ?? "").trim() || bankDescription);
     setTargetAccountId(rule?.target_account_id ?? "");
     setSaveRule(!rule);
+    setIsTransitory(false);
     setRulePattern(suggestPattern(lines[0]?.description ?? ""));
     setRuleName(suggestPattern(lines[0]?.description ?? "").slice(0, 60));
   }, [rule, total, bankDescription, lines]);
