@@ -141,6 +141,33 @@ export default function ReportTicketOfficeAudit() {
     },
   });
 
+  // Vendas por bilheteira/evento somadas na base de dados — fonte única do saldo (issue #129)
+  const officeIdsForSales = offices.map((o: any) => o.id);
+  const { data: rpcSales = [] } = useQuery({
+    queryKey: ["report_to_sales_rpc", officeIdsForSales],
+    enabled: officeIdsForSales.length > 0,
+    queryFn: async () => {
+      const rows: any[] = [];
+      for (const accountId of officeIdsForSales) {
+        const { data, error } = await (supabase as any).rpc("get_ticket_office_sales", {
+          p_account_id: accountId,
+        });
+        if (error) throw error;
+        (data || []).forEach((r: any) =>
+          rows.push({
+            event_id: r.event_id,
+            financial_account_id: accountId,
+            quantity: Number(r.quantity || 0),
+            unit_price: 0,
+            total_value: Number(r.revenue || 0),
+          }),
+        );
+      }
+      return rows;
+    },
+  });
+
+
   // Fetch transactions on ticket office financial accounts
   const accountIds = offices
     .filter((o: any) => o.financial_account_id)
