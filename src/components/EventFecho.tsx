@@ -503,6 +503,16 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         </div>
       </div>
 
+      {/* Verba de BP por usar — só leitura + registo do reconhecimento */}
+      <BpUnusedBudgetPanel
+        eventId={eventId}
+        operationalForecasts={operationalForecasts as any[]}
+        expenseTx={expenseTx as any[]}
+        basis={basis}
+      />
+
+
+
       {/* Overheads */}
       {allOverheads.length > 0 ? (
         <div className="glass rounded-xl overflow-hidden">
