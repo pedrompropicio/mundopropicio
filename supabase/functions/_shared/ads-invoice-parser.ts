@@ -16,6 +16,12 @@
 //  - rodapé bancário colado à última linha de detalhe da página;
 //  - indentação variável do número de linha.
 
+// Import estático (npm:, nunca esm.sh): o custo do pdf.js é pago no boot da
+// worker e não no pedido — com import dinâmico remoto o primeiro pedido após
+// um arranque frio estourava o tempo limite.
+// @ts-ignore — especificador npm do Deno
+import { getDocumentProxy } from "npm:unpdf@0.12.1";
+
 export interface AdsInvoiceHeader {
   invoiceNumber: string | null;
   issueDate: string | null;     // YYYY-MM-DD
@@ -84,8 +90,6 @@ function isNoise(text: string): boolean {
 
 /** Extrai linhas visuais de um PDF com posições, via unpdf/pdf.js. */
 export async function extractPdfLines(bytes: Uint8Array): Promise<TextLine[]> {
-  // @ts-ignore — especificador remoto Deno (mesmo build já em produção no bol-report-parser)
-  const { getDocumentProxy } = await import("https://esm.sh/unpdf@0.12.1");
   const pdf = await getDocumentProxy(bytes);
   const out: TextLine[] = [];
   for (let p = 1; p <= pdf.numPages; p++) {
