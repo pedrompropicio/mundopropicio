@@ -147,6 +147,9 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
     }
   }
 
+  // Sem BP (ou ainda a resolver o modo): não renderiza.
+  if (loadingMode || !hasBp) return null;
+
   return (
     <div className="glass rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-border/50 flex flex-wrap items-center gap-2">
