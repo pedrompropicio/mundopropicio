@@ -447,6 +447,29 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
           </div>
 
+          {!isTransfer && (
+            <div className="rounded-lg border border-border p-3">
+              <label className="flex items-start gap-2">
+                <Checkbox
+                  checked={isTransitory}
+                  onCheckedChange={(v) => {
+                    const on = !!v;
+                    setIsTransitory(on);
+                    if (on) setSaveRule(false);
+                  }}
+                />
+                <span className="text-xs">
+                  Transitória (a repassar) — não entra no resultado
+                </span>
+              </label>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Move o saldo da conta, mas não é receita nem custo. Para dinheiro de terceiros que
+                passa pela conta e vai ser repassado.
+              </p>
+            </div>
+          )}
+
+          {!transitory && (
           <div className="rounded-lg border border-border p-3">
             <label className="flex items-start gap-2">
               <Checkbox checked={saveRule} onCheckedChange={(v) => setSaveRule(!!v)} />
