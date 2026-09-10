@@ -175,10 +175,14 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
 
   const isTransfer = action === "create_transfer";
   const base = Math.round((gross / (1 + ivaRate / 100)) * 100) / 100;
+  /** A transitória dispensa rubrica e nunca gera regra (a tabela não guarda o flag). */
+  const transitory = !isTransfer && isTransitory;
+  /** Direção do par: numa linha de crédito o dinheiro ENTROU na conta do extrato. */
+  const transferIncoming = total > 0;
 
   async function confirm() {
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
-    if (!isTransfer && !categoryId) return toast.error("Escolhe a rubrica.");
+    if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
     if (gross <= 0) return toast.error("O movimento do banco não tem valor.");
 
