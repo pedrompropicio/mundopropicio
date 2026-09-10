@@ -1802,6 +1802,28 @@ export default function Transactions() {
         );
       })()}
 
+      {/* Resumo do filtro "Fora do Resultado" — só leitura */}
+      {onlyExcludedFromResult && (() => {
+        const rows = viewMode === "open" ? filtered : paidTransactions;
+        const base = rows.reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
+        const gross = rows.reduce((s: number, t: any) => s + calcWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)), 0);
+        return (
+          <div className="glass rounded-xl border border-warning/30 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">📋 Fora do Resultado</p>
+            <p className="text-sm">
+              <span className="font-semibold">{rows.length}</span> transação(ões)
+            </p>
+            <p className="text-sm">
+              Base: <span className="font-mono font-semibold">{formatCurrency(base)}</span>
+            </p>
+            <p className="text-sm">
+              c/IVA: <span className="font-mono font-semibold">{formatCurrency(gross)}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">Não entram no resultado dos eventos.</p>
+          </div>
+        );
+      })()}
+
       {/* Filters Sheet */}
       <TransactionFiltersPanel
         open={filtersOpen}
@@ -1825,6 +1847,8 @@ export default function Transactions() {
         setOnlyAdmin={setOnlyAdmin}
         showHidden={showHidden}
         setShowHidden={setShowHidden}
+        onlyExcludedFromResult={onlyExcludedFromResult}
+        setOnlyExcludedFromResult={setOnlyExcludedFromResult}
         isAdmin={isAdmin}
         onClearAll={() => {
           setSelectedEventIds(new Set());
