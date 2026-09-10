@@ -23,6 +23,7 @@ import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
+import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
 
 
 interface Props {
@@ -502,6 +503,16 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
           </div>
         </div>
       </div>
+
+      {/* Verba de BP por usar — só leitura + registo do reconhecimento */}
+      <BpUnusedBudgetPanel
+        eventId={eventId}
+        operationalForecasts={operationalForecasts as any[]}
+        expenseTx={expenseTx as any[]}
+        basis={basis}
+      />
+
+
 
       {/* Overheads */}
       {allOverheads.length > 0 ? (

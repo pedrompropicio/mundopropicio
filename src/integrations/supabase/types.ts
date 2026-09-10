@@ -3911,6 +3911,47 @@ export type Database = {
           },
         ]
       }
+      event_bp_review_acks: {
+        Row: {
+          acknowledged_at: string
+          acknowledged_by: string
+          company_id: string
+          event_id: string
+          id: string
+          lines_count: number
+          note: string | null
+          unused_net: number
+        }
+        Insert: {
+          acknowledged_at?: string
+          acknowledged_by?: string
+          company_id: string
+          event_id: string
+          id?: string
+          lines_count: number
+          note?: string | null
+          unused_net: number
+        }
+        Update: {
+          acknowledged_at?: string
+          acknowledged_by?: string
+          company_id?: string
+          event_id?: string
+          id?: string
+          lines_count?: number
+          note?: string | null
+          unused_net?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_bp_review_acks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_cache_city_settlements: {
         Row: {
           adjusted_amount: number | null

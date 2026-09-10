@@ -53,6 +53,16 @@ const NO_CATEGORY = "__no_category__";
 
 const bucketKey = (categoryId?: string | null) => categoryId ?? NO_CATEGORY;
 
+/** Agrupamento por rubrica (`category_id`), com IVA aplicado linha a linha. */
+function groupByCategory(lines: AmountLine[], withVat: boolean): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const l of lines) {
+    const k = bucketKey(l.category_id);
+    m.set(k, (m.get(k) ?? 0) + lineValue(l.amount, l.iva_rate, withVat));
+  }
+  return m;
+}
+
 /**
  * Excesso por rubrica: Σ max(realizado − previsto, 0), agrupado por category_id.
  * `forecasts` deve conter apenas as linhas operacionais do BP (sem overhead).
@@ -62,22 +72,41 @@ export function computeOutsideBpExcess(
   transactions: AmountLine[],
   withVat: boolean,
 ): number {
-  const fc = new Map<string, number>();
-  for (const f of forecasts) {
-    const k = bucketKey(f.category_id);
-    fc.set(k, (fc.get(k) ?? 0) + lineValue(f.amount, f.iva_rate, withVat));
-  }
-  const real = new Map<string, number>();
-  for (const t of transactions) {
-    const k = bucketKey(t.category_id);
-    real.set(k, (real.get(k) ?? 0) + lineValue(t.amount, t.iva_rate, withVat));
-  }
+  const fc = groupByCategory(forecasts, withVat);
+  const real = groupByCategory(transactions, withVat);
   let excess = 0;
   for (const [k, r] of real) {
     const diff = r - (fc.get(k) ?? 0);
     if (diff > EXCESS_EPSILON) excess += diff;
   }
   return excess;
+}
+
+export interface UnusedBudgetEntry {
+  key: string;
+  forecast: number;
+  realized: number;
+  unused: number;
+}
+
+/**
+ * Espelho de `computeOutsideBpExcess`: verba de BP por usar, por rubrica.
+ * Σ max(previsto − realizado, 0), ordenada por `unused` decrescente.
+ */
+export function computeUnusedBudget(
+  forecasts: AmountLine[],
+  transactions: AmountLine[],
+  withVat: boolean,
+): UnusedBudgetEntry[] {
+  const fc = groupByCategory(forecasts, withVat);
+  const real = groupByCategory(transactions, withVat);
+  const out: UnusedBudgetEntry[] = [];
+  for (const [k, f] of fc) {
+    const r = real.get(k) ?? 0;
+    const unused = f - r;
+    if (unused > EXCESS_EPSILON) out.push({ key: k, forecast: f, realized: r, unused });
+  }
+  return out.sort((a, b) => b.unused - a.unused);
 }
 
 export interface OverrunEntry {
