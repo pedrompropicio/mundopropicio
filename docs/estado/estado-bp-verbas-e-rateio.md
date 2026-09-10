@@ -74,6 +74,9 @@ Nenhum.
 - **Ivete Clareou 2026:** último ponto da série = **707.684,40 €** = previsto actual; origem (Σ `baseline_amount`) = **716.852,25 €**; sem versões congeladas.
 - **Anitta — EDA 2026:** último ponto da série = **1.667.709,64 €** = previsto actual; origem = **1.476.705,02 €**; Versão 1 (17/06 18:25) snapshot **1.429.244,39 €** vs curva do dia **1.419.595,39 €** — diferença de **9.649,00 €** porque o audit arranca às 18:33 desse dia. Limitação conhecida, só afecta esse marco.
 
+**Rateio de day-offs de turnê (10/09):** a previsão vive numa linha de BP "Rateio day-offs" — no **Master** quando há turnê (espelha-se proporcionalmente nas cidades), no próprio evento quando é data única. As transações do circuito lançam-se com `exclude_from_result = true`: movimentam conta, não entram no resultado nem consomem verba do BP. A liquidação faz-se por uma **conta de acerto** dedicada com `is_accounting = false` + `skip_balance_check = true` — o saldo dela é a posição do encontro de contas, não caixa. No acerto final os valores passam às rubricas respectivas e a linha de rateio é ajustada ao que sobrar, ou a zero. **Nada no sistema obriga esse último passo** (`event_close_blockers` não testa verba por usar; `raise_forecast_budget` só sobe linhas) — o painel "Verba por usar" no Fecho mostra e regista a revisão. Ver D-ERP32 em `docs/DECISIONS.md` e `docs/procedimentos/PROC-rateio-dayoffs-turne.md`.
+
+
 ## Onde ler mais
 - `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas
 - `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation, event-revenue-basis, bp-evolucao
