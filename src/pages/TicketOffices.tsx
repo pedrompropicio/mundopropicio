@@ -118,20 +118,6 @@ export default function TicketOffices() {
     },
   });
 
-  const assignmentEventIds = [...new Set(allAssignments.map((a: any) => a.event_id))];
-  const { data: allZones = [] } = useQuery({
-    queryKey: ["ticket_office_zones_all", assignmentEventIds],
-    enabled: assignmentEventIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_ticket_zones")
-        .select("id, event_id")
-        .in("event_id", assignmentEventIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
   const officeBalances = useMemo(() => {
     const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
     const officeEventMap: Record<string, string[]> = {};
@@ -170,7 +156,7 @@ export default function TicketOffices() {
       };
     });
     return map;
-  }, [offices, officeSales, txnSums, allAssignments, allZones, allAdvances]);
+  }, [offices, officeSales, txnSums, allAssignments, allAdvances]);
 
 
   const deleteMutation = useMutation({
