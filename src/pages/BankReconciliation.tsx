@@ -662,7 +662,9 @@ export default function BankReconciliation() {
           })
           .eq("id", l.id);
         if (error) throw error;
+        if (m?.matched_transaction_id) preUsed.add(m.matched_transaction_id);
       }
+
 
       toast.success(
         `Reconciliação refeita: ${result.counts.sepa} lote(s) SEPA, ${result.counts.amount} por valor, ` +
