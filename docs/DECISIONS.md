@@ -757,3 +757,23 @@ Decisão 3 — **importar uma fatura tem três fases, sempre.** Escolher platafo
 Nota de infraestrutura: o `InvoiceService.ListInvoices` da Google Ads API v24 não é via para esta conta — o billing setup `8418160932` está aprovado mas em pagamentos automáticos, e a API devolve `BILLING_SETUP_NOT_ON_MONTHLY_INVOICING`. Não há `pdf_url` a puxar; o PDF entra à mão.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP32 — Rateio de day-offs de turnê: encontro de contas gerencial (10/09/2026)
+
+**Rateio de day-offs de turnê — encontro de contas gerencial**
+
+Contexto: numa turnê europeia, os custos de dias sem show (hotel e outros) são partilhados com as cidades de outros promotores. A parte da MP só se conhece no acerto final. Algumas faturas estão em nome da MP, outras em nome de terceiros. A questão fiscal resolve-se fora do circuito: no momento do movimento financeiro emite-se ou recebe-se fatura.
+
+Decisão:
+
+1. A previsão vive numa linha de BP "Rateio day-offs". Em turnê com Master, a linha nasce no **Master** e espelha-se proporcionalmente nas cidades. Em evento de **data única**, nasce no próprio evento. O mecanismo é o mesmo; muda só a morada da linha.
+2. As transações do circuito de rateio lançam-se com `exclude_from_result = true`. Movimentam conta, não entram no resultado do evento e não consomem verba do BP. Encontram-se pelo card "Fora do resultado" da capa do evento e pelo chip "Fora do Resultado" nas Transações.
+3. A liquidação faz-se por uma **conta de acerto** dedicada, com `is_accounting = false` e `skip_balance_check = true`. O saldo dessa conta é a posição do encontro de contas, não caixa contabilística. O precedente é D-ERP30 (conta corrente Google Ads) — **não** o Acerto de Madrid, que é o caso inverso (dinheiro de terceiros a pagar custo nosso, com espelhos de aporte automáticos).
+4. No acerto final, conhecida a nossa parte por rubrica, os valores passam às linhas de BP respectivas e a linha "Rateio day-offs" é ajustada ao que sobrar dela, ou a zero. Não pode ficar verba por usar: o BP começa como planeamento e acaba como realizado.
+5. O histórico previsto×realizado não se perde nesse ajuste — vive nas versões congeladas do BP e no `forecast_audit_log`.
+
+Consequência conhecida e aceite: **nada no sistema obriga o ponto 4**. `event_close_blockers` não testa verba por usar (os blockers `hard` são sessões de camarim por integrar e sessões de cartões abertas; o `soft` são despesas pendentes) e `raise_forecast_budget` só sobe linhas, nunca desce. Não é automatizável: como faturas de um evento chegam depois de ele acontecer, `realizado < previsto` não distingue verba a mais de fatura por chegar. Por isso a resposta é o painel "Verba por usar" no Fecho — mostra e regista a revisão, não julga.
+
+**Estado:** vigente.
