@@ -52,30 +52,29 @@ export default function TicketOffices() {
 
   const officeIds = offices.map((o: any) => o.id);
 
+  // Vendas somadas na base de dados (RPC get_ticket_office_sales) — nunca no cliente:
+  // o PostgREST corta em 1.000 linhas e a Ticketline tem >4.000 registos (issue #129).
   const { data: officeSales = [] } = useQuery({
-    queryKey: ["ticket_office_sales_all", officeIds],
+    queryKey: ["ticket_office_sales_rpc", officeIds],
     enabled: officeIds.length > 0,
     queryFn: async () => {
-      const { data: assignments, error: aErr } = await supabase
-        .from("event_ticket_office_assignments")
-        .select("financial_account_id, event_id")
-        .in("financial_account_id", officeIds);
-      if (aErr) throw aErr;
-      if (!assignments || assignments.length === 0) return [];
-      const eventIds = [...new Set(assignments.map((a: any) => a.event_id))];
-      const { data: zones, error: zErr } = await supabase
-        .from("event_ticket_zones")
-        .select("id, event_id")
-        .in("event_id", eventIds);
-      if (zErr) throw zErr;
-      if (!zones || zones.length === 0) return [];
-      const zoneIds = zones.map((z: any) => z.id);
-      const { data: sales, error: sErr } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, total_value, financial_account_id")
-        .in("zone_id", zoneIds);
-      if (sErr) throw sErr;
-      return sales || [];
+      const rows: any[] = [];
+      for (const accountId of officeIds) {
+        const { data, error } = await (supabase as any).rpc("get_ticket_office_sales", {
+          p_account_id: accountId,
+        });
+        if (error) throw error;
+        (data || []).forEach((r: any) =>
+          rows.push({
+            event_id: r.event_id,
+            financial_account_id: accountId,
+            quantity: Number(r.quantity || 0),
+            unit_price: 0,
+            total_value: Number(r.revenue || 0),
+          }),
+        );
+      }
+      return rows;
     },
   });
 
@@ -119,20 +118,6 @@ export default function TicketOffices() {
     },
   });
 
-  const assignmentEventIds = [...new Set(allAssignments.map((a: any) => a.event_id))];
-  const { data: allZones = [] } = useQuery({
-    queryKey: ["ticket_office_zones_all", assignmentEventIds],
-    enabled: assignmentEventIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_ticket_zones")
-        .select("id, event_id")
-        .in("event_id", assignmentEventIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
   const officeBalances = useMemo(() => {
     const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
     const officeEventMap: Record<string, string[]> = {};
@@ -140,9 +125,7 @@ export default function TicketOffices() {
       if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = [];
       officeEventMap[a.financial_account_id].push(a.event_id);
     });
-    const zoneEventMap: Record<string, string> = {};
-    allZones.forEach((z: any) => { zoneEventMap[z.id] = z.event_id; });
-    const salesWithEvent = officeSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+    const salesWithEvent = officeSales as any[];
 
     const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
@@ -173,7 +156,7 @@ export default function TicketOffices() {
       };
     });
     return map;
-  }, [offices, officeSales, txnSums, allAssignments, allZones, allAdvances]);
+  }, [offices, officeSales, txnSums, allAssignments, allAdvances]);
 
 
   const deleteMutation = useMutation({

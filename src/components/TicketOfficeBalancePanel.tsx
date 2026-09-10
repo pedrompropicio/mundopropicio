@@ -42,28 +42,21 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
   // Get ticket sales for events assigned to this office
   const eventIds = assignments.map((a: any) => a.event_id);
+  // Vendas somadas na base de dados (RPC get_ticket_office_sales) — o PostgREST corta
+  // em 1.000 linhas e a Ticketline tem >4.000 registos (issue #129).
   const { data: ticketSales = [] } = useQuery({
-    queryKey: ["ticket_sales_for_office", officeId, eventIds],
-    enabled: eventIds.length > 0,
+    queryKey: ["ticket_office_sales_rpc", officeId],
     queryFn: async () => {
-      const { data: zones, error: zErr } = await supabase
-        .from("event_ticket_zones")
-        .select("id, event_id")
-        .in("event_id", eventIds);
-      if (zErr) throw zErr;
-      if (!zones || zones.length === 0) return [];
-
-      const zoneIds = zones.map((z: any) => z.id);
-      const { data: sales, error: sErr } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, total_value, financial_account_id")
-        .in("zone_id", zoneIds);
-      if (sErr) throw sErr;
-
-      const zoneEventMap = Object.fromEntries(zones.map((z: any) => [z.id, z.event_id]));
-      return (sales || []).map((s: any) => ({
-        ...s,
-        event_id: zoneEventMap[s.zone_id],
+      const { data, error } = await (supabase as any).rpc("get_ticket_office_sales", {
+        p_account_id: officeId,
+      });
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        event_id: r.event_id,
+        financial_account_id: officeId,
+        quantity: Number(r.quantity || 0),
+        unit_price: 0,
+        total_value: Number(r.revenue || 0),
       }));
     },
   });
