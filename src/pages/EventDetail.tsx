@@ -814,6 +814,25 @@ export default function EventDetail() {
   }, {});
   const pieData = Object.values(expenseByCategory);
 
+  // Cartão "Fora do resultado" — SÓ LEITURA. Isola exactamente `exclude_from_result`,
+  // ao contrário do contador da aba BP (que mistura os 4 flags bloqueadores).
+  // Transitórias, estornadas e escondidas ficam fora de propósito.
+  const excludedFromResult = (() => {
+    const rows = eventTransactions.filter(
+      (t: any) =>
+        t.exclude_from_result === true &&
+        t.is_transitory !== true &&
+        t.is_hidden !== true &&
+        t.reversed_at == null,
+    );
+    const value = rows.reduce(
+      (s: number, t: any) =>
+        s + (costBasis.withVat ? calcTotalWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)) : Number(t.amount ?? 0)),
+      0,
+    );
+    return { count: rows.length, value };
+  })();
+
   // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
   const inheritedOrdererMap = buildInheritedOrdererMap(orderingForecasts, eventTransactions);
   // Pagador efectivo = próprio da TX > herdado da linha BP vinculada.
