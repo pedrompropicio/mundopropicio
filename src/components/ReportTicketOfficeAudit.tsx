@@ -226,8 +226,9 @@ export default function ReportTicketOfficeAudit() {
   }, [allZones]);
 
   // Build synthetic audit data — fonte única em src/lib/ticket-office-balance.ts
+  // Vendas vêm da RPC get_ticket_office_sales (somadas na BD), nunca do cliente.
   const auditData = useMemo(() => {
-    const salesWithEvent = allSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+    const salesWithEvent = rpcSales as any[];
 
     return offices.map((office: any) => {
       const officeAssignments = assignments.filter(
@@ -326,7 +327,7 @@ export default function ReportTicketOfficeAudit() {
       };
 
     });
-  }, [offices, assignments, allSales, accountTxns, allAdvances, zoneEventMap]);
+  }, [offices, assignments, rpcSales, accountTxns, allAdvances]);
 
 
   // Build analytical lines per office
