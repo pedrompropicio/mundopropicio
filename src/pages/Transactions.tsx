@@ -1768,7 +1768,8 @@ export default function Transactions() {
         if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
         if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
         if (onlyAdmin) chips.push({ key: "admin", label: "Apenas Adm/Financeiras", onRemove: () => setOnlyAdmin(false) });
-        if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
+         if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
+        if (onlyExcludedFromResult) chips.push({ key: "excl-result", label: "Fora do Resultado", onRemove: () => setOnlyExcludedFromResult(false) });
         if (chips.length === 0) return null;
         return (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -1791,6 +1792,7 @@ export default function Transactions() {
                 setOnlyNoDueDate(false);
                 setOnlyGrouped(false);
                 setShowHidden(false);
+                setOnlyExcludedFromResult(false);
               }}
               className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
             >
