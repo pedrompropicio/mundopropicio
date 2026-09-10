@@ -24,6 +24,9 @@ Recebe por props `operationalForecasts`, `expenseTx` e `basis` — **não faz qu
 o cálculo**. As únicas queries são: rubricas em falta (`account_categories`, só os
 `category_id` que não vêm nas transações), o último reconhecimento e o nome de quem o fez.
 
+A badge do cabeçalho mostra SÓ o critério de IVA (`Despesas c/IVA` | `s/IVA`) — o painel
+compara sempre previsto contra realizado, não segue `basis.expenseSource` nem o overhead.
+
 Texto fixo, literal: *"Lista de revisão, não de erro. Faturas de um evento podem chegar
 depois de ele acontecer — o valor que deve ficar em cada linha é decisão de gestão."*
 
