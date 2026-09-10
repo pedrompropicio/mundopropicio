@@ -1146,6 +1146,23 @@ export default function BankReconciliation() {
 
 
 
+      {/* Lançar a partir da linha do banco — sempre com confirmação humana */}
+      {launchLines && account && (
+        <BankLineLaunchModal
+          lines={launchLines}
+          accountId={account.id}
+          accountName={account.name}
+          rules={rules as BankLineRule[]}
+          onClose={() => setLaunchLines(null)}
+          onDone={() => {
+            setLaunchLines(null);
+            setSelectedIds([]);
+            queryClient.invalidateQueries({ queryKey: ["bank-recon-lines"] });
+            queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
+          }}
+        />
+      )}
+
       {/* Conciliação manual */}
       <Dialog open={!!manualLine} onOpenChange={(o) => !o && setManualLine(null)}>
         <DialogContent>
