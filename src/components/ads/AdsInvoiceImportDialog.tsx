@@ -47,6 +47,21 @@ interface DryRunResult {
 
 const platformLabels: Record<Platform, string> = { meta: "Meta", google: "Google" };
 
+/**
+ * Num non-2xx o `data` vem null e a mensagem do erro é genérica: o corpo real
+ * está em `error.context`, que é um Response. Mesmo padrão do callApply.
+ */
+async function fnErrorMessage(error: unknown): Promise<string> {
+  const anyErr = error as any;
+  const ctx = anyErr?.context;
+  let payload: any = null;
+  try { payload = await ctx?.json?.(); } catch { /* sem corpo JSON */ }
+  if (payload?.error) return String(payload.error);
+  const status = ctx?.status;
+  if (status) return `${anyErr?.message ?? "erro da função"} (HTTP ${status})`;
+  return anyErr?.message ?? String(error);
+}
+
 function periodLabel(period: string | null | undefined): string {
   if (!period) return "—";
   const [y, m] = period.split("-");
@@ -92,7 +107,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
       const { data, error: fnErr } = await supabase.functions.invoke("ads-invoice-ingest", {
         body: { action, file_path: path, company_id: companyId, dry_run: true },
       });
-      if (fnErr) throw new Error(fnErr.message);
+      if (fnErr) throw new Error(await fnErrorMessage(fnErr));
       if ((data as any)?.error) throw new Error(String((data as any).error));
       setPreview(data as DryRunResult);
     } catch (e: any) {
@@ -111,7 +126,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
       const { data, error: fnErr } = await supabase.functions.invoke("ads-invoice-ingest", {
         body: { action, file_path: filePath, company_id: companyId },
       });
-      if (fnErr) throw new Error(fnErr.message);
+      if (fnErr) throw new Error(await fnErrorMessage(fnErr));
       if ((data as any)?.error) throw new Error(String((data as any).error));
       await qc.invalidateQueries({ queryKey: ["ads-invoices"] });
       await qc.invalidateQueries({ queryKey: ["ads-invoice-lines"] });
