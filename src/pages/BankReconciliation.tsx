@@ -615,17 +615,21 @@ export default function BankReconciliation() {
           l.status === "unmatched" ||
           (l.status === "matched" && String(l.matched_by ?? "").startsWith("auto:")),
       );
-      // Tudo o que foi ligado à mão continua consumido.
+      // Tudo o que está preso por uma linha fora desta passagem continua consumido
+      // (manuais, ignoradas, pré-corte e as que originaram transação via "created:").
+      const inPass = new Set(lines.map((l) => l.id));
       const preUsed = new Set<string>();
       (savedLines as any[]).forEach((l) => {
-        if (l.status !== "matched" || !String(l.matched_by ?? "").startsWith("manual:")) return;
+        if (inPass.has(l.id)) return;
         if (l.matched_transaction_id) preUsed.add(l.matched_transaction_id);
+        if (l.created_transaction_id) preUsed.add(l.created_transaction_id);
         if (l.matched_sepa_export_id) {
           (sepaSiblings.get(l.matched_sepa_export_id) ?? []).forEach((e) =>
             (e.transaction_ids ?? []).forEach((id) => preUsed.add(id)),
           );
         }
       });
+
 
       const result = reconcileStatement(
         lines.map((l) => ({
