@@ -777,3 +777,28 @@ Decisão:
 Consequência conhecida e aceite: **nada no sistema obriga o ponto 4**. `event_close_blockers` não testa verba por usar (os blockers `hard` são sessões de camarim por integrar e sessões de cartões abertas; o `soft` são despesas pendentes) e `raise_forecast_budget` só sobe linhas, nunca desce. Não é automatizável: como faturas de um evento chegam depois de ele acontecer, `realizado < previsto` não distingue verba a mais de fatura por chegar. Por isso a resposta é o painel "Verba por usar" no Fecho — mostra e regista a revisão, não julga.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP33 — Uma transação pode explicar várias linhas do extrato — mas só quando nasce de um lançamento (10/09/2026)
+
+**Uma transação pode explicar várias linhas do extrato — mas só quando nasce de um lançamento**
+
+O índice `uq_bank_line_matched_txn` em `bank_statement_lines` impunha uma transação por linha. Foi criado por uma razão certa: impedir que uma transação seja usada para explicar uma linha que já estava explicada por outra via — o caso real da transação "Influencers" a casar com uma transferência já coberta por um lote SEPA, escondendo-a.
+
+Só que o botão "Lançar pela soma" cria, por desenho, **uma** transação a partir de N linhas selecionadas. O índice apanhava também esse caso legítimo. Consequência medida a 10/09: em toda a vida do ecrã só houve dois lançamentos a partir do banco, **ambos de uma linha só** — o lançamento pela soma com várias linhas nunca tinha funcionado, e falhava com `duplicate key value violates unique constraint "uq_bank_line_matched_txn"`.
+
+Decisão: o índice passa a parcial.
+
+```sql
+CREATE UNIQUE INDEX uq_bank_line_matched_txn
+ON public.bank_statement_lines (matched_transaction_id)
+WHERE matched_transaction_id IS NOT NULL
+  AND created_transaction_id IS NULL;
+```
+
+A garantia de um-para-um mantém-se onde protege — nas linhas conciliadas pelas camadas automáticas, que é onde nasce o erro de uma transação roubar a linha de outra. Cai nas linhas que nasceram de um lançamento humano, onde a relação de N para um é a intenção.
+
+Consequência conhecida: o modal de lançamento insere a transação e só depois liga as linhas, sem rollback. Uma falha no segundo passo deixa transação órfã no banco — foi o que aconteceu a 10/09 com a liquidação TPA ZigPay, corrigida por UPDATE manual. Fica em issue própria.
+
+**Estado:** vigente.
