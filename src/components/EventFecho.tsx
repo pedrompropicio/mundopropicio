@@ -23,6 +23,7 @@ import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
+import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
 
 
 interface Props {
