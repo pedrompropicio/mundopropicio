@@ -403,7 +403,11 @@ async function handleGenerate(body: any, userId?: string) {
 
   const spec = `ref. ${periodLabel(inv.billing_period)}`;
   const txDate = inv.issue_date ?? new Date().toISOString().slice(0, 10);
-  const dueDate = addDays(txDate, PAYMENT_TERMS_DAYS);
+  // Meta: NET 60 por transferência. Google: débito direto ao atingir o limiar
+  // de 500 €, sem prazo — vence na data de emissão. Em ambas o estado fica
+  // "approved"; quem liquida é a conciliação bancária.
+  const isGoogle = inv.platform === "google";
+  const dueDate = isGoogle ? txDate : addDays(txDate, PAYMENT_TERMS_DAYS);
   const base = {
     type: "expense",
     category_id: CATEGORY_DIGITAL,
@@ -412,7 +416,7 @@ async function handleGenerate(body: any, userId?: string) {
     iva_rate: 0,
     status: "approved",
     supplier_id: supplierId,
-    payment_method: "transfer",
+    payment_method: isGoogle ? "direct_debit" : "transfer",
     date: txDate,
     due_date: dueDate,
     company_id: inv.company_id,
