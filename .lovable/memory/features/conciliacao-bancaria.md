@@ -163,11 +163,20 @@ depois de as três camadas falharem.
 - **Aprender:** sem regra a casar, propõe-se guardar uma, com o padrão sugerido
   a partir da descrição normalizada sem a parte variável (número/código de
   referência no fim). Separador **Regras** no ecrã lista, ativa/desativa e apaga.
+- **Transitória (a repassar):** caixa marcável nas ações despesa/receita. Cria a
+  transação com `is_transitory = true` — move o saldo da conta mas não é receita
+  nem custo (dinheiro de terceiros que passa e vai ser repassado). Com ela ligada
+  a **rubrica é opcional** (`transactions.category_id` é nullable) e **não se
+  guarda regra**: `bank_line_rules` não tem coluna para o flag, e uma regra que o
+  perdesse em silêncio seria pior do que não existir.
 - **Google Ads (D-ERP30):** débito por limiar não é custo. A ação
   `create_transfer` gera o PAR de transações da rubrica 10.3, como o
-  `TransferFormModal` — saída da conta do extrato, entrada em "Google Ads —
-  conta corrente" (`other`). O custo por evento vem da camada de faturas de
-  plataformas; lançar como despesa contaria duas vezes.
+  `TransferFormModal` — no débito, saída da conta do extrato e entrada em
+  "Google Ads — conta corrente" (`other`). A **direção segue o sinal do
+  movimento**: numa linha de crédito é o inverso — receita na conta do extrato
+  (o dinheiro entrou lá) e despesa na conta indicada. A transação da conta do
+  extrato é sempre a primária ligada à linha. O custo por evento vem da camada de
+  faturas de plataformas; lançar como despesa contaria duas vezes.
 - **Taxas bancárias:** comissão de gestão, imposto de selo e os selos/comissões
   dos lotes SEPA vão para 10.6.01, sem evento.
 

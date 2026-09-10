@@ -95,6 +95,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const [description, setDescription] = useState("");
   const [note, setNote] = useState("");
   const [targetAccountId, setTargetAccountId] = useState("");
+  /** Dinheiro de terceiros que só passa pela conta: move saldo, não é resultado. */
+  const [isTransitory, setIsTransitory] = useState(false);
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
@@ -110,6 +112,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     setDescription((rule?.description_template ?? "").trim() || bankDescription);
     setTargetAccountId(rule?.target_account_id ?? "");
     setSaveRule(!rule);
+    setIsTransitory(false);
     setRulePattern(suggestPattern(lines[0]?.description ?? ""));
     setRuleName(suggestPattern(lines[0]?.description ?? "").slice(0, 60));
   }, [rule, total, bankDescription, lines]);
@@ -172,10 +175,14 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
 
   const isTransfer = action === "create_transfer";
   const base = Math.round((gross / (1 + ivaRate / 100)) * 100) / 100;
+  /** A transitória dispensa rubrica e nunca gera regra (a tabela não guarda o flag). */
+  const transitory = !isTransfer && isTransitory;
+  /** Direção do par: numa linha de crédito o dinheiro ENTROU na conta do extrato. */
+  const transferIncoming = total > 0;
 
   async function confirm() {
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
-    if (!isTransfer && !categoryId) return toast.error("Escolhe a rubrica.");
+    if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
     if (gross <= 0) return toast.error("O movimento do banco não tem valor.");
 
@@ -194,7 +201,11 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
         if (!cat) throw new Error("Rubrica 10.3 (Transferências Internas) não encontrada.");
 
         const target = (accounts as any[]).find((a) => a.id === targetAccountId);
-        const label = `${description.trim()} (${accountName} → ${target?.name ?? "destino"})`;
+        // A direção segue o SINAL do movimento: crédito = dinheiro entrou na conta
+        // do extrato, logo a receita é aqui e a despesa é na conta de destino.
+        const fromName = transferIncoming ? (target?.name ?? "origem") : accountName;
+        const toName = transferIncoming ? accountName : (target?.name ?? "destino");
+        const label = `${description.trim()} (${fromName} → ${toName})`;
         const common = {
           amount: gross,
           iva_rate: 0,
@@ -205,19 +216,30 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
           payment_date: paymentDate,
           specification: note.trim() || null,
         };
-        const { data: out, error: e1 } = await supabase
+        // A transação da conta do extrato é sempre a primária (é a linha do banco).
+        const { data: onStatement, error: e1 } = await supabase
           .from("transactions")
-          .insert({ ...common, description: label, type: "expense", account_id: accountId } as any)
+          .insert({
+            ...common,
+            description: label,
+            type: transferIncoming ? "income" : "expense",
+            account_id: accountId,
+          } as any)
           .select("id")
           .single();
         if (e1) throw e1;
         const { error: e2 } = await supabase
           .from("transactions")
-          .insert({ ...common, description: label, type: "income", account_id: targetAccountId } as any)
+          .insert({
+            ...common,
+            description: label,
+            type: transferIncoming ? "expense" : "income",
+            account_id: targetAccountId,
+          } as any)
           .select("id")
           .single();
         if (e2) throw e2;
-        primaryTxId = out.id;
+        primaryTxId = onStatement.id;
       } else {
         const { data: tx, error } = await supabase
           .from("transactions")
@@ -227,7 +249,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             // `amount` é sempre o valor LÍQUIDO (Core rule); o banco moveu o bruto.
             amount: base,
             iva_rate: ivaRate,
-            category_id: categoryId,
+            category_id: transitory ? (categoryId || null) : categoryId,
+            is_transitory: transitory,
             supplier_id: supplierId || null,
             event_id: eventId || null,
             account_id: accountId,
@@ -258,15 +281,17 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
         .in("id", lines.map((l) => l.id));
       if (eLines) throw eLines;
 
-      // Aprender: guardar a regra para a próxima vez.
-      if (saveRule && rulePattern.trim() && !isTransferMissingTarget()) {
+      // Aprender: guardar a regra para a próxima vez. Nunca em transitórias —
+      // `bank_line_rules` não tem coluna para o flag e perdê-lo em silêncio
+      // seria pior do que não haver regra.
+      if (saveRule && !transitory && rulePattern.trim() && !isTransferMissingTarget()) {
         const { error: eRule } = await supabase.from("bank_line_rules").insert({
           name: ruleName.trim() || rulePattern.trim().slice(0, 60),
           pattern: rulePattern.trim(),
           match_type: "contains",
           direction: total < 0 ? "debit" : "credit",
           supplier_id: supplierId || null,
-          category_id: isTransfer ? null : categoryId,
+          category_id: isTransfer ? null : (categoryId || null),
           event_id: eventId || null,
           iva_rate: isTransfer ? 0 : ivaRate,
           description_template: description.trim(),
@@ -357,17 +382,19 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                   placeholder="Escolher conta…"
                 />
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Cria o par: saída de {accountName}, entrada na conta de destino, rubrica 10.3.
+                  {transferIncoming
+                    ? `Cria o par: entrada em ${accountName}, saída da conta de origem, rubrica 10.3.`
+                    : `Cria o par: saída de ${accountName}, entrada na conta de destino, rubrica 10.3.`}
                 </p>
               </div>
             ) : (
               <div>
-                <Label>Rubrica</Label>
+                <Label>Rubrica{transitory ? " (opcional)" : ""}</Label>
                 <SearchableSelect
                   options={categoryOptions}
                   value={categoryId}
                   onValueChange={setCategoryId}
-                  placeholder="Escolher rubrica…"
+                  placeholder={transitory ? "Sem rubrica" : "Escolher rubrica…"}
                 />
               </div>
             )}
@@ -420,6 +447,29 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
           </div>
 
+          {!isTransfer && (
+            <div className="rounded-lg border border-border p-3">
+              <label className="flex items-start gap-2">
+                <Checkbox
+                  checked={isTransitory}
+                  onCheckedChange={(v) => {
+                    const on = !!v;
+                    setIsTransitory(on);
+                    if (on) setSaveRule(false);
+                  }}
+                />
+                <span className="text-xs">
+                  Transitória (a repassar) — não entra no resultado
+                </span>
+              </label>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Move o saldo da conta, mas não é receita nem custo. Para dinheiro de terceiros que
+                passa pela conta e vai ser repassado.
+              </p>
+            </div>
+          )}
+
+          {!transitory && (
           <div className="rounded-lg border border-border p-3">
             <label className="flex items-start gap-2">
               <Checkbox checked={saveRule} onCheckedChange={(v) => setSaveRule(!!v)} />
@@ -443,6 +493,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
               </div>
             )}
           </div>
+          )}
 
           <p className="text-xs text-muted-foreground">
             Cria a transação já paga na conta {accountName}, com data de pagamento {formatDatePT(paymentDate)}.
