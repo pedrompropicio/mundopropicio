@@ -139,9 +139,7 @@ export default function TicketOffices() {
       if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = [];
       officeEventMap[a.financial_account_id].push(a.event_id);
     });
-    const zoneEventMap: Record<string, string> = {};
-    allZones.forEach((z: any) => { zoneEventMap[z.id] = z.event_id; });
-    const salesWithEvent = officeSales.map((s: any) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
+    const salesWithEvent = officeSales as any[];
 
     const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
