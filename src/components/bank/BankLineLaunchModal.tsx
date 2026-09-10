@@ -95,6 +95,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const [description, setDescription] = useState("");
   const [note, setNote] = useState("");
   const [targetAccountId, setTargetAccountId] = useState("");
+  /** Dinheiro de terceiros que só passa pela conta: move saldo, não é resultado. */
+  const [isTransitory, setIsTransitory] = useState(false);
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
