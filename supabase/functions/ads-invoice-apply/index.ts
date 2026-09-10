@@ -448,7 +448,7 @@ async function handleGenerate(body: any, userId?: string) {
     total === 0 ? null : Math.round((subtotal / total) * 100 * 10000) / 10000;
 
   // ---- trava anti-duplicação: nunca gerar por cima de lançamentos existentes
-  const existing = await findExistingTransactions(inv);
+  const existing = await findExistingTransactions(inv, supplierId);
   if (existing.length > 0) {
     return json({
       error:
