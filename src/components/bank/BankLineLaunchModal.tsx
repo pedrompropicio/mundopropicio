@@ -281,15 +281,17 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
         .in("id", lines.map((l) => l.id));
       if (eLines) throw eLines;
 
-      // Aprender: guardar a regra para a próxima vez.
-      if (saveRule && rulePattern.trim() && !isTransferMissingTarget()) {
+      // Aprender: guardar a regra para a próxima vez. Nunca em transitórias —
+      // `bank_line_rules` não tem coluna para o flag e perdê-lo em silêncio
+      // seria pior do que não haver regra.
+      if (saveRule && !transitory && rulePattern.trim() && !isTransferMissingTarget()) {
         const { error: eRule } = await supabase.from("bank_line_rules").insert({
           name: ruleName.trim() || rulePattern.trim().slice(0, 60),
           pattern: rulePattern.trim(),
           match_type: "contains",
           direction: total < 0 ? "debit" : "credit",
           supplier_id: supplierId || null,
-          category_id: isTransfer ? null : categoryId,
+          category_id: isTransfer ? null : (categoryId || null),
           event_id: eventId || null,
           iva_rate: isTransfer ? 0 : ivaRate,
           description_template: description.trim(),
