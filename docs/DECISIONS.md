@@ -709,3 +709,31 @@ Decisão — **a retenção na fonte é explicação, não divergência (09/09/2
 Decisão — **voltar a conciliar não obriga a reimportar (09/09/2026).** Uma ação no ecrã corre outra vez as camadas sobre as linhas já importadas, sem apagar nada: só toca nas `unmatched` e nas casadas automaticamente (`auto:`), preserva as conciliações manuais — cujas transações continuam consumidas — as ignoradas e as anteriores ao corte.
 
 Nada foi reimplementado: o lote SEPA usa o histórico `payment_list_sepa_exports` e o saldo vem sempre de `computeAccountBalance`. A semelhança usa `src/lib/string-similarity.ts`, casa única **no frontend** — a edge function `generate-historical-transactions` mantém cópia própria, com normalização diferente, e não foi unificada; quem mexer numa tem de ir ver a outra. A permissão `manage_bank_reconciliation` é atribuível no ecrã de Utilizadores e é ela (além de admin/gestor) que as policies de escrita testam. Todas as consultas do ecrã paginam: o PostgREST corta em 1000 linhas em silêncio e sem paginar a lista inversa enche-se de falsos positivos. O lançamento automático das linhas sem contrapartida é lote seguinte e não foi feito.
+
+**Estado:** vigente.
+
+## D-ERP29 — A linha do banco pode dar origem a um lançamento, sempre com confirmação humana (09/09/2026)
+
+Contexto: das 57 linhas do primeiro extrato do Santander Totta, 36 ficaram por explicar (26.084,80 €) e nenhuma tinha transação no sistema — 33 não tinham sequer candidata em conta nenhuma. Conciliar não bastava: o lançamento faltava de facto.
+
+Decisão — **a linha por explicar pode gerar a transação, mas só depois de as camadas de conciliação falharem (D-ERP28) e SEMPRE com confirmação humana.** Nada é criado automaticamente, nem quando uma regra casa: a regra PROPÕE o preenchimento (fornecedor, rubrica, IVA, evento, descrição, ação) e a pessoa CONFIRMA. As regras vivem em `public.bank_line_rules` (padrão de texto sobre a descrição normalizada, `contains` / `starts_with` / `regex`, direção, faixa de valor, ação `create_expense` / `create_income` / `create_transfer`), com a RLS do módulo financeiro e contador de utilizações.
+
+Decisão — **o valor e a data vêm do banco e não se editam.** A transação nasce `paid`, na conta do extrato, com `payment_date` igual à data-valor e `paid_amount` igual ao valor bruto do movimento; `amount` é o líquido, como em todo o sistema. A linha fica ligada por `created_transaction_id` e conciliada (`matched_by = created:<email>`).
+
+Decisão — **várias linhas podem dar UM lançamento pela soma.** As dezasseis linhas `EST-0002TPA-...` de 07/09 somam 27.241,87 € e são liquidações do terminal do bar do Ivete Clareou: lançam-se como uma receita em 1.1.03 F&B, com nota a dizer que a repartição bar/alimentação e as taxas do adquirente ficam por apurar no fecho do A&B. O valor lançado é o líquido que entrou no banco — a taxa não se inventa. Todas as linhas selecionadas ficam ligadas à mesma transação.
+
+Decisão — **a regra aprende-se depois do primeiro lançamento à mão.** O padrão vem pré-preenchido a partir da descrição normalizada, sem a parte variável (o número ou o código de referência no fim), e a pessoa ajusta antes de gravar. As taxas bancárias — comissão de gestão 15,80 €, imposto de selo 0,63 €, e as comissões e impostos de selo dos lotes SEPA — vão para 10.6.01 Taxas e Encargos Bancários, sem evento: é o caso mais simples e o melhor para validar as regras.
+
+Nada foi reimplementado: a transferência usa o mesmo mecanismo do par do `TransferFormModal` (rubrica 10.3, saída e entrada) e as camadas de conciliação ficaram intocadas. Liquidação, listas de pagamento e Recorrentes não são tocados.
+
+**Estado:** vigente.
+
+## D-ERP30 — O débito por limiar do Google Ads é entrega de dinheiro, não custo (09/09/2026)
+
+Contexto: os débitos diretos "Google Ireland L" de setembro (500, 500, 500 e 76,29 €) são cobranças por limiar: o Google debita quando o consumo acumulado atinge 500 €. Nunca correspondem a um mês nem a um evento.
+
+Decisão — **estes débitos não são despesa de evento.** O custo de ads por evento vem de outro circuito, a camada de faturas de plataformas; lançá-los como despesa contaria o custo duas vezes. Trata-se cada débito como entrega de dinheiro ao Google: a regra gera o **par de transferência** — saída do Santander, entrada na conta financeira "Google Ads — conta corrente" (tipo `other`) — com a rubrica 10.3 Transferências Internas, pelo mecanismo já existente. O saldo dessa conta passa a ser o crédito que está no Google por consumir.
+
+A geração das despesas por evento a partir das faturas de ads é outra frente e não foi construída.
+
+**Estado:** vigente.
