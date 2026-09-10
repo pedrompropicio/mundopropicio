@@ -20,6 +20,8 @@ Espelho do "excesso por rubrica" (D2 / `event-cost-basis.md`), do outro lado do 
 ## Painel — `src/components/fecho/BpUnusedBudgetPanel.tsx`
 
 Renderizado em `EventFecho` logo depois da "Síntese Operacional (sem overhead)".
+O painel **não renderiza** quando `event_budget_mode(event_id) = 'without_bp'` (nem enquanto
+essa RPC está a carregar) — eventos sem BP não têm verba por usar.
 Recebe por props `operationalForecasts`, `expenseTx` e `basis` — **não faz queries para
 o cálculo**. As únicas queries são: rubricas em falta (`account_categories`, só os
 `category_id` que não vêm nas transações), o último reconhecimento e o nome de quem o fez.

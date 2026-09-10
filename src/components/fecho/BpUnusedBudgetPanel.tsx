@@ -34,6 +34,17 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
 
   const canManageBp = hasPermission("manage_bp");
 
+  // Eventos sem BP: painel não se aplica.
+  const { data: budgetMode, isLoading: loadingMode } = useQuery({
+    queryKey: ["event-budget-mode", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("event_budget_mode", { _event_id: eventId });
+      if (error) throw error;
+      return (data as string | null) ?? "with_bp";
+    },
+  });
+  const hasBp = budgetMode !== "without_bp";
+
   // Vista (respeita o seletor) e registo (SEMPRE s/IVA).
   const rowsView = useMemo(
     () => computeUnusedBudget(operationalForecasts, expenseTx, basis.withVat),
@@ -64,7 +75,7 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
 
   const { data: fetchedCats = [] } = useQuery({
     queryKey: ["bp-unused-categories", missingIds.slice().sort().join(",")],
-    enabled: missingIds.length > 0,
+    enabled: hasBp && missingIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("account_categories")
@@ -84,6 +95,7 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
 
   const { data: ack } = useQuery({
     queryKey: ["bp-review-ack", eventId],
+    enabled: hasBp,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_bp_review_acks")
@@ -134,6 +146,9 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
       setSaving(false);
     }
   }
+
+  // Sem BP (ou ainda a resolver o modo): não renderiza.
+  if (loadingMode || !hasBp) return null;
 
   return (
     <div className="glass rounded-xl overflow-hidden">
