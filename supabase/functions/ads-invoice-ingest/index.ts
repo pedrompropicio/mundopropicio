@@ -359,17 +359,10 @@ async function handleParseGoogle(body: Record<string, any>) {
   if (!h.invoiceNumber || !h.billingPeriod || h.totalAmount === null) {
     return json({ error: "cabeçalho incompleto", header: h, warnings: parsed.warnings, debug: parsed.debug }, 422);
   }
-  if (Math.abs(h.totalAmount - parsed.linesSum) >= 0.005) {
-    return json({
-      error:
-        `a soma das linhas (${parsed.linesSum}) não reconcilia com o total da fatura ` +
-        `(${h.totalAmount}). Nada foi gravado.`,
-      header: h,
-      warnings: parsed.warnings,
-      debug: parsed.debug,
-    }, 422);
-  }
+  const reconcilia = Math.abs(h.totalAmount - parsed.linesSum) < 0.005;
 
+  // Alinhado com o parse_meta: o dry-run devolve sempre 200 com o diagnóstico,
+  // para a pré-visualização poder mostrar "não reconcilia" e deixar decidir.
   if (body.dry_run === true) {
     return json({
       version: VERSION,
@@ -382,11 +375,24 @@ async function handleParseGoogle(body: Record<string, any>) {
       period_end: h.periodEnd,
       total_amount: h.totalAmount,
       lines_sum: parsed.linesSum,
-      reconcilia: true,
+      reconcilia,
       linhas: parsed.lines.length,
       warnings: parsed.warnings,
     });
   }
+
+  // Na gravação real a guarda mantém-se.
+  if (!reconcilia) {
+    return json({
+      error:
+        `a soma das linhas (${parsed.linesSum}) não reconcilia com o total da fatura ` +
+        `(${h.totalAmount}). Nada foi gravado.`,
+      header: h,
+      warnings: parsed.warnings,
+      debug: parsed.debug,
+    }, 422);
+  }
+
 
   // Resolve eventos para a mídia e para os ajustes que nomeiam a campanha de
   // origem ("Atividade inválida") — estes descem inteiros a esse evento.
