@@ -493,6 +493,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
               </div>
             )}
           </div>
+          )}
 
           <p className="text-xs text-muted-foreground">
             Cria a transação já paga na conta {accountName}, com data de pagamento {formatDatePT(paymentDate)}.
