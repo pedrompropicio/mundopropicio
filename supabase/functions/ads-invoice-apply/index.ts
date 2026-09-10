@@ -180,7 +180,13 @@ async function handleConfirm(body: any, userId?: string) {
 
 // ------------------------------------------------------- comprovativo por evento
 
-function buildEventProof(inv: any, eventName: string, eventLines: any[], subtotal: number): Uint8Array {
+function buildEventProof(
+  inv: any,
+  eventName: string,
+  eventLines: any[],
+  subtotal: number,
+  proratedShare = 0,
+): Uint8Array {
   const ops: PdfOp[] = [];
   let y = 60;
   const push = (text: string, size = 9, bold = false, x = 50) => {
@@ -230,6 +236,19 @@ function buildEventProof(inv: any, eventName: string, eventLines: any[], subtota
     y += chunks.length * 11 + 4;
   }
 
+  if (proratedShare !== 0) {
+    push("—", 8.5, false, 50);
+    ops.push({
+      kind: "text",
+      x: 80,
+      y,
+      size: 8.5,
+      text: "Parte dos ajustes da fatura sem campanha identificada, rateada pela mídia do evento",
+    });
+    ops.push({ kind: "text", x: 545, y, size: 8.5, text: fmtEur(proratedShare), align: "right" });
+    y += 15;
+  }
+
   y += 4;
   ops.push({ kind: "line", x1: 50, y1: y, x2: 545, y2: y });
   y += 16;
@@ -262,30 +281,91 @@ async function handleGenerate(body: any, userId?: string) {
   const problem = checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
 
+  // ---- rateio dos ajustes (D-ERP31)
+  // 1. ajuste que identifica a campanha de origem desce inteiro a esse evento;
+  // 2. ajuste anónimo (cupões, créditos promocionais, taxas) é rateado à
+  //    proporção da mídia de cada evento na mesma fatura;
+  // 3. os ajustes não geram filhas próprias — somam-se às filhas existentes,
+  //    e o cêntimo do arredondamento cai na filha de maior valor;
+  // 4. a soma das filhas passa a ser exatamente o total da fatura (líquido do
+  //    que foi marcado como fora do sistema).
   const byEvent = new Map<string, any[]>();
+  const mediaByEvent = new Map<string, number>();
+  const directAdjByEvent = new Map<string, number>();
+  let unassignedAdj = 0;
   let adjustments = 0;
   let outOfScope = 0;
   let outOfScopeLines = 0;
+
+  const pushLine = (eventId: string, line: any) => {
+    if (!byEvent.has(eventId)) byEvent.set(eventId, []);
+    byEvent.get(eventId)!.push(line);
+  };
+
   for (const l of lines) {
-    if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
-    if (l.match_source === "fora_sistema") { outOfScope += Number(l.amount); outOfScopeLines++; continue; }
-    if (!byEvent.has(l.event_id)) byEvent.set(l.event_id, []);
-    byEvent.get(l.event_id)!.push(l);
+    const amount = Number(l.amount);
+    if (l.is_adjustment) {
+      adjustments += amount;
+      if (l.event_id) {
+        directAdjByEvent.set(l.event_id, round2((directAdjByEvent.get(l.event_id) ?? 0) + amount));
+        pushLine(l.event_id, l);
+      } else {
+        unassignedAdj += amount;
+      }
+      continue;
+    }
+    if (l.match_source === "fora_sistema") { outOfScope += amount; outOfScopeLines++; continue; }
+    mediaByEvent.set(l.event_id, round2((mediaByEvent.get(l.event_id) ?? 0) + amount));
+    pushLine(l.event_id, l);
   }
   adjustments = round2(adjustments);
   outOfScope = round2(outOfScope);
+  unassignedAdj = round2(unassignedAdj);
 
-  const subtotals = new Map<string, number>();
-  for (const [eventId, evLines] of byEvent) {
-    subtotals.set(eventId, round2(evLines.reduce((a, l) => a + Number(l.amount), 0)));
-  }
-  const childrenSum = round2(Array.from(subtotals.values()).reduce((a, v) => a + v, 0));
   const total = Number(inv.total_amount);
-  if (Math.abs(round2(childrenSum + adjustments + outOfScope) - total) >= 0.005) {
+  const mediaBase = round2(Array.from(mediaByEvent.values()).reduce((a, v) => a + v, 0));
+  if (unassignedAdj !== 0 && (byEvent.size === 0 || mediaBase === 0)) {
     return json({
       error:
-        `filhas (${childrenSum}) + ajustes (${adjustments}) + fora do sistema (${outOfScope}) ` +
-        `≠ total da fatura (${total})`,
+        `há ${fmtEur(unassignedAdj)} de ajustes sem evento e não existe mídia com evento ` +
+        `atribuído para os ratear. Atribui eventos às linhas de mídia antes de gerar.`,
+    }, 400);
+  }
+
+  // rateio proporcional à mídia, com o cêntimo residual na filha maior
+  const prorated = new Map<string, number>();
+  if (unassignedAdj !== 0) {
+    const eventIdsByMedia = Array.from(mediaByEvent.entries()).sort((a, b) => b[1] - a[1]);
+    let assigned = 0;
+    for (const [eventId, media] of eventIdsByMedia) {
+      const share = round2((unassignedAdj * media) / mediaBase);
+      prorated.set(eventId, share);
+      assigned = round2(assigned + share);
+    }
+    const residual = round2(unassignedAdj - assigned);
+    if (residual !== 0 && eventIdsByMedia.length > 0) {
+      const biggest = eventIdsByMedia[0][0];
+      prorated.set(biggest, round2((prorated.get(biggest) ?? 0) + residual));
+    }
+  }
+
+  const subtotals = new Map<string, number>();
+  for (const eventId of byEvent.keys()) {
+    subtotals.set(
+      eventId,
+      round2(
+        (mediaByEvent.get(eventId) ?? 0) +
+          (directAdjByEvent.get(eventId) ?? 0) +
+          (prorated.get(eventId) ?? 0),
+      ),
+    );
+  }
+  const childrenSum = round2(Array.from(subtotals.values()).reduce((a, v) => a + v, 0));
+  if (Math.abs(round2(childrenSum + outOfScope) - total) >= 0.005) {
+    return json({
+      error:
+        `a soma das filhas (${fmtEur(childrenSum)}) mais o que está fora do sistema ` +
+        `(${fmtEur(outOfScope)}) não dá o total da fatura (${fmtEur(total)}). Geração recusada.`,
     }, 400);
   }
 
@@ -392,6 +472,9 @@ async function handleGenerate(body: any, userId?: string) {
         event: eventName(eventId),
         event_id: eventId,
         amount: subtotals.get(eventId)!,
+        media: mediaByEvent.get(eventId) ?? 0,
+        ajuste_direto: directAdjByEvent.get(eventId) ?? 0,
+        ajuste_rateado: prorated.get(eventId) ?? 0,
         split_percentage: splitPct(subtotals.get(eventId)!),
         split_mode: "percentage",
         date: txDate,
@@ -399,6 +482,14 @@ async function handleGenerate(body: any, userId?: string) {
         forecast_id: pickForecast(eventId),
       })),
       adjustments,
+      adjustments_detail: {
+        total: adjustments,
+        direto_por_evento: Object.fromEntries(
+          Array.from(directAdjByEvent.entries()).map(([k, v]) => [eventName(k), v]),
+        ),
+        sem_evento_rateado: unassignedAdj,
+        base_de_rateio_media: mediaBase,
+      },
       children_sum: childrenSum,
       out_of_scope: { amount: outOfScope, lines: outOfScopeLines },
       total,
@@ -439,7 +530,7 @@ async function handleGenerate(body: any, userId?: string) {
     if (ce) return json({ error: `filha ${eventName(eventId)}: ${ce.message}` }, 500);
 
     // comprovativo de veiculação — só as linhas DESTE evento
-    const pdf = buildEventProof(inv, eventName(eventId), evLines, subtotal);
+    const pdf = buildEventProof(inv, eventName(eventId), evLines, subtotal, prorated.get(eventId) ?? 0);
     const path = `${inv.company_id}/ads-invoices/${inv.id}/comprovativo-${eventId}.pdf`;
     const { error: se } = await admin.storage.from(DOC_BUCKET).upload(path, pdf, {
       contentType: "application/pdf",
@@ -457,12 +548,12 @@ async function handleGenerate(body: any, userId?: string) {
     });
     if (de) return json({ error: `documento comprovativo: ${de.message}` }, 500);
 
+    // liga as linhas deste evento — mídia e ajustes com campanha identificada
     await admin
       .from("ads_invoice_line")
       .update({ transaction_id: child.id })
       .eq("invoice_id", inv.id)
-      .eq("event_id", eventId)
-      .eq("is_adjustment", false);
+      .eq("event_id", eventId);
 
     created.push({ role: "filha", id: child.id, event: eventName(eventId), amount: subtotal, forecast_id: child.forecast_id });
   }
