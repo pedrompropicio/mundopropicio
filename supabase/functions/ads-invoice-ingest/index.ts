@@ -5,15 +5,21 @@
 //   action 'parse_meta'     — lê um PDF do bucket ads-invoices (ou base64),
 //                             extrai cabeçalho + linhas de detalhe e propõe
 //                             o rateio por evento via crm.meta_campaign_snapshot.
-//   action 'propose_google' — constrói as linhas a partir do espelho
-//                             crm.google_campaign_insights_daily (sem PDF).
+//   action 'parse_google'   — idem para o PDF do Google Ads: detalhe por
+//                             campanha, ajustes de atividade inválida, créditos
+//                             promocionais e taxas regulatórias.
+//   action 'propose_google' — LEGADO: constrói as linhas a partir do espelho
+//                             crm.google_campaign_insights_daily (sem PDF). O
+//                             espelho não reporta créditos promocionais, por
+//                             isso subestima/sobrestima a fatura real.
 //
 // Import de supabase-js SEMPRE npm: (nunca esm.sh) — ver
 // .lovable/memory/constraints/edge-fn-esm-sh-supabase-js.md
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseMetaInvoice } from "../_shared/ads-invoice-parser.ts";
+import { parseGoogleInvoice } from "../_shared/ads-invoice-google-parser.ts";
 
-const VERSION = "v2.0_resolve_ads_event";
+const VERSION = "v3.0_parse_google";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -213,7 +219,13 @@ async function resolveEvents(
   return out;
 }
 
-async function handleParseMeta(body: Record<string, any>) {
+/**
+ * Lê os bytes do PDF (base64 ou bucket) e resolve a empresa. Devolve uma
+ * Response quando falha, para o handler devolver tal e qual.
+ */
+async function loadPdf(
+  body: Record<string, any>,
+): Promise<{ bytes: Uint8Array; companyId: string; filePath?: string } | Response> {
   const filePath: string | undefined = body.file_path;
   let bytes: Uint8Array;
   if (body.file_base64) {
@@ -225,15 +237,39 @@ async function handleParseMeta(body: Record<string, any>) {
   } else {
     return json({ error: "indicar file_path ou file_base64" }, 400);
   }
-
   const companyId = body.company_id ?? companyFromPath(filePath);
   if (!companyId) return json({ error: "company_id não resolvido (caminho ou body)" }, 400);
+  return { bytes, companyId, filePath };
+}
+
+async function handleParseMeta(body: Record<string, any>) {
+  const loaded = await loadPdf(body);
+  if (loaded instanceof Response) return loaded;
+  const { bytes, companyId, filePath } = loaded;
 
   const parsed = await parseMetaInvoice(bytes);
   const h = parsed.header;
   if (!h.invoiceNumber || !h.billingPeriod || h.totalAmount === null) {
     return json({ error: "cabeçalho incompleto", header: h, warnings: parsed.warnings, debug: parsed.debug }, 422);
   }
+
+  // Fase 1 da guarda de reimportação: só leitura, nunca escreve.
+  if (body.dry_run === true) {
+    return json({
+      version: VERSION,
+      dry_run: true,
+      platform: "meta",
+      invoice_number: h.invoiceNumber,
+      billing_period: h.billingPeriod,
+      issue_date: h.issueDate,
+      total_amount: h.totalAmount,
+      lines_sum: parsed.linesSum,
+      reconcilia: Math.abs(h.totalAmount - parsed.linesSum) < 0.005,
+      linhas: parsed.lines.length,
+      warnings: parsed.warnings,
+    });
+  }
+
 
   const nonAdjust = parsed.lines.filter((l) => !l.isAdjustment).map((l) => l.campaignName);
   const matches = await resolveEvents(companyId, h.billingPeriod, nonAdjust);
@@ -297,6 +333,124 @@ async function handleParseMeta(body: Record<string, any>) {
     total_amount: h.totalAmount,
     lines_sum: linesSum,
     reconcilia: Math.abs(h.totalAmount - linesSum) < 0.005,
+    linhas: lines.length,
+    sem_evento: alloc.sem_evento,
+    ajustes: alloc.ajustes,
+    por_evento: alloc.por_evento,
+    warnings: parsed.warnings,
+  });
+}
+
+// ---------------------------------------------------------------- parse_google
+
+/**
+ * Faturas do Google Ads a partir do PDF. Ao contrário do que se assumiu quando
+ * se construiu o propose_google, o PDF do Google TEM detalhe por campanha — e
+ * traz ainda os créditos promocionais e as taxas regulatórias que a API não
+ * reporta. Esta é a fonte de verdade; o espelho da API não é.
+ */
+async function handleParseGoogle(body: Record<string, any>) {
+  const loaded = await loadPdf(body);
+  if (loaded instanceof Response) return loaded;
+  const { bytes, companyId, filePath } = loaded;
+
+  const parsed = await parseGoogleInvoice(bytes);
+  const h = parsed.header;
+  if (!h.invoiceNumber || !h.billingPeriod || h.totalAmount === null) {
+    return json({ error: "cabeçalho incompleto", header: h, warnings: parsed.warnings, debug: parsed.debug }, 422);
+  }
+  if (Math.abs(h.totalAmount - parsed.linesSum) >= 0.005) {
+    return json({
+      error:
+        `a soma das linhas (${parsed.linesSum}) não reconcilia com o total da fatura ` +
+        `(${h.totalAmount}). Nada foi gravado.`,
+      header: h,
+      warnings: parsed.warnings,
+      debug: parsed.debug,
+    }, 422);
+  }
+
+  if (body.dry_run === true) {
+    return json({
+      version: VERSION,
+      dry_run: true,
+      platform: "google",
+      invoice_number: h.invoiceNumber,
+      billing_period: h.billingPeriod,
+      issue_date: h.issueDate,
+      period_start: h.periodStart,
+      period_end: h.periodEnd,
+      total_amount: h.totalAmount,
+      lines_sum: parsed.linesSum,
+      reconcilia: true,
+      linhas: parsed.lines.length,
+      warnings: parsed.warnings,
+    });
+  }
+
+  // Resolve eventos para a mídia e para os ajustes que nomeiam a campanha de
+  // origem ("Atividade inválida") — estes descem inteiros a esse evento.
+  const namesToResolve = parsed.lines
+    .filter((l) => !l.isAdjustment || l.adjustmentKind === "invalid_activity")
+    .map((l) => l.campaignName ?? "")
+    .filter(Boolean);
+  const matches = await resolveEvents(companyId, h.billingPeriod, namesToResolve);
+
+  const lines: LineDraft[] = parsed.lines.map((l) => {
+    const key = norm(l.campaignName ?? "");
+    const m: Resolved = (key && matches.get(key)) || {
+      event_id: null,
+      match_source: "none",
+      match_note: null,
+    };
+    const isNamedAdjustment = l.isAdjustment && l.adjustmentKind === "invalid_activity";
+    return {
+      line_no: l.lineNo,
+      raw_description: l.rawDescription,
+      placement: null,
+      campaign_name: l.campaignName,
+      external_campaign_id: null,
+      event_id: l.isAdjustment && !isNamedAdjustment ? null : m.event_id,
+      match_source: l.isAdjustment && !isNamedAdjustment ? "none" : m.match_source,
+      match_note: l.isAdjustment
+        ? (isNamedAdjustment
+          ? `ajuste da fatura ${l.originalInvoiceNumber ?? "?"} — atividade inválida`
+          : (l.promotionId ? `crédito promocional ${l.promotionId}` : "taxa/tributo da plataforma"))
+        : m.match_note,
+      amount: l.amount,
+      is_adjustment: l.isAdjustment,
+    };
+  });
+
+  await upsertInvoice(
+    {
+      company_id: companyId,
+      platform: "google",
+      invoice_number: h.invoiceNumber,
+      billing_period: h.billingPeriod,
+      issue_date: h.issueDate,
+      currency: "EUR",
+      total_amount: h.totalAmount,
+      lines_sum: parsed.linesSum,
+      source: "pdf",
+      source_ref: body.source_ref ?? null,
+      file_path: filePath ?? null,
+      status: "proposed",
+    },
+    lines,
+  );
+
+  const alloc = await buildAllocation(companyId, lines);
+  return json({
+    version: VERSION,
+    platform: "google",
+    invoice_number: h.invoiceNumber,
+    billing_period: h.billingPeriod,
+    period_start: h.periodStart,
+    period_end: h.periodEnd,
+    total_amount: h.totalAmount,
+    lines_sum: parsed.linesSum,
+    reconcilia: true,
     linhas: lines.length,
     sem_evento: alloc.sem_evento,
     ajustes: alloc.ajustes,
@@ -426,10 +580,12 @@ Deno.serve(async (req) => {
     switch (body.action) {
       case "parse_meta":
         return await handleParseMeta(body);
+      case "parse_google":
+        return await handleParseGoogle(body);
       case "propose_google":
         return await handleProposeGoogle(body);
       default:
-        return json({ error: "action deve ser parse_meta ou propose_google" }, 400);
+        return json({ error: "action deve ser parse_meta, parse_google ou propose_google" }, 400);
     }
   } catch (e) {
     console.error("ads-invoice-ingest", e);

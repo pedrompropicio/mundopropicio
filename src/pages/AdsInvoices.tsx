@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, CheckCircle2, AlertTriangle, Lock, Unlock, FileDown, ChevronsUpDown, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
+import { AdsInvoiceImportDialog } from "@/components/ads/AdsInvoiceImportDialog";
 
 interface AdsInvoiceRow {
   id: string;
@@ -111,6 +114,9 @@ function fmtDateTime(iso: string | null) {
 }
 
 export default function AdsInvoices() {
+  const { isAdmin, isManager, isAccountant } = useAuth();
+  const { companyId } = useCompany();
+  const canImport = isAdmin || isManager || isAccountant;
   const [openId, setOpenId] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<any[] | null>(null);
   const [revertBlockers, setRevertBlockers] = useState<any[] | null>(null);
@@ -794,11 +800,14 @@ export default function AdsInvoices() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Faturas Ads</h1>
-        <p className="text-sm text-muted-foreground">
-          Propostas de rateio das faturas de tráfego pago (Meta e Google).
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Faturas Ads</h1>
+          <p className="text-sm text-muted-foreground">
+            Propostas de rateio das faturas de tráfego pago (Meta e Google).
+          </p>
+        </div>
+        {canImport && <AdsInvoiceImportDialog companyId={companyId} />}
       </div>
 
       <Card>
