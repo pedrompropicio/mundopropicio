@@ -261,14 +261,19 @@ Deno.serve(async (req) => {
         let exact = false;
         const metrics: Record<string, number | null> = {};
 
+        // Há perfis (ex.: LittoLins) em que a página NÃO mostra o contador de
+        // seguidores e o __NEXT_DATA__ traz followers = 0 — não é valor real.
+        // Só se grava 'followers' quando o contador está visível no HTML.
+        const followersVisible = scrapeVisible(html, "Seguidores") !== null;
+
         if (user) {
           exact = true;
-          metrics.followers = toCount(user.followers);
+          metrics.followers = followersVisible ? toCount(user.followers) : null;
           metrics.plays_total = toCount(user.plays);
           metrics.downloads_total = toCount(user.download);
           metrics.uploads = toCount(user.uploads);
         } else {
-          metrics.followers = scrapeVisible(html, "Seguidores");
+          metrics.followers = followersVisible ? scrapeVisible(html, "Seguidores") : null;
           metrics.plays_total = scrapeVisible(html, "Plays");
           metrics.downloads_total = scrapeVisible(html, "Downloads");
           metrics.uploads = scrapeVisible(html, "Uploads");
@@ -279,7 +284,11 @@ Deno.serve(async (req) => {
         const metricRows: any[] = [];
         for (const [metric, value] of Object.entries(metrics)) {
           if (value === null || value === undefined) {
-            r.errors.push(`perfil: métrica '${metric}' não encontrada — não gravada`);
+            r.errors.push(
+              metric === "followers" && !followersVisible
+                ? "perfil: seguidores não expostos"
+                : `perfil: métrica '${metric}' não encontrada — não gravada`,
+            );
             continue;
           }
           r.profile.metrics[metric] = value;
