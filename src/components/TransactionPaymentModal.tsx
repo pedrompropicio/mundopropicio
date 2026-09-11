@@ -123,10 +123,6 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     },
   });
 
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["account-cash-adjustments", (financialAccounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
-    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(financialAccounts as any)),
-  });
 
   const { data: supplierData } = useQuery({
     queryKey: ["supplier-bank-details", transaction.supplier_id],
