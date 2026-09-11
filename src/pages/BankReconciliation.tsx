@@ -36,12 +36,7 @@ import {
   extractBankRef,
   type ParsedStatement,
 } from "@/lib/bank-statement/parse-santander";
-import {
-  computeAccountBalance,
-  fetchAccountCashAdjustments,
-  buildAccountCutoffs,
-  effectivePaymentDate,
-} from "@/lib/account-balance";
+import { fetchAccountTrueBalancesAsOf } from "@/lib/account-balance-rpc";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import {
   reconcileStatement,
