@@ -118,6 +118,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     setTargetAccountId(rule?.target_account_id ?? "");
     setSaveRule(!rule);
     setIsTransitory(false);
+    setForecastId("");
     setIsConfidential(false);
     setRulePattern(suggestPattern(lines[0]?.description ?? ""));
     setRuleName(suggestPattern(lines[0]?.description ?? "").slice(0, 60));
@@ -293,6 +294,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             is_transitory: transitory,
             supplier_id: supplierId || null,
             event_id: eventId || null,
+            forecast_id: needsBpLine ? forecastId : null,
             account_id: accountId,
             date: paymentDate,
             status: "paid",
