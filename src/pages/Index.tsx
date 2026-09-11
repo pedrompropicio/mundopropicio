@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { makeLastDateResolver } from "@/lib/event-dates";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
@@ -251,12 +252,14 @@ export default function Dashboard() {
     queryKey: ["dashboard_transactions", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*, events(name)")
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return data;
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("*, events(name)")
+          .order("date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
     },
   });
 

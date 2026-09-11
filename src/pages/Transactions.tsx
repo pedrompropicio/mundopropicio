@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen, Receipt } from "lucide-react";
@@ -229,12 +230,14 @@ export default function Transactions() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers(name), financial_accounts(name)")
-        .order("due_date", { ascending: true, nullsFirst: false });
-      if (error) throw error;
-      return data;
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers(name), financial_accounts(name)")
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
     },
   });
 

@@ -3,6 +3,7 @@ import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Receipt, TrendingUp, TrendingDown, AlertTriangle, Info } from "lucide-react";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
@@ -186,12 +187,14 @@ export default function IvaManagement() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["iva-transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, event_id, type, amount, iva_rate, date, status")
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return data as DbTransaction[];
+      return await fetchAllPaged<DbTransaction>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("id, event_id, type, amount, iva_rate, date, status")
+          .order("date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to) as any
+      );
     },
   });
 
