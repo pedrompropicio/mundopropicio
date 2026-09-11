@@ -134,18 +134,6 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   });
 
 
-  const { data: txSummaryUnused = [] } = useQuery({
-    queryKey: ["financial-accounts-tx-summary"],
-    enabled: false,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, date, payment_date")
-        .not("account_id", "is", null);
-      if (error) throw error;
-      return data;
-    },
-  });
 
   // Fetch child transactions for split propagation
   const { data: childTransactions = [] } = useQuery({
