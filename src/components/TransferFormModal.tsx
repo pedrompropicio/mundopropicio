@@ -68,9 +68,11 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
 
       const fromAccount = accounts.find((a) => a.id === fromAccountId);
       const toAccount = accounts.find((a) => a.id === toAccountId);
-      const skipCheck = (fromAccount as any)?.skip_balance_check ?? false;
-      if (!skipCheck && sourceBalance !== undefined && sourceBalance !== null && numAmount > sourceBalance) {
-        throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
+      // Trava de saldo no servidor: vê também as transações confidenciais e
+      // respeita skip_balance_check internamente.
+      const hasBalance = await accountHasBalanceFor(fromAccountId, numAmount);
+      if (!hasBalance) {
+        throw new Error(insufficientBalanceMessage(sourceBalance, (v) => `€${v.toFixed(2)}`));
       }
 
       // Se qualquer das pernas toca uma conta restrita, as DUAS nascem confidenciais.
