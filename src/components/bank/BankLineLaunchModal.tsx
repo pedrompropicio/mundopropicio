@@ -134,6 +134,30 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     },
   });
 
+  /** Criação rápida de fornecedor (só nome) a partir do próprio campo. */
+  const handleCreateSupplier = async (text: string) => {
+    const name = text.trim();
+    if (!name) return false;
+    const { data: companyId, error: cErr } = await supabase.rpc("current_company_id" as any);
+    if (cErr || !companyId) {
+      toast.error("Não foi possível identificar a empresa activa.");
+      return false;
+    }
+    const { data, error } = await supabase
+      .from("suppliers")
+      .insert({ name, company_id: companyId as string } as any)
+      .select("id, name")
+      .single();
+    if (error || !data) {
+      toast.error("Erro ao criar fornecedor: " + (error?.message ?? "desconhecido"));
+      return false;
+    }
+    setSupplierId((data as any).id);
+    await queryClient.invalidateQueries({ queryKey: ["bank-launch-suppliers"] });
+    toast.success(`Fornecedor "${name}" criado.`);
+    return true;
+  };
+
   const { data: categories = [] } = useQuery({
     queryKey: ["bank-launch-categories"],
     queryFn: async () => {
