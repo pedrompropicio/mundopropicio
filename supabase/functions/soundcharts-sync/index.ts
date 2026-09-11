@@ -202,11 +202,14 @@ Deno.serve(async (req) => {
           const body = await fetchSc(
             `/api/v2/artist/${scUuid}/audience/${platform}?endDate=${endDate}&limit=100&sort=asc`,
           );
+          lastCrawl[platform] = body?.related?.lastCrawlDate ?? null;
           const metric = SOCIAL_METRIC[platform];
+          let pushed = 0;
           for (const item of body?.items ?? []) {
             const value = item?.followerCount;
             const date = item?.date;
             if (value == null || !date) continue;
+            pushed++;
             rows.push({
               company_id: companyId,
               artist_id: ch.artist_id,
@@ -220,9 +223,12 @@ Deno.serve(async (req) => {
               captured_at: new Date().toISOString(),
             });
           }
+          platformStatus[platform] = pushed > 0 ? "ok" : "no_data";
         } catch (e) {
           const status = (e as { status?: number }).status;
+          platformStatus[platform] = "error";
           errors.push({
+
             artist_id: ch.artist_id,
             platform,
             status,
