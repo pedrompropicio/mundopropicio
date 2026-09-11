@@ -888,9 +888,19 @@ Dados corrigidos a 11/09: a transação original passou para a conta Santander T
 
 **Regra para o futuro.** Toda a função `SECURITY DEFINER` nova no `public` leva, **na mesma migração que a cria**, `REVOKE EXECUTE ... FROM PUBLIC;` **e** `REVOKE EXECUTE ... FROM anon, authenticated;` e só depois `GRANT EXECUTE` aos papéis que dela precisam. Escrita também em `docs/INDEX.md` e em `DATABASE.md`.
 
-**Estado:** vigente.
+**Fecho da decisão (11/09/2026) — as duas últimas funções sem verificação interna.** Restavam exactamente duas funções `SECURITY DEFINER` abertas a `anon` que não verificavam nada por dentro e que o frontend chama (logo não se fechavam por `REVOKE`): `event_budget_mode` e `account_has_balance_for`. Ambas passaram a ter portão de empresa no corpo, no molde da D-ERP38 (`v_uid := auth.uid()`, isenção comentada para `v_uid IS NULL` — service_role, crons, edge functions — e excepção para `platform_admin`). **Os comportamentos são deliberadamente diferentes:**
+
+- `event_budget_mode(_event_id)` — **falha alto: `RAISE EXCEPTION` com `ERRCODE = '42501'`** quando o evento é de outra empresa. É chamada de dentro do trigger `enforce_transaction_approval_permission`, que corre no contexto do utilizador e compara o resultado com `= 'with_bp'`. Se devolvesse `NULL` (ou um valor por omissão) fora da empresa, essa comparação passava a dar falso **em silêncio** e a trava de linha de BP deixava de ser aplicada — trocava-se uma fuga de informação por um buraco contabilístico, que é pior. Passou de `LANGUAGE sql` a `plpgsql` para poder levantar a excepção; assinatura e valor devolvido inalterados. Evento inexistente continua a devolver `NULL`.
+- `account_has_balance_for(_account_id, _amount)` — **falha fechado: devolve `false`**, sem excepção. É a trava de saldo da D-ERP34 e devolve só booleano para não revelar o saldo; o problema era que qualquer autenticado podia perguntar sobre uma conta de **outra empresa** e, repetindo a pergunta com valores diferentes, descobrir o saldo ao cêntimo por bissecção. Aqui `false` é o lado seguro: bloqueia o pagamento e não parte nada. `skip_balance_check` e o resto da lógica ficaram intactos; `account_true_balance` e `account_true_balances_asof` não foram tocadas.
+
+**Verificação.** As duas contêm `auth.uid` e `current_company_id`, mantêm `EXECUTE` para `service_role`, e **nenhuma aparece em `pg_policy`** (`polqual` + `polwithcheck`) — condição obrigatória, porque uma excepção dentro de função usada em RLS partia a leitura de dados.
+
+**Número final.** Continuam **67 das 128** funções `SECURITY DEFINER` não-trigger com `EXECUTE` para `anon`. Divisão: as **15 usadas em RLS** (não se revogam, a política ganha); as **~17 chamadas pelo frontend** listadas acima, agora todas com portão interno (D-ERP38 + este fecho) em vez de `REVOKE`; `coala_unsub_token`, deixada aberta por servir unsubscribe sem login; e o restante são funções de leitura/helpers já protegidas por `row_belongs_to_current_company` ou sem informação sensível. Não há, nesta data, nenhuma função `SECURITY DEFINER` não-trigger aberta a `anon` **sem** verificação interna nem protecção por RLS.
+
+**Estado:** vigente (fechada).
 
 ---
+
 
 ## D-ERP38 — Portão de permissão e isolamento de empresa nas funções de BP (11/09/2026)
 
