@@ -51,6 +51,7 @@ interface AccountForm {
   withholds_revenue: boolean;
   is_hidden: boolean;
   is_accounting: boolean;
+  is_restricted: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -66,10 +67,13 @@ const emptyForm: AccountForm = {
   withholds_revenue: false,
   is_hidden: false,
   is_accounting: true,
+  is_restricted: false,
 };
 
 export default function FinancialAccounts() {
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, hasPermission } = useAuth();
+  // Contas restritas: só quem pode ver confidenciais é que liga/desliga o interruptor.
+  const canSeeConfidential = hasPermission("view_confidential");
   // Admin + Manager podem criar/editar contas (incl. Saldo Inicial). Visibilidade de saldos permanece só admin.
   const canManageAccounts = isAdmin || isManager;
   const queryClient = useQueryClient();
@@ -268,6 +272,7 @@ export default function FinancialAccounts() {
         withholds_revenue: form.withholds_revenue,
         is_hidden: form.is_hidden,
         is_accounting: form.is_accounting,
+        is_restricted: form.is_restricted,
       };
 
       if (editingId) {
@@ -318,6 +323,7 @@ export default function FinancialAccounts() {
       withholds_revenue: account.withholds_revenue ?? false,
       is_hidden: account.is_hidden ?? false,
       is_accounting: account.is_accounting ?? true,
+      is_restricted: account.is_restricted ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -592,6 +598,22 @@ export default function FinancialAccounts() {
                   onCheckedChange={(v) => setForm({ ...form, is_hidden: v })}
                 />
               </div>
+
+              {canSeeConfidential && (
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label className="text-sm font-medium">Conta restrita</Label>
+                  <p className="text-xs text-muted-foreground">
+                    A conta e todos os seus movimentos ficam invisíveis para quem não tiver a
+                    permissão de ver confidenciais. Use para contas correntes de sócios e afins.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.is_restricted}
+                  onCheckedChange={(v) => setForm({ ...form, is_restricted: v })}
+                />
+              </div>
+              )}
 
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
                 <div>

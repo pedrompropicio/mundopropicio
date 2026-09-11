@@ -75,6 +75,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     payment_date: transaction.payment_date ?? "",
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
+    is_confidential: (transaction as any).is_confidential ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
     invoice_ref: transaction.invoice_ref ?? "",
     payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
@@ -90,6 +91,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   });
   const queryClient = useQueryClient();
   const { user, isManager, hasPermission } = useAuth();
+  const canSeeConfidential = hasPermission("view_confidential");
 
   // Multi-currency state
   const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
@@ -465,13 +467,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         payment_reference: "Referência Pagamento",
         declared_withholding_rate: "Retenção IRS declarada (%)",
         declared_withholding_amount: "Retenção IRS declarada (€)",
+        is_confidential: "Confidencial",
         is_reimbursement: "Reembolso",
         reimbursement_to: "Colaborador (reembolso)",
         ordering_partner_id: "Ordenador da despesa",
         paying_partner_id: "Pagador da despesa",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id", "paying_partner_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id", "paying_partner_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -501,6 +504,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         supplier_id: form.supplier_id || null,
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
+        is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
         ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
@@ -524,6 +528,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           ? { payment_date: partnerPaidDate || form.date }
           : (canApprove && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
+        is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
@@ -2289,6 +2294,20 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               <HelpTooltip text={helpTexts.transitoryTransaction} size={13} />
             </div>
             <span className="ml-auto text-xs text-muted-foreground">Sem impacto no resultado</span>
+          </div>
+          )}
+
+          {/* Confidencial — só a quem tem a permissão de ver confidenciais */}
+          {canSeeConfidential && (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
+            <Switch
+              checked={form.is_confidential}
+              onCheckedChange={(v) => setForm({ ...form, is_confidential: v })}
+            />
+            <span className="text-sm font-medium">🔒 Confidencial</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              Invisível a quem não tem a permissão
+            </span>
           </div>
           )}
 

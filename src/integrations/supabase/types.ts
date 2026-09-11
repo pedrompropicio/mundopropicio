@@ -7021,6 +7021,7 @@ export type Database = {
           is_accounting: boolean
           is_active: boolean
           is_hidden: boolean
+          is_restricted: boolean
           mirror_partner_aporte: boolean
           name: string
           partner_id: string | null
@@ -7046,6 +7047,7 @@ export type Database = {
           is_accounting?: boolean
           is_active?: boolean
           is_hidden?: boolean
+          is_restricted?: boolean
           mirror_partner_aporte?: boolean
           name: string
           partner_id?: string | null
@@ -7071,6 +7073,7 @@ export type Database = {
           is_accounting?: boolean
           is_active?: boolean
           is_hidden?: boolean
+          is_restricted?: boolean
           mirror_partner_aporte?: boolean
           name?: string
           partner_id?: string | null
@@ -11522,6 +11525,7 @@ export type Database = {
           installment_total: number | null
           invoice_group_id: string | null
           invoice_ref: string | null
+          is_confidential: boolean
           is_hidden: boolean
           is_reimbursement: boolean
           is_transitory: boolean
@@ -11577,6 +11581,7 @@ export type Database = {
           installment_total?: number | null
           invoice_group_id?: string | null
           invoice_ref?: string | null
+          is_confidential?: boolean
           is_hidden?: boolean
           is_reimbursement?: boolean
           is_transitory?: boolean
@@ -11632,6 +11637,7 @@ export type Database = {
           installment_total?: number | null
           invoice_group_id?: string | null
           invoice_ref?: string | null
+          is_confidential?: boolean
           is_hidden?: boolean
           is_reimbursement?: boolean
           is_transitory?: boolean
@@ -12758,6 +12764,7 @@ export type Database = {
         Args: { _etapa_id: string; _user_id: string }
         Returns: boolean
       }
+      can_see_confidential: { Args: { _user: string }; Returns: boolean }
       can_view_event_operacao: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean

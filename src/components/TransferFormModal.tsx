@@ -28,7 +28,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance, initial_balance_date, skip_balance_check")
+        .select("id, name, initial_balance, initial_balance_date, skip_balance_check, is_restricted")
         .eq("is_active", true)
         .eq("is_hidden", false)
         .order("name");
@@ -88,6 +88,10 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
         throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
       }
 
+      // Se qualquer das pernas toca uma conta restrita, as DUAS nascem confidenciais.
+      const pairConfidential =
+        !!(fromAccount as any)?.is_restricted || !!(toAccount as any)?.is_restricted;
+
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
 
       // Create expense (outgoing from source)
@@ -104,7 +108,8 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
           status: "paid",
           paid_amount: numAmount,
           payment_date: date,
-        })
+          is_confidential: pairConfidential,
+        } as any)
         .select("id")
         .single();
       if (expError) throw expError;
@@ -123,7 +128,8 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
           status: "paid",
           paid_amount: numAmount,
           payment_date: date,
-        })
+          is_confidential: pairConfidential,
+        } as any)
         .select("id")
         .single();
       if (incError) throw incError;

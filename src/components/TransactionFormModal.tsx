@@ -138,7 +138,8 @@ interface TransactionFormModalProps {
 }
 
 export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride, partnerExtraDefault }: TransactionFormModalProps) {
-  const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
+  const { isAdmin: authIsAdmin, isManager: authIsManager, user, hasPermission } = useAuth();
+  const canSeeConfidential = hasPermission("view_confidential");
   // Só admin/manager podem criar transações já liquidadas (histórico/importações).
   const canCreatePaid = authIsAdmin || authIsManager;
   const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
@@ -190,6 +191,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
+  // Confidencial: só visível a quem tem a permissão de ver confidenciais.
+  const [isConfidential, setIsConfidential] = useState(false);
   // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
   // - "__mp__" → transitória órfã (Mundo Propício recebe crédito automático no fecho)
   // - partner_id → ativa isPaidByPartner com esse sócio
@@ -1301,6 +1304,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory || isPartnerExtra,
             exclude_from_result: isExcludeFromResult,
+            is_confidential: isConfidential,
             payment_method: data.payment_method || "transfer",
             payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
             payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
@@ -1341,6 +1345,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
            is_transitory: isTransitory || isPartnerExtra,
           exclude_from_result: isExcludeFromResult,
+          is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
@@ -1482,6 +1487,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: principalIsTransitory,
           exclude_from_result: isExcludeFromResult,
+          is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: sharedInvoiceGroupId,
           payment_method: data.payment_method || "transfer",
@@ -1632,6 +1638,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               is_reimbursement: false,
               is_transitory: principalIsTransitory,
               exclude_from_result: isExcludeFromResult,
+              is_confidential: isConfidential,
               invoice_ref: data.invoice_ref.trim() || null,
               payment_method: data.payment_method || "transfer",
               payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
@@ -3644,6 +3651,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 >
                   📋 {isExcludeFromResult ? "Fora do Resultado" : "Excluir do Resultado"}
                   <HelpTooltip text={helpTexts.excludeFromResultToggle} size={12} />
+                </button>
+                )}
+
+                {canSeeConfidential && (
+                <button
+                  type="button"
+                  onClick={() => setIsConfidential(!isConfidential)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    isConfidential
+                      ? "bg-secondary text-foreground ring-1 ring-border"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Só quem tem a permissão de ver confidenciais é que vê este movimento."
+                >
+                  🔒 {isConfidential ? "Confidencial" : "Marcar Confidencial"}
                 </button>
                 )}
 
