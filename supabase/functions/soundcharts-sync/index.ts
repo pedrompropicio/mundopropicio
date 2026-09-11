@@ -171,6 +171,9 @@ Deno.serve(async (req) => {
     let calls = 0;
     const errors: Array<{ artist_id: string; platform: string; status?: number; error: string }> = [];
     const rows: MetricRow[] = [];
+    const lastCrawl: Record<string, string | null> = {};
+    const platformStatus: Record<string, "ok" | "no_data" | "error"> = {};
+
 
     const fetchSc = async (path: string) => {
       calls++;
