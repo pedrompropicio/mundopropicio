@@ -341,31 +341,30 @@ export default function BankReconciliation() {
   // O ecrã existe para tornar visível uma diferença. Confrontar abertura +
   // movimentos do próprio ficheiro dava sempre zero (o parser só aceita
   // extratos coerentes). O confronto certo é SISTEMA × BANCO.
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["bank-recon-adjustments", accountId, currentStatement?.period_to],
-    enabled: !!accountId && !!currentStatement?.period_to,
-    queryFn: () =>
-      fetchAccountCashAdjustments(
-        [accountId],
-        buildAccountCutoffs(accounts as any[]),
-        { lte: currentStatement.period_to },
-      ),
+  //
+  // D-ERP36: o saldo do sistema vem do SERVIDOR (`account_true_balances_asof`).
+  // Somado no cliente ficava acima do real para quem não tem `view_confidential`
+  // (a policy RESTRICTIVE esconde as linhas confidenciais) e o triângulo
+  // publicava a diferença ao cêntimo. A data é a mesma que o ecrã mostra:
+  // `period_to` do extrato.
+  const systemPeriodTo = currentStatement?.period_to
+    ? String(currentStatement.period_to).slice(0, 10)
+    : null;
+
+  const { data: systemBalances } = useQuery({
+    queryKey: ["bank-recon-system-balance", accountId, systemPeriodTo],
+    enabled: !!accountId && !!systemPeriodTo,
+    queryFn: () => fetchAccountTrueBalancesAsOf([accountId], systemPeriodTo),
   });
 
   const triangle = useMemo(() => {
-    if (!currentStatement || !account) return null;
+    if (!currentStatement || !account || !systemBalances) return null;
     const periodTo = String(currentStatement.period_to ?? "").slice(0, 10);
-    const upToPeriod = (txns as any[]).filter((t) => {
-      const eff = effectivePaymentDate(t);
-      return !eff || !periodTo || eff <= periodTo;
-    });
-    // Fonte única do saldo (D-ERP12/D-ERP25): mesma conta, mesma data de corte,
-    // mesmos ajustes de caixa que o módulo Contas.
-    const system = computeAccountBalance(
-      account as any,
-      upToPeriod.map((t) => ({ ...t, account_id: account.id })) as any,
-      cashAdjustments ?? undefined,
-    );
+    const system = systemBalances.get(account.id) ?? null;
+    // NULL sem `skip_balance_check` = o utilizador não pode ver o saldo desta
+    // conta. Nesse caso esconde-se o triângulo INTEIRO: é a diferença que
+    // denuncia o valor escondido, não só o saldo.
+    const balanceHidden = system === null && !account.skip_balance_check;
     const declared = Number(currentStatement.closing_balance ?? 0);
     const diff = system === null ? null : Math.round((system - declared) * 100) / 100;
     const unexplainedBank = (savedLines as any[])
