@@ -98,6 +98,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const [targetAccountId, setTargetAccountId] = useState("");
   /** Dinheiro de terceiros que só passa pela conta: move saldo, não é resultado. */
   const [isTransitory, setIsTransitory] = useState(false);
+  /** D1+D8 — linha de BP escolhida (nunca guardada em regra: pertence ao evento). */
+  const [forecastId, setForecastId] = useState("");
+  const [pickingBpLine, setPickingBpLine] = useState(false);
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
