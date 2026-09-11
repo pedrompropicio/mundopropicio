@@ -12612,6 +12612,10 @@ export type Database = {
       }
     }
     Functions: {
+      _account_true_balance_raw: {
+        Args: { _account_id: string }
+        Returns: number
+      }
       _revert_event_to_version: {
         Args: {
           _event_id: string
@@ -12646,6 +12650,11 @@ export type Database = {
           test_name: string
         }[]
       }
+      account_has_balance_for: {
+        Args: { _account_id: string; _amount: number }
+        Returns: boolean
+      }
+      account_true_balance: { Args: { _account_id: string }; Returns: number }
       ads_event_windows: {
         Args: { p_company_id: string }
         Returns: {
