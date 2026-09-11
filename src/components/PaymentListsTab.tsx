@@ -2370,6 +2370,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
           initialPaymentDate={list?.payment_date ?? null}
+          bankAccountsOnly
           onClose={handleBatchPaymentClose}
         />
       )}
