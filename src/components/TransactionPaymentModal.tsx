@@ -310,16 +310,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         throw new Error(`Inconsistência: crédito (${formatCurrency(totalCreditApplied)}) + saída de caixa (${formatCurrency(netCashOut)}) + retenção (${formatCurrency(withholding)}) ≠ valor pago (${formatCurrency(addAmount)})`);
       }
 
-      // Check account balance for expenses (net amount after withholding and credits)
+      // Trava de saldo no servidor (D-ERP34): conta também as transações
+      // confidenciais e respeita skip_balance_check internamente.
       if (isExpense && netCashOut > 0) {
-        const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
         if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
-        const skipCheck = selectedAcc?.skip_balance_check ?? false;
-        const accBalance = accountBalanceOf(accountId);
-        if (!skipCheck && accBalance !== null) {
-          if (netCashOut > accBalance) {
-            throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
-          }
+        const hasBalance = await accountHasBalanceFor(accountId, netCashOut);
+        if (!hasBalance) {
+          throw new Error(insufficientBalanceMessage(selectedAccountBalance, formatCurrency));
         }
       }
 
