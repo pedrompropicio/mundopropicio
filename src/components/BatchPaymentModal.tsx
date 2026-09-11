@@ -27,9 +27,14 @@ interface Props {
   initialInvoiceRef?: string;
   /** Data sugerida por defeito (ex.: payment_date da lista de pagamento). */
   initialPaymentDate?: string | null;
+  /**
+   * Liquidação nascida de uma LISTA DE PAGAMENTO: o seletor só oferece contas
+   * de tipo `bank` (sem cartões pré-pagos, contas de acerto ou virtuais).
+   */
+  bankAccountsOnly?: boolean;
 }
 
-export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate }: Props) {
+export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false }: Props) {
   const [invoiceRef, setInvoiceRef] = useState(initialInvoiceRef);
   const [accountId, setAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(
