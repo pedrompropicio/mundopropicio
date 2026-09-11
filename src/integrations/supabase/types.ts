@@ -550,6 +550,139 @@ export type Database = {
           },
         ]
       }
+      artist_release_metrics_daily: {
+        Row: {
+          artist_id: string
+          captured_at: string
+          company_id: string
+          created_at: string
+          id: string
+          metric: string
+          metric_date: string
+          platform: string
+          release_id: string
+          source: string
+          source_ref: string | null
+          value: number
+        }
+        Insert: {
+          artist_id: string
+          captured_at?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          metric: string
+          metric_date: string
+          platform: string
+          release_id: string
+          source: string
+          source_ref?: string | null
+          value: number
+        }
+        Update: {
+          artist_id?: string
+          captured_at?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          metric?: string
+          metric_date?: string
+          platform?: string
+          release_id?: string
+          source?: string
+          source_ref?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_release_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "artist_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_releases: {
+        Row: {
+          artist_id: string
+          company_id: string
+          created_at: string
+          external_id: string
+          id: string
+          is_official: boolean
+          notes: string | null
+          platform: string
+          published_at: string | null
+          release_type: string | null
+          title: string
+          updated_at: string
+          uploader_handle: string | null
+          url: string | null
+        }
+        Insert: {
+          artist_id: string
+          company_id?: string
+          created_at?: string
+          external_id: string
+          id?: string
+          is_official?: boolean
+          notes?: string | null
+          platform: string
+          published_at?: string | null
+          release_type?: string | null
+          title: string
+          updated_at?: string
+          uploader_handle?: string | null
+          url?: string | null
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          created_at?: string
+          external_id?: string
+          id?: string
+          is_official?: boolean
+          notes?: string | null
+          platform?: string
+          published_at?: string | null
+          release_type?: string | null
+          title?: string
+          updated_at?: string
+          uploader_handle?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_releases_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_releases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artists: {
         Row: {
           bio_en: string | null
