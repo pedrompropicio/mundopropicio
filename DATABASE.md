@@ -488,3 +488,9 @@ Domínios em `text` + `CHECK` (sem enums). Chaves únicas totais (o upsert do su
 
 ⚠️ **Inserts sob `service_role`** (syncs de métricas): passar `company_id` explícito, tirado do artista.
 `current_company_id()` devolve NULL sem contexto de utilizador e o insert é rejeitado (ver #86).
+
+**Sync de métricas:** edge function `soundcharts-sync` (backend, sem cron nem UI).
+Lê `artist_channels` com `platform='aggregator'` (o `external_id` é o UUID Soundcharts)
+e grava em `artist_metrics_daily` por upsert em `(artist_id, platform, metric, metric_date, source)`:
+`tiktok`/`instagram` → `followers`, `youtube` → `subscribers`, `spotify` → `monthly_listeners`.
+`source='aggregator'`, `source_ref='soundcharts'`, `company_id` explícito do artista.

@@ -146,3 +146,20 @@ Cada recomendação da Meta vem agrupada por tipo com um array `object_ids` apon
 A chave de unicidade `(company_id, ad_account_id, dedupe_object_key, recommendation_type)` — onde `dedupe_object_key` é `COALESCE(external_adset_id, '__account__')` — garante idempotência: ressincronizar atualiza `last_seen_at`, `body`, `lift_estimate`, etc., mas nunca apaga `status`/`decided_at`/`decided_by`. Cobre também recomendações que vêm sem `object_ids` (escopo conta).
 
 O `status` (`nova`/`ignorada`/`aplicada`) é a decisão do operador. A execução das ações (aplicar/ignorar) será adicionada em sub-peças seguintes — esta camada é apenas leitura + persistência.
+
+## Carreira artística — sync Soundcharts
+
+Edge function `soundcharts-sync` (`verify_jwt = true`; só `service_role` ou JWT com
+`has_role` admin/platform_admin — restantes casos 403). Sem cron e sem frontend.
+
+- Auth Soundcharts: `POST https://account.soundcharts.com/oauth/token` com HTTP Basic
+  (`SOUNDCHARTS_CLIENT_ID` / `SOUNDCHARTS_CLIENT_SECRET`) e `grant_type=client_credentials`;
+  token usado como Bearer. Credenciais nunca aparecem em logs nem respostas.
+- API: `https://customer.api.soundcharts.com`
+  - `GET /api/v2/artist/{uuid}/audience/{platform}` (tiktok, instagram, youtube) → `followerCount`
+  - `GET /api/v2/artist/{uuid}/streaming/spotify/listening` → `value` (ouvintes mensais)
+  - Janela: últimos 30 dias (sem `startDate`, `endDate` = hoje).
+- Entrada: `{ artist_id?, dry_run? }`. Sem `artist_id` percorre todos os artistas com canal
+  `aggregator`. Com `dry_run` chama a API mas não grava.
+- Saída: artistas processados, nº de chamadas, linhas por plataforma/métrica, erros por
+  plataforma (um 404 numa plataforma não interrompe as restantes).
