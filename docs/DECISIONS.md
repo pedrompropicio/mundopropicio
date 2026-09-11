@@ -867,3 +867,25 @@ Dados corrigidos a 11/09: a transação original passou para a conta Santander T
 **Fica por fazer (Passo 3 do relatório de 11/09).** A página de Contas, o Extrato, os cartões e as bilheteiras continuam a somar saldo no cliente e a mostrá-lo sem verificar `view_balances` nem `balance_visible_to_all`. A limitação da D-ERP34 mantém-se: a fórmula não filtra status, estornadas nem escondidas.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP37 — Funções SECURITY DEFINER fechadas por omissão (11/09/2026)
+
+**Problema.** O schema `public` é exposto pelo PostgREST, logo qualquer função lá criada é chamável por RPC. Neste projeto **todas as 128 funções `SECURITY DEFINER` não-trigger** do `public` tinham `EXECUTE` para `anon` **e** `authenticated` — ou seja, chamáveis sem conta nenhuma, com a chave pública que vai no bundle do frontend. Entre elas escrita de segredos no vault, automatismos de cron e leitura de papéis de qualquer utilizador. Já antes desta decisão tinham sido fechadas quatro: `_account_true_balance_raw`, `_account_true_balance_asof_raw`, `get_vault_secret` e `get_app_secret` (esta devolvia segredos em texto limpo a `anon`).
+
+**Armadilha, e o que se verificou aqui.** Em Postgres toda a função nasce com `EXECUTE` para `PUBLIC`, e `anon`/`authenticated` herdam de `PUBLIC` — nesse caso um `REVOKE ... FROM anon, authenticated` **não fecha nada**. Neste projeto a ACL é o caso simétrico: as funções não têm entrada `PUBLIC`, têm grants **nominais** (`anon=X`, `authenticated=X`), provavelmente por privilégios por omissão do schema. Resultado prático: **é preciso revogar as duas coisas** — `FROM PUBLIC` e `FROM anon, authenticated` — e confirmar sempre com `has_function_privilege('anon'|'authenticated', …)`, nunca pela ACL em bruto. `service_role` tem de continuar `true`.
+
+**Fechadas hoje: 24.** Segredos/tokens: `create_vault_secret`, `update_vault_secret`, `upsert_vault_secret`, `crm_upsert_meta_connection`, `crm_consume_oauth_state`. Automatismos e batches: `crm_write_audit_log`, `crm_auto_link_meta_campaigns_to_events`, `process_lead_captures_batch`, `process_leads_capi_batch`, `process_redirect_logs_batch`, `portal_tick_lead_capture`, `portal_tick_redirect_log`, `coala_send_early_bird_batch`, `run_operacao_sla_escalator`, `set_coala_match_source`, `resolve_ads_event`. Internas/guardas: `enqueue_whatsapp_notification`, `get_or_create_generic_camarim_supplier`, `bp_tx_link_allowed`, `validate_tx_category_l2_match`. Informação: `get_user_role`, `has_partner_access`, `has_role_in`, `has_company_feature`.
+
+**Ficam abertas por desenho — RLS (15).** `can_manage_cards`, `can_manage_event_operacao_full`, `can_manage_operacao_etapa`, `can_see_confidential`, `can_view_event_operacao`, `current_company_id`, `has_permission`, `has_permission_in`, `has_role`, `is_platform_admin`, `is_public_portal_company`, `row_belongs_to_current_company`, `storage_path_belongs_to_current_company`, `user_has_event_access`, `user_supplier_id`. Lista reconfirmada em `pg_policy` (`polqual` + `polwithcheck`): revogá-las parava a leitura de dados na plataforma inteira. **Se uma função aparecer numa política, a política ganha.**
+
+**Ficam abertas porque o frontend as chama (dívida: precisam de portão interno, não de revoke).** `account_has_balance_for`, `account_true_balance`, `account_true_balances_asof`, `event_budget_mode` (abertas por desenho), e ainda `reverse_transaction`, `create_bp_snapshot`, `promote_scenario_to_active`, `revert_to_bp_version`, `archive_bp_version`, `unarchive_bp_version`, `discard_bp_version_draft`, `mark_forecasts_fechado_auto`, `expire_supplier_credits`, `get_user_max_daily_budget_eur`, `ads_event_windows`, `zone_capacity_snapshot`, `event_close_blockers`. O cliente corre como `authenticated`: fechá-las partia o ecrã. Cada uma tem de validar por dentro o papel/permissão de quem chama.
+
+**Dúvida deixada em aberto.** `coala_unsub_token(p_email text)` não foi revogada: gera um token a partir de um email e serve fluxos de unsubscribe, que têm de funcionar sem login. Tem 2 chamadores dentro da base, mas o portal público vive noutro repositório e não é auditável daqui. O mesmo caveat vale para qualquer função que o portal anónimo chame directamente.
+
+**Depois deste trabalho:** 68 das 128 funções `SECURITY DEFINER` não-trigger continuam com `EXECUTE` para `anon` (82 para `authenticated`). Nenhuma perdeu `service_role`.
+
+**Regra para o futuro.** Toda a função `SECURITY DEFINER` nova no `public` leva, **na mesma migração que a cria**, `REVOKE EXECUTE ... FROM PUBLIC;` **e** `REVOKE EXECUTE ... FROM anon, authenticated;` e só depois `GRANT EXECUTE` aos papéis que dela precisam. Escrita também em `docs/INDEX.md` e em `DATABASE.md`.
+
+**Estado:** vigente.

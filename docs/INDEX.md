@@ -66,3 +66,19 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 - Supabase Live `sfohvvlqccmmebvjgibx` · Repo `pedrompropicio/mundopropicio`
 - Company MP `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`
 - Edge function de Issues: `github-issues` — parâmetro é **`number`**, não `issue_number`. PAT expira **24/set/2026**.
+
+## Regra de base de dados que nunca se salta
+
+**Toda a função `SECURITY DEFINER` nova no schema `public` leva, na mesma migração que a cria:**
+
+```sql
+REVOKE EXECUTE ON FUNCTION public.<nome>(<assinatura>) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.<nome>(<assinatura>) FROM anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.<nome>(<assinatura>) TO service_role;  -- e só quem precisa
+```
+
+O schema `public` é exposto pelo PostgREST: sem isto a função é chamável por RPC por qualquer visitante anónimo com a chave pública do bundle.
+
+**Duas armadilhas.** (1) `REVOKE ... FROM anon, authenticated` **não fecha nada** enquanto existir o grant de `PUBLIC` — eles herdam dele. (2) Neste projeto acontece o inverso: os grants são nominais a `anon`/`authenticated` e o `REVOKE ... FROM PUBLIC` é no-op. Por isso fazem-se **os dois** e confirma-se sempre com `has_function_privilege('anon', …)` e `has_function_privilege('authenticated', …)` — ambos `false`, `service_role` `true`. Nunca pela ACL em bruto.
+
+**Excepção:** funções usadas dentro de políticas de RLS não se revogam (ver D-ERP37).
