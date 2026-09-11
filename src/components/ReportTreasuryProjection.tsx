@@ -7,7 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { addDays, format, startOfDay, addMonths } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fetchAccountCashAdjustments, buildAccountCutoffs, computeAccountBalance } from "@/lib/account-balance";
+import { fetchAccountTrueBalancesAsOf } from "@/lib/account-balance-rpc";
 
 export default function ReportTreasuryProjection() {
   const [horizon, setHorizon] = useState("3");
@@ -24,27 +24,29 @@ export default function ReportTreasuryProjection() {
     },
   });
 
-  const { data: paidTxs = [] } = useQuery({
-    queryKey: ["treasury-paid"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, paid_amount, date, payment_date, status")
-        .not("account_id", "is", null);
-      if (error) throw error;
-      return data;
-    },
-  });
+  /**
+   * D-ERP36: o saldo de partida vem do SERVIDOR (`account_true_balances_asof`,
+   * `_as_of = NULL` = hoje). Somado no cliente ficava acima do real para quem
+   * não tem `view_confidential`, porque a policy RESTRICTIVE esconde as linhas
+   * confidenciais.
+   */
+  const accountIds = (accounts as any[]).map((a) => a.id);
 
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["treasury-cash-adjustments", (accounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
-    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(accounts as any)),
-    enabled: accounts.length > 0,
+  const { data: serverBalances } = useQuery({
+    queryKey: ["treasury-server-balances", accountIds.join(",")],
+    enabled: accountIds.length > 0,
+    queryFn: () => fetchAccountTrueBalancesAsOf(accountIds, null),
   });
 
   // Contas "Sem controlo de saldo" não entram no saldo de partida: o seu saldo
   // não é número (issue #90). Ficam sinalizadas no interface.
   const uncontrolledAccounts = (accounts as any[]).filter((a) => a.skip_balance_check);
+
+  // Contas cujo saldo o utilizador não pode ver: ficam FORA da projeção (não
+  // podem contribuir zero para um total, que pareceria certo e estaria errado).
+  const hiddenAccounts = (accounts as any[]).filter(
+    (a) => !a.skip_balance_check && serverBalances && (serverBalances.get(a.id) ?? null) === null,
+  );
 
   const { data: pendingTxs = [] } = useQuery({
     queryKey: ["treasury-pending"],
