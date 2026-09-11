@@ -500,3 +500,19 @@ Lê `artist_channels` com `platform='aggregator'` (o `external_id` é o UUID Sou
 e grava em `artist_metrics_daily` por upsert em `(artist_id, platform, metric, metric_date, source)`:
 `tiktok`/`instagram` → `followers`, `youtube` → `subscribers`, `spotify` → `monthly_listeners`.
 `source='aggregator'`, `source_ref='soundcharts'`, `company_id` explícito do artista.
+
+## Convenção obrigatória — funções SECURITY DEFINER
+
+Toda a função `SECURITY DEFINER` nova no schema `public` leva, **na mesma migração que a cria**:
+
+```sql
+REVOKE EXECUTE ON FUNCTION public.<nome>(<assinatura>) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.<nome>(<assinatura>) FROM anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.<nome>(<assinatura>) TO service_role;  -- e só aos papéis que dela precisam
+```
+
+`public` é exposto pelo PostgREST: sem estes revokes a função é chamável por RPC por `anon`.
+
+Armadilhas: com o grant de `PUBLIC` presente, `REVOKE ... FROM anon, authenticated` não tem efeito (herança); neste projeto os grants são nominais, logo `REVOKE ... FROM PUBLIC` sozinho também não tem efeito. Fazem-se os dois e confirma-se com `has_function_privilege`.
+
+Funções chamadas de dentro de políticas de RLS **não** se revogam. Funções chamadas pelo frontend via `supabase.rpc` também não — essas precisam de portão de permissão por dentro. Ver `docs/DECISIONS.md` D-ERP37.
