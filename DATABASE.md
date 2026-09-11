@@ -526,3 +526,20 @@ Edge function `suamusica-sync` (verify_jwt, admin/platform_admin ou service_role
 - `artist_release_metrics_daily` — metrics `plays` e `downloads` (contador acumulado), upsert em `(release_id, metric, metric_date, source)`.
 
 `company_id` vem sempre explícito de `artists.company_id`. Números lidos dos dados estruturados da página (exactos); se faltarem, lê os visíveis (arredondados) e assinala-o no resumo. Data de referência: hoje em America/Fortaleza.
+
+### Ligação oficial de canais (Instagram via Facebook Login)
+
+Tabelas novas (nada do schema `crm` é reutilizado nem alterado):
+
+| Tabela | Função |
+|---|---|
+| `artist_oauth_states` | Estado OAuth de uso único. `id` é o próprio `state`; `user_id`, `artist_channel_id`, `provider` (`meta`/`google`/`tiktok`), `return_url`, `expires_at` = `now() + 10 min`. **RLS ligada sem policies**: inacessível a `anon`/`authenticated`; só `service_role`. Consumo via `artist_consume_oauth_state(uuid)` (SECURITY DEFINER, `service_role` only), que apaga a linha e devolve `valid`. |
+| `artist_channel_connections` | Uma ligação por canal (`artist_channel_id` UNIQUE). `access_token_encrypted` (pgp_sym base64 com `ENCRYPTION_MASTER_KEY`), `external_account_id` (Instagram user id), `external_account_username`, `external_page_id`/`external_page_name`, `token_type`, `scopes`, `expires_at`, `status` (`active`/`expired`/`revoked`/`error`), `last_validated_at`, `last_error`, `consecutive_failures`, `connected_by`. **RLS ligada sem policies** — o token nunca é legível pelo cliente. O estado visível na app continua a ser `artist_channels.auth_status`. |
+| `artist_audience_demographics` | Demografia por plataforma: `audience_type` (`followers`/`engaged`/`reached`), `dimension` (`city`/`country`/`age`/`gender`/`age_gender`), `dim_key`, `value`, `timeframe`, `snapshot_date`. UNIQUE `(artist_id, platform, audience_type, dimension, dim_key, snapshot_date)`. |
+| `artist_content` | Publicações/Reels: `external_id`, `content_type` (`post`/`reel`/`carousel`/`video`/`story`/`short`/`outro`), `permalink`, `caption_excerpt` (≤200 chars), `thumbnail_url`, `published_at`. UNIQUE `(artist_id, platform, external_id)`. |
+| `artist_content_metrics_daily` | Série diária por publicação: `content_id` (ON DELETE CASCADE), `metric`, `metric_date`, `value`, `source`. UNIQUE `(content_id, metric, metric_date, source)`. |
+
+Funções internas (SECURITY DEFINER, `service_role` only, com os revokes da convenção acima):
+`artist_consume_oauth_state`, `artist_upsert_channel_connection`, `artist_get_connection_token`, `artist_mark_connection_status`, `artist_delete_channel_connection`.
+
+Edge functions: `artist-meta-oauth-start` (JWT; admin/platform_admin/manager/editor; allowlist de `return_url`), `artist-meta-oauth-callback` (`verify_jwt = false`, autorizado pelo state), `artist-instagram-sync` (JWT; service_role ou admin/platform_admin), `artist-connection-disconnect` (JWT). Graph API **v25.0**; `impressions` está descontinuada desde a v22.0 — usa-se `views`. Métrica ausente **não é gravada** (nunca se inventa 0).

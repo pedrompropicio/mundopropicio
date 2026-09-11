@@ -74,3 +74,18 @@ verify_jwt = true
 # Aceita service_role ou JWT de admin/platform_admin, validado dentro da função.
 [functions.suamusica-sync]
 verify_jwt = true
+
+# Ligação oficial do Instagram dos artistas (Instagram API with Facebook Login).
+# start/sync/disconnect exigem JWT; o callback é chamado pelo browser via
+# redirect do Facebook (sem JWT) e é autorizado pelo state de uso único.
+[functions.artist-meta-oauth-start]
+verify_jwt = true
+
+[functions.artist-meta-oauth-callback]
+verify_jwt = false
+
+[functions.artist-instagram-sync]
+verify_jwt = true
+
+[functions.artist-connection-disconnect]
+verify_jwt = true
