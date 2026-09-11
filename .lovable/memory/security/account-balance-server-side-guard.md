@@ -29,3 +29,15 @@ Consumidores (via `src/lib/account-balance-rpc.ts`): `TransactionPaymentModal`,
 
 Fora deste âmbito e ainda a calcular saldo no cliente: lista de Contas, cartões,
 bilheteiras e relatórios (segunda ronda).
+
+## Contas restritas → confidencial garantido na base
+
+Trigger `trg_force_confidential_restricted_account` (BEFORE INSERT OR UPDATE em
+`transactions`, função `public.force_confidential_for_restricted_account()`):
+se `account_id` aponta para conta com `is_restricted = true`, força
+`is_confidential = true`. Só liga o flag, nunca o desliga.
+
+Frontend (redundante, mas mantido): `TransferFormModal` e `BankLineLaunchModal`
+trazem `is_restricted` nas contas e marcam as DUAS pernas do par como
+confidenciais se origem OU destino for restrita; a caixa "Confidencial" só
+adiciona, nunca remove.
