@@ -13001,6 +13001,10 @@ export type Database = {
       }
     }
     Functions: {
+      _account_true_balance_asof_raw: {
+        Args: { _account_id: string; _as_of?: string }
+        Returns: number
+      }
       _account_true_balance_raw: {
         Args: { _account_id: string }
         Returns: number
@@ -13044,6 +13048,13 @@ export type Database = {
         Returns: boolean
       }
       account_true_balance: { Args: { _account_id: string }; Returns: number }
+      account_true_balances_asof: {
+        Args: { _account_ids: string[]; _as_of?: string }
+        Returns: {
+          account_id: string
+          balance: number
+        }[]
+      }
       ads_event_windows: {
         Args: { p_company_id: string }
         Returns: {
