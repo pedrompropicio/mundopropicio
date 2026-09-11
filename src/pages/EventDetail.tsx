@@ -828,12 +828,42 @@ export default function EventDetail() {
         t.is_hidden !== true &&
         t.reversed_at == null,
     );
-    const value = rows.reduce(
+
+    // Transferências internas (rubrica 10.3) podem ter as DUAS pernas lançadas:
+    // saída numa conta + entrada noutra, ambas marcadas "fora do resultado".
+    // O dinheiro circulou uma vez só, logo conta-se uma perna só. Critério:
+    // par entrada/saída na mesma rubrica 10.3, mesmo valor e mesma data do
+    // movimento (`date`, não `payment_date`: as pernas podem ser liquidadas em
+    // dias diferentes) — mantém-se a SAÍDA e descarta-se a entrada emparelhada.
+    // Nunca por texto da descrição, e nunca fora da 10.3 (aí duas linhas com o
+    // mesmo valor e data são movimentos distintos).
+    const isInternalTransfer = (t: any) =>
+      String(t.account_categories?.code ?? "").startsWith("10.3");
+    const legKey = (t: any) =>
+      `${Math.abs(Number(t.amount ?? 0)).toFixed(2)}|${t.date ?? t.payment_date ?? ""}`;
+
+    const outflowKeys = new Map<string, number>();
+    for (const t of rows) {
+      if (!isInternalTransfer(t) || t.type === "income") continue;
+      const k = legKey(t);
+      outflowKeys.set(k, (outflowKeys.get(k) ?? 0) + 1);
+    }
+
+    const deduped = rows.filter((t: any) => {
+      if (!isInternalTransfer(t) || t.type !== "income") return true;
+      const k = legKey(t);
+      const available = outflowKeys.get(k) ?? 0;
+      if (available <= 0) return true; // entrada sem contraparte: conta
+      outflowKeys.set(k, available - 1);
+      return false; // perna repetida da mesma transferência
+    });
+
+    const value = deduped.reduce(
       (s: number, t: any) =>
         s + (costBasis.withVat ? calcTotalWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)) : Number(t.amount ?? 0)),
       0,
     );
-    return { count: rows.length, value };
+    return { count: deduped.length, value };
   })();
 
   // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
@@ -1115,23 +1145,6 @@ export default function EventDetail() {
           tooltip="Receitas − Custos (reflete o modo escolhido em cada card). Margem = Lucro ÷ Receitas."
         />
 
-        {excludedFromResult.count > 0 && (
-          <button
-            type="button"
-            onClick={() => navigate(`/transacoes?event=${id}&excluded=1`)}
-            className="text-left"
-          >
-            <StatCard
-              title="Fora do resultado"
-              value={formatCurrency(excludedFromResult.value)}
-              icon={AlertTriangle}
-              variant="warning"
-              subtitle={`${excludedFromResult.count} transações · não entram no resultado do evento`}
-              tooltip="Despesas reais, pagas e faturadas, marcadas 'Fora do Resultado' por decisão de gestão. Clique para ver em Transações."
-            />
-          </button>
-        )}
-
         <StatCard
           title="Bilhetes"
           value={`${ticketsSold.toLocaleString()}`}
@@ -1140,6 +1153,32 @@ export default function EventDetail() {
           tooltip="Bilhetes vendidos calculados a partir dos registos de vendas de bilheteira (não inclui convites/cortesias)."
 
         />
+
+        {/* Informação de contexto, não KPI: fica na mesma grelha mas com peso
+            visual inferior aos quatro indicadores acima. */}
+        {excludedFromResult.count > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate(`/transacoes?event=${id}&excluded=1`)}
+            title="Movimentos marcados 'Fora do Resultado' por decisão de gestão. Transferências internas contam uma só vez. Clique para ver em Transações."
+            className="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Fora do resultado
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {excludedFromResult.count} transações · não entram no resultado do evento
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">
+              {formatCurrency(excludedFromResult.value)}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Locked banner for completed events */}
