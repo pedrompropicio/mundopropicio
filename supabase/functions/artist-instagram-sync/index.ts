@@ -184,9 +184,10 @@ Deno.serve(async (req) => {
       // ------------------------------------------------- insights diários
       for (const metric of ACCOUNT_INSIGHTS) {
         const ins = await graphGet(
-          `${igId}/insights`,
+          `${node}/insights`,
           { metric, period: "day", since: yesterday, until: today },
           token,
+          base,
         );
         graphCalls++;
         if (!ins.ok) {
@@ -237,7 +238,7 @@ Deno.serve(async (req) => {
       for (const dm of DEMOGRAPHIC_METRICS) {
         for (const breakdown of BREAKDOWNS) {
           const dem = await graphGet(
-            `${igId}/insights`,
+            `${node}/insights`,
             {
               metric: dm.metric,
               period: "lifetime",
@@ -246,6 +247,7 @@ Deno.serve(async (req) => {
               breakdown,
             },
             token,
+            base,
           );
           graphCalls++;
           if (!dem.ok) {
@@ -279,12 +281,13 @@ Deno.serve(async (req) => {
 
       // ------------------------------------------------------ conteúdos
       const media = await graphGet(
-        `${igId}/media`,
+        `${node}/media`,
         {
           fields: "id,caption,media_type,media_product_type,permalink,thumbnail_url,media_url,timestamp",
           limit: String(MEDIA_LIMIT),
         },
         token,
+        base,
       );
       graphCalls++;
 
@@ -365,6 +368,7 @@ Deno.serve(async (req) => {
               `${m.id}/insights`,
               { metric: MEDIA_INSIGHTS.join(",") },
               token,
+              base,
             );
             graphCalls++;
             if (!ins.ok) {
