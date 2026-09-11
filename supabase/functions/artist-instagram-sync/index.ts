@@ -1,5 +1,9 @@
-// artist-instagram-sync — recolhe métricas oficiais do Instagram (Instagram API
-// with Facebook Login) para as tabelas do módulo Carreira Artística.
+// artist-instagram-sync — recolhe métricas oficiais do Instagram para as
+// tabelas do módulo Carreira Artística. Trata as duas origens:
+//   provider = 'instagram' → Instagram API with Instagram Login (ligação
+//     directa do artista, token de utilizador, graph.instagram.com, nó `me`);
+//   provider = 'meta'      → Instagram API with Facebook Login (token de Página,
+//     graph.facebook.com, nó do ig user id).
 //
 // Autorização: service_role (uso interno/cron futuro) ou admin/platform_admin.
 // Graph API v25.0 (versão actual). `impressions` está descontinuada desde a

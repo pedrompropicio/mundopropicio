@@ -89,3 +89,17 @@ verify_jwt = true
 
 [functions.artist-connection-disconnect]
 verify_jwt = true
+
+# Ligação DIRECTA do Instagram (Instagram API with Instagram Login), com app e
+# credenciais próprias da carreira artística (INSTAGRAM_APP_ID/SECRET).
+# start exige JWT; o callback é chamado pelo browser via redirect do Instagram
+# (sem JWT) e é autorizado pelo state de uso único.
+[functions.artist-instagram-oauth-start]
+verify_jwt = true
+
+[functions.artist-instagram-oauth-callback]
+verify_jwt = false
+
+# Renovação dos tokens de longa duração do Instagram (~60 dias). Sem cron.
+[functions.artist-token-refresh]
+verify_jwt = true
