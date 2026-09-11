@@ -429,6 +429,18 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {(t as any).is_confidential && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground cursor-help">
+                        🔒 Confidencial
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>Visível apenas a quem tem a permissão de ver contas e movimentos confidenciais.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {t.exclude_from_result && !t.is_transitory && (
                   <Tooltip>
                     <TooltipTrigger asChild>
