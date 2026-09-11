@@ -167,10 +167,24 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   // é do servidor (D-ERP34).
   const selectedBalance = useAccountTrueBalance(accountId) ?? null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
-  const accountOptions = financialAccounts.map((a: any) => ({
+  /**
+   * Liquidação a partir de lista de pagamento: só contas bancárias.
+   * Um cartão pré-pago carrega-se, não paga faturas a fornecedores; contas de
+   * acerto/virtuais também não emitem pagamentos ao exterior.
+   */
+  const selectableAccounts = bankAccountsOnly
+    ? financialAccounts.filter((a: any) => a.type === "bank")
+    : financialAccounts;
+  const accountOptions = selectableAccounts.map((a: any) => ({
     value: a.id,
     label: a.name,
   }));
+
+  // Se a conta escolhida deixar de ser elegível, não se pré-selecciona nada.
+  useEffect(() => {
+    if (!accountId) return;
+    if (!selectableAccounts.some((a: any) => a.id === accountId)) setAccountId("");
+  }, [accountId, selectableAccounts]);
 
 
   async function suggestRate(ccy: CurrencyCode) {
