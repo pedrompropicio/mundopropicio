@@ -6,7 +6,11 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import {
+  accountHasBalanceFor,
+  useAccountTrueBalance,
+  insufficientBalanceMessage,
+} from "@/lib/account-balance-rpc";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 
@@ -50,28 +54,9 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     },
   });
 
-  // Calculate available balance for source account
-  const { data: sourceBalance } = useQuery({
-    queryKey: ["account-balance", fromAccountId],
-    enabled: !!fromAccountId,
-    queryFn: async () => {
-      const account = accounts.find((a) => a.id === fromAccountId);
-      if (!account) return 0;
-      if ((account as any).skip_balance_check) return null;
-
-      const { data: txns, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, paid_amount, date, payment_date")
-        .eq("account_id", fromAccountId);
-      if (error) throw error;
-
-      const adj = await fetchAccountCashAdjustments(
-        [fromAccountId],
-        buildAccountCutoffs([account as any])
-      );
-      return computeAccountBalance(account as any, (txns ?? []) as any, adj);
-    },
-  });
+  // Saldo da conta de origem, só para EXIBIÇÃO: null = sem autorização para ver
+  // (ou conta sem controlo de saldo). A decisão da trava é do servidor.
+  const sourceBalance = useAccountTrueBalance(fromAccountId);
 
   const transferMutation = useMutation({
     mutationFn: async () => {
