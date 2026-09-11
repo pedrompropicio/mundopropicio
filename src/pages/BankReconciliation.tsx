@@ -166,6 +166,52 @@ export default function BankReconciliation() {
     },
   });
 
+  /**
+   * Candidatas de OUTRAS contas para a ligação MANUAL apenas (D-ERP35).
+   * As camadas automáticas (lote SEPA, valor exacto, descrição) continuam
+   * restritas a `txns` — a conta do extrato. Abrir o automático entre contas
+   * esconderia precisamente o erro de conta que queremos ver.
+   */
+  const { data: crossAccountTxns = [] } = useQuery({
+    queryKey: ["bank-recon-cross-txns", manualLine?.id, accountId],
+    enabled: !!manualLine && !!accountId,
+    queryFn: async () => {
+      const target = Math.abs(Number(manualLine.amount ?? 0));
+      const base = manualLine.value_date ?? manualLine.booking_date;
+      const d = new Date(String(base).slice(0, 10) + "T00:00:00");
+      const shift = (days: number) => {
+        const x = new Date(d);
+        x.setDate(x.getDate() + days);
+        return x.toISOString().slice(0, 10);
+      };
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description, paid_amount, payment_date, date, account_id, financial_accounts(name)")
+        .neq("account_id", accountId)
+        .not("account_id", "is", null)
+        .gte("paid_amount", target - 0.01)
+        .lte("paid_amount", target + 0.01)
+        .gte("payment_date", shift(-AMOUNT_WINDOW_DAYS))
+        .lte("payment_date", shift(AMOUNT_WINDOW_DAYS))
+        .order("payment_date")
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []).map((t: any) => ({
+        ...t,
+        account_name: t.financial_accounts?.name ?? "conta desconhecida",
+      }));
+    },
+  });
+
+  const crossAccountIds = useMemo(
+    () => new Set((crossAccountTxns as any[]).map((t) => t.id)),
+    [crossAccountTxns],
+  );
+  const selectedCrossAccount = useMemo(
+    () => (crossAccountTxns as any[]).find((t) => t.id === manualTxId) ?? null,
+    [crossAccountTxns, manualTxId],
+  );
+
   const { data: sepaExports = [] } = useQuery({
     queryKey: ["bank-recon-sepa"],
     queryFn: async () => {
