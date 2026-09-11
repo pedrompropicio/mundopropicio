@@ -148,6 +148,11 @@ export function redirectUri(): string {
   return `${Deno.env.get("SUPABASE_URL")}/functions/v1/artist-meta-oauth-callback`;
 }
 
+/** Redirect URI da ligação directa pelo Instagram (Instagram Login). */
+export function igRedirectUri(): string {
+  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/artist-instagram-oauth-callback`;
+}
+
 /** Escreve no system_audit_log (nunca com tokens). */
 export async function auditLog(
   admin: SupabaseClient,
