@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,9 +27,14 @@ interface Props {
   initialInvoiceRef?: string;
   /** Data sugerida por defeito (ex.: payment_date da lista de pagamento). */
   initialPaymentDate?: string | null;
+  /**
+   * Liquidação nascida de uma LISTA DE PAGAMENTO: o seletor só oferece contas
+   * de tipo `bank` (sem cartões pré-pagos, contas de acerto ou virtuais).
+   */
+  bankAccountsOnly?: boolean;
 }
 
-export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate }: Props) {
+export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false }: Props) {
   const [invoiceRef, setInvoiceRef] = useState(initialInvoiceRef);
   const [accountId, setAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(
@@ -167,10 +172,24 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   // é do servidor (D-ERP34).
   const selectedBalance = useAccountTrueBalance(accountId) ?? null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
-  const accountOptions = financialAccounts.map((a: any) => ({
+  /**
+   * Liquidação a partir de lista de pagamento: só contas bancárias.
+   * Um cartão pré-pago carrega-se, não paga faturas a fornecedores; contas de
+   * acerto/virtuais também não emitem pagamentos ao exterior.
+   */
+  const selectableAccounts = bankAccountsOnly
+    ? financialAccounts.filter((a: any) => a.type === "bank")
+    : financialAccounts;
+  const accountOptions = selectableAccounts.map((a: any) => ({
     value: a.id,
     label: a.name,
   }));
+
+  // Se a conta escolhida deixar de ser elegível, não se pré-selecciona nada.
+  useEffect(() => {
+    if (!accountId) return;
+    if (!selectableAccounts.some((a: any) => a.id === accountId)) setAccountId("");
+  }, [accountId, selectableAccounts]);
 
 
   async function suggestRate(ccy: CurrencyCode) {

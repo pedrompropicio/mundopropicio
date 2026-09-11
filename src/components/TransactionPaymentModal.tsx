@@ -878,6 +878,18 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 {selectedAccountBalance <= 0 && " — Sem saldo!"}
               </p>
             )}
+            {/*
+              AVISO, não bloqueio: existem compras reais feitas com cartão
+              pré-pago gravadas com método `transfer`. Bloquear partiria o
+              trabalho da equipa.
+            */}
+            {(selectedAccount as any)?.type === "prepaid_card" &&
+              (paymentMethod === "transfer" || paymentMethod === "direct_debit") && (
+                <div className="mt-2 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Um cartão pré-pago não emite transferências SEPA nem débitos
+                  directos. Confirma a conta ou o método.
+                </div>
+              )}
             {/* Conta-espelho de sócio: o pagamento gera um aporte automático (10.1.01). */}
             <MirrorAporteNotice
               accountId={accountId}

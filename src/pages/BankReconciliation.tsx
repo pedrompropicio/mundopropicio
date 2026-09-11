@@ -46,6 +46,7 @@ import { uploadToCompanyBucket } from "@/lib/storage";
 import {
   reconcileStatement,
   findTransactionsWithoutBankLine,
+  AMOUNT_WINDOW_DAYS,
   type ReconcileResult,
   type ReconcileSepaExport,
   type ReconcileTransaction,
@@ -93,6 +94,8 @@ export default function BankReconciliation() {
   const [statementId, setStatementId] = useState<string | null>(null);
   const [manualLine, setManualLine] = useState<any | null>(null);
   const [manualTxId, setManualTxId] = useState<string>("");
+  /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
+  const [crossAccountAck, setCrossAccountAck] = useState(false);
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
   const [ignoreNote, setIgnoreNote] = useState("");
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
@@ -163,6 +166,52 @@ export default function BankReconciliation() {
       return data.map((t: any) => ({ ...t, supplier_name: t.suppliers?.name ?? null }));
     },
   });
+
+  /**
+   * Candidatas de OUTRAS contas para a ligação MANUAL apenas (D-ERP35).
+   * As camadas automáticas (lote SEPA, valor exacto, descrição) continuam
+   * restritas a `txns` — a conta do extrato. Abrir o automático entre contas
+   * esconderia precisamente o erro de conta que queremos ver.
+   */
+  const { data: crossAccountTxns = [] } = useQuery({
+    queryKey: ["bank-recon-cross-txns", manualLine?.id, accountId],
+    enabled: !!manualLine && !!accountId,
+    queryFn: async () => {
+      const target = Math.abs(Number(manualLine.amount ?? 0));
+      const base = manualLine.value_date ?? manualLine.booking_date;
+      const d = new Date(String(base).slice(0, 10) + "T00:00:00");
+      const shift = (days: number) => {
+        const x = new Date(d);
+        x.setDate(x.getDate() + days);
+        return x.toISOString().slice(0, 10);
+      };
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description, paid_amount, payment_date, date, account_id, financial_accounts(name)")
+        .neq("account_id", accountId)
+        .not("account_id", "is", null)
+        .gte("paid_amount", target - 0.01)
+        .lte("paid_amount", target + 0.01)
+        .gte("payment_date", shift(-AMOUNT_WINDOW_DAYS))
+        .lte("payment_date", shift(AMOUNT_WINDOW_DAYS))
+        .order("payment_date")
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []).map((t: any) => ({
+        ...t,
+        account_name: t.financial_accounts?.name ?? "conta desconhecida",
+      }));
+    },
+  });
+
+  const crossAccountIds = useMemo(
+    () => new Set((crossAccountTxns as any[]).map((t) => t.id)),
+    [crossAccountTxns],
+  );
+  const selectedCrossAccount = useMemo(
+    () => (crossAccountTxns as any[]).find((t) => t.id === manualTxId) ?? null,
+    [crossAccountTxns, manualTxId],
+  );
 
   const { data: sepaExports = [] } = useQuery({
     queryKey: ["bank-recon-sepa"],
@@ -576,9 +625,14 @@ export default function BankReconciliation() {
       })
       .eq("id", manualLine.id);
     if (error) return toast.error("Erro ao conciliar: " + error.message);
-    toast.success("Linha conciliada.");
+    if (crossAccountIds.has(manualTxId)) {
+      toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
+    } else {
+      toast.success("Linha conciliada.");
+    }
     setManualLine(null);
     setManualTxId("");
+    setCrossAccountAck(false);
     queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
   }
 
@@ -1183,7 +1237,13 @@ export default function BankReconciliation() {
               </p>
               <div>
                 <Label>Transação</Label>
-                <Select value={manualTxId} onValueChange={setManualTxId}>
+                <Select
+                  value={manualTxId}
+                  onValueChange={(v) => {
+                    setManualTxId(v);
+                    setCrossAccountAck(false);
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Escolher transação" /></SelectTrigger>
                   <SelectContent>
                     {(txns as any[])
@@ -1194,15 +1254,51 @@ export default function BankReconciliation() {
                           {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
                         </SelectItem>
                       ))}
+                    {/* Candidatas de OUTRAS contas: sempre depois e sempre com aviso. */}
+                    {(crossAccountTxns as any[])
+                      .filter((t) => !savedExplainedIds.has(t.id))
+                      .slice(0, 50)
+                      .map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
+                          {"  "}⚠ conta divergente — {t.account_name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
+              {selectedCrossAccount && (
+                <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs">
+                  <p className="font-semibold text-destructive">
+                    Conta divergente — {selectedCrossAccount.account_name}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Esta transação está registada noutra conta. Se o dinheiro saiu
+                    da conta deste extrato, a conta da liquidação está
+                    provavelmente errada e deve ser corrigida.
+                  </p>
+                  <label className="flex items-start gap-2 font-medium">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={crossAccountAck}
+                      onChange={(e) => setCrossAccountAck(e.target.checked)}
+                    />
+                    Confirmo que quero ligar esta linha a uma transação de outra conta.
+                  </label>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">A ligação não altera a transação: não liquida nem muda valores.</p>
             </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
-            <Button onClick={confirmManual} disabled={!manualTxId}>Ligar</Button>
+            <Button
+              onClick={confirmManual}
+              disabled={!manualTxId || (!!selectedCrossAccount && !crossAccountAck)}
+            >
+              Ligar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
