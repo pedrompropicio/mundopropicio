@@ -436,7 +436,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                 <SearchableSelect
                   options={categoryOptions}
                   value={categoryId}
-                  onValueChange={setCategoryId}
+                  onValueChange={(v) => { setCategoryId(v); setForecastId(""); }}
                   placeholder={transitory ? "Sem rubrica" : "Escolher rubrica…"}
                 />
               </div>
@@ -459,7 +459,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                 <SearchableSelect
                   options={(events as any[]).map((e) => ({ value: e.id, label: e.name }))}
                   value={eventId}
-                  onValueChange={setEventId}
+                  onValueChange={(v) => { setEventId(v); setForecastId(""); }}
                   placeholder="Sem evento"
                 />
               </div>
