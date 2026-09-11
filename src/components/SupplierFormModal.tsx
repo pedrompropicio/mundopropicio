@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 import { IbanWarning } from "@/components/IbanWarning";
+import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
 
 const supplierCategories = [
   "Som e Iluminação",
@@ -157,8 +158,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const normalizeIbanStr = (v: string | null) => (v ?? "").replace(/\s+/g, "").toUpperCase();
-
+  // Normalização única em toda a app: normalizeIban de @/lib/iban (remove espaços, pontos, hífens, _ e /)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -170,11 +170,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       email: (fd.get("email") as string) || null,
       phone: (fd.get("phone") as string) || null,
       address: (fd.get("address") as string) || null,
-      iban: normalizeIbanStr(fd.get("iban") as string) || null,
+      iban: normalizeIban(fd.get("iban") as string) || null,
       swift_bic: (fd.get("swift_bic") as string) || null,
-      iban_2: normalizeIbanStr(fd.get("iban_2") as string) || null,
+      iban_2: normalizeIban(fd.get("iban_2") as string) || null,
       swift_bic_2: (fd.get("swift_bic_2") as string) || null,
-      iban_3: normalizeIbanStr(fd.get("iban_3") as string) || null,
+      iban_3: normalizeIban(fd.get("iban_3") as string) || null,
       swift_bic_3: (fd.get("swift_bic_3") as string) || null,
       payment_terms: (fd.get("payment_terms") as string) || null,
       category: (fd.get("category") as string) || null,
@@ -196,12 +196,17 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       { key: "iban_3", label: "IBAN 3", value: raw.iban_3 },
     ];
 
+    // Import uma única vez, fora do ciclo
+    const { isValidIBAN } = await import("ibantools");
+
     for (const f of ibanFields) {
       if (!f.value) continue;
-      const { isValidIBAN } = await import("ibantools");
       if (!isValidIBAN(f.value)) {
+        // Motivo concreto (comprimento/dígitos de controlo/país); se os dois motores
+        // discordarem (ibanWarningMessage devolve null), fica o texto genérico
+        const reason = ibanWarningMessage(validateIban(f.value));
         toast.error(`${f.label} inválido`, {
-          description: "Verifique o formato (ex.: PT50XXXXXXXXXXXXXXXXXXXXX) e os dígitos de controlo.",
+          description: reason ?? "Verifique o formato (ex.: PT50XXXXXXXXXXXXXXXXXXXXX) e os dígitos de controlo.",
         });
         return;
       }
