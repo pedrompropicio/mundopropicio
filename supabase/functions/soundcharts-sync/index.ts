@@ -171,6 +171,9 @@ Deno.serve(async (req) => {
     let calls = 0;
     const errors: Array<{ artist_id: string; platform: string; status?: number; error: string }> = [];
     const rows: MetricRow[] = [];
+    const lastCrawl: Record<string, string | null> = {};
+    const platformStatus: Record<string, "ok" | "no_data" | "error"> = {};
+
 
     const fetchSc = async (path: string) => {
       calls++;
@@ -199,11 +202,14 @@ Deno.serve(async (req) => {
           const body = await fetchSc(
             `/api/v2/artist/${scUuid}/audience/${platform}?endDate=${endDate}&limit=100&sort=asc`,
           );
+          lastCrawl[platform] = body?.related?.lastCrawlDate ?? null;
           const metric = SOCIAL_METRIC[platform];
+          let pushed = 0;
           for (const item of body?.items ?? []) {
             const value = item?.followerCount;
             const date = item?.date;
             if (value == null || !date) continue;
+            pushed++;
             rows.push({
               company_id: companyId,
               artist_id: ch.artist_id,
@@ -217,9 +223,12 @@ Deno.serve(async (req) => {
               captured_at: new Date().toISOString(),
             });
           }
+          platformStatus[platform] = pushed > 0 ? "ok" : "no_data";
         } catch (e) {
           const status = (e as { status?: number }).status;
+          platformStatus[platform] = "error";
           errors.push({
+
             artist_id: ch.artist_id,
             platform,
             status,
@@ -233,10 +242,13 @@ Deno.serve(async (req) => {
         const body = await fetchSc(
           `/api/v2/artist/${scUuid}/streaming/spotify/listening?endDate=${endDate}&limit=100&sort=asc`,
         );
+        lastCrawl["spotify"] = body?.related?.lastCrawlDate ?? null;
+        let pushed = 0;
         for (const item of body?.items ?? []) {
           const value = item?.value;
           const date = item?.date;
           if (value == null || !date) continue;
+          pushed++;
           rows.push({
             company_id: companyId,
             artist_id: ch.artist_id,
@@ -250,9 +262,12 @@ Deno.serve(async (req) => {
             captured_at: new Date().toISOString(),
           });
         }
+        platformStatus["spotify"] = pushed > 0 ? "ok" : "no_data";
       } catch (e) {
         const status = (e as { status?: number }).status;
+        platformStatus["spotify"] = "error";
         errors.push({
+
           artist_id: ch.artist_id,
           platform: "spotify",
           status,
@@ -266,13 +281,41 @@ Deno.serve(async (req) => {
     for (const r of rows) {
       byKey.set(`${r.artist_id}|${r.platform}|${r.metric}|${r.metric_date}|${r.source}`, r);
     }
-    const unique = [...byKey.values()];
+    // a API devolve descendente e ignora o sort: ordenar por data do nosso lado
+    const unique = [...byKey.values()].sort((a, b) =>
+      a.platform === b.platform
+        ? (a.metric === b.metric
+          ? a.metric_date.localeCompare(b.metric_date)
+          : a.metric.localeCompare(b.metric))
+        : a.platform.localeCompare(b.platform)
+    );
 
-    const summary: Record<string, number> = {};
+    const summary: Record<string, {
+      rows: number;
+      min_date: string;
+      max_date: string;
+      max_date_value: number;
+    }> = {};
     for (const r of unique) {
       const k = `${r.platform}.${r.metric}`;
-      summary[k] = (summary[k] ?? 0) + 1;
+      const cur = summary[k];
+      if (!cur) {
+        summary[k] = {
+          rows: 1,
+          min_date: r.metric_date,
+          max_date: r.metric_date,
+          max_date_value: r.value,
+        };
+        continue;
+      }
+      cur.rows++;
+      if (r.metric_date < cur.min_date) cur.min_date = r.metric_date;
+      if (r.metric_date >= cur.max_date) {
+        cur.max_date = r.metric_date;
+        cur.max_date_value = r.value;
+      }
     }
+
 
     let written = 0;
     if (!dryRun && unique.length) {
@@ -295,7 +338,10 @@ Deno.serve(async (req) => {
       rows_prepared: unique.length,
       rows_written: dryRun ? 0 : written,
       rows_by_platform_metric: summary,
+      platform_status: platformStatus,
+      last_crawl_date: lastCrawl,
       errors,
+
     });
   } catch (e) {
     console.error("[soundcharts-sync]", e instanceof Error ? e.message : e);
