@@ -1304,7 +1304,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory || isPartnerExtra,
             exclude_from_result: isExcludeFromResult,
-          is_confidential: isConfidential,
             is_confidential: isConfidential,
             payment_method: data.payment_method || "transfer",
             payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
@@ -1640,8 +1639,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               is_transitory: principalIsTransitory,
               exclude_from_result: isExcludeFromResult,
               is_confidential: isConfidential,
-          is_confidential: isConfidential,
-            is_confidential: isConfidential,
               invoice_ref: data.invoice_ref.trim() || null,
               payment_method: data.payment_method || "transfer",
               payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
