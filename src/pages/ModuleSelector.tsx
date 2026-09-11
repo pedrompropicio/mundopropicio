@@ -117,8 +117,34 @@ export default function ModuleSelector() {
     },
   ];
 
+  // Gestão Artística: por agora só platform_admin
+  if ((role as any) === "platform_admin") {
+    cards.push({
+      key: "artistica",
+      title: "Gestão Artística",
+      subtitle: "Carreira dos artistas: canais, métricas e agenda",
+      description: "Carreira dos artistas: canais, métricas e agenda",
+      bullets: "Artistas · Canais · Métricas · Agenda",
+      icon: Music2,
+      externalUrl: "https://gestao-artistica.lovable.app",
+      enabled: true,
+      accent: {
+        border: "border-amber-500/30 hover:border-amber-500/60",
+        bg: "bg-amber-500/5",
+        icon: "text-amber-400",
+        title: "text-foreground",
+        glow: "hover:shadow-[0_0_40px_-10px_rgb(245_158_11_/_0.5)]",
+      },
+    });
+  }
+
   const handleClick = (card: ModuleCard) => {
-    if (!card.enabled || !card.to) return;
+    if (!card.enabled) return;
+    if (card.externalUrl) {
+      window.location.href = card.externalUrl;
+      return;
+    }
+    if (!card.to) return;
     navigate(card.to);
   };
 
