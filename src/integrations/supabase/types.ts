@@ -13449,6 +13449,45 @@ export type Database = {
           valid: boolean
         }[]
       }
+      artist_delete_channel_connection: {
+        Args: { p_artist_channel_id: string }
+        Returns: boolean
+      }
+      artist_get_connection_token: {
+        Args: { p_connection_id: string; p_master_key: string }
+        Returns: {
+          access_token: string
+          artist_channel_id: string
+          artist_id: string
+          company_id: string
+          external_account_id: string
+          external_page_id: string
+          provider: string
+        }[]
+      }
+      artist_mark_connection_status: {
+        Args: { p_connection_id: string; p_error?: string; p_status: string }
+        Returns: undefined
+      }
+      artist_upsert_channel_connection: {
+        Args: {
+          p_access_token: string
+          p_artist_channel_id: string
+          p_artist_id: string
+          p_company_id: string
+          p_connected_by?: string
+          p_expires_at?: string
+          p_external_account_id?: string
+          p_external_account_username?: string
+          p_external_page_id?: string
+          p_external_page_name?: string
+          p_master_key: string
+          p_provider: string
+          p_scopes?: string[]
+          p_token_type?: string
+        }
+        Returns: string
+      }
       audit_multi_tenant_isolation: {
         Args: never
         Returns: {
