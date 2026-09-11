@@ -181,3 +181,40 @@ no repositório), `timeout_milliseconds := 180000`, body `{"dry_run":false}`.
 
 Sem `artist_id` no body: percorre todos os artistas com canal `sua_musica` / `aggregator`.
 Lembrete: crons não propagam Test→Live via Publish.
+
+### Ligação oficial do Instagram dos artistas (Instagram API with Facebook Login)
+
+Quatro edge functions dedicadas ao módulo Carreira Artística. **Não reutilizam nem alteram
+nada do fluxo Meta do CRM** (`crm.*`, `crm-meta-*`): schema, tabelas, funções e estados são
+próprios (ver `DATABASE.md` §18).
+
+| Função | JWT | Papel |
+| --- | --- | --- |
+| `artist-meta-oauth-start` | sim | admin, platform_admin, manager, editor (ou service_role) |
+| `artist-meta-oauth-callback` | **não** | autorizado pelo `state` de uso único (10 min) |
+| `artist-instagram-sync` | sim | service_role, admin, platform_admin |
+| `artist-connection-disconnect` | sim | admin, platform_admin, manager, editor |
+
+Fluxo: `start` valida o canal (`platform='instagram'`, handle preenchido, empresa do
+utilizador), grava um `artist_oauth_states` de 10 minutos e devolve o URL de autorização
+com os scopes `instagram_basic`, `instagram_manage_insights`, `pages_show_list`,
+`pages_read_engagement`. O `callback` consome o state (uso único), troca o `code` por token
+de curta e depois de longa duração, lê `/me/accounts` e escolhe a Página cuja
+`instagram_business_account.username` coincide (sem distinguir maiúsculas) com o `handle`
+do canal; cifra o **token da Página** e marca `artist_channels.auth_status='authorized'`.
+Tokens nunca aparecem em respostas, logs ou audit log.
+
+`artist-instagram-sync` (Graph API **v25.0**): conta (`followers_count`, `follows_count`,
+`media_count`), insights diários (`reach`, `views`, `accounts_engaged`,
+`total_interactions`, `profile_links_taps` — pedidos um a um, tolerante a métricas
+indisponíveis), demografia (`follower_demographics` e `engaged_audience_demographics` por
+`city`/`country`/`age`/`gender`) e as últimas 25 publicações com as respectivas métricas.
+Erro Meta `190` marca a ligação `expired` e o canal `expired`, e a recolha segue para os
+artistas seguintes. `dry_run` é o **default** (`true`): só grava com `dry_run: false`.
+
+**Configuração na Meta (manual, uma vez):** na app do Facebook, em Facebook Login →
+Settings, acrescentar como Valid OAuth Redirect URI
+`<SUPABASE_URL>/functions/v1/artist-meta-oauth-callback`. Os scopes de Instagram exigem
+**Standard Access** e passam por **App Review** antes de funcionarem com contas fora dos
+utilizadores de teste da app. Segredos usados: `META_APP_ID`, `META_APP_SECRET`,
+`ENCRYPTION_MASTER_KEY`. Sem cron nesta fase.
