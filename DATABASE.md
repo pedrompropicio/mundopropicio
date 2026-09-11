@@ -469,3 +469,22 @@ Migration `20260610011843_e60a623e-9f5a-4791-9c90-4f2333bb2b3d.sql`. Espelha o p
 
 As tabelas-espelho referenciam `crm.ad_platform_connections` (que já aceita
 `platform='google'`). Detalhe em `docs/google-ads.md`.
+
+---
+
+## 18. Carreira artística (`public.artist*`)
+
+Fundação do módulo de Carreira Artística. Padrão da casa: `company_id NOT NULL DEFAULT current_company_id()`,
+um único trigger `trg_set_company_id` por tabela, RLS com SELECT para `authenticated`,
+escrita para `admin`/`platform_admin`/`manager`/`editor` e RESTRICTIVE `company_isolation_<tabela>`.
+Domínios em `text` + `CHECK` (sem enums). Chaves únicas totais (o upsert do supabase-js não aceita índices únicos parciais).
+
+| Tabela | Função |
+|---|---|
+| `artists` | Ficha do artista: `name` (nome artístico canónico), `slug`, `kind` (`musica`/`humor`/`palestra`/`digital`/`outro`), `managed` (agenciado pela empresa), `status` (`ativo`/`inativo`), `genre`, `city`, `career_start_year`, `photo_url`, `bio_pt`, `bio_en`, `meta_pixel_id`, `tiktok_pixel_code`, `supplier_id`→`suppliers` (entidade que fatura o cachê), `notes`. UNIQUE `(company_id, slug)`. |
+| `artist_aliases` | Grafias alternativas. `alias`, `alias_norm` GENERATED `lower(btrim(alias))` STORED, `source` (ex.: `event_cache_configs`, `crm.campaign_memory`, `manual`). UNIQUE `(company_id, alias_norm)`. `artist_id` ON DELETE CASCADE. |
+| `artist_channels` | Canais por plataforma (`spotify`, `youtube`, `instagram`, `tiktok`, `deezer`, `apple_music`, `sua_musica`, `facebook`, `soundcloud`, `aggregator`). `handle`, `external_id`, `url`, `account_type` (`personal`/`creator`/`business`/`artist`), `auth_status` (`none`/`authorized`/`expired`/`revoked`), `is_primary`. UNIQUE `(artist_id, platform, external_id)`. |
+| `artist_metrics_daily` | Série diária de métricas: `channel_id` (ON DELETE SET NULL), `platform`, `metric` (ex.: `monthly_listeners`, `followers`, `subscribers`, `likes`, `views`, `sound_creations`), `metric_date`, `value`, `source` (`public_page`/`aggregator`/`platform_api`/`manual`), `source_ref`, `captured_at`. UNIQUE `(artist_id, platform, metric, metric_date, source)`; índices `(artist_id, metric_date)` e `company_id`. |
+
+⚠️ **Inserts sob `service_role`** (syncs de métricas): passar `company_id` explícito, tirado do artista.
+`current_company_id()` devolve NULL sem contexto de utilizador e o insert é rejeitado (ver #86).
