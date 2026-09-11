@@ -929,3 +929,31 @@ Dados corrigidos a 11/09: a transação original passou para a conta Santander T
 **Regra futura (extensão da D-ERP37).** Função nova em `public` que escreve: nunca receber o autor por parâmetro — ler `auth.uid()`. Verificar permissão e `current_company_id()` no topo do corpo. Isentar `auth.uid() IS NULL` para service_role/crons, e comentar a isenção.
 
 **Estado:** vigente.
+
+## D-ERP39 — Contas dos artistas (captação de dados) ≠ contas de anúncios (tráfego) (11/09/2026)
+
+**Decisão.** São dois circuitos separados, com apps, credenciais, tabelas e funções próprias, e
+os tokens de um lado nunca servem o outro.
+
+**Captação de dados dos artistas.** Tabela `artist_channel_connections`; app Meta **dedicada à
+carreira artística**, com segredos próprios `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`; scopes
+**só de leitura** (`instagram_business_basic`, `instagram_business_manage_insights`) — nunca
+publicar, nunca mensagens, nunca anúncios. Usada apenas pelas funções `artist-*`.
+
+**Gestão de tráfego (Ads).** Continua em `ad_platform_connections` e nas funções `crm-*` /
+Audience, com `META_APP_ID` / `META_APP_SECRET`. Anúncios de artistas geridos pela empresa
+passam **sempre** por aqui — conta de anúncios do artista partilhada com o Business Manager da
+empresa — e **nunca** pelas ligações de dados dos artistas.
+
+**Regra de código.** Nenhuma função `artist-*` lê `ad_platform_connections` nem usa
+`META_APP_*`; nenhuma função `crm-*` lê `artist_channel_connections`. Excepção declarada: as
+funções `artist-meta-oauth-*` (Facebook Login) usam `META_APP_*` e ficam **de reserva,
+inactivas na app** — não se apagam, porque o caminho por Página continua a ser o alternativo
+para contas sem Instagram Login.
+
+**Caminho activo.** Ligação **directa pelo Instagram** (Instagram API with Instagram Login):
+`artist-instagram-oauth-start` → `artist-instagram-oauth-callback` → token de utilizador de
+longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
+`docs/ARCHITECTURE.md` e `DATABASE.md` §18.
+
+**Estado:** vigente.
