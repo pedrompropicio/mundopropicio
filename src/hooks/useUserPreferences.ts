@@ -29,7 +29,10 @@ export function useUserPreferences() {
       if (error) throw error;
       if (!data) return DEFAULTS;
       return {
-        consolidate_refunds_view: !!(data as any).consolidate_refunds_view,
+        consolidate_refunds_view:
+          (data as any).consolidate_refunds_view == null
+            ? DEFAULTS.consolidate_refunds_view
+            : !!(data as any).consolidate_refunds_view,
       };
     },
   });
