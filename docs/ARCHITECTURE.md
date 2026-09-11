@@ -150,7 +150,7 @@ O `status` (`nova`/`ignorada`/`aplicada`) é a decisão do operador. A execuçã
 ## Carreira artística — sync Soundcharts
 
 Edge function `soundcharts-sync` (`verify_jwt = true`; só `service_role` ou JWT com
-`has_role` admin/platform_admin — restantes casos 403). Sem cron e sem frontend.
+`has_role` admin/platform_admin — restantes casos 403). Sem frontend; cron diário (ver abaixo).
 
 - Auth Soundcharts: `POST https://account.soundcharts.com/oauth/token` com HTTP Basic
   (`SOUNDCHARTS_CLIENT_ID` / `SOUNDCHARTS_CLIENT_SECRET`) e `grant_type=client_credentials`;
