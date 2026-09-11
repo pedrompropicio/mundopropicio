@@ -27,6 +27,33 @@ export async function accountHasBalanceFor(accountId: string, amount: number): P
   return data === true;
 }
 
+/**
+ * Saldo verdadeiro de várias contas A UMA DATA (D-ERP36).
+ *
+ * `account_true_balance` devolve o saldo de HOJE; a Conciliação precisa do
+ * saldo à data da última linha do extrato. Esta função devolve um mapa
+ * conta → saldo, com `null` quando o utilizador não pode ver o saldo dessa
+ * conta (ou quando a conta não tem controlo de saldo).
+ *
+ * `asOf` a `null` = saldo de hoje.
+ */
+export async function fetchAccountTrueBalancesAsOf(
+  accountIds: string[],
+  asOf?: string | null
+): Promise<Map<string, number | null>> {
+  const map = new Map<string, number | null>();
+  if (!accountIds || accountIds.length === 0) return map;
+  const { data, error } = await supabase.rpc("account_true_balances_asof" as any, {
+    _account_ids: accountIds,
+    _as_of: asOf ? String(asOf).slice(0, 10) : null,
+  });
+  if (error) throw error;
+  for (const row of (data ?? []) as any[]) {
+    map.set(row.account_id, row.balance === null || row.balance === undefined ? null : Number(row.balance));
+  }
+  return map;
+}
+
 /** Saldo verdadeiro da conta; NULL quando o utilizador não o pode ver. */
 export async function fetchAccountTrueBalance(accountId: string): Promise<number | null> {
   const { data, error } = await supabase.rpc("account_true_balance" as any, {
