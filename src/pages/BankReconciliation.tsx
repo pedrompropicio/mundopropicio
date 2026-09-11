@@ -1232,7 +1232,13 @@ export default function BankReconciliation() {
               </p>
               <div>
                 <Label>Transação</Label>
-                <Select value={manualTxId} onValueChange={setManualTxId}>
+                <Select
+                  value={manualTxId}
+                  onValueChange={(v) => {
+                    setManualTxId(v);
+                    setCrossAccountAck(false);
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Escolher transação" /></SelectTrigger>
                   <SelectContent>
                     {(txns as any[])
@@ -1243,15 +1249,51 @@ export default function BankReconciliation() {
                           {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
                         </SelectItem>
                       ))}
+                    {/* Candidatas de OUTRAS contas: sempre depois e sempre com aviso. */}
+                    {(crossAccountTxns as any[])
+                      .filter((t) => !savedExplainedIds.has(t.id))
+                      .slice(0, 50)
+                      .map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
+                          {"  "}⚠ conta divergente — {t.account_name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
+              {selectedCrossAccount && (
+                <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs">
+                  <p className="font-semibold text-destructive">
+                    Conta divergente — {selectedCrossAccount.account_name}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Esta transação está registada noutra conta. Se o dinheiro saiu
+                    da conta deste extrato, a conta da liquidação está
+                    provavelmente errada e deve ser corrigida.
+                  </p>
+                  <label className="flex items-start gap-2 font-medium">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={crossAccountAck}
+                      onChange={(e) => setCrossAccountAck(e.target.checked)}
+                    />
+                    Confirmo que quero ligar esta linha a uma transação de outra conta.
+                  </label>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">A ligação não altera a transação: não liquida nem muda valores.</p>
             </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
-            <Button onClick={confirmManual} disabled={!manualTxId}>Ligar</Button>
+            <Button
+              onClick={confirmManual}
+              disabled={!manualTxId || (!!selectedCrossAccount && !crossAccountAck)}
+            >
+              Ligar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
