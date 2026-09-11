@@ -34,8 +34,12 @@ interface SearchableSelectProps {
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
-  /** If provided, shows a "create" footer option when the search text has no exact match. */
-  onCreateOption?: (text: string) => void;
+  /**
+   * If provided, shows a "create" footer option when the search text has no exact match.
+   * May be async: the popover only closes if it resolves without throwing and does not
+   * return `false`. This keeps the list open when the creation fails.
+   */
+  onCreateOption?: (text: string) => void | boolean | Promise<void | boolean>;
   /** Label builder for the create footer. */
   createLabel?: (text: string) => string;
 }
@@ -55,6 +59,24 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
+
+  const handleCreate = React.useCallback(async () => {
+    if (!onCreateOption) return;
+    const text = search.trim();
+    if (!text) return;
+    setCreating(true);
+    try {
+      const result = await onCreateOption(text);
+      if (result === false) return; // caller signalled failure → manter aberto
+      setOpen(false);
+      setSearch("");
+    } catch {
+      // Falha na criação: o popover fica aberto para o utilizador tentar de novo.
+    } finally {
+      setCreating(false);
+    }
+  }, [onCreateOption, search]);
 
   const selectedOption = options.find((o) => o.value === value);
 
@@ -120,7 +142,11 @@ export function SearchableSelect({
   });
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // `modal` é obrigatório: dentro de um Dialog do Radix (modal por omissão) o
+    // react-remove-scroll bloqueia a roda do rato em tudo o que esteja fora da
+    // subárvore do DialogContent — e este popover é renderizado em portal. Com
+    // `modal`, o próprio popover passa a gerir o scroll e a lista rola.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <div className={cn("relative", className)}>
         <PopoverTrigger asChild>
           <button
@@ -244,16 +270,17 @@ export function SearchableSelect({
           {canCreate && (
             <button
               type="button"
-              onClick={() => {
-                onCreateOption?.(search.trim());
-                setOpen(false);
-                setSearch("");
-              }}
-              className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-2 text-sm text-primary hover:bg-accent"
+              onClick={handleCreate}
+              disabled={creating}
+              className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60"
             >
               <Plus className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
-                {createLabel ? createLabel(search.trim()) : `Criar "${search.trim()}"…`}
+                {creating
+                  ? "A criar…"
+                  : createLabel
+                    ? createLabel(search.trim())
+                    : `Criar "${search.trim()}"…`}
               </span>
             </button>
           )}
