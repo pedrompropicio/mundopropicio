@@ -37,6 +37,14 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Contador vindo do site: null/""/negativo/não-número → null (nunca 0 inventado). */
+function toCount(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Hoje em America/Fortaleza (UTC-3, sem horário de verão). */
@@ -255,10 +263,10 @@ Deno.serve(async (req) => {
 
         if (user) {
           exact = true;
-          metrics.followers = Number.isFinite(Number(user.followers)) ? Number(user.followers) : null;
-          metrics.plays_total = Number.isFinite(Number(user.plays)) ? Number(user.plays) : null;
-          metrics.downloads_total = Number.isFinite(Number(user.download)) ? Number(user.download) : null;
-          metrics.uploads = Number.isFinite(Number(user.uploads)) ? Number(user.uploads) : null;
+          metrics.followers = toCount(user.followers);
+          metrics.plays_total = toCount(user.plays);
+          metrics.downloads_total = toCount(user.download);
+          metrics.uploads = toCount(user.uploads);
         } else {
           metrics.followers = scrapeVisible(html, "Seguidores");
           metrics.plays_total = scrapeVisible(html, "Plays");
@@ -320,8 +328,8 @@ Deno.serve(async (req) => {
               title: String(a.title ?? slug),
               url: `${BASE}/${path}`,
               published_at: a.sendDate ? fortalezaToIso(String(a.sendDate)) : null,
-              plays: Number.isFinite(Number(a.plays)) ? Number(a.plays) : null,
-              downloads: Number.isFinite(Number(a.downloads)) ? Number(a.downloads) : null,
+              plays: toCount(a.plays),
+              downloads: toCount(a.downloads),
               exact: true,
             });
           }
@@ -356,8 +364,10 @@ Deno.serve(async (req) => {
               const rnd = nextData(rHtml);
               const alb = rnd?.props?.pageProps?.album ?? rnd?.props?.pageProps?.cd ?? null;
               if (alb) {
-                if (Number.isFinite(Number(alb.plays))) seed.plays = Number(alb.plays);
-                if (Number.isFinite(Number(alb.downloads))) seed.downloads = Number(alb.downloads);
+                const p = toCount(alb.plays);
+                if (p !== null) seed.plays = p;
+                const dl = toCount(alb.downloads);
+                if (dl !== null) seed.downloads = dl;
                 if (!seed.published_at && alb.sendDate) {
                   seed.published_at = fortalezaToIso(String(alb.sendDate));
                 }
