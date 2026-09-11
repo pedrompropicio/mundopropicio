@@ -18,7 +18,7 @@ import {
   fetchSuggestedFxRate,
 } from "@/lib/currency";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
-import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import { accountHasBalanceFor, useAccountTrueBalance } from "@/lib/account-balance-rpc";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 
 interface Props {
@@ -59,28 +59,6 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
     },
   });
 
-  const { data: txSummary = [] } = useQuery({
-    queryKey: ["financial-accounts-tx-summary"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, date, payment_date")
-        .not("account_id", "is", null);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["account-cash-adjustments", (financialAccounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
-    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(financialAccounts as any)),
-  });
-
-  function accountBalanceOf(accId: string): number | null {
-    const acc = financialAccounts.find((a: any) => a.id === accId);
-    if (!acc) return 0;
-    return computeAccountBalance(acc as any, txSummary as any, cashAdjustments);
-  }
 
   // Build per-row info incl. foreign-currency reference
   const items = useMemo(() => {
