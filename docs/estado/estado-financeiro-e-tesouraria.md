@@ -141,5 +141,5 @@ As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos d
 - `.lovable/memory/features/standalone-invoices.md` — scanner e aba Conferência das faturas avulsas
 - `.lovable/memory/features/card-sessions.md`, `supplier-credits.md`, `transaction-installments.md`, `role-accountant.md`
 - `.lovable/memory/features/account-balance-cutoff-date.md` — data de corte do saldo inicial e skip_balance_check
-- `docs/DECISIONS.md` — D-ERP34 (contas e movimentos confidenciais, saldo validado no servidor) e D-ERP35 (conta de liquidação e conciliação entre contas)
+- `docs/DECISIONS.md` — D-ERP34 (contas e movimentos confidenciais, saldo validado no servidor), D-ERP35 (conta de liquidação e conciliação entre contas), D-ERP36 (saldo a uma data validado no servidor), D-ERP37 (funções SECURITY DEFINER fechadas por omissão) e D-ERP38 (portão de permissão e isolamento de empresa nas funções de BP)
 - Issues #91, #92, #124, #125, #126, #127, #134, #135, #149 (#90 fechada)
