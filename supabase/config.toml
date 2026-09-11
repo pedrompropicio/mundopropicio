@@ -64,3 +64,8 @@ verify_jwt = true
 # Auditoria por OCR dos grupos de fatura existentes (admin/platform_admin).
 [functions.audit-invoice-groups]
 verify_jwt = true
+
+# Sincronização de métricas de audiência via Soundcharts (agregador).
+# Aceita service_role ou JWT de admin/platform_admin, validado dentro da função.
+[functions.soundcharts-sync]
+verify_jwt = true
