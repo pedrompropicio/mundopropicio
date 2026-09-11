@@ -516,3 +516,13 @@ GRANT  EXECUTE ON FUNCTION public.<nome>(<assinatura>) TO service_role;  -- e s�
 Armadilhas: com o grant de `PUBLIC` presente, `REVOKE ... FROM anon, authenticated` não tem efeito (herança); neste projeto os grants são nominais, logo `REVOKE ... FROM PUBLIC` sozinho também não tem efeito. Fazem-se os dois e confirma-se com `has_function_privilege`.
 
 Funções chamadas de dentro de políticas de RLS **não** se revogam. Funções chamadas pelo frontend via `supabase.rpc` também não — essas precisam de portão de permissão por dentro. Ver `docs/DECISIONS.md` D-ERP37.
+
+### Recolha Sua Música (`suamusica-sync`)
+
+Edge function `suamusica-sync` (verify_jwt, admin/platform_admin ou service_role). Lê as páginas públicas de `suamusica.com.br` a partir de `artist_channels` com `platform = 'sua_musica'` e grava:
+
+- `artist_metrics_daily` — `platform='sua_musica'`, metrics `followers`, `plays_total`, `downloads_total`, `uploads`, `source='public_page'`, `source_ref` = URL do perfil, `channel_id` do canal. Upsert em `(artist_id, platform, metric, metric_date, source)`.
+- `artist_releases` — upsert em `(artist_id, platform, external_id)`, com `external_id` = caminho (`handle/slug`), `uploader_handle`, `is_official = true`.
+- `artist_release_metrics_daily` — metrics `plays` e `downloads` (contador acumulado), upsert em `(release_id, metric, metric_date, source)`.
+
+`company_id` vem sempre explícito de `artists.company_id`. Números lidos dos dados estruturados da página (exactos); se faltarem, lê os visíveis (arredondados) e assinala-o no resumo. Data de referência: hoje em America/Fortaleza.

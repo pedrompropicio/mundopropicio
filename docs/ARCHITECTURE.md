@@ -163,3 +163,7 @@ Edge function `soundcharts-sync` (`verify_jwt = true`; só `service_role` ou JWT
   `aggregator`. Com `dry_run` chama a API mas não grava.
 - Saída: artistas processados, nº de chamadas, linhas por plataforma/métrica, erros por
   plataforma (um 404 numa plataforma não interrompe as restantes).
+
+### `suamusica-sync`
+
+Recolhe métricas públicas do Sua Música (perfil e lançamentos) para `artist_metrics_daily`, `artist_releases` e `artist_release_metrics_daily`. `verify_jwt = true`; aceita `service_role` ou JWT de `admin`/`platform_admin`. Entrada: `artist_id` (opcional), `dry_run`, `max_releases` (default 10). Recolha sequencial, 1 s entre pedidos, timeout 15 s, User-Agent `MundoPropicio-Carreira/1.0`; 403/429 param o artista. Sem cron — invocação manual.
