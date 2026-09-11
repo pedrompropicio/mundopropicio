@@ -477,6 +477,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                   value={supplierId}
                   onValueChange={setSupplierId}
                   placeholder="Sem fornecedor"
+                  onCreateOption={handleCreateSupplier}
+                  createLabel={(t) => `Criar fornecedor "${t}"…`}
                 />
               </div>
               <div>
