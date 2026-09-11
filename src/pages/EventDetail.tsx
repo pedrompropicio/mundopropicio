@@ -828,12 +828,41 @@ export default function EventDetail() {
         t.is_hidden !== true &&
         t.reversed_at == null,
     );
-    const value = rows.reduce(
+
+    // Transferências internas (rubrica 10.3) podem ter as DUAS pernas lançadas:
+    // saída numa conta + entrada noutra, ambas marcadas "fora do resultado".
+    // O dinheiro circulou uma vez só, logo conta-se uma perna só. Critério:
+    // par entrada/saída na mesma rubrica 10.3, mesmo valor e mesma data de
+    // pagamento — mantém-se a SAÍDA e descarta-se a entrada emparelhada.
+    // Nunca por texto da descrição, e nunca fora da 10.3 (aí duas linhas com o
+    // mesmo valor e data são movimentos distintos).
+    const isInternalTransfer = (t: any) =>
+      String(t.account_categories?.code ?? "").startsWith("10.3");
+    const legKey = (t: any) =>
+      `${Math.abs(Number(t.amount ?? 0)).toFixed(2)}|${t.payment_date ?? t.due_date ?? ""}`;
+
+    const outflowKeys = new Map<string, number>();
+    for (const t of rows) {
+      if (!isInternalTransfer(t) || t.type === "income") continue;
+      const k = legKey(t);
+      outflowKeys.set(k, (outflowKeys.get(k) ?? 0) + 1);
+    }
+
+    const deduped = rows.filter((t: any) => {
+      if (!isInternalTransfer(t) || t.type !== "income") return true;
+      const k = legKey(t);
+      const available = outflowKeys.get(k) ?? 0;
+      if (available <= 0) return true; // entrada sem contraparte: conta
+      outflowKeys.set(k, available - 1);
+      return false; // perna repetida da mesma transferência
+    });
+
+    const value = deduped.reduce(
       (s: number, t: any) =>
         s + (costBasis.withVat ? calcTotalWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)) : Number(t.amount ?? 0)),
       0,
     );
-    return { count: rows.length, value };
+    return { count: deduped.length, value };
   })();
 
   // Ordenador efectivo = próprio da TX > herdado da linha BP vinculada.
