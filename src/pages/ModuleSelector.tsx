@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Building2, TrendingUp, Users, LogOut, Radar } from "lucide-react";
+import { Building2, TrendingUp, Users, LogOut, Radar, Music2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ interface ModuleCard {
   bullets: string;
   icon: typeof Building2;
   to?: string;
+  externalUrl?: string;
   enabled: boolean;
   comingSoon?: boolean;
   noAccess?: boolean;
