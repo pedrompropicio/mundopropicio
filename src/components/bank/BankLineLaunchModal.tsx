@@ -32,6 +32,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import {
   findMatchingRule,
   suggestPattern,
@@ -601,6 +602,31 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             Confirmar lançamento
           </Button>
         </DialogFooter>
+
+        {pickingBpLine && (
+          <LinkBpLineDialog
+            pickOnly
+            transaction={{
+              id: "",
+              description: description.trim(),
+              amount: base,
+              iva_rate: ivaRate,
+              event_id: eventId,
+              category_id: categoryId,
+              events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
+              account_categories: (() => {
+                const c = (categories as any[]).find((x) => x.id === categoryId);
+                return c ? { code: c.code, name: c.name } : null;
+              })(),
+            }}
+            onClose={() => setPickingBpLine(false)}
+            onLinked={() => setPickingBpLine(false)}
+            onPicked={(id) => {
+              setForecastId(id);
+              setPickingBpLine(false);
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
