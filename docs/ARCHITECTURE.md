@@ -218,3 +218,53 @@ Settings, acrescentar como Valid OAuth Redirect URI
 **Standard Access** e passam por **App Review** antes de funcionarem com contas fora dos
 utilizadores de teste da app. Segredos usados: `META_APP_ID`, `META_APP_SECRET`,
 `ENCRYPTION_MASTER_KEY`. Sem cron nesta fase.
+
+### Ligação directa do Instagram dos artistas (Instagram API with Instagram Login)
+
+**Caminho activo** para ligar o Instagram de um artista. As funções `artist-meta-*`
+(Facebook Login, secção anterior) ficam **de reserva, inactivas na app** — não se apagam.
+
+Separação de acessos obrigatória (D-ERP39): a **captação de dados dos artistas** usa uma app
+Meta dedicada à carreira (`INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`), scopes só de leitura e
+a tabela `artist_channel_connections`. A **gestão de tráfego (Ads)** continua em
+`ad_platform_connections` com `META_APP_ID` / `META_APP_SECRET` e nas funções `crm-*`. Nenhuma
+função `artist-*` lê `ad_platform_connections`; nenhuma `crm-*` lê `artist_channel_connections`.
+
+| Função | JWT | Papel |
+| --- | --- | --- |
+| `artist-instagram-oauth-start` | sim | admin, platform_admin, manager, editor (ou service_role) |
+| `artist-instagram-oauth-callback` | **não** | autorizado pelo `state` de uso único (10 min) |
+| `artist-token-refresh` | sim | service_role, admin, platform_admin |
+
+Fluxo: `start` valida o canal (`platform='instagram'`, handle preenchido, empresa do
+utilizador) e a allowlist de `return_url`, grava um `artist_oauth_states` com
+`provider='instagram'` e devolve `{ ok, authorize_url, state, expires_at, redirect_uri }`.
+`authorize_url` = `https://www.instagram.com/oauth/authorize` com `scope=`
+`instagram_business_basic,instagram_business_manage_insights` (**só leitura** — nunca publicar,
+nunca mensagens, nunca anúncios).
+
+O `callback` consome o state, troca o `code` em `POST https://api.instagram.com/oauth/access_token`,
+troca por token de longa duração (`ig_exchange_token`, ~60 dias, `expires_at` real gravado) e lê
+`GET graph.instagram.com/me?fields=user_id,username,account_type`. **Só aceita se o `username`
+coincidir** (sem maiúsculas, sem `@`) com `artist_channels.handle`; caso contrário redirecciona
+com `connection=error&reason=conta_diferente` e **não guarda nada**. Se coincidir, guarda o token
+cifrado (`provider='instagram'`, `token_type='instagram_user'`), põe
+`artist_channels.external_id = user_id`, `auth_status='authorized'` e `account_type`
+(`business`/`creator`). Redirecciona com `?connection=ok&channel=<id>` ou
+`?connection=error&reason=<motivo>`. Tokens nunca em logs nem em URLs.
+
+`artist-instagram-sync` trata **as duas origens**: `provider='instagram'` usa
+`graph.instagram.com` (nó `me`) com o token do utilizador; `provider='meta'` mantém o
+comportamento anterior (`graph.facebook.com` com token de Página). Mesmas regras:
+`company_id` explícito, métrica ausente não é gravada, `dry_run` por omissão `true`.
+
+`artist-token-refresh` renova as ligações `instagram` cujo `expires_at` está a menos de 15 dias
+e com mais de 24 h de vida, via `GET graph.instagram.com/refresh_access_token`
+(`grant_type=ig_refresh_token`); token inválido → ligação `expired` e canal `expired`. Sem cron
+nesta fase. `artist-connection-disconnect` serve as duas origens (apaga por canal).
+
+**Configuração na app Meta de carreira (manual, uma vez):** registar como Valid OAuth Redirect
+URI `<SUPABASE_URL>/functions/v1/artist-instagram-oauth-callback`. Em **modo de
+desenvolvimento**, só contas com papel na app (por exemplo, testador do Instagram, com o convite
+aceite nas definições do Instagram) conseguem autorizar; contas de terceiros exigem App Review.
+Segredos: `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `ENCRYPTION_MASTER_KEY`.

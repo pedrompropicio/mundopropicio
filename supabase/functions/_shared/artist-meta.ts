@@ -7,6 +7,16 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 export const GRAPH_VERSION = "v25.0";
 export const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
+/**
+ * Instagram API with Instagram Login (ligação directa pela conta do artista).
+ * Base própria: graph.instagram.com, mesma versão.
+ */
+export const IG_GRAPH = `https://graph.instagram.com/${GRAPH_VERSION}`;
+export const IG_OAUTH_AUTHORIZE = "https://www.instagram.com/oauth/authorize";
+export const IG_OAUTH_TOKEN = "https://api.instagram.com/oauth/access_token";
+/** graph.instagram.com sem versão — usado pelos endpoints de token. */
+export const IG_GRAPH_ROOT = "https://graph.instagram.com";
+
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -138,6 +148,11 @@ export function redirectUri(): string {
   return `${Deno.env.get("SUPABASE_URL")}/functions/v1/artist-meta-oauth-callback`;
 }
 
+/** Redirect URI da ligação directa pelo Instagram (Instagram Login). */
+export function igRedirectUri(): string {
+  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/artist-instagram-oauth-callback`;
+}
+
 /** Escreve no system_audit_log (nunca com tokens). */
 export async function auditLog(
   admin: SupabaseClient,
@@ -154,14 +169,18 @@ export async function auditLog(
   if (error) console.error("audit log falhou:", error.message);
 }
 
-/** GET à Graph API com token. Devolve { ok, status, body }. */
+/**
+ * GET à Graph API com token. `base` permite usar graph.instagram.com nas
+ * ligações directas pelo Instagram; por omissão usa graph.facebook.com.
+ */
 export async function graphGet(
   path: string,
   params: Record<string, string>,
   token: string,
+  base: string = GRAPH,
 ): Promise<{ ok: boolean; status: number; body: any }> {
   const qs = new URLSearchParams({ ...params, access_token: token });
-  const res = await fetch(`${GRAPH}/${path}?${qs}`, {
+  const res = await fetch(`${base}/${path}?${qs}`, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(20_000),
   });

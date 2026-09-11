@@ -1,5 +1,9 @@
-// artist-instagram-sync — recolhe métricas oficiais do Instagram (Instagram API
-// with Facebook Login) para as tabelas do módulo Carreira Artística.
+// artist-instagram-sync — recolhe métricas oficiais do Instagram para as
+// tabelas do módulo Carreira Artística. Trata as duas origens:
+//   provider = 'instagram' → Instagram API with Instagram Login (ligação
+//     directa do artista, token de utilizador, graph.instagram.com, nó `me`);
+//   provider = 'meta'      → Instagram API with Facebook Login (token de Página,
+//     graph.facebook.com, nó do ig user id).
 //
 // Autorização: service_role (uso interno/cron futuro) ou admin/platform_admin.
 // Graph API v25.0 (versão actual). `impressions` está descontinuada desde a
@@ -13,7 +17,9 @@ import {
   auditLog,
   authorize,
   corsHeaders,
+  GRAPH,
   graphGet,
+  IG_GRAPH,
   json,
   metaErrorCode,
   toCount,
@@ -69,10 +75,12 @@ Deno.serve(async (req) => {
   } catch (_e) { /* body opcional */ }
   const dryRun = body.dry_run !== false;
 
+  // Duas origens: 'instagram' = ligação directa (Instagram Login, token do
+  // utilizador em graph.instagram.com); 'meta' = Facebook Login (token de Página).
   let q = admin
     .from("artist_channel_connections")
-    .select("id, artist_id, artist_channel_id, company_id, external_account_id, external_account_username")
-    .eq("provider", "meta")
+    .select("id, artist_id, artist_channel_id, company_id, provider, external_account_id, external_account_username")
+    .in("provider", ["instagram", "meta"])
     .eq("status", "active");
   if (body.artist_id) q = q.eq("artist_id", body.artist_id);
   if (body.connection_id) q = q.eq("id", body.connection_id);
@@ -117,14 +125,21 @@ Deno.serve(async (req) => {
       const igId: string = conn.external_account_id ?? "";
       if (!igId) throw new Error("ligação sem instagram_user_id");
 
+      // Ligação directa (Instagram Login): graph.instagram.com e nó `me`.
+      const direct = conn.provider === "instagram";
+      const base = direct ? IG_GRAPH : GRAPH;
+      const node = direct ? "me" : igId;
+      per.provider = conn.provider;
+
       const metricRows: Array<Record<string, unknown>> = [];
       const demoRows: Array<Record<string, unknown>> = [];
 
       // ---------------------------------------------------------- conta
       const acc = await graphGet(
-        igId,
+        node,
         { fields: "followers_count,follows_count,media_count,username" },
         token,
+        base,
       );
       graphCalls++;
       if (!acc.ok) {
@@ -173,9 +188,10 @@ Deno.serve(async (req) => {
       // ------------------------------------------------- insights diários
       for (const metric of ACCOUNT_INSIGHTS) {
         const ins = await graphGet(
-          `${igId}/insights`,
+          `${node}/insights`,
           { metric, period: "day", since: yesterday, until: today },
           token,
+          base,
         );
         graphCalls++;
         if (!ins.ok) {
@@ -226,7 +242,7 @@ Deno.serve(async (req) => {
       for (const dm of DEMOGRAPHIC_METRICS) {
         for (const breakdown of BREAKDOWNS) {
           const dem = await graphGet(
-            `${igId}/insights`,
+            `${node}/insights`,
             {
               metric: dm.metric,
               period: "lifetime",
@@ -235,6 +251,7 @@ Deno.serve(async (req) => {
               breakdown,
             },
             token,
+            base,
           );
           graphCalls++;
           if (!dem.ok) {
@@ -268,12 +285,13 @@ Deno.serve(async (req) => {
 
       // ------------------------------------------------------ conteúdos
       const media = await graphGet(
-        `${igId}/media`,
+        `${node}/media`,
         {
           fields: "id,caption,media_type,media_product_type,permalink,thumbnail_url,media_url,timestamp",
           limit: String(MEDIA_LIMIT),
         },
         token,
+        base,
       );
       graphCalls++;
 
@@ -354,6 +372,7 @@ Deno.serve(async (req) => {
               `${m.id}/insights`,
               { metric: MEDIA_INSIGHTS.join(",") },
               token,
+              base,
             );
             graphCalls++;
             if (!ins.ok) {
