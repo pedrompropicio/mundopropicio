@@ -13252,6 +13252,193 @@ export type Database = {
           },
         ]
       }
+      v_artist_growth_summary: {
+        Row: {
+          accel_pct: number | null
+          artist_id: string | null
+          artist_name: string | null
+          best_date: string | null
+          best_value: number | null
+          company_id: string | null
+          d30_base_date: string | null
+          d30_delta: number | null
+          d30_pct: number | null
+          d7_base_date: string | null
+          d7_delta: number | null
+          d7_pct: number | null
+          d90_base_date: string | null
+          d90_delta: number | null
+          d90_pct: number | null
+          latest_date: string | null
+          latest_value: number | null
+          metric: string | null
+          platform: string | null
+          worst_date: string | null
+          worst_value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_artist_metric_indexed: {
+        Row: {
+          artist_id: string | null
+          artist_name: string | null
+          company_id: string | null
+          indexed: number | null
+          metric: string | null
+          metric_date: string | null
+          platform: string | null
+          value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_artist_metric_latest: {
+        Row: {
+          artist_id: string | null
+          artist_name: string | null
+          company_id: string | null
+          metric: string | null
+          metric_date: string | null
+          platform: string | null
+          source: string | null
+          value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_artist_release_performance: {
+        Row: {
+          artist_id: string | null
+          artist_name: string | null
+          avg_daily_gain: number | null
+          company_id: string | null
+          d30_value: number | null
+          d7_value: number | null
+          days_tracked: number | null
+          first_date: string | null
+          first_value: number | null
+          latest_date: string | null
+          latest_value: number | null
+          metric: string | null
+          platform: string | null
+          published_at: string | null
+          release_date: string | null
+          release_id: string | null
+          title: string | null
+          total_gain: number | null
+          tracking_started_days_after_release: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_release_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "artist_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_artist_release_ranking: {
+        Row: {
+          above_median: boolean | null
+          artist_id: string | null
+          artist_name: string | null
+          avg_daily_gain: number | null
+          company_id: string | null
+          days_tracked: number | null
+          first_value: number | null
+          latest_value: number | null
+          median_avg_daily_gain: number | null
+          metric: string | null
+          platform: string | null
+          rank: number | null
+          release_date: string | null
+          release_id: string | null
+          title: string | null
+          total_gain: number | null
+          tracking_started_days_after_release: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_release_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "artist_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_event_daily_sales: {
         Row: {
           company_id: string | null
@@ -13468,6 +13655,21 @@ export type Database = {
       artist_mark_connection_status: {
         Args: { p_connection_id: string; p_error?: string; p_status: string }
         Returns: undefined
+      }
+      artist_metric_growth: {
+        Args: { _artist_id: string; _days: number }
+        Returns: {
+          base_date: string
+          base_value: number
+          company_id: string
+          days_span: number
+          delta: number
+          delta_pct: number
+          latest_date: string
+          latest_value: number
+          metric: string
+          platform: string
+        }[]
       }
       artist_upsert_channel_connection: {
         Args: {

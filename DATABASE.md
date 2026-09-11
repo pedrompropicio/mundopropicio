@@ -501,6 +501,30 @@ e grava em `artist_metrics_daily` por upsert em `(artist_id, platform, metric, m
 `tiktok`/`instagram` → `followers`, `youtube` → `subscribers`, `spotify` → `monthly_listeners`.
 `source='aggregator'`, `source_ref='soundcharts'`, `company_id` explícito do artista.
 
+### 18.1 Camada analítica (views + função de leitura)
+
+Só leitura, tudo `SECURITY INVOKER` (views com `WITH (security_invoker = true)`), pelo que a RLS das tabelas base continua a mandar.
+Todas expõem `company_id` para o cliente filtrar. `GRANT SELECT` a `authenticated` e `service_role`.
+
+| Objecto | Função |
+|---|---|
+| `v_artist_metric_latest` | Último ponto por `(artist_id, platform, metric)`. Empate de data entre origens resolvido por prioridade explícita: `aggregator` > `platform_api` > `public_page` > outras. |
+| `artist_metric_growth(_artist_id uuid, _days int)` | Uma linha por `(platform, metric)`: `base_date/base_value`, `latest_date/latest_value`, `delta`, `delta_pct`, `days_span`. STABLE. |
+| `v_artist_growth_summary` | Uma linha por `(artist_id, platform, metric)` com `d7_*`, `d30_*`, `d90_*` (delta e %), `accel_pct` e `best_*`/`worst_*` dos últimos 365 dias. |
+| `v_artist_metric_indexed` | Série dos últimos 365 dias em base 100 (`value / primeiro_valor_da_janela * 100`, 2 casas), para comparar artistas de tamanhos diferentes. |
+| `v_artist_release_performance` | Por lançamento/plataforma/métrica: `first_*`, `latest_*`, `d7_value`, `d30_value`, `total_gain`, `days_tracked`, `avg_daily_gain`, `tracking_started_days_after_release`. |
+| `v_artist_release_ranking` | Ranking dos lançamentos por `avg_daily_gain` (desc) dentro de artista/plataforma/métrica, com `median_avg_daily_gain` e `above_median`. |
+
+Regras de cálculo:
+
+- **Tolerâncias:** ponto histórico das séries de artista = o mais próximo de `latest_date - N` dentro de **±5 dias**;
+  `d7_value`/`d30_value` dos lançamentos = o mais próximo de `release_date + 7/+30` dentro de **±3 dias**.
+- **NULL em vez de zero:** se não houver ponto na janela, `base_*`, `delta`, `delta_pct`, `days_span`, `accel_pct`, `d7_value`, `d30_value` vêm **NULL** — a série não cobre o período. `delta_pct` também é NULL se `base_value = 0`; `indexed` é NULL se o primeiro valor da janela for 0.
+- **`days_span`:** dias reais entre `base_date` e `latest_date` (pode não ser exactamente `_days`).
+- **`accel_pct`:** % dos últimos 30 dias menos % dos 30 dias anteriores (`latest-30 → latest` vs `latest-60 → latest-30`); NULL se faltar qualquer ponto.
+- **Contadores acumulados:** as métricas de lançamento são acumuladas. Quando a primeira leitura é muito posterior à publicação (todos os lançamentos antigos), `first_value` já vem alto e **não** representa o arranque — usar `tracking_started_days_after_release` para saber se a comparação é justa. Com uma única leitura, `days_tracked = 0` e `avg_daily_gain` é NULL.
+
+
 ## Convenção obrigatória — funções SECURITY DEFINER
 
 Toda a função `SECURITY DEFINER` nova no schema `public` leva, **na mesma migração que a cria**:
