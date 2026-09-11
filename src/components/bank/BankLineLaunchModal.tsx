@@ -186,11 +186,41 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const statementRestricted = !!(accounts as any[]).find((a) => a.id === accountId)?.is_restricted;
   const targetRestricted = !!(accounts as any[]).find((a) => a.id === targetAccountId)?.is_restricted;
 
+  // ---- D1 + D8: linha de BP obrigatória em despesa de evento `with_bp` ------
+  const isExpense = action === "create_expense";
+  const { data: budgetMode } = useQuery({
+    queryKey: ["bank-launch-budget-mode", eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("event_budget_mode" as any, { _event_id: eventId } as any);
+      if (error) throw error;
+      return String(data ?? "with_bp");
+    },
+  });
+  const needsBpLine = isExpense && !!eventId && !transitory && budgetMode === "with_bp";
+
+  const { data: pickedLine } = useQuery({
+    queryKey: ["bank-launch-bp-line", forecastId],
+    enabled: !!forecastId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, description, amount")
+        .eq("id", forecastId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   async function confirm() {
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
     if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
     if (gross <= 0) return toast.error("O movimento do banco não tem valor.");
+    // Antes de qualquer insert: sem linha de BP não se cria nada.
+    if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
+
 
     setSaving(true);
     try {
