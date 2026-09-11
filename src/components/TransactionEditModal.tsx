@@ -91,6 +91,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   });
   const queryClient = useQueryClient();
   const { user, isManager, hasPermission } = useAuth();
+  const canSeeConfidential = hasPermission("view_confidential");
 
   // Multi-currency state
   const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
