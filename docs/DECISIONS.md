@@ -845,3 +845,25 @@ Consequência conhecida: o modal de lançamento insere a transação e só depoi
 Dados corrigidos a 11/09: a transação original passou para a conta Santander Totta com data-valor 04/09, a linha do extrato foi religada a ela, e a duplicada foi eliminada.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP36 — Saldo a uma data, validado no servidor (11/09/2026)
+
+**Problema.** A policy RESTRICTIVE `transactions_confidential_guard` (D-ERP34) esconde as transações confidenciais na query, mas as somas feitas no cliente não compensam essa ausência. Quem não tem `view_confidential` via, na **Conciliação Bancária** e na **Projeção de Tesouraria**, um saldo de conta **acima** do verdadeiro — e o triângulo da Conciliação publicava a diferença ao cêntimo (no Santander, exactamente 16.000,00 €). O papel `manager` tem `view_balances`, `manage_accounts`, `view_reports` e `manage_bank_reconciliation` e **não** tem `view_confidential`: 3 utilizadores. Era por aí que a informação escapava.
+
+**Porque a função existente não servia.** `account_true_balance(uuid)` devolve o saldo de **hoje**. A Conciliação precisa do saldo **a uma data** (a última linha do extrato): no Santander a função actual devolve 413.667,55 €, e o ecrã tem de mostrar 439.403,92 € a 09/09, porque há 19 transações posteriores a 09/09 nessa conta. Trocar uma pela outra rebentaria a conciliação.
+
+**Decisão.**
+
+1. `public._account_true_balance_asof_raw(_account_id uuid, _as_of date DEFAULT NULL)` — SECURITY DEFINER, **interna**, sem `EXECUTE` para `authenticated` (mesmo padrão de `_account_true_balance_raw`). Espelha a fórmula canónica com corte em `initial_balance_date` e limite superior em `COALESCE(payment_date, date) <= _as_of`; inclui os ajustes de caixa de `transaction_payments`.
+2. `public.account_true_balances_asof(_account_ids uuid[], _as_of date DEFAULT NULL) → (account_id, balance)` — leitura em lote, SECURITY DEFINER, `EXECUTE` a `authenticated` e `service_role`. Replica o **mesmo portão de permissão** de `account_true_balance`: valor só a `platform_admin`, role `admin`, ou a quem tenha `view_balances` numa conta com `balance_visible_to_all = true`; nos restantes casos `NULL`. Conta com `skip_balance_check` devolve sempre `NULL`.
+3. `account_true_balance(uuid)` e `account_has_balance_for(uuid, numeric)` **não foram tocadas** — os modais de pagamento, transferência e lote continuam iguais.
+4. **Conciliação** (`src/pages/BankReconciliation.tsx`): o saldo do sistema vem da função nova, à data `period_to` do extrato (a mesma que o ecrã já mostrava). Quando o valor vem `NULL` por falta de permissão, esconde-se o **triângulo inteiro** — saldo do sistema, saldo declarado, diferença e as quatro caixas de decomposição — e fica apenas uma linha discreta a dizer que não há permissão. Esconder só o número não chega: é a diferença que denuncia o valor escondido.
+5. **Projeção de Tesouraria** (`src/components/ReportTreasuryProjection.tsx`): uma única chamada com `_as_of = NULL`. Contas cujo saldo venha `NULL` ficam **fora** da projeção, com aviso nominal — nunca contribuem zero, porque um total errado que parece certo é pior do que um total incompleto e assumido.
+
+**Validado a 11/09/2026.** `_account_true_balance_asof_raw('594befaa-…', '2026-09-09') = 439403.92`, igual ao `closing_balance` do extrato: diferença 0,00 €, 52 linhas conciliadas, 0 por explicar, 5 pré-corte.
+
+**Fica por fazer (Passo 3 do relatório de 11/09).** A página de Contas, o Extrato, os cartões e as bilheteiras continuam a somar saldo no cliente e a mostrá-lo sem verificar `view_balances` nem `balance_visible_to_all`. A limitação da D-ERP34 mantém-se: a fórmula não filtra status, estornadas nem escondidas.
+
+**Estado:** vigente.

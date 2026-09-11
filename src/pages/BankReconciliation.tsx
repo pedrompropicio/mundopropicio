@@ -36,12 +36,7 @@ import {
   extractBankRef,
   type ParsedStatement,
 } from "@/lib/bank-statement/parse-santander";
-import {
-  computeAccountBalance,
-  fetchAccountCashAdjustments,
-  buildAccountCutoffs,
-  effectivePaymentDate,
-} from "@/lib/account-balance";
+import { fetchAccountTrueBalancesAsOf } from "@/lib/account-balance-rpc";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import {
   reconcileStatement,
@@ -129,7 +124,7 @@ export default function BankReconciliation() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, type, initial_balance, initial_balance_date, is_active")
+        .select("id, name, type, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("is_active", true)
         .in("type", ["bank", "cash", "prepaid_card"])
         .order("name");
@@ -346,31 +341,30 @@ export default function BankReconciliation() {
   // O ecrã existe para tornar visível uma diferença. Confrontar abertura +
   // movimentos do próprio ficheiro dava sempre zero (o parser só aceita
   // extratos coerentes). O confronto certo é SISTEMA × BANCO.
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["bank-recon-adjustments", accountId, currentStatement?.period_to],
-    enabled: !!accountId && !!currentStatement?.period_to,
-    queryFn: () =>
-      fetchAccountCashAdjustments(
-        [accountId],
-        buildAccountCutoffs(accounts as any[]),
-        { lte: currentStatement.period_to },
-      ),
+  //
+  // D-ERP36: o saldo do sistema vem do SERVIDOR (`account_true_balances_asof`).
+  // Somado no cliente ficava acima do real para quem não tem `view_confidential`
+  // (a policy RESTRICTIVE esconde as linhas confidenciais) e o triângulo
+  // publicava a diferença ao cêntimo. A data é a mesma que o ecrã mostra:
+  // `period_to` do extrato.
+  const systemPeriodTo = currentStatement?.period_to
+    ? String(currentStatement.period_to).slice(0, 10)
+    : null;
+
+  const { data: systemBalances } = useQuery({
+    queryKey: ["bank-recon-system-balance", accountId, systemPeriodTo],
+    enabled: !!accountId && !!systemPeriodTo,
+    queryFn: () => fetchAccountTrueBalancesAsOf([accountId], systemPeriodTo),
   });
 
   const triangle = useMemo(() => {
-    if (!currentStatement || !account) return null;
+    if (!currentStatement || !account || !systemBalances) return null;
     const periodTo = String(currentStatement.period_to ?? "").slice(0, 10);
-    const upToPeriod = (txns as any[]).filter((t) => {
-      const eff = effectivePaymentDate(t);
-      return !eff || !periodTo || eff <= periodTo;
-    });
-    // Fonte única do saldo (D-ERP12/D-ERP25): mesma conta, mesma data de corte,
-    // mesmos ajustes de caixa que o módulo Contas.
-    const system = computeAccountBalance(
-      account as any,
-      upToPeriod.map((t) => ({ ...t, account_id: account.id })) as any,
-      cashAdjustments ?? undefined,
-    );
+    const system = systemBalances.get(account.id) ?? null;
+    // NULL sem `skip_balance_check` = o utilizador não pode ver o saldo desta
+    // conta. Nesse caso esconde-se o triângulo INTEIRO: é a diferença que
+    // denuncia o valor escondido, não só o saldo.
+    const balanceHidden = system === null && !account.skip_balance_check;
     const declared = Number(currentStatement.closing_balance ?? 0);
     const diff = system === null ? null : Math.round((system - declared) * 100) / 100;
     const unexplainedBank = (savedLines as any[])
@@ -397,6 +391,7 @@ export default function BankReconciliation() {
       diff === null ? null : Math.round((diff - (contribBank + contribSystem)) * 100) / 100;
     return {
       system,
+      balanceHidden,
       declared,
       diff,
       unexplainedBank,
@@ -407,7 +402,7 @@ export default function BankReconciliation() {
       residual,
       periodTo,
     };
-  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine, retentionTotal]);
+  }, [currentStatement, account, systemBalances, savedLines, txWithoutLine, retentionTotal]);
 
   // ---- Upload + pré-visualização -----------------------------------------
   async function onFile(file: File) {
@@ -844,8 +839,15 @@ export default function BankReconciliation() {
         </div>
       )}
 
+      {/* Sem permissão para ver o saldo desta conta: nada do triângulo aparece (D-ERP36) */}
+      {currentStatement && triangle?.balanceHidden && (
+        <p className="text-xs text-muted-foreground">
+          Não tens permissão para ver saldos desta conta — o confronto entre o sistema e o banco não é mostrado.
+        </p>
+      )}
+
       {/* Confronto sistema × banco */}
-      {currentStatement && triangle && (
+      {currentStatement && triangle && !triangle.balanceHidden && (
         <div className="glass space-y-3 rounded-xl p-4 text-sm">
           <div className="grid gap-3 md:grid-cols-3">
             <div>
