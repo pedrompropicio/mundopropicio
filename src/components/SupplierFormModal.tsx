@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
@@ -54,6 +54,18 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
   const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
+
+  // Os IBANs são os únicos campos controlados (o IbanWarning precisa do valor
+  // vivo a cada tecla). O Radix desmonta o conteúdo ao fechar, mas este
+  // componente fica montado — logo o estado sobrevivia e reaparecia na
+  // abertura seguinte. Ressincronizar na ABERTURA (não no fecho) garante o
+  // valor certo já no primeiro render visível.
+  useEffect(() => {
+    if (!open) return;
+    setIban1(editingSupplier?.iban ?? "");
+    setIban2(editingSupplier?.iban_2 ?? "");
+    setIban3(editingSupplier?.iban_3 ?? "");
+  }, [open, editingSupplier]);
 
   const createMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
