@@ -266,16 +266,17 @@ export function SearchableSelect({
           {canCreate && (
             <button
               type="button"
-              onClick={() => {
-                onCreateOption?.(search.trim());
-                setOpen(false);
-                setSearch("");
-              }}
-              className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-2 text-sm text-primary hover:bg-accent"
+              onClick={handleCreate}
+              disabled={creating}
+              className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60"
             >
               <Plus className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
-                {createLabel ? createLabel(search.trim()) : `Criar "${search.trim()}"…`}
+                {creating
+                  ? "A criar…"
+                  : createLabel
+                    ? createLabel(search.trim())
+                    : `Criar "${search.trim()}"…`}
               </span>
             </button>
           )}
