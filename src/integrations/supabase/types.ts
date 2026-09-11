@@ -420,6 +420,160 @@ export type Database = {
           },
         ]
       }
+      artist_audience_demographics: {
+        Row: {
+          artist_id: string
+          audience_type: string
+          company_id: string
+          created_at: string
+          dim_key: string
+          dimension: string
+          id: string
+          platform: string
+          snapshot_date: string
+          source: string
+          timeframe: string | null
+          value: number
+        }
+        Insert: {
+          artist_id: string
+          audience_type: string
+          company_id?: string
+          created_at?: string
+          dim_key: string
+          dimension: string
+          id?: string
+          platform: string
+          snapshot_date: string
+          source?: string
+          timeframe?: string | null
+          value: number
+        }
+        Update: {
+          artist_id?: string
+          audience_type?: string
+          company_id?: string
+          created_at?: string
+          dim_key?: string
+          dimension?: string
+          id?: string
+          platform?: string
+          snapshot_date?: string
+          source?: string
+          timeframe?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_audience_demographics_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_channel_connections: {
+        Row: {
+          access_token_encrypted: string
+          artist_channel_id: string
+          artist_id: string
+          company_id: string
+          connected_at: string
+          connected_by: string | null
+          consecutive_failures: number
+          created_at: string
+          expires_at: string | null
+          external_account_id: string | null
+          external_account_username: string | null
+          external_page_id: string | null
+          external_page_name: string | null
+          id: string
+          last_error: string | null
+          last_validated_at: string | null
+          provider: string
+          scopes: string[] | null
+          status: string
+          token_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          artist_channel_id: string
+          artist_id: string
+          company_id?: string
+          connected_at?: string
+          connected_by?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          expires_at?: string | null
+          external_account_id?: string | null
+          external_account_username?: string | null
+          external_page_id?: string | null
+          external_page_name?: string | null
+          id?: string
+          last_error?: string | null
+          last_validated_at?: string | null
+          provider: string
+          scopes?: string[] | null
+          status?: string
+          token_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          artist_channel_id?: string
+          artist_id?: string
+          company_id?: string
+          connected_at?: string
+          connected_by?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          expires_at?: string | null
+          external_account_id?: string | null
+          external_account_username?: string | null
+          external_page_id?: string | null
+          external_page_name?: string | null
+          id?: string
+          last_error?: string | null
+          last_validated_at?: string | null
+          provider?: string
+          scopes?: string[] | null
+          status?: string
+          token_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_channel_connections_artist_channel_id_fkey"
+            columns: ["artist_channel_id"]
+            isOneToOne: true
+            referencedRelation: "artist_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_channel_connections_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_channel_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artist_channels: {
         Row: {
           account_type: string | null
@@ -479,6 +633,130 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_content: {
+        Row: {
+          artist_id: string
+          caption_excerpt: string | null
+          company_id: string
+          content_type: string | null
+          created_at: string
+          external_id: string
+          id: string
+          permalink: string | null
+          platform: string
+          published_at: string | null
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          caption_excerpt?: string | null
+          company_id?: string
+          content_type?: string | null
+          created_at?: string
+          external_id: string
+          id?: string
+          permalink?: string | null
+          platform: string
+          published_at?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          caption_excerpt?: string | null
+          company_id?: string
+          content_type?: string | null
+          created_at?: string
+          external_id?: string
+          id?: string
+          permalink?: string | null
+          platform?: string
+          published_at?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_content_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_content_metrics_daily: {
+        Row: {
+          artist_id: string
+          captured_at: string
+          company_id: string
+          content_id: string
+          created_at: string
+          id: string
+          metric: string
+          metric_date: string
+          platform: string
+          source: string
+          value: number
+        }
+        Insert: {
+          artist_id: string
+          captured_at?: string
+          company_id?: string
+          content_id: string
+          created_at?: string
+          id?: string
+          metric: string
+          metric_date: string
+          platform: string
+          source?: string
+          value: number
+        }
+        Update: {
+          artist_id?: string
+          captured_at?: string
+          company_id?: string
+          content_id?: string
+          created_at?: string
+          id?: string
+          metric?: string
+          metric_date?: string
+          platform?: string
+          source?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_content_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "artist_content"
             referencedColumns: ["id"]
           },
         ]
@@ -543,6 +821,54 @@ export type Database = {
           },
           {
             foreignKeyName: "artist_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_oauth_states: {
+        Row: {
+          artist_channel_id: string
+          company_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          provider: string
+          return_url: string
+          user_id: string
+        }
+        Insert: {
+          artist_channel_id: string
+          company_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          provider: string
+          return_url: string
+          user_id: string
+        }
+        Update: {
+          artist_channel_id?: string
+          company_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          provider?: string
+          return_url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_oauth_states_artist_channel_id_fkey"
+            columns: ["artist_channel_id"]
+            isOneToOne: false
+            referencedRelation: "artist_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_oauth_states_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -13111,6 +13437,17 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      artist_consume_oauth_state: {
+        Args: { p_state_id: string }
+        Returns: {
+          artist_channel_id: string
+          company_id: string
+          provider: string
+          return_url: string
+          user_id: string
+          valid: boolean
+        }[]
       }
       audit_multi_tenant_isolation: {
         Args: never
