@@ -59,6 +59,24 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
+
+  const handleCreate = React.useCallback(async () => {
+    if (!onCreateOption) return;
+    const text = search.trim();
+    if (!text) return;
+    setCreating(true);
+    try {
+      const result = await onCreateOption(text);
+      if (result === false) return; // caller signalled failure → manter aberto
+      setOpen(false);
+      setSearch("");
+    } catch {
+      // Falha na criação: o popover fica aberto para o utilizador tentar de novo.
+    } finally {
+      setCreating(false);
+    }
+  }, [onCreateOption, search]);
 
   const selectedOption = options.find((o) => o.value === value);
 
