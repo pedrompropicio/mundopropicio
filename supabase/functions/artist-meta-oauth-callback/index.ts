@@ -149,7 +149,9 @@ Deno.serve(async (req) => {
         "pages_show_list",
         "pages_read_engagement",
       ],
-      p_expires_at: expiresAt,
+      // Token de Página derivado de token de utilizador de longa duração não
+      // expira: guardar null para o sync não o tratar como expirado.
+      p_expires_at: null,
       p_connected_by: st.user_id,
     },
   );
