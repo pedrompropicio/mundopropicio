@@ -284,7 +284,11 @@ Deno.serve(async (req) => {
         const metricRows: any[] = [];
         for (const [metric, value] of Object.entries(metrics)) {
           if (value === null || value === undefined) {
-            r.errors.push(`perfil: métrica '${metric}' não encontrada — não gravada`);
+            r.errors.push(
+              metric === "followers" && !followersVisible
+                ? "perfil: seguidores não expostos"
+                : `perfil: métrica '${metric}' não encontrada — não gravada`,
+            );
             continue;
           }
           r.profile.metrics[metric] = value;
