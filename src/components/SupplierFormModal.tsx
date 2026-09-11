@@ -196,12 +196,17 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       { key: "iban_3", label: "IBAN 3", value: raw.iban_3 },
     ];
 
+    // Import uma única vez, fora do ciclo
+    const { isValidIBAN } = await import("ibantools");
+
     for (const f of ibanFields) {
       if (!f.value) continue;
-      const { isValidIBAN } = await import("ibantools");
       if (!isValidIBAN(f.value)) {
+        // Motivo concreto (comprimento/dígitos de controlo/país); se os dois motores
+        // discordarem (ibanWarningMessage devolve null), fica o texto genérico
+        const reason = ibanWarningMessage(validateIban(f.value));
         toast.error(`${f.label} inválido`, {
-          description: "Verifique o formato (ex.: PT50XXXXXXXXXXXXXXXXXXXXX) e os dígitos de controlo.",
+          description: reason ?? "Verifique o formato (ex.: PT50XXXXXXXXXXXXXXXXXXXXX) e os dígitos de controlo.",
         });
         return;
       }
