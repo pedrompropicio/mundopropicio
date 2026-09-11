@@ -480,6 +480,38 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             </div>
           )}
 
+          {needsBpLine && (
+            <div className="rounded-lg border border-border p-3">
+              <Label>Linha de BP</Label>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="min-w-0 flex-1 text-xs">
+                  {forecastId ? (
+                    <span className="truncate">
+                      {(pickedLine as any)?.description ?? "Linha escolhida"}
+                      {(pickedLine as any)?.amount != null &&
+                        ` · ${formatCurrency(Number((pickedLine as any).amount))}`}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">Nenhuma linha escolhida — obrigatório.</span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!categoryId}
+                  onClick={() => setPickingBpLine(true)}
+                >
+                  {forecastId ? "Trocar linha" : "Escolher linha…"}
+                </Button>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Este evento é gerido com BP: a despesa precisa de uma linha do Business Plan.
+                {!categoryId && " Escolhe primeiro a rubrica."}
+              </p>
+            </div>
+          )}
+
           <div>
             <Label>Descrição</Label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
