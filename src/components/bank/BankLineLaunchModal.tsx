@@ -60,7 +60,8 @@ interface Props {
 }
 
 export function BankLineLaunchModal({ lines, accountId, accountName, rules, onClose, onDone }: Props) {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canSeeConfidential = hasPermission("view_confidential");
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
 
@@ -100,6 +101,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
+  const [isConfidential, setIsConfidential] = useState(false);
   const [rulePattern, setRulePattern] = useState("");
   const [ruleName, setRuleName] = useState("");
 
@@ -113,6 +115,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     setTargetAccountId(rule?.target_account_id ?? "");
     setSaveRule(!rule);
     setIsTransitory(false);
+    setIsConfidential(false);
     setRulePattern(suggestPattern(lines[0]?.description ?? ""));
     setRuleName(suggestPattern(lines[0]?.description ?? "").slice(0, 60));
   }, [rule, total, bankDescription, lines]);
@@ -156,7 +159,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name")
+        .select("id, name, is_restricted")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -179,6 +182,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const transitory = !isTransfer && isTransitory;
   /** Direção do par: numa linha de crédito o dinheiro ENTROU na conta do extrato. */
   const transferIncoming = total > 0;
+  /** Conta do extrato e conta de destino: se alguma é restrita, o par nasce confidencial. */
+  const statementRestricted = !!(accounts as any[]).find((a) => a.id === accountId)?.is_restricted;
+  const targetRestricted = !!(accounts as any[]).find((a) => a.id === targetAccountId)?.is_restricted;
 
   async function confirm() {
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
@@ -215,6 +221,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
           paid_amount: gross,
           payment_date: paymentDate,
           specification: note.trim() || null,
+          is_confidential: isConfidential || statementRestricted || targetRestricted,
         };
         // A transação da conta do extrato é sempre a primária (é a linha do banco).
         const { data: onStatement, error: e1 } = await supabase
@@ -259,6 +266,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             paid_amount: gross,
             payment_date: paymentDate,
             specification: note.trim() || null,
+            is_confidential: isConfidential || statementRestricted,
           } as any)
           .select("id")
           .single();
@@ -465,6 +473,24 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Move o saldo da conta, mas não é receita nem custo. Para dinheiro de terceiros que
                 passa pela conta e vai ser repassado.
+              </p>
+            </div>
+          )}
+
+          {canSeeConfidential && (
+            <div className="rounded-lg border border-border p-3">
+              <label className="flex items-start gap-2">
+                <Checkbox
+                  checked={isConfidential || statementRestricted || (isTransfer && targetRestricted)}
+                  disabled={statementRestricted || (isTransfer && targetRestricted)}
+                  onCheckedChange={(v) => setIsConfidential(!!v)}
+                />
+                <span className="text-xs">Confidencial</span>
+              </label>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {statementRestricted || (isTransfer && targetRestricted)
+                  ? "Conta restrita envolvida — o lançamento nasce sempre confidencial."
+                  : "Só quem tem a permissão de ver confidenciais é que vê este movimento."}
               </p>
             </div>
           )}
