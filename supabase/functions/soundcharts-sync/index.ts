@@ -338,7 +338,10 @@ Deno.serve(async (req) => {
       rows_prepared: unique.length,
       rows_written: dryRun ? 0 : written,
       rows_by_platform_metric: summary,
+      platform_status: platformStatus,
+      last_crawl_date: lastCrawl,
       errors,
+
     });
   } catch (e) {
     console.error("[soundcharts-sync]", e instanceof Error ? e.message : e);
