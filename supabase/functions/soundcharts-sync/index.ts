@@ -67,8 +67,14 @@ async function authorize(req: Request, admin: SupabaseClient): Promise<Caller> {
   const bearer = authHeader.replace(/^Bearer\s+/i, "");
   if (!bearer) return { allowed: false, reason: "missing token" };
 
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  if (bearer === serviceKey) return { allowed: true };
+  // JWT já verificado pelo gateway (verify_jwt = true): basta ler o claim role
+  try {
+    const payload = JSON.parse(atob(bearer.split(".")[1] ?? ""));
+    if (payload?.role === "service_role") return { allowed: true };
+  } catch (_e) {
+    // token não-JWT: segue para validação de utilizador
+  }
+
 
   const { data, error } = await admin.auth.getUser(bearer);
   if (error || !data?.user) return { allowed: false, reason: "invalid token" };
