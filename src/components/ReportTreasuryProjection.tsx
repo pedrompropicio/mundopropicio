@@ -61,12 +61,12 @@ export default function ReportTreasuryProjection() {
   });
 
   const projection = useMemo(() => {
-    // Saldo de partida pela fonte única (respeita skip_balance_check e a data
-    // de corte do saldo inicial). Contas sem controlo devolvem null e ficam
-    // fora da soma.
+    // Saldo de partida validado no servidor. `null` = conta sem controlo de
+    // saldo ou sem permissão: fica fora da soma, nunca conta como zero.
+    if (!serverBalances) return [] as { date: string; balance: number; label: string }[];
     let currentBalance = 0;
     for (const acc of accounts as any[]) {
-      const bal = computeAccountBalance(acc, paidTxs as any, cashAdjustments);
+      const bal = serverBalances.get(acc.id) ?? null;
       if (bal === null) continue;
       currentBalance += bal;
     }
@@ -99,7 +99,7 @@ export default function ReportTreasuryProjection() {
     }
 
     return days;
-  }, [accounts, paidTxs, pendingTxs, horizon, cashAdjustments]);
+  }, [accounts, serverBalances, pendingTxs, horizon]);
 
   const chartConfig = { balance: { label: "Saldo Projetado", color: "hsl(var(--primary))" } };
 
