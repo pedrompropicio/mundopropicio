@@ -13,7 +13,9 @@ import {
   auditLog,
   authorize,
   corsHeaders,
+  GRAPH,
   graphGet,
+  IG_GRAPH,
   json,
   metaErrorCode,
   toCount,
@@ -69,10 +71,12 @@ Deno.serve(async (req) => {
   } catch (_e) { /* body opcional */ }
   const dryRun = body.dry_run !== false;
 
+  // Duas origens: 'instagram' = ligação directa (Instagram Login, token do
+  // utilizador em graph.instagram.com); 'meta' = Facebook Login (token de Página).
   let q = admin
     .from("artist_channel_connections")
-    .select("id, artist_id, artist_channel_id, company_id, external_account_id, external_account_username")
-    .eq("provider", "meta")
+    .select("id, artist_id, artist_channel_id, company_id, provider, external_account_id, external_account_username")
+    .in("provider", ["instagram", "meta"])
     .eq("status", "active");
   if (body.artist_id) q = q.eq("artist_id", body.artist_id);
   if (body.connection_id) q = q.eq("id", body.connection_id);
