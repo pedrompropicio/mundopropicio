@@ -185,7 +185,9 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const invoiceRefApplies = !!singleSupplier;
   const effectiveInvoiceRef = invoiceRefApplies ? invoiceRef.trim() : "";
 
-  const selectedBalance = accountId ? accountBalanceOf(accountId) : null;
+  // Saldo só para EXIBIÇÃO: null = sem autorização para ver. A decisão da trava
+  // é do servidor (D-ERP34).
+  const selectedBalance = useAccountTrueBalance(accountId) ?? null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
   const accountOptions = financialAccounts.map((a: any) => ({
     value: a.id,
@@ -216,17 +218,18 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
 
-      // Validate balance for expenses — usa saída de caixa (já descontada a retenção)
+      // Trava de saldo no servidor (D-ERP34): conta também as transações
+      // confidenciais e respeita skip_balance_check internamente. Mantém-se a
+      // tolerância de 0,05 € do arredondamento.
       if (allExpenses) {
-        const acc = financialAccounts.find((a: any) => a.id === accountId);
-        const skipCheck = acc?.skip_balance_check ?? false;
-        const accBal = accountBalanceOf(accountId);
-        if (!skipCheck && accBal !== null) {
-          if (totalCashOut > accBal + 0.05) {
-            throw new Error(
-              `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalCashOut)}`
-            );
-          }
+        const needed = Math.round((totalCashOut - 0.05) * 100) / 100;
+        const hasBalance = await accountHasBalanceFor(accountId, needed);
+        if (!hasBalance) {
+          throw new Error(
+            selectedBalance === null
+              ? "Saldo insuficiente na conta."
+              : `Saldo insuficiente na conta. Disponível: ${formatCurrency(selectedBalance)}, Necessário: ${formatCurrency(totalCashOut)}`
+          );
         }
       }
 
