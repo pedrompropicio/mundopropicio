@@ -889,3 +889,33 @@ Dados corrigidos a 11/09: a transação original passou para a conta Santander T
 **Regra para o futuro.** Toda a função `SECURITY DEFINER` nova no `public` leva, **na mesma migração que a cria**, `REVOKE EXECUTE ... FROM PUBLIC;` **e** `REVOKE EXECUTE ... FROM anon, authenticated;` e só depois `GRANT EXECUTE` aos papéis que dela precisam. Escrita também em `docs/INDEX.md` e em `DATABASE.md`.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP38 — Portão de permissão e isolamento de empresa nas funções de BP (11/09/2026)
+
+**Problema.** Seis funções `SECURITY DEFINER` das versões e cenários do BP recebiam **`_performed_by`/`_created_by` como parâmetro** em vez de lerem `auth.uid()`, e nenhuma verificava papel, permissão ou empresa. Os `RAISE EXCEPTION` que tinham eram validação de negócio, não portão de acesso. Consequência: qualquer utilizador autenticado, de qualquer empresa, promovia um cenário a BP activo de qualquer evento — e **assinava a operação com o id de quem quisesse**, ficando a auditoria `bp_version_audit_log` a apontar para outra pessoa. Verificado em catálogo: nenhuma das seis continha `has_role`, `has_permission` nem `auth.uid`.
+
+**Decisão — o portão, igual nas doze funções tratadas.**
+
+1. `v_uid uuid := auth.uid();` no topo do corpo, antes de qualquer leitura ou escrita.
+2. **Isenção deliberada:** `v_uid IS NULL` passa sem verificar. É o mesmo padrão de `enforce_transaction_approval_permission` — `service_role`, crons, edge functions e syncs não têm identidade de utilizador e não podem ser bloqueados. Está comentada no código de cada função, precisamente para ninguém a "corrigir" mais tarde.
+3. Com utilizador, exige-se `is_platform_admin(v_uid) OR has_role(v_uid,'admin') OR has_permission(v_uid,'manage_bp')`. A permissão `manage_bp` está atribuída a **admin e manager** (confirmado em `role_permissions`). Falha → `RAISE EXCEPTION 'Sem permissão para gerir o Business Plan deste evento.' USING ERRCODE = '42501'`.
+4. **Isolamento de empresa.** O `company_id` do alvo (resolvido a partir do `_event_id`, ou de `bp_versions → events` quando o parâmetro é `_version_id`) tem de ser igual a `current_company_id()`. É isto que impede um utilizador da Coala de mexer no BP da MP. Excepção explícita: `platform_admin`, que opera transversalmente e cujo `current_company_id()` é apenas a empresa activa no momento — bloqueá-lo pela empresa activa partia a operação de suporte.
+5. **Autoria não forjável.** Com utilizador, o parâmetro recebido é ignorado e substituído por `auth.uid()`; com `auth.uid()` NULL (service_role) usa-se o parâmetro, como antes. As **assinaturas não mudaram** — as chamadas do frontend continuam iguais e não se tocou em código de frontend.
+
+**Funções com portão de permissão + empresa:** `promote_scenario_to_active`, `revert_to_bp_version`, `create_bp_snapshot`, `archive_bp_version`, `unarchive_bp_version`, `discard_bp_version_draft`, `mark_forecasts_fechado_auto` (valida que **todos** os ids em `_ids` são da empresa do chamador).
+
+**Só permissão, sem alvo:** `expire_supplier_credits` — rotina de manutenção que normalmente corre por cron como service_role.
+
+**Só verificação de empresa, sem exigência de permissão** (são leituras que o ecrã usa e não se quis partir nada): `event_close_blockers` (devolve NULL fora da empresa), `ads_event_windows` (devolve vazio), `get_user_max_daily_budget_eur` (devolve NULL salvo se o alvo é o próprio utilizador ou membro da mesma empresa).
+
+**Deixada de fora, por já estar protegida:** `zone_capacity_snapshot` — já abria com `row_belongs_to_current_company(e.company_id)` e devolvia vazio fora da empresa. Não foi tocada.
+
+**Verificação.** As onze funções alteradas passam a conter `auth.uid` e uma das três verificações; nenhuma perdeu o `EXECUTE` de `service_role`; e **nenhuma das doze aparece em `pg_policy`** — condição obrigatória, porque acrescentar `RAISE EXCEPTION` a uma função usada em RLS partiria a leitura de dados.
+
+**Nota para não repetir alarme.** A `reverse_transaction` foi investigada neste trabalho e **já estava protegida**: o gate de admin está na versão de 5 argumentos (a única chamada pelo frontend) e a de 4 é apenas um invólucro. Não voltar a levantar o mesmo caso.
+
+**Regra futura (extensão da D-ERP37).** Função nova em `public` que escreve: nunca receber o autor por parâmetro — ler `auth.uid()`. Verificar permissão e `current_company_id()` no topo do corpo. Isentar `auth.uid() IS NULL` para service_role/crons, e comentar a isenção.
+
+**Estado:** vigente.
