@@ -93,6 +93,8 @@ export default function BankReconciliation() {
   const [statementId, setStatementId] = useState<string | null>(null);
   const [manualLine, setManualLine] = useState<any | null>(null);
   const [manualTxId, setManualTxId] = useState<string>("");
+  /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
+  const [crossAccountAck, setCrossAccountAck] = useState(false);
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
   const [ignoreNote, setIgnoreNote] = useState("");
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
