@@ -832,14 +832,15 @@ export default function EventDetail() {
     // Transferências internas (rubrica 10.3) podem ter as DUAS pernas lançadas:
     // saída numa conta + entrada noutra, ambas marcadas "fora do resultado".
     // O dinheiro circulou uma vez só, logo conta-se uma perna só. Critério:
-    // par entrada/saída na mesma rubrica 10.3, mesmo valor e mesma data de
-    // pagamento — mantém-se a SAÍDA e descarta-se a entrada emparelhada.
+    // par entrada/saída na mesma rubrica 10.3, mesmo valor e mesma data do
+    // movimento (`date`, não `payment_date`: as pernas podem ser liquidadas em
+    // dias diferentes) — mantém-se a SAÍDA e descarta-se a entrada emparelhada.
     // Nunca por texto da descrição, e nunca fora da 10.3 (aí duas linhas com o
     // mesmo valor e data são movimentos distintos).
     const isInternalTransfer = (t: any) =>
       String(t.account_categories?.code ?? "").startsWith("10.3");
     const legKey = (t: any) =>
-      `${Math.abs(Number(t.amount ?? 0)).toFixed(2)}|${t.payment_date ?? t.due_date ?? ""}`;
+      `${Math.abs(Number(t.amount ?? 0)).toFixed(2)}|${t.date ?? t.payment_date ?? ""}`;
 
     const outflowKeys = new Map<string, number>();
     for (const t of rows) {
