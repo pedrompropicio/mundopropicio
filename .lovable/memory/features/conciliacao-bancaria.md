@@ -169,6 +169,16 @@ depois de as três camadas falharem.
   a **rubrica é opcional** (`transactions.category_id` é nullable) e **não se
   guarda regra**: `bank_line_rules` não tem coluna para o flag, e uma regra que o
   perdesse em silêncio seria pior do que não existir.
+- **Linha de BP obrigatória (D1+D8):** quando a ação é **despesa**, há **evento**
+  escolhido e `event_budget_mode(event_id) = 'with_bp'`, aparece o campo
+  **"Linha de BP"**, obrigatório. A escolha usa o mesmo `LinkBpLineDialog` em modo
+  `pickOnly` (com criação de linha para quem tem `manage_bp`) e a transação nasce
+  já com `forecast_id` — sem isto o trigger `enforce_transaction_approval_permission`
+  recusava o lançamento depois de a transação já estar criada. A validação corre
+  **antes** de qualquer insert (`toast.error("Escolhe a linha de BP deste evento.")`).
+  Vale igual no lançamento pela soma: uma transação, uma linha de BP. A linha
+  **nunca** entra em `bank_line_rules` (rubrica e evento sim) — as linhas pertencem
+  a um evento concreto e a regra reutilizaria a linha errada.
 - **Google Ads (D-ERP30):** débito por limiar não é custo. A ação
   `create_transfer` gera o PAR de transações da rubrica 10.3, como o
   `TransferFormModal` — no débito, saída da conta do extrato e entrada em

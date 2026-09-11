@@ -32,6 +32,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import {
   findMatchingRule,
   suggestPattern,
@@ -98,6 +99,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const [targetAccountId, setTargetAccountId] = useState("");
   /** Dinheiro de terceiros que só passa pela conta: move saldo, não é resultado. */
   const [isTransitory, setIsTransitory] = useState(false);
+  /** D1+D8 — linha de BP escolhida (nunca guardada em regra: pertence ao evento). */
+  const [forecastId, setForecastId] = useState("");
+  const [pickingBpLine, setPickingBpLine] = useState(false);
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
@@ -115,6 +119,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     setTargetAccountId(rule?.target_account_id ?? "");
     setSaveRule(!rule);
     setIsTransitory(false);
+    setForecastId("");
     setIsConfidential(false);
     setRulePattern(suggestPattern(lines[0]?.description ?? ""));
     setRuleName(suggestPattern(lines[0]?.description ?? "").slice(0, 60));
@@ -186,11 +191,41 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
   const statementRestricted = !!(accounts as any[]).find((a) => a.id === accountId)?.is_restricted;
   const targetRestricted = !!(accounts as any[]).find((a) => a.id === targetAccountId)?.is_restricted;
 
+  // ---- D1 + D8: linha de BP obrigatória em despesa de evento `with_bp` ------
+  const isExpense = action === "create_expense";
+  const { data: budgetMode } = useQuery({
+    queryKey: ["bank-launch-budget-mode", eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("event_budget_mode" as any, { _event_id: eventId } as any);
+      if (error) throw error;
+      return String(data ?? "with_bp");
+    },
+  });
+  const needsBpLine = isExpense && !!eventId && !transitory && budgetMode === "with_bp";
+
+  const { data: pickedLine } = useQuery({
+    queryKey: ["bank-launch-bp-line", forecastId],
+    enabled: !!forecastId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, description, amount")
+        .eq("id", forecastId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   async function confirm() {
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
     if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
     if (gross <= 0) return toast.error("O movimento do banco não tem valor.");
+    // Antes de qualquer insert: sem linha de BP não se cria nada.
+    if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
+
 
     setSaving(true);
     try {
@@ -260,6 +295,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             is_transitory: transitory,
             supplier_id: supplierId || null,
             event_id: eventId || null,
+            forecast_id: needsBpLine ? forecastId : null,
             account_id: accountId,
             date: paymentDate,
             status: "paid",
@@ -401,7 +437,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                 <SearchableSelect
                   options={categoryOptions}
                   value={categoryId}
-                  onValueChange={setCategoryId}
+                  onValueChange={(v) => { setCategoryId(v); setForecastId(""); }}
                   placeholder={transitory ? "Sem rubrica" : "Escolher rubrica…"}
                 />
               </div>
@@ -424,7 +460,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                 <SearchableSelect
                   options={(events as any[]).map((e) => ({ value: e.id, label: e.name }))}
                   value={eventId}
-                  onValueChange={setEventId}
+                  onValueChange={(v) => { setEventId(v); setForecastId(""); }}
                   placeholder="Sem evento"
                 />
               </div>
@@ -442,6 +478,38 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
                   Base {formatCurrency(base)} · pago {formatCurrency(gross)}
                 </p>
               </div>
+            </div>
+          )}
+
+          {needsBpLine && (
+            <div className="rounded-lg border border-border p-3">
+              <Label>Linha de BP</Label>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="min-w-0 flex-1 text-xs">
+                  {forecastId ? (
+                    <span className="truncate">
+                      {(pickedLine as any)?.description ?? "Linha escolhida"}
+                      {(pickedLine as any)?.amount != null &&
+                        ` · ${formatCurrency(Number((pickedLine as any).amount))}`}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">Nenhuma linha escolhida — obrigatório.</span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!categoryId}
+                  onClick={() => setPickingBpLine(true)}
+                >
+                  {forecastId ? "Trocar linha" : "Escolher linha…"}
+                </Button>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Este evento é gerido com BP: a despesa precisa de uma linha do Business Plan.
+                {!categoryId && " Escolhe primeiro a rubrica."}
+              </p>
             </div>
           )}
 
@@ -534,6 +602,31 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             Confirmar lançamento
           </Button>
         </DialogFooter>
+
+        {pickingBpLine && (
+          <LinkBpLineDialog
+            pickOnly
+            transaction={{
+              id: "",
+              description: description.trim(),
+              amount: base,
+              iva_rate: ivaRate,
+              event_id: eventId,
+              category_id: categoryId,
+              events: { name: (events as any[]).find((e) => e.id === eventId)?.name ?? null },
+              account_categories: (() => {
+                const c = (categories as any[]).find((x) => x.id === categoryId);
+                return c ? { code: c.code, name: c.name } : null;
+              })(),
+            }}
+            onClose={() => setPickingBpLine(false)}
+            onLinked={() => setPickingBpLine(false)}
+            onPicked={(id) => {
+              setForecastId(id);
+              setPickingBpLine(false);
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
