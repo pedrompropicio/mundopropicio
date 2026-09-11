@@ -77,6 +77,11 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Segredo verificado depois das validações de entrada, para que um
+  // return_url não permitido continue a devolver 400 mesmo sem app configurada.
+  const appId = Deno.env.get("INSTAGRAM_APP_ID");
+  if (!appId) return json({ error: "INSTAGRAM_APP_ID não configurado" }, 500);
+
   const { data: state, error: stErr } = await admin
     .from("artist_oauth_states")
     .insert({
