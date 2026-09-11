@@ -142,7 +142,11 @@ export function SearchableSelect({
   });
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // `modal` é obrigatório: dentro de um Dialog do Radix (modal por omissão) o
+    // react-remove-scroll bloqueia a roda do rato em tudo o que esteja fora da
+    // subárvore do DialogContent — e este popover é renderizado em portal. Com
+    // `modal`, o próprio popover passa a gerir o scroll e a lista rola.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <div className={cn("relative", className)}>
         <PopoverTrigger asChild>
           <button
