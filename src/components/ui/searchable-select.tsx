@@ -34,8 +34,12 @@ interface SearchableSelectProps {
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
-  /** If provided, shows a "create" footer option when the search text has no exact match. */
-  onCreateOption?: (text: string) => void;
+  /**
+   * If provided, shows a "create" footer option when the search text has no exact match.
+   * May be async: the popover only closes if it resolves without throwing and does not
+   * return `false`. This keeps the list open when the creation fails.
+   */
+  onCreateOption?: (text: string) => void | boolean | Promise<void | boolean>;
   /** Label builder for the create footer. */
   createLabel?: (text: string) => string;
 }
