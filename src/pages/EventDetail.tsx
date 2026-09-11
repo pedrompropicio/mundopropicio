@@ -1144,23 +1144,6 @@ export default function EventDetail() {
           tooltip="Receitas − Custos (reflete o modo escolhido em cada card). Margem = Lucro ÷ Receitas."
         />
 
-        {excludedFromResult.count > 0 && (
-          <button
-            type="button"
-            onClick={() => navigate(`/transacoes?event=${id}&excluded=1`)}
-            className="text-left"
-          >
-            <StatCard
-              title="Fora do resultado"
-              value={formatCurrency(excludedFromResult.value)}
-              icon={AlertTriangle}
-              variant="warning"
-              subtitle={`${excludedFromResult.count} transações · não entram no resultado do evento`}
-              tooltip="Despesas reais, pagas e faturadas, marcadas 'Fora do Resultado' por decisão de gestão. Clique para ver em Transações."
-            />
-          </button>
-        )}
-
         <StatCard
           title="Bilhetes"
           value={`${ticketsSold.toLocaleString()}`}
@@ -1169,6 +1152,32 @@ export default function EventDetail() {
           tooltip="Bilhetes vendidos calculados a partir dos registos de vendas de bilheteira (não inclui convites/cortesias)."
 
         />
+
+        {/* Informação de contexto, não KPI: fica na mesma grelha mas com peso
+            visual inferior aos quatro indicadores acima. */}
+        {excludedFromResult.count > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate(`/transacoes?event=${id}&excluded=1`)}
+            title="Movimentos marcados 'Fora do Resultado' por decisão de gestão. Transferências internas contam uma só vez. Clique para ver em Transações."
+            className="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Fora do resultado
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {excludedFromResult.count} transações · não entram no resultado do evento
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">
+              {formatCurrency(excludedFromResult.value)}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Locked banner for completed events */}
