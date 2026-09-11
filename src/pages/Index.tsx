@@ -251,12 +251,14 @@ export default function Dashboard() {
     queryKey: ["dashboard_transactions", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*, events(name)")
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return data;
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("*, events(name)")
+          .order("date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
     },
   });
 

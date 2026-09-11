@@ -186,12 +186,14 @@ export default function IvaManagement() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["iva-transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, event_id, type, amount, iva_rate, date, status")
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return data as DbTransaction[];
+      return await fetchAllPaged<DbTransaction>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("id, event_id, type, amount, iva_rate, date, status")
+          .order("date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to) as any
+      );
     },
   });
 

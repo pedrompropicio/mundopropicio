@@ -229,12 +229,14 @@ export default function Transactions() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers(name), financial_accounts(name)")
-        .order("due_date", { ascending: true, nullsFirst: false });
-      if (error) throw error;
-      return data;
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers(name), financial_accounts(name)")
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
     },
   });
 

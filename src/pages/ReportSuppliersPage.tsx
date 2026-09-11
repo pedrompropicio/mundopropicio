@@ -23,12 +23,14 @@ export default function ReportSuppliersPage() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["report-suppliers-transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("supplier_id, amount, paid_amount, status, type")
-        .not("supplier_id", "is", null);
-      if (error) throw error;
-      return data;
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select("supplier_id, amount, paid_amount, status, type")
+          .not("supplier_id", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
     },
   });
 
