@@ -40,9 +40,6 @@ Deno.serve(async (req) => {
   ]);
   if (!caller.allowed) return json({ error: caller.reason ?? "not authorized" }, 403);
 
-  const appId = Deno.env.get("INSTAGRAM_APP_ID");
-  if (!appId) return json({ error: "INSTAGRAM_APP_ID não configurado" }, 500);
-
   let body: { artist_channel_id?: string; return_url?: string };
   try {
     body = await req.json();
