@@ -122,13 +122,13 @@ Não corrigir sem decisão explícita.
 
 Nas linhas por explicar da conciliação há agora **Lançar**: abre um formulário já preenchido pela regra que casar (`bank_line_rules`) e cria a transação só depois de confirmação humana — nunca automaticamente. O valor e a data vêm do banco e não se editam; a transação nasce paga na conta do extrato e a linha fica ligada por `created_transaction_id`.
 
-Selecionando várias linhas cria-se **um** lançamento pela soma. Foi o que se fez a 10/09 com o TPA do bar do Ivete Clareou: as **16 linhas EST-0002TPA de 07/09, 27.241,87 €**, deixaram de estar por explicar — foram lançadas pela soma como **entrada transitória** (`is_transitory = true`, sem rubrica, evento Ivete Clareou) na conta Santander. Não é receita: dos 27.241,87 € só **7.845,82 € s/IVA** são da MP (comissão de 25% mais o fee de inscrição); o resto é dos operadores e vai ser repassado. A decomposição faz-se no fecho do A&B. Para o lançamento pela soma funcionar, o índice `uq_bank_line_matched_txn` passou a parcial (D-ERP33).
+Selecionando várias linhas cria-se **um** lançamento pela soma. Foi o que se fez a 10/09 com o TPA do bar do Ivete Clareou: as **16 linhas EST-0002TPA de 07/09, 27.241,87 €**, deixaram de estar por explicar — foram lançadas pela soma como **entrada transitória** (`is_transitory = true`, sem rubrica, evento Ivete Clareou) na conta Santander. Não é receita: dos 27.241,87 € só **7.845,83 € s/IVA** são da MP (comissão de 25% — 6.095,83 € — mais 1.750,00 € de fees de operação); o resto é dos operadores e vai ser repassado. A decomposição foi feita a 11/09 no fecho do A&B: receitas reconhecidas por compensação sem conta, taxas bancárias de 315,43 € em `2.9.04`, e seis repasses transitórios de 17.906,94 € por pagar. Para o lançamento pela soma funcionar, o índice `uq_bank_line_matched_txn` passou a parcial (D-ERP33).
 
 O modal ganhou a caixa **"Transitória (a repassar)"**: com ela ligada a transação nasce `is_transitory = true`, a rubrica é opcional e não se guarda regra. E a direcção do par de transferência passou a seguir o sinal do movimento — numa linha de **crédito** a entrada é na conta do extrato e a saída na conta de destino (antes era sempre o contrário).
 
 Os débitos por limiar do Google Ads não são despesa: a regra gera o par de transferência (rubrica 10.3) para a conta "Google Ads — conta corrente", cujo saldo passa a ser o crédito por consumir. **Pendente do utilizador:** criar essa conta financeira (tipo `other`) — não foi criada por este trabalho, que não lançou nem criou dados.
 
-As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos dos lotes SEPA) vão para 10.6.01, sem evento.
+As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos dos lotes SEPA) vão para 10.6.01, sem evento. As taxas de meios de pagamento (TPA/ZigPay) vão para `2.9.04`, com evento e linha de BP.
 
 ## Onde ler mais
 
@@ -139,4 +139,5 @@ As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos d
 - `.lovable/memory/features/standalone-invoices.md` — scanner e aba Conferência das faturas avulsas
 - `.lovable/memory/features/card-sessions.md`, `supplier-credits.md`, `transaction-installments.md`, `role-accountant.md`
 - `.lovable/memory/features/account-balance-cutoff-date.md` — data de corte do saldo inicial e skip_balance_check
+- `docs/DECISIONS.md` — D-ERP34 (contas e movimentos confidenciais, saldo validado no servidor) e D-ERP35 (conta de liquidação e conciliação entre contas)
 - Issues #91, #92, #124, #125, #126, #127, #134, #135, #149 (#90 fechada)
