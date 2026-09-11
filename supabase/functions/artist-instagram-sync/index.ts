@@ -121,14 +121,21 @@ Deno.serve(async (req) => {
       const igId: string = conn.external_account_id ?? "";
       if (!igId) throw new Error("ligação sem instagram_user_id");
 
+      // Ligação directa (Instagram Login): graph.instagram.com e nó `me`.
+      const direct = conn.provider === "instagram";
+      const base = direct ? IG_GRAPH : GRAPH;
+      const node = direct ? "me" : igId;
+      per.provider = conn.provider;
+
       const metricRows: Array<Record<string, unknown>> = [];
       const demoRows: Array<Record<string, unknown>> = [];
 
       // ---------------------------------------------------------- conta
       const acc = await graphGet(
-        igId,
+        node,
         { fields: "followers_count,follows_count,media_count,username" },
         token,
+        base,
       );
       graphCalls++;
       if (!acc.ok) {
