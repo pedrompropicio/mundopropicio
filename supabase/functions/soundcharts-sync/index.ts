@@ -281,13 +281,41 @@ Deno.serve(async (req) => {
     for (const r of rows) {
       byKey.set(`${r.artist_id}|${r.platform}|${r.metric}|${r.metric_date}|${r.source}`, r);
     }
-    const unique = [...byKey.values()];
+    // a API devolve descendente e ignora o sort: ordenar por data do nosso lado
+    const unique = [...byKey.values()].sort((a, b) =>
+      a.platform === b.platform
+        ? (a.metric === b.metric
+          ? a.metric_date.localeCompare(b.metric_date)
+          : a.metric.localeCompare(b.metric))
+        : a.platform.localeCompare(b.platform)
+    );
 
-    const summary: Record<string, number> = {};
+    const summary: Record<string, {
+      rows: number;
+      min_date: string;
+      max_date: string;
+      max_date_value: number;
+    }> = {};
     for (const r of unique) {
       const k = `${r.platform}.${r.metric}`;
-      summary[k] = (summary[k] ?? 0) + 1;
+      const cur = summary[k];
+      if (!cur) {
+        summary[k] = {
+          rows: 1,
+          min_date: r.metric_date,
+          max_date: r.metric_date,
+          max_date_value: r.value,
+        };
+        continue;
+      }
+      cur.rows++;
+      if (r.metric_date < cur.min_date) cur.min_date = r.metric_date;
+      if (r.metric_date >= cur.max_date) {
+        cur.max_date = r.metric_date;
+        cur.max_date_value = r.value;
+      }
     }
+
 
     let written = 0;
     if (!dryRun && unique.length) {
