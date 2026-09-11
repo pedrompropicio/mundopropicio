@@ -17,7 +17,11 @@ import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
 import { fetchSupplierBankRows } from "@/lib/supplier-bank";
-import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import {
+  accountHasBalanceFor,
+  useAccountTrueBalance,
+  insufficientBalanceMessage,
+} from "@/lib/account-balance-rpc";
 
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
@@ -119,10 +123,6 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     },
   });
 
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["account-cash-adjustments", (financialAccounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
-    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(financialAccounts as any)),
-  });
 
   const { data: supplierData } = useQuery({
     queryKey: ["supplier-bank-details", transaction.supplier_id],
@@ -134,17 +134,6 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   });
 
 
-  const { data: txSummary = [] } = useQuery({
-    queryKey: ["financial-accounts-tx-summary"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, date, payment_date")
-        .not("account_id", "is", null);
-      if (error) throw error;
-      return data;
-    },
-  });
 
   // Fetch child transactions for split propagation
   const { data: childTransactions = [] } = useQuery({
@@ -190,13 +179,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const totalCreditApplied = Object.values(creditAllocations).reduce((s, v) => s + (parseFloat(v) || 0), 0);
 
-  function accountBalanceOf(accId: string): number | null {
-    const acc = financialAccounts.find((a: any) => a.id === accId);
-    if (!acc) return 0;
-    return computeAccountBalance(acc as any, txSummary as any, cashAdjustments);
-  }
-
-  const selectedAccountBalance = accountId ? accountBalanceOf(accountId) : null;
+  // Saldo só para EXIBIÇÃO: null = sem autorização para ver (ou conta sem
+  // controlo de saldo). A decisão da trava é do servidor (D-ERP34).
+  const selectedAccountBalance = useAccountTrueBalance(accountId) ?? null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
 
   const baseAmount = Number(transaction.amount);
@@ -325,16 +310,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         throw new Error(`Inconsistência: crédito (${formatCurrency(totalCreditApplied)}) + saída de caixa (${formatCurrency(netCashOut)}) + retenção (${formatCurrency(withholding)}) ≠ valor pago (${formatCurrency(addAmount)})`);
       }
 
-      // Check account balance for expenses (net amount after withholding and credits)
+      // Trava de saldo no servidor (D-ERP34): conta também as transações
+      // confidenciais e respeita skip_balance_check internamente.
       if (isExpense && netCashOut > 0) {
-        const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
         if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
-        const skipCheck = selectedAcc?.skip_balance_check ?? false;
-        const accBalance = accountBalanceOf(accountId);
-        if (!skipCheck && accBalance !== null) {
-          if (netCashOut > accBalance) {
-            throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
-          }
+        const hasBalance = await accountHasBalanceFor(accountId, netCashOut);
+        if (!hasBalance) {
+          throw new Error(insufficientBalanceMessage(selectedAccountBalance, formatCurrency));
         }
       }
 
@@ -886,9 +868,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               placeholder="Selecionar conta…"
               searchPlaceholder="Pesquisar conta…"
             />
-            {accountId && selectedAccountBalance === null && (
+            {accountId && (selectedAccount as any)?.skip_balance_check && (
               <p className="mt-1 text-xs font-medium text-muted-foreground italic">Sem controlo de saldo</p>
             )}
+            {/* Sem autorização para ver o saldo: não se mostra nada. */}
             {accountId && selectedAccountBalance !== null && (
               <p className={`mt-1 text-xs font-medium ${selectedAccountBalance <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
                 Saldo disponível: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>

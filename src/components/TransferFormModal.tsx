@@ -6,7 +6,11 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import {
+  accountHasBalanceFor,
+  useAccountTrueBalance,
+  insufficientBalanceMessage,
+} from "@/lib/account-balance-rpc";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 
@@ -50,28 +54,9 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     },
   });
 
-  // Calculate available balance for source account
-  const { data: sourceBalance } = useQuery({
-    queryKey: ["account-balance", fromAccountId],
-    enabled: !!fromAccountId,
-    queryFn: async () => {
-      const account = accounts.find((a) => a.id === fromAccountId);
-      if (!account) return 0;
-      if ((account as any).skip_balance_check) return null;
-
-      const { data: txns, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, paid_amount, date, payment_date")
-        .eq("account_id", fromAccountId);
-      if (error) throw error;
-
-      const adj = await fetchAccountCashAdjustments(
-        [fromAccountId],
-        buildAccountCutoffs([account as any])
-      );
-      return computeAccountBalance(account as any, (txns ?? []) as any, adj);
-    },
-  });
+  // Saldo da conta de origem, só para EXIBIÇÃO: null = sem autorização para ver
+  // (ou conta sem controlo de saldo). A decisão da trava é do servidor.
+  const sourceBalance = useAccountTrueBalance(fromAccountId);
 
   const transferMutation = useMutation({
     mutationFn: async () => {
@@ -83,9 +68,11 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
 
       const fromAccount = accounts.find((a) => a.id === fromAccountId);
       const toAccount = accounts.find((a) => a.id === toAccountId);
-      const skipCheck = (fromAccount as any)?.skip_balance_check ?? false;
-      if (!skipCheck && sourceBalance !== undefined && sourceBalance !== null && numAmount > sourceBalance) {
-        throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
+      // Trava de saldo no servidor: vê também as transações confidenciais e
+      // respeita skip_balance_check internamente.
+      const hasBalance = await accountHasBalanceFor(fromAccountId, numAmount);
+      if (!hasBalance) {
+        throw new Error(insufficientBalanceMessage(sourceBalance, (v) => `€${v.toFixed(2)}`));
       }
 
       // Se qualquer das pernas toca uma conta restrita, as DUAS nascem confidenciais.
@@ -209,9 +196,10 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
               }}
               placeholder="Selecionar conta…"
             />
-            {fromAccountId && sourceBalance === null && (
+            {fromAccountId && fromAccountSkip && (
               <p className="mt-1 text-xs text-muted-foreground italic">Sem controlo de saldo</p>
             )}
+            {/* Sem autorização para ver o saldo: não se mostra nada. */}
             {fromAccountId && sourceBalance !== undefined && sourceBalance !== null && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>

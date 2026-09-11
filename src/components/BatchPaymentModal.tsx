@@ -18,7 +18,7 @@ import {
   fetchSuggestedFxRate,
 } from "@/lib/currency";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
-import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import { accountHasBalanceFor, useAccountTrueBalance } from "@/lib/account-balance-rpc";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 
 interface Props {
@@ -59,28 +59,6 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
     },
   });
 
-  const { data: txSummary = [] } = useQuery({
-    queryKey: ["financial-accounts-tx-summary"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, date, payment_date")
-        .not("account_id", "is", null);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["account-cash-adjustments", (financialAccounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
-    queryFn: () => fetchAccountCashAdjustments(undefined, buildAccountCutoffs(financialAccounts as any)),
-  });
-
-  function accountBalanceOf(accId: string): number | null {
-    const acc = financialAccounts.find((a: any) => a.id === accId);
-    if (!acc) return 0;
-    return computeAccountBalance(acc as any, txSummary as any, cashAdjustments);
-  }
 
   // Build per-row info incl. foreign-currency reference
   const items = useMemo(() => {
@@ -185,7 +163,9 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const invoiceRefApplies = !!singleSupplier;
   const effectiveInvoiceRef = invoiceRefApplies ? invoiceRef.trim() : "";
 
-  const selectedBalance = accountId ? accountBalanceOf(accountId) : null;
+  // Saldo só para EXIBIÇÃO: null = sem autorização para ver. A decisão da trava
+  // é do servidor (D-ERP34).
+  const selectedBalance = useAccountTrueBalance(accountId) ?? null;
   const selectedAccount = accountId ? financialAccounts.find((a: any) => a.id === accountId) : null;
   const accountOptions = financialAccounts.map((a: any) => ({
     value: a.id,
@@ -216,17 +196,18 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
 
-      // Validate balance for expenses — usa saída de caixa (já descontada a retenção)
+      // Trava de saldo no servidor (D-ERP34): conta também as transações
+      // confidenciais e respeita skip_balance_check internamente. Mantém-se a
+      // tolerância de 0,05 € do arredondamento.
       if (allExpenses) {
-        const acc = financialAccounts.find((a: any) => a.id === accountId);
-        const skipCheck = acc?.skip_balance_check ?? false;
-        const accBal = accountBalanceOf(accountId);
-        if (!skipCheck && accBal !== null) {
-          if (totalCashOut > accBal + 0.05) {
-            throw new Error(
-              `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalCashOut)}`
-            );
-          }
+        const needed = Math.round((totalCashOut - 0.05) * 100) / 100;
+        const hasBalance = await accountHasBalanceFor(accountId, needed);
+        if (!hasBalance) {
+          throw new Error(
+            selectedBalance === null
+              ? "Saldo insuficiente na conta."
+              : `Saldo insuficiente na conta. Disponível: ${formatCurrency(selectedBalance)}, Necessário: ${formatCurrency(totalCashOut)}`
+          );
         }
       }
 
@@ -634,9 +615,10 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
               placeholder="Selecionar conta…"
               searchPlaceholder="Pesquisar conta…"
             />
-            {accountId && selectedBalance === null && (
+            {accountId && (selectedAccount as any)?.skip_balance_check && (
               <p className="mt-1 text-[10px] text-muted-foreground italic">Sem controlo de saldo</p>
             )}
+            {/* Sem autorização para ver o saldo: não se mostra nada. */}
             {selectedBalance !== null && (
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Saldo atual: {formatCurrency(selectedBalance)}

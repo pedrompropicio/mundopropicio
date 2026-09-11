@@ -12,3 +12,4 @@
 - [Data de corte do saldo inicial](mem://features/account-balance-cutoff-date) — financial_accounts.initial_balance_date corta movimentos até ao fecho desse dia; skip_balance_check mostra "não controlado" e nunca número; estorno repago limpa reversed_at/reversal_kind
 - [Vendas de bilheteira somadas na BD](mem://features/ticket-office-sales-scope) — get_ticket_office_sales é a origem única das vendas por bilheteira/evento; nunca somar ticket_sales no cliente (limite 1.000 linhas)
 - [Faturas Ads (Meta e Google)](mem://features/ads-invoices) — PDF é a fonte de verdade (parse_meta/parse_google, espelho da API é legado), importação em 3 fases com dry_run, ajustes rateados pelas filhas (cêntimo na maior)
+- [Travas de saldo pelo servidor](mem://security/account-balance-server-side-guard) — account_has_balance_for (boolean) decide pagamentos/transferências; account_true_balance devolve NULL a quem não pode ver o saldo
