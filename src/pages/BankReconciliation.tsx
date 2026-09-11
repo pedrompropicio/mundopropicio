@@ -124,7 +124,7 @@ export default function BankReconciliation() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, type, initial_balance, initial_balance_date, is_active")
+        .select("id, name, type, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("is_active", true)
         .in("type", ["bank", "cash", "prepaid_card"])
         .order("name");
