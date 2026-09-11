@@ -166,4 +166,18 @@ Edge function `soundcharts-sync` (`verify_jwt = true`; só `service_role` ou JWT
 
 ### `suamusica-sync`
 
-Recolhe métricas públicas do Sua Música (perfil e lançamentos) para `artist_metrics_daily`, `artist_releases` e `artist_release_metrics_daily`. `verify_jwt = true`; aceita `service_role` ou JWT de `admin`/`platform_admin`. Entrada: `artist_id` (opcional), `dry_run`, `max_releases` (default 10). Recolha sequencial, 1 s entre pedidos, timeout 15 s, User-Agent `MundoPropicio-Carreira/1.0`; 403/429 param o artista. Sem cron — invocação manual.
+Recolhe métricas públicas do Sua Música (perfil e lançamentos) para `artist_metrics_daily`, `artist_releases` e `artist_release_metrics_daily`. `verify_jwt = true`; aceita `service_role` ou JWT de `admin`/`platform_admin`. Entrada: `artist_id` (opcional), `dry_run`, `max_releases` (default 10). Recolha sequencial, 1 s entre pedidos, timeout 15 s, User-Agent `MundoPropicio-Carreira/1.0`; 403/429 param o artista. `followers` só é gravado se o contador estiver visível no HTML do perfil.
+
+### Crons de carreira artística (pg_cron + pg_net)
+
+Criados em 2026-09-11, no padrão dos restantes crons: `net.http_post` com
+`Authorization: Bearer <vault 'email_queue_service_role_key'>` (service_role nunca em texto
+no repositório), `timeout_milliseconds := 180000`, body `{"dry_run":false}`.
+
+| jobname | schedule (UTC) | edge function |
+| --- | --- | --- |
+| `carreira-suamusica-sync-diario` | `0 9 * * *` (06:00 America/Fortaleza) | `suamusica-sync` |
+| `carreira-soundcharts-sync-diario` | `10 9 * * *` (06:10 America/Fortaleza) | `soundcharts-sync` |
+
+Sem `artist_id` no body: percorre todos os artistas com canal `sua_musica` / `aggregator`.
+Lembrete: crons não propagam Test→Live via Publish.
