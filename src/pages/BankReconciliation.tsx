@@ -839,8 +839,15 @@ export default function BankReconciliation() {
         </div>
       )}
 
+      {/* Sem permissão para ver o saldo desta conta: nada do triângulo aparece (D-ERP36) */}
+      {currentStatement && triangle?.balanceHidden && (
+        <p className="text-xs text-muted-foreground">
+          Não tens permissão para ver saldos desta conta — o confronto entre o sistema e o banco não é mostrado.
+        </p>
+      )}
+
       {/* Confronto sistema × banco */}
-      {currentStatement && triangle && (
+      {currentStatement && triangle && !triangle.balanceHidden && (
         <div className="glass space-y-3 rounded-xl p-4 text-sm">
           <div className="grid gap-3 md:grid-cols-3">
             <div>
