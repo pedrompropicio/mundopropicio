@@ -391,6 +391,7 @@ export default function BankReconciliation() {
       diff === null ? null : Math.round((diff - (contribBank + contribSystem)) * 100) / 100;
     return {
       system,
+      balanceHidden,
       declared,
       diff,
       unexplainedBank,
@@ -401,7 +402,7 @@ export default function BankReconciliation() {
       residual,
       periodTo,
     };
-  }, [currentStatement, account, txns, cashAdjustments, savedLines, txWithoutLine, retentionTotal]);
+  }, [currentStatement, account, systemBalances, savedLines, txWithoutLine, retentionTotal]);
 
   // ---- Upload + pré-visualização -----------------------------------------
   async function onFile(file: File) {
