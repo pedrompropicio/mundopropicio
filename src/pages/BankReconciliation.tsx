@@ -625,9 +625,14 @@ export default function BankReconciliation() {
       })
       .eq("id", manualLine.id);
     if (error) return toast.error("Erro ao conciliar: " + error.message);
-    toast.success("Linha conciliada.");
+    if (crossAccountIds.has(manualTxId)) {
+      toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
+    } else {
+      toast.success("Linha conciliada.");
+    }
     setManualLine(null);
     setManualTxId("");
+    setCrossAccountAck(false);
     queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
   }
 
