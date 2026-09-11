@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
@@ -54,6 +54,18 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
   const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
+
+  // Os IBANs são os únicos campos controlados (o IbanWarning precisa do valor
+  // vivo a cada tecla). O Radix desmonta o conteúdo ao fechar, mas este
+  // componente fica montado — logo o estado sobrevivia e reaparecia na
+  // abertura seguinte. Ressincronizar na ABERTURA (não no fecho) garante o
+  // valor certo já no primeiro render visível.
+  useEffect(() => {
+    if (!open) return;
+    setIban1(editingSupplier?.iban ?? "");
+    setIban2(editingSupplier?.iban_2 ?? "");
+    setIban3(editingSupplier?.iban_3 ?? "");
+  }, [open, editingSupplier]);
 
   const createMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
@@ -227,7 +239,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-2">
+        <form onSubmit={handleSubmit} autoComplete="off" className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="sup-name">Nome da Entidade *</Label>
@@ -286,7 +298,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban">IBAN 1</Label>
-                <Input id="sup-iban" name="iban" value={iban1} onChange={(e) => setIban1(e.target.value)} />
+                <Input id="sup-iban" name="iban" autoComplete="off" value={iban1} onChange={(e) => setIban1(e.target.value)} />
                 <IbanWarning value={iban1} />
               </div>
               <div className="grid gap-2">
@@ -297,7 +309,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban-2">IBAN 2</Label>
-                <Input id="sup-iban-2" name="iban_2" value={iban2} onChange={(e) => setIban2(e.target.value)} />
+                <Input id="sup-iban-2" name="iban_2" autoComplete="off" value={iban2} onChange={(e) => setIban2(e.target.value)} />
                 <IbanWarning value={iban2} />
               </div>
               <div className="grid gap-2">
@@ -308,7 +320,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban-3">IBAN 3</Label>
-                <Input id="sup-iban-3" name="iban_3" value={iban3} onChange={(e) => setIban3(e.target.value)} />
+                <Input id="sup-iban-3" name="iban_3" autoComplete="off" value={iban3} onChange={(e) => setIban3(e.target.value)} />
                 <IbanWarning value={iban3} />
               </div>
               <div className="grid gap-2">
