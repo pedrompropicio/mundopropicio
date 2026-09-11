@@ -134,8 +134,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   });
 
 
-  const { data: txSummary = [] } = useQuery({
+  const { data: txSummaryUnused = [] } = useQuery({
     queryKey: ["financial-accounts-tx-summary"],
+    enabled: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
