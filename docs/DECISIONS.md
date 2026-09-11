@@ -802,3 +802,46 @@ A garantia de um-para-um mantém-se onde protege — nas linhas conciliadas pela
 Consequência conhecida: o modal de lançamento insere a transação e só depois liga as linhas, sem rollback. Uma falha no segundo passo deixa transação órfã no banco — foi o que aconteceu a 10/09 com a liquidação TPA ZigPay, corrigida por UPDATE manual. Fica em issue própria.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP34 — Contas e movimentos confidenciais, e o saldo validado no servidor (11/09/2026)
+
+**Problema.** A conta corrente de um sócio não pode ser vista pela editora nem pela gestora. O acesso por utilizador (`financial_account_access`) só restringia a editora — a policy de leitura das contas dava à `manager` acesso a tudo. E as transações não tinham filtro nenhum por conta: `transactions_select_privileged_roles` deixa admin, manager, editor, viewer e accountant lerem tudo. `is_hidden` é máscara de UI, não é segurança.
+
+**Decisão.**
+
+1. `financial_accounts.is_restricted` — a conta e tudo o que lá se passa ficam invisíveis a quem não tiver a permissão.
+2. `transactions.is_confidential` — esconde uma transação individual mesmo numa conta visível. É o que resolve a perna do Santander numa transferência para conta restrita.
+3. Permissão nova `view_confidential`, atribuída a **admin e accountant**. A contabilidade vê tudo.
+4. `can_see_confidential(uuid)` (STABLE, SECURITY DEFINER) e policy **RESTRICTIVE** `transactions_confidential_guard` em SELECT, `TO authenticated` — o service_role não é afectado, logo crons e edge functions continuam a ver tudo. A policy de leitura das contas foi reescrita: a `manager` deixa de ver contas com `is_restricted`.
+5. Trigger `trg_force_confidential_restricted_account` (BEFORE INSERT OR UPDATE em `transactions`): conta restrita força `is_confidential = true`. Só liga o flag, nunca o desliga. Existe porque o automatismo do frontend falhou na primeira utilização real, a 10/09 — o ecrã corria com bundle antigo depois de um Publish.
+
+**Consequência que obrigou a mais trabalho.** As travas de saldo calculavam o saldo **no cliente**, a partir das transações que o utilizador consegue ler. Com saídas confidenciais escondidas, o saldo calculado fica **acima** do real e a trava deixaria passar pagamentos que descobrem a conta. Por isso:
+
+6. `account_has_balance_for(_account_id, _amount) → boolean` — SECURITY DEFINER, vê todas as transações, devolve **só suficiente/insuficiente**. Nunca o valor: senão quem não pode ver o saldo obtinha-o pela API.
+7. `account_true_balance(_account_id) → numeric` — devolve o valor apenas a platform_admin, admin, ou a quem tenha `view_balances` numa conta com `balance_visible_to_all = true`. Caso contrário NULL.
+8. `TransactionPaymentModal`, `TransferFormModal` e `BatchPaymentModal` passam a decidir pela função do servidor. A mensagem para quem não pode ver o saldo é `Saldo insuficiente na conta.`, sem valor.
+
+**Limitação conhecida e aceite.** A fórmula canónica do saldo soma `paid_amount` de **todas** as transações da conta, sem filtrar status, estornadas ou escondidas. As funções novas espelham-na exactamente. Mudar a definição de saldo é outra conversa, e não se faz de repente.
+
+**Fica por fazer, com furo assumido:** cartões, bilheteiras, lista de Contas e relatórios continuam a calcular saldo no cliente e a mostrá-lo sem verificar `view_balances` nem `balance_visible_to_all`.
+
+**Estado:** vigente.
+
+---
+
+## D-ERP35 — A conta de liquidação: bancos na lista de pagamento, aviso fora dela, e conciliação entre contas (11/09/2026)
+
+**Caso real, 03–04/09/2026.** Um seguro de 48,40 € foi criado pela editora com duas faturas anexas e linha de BP, aprovado pela gestora, subiu na lista "Pagamentos 03/09/2026" e foi liquidado contra a conta **Cartão Santander Pré-Pago 0663**. O extrato mostra **transferência SEPA emitida da conta Santander Totta** para a MDS-Corretor de Seguros. Efeito: saldo do cartão 48,40 € abaixo do real, saldo do Santander 48,40 € acima, a linha do extrato ficou "por explicar" porque as camadas de conciliação só procuram candidatas dentro da conta do extrato — e a 11/09 criou-se uma transação duplicada por cima dela.
+
+**Decisão.**
+
+1. Na liquidação a partir de **lista de pagamento**, o seletor de conta oferece **apenas contas de tipo `bank`**. Um cartão pré-pago carrega-se; não paga faturas a fornecedores. Se a conta escolhida deixar de ser elegível, a selecção limpa-se em vez de ficar em silêncio.
+2. **Fora da lista**, cartão pré-pago com método `transfer` ou `direct_debit` dá **aviso, não bloqueio**. Existem 15 compras reais feitas com este cartão entre abril e maio, todas gravadas com método `transfer`; bloquear partiria o trabalho da equipa.
+3. A conciliação passa a sugerir candidatas de **outras contas** na **ligação manual**, marcadas "conta divergente — <conta>", ordenadas depois das candidatas da conta do extrato, e exigindo uma confirmação explícita antes de ligar.
+4. As camadas **automáticas** (lote SEPA, valor exacto, descrição) **continuam restritas à conta do extrato**. Casar automaticamente entre contas esconderia o erro de conta em vez de o mostrar — que é precisamente o sinal que queremos ver.
+
+Dados corrigidos a 11/09: a transação original passou para a conta Santander Totta com data-valor 04/09, a linha do extrato foi religada a ela, e a duplicada foi eliminada.
+
+**Estado:** vigente.
