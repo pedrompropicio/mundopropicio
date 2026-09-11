@@ -543,3 +543,23 @@ Funções internas (SECURITY DEFINER, `service_role` only, com os revokes da con
 `artist_consume_oauth_state`, `artist_upsert_channel_connection`, `artist_get_connection_token`, `artist_mark_connection_status`, `artist_delete_channel_connection`.
 
 Edge functions: `artist-meta-oauth-start` (JWT; admin/platform_admin/manager/editor; allowlist de `return_url`), `artist-meta-oauth-callback` (`verify_jwt = false`, autorizado pelo state), `artist-instagram-sync` (JWT; service_role ou admin/platform_admin), `artist-connection-disconnect` (JWT). Graph API **v25.0**; `impressions` está descontinuada desde a v22.0 — usa-se `views`. Métrica ausente **não é gravada** (nunca se inventa 0).
+
+### Ligação directa pelo Instagram (Instagram API with Instagram Login) — caminho activo
+
+O `provider` de `artist_oauth_states` e de `artist_channel_connections` aceita agora
+`'meta' | 'instagram' | 'google' | 'tiktok'` (as CHECK foram alargadas; nada mais mudou na
+estrutura). `provider='instagram'` = ligação **directa** pela conta do artista, com app Meta
+dedicada à carreira (`INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`) e scopes só de leitura
+(`instagram_business_basic`, `instagram_business_manage_insights`); `token_type='instagram_user'`,
+`expires_at` real (~60 dias) e `external_account_id` = `user_id` do Instagram. A separação face
+às contas de anúncios (`ad_platform_connections`, `META_APP_*`, funções `crm-*`) é a **D-ERP39**.
+
+Edge functions: `artist-instagram-oauth-start` (JWT; admin/platform_admin/manager/editor;
+allowlist de `return_url`), `artist-instagram-oauth-callback` (`verify_jwt = false`, autorizado
+pelo state; só guarda se o `username` coincidir com `artist_channels.handle`, senão
+`reason=conta_diferente`), `artist-token-refresh` (JWT; renova a menos de 15 dias e com mais de
+24 h de vida; token inválido → `expired`). `artist-instagram-sync` trata as duas origens
+(`instagram` → `graph.instagram.com`, nó `me`; `meta` → `graph.facebook.com`) e
+`artist-connection-disconnect` serve ambas. Redirect URI a registar na app Meta de carreira:
+`<SUPABASE_URL>/functions/v1/artist-instagram-oauth-callback`; em modo de desenvolvimento só
+contas com papel na app (ex.: testador do Instagram) conseguem autorizar. Sem cron nesta fase.
