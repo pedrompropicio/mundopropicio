@@ -169,14 +169,18 @@ export async function auditLog(
   if (error) console.error("audit log falhou:", error.message);
 }
 
-/** GET à Graph API com token. Devolve { ok, status, body }. */
+/**
+ * GET à Graph API com token. `base` permite usar graph.instagram.com nas
+ * ligações directas pelo Instagram; por omissão usa graph.facebook.com.
+ */
 export async function graphGet(
   path: string,
   params: Record<string, string>,
   token: string,
+  base: string = GRAPH,
 ): Promise<{ ok: boolean; status: number; body: any }> {
   const qs = new URLSearchParams({ ...params, access_token: token });
-  const res = await fetch(`${GRAPH}/${path}?${qs}`, {
+  const res = await fetch(`${base}/${path}?${qs}`, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(20_000),
   });
