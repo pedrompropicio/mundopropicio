@@ -7,6 +7,16 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 export const GRAPH_VERSION = "v25.0";
 export const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
+/**
+ * Instagram API with Instagram Login (ligação directa pela conta do artista).
+ * Base própria: graph.instagram.com, mesma versão.
+ */
+export const IG_GRAPH = `https://graph.instagram.com/${GRAPH_VERSION}`;
+export const IG_OAUTH_AUTHORIZE = "https://www.instagram.com/oauth/authorize";
+export const IG_OAUTH_TOKEN = "https://api.instagram.com/oauth/access_token";
+/** graph.instagram.com sem versão — usado pelos endpoints de token. */
+export const IG_GRAPH_ROOT = "https://graph.instagram.com";
+
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
