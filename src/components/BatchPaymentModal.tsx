@@ -615,9 +615,10 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
               placeholder="Selecionar conta…"
               searchPlaceholder="Pesquisar conta…"
             />
-            {accountId && selectedBalance === null && (
+            {accountId && (selectedAccount as any)?.skip_balance_check && (
               <p className="mt-1 text-[10px] text-muted-foreground italic">Sem controlo de saldo</p>
             )}
+            {/* Sem autorização para ver o saldo: não se mostra nada. */}
             {selectedBalance !== null && (
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Saldo atual: {formatCurrency(selectedBalance)}
