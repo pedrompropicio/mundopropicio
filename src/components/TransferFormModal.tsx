@@ -196,9 +196,10 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
               }}
               placeholder="Selecionar conta…"
             />
-            {fromAccountId && sourceBalance === null && (
+            {fromAccountId && fromAccountSkip && (
               <p className="mt-1 text-xs text-muted-foreground italic">Sem controlo de saldo</p>
             )}
+            {/* Sem autorização para ver o saldo: não se mostra nada. */}
             {fromAccountId && sourceBalance !== undefined && sourceBalance !== null && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>
