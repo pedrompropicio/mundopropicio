@@ -7,7 +7,7 @@ export interface UserPreferences {
 }
 
 const DEFAULTS: UserPreferences = {
-  consolidate_refunds_view: false,
+  consolidate_refunds_view: true,
 };
 
 export function useUserPreferences() {
