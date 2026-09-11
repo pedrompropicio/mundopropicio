@@ -69,3 +69,8 @@ verify_jwt = true
 # Aceita service_role ou JWT de admin/platform_admin, validado dentro da função.
 [functions.soundcharts-sync]
 verify_jwt = true
+
+# Recolha de métricas públicas do Sua Música (perfil + lançamentos).
+# Aceita service_role ou JWT de admin/platform_admin, validado dentro da função.
+[functions.suamusica-sync]
+verify_jwt = true
