@@ -485,6 +485,12 @@ Domínios em `text` + `CHECK` (sem enums). Chaves únicas totais (o upsert do su
 | `artist_aliases` | Grafias alternativas. `alias`, `alias_norm` GENERATED `lower(btrim(alias))` STORED, `source` (ex.: `event_cache_configs`, `crm.campaign_memory`, `manual`). UNIQUE `(company_id, alias_norm)`. `artist_id` ON DELETE CASCADE. |
 | `artist_channels` | Canais por plataforma (`spotify`, `youtube`, `instagram`, `tiktok`, `deezer`, `apple_music`, `sua_musica`, `facebook`, `soundcloud`, `aggregator`). `handle`, `external_id`, `url`, `account_type` (`personal`/`creator`/`business`/`artist`), `auth_status` (`none`/`authorized`/`expired`/`revoked`), `is_primary`. UNIQUE `(artist_id, platform, external_id)`. |
 | `artist_metrics_daily` | Série diária de métricas: `channel_id` (ON DELETE SET NULL), `platform`, `metric` (ex.: `monthly_listeners`, `followers`, `subscribers`, `likes`, `views`, `sound_creations`), `metric_date`, `value`, `source` (`public_page`/`aggregator`/`platform_api`/`manual`), `source_ref`, `captured_at`. UNIQUE `(artist_id, platform, metric, metric_date, source)`; índices `(artist_id, metric_date)` e `company_id`. |
+| `artist_releases` | Lançamentos por plataforma (`spotify`, `youtube`, `instagram`, `tiktok`, `deezer`, `apple_music`, `sua_musica`, `facebook`, `soundcloud`). `external_id` (no Sua Música é o caminho da página do lançamento, ex.: `marapavanelly/mara-pavanelly-budega-da-pavanelly`), `title`, `url`, `release_type` (`album`/`single`/`ep`/`ao_vivo`/`compilacao`/`outro`, nullable), `published_at`, `uploader_handle` (perfil que publicou), `is_official` (false = upload de fã), `notes`. `artist_id` ON DELETE CASCADE. UNIQUE `(artist_id, platform, external_id)`; índices `artist_id`, `(artist_id, published_at DESC)` e `company_id`. |
+| `artist_release_metrics_daily` | Série diária por lançamento: `release_id` (ON DELETE CASCADE), `artist_id` (ON DELETE CASCADE), `platform`, `metric` (ex.: `plays`, `downloads`, `streams`, `views`), `metric_date`, `value`, `source` (ex.: `public_page`/`aggregator`/`platform_api`), `source_ref`, `captured_at`. UNIQUE `(release_id, metric, metric_date, source)`; índices `(artist_id, metric_date)`, `(release_id, metric_date)` e `company_id`. |
+
+📌 **`value` é o contador acumulado** lido nesse dia (não o ganho do dia). O ganho diário calcula-se por diferença entre dias consecutivos.
+
+
 
 ⚠️ **Inserts sob `service_role`** (syncs de métricas): passar `company_id` explícito, tirado do artista.
 `current_company_id()` devolve NULL sem contexto de utilizador e o insert é rejeitado (ver #86).
