@@ -126,6 +126,13 @@ export default function ReportTreasuryProjection() {
         </p>
       )}
 
+      {hiddenAccounts.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {hiddenAccounts.length === 1 ? "1 conta" : `${hiddenAccounts.length} contas`} sem permissão para ver o saldo —
+          fora desta projeção: {hiddenAccounts.map((a: any) => a.name).join(", ")}.
+        </p>
+      )}
+
 
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
