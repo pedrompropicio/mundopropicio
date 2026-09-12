@@ -1261,6 +1261,11 @@ export default function BankReconciliation() {
                       <Button size="sm" variant="ghost" className="ml-1" onClick={() => { setIgnoreLine(l); setIgnoreNote(""); }}>
                         <EyeOff className="mr-1 h-3.5 w-3.5" /> Ignorar
                       </Button>
+                      {/* O anexo vale em qualquer estado — durante a investigação é onde faz mais falta. */}
+                      <Button size="sm" variant="outline" className="ml-1" onClick={() => setDocsLine(l)}>
+                        <Paperclip className="mr-1 h-3.5 w-3.5" />
+                        {docCountByLine.get(l.id) ?? 0}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
