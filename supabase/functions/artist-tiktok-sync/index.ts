@@ -238,7 +238,8 @@ Deno.serve(async (req) => {
         const videos: any[] = [];
         let cursor: number | null = null;
         let guard = 0;
-        while (videos.length < TT_VIDEO_LIMIT && guard < 20) {
+        const maxPages = Math.ceil(maxVideos / 20) + 2;
+        while (videos.length < maxVideos && guard < maxPages) {
           guard++;
           const page = await ttVideoPage(token, cursor);
           apiCalls++;
@@ -251,11 +252,31 @@ Deno.serve(async (req) => {
             notes.push(`vídeos indisponíveis: ${msg}`);
             break;
           }
-          videos.push(...page.videos);
+          const pageVideos = page.videos ?? [];
+          if (sinceSec !== null) {
+            const kept = pageVideos.filter((v: any) =>
+              Number(v?.create_time) >= sinceSec
+            );
+            videos.push(...kept);
+            // página inteira já anterior a `since` → não há mais nada útil
+            if (pageVideos.length > 0 && kept.length === 0) {
+              notes.push(`paginação parada em since=${body.since}`);
+              break;
+            }
+          } else {
+            videos.push(...pageVideos);
+          }
           if (!page.hasMore || !page.cursor) break;
           cursor = Number(page.cursor);
         }
-        const list = videos.slice(0, TT_VIDEO_LIMIT);
+        const list = videos.slice(0, maxVideos);
+        per.oldest_published_at = list.reduce((acc: string | null, v: any) => {
+          const t = Number(v?.create_time);
+          if (!Number.isFinite(t)) return acc;
+          const iso = new Date(t * 1000).toISOString();
+          return acc === null || iso < acc ? iso : acc;
+        }, null as string | null);
+
 
         const contentRows = list.map((v) => ({
           company_id: conn.company_id,
