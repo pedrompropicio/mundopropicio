@@ -64,10 +64,15 @@ export interface EngineMarkedLine {
   iva_rate?: number | string | null;
 }
 
-/** Extras do sócio e despesas por ele pagas, já na base do sócio (informativo). */
+/**
+ * Extras do sócio e despesas por ele pagas — nas duas bases, porque o Encontro
+ * de Contas aplica-lhes a mesma base do apuramento do sócio (informativo).
+ */
 export interface EngineParticipantMoney {
   paidByPartner?: number;
+  paidByPartnerGross?: number;
   extras?: number;
+  extrasGross?: number;
 }
 
 export interface EngineInput {
@@ -335,8 +340,12 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
 
     const moneyKey = p.event_partner_id ?? p.supplier_id ?? "";
     const money = (moneyKey && input.moneyByPartner?.[moneyKey]) || {};
-    const paidByPartner = isHouse ? 0 : num(money.paidByPartner);
-    const extras = isHouse ? 0 : num(money.extras);
+    const paidByPartner = isHouse
+      ? 0
+      : num(usesGross && money.paidByPartnerGross != null ? money.paidByPartnerGross : money.paidByPartner);
+    const extras = isHouse
+      ? 0
+      : num(usesGross && money.extrasGross != null ? money.extrasGross : money.extras);
 
     if (!isHouse && p.mode === "settles") {
       const key = p.supplier_id ?? p.event_partner_id ?? p.id;

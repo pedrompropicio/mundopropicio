@@ -1,17 +1,19 @@
 /**
- * Painel "Apuramentos" — SÓ LEITURA (épica #146, sub-tarefa (a)).
+ * Painel "Apuramentos" — SÓ LEITURA (épica #146, sub-tarefas (a)→(c)).
  *
- * Lê `event_settlements` + `event_settlement_participants`. Nesta fase estas
- * tabelas são um ESPELHO de `event_partners` (mantido por trigger na BD) e
- * NENHUM cálculo do sistema as consome: o Fecho, o card e o Encontro de Contas
+ * (a) espelho de `event_partners` em `event_settlements` + participantes.
+ * (b) perímetro: linhas de BP/transações marcadas com `event_settlement_id`.
+ * (c) motor: resultado por base, quota do pai, partes, residual da MP e conferências.
+ *
+ * NENHUM cálculo do sistema consome isto: o Fecho, o card e o Encontro de Contas
  * continuam a ler `event_partners`. Sem edição nesta peça.
  */
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Layers, Info } from "lucide-react";
+import { Layers, Info, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { HOUSE_PARTNER_NAME } from "@/lib/house-partner";
+import { formatCurrency } from "@/lib/mock-data";
+import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
+import type { EngineCheck, SettlementNodeResult } from "@/lib/event-settlement-engine";
 
 interface Props {
   eventId: string;
@@ -20,149 +22,193 @@ interface Props {
 const fmtPct = (v: number | string | null | undefined) =>
   v === null || v === undefined ? "—" : `${Number(v)}%`;
 
+function CheckSeal({ check }: { check: EngineCheck }) {
+  const Icon = check.ok ? CheckCircle2 : AlertTriangle;
+  return (
+    <div
+      className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
+        check.ok
+          ? "border-primary/40 bg-primary/5 text-primary"
+          : "border-destructive/50 bg-destructive/10 text-destructive"
+      }`}
+    >
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        {check.label} — <strong>{check.ok ? "confere" : "NÃO confere"}</strong>{" "}
+        (diferença {formatCurrency(check.value)})
+      </span>
+    </div>
+  );
+}
+
 export function EventSettlementsPanel({ eventId }: Props) {
-  const { data: settlements = [], isLoading } = useQuery({
-    queryKey: ["event-settlements", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_settlements")
-        .select("id, name, parent_id, parent_share_pct, parent_share_basis, position, is_sealed, sealed_at")
-        .eq("event_id", eventId)
-        .order("position", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: participants = [] } = useQuery({
-    queryKey: ["event-settlement-participants", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_settlement_participants")
-        .select(
-          "id, settlement_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, can_order, can_pay, visible_in_docs, supplier:suppliers(name)",
-        )
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  /**
-   * Perímetro (#146 (b)) — quantas linhas de BP e transações estão marcadas
-   * para cada apuramento. ATENÇÃO: a coluna é `event_settlement_id`;
-   * `transactions.settlement_id` é o fecho de bilheteira, coisa diferente.
-   */
-  const { data: perimeter } = useQuery({
-    queryKey: ["event-settlement-perimeter", eventId],
-    queryFn: async () => {
-      const [f, t] = await Promise.all([
-        supabase.from("event_forecasts").select("event_settlement_id").eq("event_id", eventId).not("event_settlement_id", "is", null),
-        supabase.from("transactions").select("event_settlement_id").eq("event_id", eventId).not("event_settlement_id", "is", null),
-      ]);
-      if (f.error) throw f.error;
-      if (t.error) throw t.error;
-      const counts: Record<string, { bp: number; tx: number }> = {};
-      const bump = (id: string, k: "bp" | "tx") => {
-        counts[id] = counts[id] ?? { bp: 0, tx: 0 };
-        counts[id][k] += 1;
-      };
-      (f.data ?? []).forEach((r: any) => bump(r.event_settlement_id, "bp"));
-      (t.data ?? []).forEach((r: any) => bump(r.event_settlement_id, "tx"));
-      return counts;
-    },
-  });
+  const { result, isLoading, basis } = useEventSettlementEngine(eventId);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">A carregar apuramentos…</p>;
-  if (settlements.length === 0)
+  if (!result || result.nodes.length === 0)
     return <p className="text-sm text-muted-foreground">Este evento ainda não tem apuramentos.</p>;
 
-  const roots = settlements.filter((s: any) => !s.parent_id);
-  const childrenOf = (id: string) => settlements.filter((s: any) => s.parent_id === id);
-
-  const renderSettlement = (s: any, depth: number) => {
-    const rows = participants.filter((p: any) => p.settlement_id === s.id);
-    return (
-      <div key={s.id} className={depth > 0 ? "ml-4 border-l border-border/60 pl-4" : ""}>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Layers className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold">{s.name}</span>
-          {s.parent_id && (
-            <Badge variant="outline" className="text-xs">
-              {fmtPct(s.parent_share_pct)} do apuramento acima
-              {s.parent_share_basis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA"}
-            </Badge>
-          )}
-          {s.is_sealed && <Badge className="text-xs">Selado</Badge>}
-          <Badge variant="secondary" className="text-[10px]">
-            Perímetro: {perimeter?.[s.id]?.bp ?? 0} linha(s) de BP · {perimeter?.[s.id]?.tx ?? 0} transação(ões)
+  const renderNode = (n: SettlementNodeResult) => (
+    <div key={n.id} className={n.depth > 0 ? "ml-4 border-l border-border/60 pl-4" : ""}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Layers className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-semibold">{n.name}</span>
+        {n.parentId && (
+          <Badge variant="outline" className="text-xs">
+            {fmtPct(n.parentSharePct)} do apuramento acima
+            {n.parentQuotaBasis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA"}
+            {n.parentQuota != null && ` = ${formatCurrency(n.parentQuota)}`}
           </Badge>
-        </div>
-
-
-        {rows.length === 0 ? (
-          <p className="mb-4 text-xs text-muted-foreground">Sem participantes.</p>
-        ) : (
-          <div className="mb-4 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Participante</TableHead>
-                  <TableHead>Modo</TableHead>
-                  <TableHead className="text-right">% Lucro</TableHead>
-                  <TableHead className="text-right">% Perda</TableHead>
-                  <TableHead>Base de IVA</TableHead>
-                  <TableHead>Encomendar</TableHead>
-                  <TableHead>Pagar</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">
-                      {p.participant_kind === "house" ? HOUSE_PARTNER_NAME : (p.supplier?.name ?? "—")}
-                      {p.participant_kind === "house" && (
-                        <Badge variant="outline" className="ml-2 text-[10px]">
-                          casa
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {p.mode === "settles" ? "Acerta" : "Nominal"}
-                    </TableCell>
-                    <TableCell className="text-right">{fmtPct(p.profit_pct)}</TableCell>
-                    <TableCell className="text-right">
-                      {p.loss_pct === null ? `${fmtPct(p.profit_pct)} (igual ao lucro)` : fmtPct(p.loss_pct)}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {p.expense_includes_iva === null || p.expense_includes_iva === undefined
-                        ? "Herda o evento"
-                        : p.expense_includes_iva
-                          ? "Despesas c/IVA"
-                          : "Despesas s/IVA"}
-                    </TableCell>
-                    <TableCell className="text-xs">{p.can_order ? "Sim" : "Não"}</TableCell>
-                    <TableCell className="text-xs">{p.can_pay ? "Sim" : "Não"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
         )}
-
-        {childrenOf(s.id).map((c: any) => renderSettlement(c, depth + 1))}
+        {n.isSealed && <Badge className="text-xs">Selado</Badge>}
+        <Badge variant="secondary" className="text-[10px]">
+          Perímetro: {n.perimeter.isRoot ? "resto do evento · " : ""}
+          {n.perimeter.bpLines} linha(s) de BP · {n.perimeter.txLines} transação(ões)
+        </Badge>
       </div>
-    );
-  };
+
+      <div className="mb-3 grid gap-2 text-xs sm:grid-cols-4">
+        <div className="rounded-md border border-border/60 p-2">
+          <div className="text-muted-foreground">Receitas s/IVA</div>
+          <div className="font-semibold">{formatCurrency(n.perimeter.revenueNet)}</div>
+        </div>
+        <div className="rounded-md border border-border/60 p-2">
+          <div className="text-muted-foreground">Despesas s/IVA · c/IVA</div>
+          <div className="font-semibold">
+            {formatCurrency(n.perimeter.expensesNet)} · {formatCurrency(n.perimeter.expensesGross)}
+          </div>
+        </div>
+        <div className="rounded-md border border-border/60 p-2">
+          <div className="text-muted-foreground">Resultado s/IVA</div>
+          <div className="font-semibold">{formatCurrency(n.resultNet)}</div>
+        </div>
+        <div className="rounded-md border border-border/60 p-2">
+          <div className="text-muted-foreground">Resultado c/IVA</div>
+          <div className="font-semibold">{formatCurrency(n.resultGross)}</div>
+        </div>
+      </div>
+
+      {n.childQuotasNet !== 0 && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Quotas levadas por apuramentos abaixo: {formatCurrency(n.childQuotasNet)} · fica neste
+          apuramento {formatCurrency(n.moneyNet)}.
+        </p>
+      )}
+
+      {n.participants.length === 0 ? (
+        <p className="mb-4 text-xs text-muted-foreground">Sem participantes.</p>
+      ) : (
+        <div className="mb-4 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Participante</TableHead>
+                <TableHead>Modo</TableHead>
+                <TableHead className="text-right">%</TableHead>
+                <TableHead>Base</TableHead>
+                <TableHead className="text-right">Parte</TableHead>
+                <TableHead>Pago aqui</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {n.participants.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium">
+                    {p.name}
+                    {p.kind === "house" && (
+                      <Badge variant="outline" className="ml-2 text-[10px]">casa</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs">{p.mode === "settles" ? "Acerta" : "Nominal"}</TableCell>
+                  <TableCell className="text-right text-xs">
+                    {fmtPct(p.effectivePct)}
+                    {p.lossPct !== null && p.lossPct !== p.profitPct && (
+                      <span className="text-muted-foreground"> (lucro {fmtPct(p.profitPct)} · perda {fmtPct(p.lossPct)})</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {p.usesGrossExpenses ? "Despesas c/IVA" : "Despesas s/IVA"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">{formatCurrency(p.share)}</TableCell>
+                  <TableCell className="text-xs">
+                    {p.kind === "house"
+                      ? "—"
+                      : p.mode === "settles"
+                        ? "Pago aqui"
+                        : "Nominal (acerta noutro apuramento)"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {result.nodes.filter((c) => c.parentId === n.id).map(renderNode)}
+    </div>
+  );
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Vista informativa. Os valores acompanham automaticamente a lista de sócios acima; o fecho e o
-        encontro de contas continuam a usar essa lista.
+        Vista informativa. Critério de custo em uso: despesas{" "}
+        {basis.expenseSource === "committed" ? "previsto + excedido" : "realizado"} ·{" "}
+        {basis.includeOverhead ? "com overhead" : "sem overhead"} — o mesmo do Encontro de Contas.
       </p>
-      {roots.map((r: any) => renderSettlement(r, 0))}
+
+      {result.errors.length > 0 && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+          <ul className="list-disc pl-4">
+            {result.errors.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {result.nodes.filter((n) => !n.parentId).map(renderNode)}
+
+      <div className="rounded-lg border border-border/60 p-3">
+        <div className="mb-2 text-sm font-semibold">Mundo Propício residual</div>
+        <div className="grid gap-2 text-xs sm:grid-cols-5">
+          <div>
+            <div className="text-muted-foreground">Residual total</div>
+            <div className="font-semibold">{formatCurrency(result.house.residual)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Declarada</div>
+            <div className="font-semibold">{formatCurrency(result.house.declared)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">IVA dedutível</div>
+            <div className="font-semibold">{formatCurrency(result.house.ivaDeductible)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Nominal − real</div>
+            <div className="font-semibold">{formatCurrency(result.house.nominalGap)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Resto (tem de ser 0)</div>
+            <div className={`font-semibold ${result.house.rest !== 0 ? "text-destructive" : ""}`}>
+              {formatCurrency(result.house.rest)}
+            </div>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Resultado s/IVA do evento {formatCurrency(result.eventNetResult)} · partes pagas aos sócios{" "}
+          {formatCurrency(result.partnersPaidTotal)}.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <CheckSeal check={result.c1} />
+        <CheckSeal check={result.c2} />
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Dados ao vivo — não substitui o Encontro de Contas até à peça (e).
+      </p>
     </div>
   );
 }

@@ -83,3 +83,46 @@ UI: `src/components/EventSettlementSelect.tsx` (só renderiza quando o evento te
 `TransactionEditModal` e ao `ForecastEditModal`; badge "Perímetro" por apuramento
 no painel da aba Sócios. Nenhum cálculo consome ainda a coluna — resultado e
 repartição por apuramento são a sub-tarefa (c).
+
+## Motor (c) — 12/09/2026
+
+`src/lib/event-settlement-engine.ts` — `computeSettlementEngine(input)`, função
+**pura** (não fala com a BD). Totais do evento vêm de
+`src/lib/event-settlement-inputs.ts` (`computeEventSettlementTotals`, réplica fiel
+do bloco de cálculo do `PartnerSettlementTab`: bilheteira via `ticket_sales` com
+exclusão da rubrica 1.1.01 nas transações, despesa realizada ou previsto+excedido,
+overhead por toggle, IVA linha a linha). Hook `useEventSettlementEngine` carrega e
+usa o MESMO critério de custo do Fecho (`useFechoBasis`, store único por evento).
+
+Fórmulas:
+
+- **Perímetro:** a raiz apanha `total do evento − linhas marcadas`; cada filho só as
+  suas linhas marcadas. Fonte da despesa segue o critério do Fecho (realizado → tx;
+  previsto+excedido → BP).
+- **Quota do filho** = `parent_share_pct` × resultado do pai na `parent_share_basis`.
+  Irmãos não se subtraem entre si; a quota sai do dinheiro do pai (`moneyNet`).
+- **Resultado do nó** em duas bases: `R_s = quota + receitas − despesas s/IVA`,
+  `R_c = quota + receitas − despesas c/IVA` (receita é sempre s/IVA, D24).
+- **Parte do participante** = % × resultado **na base do participante**
+  (`partnerUsesGrossExpenses`; a casa é sempre s/IVA por convenção da empresa
+  gestora, D-ERP10). Resultado negativo usa `loss_pct` (NULL = igual ao lucro).
+- **Residual da MP** = resultado s/IVA do evento − Σ partes dos `settles`,
+  decomposto em `declarada` (participantes `house`) + `ivaDeductible`
+  (Σ parte s/IVA − parte na base do sócio) + `nominalGap` (partes `nominal`, que
+  não são pagas aqui) + `rest`.
+- **C1**: Σ partes pagas + residual = resultado s/IVA do evento.
+  **C2**: `rest = 0` — ≠ 0 significa percentagens que não fecham (erro a mostrar).
+
+Erros devolvidos em `errors`: mais de uma raiz, pai inexistente, filho sem %,
+sócio a acertar em dois apuramentos, participante fora da árvore.
+
+**Paridade provada (12/09/2026):** `scripts/prove-settlement-engine.ts` (só leitura)
+deu **0,00 €** de diferença em 13 participantes / 6 eventos, parte e valor final
+(com despesas pagas pelo sócio e extras aplicados como no ecrã). A 7.ª raiz é do
+tenant Coala Festival Portugal e a RLS esconde-a à sessão MP — correcto.
+O motor NÃO faz pools de liquidez/caução (isso é do Encontro de Contas até (e)).
+
+UI: painel `EventSettlementsPanel` mostra resultado s/IVA e c/IVA, quota do pai,
+tabela de participantes, bloco "Mundo Propício residual" e os dois selos de
+conferência, com rodapé "Dados ao vivo — não substitui o Encontro de Contas até à
+peça (e)".
