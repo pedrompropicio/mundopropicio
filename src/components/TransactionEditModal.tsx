@@ -502,7 +502,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
-        specification: transaction.type === "expense" ? (form.specification || null) : null,
+        specification: form.specification || null,
         is_transitory: form.is_transitory,
         is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result,
@@ -521,7 +521,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
         account_id: partnerPaidSettled ? null : (form.account_id || null),
-        specification: transaction.type === "expense" ? (form.specification || null) : null,
+        specification: form.specification || null,
         date: form.date,
         due_date: form.due_date || null,
         ...(partnerPaidSettled
@@ -1085,13 +1085,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
           </div>
 
-          {isExpense && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
-              <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Detalhes adicionais da despesa" />
-            </div>
-          )}
+          {/* Especificação existe em receitas E despesas (justificações de fecho). */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
+            <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Detalhes adicionais" />
+          </div>
 
           {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = empresa configurada.
               A edição manual prevalece sobre a herança da linha BP. */}

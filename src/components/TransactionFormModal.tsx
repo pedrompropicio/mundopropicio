@@ -3080,13 +3080,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Venda de bilhetes" />
           </div>
 
-          {form.type === "expense" && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
-              <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Detalhes adicionais da despesa" />
-            </div>
-          )}
+          {/* Especificação existe em receitas E despesas. */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
+            <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Detalhes adicionais" />
+          </div>
 
           {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = empresa configurada. */}
           {form.type === "expense" && eventPartners.length > 0 && (
