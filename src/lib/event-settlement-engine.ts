@@ -64,10 +64,15 @@ export interface EngineMarkedLine {
   iva_rate?: number | string | null;
 }
 
-/** Extras do sócio e despesas por ele pagas, já na base do sócio (informativo). */
+/**
+ * Extras do sócio e despesas por ele pagas — nas duas bases, porque o Encontro
+ * de Contas aplica-lhes a mesma base do apuramento do sócio (informativo).
+ */
 export interface EngineParticipantMoney {
   paidByPartner?: number;
+  paidByPartnerGross?: number;
   extras?: number;
+  extrasGross?: number;
 }
 
 export interface EngineInput {
