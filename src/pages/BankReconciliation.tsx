@@ -269,6 +269,41 @@ export default function BankReconciliation() {
     },
   });
 
+  /**
+   * Ponte das conciliações manuais de N transações (`bank_line_transactions`).
+   * É a SSOT desse caso: com N a coluna `matched_transaction_id` fica nula.
+   */
+  const savedLineIds = useMemo(() => (savedLines as any[]).map((l) => l.id), [savedLines]);
+
+  const { data: bridgeRows = [] } = useQuery({
+    queryKey: ["bank-recon-bridge", currentStatement?.id, savedLineIds.length],
+    enabled: savedLineIds.length > 0,
+    queryFn: async () => {
+      const out: any[] = [];
+      for (let i = 0; i < savedLineIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from("bank_line_transactions")
+          .select("id, line_id, transaction_id, transactions(description, paid_amount, payment_date, date)")
+          .in("line_id", savedLineIds.slice(i, i + 200));
+        if (error) throw error;
+        out.push(...(data ?? []));
+      }
+      return out;
+    },
+  });
+
+  /** line_id → entradas da ponte. */
+  const bridgeByLine = useMemo(() => {
+    const m = new Map<string, any[]>();
+    (bridgeRows as any[]).forEach((r) => {
+      const arr = m.get(r.line_id) ?? [];
+      arr.push(r);
+      m.set(r.line_id, arr);
+    });
+    return m;
+  }, [bridgeRows]);
+
+
   // ---- Triângulo do saldo -------------------------------------------------
   const txById = useMemo(() => new Map((txns as any[]).map((t) => [t.id, t])), [txns]);
 
