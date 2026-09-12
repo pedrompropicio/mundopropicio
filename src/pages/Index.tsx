@@ -16,6 +16,7 @@ import { makeLastDateResolver } from "@/lib/event-dates";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { SalesPositionWidget } from "@/components/SalesPositionWidget";
+import { DashboardBalanceCards } from "@/components/DashboardBalanceCards";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
@@ -519,6 +520,9 @@ export default function Dashboard() {
       </div>
 
       {/* --- POSIÇÃO DE VENDAS --- */}
+      {/* --- SALDOS (servidor; caixa e bilheteiras nunca se somam — D-ERP27) --- */}
+      <DashboardBalanceCards />
+
       <SalesPositionWidget />
 
       {/* --- PLANNING --- */}
