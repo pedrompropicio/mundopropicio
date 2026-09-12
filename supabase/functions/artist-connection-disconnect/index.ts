@@ -1,6 +1,9 @@
 // artist-connection-disconnect — desliga a ligação oficial de um canal de
 // artista: apaga a ligação (e o token cifrado) e marca o canal como revogado.
 //
+// No TikTok revoga primeiro o token na plataforma (/v2/oauth/revoke/); uma
+// revogação falhada NÃO impede o desligar do nosso lado.
+//
 // JWT obrigatório. Papéis: admin, platform_admin, manager, editor.
 
 import {
@@ -11,6 +14,7 @@ import {
   corsHeaders,
   json,
 } from "../_shared/artist-meta.ts";
+import { tiktokCreds, ttRevoke } from "../_shared/artist-tiktok.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
