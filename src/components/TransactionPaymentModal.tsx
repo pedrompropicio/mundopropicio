@@ -281,7 +281,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       };
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
-      if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
+      if (!isCompensation && !accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
       if (paymentMethod === "service_payment" && (!paymentEntity.trim() || !paymentReference.trim())) throw new Error("Preencha Entidade e Referência");
       if (paymentMethod === "state_payment" && !paymentReference.trim()) throw new Error("Preencha a Referência de Pagamento");
       const withholding = parseFloat(withholdingAmount) || 0;
@@ -323,7 +323,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
       // Trava de saldo no servidor (D-ERP34): conta também as transações
       // confidenciais e respeita skip_balance_check internamente.
-      if (isExpense && netCashOut > 0) {
+      if (isExpense && netCashOut > 0 && !isCompensation) {
         if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
         const hasBalance = await accountHasBalanceFor(accountId, netCashOut);
         if (!hasBalance) {
@@ -379,7 +379,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const updateData: any = {
         paid_amount: finalPaid, status: newStatus,
         payment_date: format(paymentDate, "yyyy-MM-dd"),
-        account_id: accountId || null,
+        account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
@@ -415,16 +415,14 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       if (paymentMethod !== "transfer") {
-        const methodLabel = paymentMethod === "service_payment"
-          ? "Pag. Serviços"
-          : paymentMethod === "direct_debit"
-            ? "Débito Direto"
-            : "Pag. Estado";
+        const methodLabel = PAYMENT_METHOD_LABELS[paymentMethod];
         const refInfo = paymentMethod === "service_payment"
           ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
           : paymentMethod === "direct_debit"
             ? "Débito direto na conta"
-            : `Ref: ${paymentReference.trim()}`;
+            : paymentMethod === "compensation"
+              ? "Encontro de contas, sem movimento de caixa"
+              : `Ref: ${paymentReference.trim()}`;
         auditEntries.push({
           transaction_id: transaction.id,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
@@ -447,7 +445,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         transaction_id: transaction.id,
         amount: addAmount,
         payment_date: format(paymentDate, "yyyy-MM-dd"),
-        account_id: accountId || null,
+        account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
@@ -578,7 +576,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               paid_amount: sibNewPaid,
               status: sibStatus,
               payment_date: format(paymentDate, "yyyy-MM-dd"),
-              account_id: accountId || sib.account_id || null,
+              account_id: isCompensation ? null : accountId || sib.account_id || null,
               payment_method: paymentMethod,
               payment_entity:
                 paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
@@ -592,7 +590,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             transaction_id: sib.id,
             amount: sibRemaining,
             payment_date: format(paymentDate, "yyyy-MM-dd"),
-            account_id: accountId || sib.account_id || null,
+            account_id: isCompensation ? null : accountId || sib.account_id || null,
             payment_method: paymentMethod,
             payment_entity:
               paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
