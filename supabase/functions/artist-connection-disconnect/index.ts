@@ -104,11 +104,23 @@ Deno.serve(async (req) => {
   await auditLog(admin, {
     entity_type: "artist_channel",
     entity_id: channel.id,
-    action: "instagram_disconnected",
+    action: connection?.provider === "tiktok" ? "tiktok_disconnected" : "instagram_disconnected",
     changed_by: caller.userId ?? "service_role",
     company_id: channel.company_id,
-    metadata: { connection_deleted: deleted === true, handle: channel.handle },
+    metadata: {
+      connection_deleted: deleted === true,
+      handle: channel.handle,
+      provider: connection?.provider ?? null,
+      platform_revoked: revoke.attempted ? revoke.ok : null,
+      revoke_error: revoke.error ?? null,
+    },
   });
 
-  return json({ ok: true, channel_id: channel.id, connection_deleted: deleted === true });
+  return json({
+    ok: true,
+    channel_id: channel.id,
+    connection_deleted: deleted === true,
+    platform_revoked: revoke.attempted ? revoke.ok : null,
+    revoke_error: revoke.error ?? null,
+  });
 });
