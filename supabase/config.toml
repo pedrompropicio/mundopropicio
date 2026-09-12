@@ -100,7 +100,20 @@ verify_jwt = true
 [functions.artist-instagram-oauth-callback]
 verify_jwt = false
 
-# Renovação dos tokens de longa duração do Instagram (~60 dias). Sem cron.
+# Ligação OFICIAL do TikTok (Display API + Login Kit), app própria
+# "Social Music Carreira" (TIKTOK_CLIENT_KEY/SECRET). Mesmo padrão do Instagram:
+# start/sync exigem JWT; o callback é chamado pelo browser via redirect do
+# TikTok (sem JWT) e é autorizado pelo state de uso único.
+[functions.artist-tiktok-oauth-start]
+verify_jwt = true
+
+[functions.artist-tiktok-oauth-callback]
+verify_jwt = false
+
+[functions.artist-tiktok-sync]
+verify_jwt = true
+
+# Renovação dos tokens directos: Instagram (~60 dias) e TikTok (24 h).
 [functions.artist-token-refresh]
 verify_jwt = true
 

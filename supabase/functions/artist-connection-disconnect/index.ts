@@ -1,6 +1,9 @@
 // artist-connection-disconnect — desliga a ligação oficial de um canal de
 // artista: apaga a ligação (e o token cifrado) e marca o canal como revogado.
 //
+// No TikTok revoga primeiro o token na plataforma (/v2/oauth/revoke/); uma
+// revogação falhada NÃO impede o desligar do nosso lado.
+//
 // JWT obrigatório. Papéis: admin, platform_admin, manager, editor.
 
 import {
@@ -11,6 +14,7 @@ import {
   corsHeaders,
   json,
 } from "../_shared/artist-meta.ts";
+import { tiktokCreds, ttRevoke } from "../_shared/artist-tiktok.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -48,6 +52,43 @@ Deno.serve(async (req) => {
     }
   }
 
+  // TikTok: revogar na plataforma ANTES de apagar o token do nosso lado.
+  // Falha de revogação é registada mas não impede o desligar.
+  let revoke: { attempted: boolean; ok: boolean; error?: string } = {
+    attempted: false,
+    ok: false,
+  };
+  const { data: connection } = await admin
+    .from("artist_channel_connections")
+    .select("id, provider")
+    .eq("artist_channel_id", channel.id)
+    .maybeSingle();
+
+  if (connection?.provider === "tiktok") {
+    revoke.attempted = true;
+    const masterKey = Deno.env.get("ENCRYPTION_MASTER_KEY");
+    const { creds, error: credErr } = tiktokCreds();
+    if (!masterKey) {
+      revoke.error = "ENCRYPTION_MASTER_KEY não configurada";
+    } else if (credErr) {
+      revoke.error = credErr;
+    } else {
+      const { data: tok, error: tErr } = await admin.rpc("artist_get_connection_token", {
+        p_connection_id: connection.id,
+        p_master_key: masterKey,
+      });
+      const t = Array.isArray(tok) ? tok[0] : tok;
+      if (tErr || !t?.access_token) {
+        revoke.error = tErr?.message ?? "token não disponível";
+      } else {
+        const r = await ttRevoke(creds!, t.access_token);
+        revoke.ok = r.ok;
+        if (!r.ok) revoke.error = r.error;
+      }
+    }
+    if (!revoke.ok) console.error("revogação TikTok falhou:", revoke.error);
+  }
+
   const { data: deleted, error: delErr } = await admin.rpc(
     "artist_delete_channel_connection",
     { p_artist_channel_id: channel.id },
@@ -63,11 +104,23 @@ Deno.serve(async (req) => {
   await auditLog(admin, {
     entity_type: "artist_channel",
     entity_id: channel.id,
-    action: "instagram_disconnected",
+    action: connection?.provider === "tiktok" ? "tiktok_disconnected" : "instagram_disconnected",
     changed_by: caller.userId ?? "service_role",
     company_id: channel.company_id,
-    metadata: { connection_deleted: deleted === true, handle: channel.handle },
+    metadata: {
+      connection_deleted: deleted === true,
+      handle: channel.handle,
+      provider: connection?.provider ?? null,
+      platform_revoked: revoke.attempted ? revoke.ok : null,
+      revoke_error: revoke.error ?? null,
+    },
   });
 
-  return json({ ok: true, channel_id: channel.id, connection_deleted: deleted === true });
+  return json({
+    ok: true,
+    channel_id: channel.id,
+    connection_deleted: deleted === true,
+    platform_revoked: revoke.attempted ? revoke.ok : null,
+    revoke_error: revoke.error ?? null,
+  });
 });
