@@ -3,7 +3,7 @@
 > Registo das decisões de arquitetura/produto e o seu PORQUÊ. Formato ADR leve: cada decisão = o que se decidiu + racional + estado (vigente / substituída).
 > Documento vivo, organizado por módulo. Decisões antigas não se apagam — marcam-se "substituída".
 > Como funciona o sistema vive em ARCHITECTURE.md; pendências vivem nas GitHub Issues.
-> Última atualização: 07/set/2026.
+> Última atualização: 12/set/2026.
 
 ## Transversal / Infraestrutura
 
@@ -955,5 +955,17 @@ para contas sem Instagram Login.
 `artist-instagram-oauth-start` → `artist-instagram-oauth-callback` → token de utilizador de
 longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
 `docs/ARCHITECTURE.md` e `DATABASE.md` §18.
+
+**Estado:** vigente.
+
+## D-ERP40 — Identidade de fornecedor é o IBAN normalizado, não o nome (12/09/2026)
+
+**Decisão.** O que identifica um fornecedor é o IBAN normalizado, não o nome.
+
+- O nome é instável (espaços, acentos, abreviaturas) e falhou como chave única na importação de 29/04/2026: `suppliers_company_name_unique` não apanha um espaço a mais no fim.
+- A unicidade passa a ser garantida por índices únicos parciais sobre `(company_id, iban|iban_2|iban_3)` para fornecedores **ativos**. Os desativados mantêm o IBAN para o histórico.
+- Toda a normalização de IBAN na aplicação passa por `normalizeIban` de `src/lib/iban.ts`. Não criar normalizações locais.
+- Importações em massa de fornecedores têm de reconciliar pelo IBAN normalizado **antes** de inserir. Se a importação não trouxer NIF nem IBAN, não há chave fiável e os registos têm de ser revistos à mão.
+- Fornecedores duplicados resolvem-se por **fusão**: repontar transações e mapeamentos para o registo com mais histórico, desativar o outro com nota em `notes`, nunca apagar.
 
 **Estado:** vigente.
