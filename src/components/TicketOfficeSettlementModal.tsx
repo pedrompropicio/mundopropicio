@@ -39,6 +39,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const { user, isAdmin } = useAuth();
   const isEditingConfirmed = !!existingSettlement && existingSettlement.status === "confirmed";
   const canEdit = !existingSettlement || existingSettlement.status === "draft" || isAdmin;
+  // Transferência já lançada = passo 5 em leitura apenas. Sem campos editáveis não
+  // há promessa por cumprir: para alterar, estorna-se o fecho (issue #132).
+  const transferAlreadyDone = !!existingSettlement?.transfer_transaction_id;
 
   const [eventId, setEventId] = useState<string>("");
   const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
