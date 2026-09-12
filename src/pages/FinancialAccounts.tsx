@@ -219,18 +219,13 @@ export default function FinancialAccounts() {
     setShowForm(true);
   }
 
-  function computeBalance(account: any): number | null {
-    // Bilheteira: fonte própria (D-ERP15) — a fórmula bancária ignoraria a
-    // receita de bilhetes, que vive em ticket_sales.
-    if (account.type === "ticket_office") {
-      if (account.skip_balance_check) return null;
-      return ticketOfficeBalances[account.id] ?? 0;
-    }
-    return computeAccountBalance(account, txSummary as any, cashAdjustments);
-  }
-
-  function canSeeBalance(account: any) {
-    return isAdmin || account.balance_visible_to_all;
+  /**
+   * Saldo da conta, vindo do servidor. `null` = não há valor a mostrar;
+   * `reason` diz porquê ("uncontrolled" = sem controlo de saldo,
+   * "no_permission" = sem permissão). Nunca zero em vez de ausência.
+   */
+  function balanceOf(account: any) {
+    return balanceCards.balances[account.id] ?? { value: null, reason: null };
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -248,27 +243,13 @@ export default function FinancialAccounts() {
   // SALDO TOTAL é caixa, e só caixa: banco, caixa e cartão pré-pago, apenas com
   // controlo de saldo. Bilheteiras (dinheiro retido por terceiros) e contas de
   // acerto (valores a receber/pagar) têm cartões próprios e nunca somam ao caixa.
-  const CASH_TYPES = ["bank", "cash", "prepaid_card"];
-  const totalBalance = activeAccounts.reduce((sum: number, acc: any) => {
-    if (!CASH_TYPES.includes(acc.type)) return sum;
-    if (!canSeeBalance(acc) || acc.skip_balance_check) return sum;
-    return sum + (computeBalance(acc) ?? 0);
-  }, 0);
-
-  const uncontrolledCashNames = activeAccounts
-    .filter((a: any) => CASH_TYPES.includes(a.type) && a.skip_balance_check)
-    .map((a: any) => a.name);
-
-  const ticketOfficeRetained = activeAccounts.reduce((sum: number, acc: any) => {
-    if (acc.type !== "ticket_office" || acc.skip_balance_check) return sum;
-    return sum + (ticketOfficeBalances[acc.id] ?? 0);
-  }, 0);
-
+  const totalBalance = balanceCards.cash.total;
+  const uncontrolledCashNames = balanceCards.cash.uncontrolledNames;
+  const hiddenCashNames = balanceCards.cash.hiddenNames;
+  const ticketOfficeRetained = balanceCards.ticketOffice.total;
+  const settlementTotal = balanceCards.settlements.total;
   const settlementAccounts = activeAccounts.filter((a: any) => a.type === "other");
-  const settlementTotal = settlementAccounts.reduce(
-    (sum: number, acc: any) => sum + (acc.skip_balance_check ? 0 : computeBalance(acc) ?? 0),
-    0
-  );
+
 
   return (
     <div className="space-y-6">
