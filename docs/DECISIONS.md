@@ -1240,3 +1240,31 @@ tempo.
 
 Fundida na **D-ERP48**, que é a entrada única e completa sobre a transferência do
 fecho de bilheteira. Esta entrada fica só para não partir links já escritos.
+
+## D-ERP52 — Shorts/Reels/TikTok pela Soundcharts: o que a API dá e o que não dá (12/09/2026)
+
+**Contexto.** `artist-shorts-sync` traz os vídeos curtos do artista por plataforma
+(`artist_content` + `artist_content_metrics_daily`, `source = 'aggregator'`).
+Confirmado contra a API real neste dia.
+
+**Decisão / factos que não se reinvestigam.**
+- A resposta por vídeo é `{ identifier, title (vem SEMPRE vazio), description,
+  createdAt, externalUrl, latestAudience: { date, views, likes, comments } }`.
+  Na ausência de `title`, o título mostrado é o início da `description`.
+- **Não existe** `shares`, thumbnail, duração, autor **nem a música associada**.
+  Por isso `artist_content.song_id` fica NULL: "que Reels usam esta música" **não
+  é respondível** por esta via. Não inventar ligação por semelhança de texto.
+- A data da métrica é `latestAudience.date`, **não** a data de hoje. Gravar hoje
+  num valor de outro dia falseia a série.
+- O **TikTok não é um código de plataforma válido neste endpoint** (HTTP 400).
+  Testados e recusados: `tiktok`, `tik-tok`, `tiktok_video`, `tt`, `douyin`.
+  Fica em `notes`, com `0` vídeos, e **não conta como erro**.
+- Dedup contra o Instagram oficial (`source = 'platform_api'`) é por permalink
+  **normalizado** (sem barra final nem query): o Graph grava `.../reel/XXX/` e a
+  Soundcharts `.../reel/XXX`. Sem normalizar, o mesmo Reel entrava duas vezes.
+- `caption_excerpt` tem CHECK de 200 caracteres — cortar na origem.
+- Cadência: cron `carreira-shorts-sync-diario`, 09:50 UTC, depois do de músicas.
+
+**Verificação (Litto Lins, 12/09/2026).** 200 vídeos YouTube + 200 Instagram,
+1.600 linhas, 5 chamadas, TikTok 0 em `notes`, 0 duplicados de permalink contra
+os 25 Reels oficiais, 1.200 métricas.
