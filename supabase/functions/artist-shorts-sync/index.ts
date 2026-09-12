@@ -437,8 +437,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ligação estimada vídeo→música por menção textual (nunca em dry_run)
+    let estimatedSongLinks = 0;
+    if (!dryRun) {
+      for (const artist of artists) {
+        const { data: linked, error: linkErr } = await admin.rpc("artist_content_link_songs", {
+          p_artist_id: artist.id,
+          p_dry_run: false,
+        });
+        if (linkErr) {
+          notes.push(`ligação vídeo→música falhou (${artist.name}): ${linkErr.message}`);
+        } else {
+          estimatedSongLinks += (linked ?? []).filter((r: any) => r.song_id).length;
+        }
+      }
+    }
+
     calls = client.calls;
     const summary = {
+      estimated_song_links: estimatedSongLinks,
       dry_run: dryRun,
       metric_date: metricDate,
       platforms,
