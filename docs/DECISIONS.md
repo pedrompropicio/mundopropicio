@@ -1206,3 +1206,30 @@ separadas das restantes despesas — a reconciliação
 (vendas + income) − despesas − transferências − adiantamentos = saldo mantém-se
 (BOL 140.765,00 €; Ticketline 275.792,63 €). A fórmula do saldo (D-ERP15,
 `src/lib/ticket-office-balance.ts`, `_ticket_office_balance_raw`) não mudou.
+
+## D-ERP49 — A obra (música) é a entidade de análise de lançamentos (13/09/2026)
+
+**Contexto.** `artist_releases` nasceu para os uploads na Sua Música: uma linha por
+plataforma. Isso não serve para acompanhar um lançamento, porque a mesma obra vive
+em Spotify, YouTube, Deezer, Shazam, TikTok, Reels, Shorts e SoundCloud ao mesmo
+tempo.
+
+**Decisão.**
+- `artist_songs` é a **obra** e a entidade de análise de lançamentos (com
+  `is_launch` + `launch_started_at` para o modo lançamento).
+- `artist_releases` continua a ser **upload por plataforma** e liga-se à obra por
+  `song_id` (nullable, `ON DELETE SET NULL`) — não se apaga nem se reescreve.
+- **Soundcharts é a fonte** de streams/views/vídeos/playlists da obra
+  (`artist_song_metrics_daily`, `artist_song_playlists`). Métrica que a Soundcharts
+  não devolva **não se grava** e a plataforma que devolve 403/404 fica em `notes`,
+  sem contar como erro.
+- **O Spotify não expõe plays por playlist.** O efeito das playlists lê-se por
+  *seguidores × posição × data de entrada* contra a curva de streams —
+  `v_song_playlists_current` ordena por seguidores exactamente para isso. Qualquer
+  número que apareça como "plays vindos da playlist" é invenção.
+- Identificadores por plataforma vivem em `artist_song_identifiers`; leitura em
+  `v_song_metric_latest` e `v_song_growth` (1d/7d/30d, NULL quando a série não
+  cobre a janela).
+
+**Nota de arrumação.** Existem duas entradas numeradas D-ERP46 (chave de operação
+e saldo de bilheteira). Fica registado; renumerar é trabalho à parte.

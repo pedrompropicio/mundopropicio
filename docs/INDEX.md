@@ -50,6 +50,12 @@ Não é uma frente com `estado-*.md` próprio: vive em `plataforma-e-infra`. Ant
 ler **D-ERP47** (comparáveis por artista, base 100 na primeira data comum, cadência por
 `roster_type`) e a secção "Crons de carreira artística" do `ARCHITECTURE.md`.
 
+Fase A (músicas): a **obra** é `artist_songs` — é ali que se acompanha um lançamento.
+`artist_releases` continua a ser upload por plataforma (Sua Música) e liga-se por
+`song_id`. Métricas e playlists da obra vêm da Soundcharts
+(`song-soundcharts-sync`, cron `carreira-song-sync-diario` às 09:40 UTC). Ler **D-ERP49**
+antes de mexer — sobretudo a parte de que o Spotify não dá plays por playlist.
+
 Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qualquer listagem
 de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
 
