@@ -116,7 +116,7 @@ function mapVideo(raw: any): MappedVideo | null {
     metric_date: audienceDate ? audienceDate.slice(0, 10) : null,
     permalink: str(raw?.externalUrl ?? raw?.url ?? raw?.permalink ?? raw?.link),
     title: str(raw?.title ?? raw?.name) ?? (caption ? caption.slice(0, 120) : null),
-    caption_excerpt: caption ? caption.slice(0, 500) : null,
+    caption_excerpt: caption ? caption.slice(0, 200) : null,
     thumbnail_url: str(raw?.thumbnailUrl ?? raw?.imageUrl ?? raw?.thumbnail),
     published_at,
     duration_seconds: numOrNull(raw?.duration ?? raw?.durationSeconds ?? raw?.lengthSeconds),
