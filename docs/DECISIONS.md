@@ -1233,3 +1233,29 @@ tempo.
 
 **Nota de arrumação.** Existem duas entradas numeradas D-ERP46 (chave de operação
 e saldo de bilheteira). Fica registado; renumerar é trabalho à parte.
+
+## D-ERP50 — A transferência do fecho de bilheteira só nasce da função (13/09/2026)
+
+**Decisão.** A transferência de um fecho de bilheteira é criada **exclusivamente** por
+`public.create_settlement_transfer(uuid, uuid, uuid, numeric, date, boolean)`
+(migração `20260912193941`). Nenhum ecrã, edge function ou script insere a
+transferência à mão.
+
+- A transferência é um **par** `expense` (conta da bilheteira) + `income` (conta
+  destino) na rubrica `10.3 Transferências Internas`
+  (`b32df086-c995-4747-a3f9-bfefa0063d0a`), carimbado com
+  `operation_key = 'TRF-FECHO-' || upper(substring(replace(settlement_id::text,'-',''), 1, 8))`.
+- As duas pernas e a atualização do fecho acontecem **numa só transação de base de
+  dados**: ou existe tudo, ou não existe nada.
+- `net_transferred` e `transfer_account_id` **só existem depois de a transferência
+  existir**. Enquanto não há par, o fecho grava `net_transferred = 0` e
+  `transfer_account_id = NULL` — nunca declara um destino que não usou.
+- SECURITY DEFINER com `search_path` fixo; portão `admin` / `is_platform_admin` /
+  `has_permission('manage_accounts')`; empresa do fecho validada contra
+  `current_company_id()`; EXECUTE revogado a PUBLIC e concedido só a `authenticated`.
+  Recusa valor ≤ 0, contas iguais e fecho já transferido.
+
+**Porquê.** O insert manual do wizard era ilegal (`type: 'transfer'`, colunas
+inexistentes) e o erro era engolido: durante meses dois fechos declararam uma
+transferência que não existia (issue #132). Consolida e substitui a formulação da
+D-ERP48.
