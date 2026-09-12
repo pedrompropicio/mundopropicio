@@ -36,6 +36,9 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   if (fileUrl?.startsWith("card://")) {
     return { bucket: "card-documents", path: fileUrl.replace(/^card:\/\//, "") };
   }
+  if (fileUrl?.startsWith("bank://")) {
+    return { bucket: "bank-statements", path: fileUrl.replace(/^bank:\/\//, "") };
+  }
   // Default bucket is transaction-documents
   if (!fileUrl?.startsWith("http")) return { bucket: "transaction-documents", path: fileUrl };
   const marker = "/storage/v1/object/public/transaction-documents/";

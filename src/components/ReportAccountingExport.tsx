@@ -161,6 +161,9 @@ export default function ReportAccountingExport() {
     } else if (filePath?.startsWith("card://")) {
       bucket = "card-documents";
       path = filePath.replace(/^card:\/\//, "");
+    } else if (filePath?.startsWith("bank://")) {
+      bucket = "bank-statements";
+      path = filePath.replace(/^bank:\/\//, "");
     }
     const { data, error } = await supabase.storage.from(bucket).download(path);
     if (error) {

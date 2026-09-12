@@ -130,7 +130,10 @@ Deno.serve(async (req) => {
         ? { bucket: "camarim-documents", path: fileUrl.slice("camarim://".length) }
         : fileUrl?.startsWith("card://")
           ? { bucket: "card-documents", path: fileUrl.slice("card://".length) }
-          : { bucket: "transaction-documents", path: fileUrl };
+          : fileUrl?.startsWith("bank://")
+            // Anexo de um movimento do banco replicado na transação (bucket bank-statements).
+            ? { bucket: "bank-statements", path: fileUrl.slice("bank://".length) }
+            : { bucket: "transaction-documents", path: fileUrl };
 
     const docsByTx = new Map<string, ZDoc[]>();
     const seenByTx = new Map<string, Set<string>>();
