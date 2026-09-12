@@ -336,9 +336,13 @@ export default function BankReconciliation() {
           (e.transaction_ids ?? []).forEach((id) => s.add(id)),
         );
       }
+      // Terceiro ramo: conciliação manual de N transações, via ponte. Sem isto
+      // o "Resto sem explicação" não fecha a zero.
+      (bridgeByLine.get(l.id) ?? []).forEach((r) => s.add(r.transaction_id));
     });
     return s;
-  }, [savedLines, sepaSiblings]);
+  }, [savedLines, sepaSiblings, bridgeByLine]);
+
 
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
