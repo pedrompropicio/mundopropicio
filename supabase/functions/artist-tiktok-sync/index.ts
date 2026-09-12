@@ -423,14 +423,17 @@ Deno.serve(async (req) => {
     const resBody = {
       ok: errors.length === 0,
       dry_run: dryRun,
+      params: { max_videos: maxVideos, since: body.since ?? null },
       connections: connections.length,
       api_calls: apiCalls,
       rows_written: dryRun ? 0 : rowsWritten,
       estimated_song_links: estimatedSongLinks,
+      song_links_by_song: songLinksBySong,
       song_link_notes: songLinkNotes,
       errors,
       artists: summary,
     };
+
 
     await finishSyncRun(admin, runId, startedMs, {
       status: dryRun
