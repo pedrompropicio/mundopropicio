@@ -13718,6 +13718,10 @@ export type Database = {
           test_name: string
         }[]
       }
+      _ticket_office_balance_raw: {
+        Args: { _account_id: string }
+        Returns: number
+      }
       account_has_balance_for: {
         Args: { _account_id: string; _amount: number }
         Returns: boolean
@@ -14778,6 +14782,13 @@ export type Database = {
         Returns: Database["public"]["Enums"]["bp_formalidade"]
       }
       test_latest_backup: { Args: never; Returns: Json }
+      ticket_office_balances: {
+        Args: { _account_ids: string[] }
+        Returns: {
+          account_id: string
+          balance: number
+        }[]
+      }
       tickets_v2_run_all_tests: {
         Args: never
         Returns: {
