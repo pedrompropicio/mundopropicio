@@ -210,9 +210,7 @@ Deno.serve(async (req) => {
             for (const it of body?.items ?? []) {
               const d = it?.date ? String(it.date).slice(0, 10) : null;
               if (!d || seen.has(d)) continue;
-              const value = numOrNull(
-                it?.value ?? it?.plays ?? it?.streams ?? it?.videoCount ?? it?.playCount,
-              );
+              const value = pointValue(it);
               if (value === null) continue; // métrica ausente não se grava
               seen.add(d);
               rows.push({
