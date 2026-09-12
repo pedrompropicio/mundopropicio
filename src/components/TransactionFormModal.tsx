@@ -49,7 +49,7 @@ import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/compon
 
 
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
+import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
 
 interface TransactionForm {
   description: string;
@@ -3871,12 +3871,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {form.type === "expense" && !isPaidByPartner && (() => {
             const selectedCat = categories.find((c: any) => c.id === form.category_id);
             const isStateCategory = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
-            const methods = [
-              { value: "transfer" as const, label: "Transferência", icon: Building },
-              { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
-              ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
-            ];
+            const methods = paymentMethodOptions({ includeStatePayment: isStateCategory });
             return (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>

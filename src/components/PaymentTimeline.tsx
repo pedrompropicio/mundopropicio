@@ -16,6 +16,7 @@ import {
   X as XIcon, Repeat } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
+import { methodLabels } from "@/lib/payment-methods";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -354,12 +355,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
     );
   }
 
-  const methodLabels: Record<string, string> = {
-    transfer: "Transferência",
-    service_payment: "Pag. Serviços",
-  direct_debit: "Débito Direto",
-    state_payment: "Pag. Estado",
-  };
 
   return (
     <div className="space-y-3">

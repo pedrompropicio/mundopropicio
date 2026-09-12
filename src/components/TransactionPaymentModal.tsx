@@ -24,7 +24,11 @@ import {
 } from "@/lib/account-balance-rpc";
 
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
+import {
+  PAYMENT_METHOD_LABELS,
+  paymentMethodOptions,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 
 interface Props {
   transaction: any;
@@ -113,6 +117,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   });
 
   const isStateCategory = categoryCode?.startsWith("10.4") || categoryCode?.startsWith("10.5");
+  /**
+   * Compensação: encontro de contas, sem movimento de caixa. Não há conta, não
+   * corre a trava de saldo e a linha em `transaction_payments` vai sem
+   * `account_id` (o trigger `trg_force_no_account_on_compensation` fá-lo-ia do
+   * lado da base, mas o ecrã não deve pedir o que vai ser ignorado).
+   */
+  const isCompensation = paymentMethod === "compensation";
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
@@ -270,7 +281,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       };
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
-      if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
+      if (!isCompensation && !accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
       if (paymentMethod === "service_payment" && (!paymentEntity.trim() || !paymentReference.trim())) throw new Error("Preencha Entidade e Referência");
       if (paymentMethod === "state_payment" && !paymentReference.trim()) throw new Error("Preencha a Referência de Pagamento");
       const withholding = parseFloat(withholdingAmount) || 0;
@@ -312,7 +323,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
       // Trava de saldo no servidor (D-ERP34): conta também as transações
       // confidenciais e respeita skip_balance_check internamente.
-      if (isExpense && netCashOut > 0) {
+      if (isExpense && netCashOut > 0 && !isCompensation) {
         if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
         const hasBalance = await accountHasBalanceFor(accountId, netCashOut);
         if (!hasBalance) {
@@ -368,10 +379,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const updateData: any = {
         paid_amount: finalPaid, status: newStatus,
         payment_date: format(paymentDate, "yyyy-MM-dd"),
-        account_id: accountId || null,
+        account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
-        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
+        payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
       };
       // Estorno que volta a ser pago: limpar o carimbo de estorno. Enquanto
       // reversed_at ficar preenchido, o BP e os agregados do sócio deixam de
@@ -404,16 +415,14 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       if (paymentMethod !== "transfer") {
-        const methodLabel = paymentMethod === "service_payment"
-          ? "Pag. Serviços"
-          : paymentMethod === "direct_debit"
-            ? "Débito Direto"
-            : "Pag. Estado";
+        const methodLabel = PAYMENT_METHOD_LABELS[paymentMethod];
         const refInfo = paymentMethod === "service_payment"
           ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
           : paymentMethod === "direct_debit"
             ? "Débito direto na conta"
-            : `Ref: ${paymentReference.trim()}`;
+            : paymentMethod === "compensation"
+              ? "Encontro de contas, sem movimento de caixa"
+              : `Ref: ${paymentReference.trim()}`;
         auditEntries.push({
           transaction_id: transaction.id,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
@@ -436,10 +445,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         transaction_id: transaction.id,
         amount: addAmount,
         payment_date: format(paymentDate, "yyyy-MM-dd"),
-        account_id: accountId || null,
+        account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
-        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
+        payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
         invoice_ref: invoiceRef.trim() || null,
         withholding_amount: withholding,
         credit_amount: totalCreditApplied,
@@ -567,12 +576,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               paid_amount: sibNewPaid,
               status: sibStatus,
               payment_date: format(paymentDate, "yyyy-MM-dd"),
-              account_id: accountId || sib.account_id || null,
+              account_id: isCompensation ? null : accountId || sib.account_id || null,
               payment_method: paymentMethod,
               payment_entity:
                 paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
               payment_reference:
-                paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+                paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() || null : null,
             })
             .eq("id", sib.id);
 
@@ -581,12 +590,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             transaction_id: sib.id,
             amount: sibRemaining,
             payment_date: format(paymentDate, "yyyy-MM-dd"),
-            account_id: accountId || sib.account_id || null,
+            account_id: isCompensation ? null : accountId || sib.account_id || null,
             payment_method: paymentMethod,
             payment_entity:
               paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
             payment_reference:
-              paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+              paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() || null : null,
             invoice_ref: invoiceRef.trim() || sib.invoice_ref || null,
             withholding_amount: 0,
             credit_amount: 0,
@@ -859,6 +868,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           )}
 
           {!partnerMode && (<>
+          {/* Compensação: encontro de contas, sem conta nem movimento de caixa. */}
+          {!isCompensation && (
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
             <SearchableSelect
@@ -896,17 +907,16 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               amount={parseFloat(paymentAmount || "0") || balance}
             />
           </div>
+          )}
 
           {/* Método de Pagamento */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-2" : "grid-cols-3")}>
-              {([
-                { value: "transfer" as const, label: "Transferência", icon: Building },
-                { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
-                ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
-              ]).map((m) => (
+            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
+              {paymentMethodOptions({
+                includeStatePayment: isStateCategory,
+                includeCompensation: true,
+              }).map((m) => (
                 <button
                   key={m.value}
                   type="button"
@@ -923,6 +933,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 </button>
               ))}
             </div>
+            {isCompensation && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Encontro de contas: não há movimento de dinheiro e não altera o
+                saldo de nenhuma conta.
+              </p>
+            )}
           </div>
 
           {/* Campos condicionais: Entidade + Referência */}

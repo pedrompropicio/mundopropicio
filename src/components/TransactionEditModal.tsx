@@ -49,7 +49,7 @@ import {
   useCanRenegotiateInstallments,
 } from "@/components/TransactionRenegotiateInstallmentsModal";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
+import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
 
 interface Props {
   transaction: any;
@@ -2105,12 +2105,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           {!isPaidByPartner && (() => {
             const selectedCat = categories.find((c: any) => c.id === form.category_id);
             const isStateCat = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
-            const methods = [
-              { value: "transfer" as const, label: "Transferência", icon: Building },
-              { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
-              ...(isStateCat ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
-            ];
+            const methods = paymentMethodOptions({ includeStatePayment: isStateCat });
             return (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>

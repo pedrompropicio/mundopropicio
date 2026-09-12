@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useBackdropClose } from "@/lib/backdropClose";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
+import { methodLabels, paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
 
 interface Props {
   transaction: any;
@@ -25,12 +25,6 @@ interface Props {
   onClose: () => void;
 }
 
-const methodLabels: Record<string, string> = {
-  transfer: "Transferência",
-  service_payment: "Pag. Serviços",
-  direct_debit: "Débito Direto",
-  state_payment: "Pag. Estado",
-};
 
 export function TransactionPaymentsListModal({ transaction, canApprove, eventCompleted = false, onClose }: Props) {
   const { user, role } = useAuth();
@@ -39,6 +33,13 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const canFull = canApprove && !eventCompleted;
   const canLimited = (canApprove || role === "editor") && !eventCompleted;
   const queryClient = useQueryClient();
+  // "Pag. Estado" segue a mesma regra condicional dos outros modais
+  // (categorias 10.4/10.5); mantém-se visível se a parcela já o tiver.
+  const categoryCode: string = (transaction as any)?.account_categories?.code ?? "";
+  const isStateCategory =
+    categoryCode.startsWith("10.4") ||
+    categoryCode.startsWith("10.5") ||
+    transaction?.payment_method === "state_payment";
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [editDateOpen, setEditDateOpen] = useState(false);
@@ -479,12 +480,8 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
 
                       <div>
                         <label className="text-xs text-muted-foreground">Método</label>
-                        <div className="grid grid-cols-3 gap-1">
-                          {([
-                            { value: "transfer", label: "Transferência", icon: Building },
-                            { value: "service_payment", label: "Pag. Serviços", icon: FileText },
-                            { value: "direct_debit", label: "Débito Direto", icon: Repeat },
-                          ] as const).map((m) => (
+                        <div className={cn("grid gap-1", isStateCategory ? "grid-cols-2" : "grid-cols-3")}>
+                          {paymentMethodOptions({ includeStatePayment: isStateCategory }).map((m) => (
                             <button key={m.value} type="button"
                               onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
                               className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-xs",

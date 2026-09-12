@@ -22,6 +22,7 @@ import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
 import { roundCents } from "@/lib/iva";
+import { PAYMENT_METHOD } from "@/lib/payment-methods";
 
 
 interface Props {
@@ -628,7 +629,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             transaction_id: venueRetainedInvoiceId,
             amount: venueRetainedNum,
             payment_date: settlementDate,
-            payment_method: "compensation",
+            payment_method: PAYMENT_METHOD.compensation,
             account_id: null,
             notes: `Compensação por venda à porta retida pela sala (fecho ${officeName})${venueRetainedNotes ? ` — ${venueRetainedNotes}` : ""}`,
             created_by: getAuditUser(user),
@@ -712,7 +713,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             transaction_id: venueRetainedInvoiceId,
             amount: invoiceRemainder,
             payment_date: settlementDate,
-            payment_method: "transfer",
+            payment_method: PAYMENT_METHOD.transfer,
             account_id: officeId,
             notes: `Saldo restante liquidado pela bilheteira ${officeName} (fecho do evento)`,
             created_by: getAuditUser(user),
