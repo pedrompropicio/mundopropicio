@@ -52,6 +52,43 @@ Deno.serve(async (req) => {
     }
   }
 
+  // TikTok: revogar na plataforma ANTES de apagar o token do nosso lado.
+  // Falha de revogação é registada mas não impede o desligar.
+  let revoke: { attempted: boolean; ok: boolean; error?: string } = {
+    attempted: false,
+    ok: false,
+  };
+  const { data: connection } = await admin
+    .from("artist_channel_connections")
+    .select("id, provider")
+    .eq("artist_channel_id", channel.id)
+    .maybeSingle();
+
+  if (connection?.provider === "tiktok") {
+    revoke.attempted = true;
+    const masterKey = Deno.env.get("ENCRYPTION_MASTER_KEY");
+    const { creds, error: credErr } = tiktokCreds();
+    if (!masterKey) {
+      revoke.error = "ENCRYPTION_MASTER_KEY não configurada";
+    } else if (credErr) {
+      revoke.error = credErr;
+    } else {
+      const { data: tok, error: tErr } = await admin.rpc("artist_get_connection_token", {
+        p_connection_id: connection.id,
+        p_master_key: masterKey,
+      });
+      const t = Array.isArray(tok) ? tok[0] : tok;
+      if (tErr || !t?.access_token) {
+        revoke.error = tErr?.message ?? "token não disponível";
+      } else {
+        const r = await ttRevoke(creds!, t.access_token);
+        revoke.ok = r.ok;
+        if (!r.ok) revoke.error = r.error;
+      }
+    }
+    if (!revoke.ok) console.error("revogação TikTok falhou:", revoke.error);
+  }
+
   const { data: deleted, error: delErr } = await admin.rpc(
     "artist_delete_channel_connection",
     { p_artist_channel_id: channel.id },
