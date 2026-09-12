@@ -43,7 +43,13 @@ Nada em execução.
 
 ## Próximo passo concreto
 
-Implantar os saldos reais do banco: por cada conta, abrir o modal de implantação em Contas, pôr a data de corte (por exemplo o fecho de 31/08) e o saldo do extrato nessa data, confirmar no ecrã que o "depois de implantar" bate com o banco, e só depois desligar o `skip_balance_check` dessa conta. Começar pelo Santander, onde o extrato a 01/09 dizia +107.257,71 EUR. Nenhum valor foi implantado pelo sistema.
+O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato fecha a zero até 11/09. O que está por fazer:
+
+1. **Pagar os seis repasses ZigPay** — `pending`, **17.906,94 €** no total, com NIF e IBAN já preenchidos nos seis fornecedores.
+2. **Fechar os 121,50 € da Garrafeira Estado D'Alma** — anexar a fatura e substituir o **IVA a 0% provisório** pelo desdobramento base/IVA real.
+3. **Decompor o cashless da Ivete (895,70 €)** quando chegar o fecho dos bares, aplicando o teste: dinheiro apurado (liquidação TPA + numerário) tem de cobrir a totalidade das vendas de alimentos e bebidas.
+4. **Entrar com os quatro ativos exclusivos MP+EIN da Anitta**, ainda fora do ERP e à espera da épica **#146**: IVA dedutível **266.345,18 €**, bares **93.969,63 €**, bengaleiro **138,82 €**, patrocínio Oeiras **50.000,00 €**.
+5. **Levar o saldo para o servidor nos sítios que faltam** — Contas, Extrato, cartões e bilheteiras continuam a somar saldo no cliente (furo assumido nas D-ERP34/D-ERP36).
 
 Depois:
 
