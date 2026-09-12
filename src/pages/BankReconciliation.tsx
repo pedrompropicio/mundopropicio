@@ -1100,7 +1100,7 @@ export default function BankReconciliation() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
-                  <TableHead className="text-right">Valor</TableHead><TableHead>Camada</TableHead><TableHead>Ligada a</TableHead>
+                  <TableHead className="text-right">Valor</TableHead><TableHead>Camada</TableHead><TableHead>Ligada a</TableHead><TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1162,6 +1162,12 @@ export default function BankReconciliation() {
                       )}
 
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
+                        <Paperclip className="mr-1 h-3.5 w-3.5" />
+                        {docCountByLine.get(l.id) ?? 0}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {ignoredLines.map((l) => (
@@ -1171,6 +1177,12 @@ export default function BankReconciliation() {
                     <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell><Badge variant="secondary">Ignorada</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{l.note}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
+                        <Paperclip className="mr-1 h-3.5 w-3.5" />
+                        {docCountByLine.get(l.id) ?? 0}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
