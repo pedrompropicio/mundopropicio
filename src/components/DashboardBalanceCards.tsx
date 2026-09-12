@@ -10,15 +10,21 @@
  * - onde não há permissão não se mostra zero: o cartão desaparece;
  * - "não controlado" (`skip_balance_check`) continua distinto de "sem permissão".
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, Ticket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { formatCurrency } from "@/lib/mock-data";
-import { useAccountBalanceCards } from "@/hooks/useAccountBalanceCards";
+import {
+  useAccountBalanceCards,
+  CASH_ACCOUNT_TYPES,
+} from "@/hooks/useAccountBalanceCards";
+import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 
 export function DashboardBalanceCards() {
   const { companyId } = useCompany();
+  const [openCard, setOpenCard] = useState<null | "cash" | "office">(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["dashboard_balance_accounts", companyId],
@@ -45,6 +51,23 @@ export function DashboardBalanceCards() {
   const showOffice = office.count - office.hiddenNames.length - office.uncontrolledNames.length > 0;
 
   if (!showCash && !showOffice) return null;
+
+  const cashAccounts = (accounts as any[]).filter((a) =>
+    (CASH_ACCOUNT_TYPES as readonly string[]).includes(a.type),
+  );
+  const officeAccounts = (accounts as any[]).filter((a) => a.type === "ticket_office");
+
+  const clickable = (card: "cash" | "office") => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: () => setOpenCard(card),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setOpenCard(card);
+      }
+    },
+  });
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
