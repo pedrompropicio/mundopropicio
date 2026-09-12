@@ -863,6 +863,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           )}
 
           {!partnerMode && (<>
+          {/* Compensação: encontro de contas, sem conta nem movimento de caixa. */}
+          {!isCompensation && (
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
             <SearchableSelect
@@ -900,6 +902,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               amount={parseFloat(paymentAmount || "0") || balance}
             />
           </div>
+          )}
 
           {/* Método de Pagamento */}
           <div>
@@ -925,6 +928,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 </button>
               ))}
             </div>
+            {isCompensation && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Encontro de contas: não há movimento de dinheiro e não altera o
+                saldo de nenhuma conta.
+              </p>
+            )}
           </div>
 
           {/* Campos condicionais: Entidade + Referência */}
