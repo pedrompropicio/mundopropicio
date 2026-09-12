@@ -42,6 +42,16 @@ interface SearchableSelectProps {
   onCreateOption?: (text: string) => void | boolean | Promise<void | boolean>;
   /** Label builder for the create footer. */
   createLabel?: (text: string) => string;
+  /**
+   * Optional gate for the create footer: return a pt-PT reason to DISABLE creation
+   * (the reason is shown under the button), or null when the text is acceptable.
+   * Recusa em vez de avisar — usado pela chave de operação (D-ERP45).
+   */
+  createDisabledReason?: (text: string) => string | null;
+  /** Normalizes the search text as the user types (e.g. uppercase, spaces → hyphen). */
+  transformSearch?: (raw: string) => string;
+  /** Notified whenever the (already transformed) search text changes. */
+  onSearchChange?: (text: string) => void;
 }
 
 export function SearchableSelect({
@@ -56,10 +66,24 @@ export function SearchableSelect({
   disabled,
   onCreateOption,
   createLabel,
+  createDisabledReason,
+  transformSearch,
+  onSearchChange,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [creating, setCreating] = React.useState(false);
+
+  const handleSearch = React.useCallback((raw: string) => {
+    const next = transformSearch ? transformSearch(raw) : raw;
+    setSearch(next);
+    onSearchChange?.(next);
+  }, [transformSearch, onSearchChange]);
+
+  const createReason = createDisabledReason && search.trim()
+    ? createDisabledReason(search.trim())
+    : null;
+
 
   const handleCreate = React.useCallback(async () => {
     if (!onCreateOption) return;
