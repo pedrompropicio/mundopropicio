@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface Props {
 
 export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   const { isAdmin, hasPermission } = useAuth();
+  const navigate = useNavigate();
   const canManage = isAdmin || hasPermission("manage_accounts");
   const [settlementModal, setSettlementModal] = useState<{ open: boolean; eventId?: string }>({ open: false });
 
@@ -151,7 +152,14 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
     accountTxns.forEach((t: any) => {
       if (!isCountedTicketOfficeTxn(t, officeId)) return;
-      if (t.type === "expense" && t.event_id && eventMap[t.event_id]) {
+      // A perna de saída da transferência do fecho é uma expense com event_id na
+      // rubrica 10.3 — conta no tile "Transferências", NUNCA nas despesas diretas.
+      if (
+        t.type === "expense" &&
+        t.category_id !== INTERNAL_TRANSFER_CATEGORY_ID &&
+        t.event_id &&
+        eventMap[t.event_id]
+      ) {
         eventMap[t.event_id].directExpenses += Number(t.paid_amount || 0);
       }
     });
@@ -254,7 +262,19 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         </div>
       </div>
 
-      <div className={`rounded-lg p-3 text-center ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(`/relatorios/bilheteiras?conta=${officeId}`)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            navigate(`/relatorios/bilheteiras?conta=${officeId}`);
+          }
+        }}
+        title="Ver composição transação a transação"
+        className={`rounded-lg p-3 text-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}
+      >
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
           {formatCurrency(summary.globalBalance)}

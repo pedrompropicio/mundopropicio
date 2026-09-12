@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
@@ -63,7 +64,9 @@ interface AnalyticalLine {
 }
 
 export default function ReportTicketOfficeAudit() {
-  const [selectedOffice, setSelectedOffice] = useState<string>("all");
+  // ?conta=<id> chega da composição do saldo retido; sem parâmetro fica "all".
+  const [searchParams] = useSearchParams();
+  const [selectedOffice, setSelectedOffice] = useState<string>(searchParams.get("conta") ?? "all");
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());

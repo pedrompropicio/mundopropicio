@@ -10,15 +10,21 @@
  * - onde não há permissão não se mostra zero: o cartão desaparece;
  * - "não controlado" (`skip_balance_check`) continua distinto de "sem permissão".
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, Ticket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { formatCurrency } from "@/lib/mock-data";
-import { useAccountBalanceCards } from "@/hooks/useAccountBalanceCards";
+import {
+  useAccountBalanceCards,
+  CASH_ACCOUNT_TYPES,
+} from "@/hooks/useAccountBalanceCards";
+import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 
 export function DashboardBalanceCards() {
   const { companyId } = useCompany();
+  const [openCard, setOpenCard] = useState<null | "cash" | "office">(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["dashboard_balance_accounts", companyId],
@@ -46,10 +52,30 @@ export function DashboardBalanceCards() {
 
   if (!showCash && !showOffice) return null;
 
+  const cashAccounts = (accounts as any[]).filter((a) =>
+    (CASH_ACCOUNT_TYPES as readonly string[]).includes(a.type),
+  );
+  const officeAccounts = (accounts as any[]).filter((a) => a.type === "ticket_office");
+
+  const clickable = (card: "cash" | "office") => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: () => setOpenCard(card),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setOpenCard(card);
+      }
+    },
+  });
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {showCash && (
-        <div className="glass rounded-xl p-4">
+        <div
+          {...clickable("cash")}
+          className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+        >
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Saldo em Caixa
@@ -80,7 +106,10 @@ export function DashboardBalanceCards() {
       )}
 
       {showOffice && (
-        <div className="glass rounded-xl p-4">
+        <div
+          {...clickable("office")}
+          className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+        >
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Retido em Bilheteiras
@@ -99,6 +128,29 @@ export function DashboardBalanceCards() {
             </p>
           )}
         </div>
+      )}
+
+      {openCard === "cash" && (
+        <BalanceCompositionModal
+          open
+          onClose={() => setOpenCard(null)}
+          title="Saldo em Caixa"
+          description="Contas bancárias, caixa e cartões pré-pagos"
+          total={cash.total}
+          accounts={cashAccounts}
+          balances={cards.balances}
+        />
+      )}
+      {openCard === "office" && (
+        <BalanceCompositionModal
+          open
+          onClose={() => setOpenCard(null)}
+          title="Retido em Bilheteiras"
+          description="Dinheiro que existe mas ainda não está no banco — não é caixa"
+          total={office.total}
+          accounts={officeAccounts}
+          balances={cards.balances}
+        />
       )}
     </div>
   );

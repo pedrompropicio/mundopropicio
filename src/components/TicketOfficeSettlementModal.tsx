@@ -39,6 +39,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const { user, isAdmin } = useAuth();
   const isEditingConfirmed = !!existingSettlement && existingSettlement.status === "confirmed";
   const canEdit = !existingSettlement || existingSettlement.status === "draft" || isAdmin;
+  // Transferência já lançada = passo 5 em leitura apenas. Sem campos editáveis não
+  // há promessa por cumprir: para alterar, estorna-se o fecho (issue #132).
+  const transferAlreadyDone = !!existingSettlement?.transfer_transaction_id;
 
   const [eventId, setEventId] = useState<string>("");
   const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
@@ -508,6 +511,40 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         settlementId = data.id;
       }
 
+      // Transferência do fecho: par expense + income na rubrica 10.3, numa só
+      // operação na base de dados (create_settlement_transfer, issue #132).
+      // Corre ANTES de marcar as deduções como pagas: se falhar, não fica nada
+      // meio-feito. O erro nunca é engolido — sem transferência não há fecho.
+      if (
+        confirm &&
+        transferAmt > 0 &&
+        transferAccountId &&
+        !existingSettlement?.transfer_transaction_id
+      ) {
+        const isCredited = creditStatus === "credited" && !targetWithholds;
+        const { error: tErr } = await (supabase as any).rpc("create_settlement_transfer", {
+          p_settlement_id: settlementId,
+          p_from_account_id: officeId,
+          p_to_account_id: transferAccountId,
+          p_amount: transferAmt,
+          p_date: settlementDate,
+          p_credited: isCredited,
+        });
+        if (tErr) {
+          // O fecho não pode ficar confirmado a declarar uma transferência inexistente.
+          const { error: demoteErr } = await (supabase as any)
+            .from("ticket_office_settlements")
+            .update({ status: "draft", closed_at: null, closed_by: null })
+            .eq("id", settlementId);
+          if (demoteErr) {
+            throw new Error(
+              `Transferência não lançada (${tErr.message}) e NÃO foi possível voltar o fecho a rascunho (${demoteErr.message}) — corrija o fecho manualmente.`,
+            );
+          }
+          throw new Error(`Transferência não lançada — fecho ficou em rascunho. ${tErr.message}`);
+        }
+      }
+
       // Unlink previously linked transactions not in current selection (admin edits)
       if (existingSettlement) {
         await (supabase as any)
@@ -549,33 +586,6 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       }
 
-      // Transferência do fecho: par expense + income na rubrica 10.3, numa só
-      // operação na base de dados (create_settlement_transfer, issue #132).
-      // O erro nunca é engolido — sem transferência não há fecho confirmado.
-      if (
-        confirm &&
-        transferAmt > 0 &&
-        transferAccountId &&
-        !existingSettlement?.transfer_transaction_id
-      ) {
-        const isCredited = creditStatus === "credited" && !targetWithholds;
-        const { error: tErr } = await (supabase as any).rpc("create_settlement_transfer", {
-          p_settlement_id: settlementId,
-          p_from_account_id: officeId,
-          p_to_account_id: transferAccountId,
-          p_amount: transferAmt,
-          p_date: settlementDate,
-          p_credited: isCredited,
-        });
-        if (tErr) {
-          // O fecho não pode ficar confirmado a declarar uma transferência inexistente.
-          await (supabase as any)
-            .from("ticket_office_settlements")
-            .update({ status: "draft", closed_at: null, closed_by: null })
-            .eq("id", settlementId);
-          throw new Error(`Transferência não lançada — fecho ficou em rascunho. ${tErr.message}`);
-        }
-      }
 
       // Venda à porta retida pela sala — criar / reverter pagamento parcial na fatura escolhida
       const prevRetainedPaymentId = existingSettlement?.venue_retained_payment_id ?? null;
@@ -1247,6 +1257,32 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {/* STEP 5 — Transfer (optional) */}
                 <section className="space-y-2">
                   <StepHeader n={5} icon={<ArrowRightLeft className="h-4 w-4" />} title="Transferência para banco (opcional)" />
+                  {transferAlreadyDone && (
+                  <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-4 space-y-2 text-xs">
+                    <p className="font-semibold text-sky-600 dark:text-sky-400">
+                      Transferência já lançada
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2 text-muted-foreground">
+                      <div>
+                        <p>Conta destino</p>
+                        <p className="font-medium text-foreground">
+                          {bankAccounts.find((a: any) => a.id === existingSettlement?.transfer_account_id)?.name ?? "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p>Valor transferido</p>
+                        <p className="font-mono font-medium text-foreground">
+                          {formatCurrency(Number(existingSettlement?.net_transferred || 0))}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Para alterar o valor ou a conta destino é preciso estornar o fecho — a
+                      transferência é um par de movimentos já registado nas contas.
+                    </p>
+                  </div>
+                  )}
+                  {!transferAlreadyDone && (
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
                       Pode adiar — o líquido fica retido na bilheteira até transferência manual.
@@ -1347,6 +1383,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       </div>
                     )}
                   </div>
+                  )}
+
                 </section>
 
                 {/* STEP 6 — Document & notes */}

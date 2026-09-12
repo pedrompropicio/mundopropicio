@@ -20,7 +20,8 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { useAccountBalanceCards } from "@/hooks/useAccountBalanceCards";
+import { useAccountBalanceCards, CASH_ACCOUNT_TYPES } from "@/hooks/useAccountBalanceCards";
+import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 import { formatDatePT } from "@/lib/utils";
 
 
@@ -84,6 +85,7 @@ export default function FinancialAccounts() {
   const [accessModalAccount, setAccessModalAccount] = useState<{ id: string; name: string } | null>(null);
   const [implantAccount, setImplantAccount] = useState<any | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<{ id: string; name: string } | null>(null);
+  const [compositionCard, setCompositionCard] = useState<null | "cash" | "office" | "settlements">(null);
 
   // Check if account has transactions
   function accountHasTransactions(accountId: string) {
@@ -249,6 +251,25 @@ export default function FinancialAccounts() {
   const ticketOfficeRetained = balanceCards.ticketOffice.total;
   const settlementTotal = balanceCards.settlements.total;
   const settlementAccounts = activeAccounts.filter((a: any) => a.type === "other");
+  const cashAccounts = activeAccounts.filter((a: any) =>
+    (CASH_ACCOUNT_TYPES as readonly string[]).includes(a.type),
+  );
+  const officeAccounts = activeAccounts.filter((a: any) => a.type === "ticket_office");
+
+  // Cada card de saldo abre a sua composição — sem recalcular nada (D-ERP27).
+  const clickableCard = (card: "cash" | "office" | "settlements") => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: () => setCompositionCard(card),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setCompositionCard(card);
+      }
+    },
+    className:
+      "glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all",
+  });
 
 
   return (
@@ -283,7 +304,7 @@ export default function FinancialAccounts() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contas Ativas</p>
           <p className="mt-1 text-2xl font-bold">{activeAccounts.length}</p>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div {...clickableCard("cash")}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo Total</p>
           <p className={`mt-1 text-2xl font-bold ${totalBalance >= 0 ? "text-success" : "text-destructive"}`}>
             {balanceCards.isLoading
@@ -304,7 +325,7 @@ export default function FinancialAccounts() {
             </p>
           )}
         </div>
-        <div className="glass rounded-xl p-4">
+        <div {...clickableCard("office")}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Retido em Bilheteiras</p>
           <p className="mt-1 text-2xl font-bold text-warning">
             {balanceCards.isLoading
@@ -320,7 +341,7 @@ export default function FinancialAccounts() {
             </p>
           )}
         </div>
-        <div className="glass rounded-xl p-4">
+        <div {...clickableCard("settlements")}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acertos em Curso</p>
           <p className="mt-1 text-2xl font-bold text-primary">
             {balanceCards.isLoading
@@ -338,6 +359,44 @@ export default function FinancialAccounts() {
             </p>
           )}
         </div>
+
+        {compositionCard && (
+          <BalanceCompositionModal
+            open
+            onClose={() => setCompositionCard(null)}
+            title={
+              compositionCard === "cash"
+                ? "Saldo Total"
+                : compositionCard === "office"
+                  ? "Retido em Bilheteiras"
+                  : "Acertos em Curso"
+            }
+            description={
+              compositionCard === "cash"
+                ? "Só caixa: contas bancárias, caixa e cartões pré-pagos"
+                : compositionCard === "office"
+                  ? "Dinheiro que existe mas ainda não está no banco"
+                  : "Contas de acerto — não é caixa"
+            }
+            total={
+              compositionCard === "cash"
+                ? totalBalance
+                : compositionCard === "office"
+                  ? ticketOfficeRetained
+                  : settlementTotal
+            }
+            accounts={
+              compositionCard === "cash"
+                ? cashAccounts
+                : compositionCard === "office"
+                  ? officeAccounts
+                  : settlementAccounts
+            }
+            balances={balanceCards.balances}
+          />
+        )}
+
+
 
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipos</p>
