@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { OperationKeyManager } from "@/components/OperationKeyManager";
 
 interface FilterPanelProps {
   open: boolean;
