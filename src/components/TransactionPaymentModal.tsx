@@ -24,7 +24,11 @@ import {
 } from "@/lib/account-balance-rpc";
 
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
+import {
+  PAYMENT_METHOD_LABELS,
+  paymentMethodOptions,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 
 interface Props {
   transaction: any;
