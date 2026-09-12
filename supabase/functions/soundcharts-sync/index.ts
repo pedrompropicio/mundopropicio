@@ -275,13 +275,19 @@ Deno.serve(async (req) => {
 
     const targets = (aggChannels ?? []).filter((c) => c.external_id);
     if (!targets.length) {
-      return json({
+      const emptyBody = {
         artists_processed: 0,
         soundcharts_calls: 0,
         rows_written: {},
         errors: [],
         note: "Nenhum artista com canal 'aggregator' e external_id.",
+      };
+      // correu sem erro mas não gravou nada
+      await finishSyncRun(admin, runId, startedMs, {
+        status: "no_data",
+        details: emptyBody,
       });
+      return json(emptyBody);
     }
 
     const artistIds = [...new Set(targets.map((c) => c.artist_id))];
