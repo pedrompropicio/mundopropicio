@@ -1046,6 +1046,15 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 
 **Edição.** Campo "Chave de operação" no modal de edição, sempre visível e **independente do método de pagamento**, com aviso visual quando não segue a convenção `PREFIXO-…` em maiúsculas. Não é obrigatória.
 
+**Gestão ao nível da chave** (13/09/2026). Renomear e apagar um grupo mexem em N transações de uma vez, por isso não vivem num campo de formulário: vivem no painel de filtros de Transações (`OperationKeyManager`, ao lado do filtro por chave), na lista das chaves da empresa com a contagem de cada uma.
+
+- **Permissão:** só `admin` / `platform_admin`. Quem não for vê a lista e o filtro, sem acções.
+- **Renomear:** valida o nome novo contra o padrão da D-ERP46 e mostra a contagem antes de executar.
+- **Fundir:** se o nome novo já existir, a acção deixa de ser renomear e é dito com essas palavras — mostra as duas contagens ("junta 4 linhas a um grupo que já tem 14, ficando 18") e exige uma **segunda confirmação**, separada da primeira. Uma fusão nunca acontece com a confirmação de uma renomeação simples.
+- **Apagar:** põe `operation_key = NULL` no grupo. **Nenhuma transação é apagada** — a confirmação di-lo por palavras, porque "apagar chave" lê-se mal.
+- **Trava nos prefixos gerados por código:** `CAMARIM-` e `CARTAO-` não podem ser renomeados nem apagados por esta via. São derivados do id da sessão: mudar o nome parte a ligação e o fecho seguinte gera a original, ficando dois grupos onde havia um. O motivo está à vista na lista, não num tooltip.
+- **Atomicidade e auditoria:** as duas acções são RPCs `SECURITY DEFINER` — `rename_operation_key(_old_key, _new_key)` e `clear_operation_key(_key)` — em vez de N updates do cliente: uma renomeação de 14 linhas a meio não pode deixar metade do grupo com o nome velho. Portão de admin por dentro, `current_company_id()` a limitar o alcance, isenção para `auth.uid() IS NULL` (service_role), `REVOKE EXECUTE ... FROM PUBLIC, anon` (D-ERP37). Cada operação escreve uma linha por transação afectada em `transaction_audit_log` (`field_name` "Chave de operação (renomear grupo)" ou "(apagar grupo)", valor velho, valor novo, utilizador) **antes** do update, na mesma transação.
+
 **Estado:** vigente.
 
 ## D-ERP46 — Chave de operação é domínio fechado, não texto livre (12/09/2026)
