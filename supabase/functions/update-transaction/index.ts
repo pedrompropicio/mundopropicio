@@ -155,6 +155,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Chave de operação (D-ERP45): ESPELHO de `src/lib/operation-key.ts`
+    // (OPERATION_KEY_PATTERN) e do CHECK `transactions_operation_key_check`.
+    // Recusa-se em vez de avisar: uma variante silenciosa cria um grupo de uma
+    // linha e o total do fecho deixa de bater.
+    const OPERATION_KEY_RE = /^[A-Z0-9]+(-[A-Z0-9]+)+$/;
+    if ("operation_key" in updates && updates.operation_key !== null && updates.operation_key !== "") {
+      if (typeof updates.operation_key !== "string" || !OPERATION_KEY_RE.test(updates.operation_key)) {
+        return new Response(
+          JSON.stringify({
+            error: `Chave de operação inválida: "${updates.operation_key}". Só letras e números em maiúsculas separados por hífen (ex.: ACERTO-FOOD-IVETE-2026).`,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+
     // Validate amount is positive
     if ("amount" in updates) {
       const amount = parseFloat(updates.amount);
