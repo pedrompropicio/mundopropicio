@@ -481,7 +481,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         paying_partner_id: "Pagador da despesa",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id", "paying_partner_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -505,6 +505,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         payment_method: form.payment_method,
         payment_entity: form.payment_method === "service_payment" ? (form.payment_entity.trim() || null) : null,
         payment_reference: form.payment_method !== "transfer" ? (form.payment_reference.trim() || null) : null,
+        // Chave de operação: independente do método — nunca é limpa (D-ERP45).
+        operation_key: form.operation_key.trim() || null,
       };
 
       const updates = paidLocked ? {
