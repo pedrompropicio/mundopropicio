@@ -1182,8 +1182,8 @@ rubrica `10.3 Transferências Internas`. Não existe nem pode existir transaçã
 tipo `transfer` (`transactions_type_check` só aceita `income` e `expense`).
 A transferência do fecho de bilheteira é criada **exclusivamente** por
 `public.create_settlement_transfer(p_settlement_id, p_from_account_id, p_to_account_id, p_amount, p_date, p_credited)`
-(migração `20260912193941`) — nenhum ecrã, edge function ou script a insere à mão —
-— SECURITY DEFINER, `search_path = public`, portão `admin` / `platform_admin` /
+(migração `20260912193941`) — nenhum ecrã, edge function ou script a insere à mão.
+A função é SECURITY DEFINER, `search_path = public`, portão `admin` / `platform_admin` /
 permissão `manage_accounts`, empresa do fecho validada contra `current_company_id()`,
 EXECUTE revogado a PUBLIC e a `anon`. Recusa valor ≤ 0, contas iguais e fecho que já
 tenha `transfer_transaction_id`. As duas pernas levam
