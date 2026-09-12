@@ -202,6 +202,11 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Registo técnico da execução (nunca faz a sincronização falhar).
+  const startedMs = Date.now();
+  let runId: string | null = null;
+  let runDryRun = false;
+
   try {
     const auth = await authorize(req, admin);
     if (!auth.allowed) return json({ error: "Forbidden" }, 403);
@@ -213,11 +218,19 @@ Deno.serve(async (req) => {
       payload = {};
     }
     const dryRun = payload.dry_run === true;
+    runDryRun = dryRun;
     const maxReleases = Math.max(
       1,
       Math.min(50, Number(payload.max_releases ?? 10) || 10),
     );
     const metricDate = todayFortaleza();
+
+    runId = await startSyncRun(admin, {
+      function_name: FUNCTION_NAME,
+      trigger_source: deduceTriggerSource(req),
+      dry_run: dryRun,
+      artist_id: payload.artist_id ?? null,
+    });
 
     // Canais sua_musica (com o artista, para o company_id explícito)
     let q = admin
