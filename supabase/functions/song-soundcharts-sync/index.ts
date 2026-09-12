@@ -158,19 +158,22 @@ Deno.serve(async (req) => {
           return { __error: (e as Error)?.message ?? String(e) };
         }
       };
-      const platformList = await probe(`/api/v2/song/${scUuid}/audience`);
-      const spotifyAudience = await probe(
-        `/api/v2/song/${scUuid}/audience/spotify?startDate=${startDate ?? endDate}&endDate=${endDate}&limit=100&sort=asc`,
-      );
-      const playlist = await probe(
-        `/api/v2.20/song/${scUuid}/playlist/current/spotify?currentOnly=0&limit=2`,
-      );
+      const candidates: string[] = Array.isArray((p as any).probe_platforms)
+        ? (p as any).probe_platforms
+        : [];
+      const probes: Record<string, unknown> = {};
+      for (const plat of candidates) {
+        const r = await probe(
+          `/api/v2/song/${scUuid}/audience/${plat}?endDate=${endDate}&limit=2`,
+        );
+        probes[plat] = (r as any)?.__error
+          ? { error: (r as any).__error }
+          : { total: (r as any)?.page?.total ?? null, first: (r as any)?.items?.[0] ?? null };
+      }
       const out = {
         debug: true,
         song: { id: songs[0].id, title: songs[0].title, soundcharts_uuid: scUuid },
-        audience_platform_list: platformList,
-        spotify_audience_raw: spotifyAudience,
-        playlist_raw_first_items: playlist,
+        platform_probes: probes,
         soundcharts_calls: client.calls,
       };
       await finishSyncRun(admin, runId, startedMs, {
