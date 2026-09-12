@@ -304,7 +304,7 @@ export default function FinancialAccounts() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contas Ativas</p>
           <p className="mt-1 text-2xl font-bold">{activeAccounts.length}</p>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div {...clickableCard("cash")}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo Total</p>
           <p className={`mt-1 text-2xl font-bold ${totalBalance >= 0 ? "text-success" : "text-destructive"}`}>
             {balanceCards.isLoading
@@ -325,7 +325,7 @@ export default function FinancialAccounts() {
             </p>
           )}
         </div>
-        <div className="glass rounded-xl p-4">
+        <div {...clickableCard("office")}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Retido em Bilheteiras</p>
           <p className="mt-1 text-2xl font-bold text-warning">
             {balanceCards.isLoading
@@ -341,7 +341,7 @@ export default function FinancialAccounts() {
             </p>
           )}
         </div>
-        <div className="glass rounded-xl p-4">
+        <div {...clickableCard("settlements")}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acertos em Curso</p>
           <p className="mt-1 text-2xl font-bold text-primary">
             {balanceCards.isLoading
@@ -359,6 +359,44 @@ export default function FinancialAccounts() {
             </p>
           )}
         </div>
+
+        {compositionCard && (
+          <BalanceCompositionModal
+            open
+            onClose={() => setCompositionCard(null)}
+            title={
+              compositionCard === "cash"
+                ? "Saldo Total"
+                : compositionCard === "office"
+                  ? "Retido em Bilheteiras"
+                  : "Acertos em Curso"
+            }
+            description={
+              compositionCard === "cash"
+                ? "Só caixa: contas bancárias, caixa e cartões pré-pagos"
+                : compositionCard === "office"
+                  ? "Dinheiro que existe mas ainda não está no banco"
+                  : "Contas de acerto — não é caixa"
+            }
+            total={
+              compositionCard === "cash"
+                ? totalBalance
+                : compositionCard === "office"
+                  ? ticketOfficeRetained
+                  : settlementTotal
+            }
+            accounts={
+              compositionCard === "cash"
+                ? cashAccounts
+                : compositionCard === "office"
+                  ? officeAccounts
+                  : settlementAccounts
+            }
+            balances={balanceCards.balances}
+          />
+        )}
+
+
 
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipos</p>
