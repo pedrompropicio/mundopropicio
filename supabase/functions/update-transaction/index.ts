@@ -1,5 +1,20 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+/**
+ * ESPELHO de `src/lib/payment-methods.ts` (PAYMENT_METHODS). O `src/` não é
+ * publicado com as edge functions, por isso duplica-se aqui. Comparado pelo
+ * teste `supabase/functions/tests/payment-method-domain.test.ts`.
+ * O trigger `trg_force_no_account_on_compensation` compara a string
+ * exactamente com 'compensation': qualquer grafia fora desta lista desarmaria-o.
+ */
+export const PAYMENT_METHODS = [
+  "transfer",
+  "service_payment",
+  "direct_debit",
+  "state_payment",
+  "compensation",
+] as const;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -124,6 +139,18 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Transações pagas só permitem alteração de especificação e fornecedor" }),
           { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Validate payment_method against the closed domain (CHECK na base espelha isto)
+    if ("payment_method" in updates && updates.payment_method !== null) {
+      if (!PAYMENT_METHODS.includes(updates.payment_method)) {
+        return new Response(
+          JSON.stringify({
+            error: `Método de pagamento inválido: "${updates.payment_method}". Valores aceites: ${PAYMENT_METHODS.join(", ")}.`,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
