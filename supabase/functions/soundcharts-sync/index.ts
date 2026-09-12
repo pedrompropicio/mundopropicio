@@ -223,6 +223,7 @@ Deno.serve(async (req) => {
       start_date?: string;
       end_date?: string;
       platforms?: string[];
+      roster_type?: string;
     } = {};
     try {
       payload = await req.json();
@@ -231,6 +232,16 @@ Deno.serve(async (req) => {
     }
     const dryRun = payload.dry_run === true;
     const onlyArtist = payload.artist_id ?? null;
+
+    // roster_type: 'elenco' | 'referencia' | omitido (todos)
+    let rosterType: string | null = null;
+    if (payload.roster_type != null) {
+      const rt = String(payload.roster_type).toLowerCase();
+      if (rt !== "elenco" && rt !== "referencia") {
+        return json({ error: "roster_type inválido ('elenco' | 'referencia')" }, 400);
+      }
+      rosterType = rt;
+    }
 
     if (payload.start_date != null && !isDate(payload.start_date)) {
       return json({ error: "start_date inválido (YYYY-MM-DD)" }, 400);
