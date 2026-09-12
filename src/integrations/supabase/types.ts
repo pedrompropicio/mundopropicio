@@ -13951,6 +13951,7 @@ export type Database = {
           oldest_kept: string
         }[]
       }
+      clear_operation_key: { Args: { _key: string }; Returns: Json }
       coala_send_early_bird_batch: {
         Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
@@ -14651,6 +14652,10 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      rename_operation_key: {
+        Args: { _new_key: string; _old_key: string }
+        Returns: Json
       }
       renegotiate_transaction_installments: {
         Args: {
