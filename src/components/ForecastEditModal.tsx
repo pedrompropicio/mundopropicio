@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { EventSettlementSelect } from "@/components/EventSettlementSelect";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
@@ -304,6 +305,13 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
             ))}
           </select>
         </div>
+
+        {/* Apuramento — só aparece se o evento tiver mais de um (#146 (b)). */}
+        <EventSettlementSelect
+          eventId={forecast.event_id}
+          value={eventSettlementId}
+          onChange={setEventSettlementId}
+        />
 
         {/* Amount (multi-currency) + IVA */}
         <div className="space-y-3">
