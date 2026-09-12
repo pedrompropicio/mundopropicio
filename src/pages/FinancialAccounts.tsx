@@ -286,32 +286,59 @@ export default function FinancialAccounts() {
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo Total</p>
           <p className={`mt-1 text-2xl font-bold ${totalBalance >= 0 ? "text-success" : "text-destructive"}`}>
-            {isAdmin ? formatCurrency(totalBalance) : "—"}
+            {balanceCards.isLoading
+              ? "…"
+              : balanceCards.cash.hiddenNames.length > 0 && totalBalance === 0
+                ? "—"
+                : formatCurrency(totalBalance)}
           </p>
           <p className="text-[10px] text-muted-foreground">Só caixa: contas bancárias, caixa e cartões pré-pagos</p>
-          {isAdmin && uncontrolledCashNames.length > 0 && (
+          {uncontrolledCashNames.length > 0 && (
             <p className="mt-1 text-[10px] text-muted-foreground">
-              Fora do total, sem controlo de saldo: {uncontrolledCashNames.join(", ")}
+              Fora do total, não controlado: {uncontrolledCashNames.join(", ")}
             </p>
           )}
-          {!isAdmin && <p className="text-xs text-muted-foreground">Visível apenas para contas autorizadas</p>}
+          {hiddenCashNames.length > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Fora do total, sem permissão: {hiddenCashNames.join(", ")}
+            </p>
+          )}
         </div>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Retido em Bilheteiras</p>
           <p className="mt-1 text-2xl font-bold text-warning">
-            {isAdmin ? formatCurrency(ticketOfficeRetained) : "—"}
+            {balanceCards.isLoading
+              ? "…"
+              : balanceCards.ticketOffice.hiddenNames.length > 0 && ticketOfficeRetained === 0
+                ? "—"
+                : formatCurrency(ticketOfficeRetained)}
           </p>
           <p className="text-[10px] text-muted-foreground">Dinheiro que existe mas ainda não está no banco</p>
+          {balanceCards.ticketOffice.hiddenNames.length > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Fora do total, sem permissão: {balanceCards.ticketOffice.hiddenNames.join(", ")}
+            </p>
+          )}
         </div>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acertos em Curso</p>
           <p className="mt-1 text-2xl font-bold text-primary">
-            {isAdmin ? formatCurrency(settlementTotal) : "—"}
+            {balanceCards.isLoading
+              ? "…"
+              : balanceCards.settlements.hiddenNames.length > 0 && settlementTotal === 0
+                ? "—"
+                : formatCurrency(settlementTotal)}
           </p>
           <p className="text-[10px] text-muted-foreground">
             {settlementAccounts.length} conta(s) de acerto — não é caixa
           </p>
+          {balanceCards.settlements.hiddenNames.length > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Sem permissão: {balanceCards.settlements.hiddenNames.join(", ")}
+            </p>
+          )}
         </div>
+
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipos</p>
           <div className="mt-1 flex flex-wrap gap-1">
