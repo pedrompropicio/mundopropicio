@@ -265,7 +265,9 @@ Deno.serve(async (req) => {
           const byPermalink = new Map<string, any>();
           for (const e of existing ?? []) {
             byExternal.set(e.external_id as string, e);
-            if (e.permalink) byPermalink.set(String(e.permalink), e);
+            // O Graph grava ".../reel/XXX/" e a Soundcharts ".../reel/XXX":
+            // sem normalizar a barra final o mesmo Reel entrava duas vezes.
+            if (e.permalink) byPermalink.set(normalizeUrl(String(e.permalink)), e);
           }
 
           const toUpsert: Array<Record<string, unknown>> = [];
