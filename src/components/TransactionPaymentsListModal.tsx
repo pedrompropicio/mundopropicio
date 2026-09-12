@@ -33,6 +33,13 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const canFull = canApprove && !eventCompleted;
   const canLimited = (canApprove || role === "editor") && !eventCompleted;
   const queryClient = useQueryClient();
+  // "Pag. Estado" segue a mesma regra condicional dos outros modais
+  // (categorias 10.4/10.5); mantém-se visível se a parcela já o tiver.
+  const categoryCode: string = (transaction as any)?.account_categories?.code ?? "";
+  const isStateCategory =
+    categoryCode.startsWith("10.4") ||
+    categoryCode.startsWith("10.5") ||
+    transaction?.payment_method === "state_payment";
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [editDateOpen, setEditDateOpen] = useState(false);
