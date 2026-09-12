@@ -299,8 +299,19 @@ export default function ReportBankStatement() {
             </p>
           )}
 
-          {/* Export buttons */}
-          <div className="flex items-center justify-end gap-2">
+          {/* Export buttons + consolidação (a exportação é SEMPRE plana) */}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <label className="mr-auto flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={consolidateBankMovements}
+                onCheckedChange={setConsolidateBankMovements}
+              />
+              <Layers className="h-3.5 w-3.5" />
+              <span>Consolidar movimentos do banco</span>
+              {bankGroups.degraded && (
+                <span className="text-warning">(dados de conciliação indisponíveis)</span>
+              )}
+            </label>
             <Button
               variant="outline"
               size="sm"
