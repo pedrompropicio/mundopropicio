@@ -499,6 +499,8 @@ export type Database = {
           last_error: string | null
           last_validated_at: string | null
           provider: string
+          refresh_expires_at: string | null
+          refresh_token_encrypted: string | null
           scopes: string[] | null
           status: string
           token_type: string | null
@@ -522,6 +524,8 @@ export type Database = {
           last_error?: string | null
           last_validated_at?: string | null
           provider: string
+          refresh_expires_at?: string | null
+          refresh_token_encrypted?: string | null
           scopes?: string[] | null
           status?: string
           token_type?: string | null
@@ -545,6 +549,8 @@ export type Database = {
           last_error?: string | null
           last_validated_at?: string | null
           provider?: string
+          refresh_expires_at?: string | null
+          refresh_token_encrypted?: string | null
           scopes?: string[] | null
           status?: string
           token_type?: string | null
@@ -14796,9 +14802,13 @@ export type Database = {
           artist_channel_id: string
           artist_id: string
           company_id: string
+          expires_at: string
           external_account_id: string
           external_page_id: string
           provider: string
+          refresh_expires_at: string
+          refresh_token: string
+          token_type: string
         }[]
       }
       artist_mark_connection_status: {
@@ -14856,6 +14866,8 @@ export type Database = {
           p_external_page_name?: string
           p_master_key: string
           p_provider: string
+          p_refresh_expires_at?: string
+          p_refresh_token?: string
           p_scopes?: string[]
           p_token_type?: string
         }
