@@ -94,7 +94,11 @@ export function EventSettlementsPanel({ eventId }: Props) {
             </Badge>
           )}
           {s.is_sealed && <Badge className="text-xs">Selado</Badge>}
+          <Badge variant="secondary" className="text-[10px]">
+            Perímetro: {perimeter?.[s.id]?.bp ?? 0} linha(s) de BP · {perimeter?.[s.id]?.tx ?? 0} transação(ões)
+          </Badge>
         </div>
+
 
         {rows.length === 0 ? (
           <p className="mb-4 text-xs text-muted-foreground">Sem participantes.</p>
