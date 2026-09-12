@@ -1524,6 +1524,10 @@ export default function EventDetail() {
             <div className="space-y-6">
               {(isAdmin || isManager) && <EventPartnersTab eventId={event.id} eventStatus={event.status} />}
               <div className="glass rounded-xl p-5">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Apuramentos</h2>
+                <EventSettlementsPanel eventId={event.id} />
+              </div>
+              <div className="glass rounded-xl p-5">
                 <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas pagas pelos Sócios</h2>
                 <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
               </div>
