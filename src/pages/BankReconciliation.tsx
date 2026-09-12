@@ -787,6 +787,9 @@ export default function BankReconciliation() {
             (e.transaction_ids ?? []).forEach((id) => preUsed.add(id)),
           );
         }
+        // Terceiro ramo: conciliações manuais de N (ponte). Sem isto, uma
+        // transação já explicada voltava a ser candidata das camadas automáticas.
+        (bridgeByLine.get(l.id) ?? []).forEach((r) => preUsed.add(r.transaction_id));
       });
 
 
@@ -806,8 +809,9 @@ export default function BankReconciliation() {
       const now = new Date().toISOString();
       for (const l of lines) {
         let m = result.matches.get(l.id);
-        // Trava: nunca gravar uma transação já presa por outra linha (índice único).
-        if (m?.matched_transaction_id && preUsed.has(m.matched_transaction_id)) m = undefined;
+        // Trava: nunca gravar transações já presas por outra linha (índice
+        // único). Verifica TODOS os ids do match, não só o singular.
+        if (m && (m.transactionIds ?? []).some((id) => preUsed.has(id))) m = undefined;
 
         const { error } = await supabase
           .from("bank_statement_lines")
@@ -821,8 +825,14 @@ export default function BankReconciliation() {
           })
           .eq("id", l.id);
         if (error) throw error;
-        if (m?.matched_transaction_id) preUsed.add(m.matched_transaction_id);
+        // As linhas desta passagem deixam de ter conciliação manual de N: o
+        // `on delete cascade` não cobre isto, porque a linha não é apagada.
+        if ((bridgeByLine.get(l.id) ?? []).length > 0) {
+          await supabase.from("bank_line_transactions").delete().eq("line_id", l.id);
+        }
+        (m?.transactionIds ?? []).forEach((id) => preUsed.add(id));
       }
+
 
 
       toast.success(
