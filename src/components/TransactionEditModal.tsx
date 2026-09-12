@@ -81,6 +81,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
     payment_entity: transaction.payment_entity ?? "",
     payment_reference: transaction.payment_reference ?? "",
+    /**
+     * Chave de operação — agrupa as transações do mesmo fecho. É INDEPENDENTE
+     * do método de pagamento: ao contrário de `payment_reference`, nunca é
+     * limpa por mudança de método, estado ou liquidação (D-ERP45).
+     */
+    operation_key: transaction.operation_key ?? "",
     declared_withholding_rate: transaction.declared_withholding_rate != null ? String(transaction.declared_withholding_rate) : "",
     declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
     is_reimbursement: transaction.is_reimbursement ?? false,
@@ -465,6 +471,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         payment_method: "Método Pagamento",
         payment_entity: "Entidade Pagamento",
         payment_reference: "Referência Pagamento",
+        operation_key: "Chave de operação",
         declared_withholding_rate: "Retenção IRS declarada (%)",
         declared_withholding_amount: "Retenção IRS declarada (€)",
         is_confidential: "Confidencial",
@@ -474,7 +481,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         paying_partner_id: "Pagador da despesa",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "ordering_partner_id", "paying_partner_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -499,6 +506,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         payment_entity: form.payment_method === "service_payment" ? (form.payment_entity.trim() || null) : null,
         payment_reference: form.payment_method !== "transfer" ? (form.payment_reference.trim() || null) : null,
       };
+
+      // Chave de operação: independente do método de pagamento e do estado —
+      // grava-se sempre, fora de `paymentFields`, para nunca ser limpa (D-ERP45).
+      const operationKeyField = { operation_key: form.operation_key.trim() || null };
 
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
@@ -2130,6 +2141,27 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               </div>
             );
           })()}
+
+          {/* Chave de operação — sempre visível, independente do método (D-ERP45). */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Chave de operação</label>
+            <input
+              type="text"
+              value={form.operation_key}
+              onChange={(e) => setForm({ ...form, operation_key: e.target.value.toUpperCase() })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="Ex: ACERTO-FOOD-IVETE-2026"
+            />
+            {form.operation_key.trim() && !/^[A-Z0-9]+(-[A-Z0-9]+)+$/.test(form.operation_key.trim()) ? (
+              <p className="mt-1 text-[11px] text-warning">
+                Fora da convenção PREFIXO-… em maiúsculas. Guarda-se assim mesmo, mas dificulta o agrupamento.
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Agrupa as transações do mesmo fecho. Não é limpa por mudança de método nem por liquidação.
+              </p>
+            )}
+          </div>
 
           {!isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">

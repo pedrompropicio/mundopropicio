@@ -75,6 +75,8 @@ export default function Transactions() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<string>>(new Set());
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
+  // Chave de operação (D-ERP45) — agrupa as transações de um mesmo fecho.
+  const [selectedOperationKeys, setSelectedOperationKeys] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -690,6 +692,7 @@ export default function Transactions() {
       t.invoice_ref,
       t.payment_method,
       t.payment_reference,
+      t.operation_key,
       t.currency,
       t.tax_doc_number,
       t.amount,
@@ -738,7 +741,8 @@ export default function Transactions() {
     .filter((t) => !onlyPending || t.status === "pending")
     .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
     .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()))
-    .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true);
+    .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true)
+    .filter((t: any) => selectedOperationKeys.size === 0 || (t.operation_key && selectedOperationKeys.has(t.operation_key)));
 
   // Group transactions: overdue, period, no-date
   const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
@@ -855,7 +859,8 @@ export default function Transactions() {
       })
       .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
       .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()))
-      .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true);
+      .filter((t: any) => !onlyExcludedFromResult || t.exclude_from_result === true)
+      .filter((t: any) => selectedOperationKeys.size === 0 || (t.operation_key && selectedOperationKeys.has(t.operation_key)));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -935,7 +940,7 @@ export default function Transactions() {
       const bInv = b.invoice_ref ?? "";
       return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap, onlyExcludedFromResult]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap, onlyExcludedFromResult, selectedOperationKeys]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -1509,6 +1514,7 @@ export default function Transactions() {
             (selectedAccountIds.size > 0 ? 1 : 0) +
             (selectedSupplierIds.size > 0 ? 1 : 0) +
             (selectedPartnerIds.size > 0 ? 1 : 0) +
+            (selectedOperationKeys.size > 0 ? 1 : 0) +
             (onlyPending ? 1 : 0) +
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
@@ -1780,6 +1786,11 @@ export default function Transactions() {
           const label = names.length > 0 && names.length <= 2 ? names.join(", ") : `${selectedPartnerIds.size} sócio(s)`;
           chips.push({ key: "partners", label: `Pago por sócio: ${label}`, onRemove: () => setSelectedPartnerIds(new Set()) });
         }
+        if (selectedOperationKeys.size > 0) {
+          const keys = [...selectedOperationKeys];
+          const label = keys.length <= 2 ? keys.join(", ") : `${keys.length} chaves`;
+          chips.push({ key: "opkeys", label: `Chave: ${label}`, onRemove: () => setSelectedOperationKeys(new Set()) });
+        }
         if (onlyPending) chips.push({ key: "pending", label: "Aprovação pendente", onRemove: () => setOnlyPending(false) });
         if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
         if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
@@ -1840,6 +1851,30 @@ export default function Transactions() {
         );
       })()}
 
+      {/* Total do grupo de operação (D-ERP45) — valida um fecho: receitas − despesas */}
+      {selectedOperationKeys.size > 0 && (() => {
+        const rows = viewMode === "open" ? filtered : paidTransactions;
+        const income = rows
+          .filter((t: any) => t.type === "income")
+          .reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
+        const expense = rows
+          .filter((t: any) => t.type === "expense")
+          .reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
+        const balance = income - expense;
+        return (
+          <div className="glass rounded-xl border border-primary/30 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Chave de operação · {[...selectedOperationKeys].join(", ")}
+            </p>
+            <p className="text-sm"><span className="font-semibold">{rows.length}</span> transação(ões)</p>
+            <p className="text-sm">Receitas: <span className="font-mono font-semibold text-success">{formatCurrency(income)}</span></p>
+            <p className="text-sm">Despesas: <span className="font-mono font-semibold text-destructive">{formatCurrency(expense)}</span></p>
+            <p className="text-sm">Saldo: <span className="font-mono font-semibold">{formatCurrency(balance)}</span></p>
+            <p className="text-xs text-muted-foreground">Só as linhas visíveis nesta vista ({viewMode === "open" ? "em aberto" : "histórico"}).</p>
+          </div>
+        );
+      })()}
+
       {/* Filters Sheet */}
       <TransactionFiltersPanel
         open={filtersOpen}
@@ -1852,6 +1887,8 @@ export default function Transactions() {
         setSelectedSupplierIds={setSelectedSupplierIds}
         selectedPartnerIds={selectedPartnerIds}
         setSelectedPartnerIds={setSelectedPartnerIds}
+        selectedOperationKeys={selectedOperationKeys}
+        setSelectedOperationKeys={setSelectedOperationKeys}
         viewMode={viewMode}
         onlyPending={onlyPending}
         setOnlyPending={setOnlyPending}
@@ -1871,6 +1908,7 @@ export default function Transactions() {
           setSelectedAccountIds(new Set());
           setSelectedSupplierIds(new Set());
           setSelectedPartnerIds(new Set());
+          setSelectedOperationKeys(new Set());
           setOnlyPending(false);
           setOnlyNoDueDate(false);
           setOnlyGrouped(false);

@@ -137,7 +137,9 @@ Deno.serve(async (req) => {
       return { name: (data as any)?.name ?? "Cartão", initial: Number((data as any)?.initial_balance ?? 0) };
     })();
 
-    const sessionPaymentRef = `CARTAO-${String(session.id).slice(0, 8).toUpperCase()}`;
+    // Chave de operação (D-ERP45): agrupa as transações deste fecho e nunca é
+    // limpa por mudança de método de pagamento. Distinta de payment_reference.
+    const sessionOperationKey = `CARTAO-${String(session.id).slice(0, 8).toUpperCase()}`;
 
     // ===== Decisões sobre itens parqueados (submitted) =====
     for (const d of body.parked_decisions ?? []) {
@@ -592,7 +594,7 @@ Deno.serve(async (req) => {
         event_id: first.eventId,
         category_id: first.categoryId,
         account_id: cardAccountId,
-        payment_reference: sessionPaymentRef,
+        operation_key: sessionOperationKey,
         specification,
         date: txDate,
         status: "paid",
@@ -797,7 +799,7 @@ Deno.serve(async (req) => {
         transaction_id: txId,
         field_name: "created_by_card_integration",
         old_value: null,
-        new_value: `Sessão de cartão ${cardName.name} · ${(session as any).holder_name} (${sessionPaymentRef})${
+        new_value: `Sessão de cartão ${cardName.name} · ${(session as any).holder_name} (${sessionOperationKey})${
           txId === adjustmentTxId ? " · acerto de conciliação de saldo" : " · agregado por evento × rubrica × IVA"
         }`,
         changed_by: caller.email ?? caller.id,
@@ -823,7 +825,7 @@ Deno.serve(async (req) => {
       integrated_by_user_id: caller.id,
       card_name: cardName.name,
       holder_name: (session as any).holder_name,
-      payment_reference: sessionPaymentRef,
+      operation_key: sessionOperationKey,
       aggregation_mode: "event_x_category_x_iva",
       legacy_lines_adopted: legacyAdopted,
 

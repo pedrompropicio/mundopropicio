@@ -12390,6 +12390,7 @@ export type Database = {
           is_reimbursement: boolean
           is_transitory: boolean
           iva_rate: number
+          operation_key: string | null
           ordering_partner_id: string | null
           original_amount: number | null
           paid_amount: number
@@ -12446,6 +12447,7 @@ export type Database = {
           is_reimbursement?: boolean
           is_transitory?: boolean
           iva_rate?: number
+          operation_key?: string | null
           ordering_partner_id?: string | null
           original_amount?: number | null
           paid_amount?: number
@@ -12502,6 +12504,7 @@ export type Database = {
           is_reimbursement?: boolean
           is_transitory?: boolean
           iva_rate?: number
+          operation_key?: string | null
           ordering_partner_id?: string | null
           original_amount?: number | null
           paid_amount?: number

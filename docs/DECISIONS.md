@@ -1026,3 +1026,24 @@ longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
 **Regra futura.** Não acrescentar valores ao domínio sem alterar, na mesma tarefa, as três camadas. Método novo que não seja movimento de caixa exige rever o trigger, não só a lista.
 
 **Estado:** vigente.
+
+## D-ERP45 — Chave de operação separada da referência de pagamento (12/09/2026)
+
+**O problema.** A coluna `transactions.payment_reference` estava a servir **dois conceitos incompatíveis**:
+
+1. **Referência de pagamento** — MB, AT, Segurança Social. Só faz sentido fora de `transfer`, é obrigatória em `service_payment` e `state_payment`, e o ecrã **limpa-a** quando o método passa a `transfer` (`TransactionFormModal.tsx:950`, `TransactionEditModal.tsx:2117`) e não a grava em `transfer` (`TransactionFormModal.tsx:1310,1352,1495,1645`; `TransactionEditModal.tsx:500`; `TransactionPaymentModal.tsx:385,451,584,598`).
+2. **Chave de operação** — agrupa as transações de um mesmo fecho (acerto de bares, de food, camarim, cartão, revenue share). Tem de sobreviver a tudo, incluindo a liquidação por transferência.
+
+Resultado: as chaves de operação eram **apagadas em silêncio** no momento em que a transação era paga por transferência. Caso concreto: o grupo `ACERTO-FOOD-IVETE-2026` tinha seis repasses `pending` com método `transfer` que perderiam a chave à primeira liquidação.
+
+**Decisão.** Coluna nova `transactions.operation_key text`, com índice parcial `idx_transactions_company_operation_key (company_id, operation_key) WHERE operation_key IS NOT NULL`. A chave de operação **nunca** é limpa: não por mudança de método, não por mudança de estado, não por liquidação. `payment_reference` mantém-se exactamente como estava — referência MB/AT, com as regras que já tinha.
+
+**Migração dos valores existentes** (37 linhas, padrão `^[A-Z0-9]+(-[A-Z0-9]+)+$`): `ACERTO-FOOD-IVETE-2026` 14 · `ACERTO-SSH-COALA-2026` 9 · `ACERTO-BARES-ANITTA-2026` 7 · `CAMARIM-9D81140A` 4 · `ACERTO-FOOD-ANITTA-2026` 1 · `APOIO-CASINO-IVETE-2026` 1 · `REVSHARE-TICKETLINE-ANITTA-2026` 1. Texto movido de uma coluna para a outra; nenhum valor monetário alterado.
+
+**Quem escreve a chave.** `close-camarim-session` (prefixo `CAMARIM-`) e `close-card-session` (prefixo `CARTAO-`) passam a escrever em `operation_key` e deixam de escrever em `payment_reference`. `renegotiate_transaction_installments` copia `operation_key` para as parcelas novas — a chave sobrevive a uma renegociação. `update-transaction` aceita o campo nas duas allowlists (inclusive em transações pagas).
+
+**Quem lê a chave.** `useEventABRealized` filtra por `operation_key ILIKE '%ACERTO%BAR%'`. No ecrã de Transações: badge discreto na listagem quando existe, filtro dedicado no painel com as chaves distintas da empresa, painel com o total do grupo (receitas, despesas, saldo) e pesquisa livre a apanhá-la.
+
+**Edição.** Campo "Chave de operação" no modal de edição, sempre visível e **independente do método de pagamento**, com aviso visual quando não segue a convenção `PREFIXO-…` em maiúsculas. Não é obrigatória.
+
+**Estado:** vigente.

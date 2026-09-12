@@ -24,6 +24,9 @@ interface FilterPanelProps {
   // Partners (sócios) — filter by who paid the expense
   selectedPartnerIds: Set<string>;
   setSelectedPartnerIds: (s: Set<string>) => void;
+  // Chave de operação (D-ERP45) — agrupa as transações de um mesmo fecho
+  selectedOperationKeys: Set<string>;
+  setSelectedOperationKeys: (s: Set<string>) => void;
   // Toggles
   viewMode: "open" | "paid";
   onlyPending: boolean;
@@ -122,6 +125,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     selectedAccountIds, setSelectedAccountIds,
     selectedSupplierIds, setSelectedSupplierIds,
     selectedPartnerIds, setSelectedPartnerIds,
+    selectedOperationKeys, setSelectedOperationKeys,
     viewMode,
     onlyPending, setOnlyPending,
     onlyNoDueDate, setOnlyNoDueDate,
@@ -184,6 +188,23 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
         seen.set(row.supplier_id, { supplierId: row.supplier_id, name: row.suppliers?.name ?? "Sócio" });
       });
       return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name, "pt"));
+    },
+    enabled: open,
+  });
+
+  // Chaves de operação distintas da empresa (RLS filtra por empresa).
+  const { data: operationKeys = [] } = useQuery({
+    queryKey: ["operation-keys-distinct"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("operation_key")
+        .not("operation_key", "is", null)
+        .order("operation_key");
+      if (error) throw error;
+      const seen = new Set<string>();
+      (data ?? []).forEach((r: any) => { if (r.operation_key) seen.add(r.operation_key); });
+      return Array.from(seen).sort((a, b) => a.localeCompare(b)).map((k) => ({ id: k, name: k }));
     },
     enabled: open,
   });
@@ -266,6 +287,20 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                 )}
               </div>
             </section>
+
+            {/* Chave de operação (D-ERP45) */}
+            {operationKeys.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Chave de operação</h3>
+                <MultiSelectList
+                  items={operationKeys as any}
+                  selected={selectedOperationKeys}
+                  onToggle={(id) => toggle(selectedOperationKeys, id, setSelectedOperationKeys)}
+                  onToggleAll={() => toggleAll(operationKeys as any, selectedOperationKeys, setSelectedOperationKeys)}
+                  searchPlaceholder="Procurar chave…"
+                />
+              </section>
+            )}
 
             {/* Suppliers */}
             <section className="space-y-2">

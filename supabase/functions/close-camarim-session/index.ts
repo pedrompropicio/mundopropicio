@@ -167,7 +167,9 @@ Deno.serve(async (req) => {
       }, 422);
     }
 
-    const sessionPaymentRef = `CAMARIM-${String(session.id).slice(0, 8).toUpperCase()}`;
+    // Chave de operação (D-ERP45): agrupa as transações deste fecho e nunca é
+    // limpa por mudança de método de pagamento. Distinta de payment_reference.
+    const sessionOperationKey = `CAMARIM-${String(session.id).slice(0, 8).toUpperCase()}`;
 
 
     // Primary event (for items without explicit event_id)
@@ -639,7 +641,7 @@ Deno.serve(async (req) => {
         event_id: first.eventId,
         category_id: camarimCategoryId, // FORCED to 2.6.04 — Camarins
         supplier_id: administratorSupplierId, // administradora da sessão (recebeu o adiantamento)
-        payment_reference: sessionPaymentRef,
+        operation_key: sessionOperationKey,
         specification: specification + ivaNote,
         date: txDate,
         status: txStatus,
@@ -822,7 +824,7 @@ Deno.serve(async (req) => {
           event_id: null,
           category_id: transferCategoryId,
           supplier_id: body.settlement_supplier_id ?? administratorSupplierId,
-          payment_reference: sessionPaymentRef,
+          operation_key: sessionOperationKey,
           specification: spec,
           date: settlementDate,
           status: "approved",
@@ -877,7 +879,7 @@ Deno.serve(async (req) => {
         transaction_id: txId,
         field_name: "created_by_camarim_integration",
         old_value: null,
-        new_value: `Sessão de camarim ${session.title} (${sessionPaymentRef})${
+        new_value: `Sessão de camarim ${session.title} (${sessionOperationKey})${
           txId === settlementTxId
             ? " · acerto de adiantamento (perna bancária, transferência interna 10.3)"
             : txId === settlementCounterTxId
@@ -904,7 +906,7 @@ Deno.serve(async (req) => {
       integrated_by_user_id: caller.id,
       administrator_supplier_id: administratorSupplierId,
       aggregation_mode: "hybrid_by_iva_rate",
-      payment_reference: sessionPaymentRef,
+      operation_key: sessionOperationKey,
       consolidated_groups: created.length,
       consolidated_transaction_ids: created,
       items_integrated: resolved.length,
