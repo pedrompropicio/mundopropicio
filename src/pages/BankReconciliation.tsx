@@ -1241,7 +1241,7 @@ export default function BankReconciliation() {
                         }
                       />
                     </TableCell>
-                    <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">
                       {l.description}
                       {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
