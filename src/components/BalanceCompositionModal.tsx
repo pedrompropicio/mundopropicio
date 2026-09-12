@@ -51,7 +51,7 @@ interface Props {
 }
 
 function typeLabel(type: string): string {
-  return ACCOUNT_TYPES.find((t) => t.value === type)?.label ?? type;
+  return TYPE_LABELS[type] ?? type;
 }
 
 export function BalanceCompositionModal({
