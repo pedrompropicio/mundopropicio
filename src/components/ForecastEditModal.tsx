@@ -145,6 +145,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         changes.push({ field_name: "Rateio de Overhead", old_value: forecast.is_overhead ? "Sim" : "Não", new_value: newOverhead ? "Sim" : "Não" });
       }
 
+      const newSettlementId = eventSettlementId || null;
+      if (newSettlementId !== (forecast.event_settlement_id ?? null)) {
+        changes.push({
+          field_name: "Apuramento",
+          old_value: forecast.event_settlement_id ?? "—",
+          new_value: newSettlementId ?? "—",
+        });
+      }
+
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
