@@ -476,7 +476,7 @@ Deno.serve(async (req) => {
         p_dry_run: false,
       });
       if (linkErr) {
-        notes.push(`ligação vídeo→música falhou (${aid}): ${linkErr.message}`);
+        songLinkNotes.push(`ligação vídeo→música falhou (${aid}): ${linkErr.message}`);
       } else {
         estimatedSongLinks += (linked ?? []).filter((r: any) => r.song_id).length;
       }
