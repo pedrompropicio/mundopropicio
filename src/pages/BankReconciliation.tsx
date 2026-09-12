@@ -659,27 +659,77 @@ export default function BankReconciliation() {
     }
   }
 
+  /** Transações candidatas à ligação manual (conta do extrato + outras contas). */
+  const manualCandidates = useMemo(() => {
+    const m = new Map<string, any>();
+    (txns as any[]).forEach((t) => m.set(t.id, t));
+    (crossAccountTxns as any[]).forEach((t) => { if (!m.has(t.id)) m.set(t.id, t); });
+    return m;
+  }, [txns, crossAccountTxns]);
+
+  const manualSelectedTotal = useMemo(
+    () =>
+      Math.round(
+        manualTxIds.reduce((a, id) => a + Math.abs(Number(manualCandidates.get(id)?.paid_amount ?? 0)), 0) * 100,
+      ) / 100,
+    [manualTxIds, manualCandidates],
+  );
+  const manualTarget = manualLine ? Math.abs(Number(manualLine.amount ?? 0)) : 0;
+  const manualDiff = Math.round((manualSelectedTotal - manualTarget) * 100) / 100;
+
   async function confirmManual() {
-    if (!manualLine || !manualTxId) return;
-    const { error } = await supabase
-      .from("bank_statement_lines")
-      .update({
-        status: "matched",
-        matched_transaction_id: manualTxId,
-        matched_by: `manual:${user?.email ?? "sistema"}`,
-        matched_at: new Date().toISOString(),
-      })
-      .eq("id", manualLine.id);
-    if (error) return toast.error("Erro ao conciliar: " + error.message);
-    if (crossAccountIds.has(manualTxId)) {
-      toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
-    } else {
-      toast.success("Linha conciliada.");
+    if (!manualLine || manualTxIds.length === 0) return;
+    // Não existe conciliação parcial: a soma dos pagos tem de bater com a linha.
+    if (Math.abs(manualDiff) > 0.01) {
+      toast.error("A soma não bate com a linha do banco.", {
+        description: `Linha ${formatCurrency(manualTarget)} · transações ${formatCurrency(
+          manualSelectedTotal,
+        )} · diferença ${formatCurrency(manualDiff)}`,
+      });
+      return;
     }
-    setManualLine(null);
-    setManualTxId("");
-    setCrossAccountAck(false);
-    queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+    setManualSaving(true);
+    try {
+      const single = manualTxIds.length === 1;
+      const { error } = await supabase
+        .from("bank_statement_lines")
+        .update({
+          status: "matched",
+          matched_transaction_id: single ? manualTxIds[0] : null,
+          // Conciliar por cima de uma linha que era lote SEPA deixava os
+          // apontadores lá e duplicava a contagem.
+          matched_payment_list_id: null,
+          matched_sepa_export_id: null,
+          matched_by: `${single ? "manual" : "manual-multi"}:${user?.email ?? "sistema"}`,
+          matched_at: new Date().toISOString(),
+        })
+        .eq("id", manualLine.id);
+      if (error) throw error;
+
+      // A ponte só existe para o caso de N.
+      await supabase.from("bank_line_transactions").delete().eq("line_id", manualLine.id);
+      if (!single) {
+        const { error: e2 } = await supabase
+          .from("bank_line_transactions")
+          .insert(manualTxIds.map((id) => ({ line_id: manualLine.id, transaction_id: id })));
+        if (e2) throw e2;
+      }
+
+      if (manualTxIds.some((id) => crossAccountIds.has(id))) {
+        toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
+      } else {
+        toast.success(single ? "Linha conciliada." : `Linha conciliada com ${manualTxIds.length} transações.`);
+      }
+      setManualLine(null);
+      setManualTxIds([]);
+      setCrossAccountAck(false);
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+    } catch (err: any) {
+      toast.error("Erro ao conciliar: " + (err?.message ?? "desconhecido"));
+    } finally {
+      setManualSaving(false);
+    }
   }
 
   async function confirmIgnore() {
@@ -689,15 +739,24 @@ export default function BankReconciliation() {
       .update({
         status: "ignored",
         note: ignoreNote.trim(),
+        // Uma linha ignorada não explica nada: os apontadores TÊM de sair, ou o
+        // índice único continua a reservar a transação e a conciliação seguinte
+        // sobre ela rebenta com violação de chave.
+        matched_transaction_id: null,
+        matched_payment_list_id: null,
+        matched_sepa_export_id: null,
         matched_by: `ignored:${user?.email ?? "sistema"}`,
         matched_at: new Date().toISOString(),
       })
       .eq("id", ignoreLine.id);
     if (error) return toast.error("Erro ao ignorar: " + error.message);
+    await supabase.from("bank_line_transactions").delete().eq("line_id", ignoreLine.id);
     toast.success("Linha marcada como ignorada.");
     setIgnoreLine(null);
     setIgnoreNote("");
     queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+    queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+
   }
 
   /**
