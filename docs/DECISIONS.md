@@ -1135,3 +1135,42 @@ Não se contorna.
 pré-pagos, que têm risco de regressão numérica próprio.
 
 **Estado:** vigente.
+
+## D-ERP47 — Comparáveis por artista: referências são artistas de primeira classe (13/09/2026)
+
+**Contexto.** Cada artista do elenco precisa de comparar as suas curvas com artistas de
+referência. As referências não são "dados soltos de uma API": têm de ter séries diárias na
+mesma tabela, com o mesmo isolamento por empresa, para as curvas serem comparáveis.
+
+**Decisão.**
+
+1. Não existe tabela paralela de referências. Um comparável é uma linha em `public.artists`
+   com `roster_type = 'referencia'` e `managed = false`, com canal `aggregator` a guardar o
+   UUID Soundcharts, exactamente como os artistas do elenco. As métricas caem em
+   `artist_metrics_daily` pelo mesmo `soundcharts-sync`.
+2. `public.artist_comparables` liga artista → comparável, com `position` 1..5. Três travas
+   independentes: `unique (artist_id, position)`, `unique (artist_id, comparable_artist_id)`,
+   `check (artist_id <> comparable_artist_id)`, mais o trigger
+   `enforce_artist_comparables_limit` que recusa o 6.º. O limite é do servidor, não do ecrã.
+3. Remover um comparável apaga só a ligação. O artista de referência e o seu histórico ficam
+   — pode estar a servir outro artista do elenco e as séries já foram pagas em quota.
+4. **Base 100 tem de ser a primeira data COMUM.** A view `v_artist_metric_indexed` indexa cada
+   série pelo seu próprio primeiro ponto, o que é errado para comparar N artistas com datas de
+   arranque diferentes. Para isso existe `artist_metric_indexed_common(uuid[], platform,
+   metric, start, end)`: escolhe a primeira data em que todos têm leitura e indexa aí. Se não
+   houver data comum, `indexed` é NULL — nunca se inventa base.
+5. `v_artist_momentum` dá variações a 7/30/90 dias e um `momentum_index` = 0,5·d7 + 0,3·d30 +
+   0,2·d90, **só** quando existem as três janelas; falta uma, o índice é NULL. Ausência nunca
+   é zero (mesma regra da D-ERP36).
+6. **Cadência separada por `roster_type`.** `soundcharts-sync` aceita
+   `body.roster_type ('elenco' | 'referencia' | omitido = todos)`. O elenco corre diariamente
+   (`carreira-soundcharts-sync-diario`, 09:10 UTC); as referências correm ao domingo
+   (`carreira-soundcharts-sync-referencias-semanal`, 09:30 UTC). A quota da Soundcharts é
+   pequena e uma referência não precisa de leitura diária.
+7. **Quota é medida, não estimada.** O valor real fica sempre em `sync_runs.api_calls`.
+   `artist-comparable-manage` devolve apenas uma estimativa (≈5 blocos de 90 dias × 4
+   plataformas ≈ 20 chamadas) para o ecrã poder avisar antes de gastar.
+
+**Consequência.** Um artista de referência aparece em `artists`. Qualquer listagem de elenco
+tem de filtrar `roster_type = 'elenco'`, sob pena de mostrar referências como se fossem
+artistas geridos.

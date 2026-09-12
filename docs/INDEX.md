@@ -44,6 +44,15 @@
 | Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
 | Rateio de day-offs de turnê | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 
+## Módulo Carreira Artística (empresa Social Artists)
+
+Não é uma frente com `estado-*.md` próprio: vive em `plataforma-e-infra`. Antes de mexer,
+ler **D-ERP47** (comparáveis por artista, base 100 na primeira data comum, cadência por
+`roster_type`) e a secção "Crons de carreira artística" do `ARCHITECTURE.md`.
+
+Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qualquer listagem
+de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
+
 ## Ritual de arranque (obrigatório, por esta ordem)
 
 1. Ler `docs/INDEX.md` (este ficheiro).
