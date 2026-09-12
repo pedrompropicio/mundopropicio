@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
             const qs = new URLSearchParams({ endDate: w.end, limit: "100", sort: "asc" });
             if (w.start) qs.set("startDate", w.start);
             const body = await client.get(
-              `/api/v2/song/audience/${scUuid}/${platform}?${qs.toString()}`,
+              `/api/v2/song/${scUuid}/audience/${platform}?${qs.toString()}`,
             );
             for (const it of body?.items ?? []) {
               const d = it?.date ? String(it.date).slice(0, 10) : null;
