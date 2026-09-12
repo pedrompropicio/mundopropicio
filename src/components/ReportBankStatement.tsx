@@ -222,7 +222,7 @@ export default function ReportBankStatement() {
   );
 
   const { data: bankLineDocCounts = {} } = useQuery({
-    queryKey: ["bank-line-doc-counts-bs", bankLineIdsForDocs],
+    queryKey: ["bank_line_documents_counts", bankLineIdsForDocs],
     enabled: generated && bankLineIdsForDocs.length > 0,
     queryFn: async (): Promise<Record<string, number>> => {
       const counts: Record<string, number> = {};
@@ -240,20 +240,30 @@ export default function ReportBankStatement() {
     },
   });
 
+  // Com a consolidação DESLIGADA nada muda: usa-se o saldo do `lines` plano.
+  // LIGADA, o saldo mostrado é RECALCULADO sobre a ordem consolidada — herdar o
+  // saldo plano punha uma saída a "aumentar" o saldo, porque as filhas são
+  // puxadas para junto do cabeçalho e as linhas soltas intercaladas passam a ser
+  // desenhadas fora do ponto onde o saldo plano foi calculado.
   const renderItems: StatementRenderItem<any>[] = useMemo(() => {
     if (!consolidateBankMovements || bankGroups.groups.size === 0) {
-      return lines.map((line: any) => ({ kind: "tx" as const, line }));
+      return lines.map((line: any) => ({
+        kind: "tx" as const,
+        line,
+        runningBalance: Number(line.runningBalance ?? 0),
+      }));
     }
     return groupStatementLines(lines as any[], {
       getId: (l: any) => l.id,
       getAmount: (l: any) => Number(l.signedAmount ?? 0),
-      getRunningBalance: (l: any) => Number(l.runningBalance ?? 0),
       getDate: (l: any) => String(l.date ?? ""),
       getEventName: (l: any) => l.events?.name ?? null,
+      openingBalance,
       byTx: bankGroups.byTx,
       groups: bankGroups.groups,
     });
-  }, [lines, consolidateBankMovements, bankGroups]);
+  }, [lines, consolidateBankMovements, bankGroups, openingBalance]);
+
 
   return (
     <>
@@ -522,6 +532,10 @@ export default function ReportBankStatement() {
                     const isChild = item.kind === "group-child";
                     if (isChild && !expandedGroups.has(item.groupId)) return null;
                     const line: any = item.line;
+                    // Saldo devolvido pelo agrupamento (na ordem desenhada), não
+                    // o do `lines` plano. As filhas não mostram saldo.
+                    const shownBalance = item.kind === "tx" ? item.runningBalance : 0;
+
                     return (
                       <TableRow key={line.id} className={isChild ? "bg-muted/10" : undefined}>
                         <TableCell className={`text-sm whitespace-nowrap ${isChild ? "pl-8 text-muted-foreground" : ""}`}>
@@ -562,9 +576,10 @@ export default function ReportBankStatement() {
                         </TableCell>
                         {/* Filha de grupo: célula de saldo VAZIA. Um saldo
                             intra-grupo não corresponde a posição nenhuma no banco. */}
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : line.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                          {isChild ? "" : isUncontrolledBalance ? "N/C" : formatCurrency(line.runningBalance)}
+                        <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : shownBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                          {isChild ? "" : isUncontrolledBalance ? "N/C" : formatCurrency(shownBalance)}
                         </TableCell>
+
                       </TableRow>
                     );
                   })}

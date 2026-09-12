@@ -30,7 +30,12 @@ export interface StatementGroup {
 }
 
 export type StatementRenderItem<T> =
-  | { kind: "tx"; line: T }
+  | {
+      kind: "tx";
+      line: T;
+      /** Saldo acumulado DEPOIS desta linha, na ordem CONSOLIDADA. */
+      runningBalance: number;
+    }
   | {
       kind: "group-header";
       groupId: string;
@@ -43,7 +48,7 @@ export type StatementRenderItem<T> =
       bankAmount: number | null;
       /** total − bankAmount (retenção na fonte nos lotes SEPA). 0 se não houver linha do banco. */
       divergence: number;
-      /** Saldo acumulado DEPOIS do grupo = saldo da última filha na ordem canónica. */
+      /** Saldo acumulado DEPOIS do grupo, na ordem CONSOLIDADA. */
       runningBalance: number;
       childCount: number;
       totalChildCount: number;
@@ -58,19 +63,23 @@ export interface StatementGroupOptions<T> {
   getId: (line: T) => string;
   /** Valor com sinal da linha (entrada positiva, saída negativa). */
   getAmount: (line: T) => number;
-  getRunningBalance: (line: T) => number;
   getDate: (line: T) => string;
   getEventName: (line: T) => string | null;
+  /** Saldo antes da primeira unidade. O acumulado da consolidação parte daqui. */
+  openingBalance: number;
   /** Índice txId → groupId. Ids ausentes são linhas soltas. */
   byTx: Map<string, string>;
   groups: Map<string, StatementGroup>;
 }
 
+/** Linha pseudo dos ajustes de caixa: fica sempre em último, seja qual for a data. */
+const CASH_ADJUSTMENTS_ID = "__cash_adjustments__";
+
 export function groupStatementLines<T>(
   lines: T[],
   opts: StatementGroupOptions<T>,
 ): StatementRenderItem<T>[] {
-  const { getId, getAmount, getRunningBalance, getDate, getEventName, byTx, groups } = opts;
+  const { getId, getAmount, getDate, getEventName, openingBalance, byTx, groups } = opts;
 
   const groupIdFor = (line: T): string | null => {
     const gid = byTx.get(getId(line));
@@ -91,61 +100,105 @@ export function groupStatementLines<T>(
     childrenByGroup.set(gid, arr);
   }
 
-  const out: StatementRenderItem<T>[] = [];
+  // ---- 1. Unidades: uma transação solta OU um grupo com as suas filhas -----
+  // O saldo NÃO pode ser herdado do `lines` plano: ao consolidar, as filhas são
+  // puxadas para junto do cabeçalho e as linhas soltas que estavam intercaladas
+  // passam a ser desenhadas numa posição que já não corresponde ao ponto da
+  // sequência onde o seu saldo plano foi calculado. Por isso o saldo mostrado é
+  // recalculado sobre a ordem consolidada.
+  type Unit =
+    | { kind: "tx"; line: T; date: string; delta: number; last: boolean }
+    | { kind: "group"; gid: string; children: T[]; date: string; delta: number; last: boolean };
+
+  const units: Unit[] = [];
+  const emitted = new Set<string>();
 
   for (const line of lines) {
     const gid = groupIdFor(line);
     if (!gid) {
-      out.push({ kind: "tx", line });
+      const id = getId(line);
+      units.push({
+        kind: "tx",
+        line,
+        date: getDate(line),
+        delta: getAmount(line),
+        last: id === CASH_ADJUSTMENTS_ID,
+      });
       continue;
     }
-
+    if (emitted.has(gid)) continue;
+    emitted.add(gid);
     const children = childrenByGroup.get(gid) ?? [];
     if (children.length === 0) continue;
-    // O cabeçalho é emitido na posição da ÚLTIMA filha, não da primeira: o
-    // saldo que mostra é o saldo DEPOIS do grupo, e as filhas podem não ser
-    // contíguas na ordem canónica. Emitir na primeira quebrava a monotonia da
-    // coluna Saldo (caso real: lote SEPA de 03/09 repartido por 02/09 e 03/09).
-    if (getId(children[children.length - 1]) !== getId(line)) continue;
     const group = groups.get(gid)!;
-
-    const total = children.reduce((s, c) => s + getAmount(c), 0);
-    // Saldo do grupo = saldo da ÚLTIMA filha na ordem canónica. As filhas não
-    // mostram saldo: um saldo intra-grupo não existe no banco.
-    const runningBalance = getRunningBalance(children[children.length - 1]);
     const maxChildDate = children.reduce((mx, c) => {
       const d = getDate(c);
       return d > mx ? d : mx;
     }, "");
+    units.push({
+      kind: "group",
+      gid,
+      children,
+      // O que o banco diz manda; no recurso `sepa` não há data do banco.
+      date: (group.source === "bank" ? group.bankDate : null) || maxChildDate,
+      delta: children.reduce((s, c) => s + getAmount(c), 0),
+      last: false,
+    });
+  }
+
+  // Ordenação ESTÁVEL por data da unidade, com os ajustes de caixa no fim.
+  const ordered = units
+    .map((u, i) => ({ u, i }))
+    .sort((a, b) => {
+      if (a.u.last !== b.u.last) return a.u.last ? 1 : -1;
+      const d = a.u.date.localeCompare(b.u.date);
+      return d !== 0 ? d : a.i - b.i;
+    })
+    .map((x) => x.u);
+
+  // ---- 2. Acumular sobre a ordem consolidada ------------------------------
+  const out: StatementRenderItem<T>[] = [];
+  let balance = openingBalance;
+
+  for (const unit of ordered) {
+    balance += unit.delta;
+    if (unit.kind === "tx") {
+      out.push({ kind: "tx", line: unit.line, runningBalance: balance });
+      continue;
+    }
+
+    const group = groups.get(unit.gid)!;
     const eventNames = Array.from(
-      new Set(children.map((c) => getEventName(c)).filter(Boolean) as string[]),
+      new Set(unit.children.map((c) => getEventName(c)).filter(Boolean) as string[]),
     );
 
     out.push({
       kind: "group-header",
-      groupId: gid,
+      groupId: unit.gid,
       source: group.source,
-      date: group.bankDate || maxChildDate,
+      date: unit.date,
       description: group.description,
-      total,
+      total: unit.delta,
       bankAmount: group.bankAmount,
-      divergence: group.bankAmount == null ? 0 : total - group.bankAmount,
-      runningBalance,
-      childCount: children.length,
-      totalChildCount: Math.max(group.txIds.length, children.length),
+      divergence: group.bankAmount == null ? 0 : unit.delta - group.bankAmount,
+      runningBalance: balance,
+      childCount: unit.children.length,
+      totalChildCount: Math.max(group.txIds.length, unit.children.length),
       eventLabel:
         eventNames.length === 0
           ? "—"
           : eventNames.length === 1
             ? eventNames[0]
             : `Vários (${eventNames.length})`,
-      childIds: children.map(getId),
-      children,
+      childIds: unit.children.map(getId),
+      children: unit.children,
     });
-    for (const child of children) {
-      out.push({ kind: "group-child", line: child, groupId: gid });
+    // 3. As filhas continuam sem saldo: um saldo intra-grupo não existe no banco.
+    for (const child of unit.children) {
+      out.push({ kind: "group-child", line: child, groupId: unit.gid });
     }
   }
 
   return out;
 }
+
