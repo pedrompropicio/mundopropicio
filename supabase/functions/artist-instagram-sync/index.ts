@@ -467,6 +467,7 @@ Deno.serve(async (req) => {
 
   // ligação estimada vídeo→música por menção textual (nunca em dry_run)
   let estimatedSongLinks = 0;
+  const songLinkNotes: string[] = [];
   if (!dryRun) {
     const artistIds = [...new Set(connections.map((c) => c.artist_id).filter(Boolean))];
     for (const aid of artistIds) {
