@@ -594,6 +594,7 @@ export default function FinancialAccounts() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
+                          {acc.balance_visible_to_all ? (
 
                             <Eye className="h-4 w-4 text-success mx-auto" />
                           ) : (
