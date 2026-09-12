@@ -399,49 +399,109 @@ export default function ReportBankStatement() {
                     </TableCell>
                   </TableRow>
 
-                  {lines.map((line: any, i: number) => (
-                    <TableRow key={line.id}>
-                      <TableCell className="text-sm whitespace-nowrap">
-                        {formatDatePT(line.date)}
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm font-medium">{line.description}</p>
-                        {line.suppliers?.name && (
-                          <p className="text-xs text-muted-foreground">{line.suppliers.name}</p>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {line.events?.name ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {(docCounts as Record<string, number>)[line.id] ? (
-                          <button
-                            onClick={() => setDocsModal({ id: line.id, description: line.description })}
-                            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
-                            title="Ver documentos anexados"
-                          >
-                            <Paperclip className="h-3.5 w-3.5" />
-                            <span className="font-medium">{(docCounts as Record<string, number>)[line.id]}</span>
-                          </button>
-                        ) : (
-                          <span className="text-muted-foreground/30">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {line.signedAmount > 0 ? (
-                          <span className="text-success">{formatCurrency(line.signedAmount)}</span>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {line.signedAmount < 0 ? (
-                          <span className="text-warning">{formatCurrency(Math.abs(line.signedAmount))}</span>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : line.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                        {isUncontrolledBalance ? "N/C" : formatCurrency(line.runningBalance)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {renderItems.map((item) => {
+                    if (item.kind === "group-header") {
+                      const expanded = expandedGroups.has(item.groupId);
+                      const showVisibleVsTotal = item.totalChildCount > item.childCount;
+                      const diverges = Math.abs(item.divergence) > 0.01;
+                      return (
+                        <TableRow
+                          key={`grp-${item.groupId}`}
+                          className="cursor-pointer border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10"
+                          onClick={() => toggleGroup(item.groupId)}
+                        >
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {formatDatePT(item.date)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              {expanded ? (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              )}
+                              <p className="text-sm font-semibold">{item.description}</p>
+                              <Badge variant="secondary" className="text-[10px] shrink-0">
+                                {showVisibleVsTotal
+                                  ? `${item.childCount}/${item.totalChildCount} transações`
+                                  : `${item.childCount} transações`}
+                              </Badge>
+                            </div>
+                            {item.bankAmount != null && (
+                              <p className={`text-xs ${diverges ? "text-warning" : "text-muted-foreground"}`}>
+                                Banco: {formatCurrency(item.bankAmount)}
+                                {diverges && ` · diferença ${formatCurrency(item.divergence)} (retenção na fonte)`}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{item.eventLabel}</TableCell>
+                          <TableCell />
+                          <TableCell className="text-right font-mono text-sm">
+                            {item.total > 0 ? (
+                              <span className="text-success">{formatCurrency(item.total)}</span>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {item.total < 0 ? (
+                              <span className="text-warning">{formatCurrency(Math.abs(item.total))}</span>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : item.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                            {isUncontrolledBalance ? "N/C" : formatCurrency(item.runningBalance)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    const isChild = item.kind === "group-child";
+                    if (isChild && !expandedGroups.has(item.groupId)) return null;
+                    const line: any = item.line;
+                    return (
+                      <TableRow key={line.id} className={isChild ? "bg-muted/10" : undefined}>
+                        <TableCell className={`text-sm whitespace-nowrap ${isChild ? "pl-8 text-muted-foreground" : ""}`}>
+                          {formatDatePT(line.date)}
+                        </TableCell>
+                        <TableCell className={isChild ? "pl-4" : undefined}>
+                          <p className="text-sm font-medium">{line.description}</p>
+                          {line.suppliers?.name && (
+                            <p className="text-xs text-muted-foreground">{line.suppliers.name}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {line.events?.name ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {(docCounts as Record<string, number>)[line.id] ? (
+                            <button
+                              onClick={() => setDocsModal({ id: line.id, description: line.description })}
+                              className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                              title="Ver documentos anexados"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                              <span className="font-medium">{(docCounts as Record<string, number>)[line.id]}</span>
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {line.signedAmount > 0 ? (
+                            <span className="text-success">{formatCurrency(line.signedAmount)}</span>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {line.signedAmount < 0 ? (
+                            <span className="text-warning">{formatCurrency(Math.abs(line.signedAmount))}</span>
+                          ) : "—"}
+                        </TableCell>
+                        {/* Filha de grupo: célula de saldo VAZIA. Um saldo
+                            intra-grupo não corresponde a posição nenhuma no banco. */}
+                        <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : line.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                          {isChild ? "" : isUncontrolledBalance ? "N/C" : formatCurrency(line.runningBalance)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
 
                   {/* Closing balance row */}
                   <TableRow className="border-t-2 border-primary/30 bg-primary/5">
