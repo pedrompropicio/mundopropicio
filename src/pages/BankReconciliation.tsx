@@ -1118,9 +1118,9 @@ export default function BankReconciliation() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell><Badge variant="outline">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="w-[92px]"><Badge variant="outline" className="px-1.5 text-[10px]">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
+                    <TableCell className="max-w-[360px] break-words text-xs text-muted-foreground">
                       {l.matched_sepa_export_id ? (
                         <div className="space-y-0.5">
                           <p>Lote SEPA (lista de pagamento)</p>
