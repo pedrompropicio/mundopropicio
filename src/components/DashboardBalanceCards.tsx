@@ -129,6 +129,29 @@ export function DashboardBalanceCards() {
           )}
         </div>
       )}
+
+      {openCard === "cash" && (
+        <BalanceCompositionModal
+          open
+          onClose={() => setOpenCard(null)}
+          title="Saldo em Caixa"
+          description="Contas bancárias, caixa e cartões pré-pagos"
+          total={cash.total}
+          accounts={cashAccounts}
+          balances={cards.balances}
+        />
+      )}
+      {openCard === "office" && (
+        <BalanceCompositionModal
+          open
+          onClose={() => setOpenCard(null)}
+          title="Retido em Bilheteiras"
+          description="Dinheiro que existe mas ainda não está no banco — não é caixa"
+          total={office.total}
+          accounts={officeAccounts}
+          balances={cards.balances}
+        />
+      )}
     </div>
   );
 }
