@@ -580,17 +580,20 @@ export default function FinancialAccounts() {
                           ) : "••••••"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {balance === null ? (
-                            <span className="text-xs text-muted-foreground italic">Sem controlo de saldo</span>
-                          ) : showBalance ? (
+                        <TableCell className="text-right">
+                          {balanceCards.isLoading ? (
+                            <span className="text-xs text-muted-foreground">…</span>
+                          ) : balance !== null ? (
                             <span className={`font-mono text-sm font-semibold ${balance >= 0 ? "text-success" : "text-destructive"}`}>
                               {formatCurrency(balance)}
                             </span>
+                          ) : entry.reason === "uncontrolled" ? (
+                            <span className="text-xs text-muted-foreground italic">Não controlado</span>
                           ) : (
-                            <span className="text-muted-foreground text-sm">••••••</span>
+                            <span className="text-xs text-muted-foreground italic">Sem permissão</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
+
                           {acc.balance_visible_to_all ? (
                             <Eye className="h-4 w-4 text-success mx-auto" />
                           ) : (
