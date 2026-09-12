@@ -532,6 +532,10 @@ export default function ReportBankStatement() {
                     const isChild = item.kind === "group-child";
                     if (isChild && !expandedGroups.has(item.groupId)) return null;
                     const line: any = item.line;
+                    // Saldo devolvido pelo agrupamento (na ordem desenhada), não
+                    // o do `lines` plano. As filhas não mostram saldo.
+                    const shownBalance = item.kind === "tx" ? item.runningBalance : 0;
+
                     return (
                       <TableRow key={line.id} className={isChild ? "bg-muted/10" : undefined}>
                         <TableCell className={`text-sm whitespace-nowrap ${isChild ? "pl-8 text-muted-foreground" : ""}`}>
