@@ -1448,27 +1448,35 @@ export default function BankReconciliation() {
                   ]}
                 />
                 {manualTxIds.length > 0 && (
-                  <div className="space-y-1 rounded-lg border px-3 py-2 text-xs">
-                    {manualTxIds.map((id) => {
-                      const t = manualCandidates.get(id);
-                      return (
-                        <div key={id} className="flex items-center justify-between gap-2">
-                          <span className="truncate">
-                            {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))} · {t?.description ?? "(transação)"}
-                            {crossAccountIds.has(id) && <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>}
-                          </span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                    <div className={`pt-1 font-medium ${Math.abs(manualDiff) > 0.01 ? "text-destructive" : "text-success"}`}>
+                  <div className="rounded-lg border px-3 py-2 text-xs">
+                    {/* Acima de 5 itens a lista rola; o total fica sempre fora da área de scroll. */}
+                    <div className={`space-y-1 ${manualTxIds.length > 5 ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
+                      {manualTxIds.map((id) => {
+                        const t = manualCandidates.get(id);
+                        return (
+                          <div key={id} className="flex items-start gap-2">
+                            <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug line-clamp-2">
+                              {t?.description ?? "(transação)"}
+                              {crossAccountIds.has(id) && (
+                                <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>
+                              )}
+                            </span>
+                            <span className="shrink-0 text-right font-medium tabular-nums">
+                              {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className={`mt-1 border-t pt-1 font-medium ${Math.abs(manualDiff) > 0.01 ? "text-destructive" : "text-success"}`}>
                       Total {formatCurrency(manualSelectedTotal)} · linha {formatCurrency(manualTarget)} · diferença{" "}
                       {formatCurrency(manualDiff)}
                     </div>
