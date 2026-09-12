@@ -26,7 +26,7 @@ export function useUserPreferences() {
       if (!userId) return DEFAULTS;
       const { data, error } = await supabase
         .from("user_preferences" as any)
-        .select("consolidate_refunds_view")
+        .select("consolidate_refunds_view, consolidate_bank_movements_view")
         .eq("user_id", userId)
         .maybeSingle();
       if (error) throw error;
@@ -36,6 +36,10 @@ export function useUserPreferences() {
           (data as any).consolidate_refunds_view == null
             ? DEFAULTS.consolidate_refunds_view
             : !!(data as any).consolidate_refunds_view,
+        consolidate_bank_movements_view:
+          (data as any).consolidate_bank_movements_view == null
+            ? DEFAULTS.consolidate_bank_movements_view
+            : !!(data as any).consolidate_bank_movements_view,
       };
     },
   });
