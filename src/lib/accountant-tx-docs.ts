@@ -1,6 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AccountantDocBucket = "transaction-documents" | "camarim-documents" | "card-documents";
+export type AccountantDocBucket =
+  | "transaction-documents"
+  | "camarim-documents"
+  | "card-documents"
+  | "bank-statements";
 
 export interface AccountantDoc {
   id: string;
@@ -11,7 +15,9 @@ export interface AccountantDoc {
   bucket: AccountantDocBucket;
   source_tx_id: string;
   source_label?: string; // ex.: "Despesa do reembolso · descrição"
-  origin?: "transaction" | "camarim" | "reimbursement";
+  origin?: "transaction" | "camarim" | "reimbursement" | "bank";
+  /** Falso = não entra no ZIP do contabilista (filtro fiscal is_accounting = true). */
+  is_accounting?: boolean;
 }
 
 /**
@@ -19,6 +25,7 @@ export interface AccountantDoc {
  *  - "company_id/…"           → bucket transaction-documents
  *  - "camarim://company_id/…" → bucket camarim-documents
  *  - "card://company_id/…"    → bucket card-documents (integração de cartão, D17)
+ *  - "bank://company_id/…"    → bucket bank-statements (anexo de movimento do banco)
  */
 export function resolveDocBucket(fileUrl: string): { bucket: AccountantDocBucket; path: string } {
   if (fileUrl?.startsWith("camarim://")) {
@@ -26,6 +33,9 @@ export function resolveDocBucket(fileUrl: string): { bucket: AccountantDocBucket
   }
   if (fileUrl?.startsWith("card://")) {
     return { bucket: "card-documents", path: fileUrl.slice("card://".length) };
+  }
+  if (fileUrl?.startsWith("bank://")) {
+    return { bucket: "bank-statements", path: fileUrl.slice("bank://".length) };
   }
   return { bucket: "transaction-documents", path: fileUrl };
 }
@@ -56,7 +66,7 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
   // 1) Anexos diretos da TX
   const { data: ownDocs } = await (supabase as any)
     .from("transaction_documents")
-    .select("id, name, file_url")
+    .select("id, name, file_url, is_accounting")
     .eq("transaction_id", txId);
 
   for (const d of ownDocs ?? []) {
@@ -68,8 +78,10 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
       path,
       bucket,
       source_tx_id: txId,
-      origin: bucket === "camarim-documents" ? "camarim" : "transaction",
-      source_label: bucket === "camarim-documents" ? "Camarim" : undefined,
+      origin: bucket === "camarim-documents" ? "camarim" : bucket === "bank-statements" ? "bank" : "transaction",
+      source_label:
+        bucket === "camarim-documents" ? "Camarim" : bucket === "bank-statements" ? "Movimento do banco" : undefined,
+      is_accounting: d.is_accounting ?? true,
     });
   }
 
@@ -129,7 +141,7 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
 
   const { data: childDocs } = await (supabase as any)
     .from("transaction_documents")
-    .select("id, name, file_url, transaction_id")
+    .select("id, name, file_url, transaction_id, is_accounting")
     .in("transaction_id", childIds);
 
   for (const d of childDocs ?? []) {
@@ -143,6 +155,7 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
       source_tx_id: d.transaction_id,
       origin: "reimbursement",
       source_label: `Reembolso · ${descById.get(d.transaction_id) ?? ""}`.trim(),
+      is_accounting: d.is_accounting ?? true,
     });
   }
 

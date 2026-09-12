@@ -430,6 +430,19 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
                     {d.origin === "reimbursement" && (
                       <Badge variant="outline" className="h-4 px-1 text-[9px]">Reembolso</Badge>
                     )}
+                    {d.origin === "bank" && (
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">Banco</Badge>
+                    )}
+                    {/* O ZIP só leva is_accounting = true (decisão fiscal): avisar antes. */}
+                    {d.is_accounting === false && (
+                      <Badge
+                        variant="outline"
+                        className="h-4 shrink-0 border-amber-500/50 px-1 text-[9px] text-amber-500"
+                        title="Não vem no ZIP — descarregar à parte"
+                      >
+                        não contábil
+                      </Badge>
+                    )}
                     <span className="truncate">{d.name}</span>
                   </div>
                   {d.source_label && (
