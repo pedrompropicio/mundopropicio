@@ -22,6 +22,8 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
+import { useOperationKeyTotals } from "@/hooks/useOperationKeyTotals";
+
 import { groupTransactionsByRefund, type RefundNoteSummary, type RefundRenderItem } from "@/lib/refund-grouping";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { Switch } from "@/components/ui/switch";
@@ -77,6 +79,9 @@ export default function Transactions() {
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
   // Chave de operação (D-ERP45) — agrupa as transações de um mesmo fecho.
   const [selectedOperationKeys, setSelectedOperationKeys] = useState<Set<string>>(new Set());
+  // Total do grupo completo (D-ERP45) — consulta própria, nunca as linhas da página.
+  const operationKeyTotals = useOperationKeyTotals([...selectedOperationKeys]);
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1851,29 +1856,34 @@ export default function Transactions() {
         );
       })()}
 
-      {/* Total do grupo de operação (D-ERP45) — valida um fecho: receitas − despesas */}
+      {/* Total do grupo de operação (D-ERP45) — SEMPRE o grupo completo, nunca o subconjunto filtrado */}
       {selectedOperationKeys.size > 0 && (() => {
         const rows = viewMode === "open" ? filtered : paidTransactions;
-        const income = rows
+        const vIncome = rows
           .filter((t: any) => t.type === "income")
           .reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
-        const expense = rows
+        const vExpense = rows
           .filter((t: any) => t.type === "expense")
           .reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
-        const balance = income - expense;
+        const g = operationKeyTotals.data;
         return (
-          <div className="glass rounded-xl border border-primary/30 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+          <div className="glass rounded-xl border border-primary/30 px-4 py-3 space-y-1">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Chave de operação · {[...selectedOperationKeys].join(", ")}
             </p>
-            <p className="text-sm"><span className="font-semibold">{rows.length}</span> transação(ões)</p>
-            <p className="text-sm">Receitas: <span className="font-mono font-semibold text-success">{formatCurrency(income)}</span></p>
-            <p className="text-sm">Despesas: <span className="font-mono font-semibold text-destructive">{formatCurrency(expense)}</span></p>
-            <p className="text-sm">Saldo: <span className="font-mono font-semibold">{formatCurrency(balance)}</span></p>
-            <p className="text-xs text-muted-foreground">Só as linhas visíveis nesta vista ({viewMode === "open" ? "em aberto" : "histórico"}).</p>
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+              <p className="text-base"><span className="font-semibold">{operationKeyTotals.isLoading ? "…" : g?.count ?? 0}</span> transação(ões)</p>
+              <p className="text-base">Receitas: <span className="font-mono font-semibold text-success">{g ? formatCurrency(g.income) : "…"}</span></p>
+              <p className="text-base">Despesas: <span className="font-mono font-semibold text-destructive">{g ? formatCurrency(g.expense) : "…"}</span></p>
+              <p className="text-base">Saldo: <span className="font-mono font-bold">{g ? formatCurrency(g.balance) : "…"}</span></p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total do grupo completo, independente dos outros filtros — das quais {rows.length} visíveis com os filtros actuais: receitas {formatCurrency(vIncome)}, despesas {formatCurrency(vExpense)}.
+            </p>
           </div>
         );
       })()}
+
 
       {/* Filters Sheet */}
       <TransactionFiltersPanel
