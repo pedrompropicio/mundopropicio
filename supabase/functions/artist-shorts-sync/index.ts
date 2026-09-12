@@ -48,6 +48,11 @@ function numOrNull(v: unknown): number | null {
   return typeof n === "number" && Number.isFinite(n) ? n : null;
 }
 
+/** URL comparável: sem barra final e sem query. */
+function normalizeUrl(u: string): string {
+  return u.split("?")[0].replace(/\/+$/, "");
+}
+
 function str(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
