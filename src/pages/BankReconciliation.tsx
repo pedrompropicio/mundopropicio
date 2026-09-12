@@ -1114,9 +1114,32 @@ export default function BankReconciliation() {
                             </p>
                           )}
                         </div>
+                      ) : (bridgeByLine.get(l.id) ?? []).length > 0 ? (
+                        // Terceiro ramo: conciliação manual de N transações. O
+                        // `matched_transaction_id` fica nulo — sem isto dava "—".
+                        <div className="space-y-0.5">
+                          <p className="text-foreground">
+                            {(bridgeByLine.get(l.id) ?? []).length} transações ·{" "}
+                            {formatCurrency(
+                              Math.round(
+                                (bridgeByLine.get(l.id) ?? []).reduce(
+                                  (a, r) => a + Math.abs(Number(r.transactions?.paid_amount ?? 0)),
+                                  0,
+                                ) * 100,
+                              ) / 100,
+                            )}
+                          </p>
+                          {(bridgeByLine.get(l.id) ?? []).map((r) => (
+                            <p key={r.id} className="max-w-[320px] truncate">
+                              {formatCurrency(Math.abs(Number(r.transactions?.paid_amount ?? 0)))} ·{" "}
+                              {r.transactions?.description ?? "(transação)"}
+                            </p>
+                          ))}
+                        </div>
                       ) : (
                         txById.get(l.matched_transaction_id)?.description ?? "—"
                       )}
+
                     </TableCell>
                   </TableRow>
                 ))}
