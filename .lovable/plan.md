@@ -1,107 +1,206 @@
-# Auditoria — saldo de conta financeira, permissões e confidencialidade (11/09/2026)
+# Auditoria — `payment_reference`, saldos no servidor, e saldos no Dashboard
 
-Relatório de leitura. Nada foi alterado: sem código, sem migrações, sem base de dados.
+Relatório de leitura. Não propõe implementação. Tudo com ficheiro e linha; onde não foi
+verificado está escrito "não verificado".
 
-## Leituras feitas antes de concluir
+Documentos lidos: `docs/INDEX.md`; `docs/DECISIONS.md` D-ERP15 (linha 130), D-ERP27
+(linha 671), D-ERP36 (linha 851). O relatório de 11/09 que estava em `.lovable/plan.md`
+já não existe no ficheiro (foi substituído por planos posteriores); o seu conteúdo
+sobrevive na D-ERP36, secção "Fica por fazer (Passo 3 do relatório de 11/09)", e é essa
+lista que se confirma abaixo.
 
-- `docs/INDEX.md` (ritual de arranque e mapa de camadas).
-- `docs/DECISIONS.md` — D-ERP34 (linhas 808–831) e D-ERP35 (linhas 834–847).
-- `.lovable/memory/security/account-balance-server-side-guard.md` (RPCs novas, consumidores, limitação).
-- `.lovable/memory/features/account-balance-cutoff-date.md` (D-ERP25, data de corte, `skip_balance_check`).
-- Código: `src/lib/account-balance.ts`, `src/lib/account-balance-rpc.ts`, `src/lib/card-account-balance.ts`, `src/lib/card-session-balance.ts`, `src/lib/ticket-office-balance.ts` e os ecrãs/modais listados abaixo.
+---
 
-## 1. Inventário — onde se mostra saldo de conta (ou número derivado)
+## PARTE A — agrupamento por `payment_reference`
 
-| # | Ficheiro : linha | O que mostra | Como o número é obtido |
-|---|---|---|---|
-| 1 | `src/pages/FinancialAccounts.tsx:673-674` | Saldo por conta na lista | soma no cliente via `computeAccountBalance` (`:339`) |
-| 2 | `src/pages/FinancialAccounts.tsx:416-418` | Card "Saldo Total" | soma no cliente (`:362-365`) |
-| 3 | `src/pages/FinancialAccounts.tsx:431` | "Retido em bilheteiras" | `computeTicketOfficeBalance` no cliente (`:235-248`) |
-| 4 | `src/pages/FinancialAccounts.tsx:438` | Total de acerto | soma no cliente (`:379`) |
-| 5 | `src/components/AccountBalanceImplantModal.tsx:79,85` | "sistema calcula hoje" vs "depois de implantar" | `computeAccountBalance` no cliente |
-| 6 | `src/components/TransactionPaymentModal.tsx:875-878` | "Saldo disponível" | **RPC** `account_true_balance` via `useAccountTrueBalance` (`:184`) |
-| 7 | `src/components/TransferFormModal.tsx:203-206` | Saldo da conta de origem | **RPC** `account_true_balance` (`:59`) |
-| 8 | `src/components/BatchPaymentModal.tsx:641-644` | "Saldo atual" no lote | **RPC** `account_true_balance` (`:173`) |
-| 9 | `src/pages/CardSessions.tsx:152,161` | "Saldo contabilístico" e "Saldo real estimado" por cartão | soma no cliente via `computeAccountBalance` (`:48-63`) |
-| 10 | `src/pages/CardSessionDetail.tsx:540-546` | Saldo contabilístico e real estimado do cartão | `fetchCardAccountBalance` → soma no cliente (`src/lib/card-account-balance.ts:17-37`) |
-| 11 | `src/pages/CardSessionDetail.tsx:565,595-599` | Saldo de abertura calculado e saldo teórico da sessão | `fetchCardSessionAccountSync` → soma no cliente (`src/lib/card-session-balance.ts:58-123`) |
-| 12 | `src/components/cards/OpenCardSessionModal.tsx:51-55` | Saldo do cartão proposto na abertura | `fetchCardAccountBalance` (cliente) |
-| 13 | `src/components/cards/CloseCardSessionModal.tsx:568-579` | Saldo abertura + saldo teórico no fecho | aritmética no cliente sobre `opening_balance`, recargas e itens |
-| 14 | `src/pages/CartaoEquipa.tsx:311` (cálculo `:231`) | "Saldo teórico" do portador | soma no cliente |
-| 15 | `src/pages/TicketOffices.tsx:140` | Saldo retido por bilheteira | `computeTicketOfficeBalance` (cliente), vendas via RPC `get_ticket_office_sales` |
-| 16 | `src/components/TicketOfficeBalancePanel.tsx:121,260,287` | Saldo retido, saldo esperado, saldo por evento | `computeTicketOfficeBalance` (cliente) |
-| 17 | `src/components/ReportBankStatement.tsx:118,263` | Extrato: abertura, linhas e saldo final | soma no cliente + `fetchAccountCashAdjustments` |
-| 18 | `src/components/ReportTreasuryProjection.tsx:67,131-145` | Saldo atual / mínimo / final projetado | `computeAccountBalance` (cliente) sobre todas as contas |
-| 19 | `src/components/ReportCashFlow.tsx:278,329` | Coluna "Saldo" acumulada | soma no cliente (acumulado do período, não saldo da conta) |
-| 20 | `src/pages/BankReconciliation.tsx:369,853-856` | Triângulo: "saldo do sistema" da conta | `computeAccountBalance` (cliente) |
-| 21 | `src/pages/BankReconciliation.tsx:773-775` | "Saldo implantado a <data>" | campo `initial_balance` lido directamente |
-| 22 | `src/lib/export-card-session.ts:80` | "Disponível no cartão" no export | valor vindo de #10 |
-| 23 | `src/pages/EventDetail.tsx` (tesouraria do evento, `:698` comentário) | posição de caixa do evento | **RPC** `get_event_cash_position` (servidor) |
+### 1. Há campo no ecrã? Sim, mas com outro propósito
 
-Não são saldo de conta e ficam fora do âmbito, apesar da palavra "Saldo": `ReportForecastPayables` ("Saldo BP"), `ReportMovementReconciliation:171` (aberto por transação), `EventFecho`/`PartnerSettlementTab` (acerto com sócios), `CamarimFundMoveModal:131` (saldo da sessão de camarim).
+O campo existe em três formulários, sempre **condicionado ao método de pagamento** e
+nunca apresentado como chave de agrupamento:
 
-## 2. Quem respeita a permissão
+- Criação: `src/components/TransactionFormModal.tsx` — rótulo "Referência"
+  (linha 3911, placeholder "Referência MB") e "Referência de Pagamento" (linha 3922,
+  placeholder "Referência AT / SS"), acompanhado de "Entidade" (linha 3904).
+- Edição: `src/components/TransactionEditModal.tsx` — "Referência" (linha 2144) e
+  "Referência de Pagamento" (linha 2155). No log de alterações o rótulo é
+  "Referência Pagamento" (linha 467).
+- Pagamento: `src/components/TransactionPaymentModal.tsx` — "Referência *" (linha 955) e
+  "Referência de Pagamento *" (linha 966), obrigatórias em `service_payment` e
+  `state_payment` (linhas 285-286).
 
-- **`view_balances`**: usado apenas como porta de acesso, nunca a esconder o número — `src/components/AppSidebar.tsx:106` (item de menu "Contas") e `src/App.tsx:266,727` (lista `MANAGEMENT_PERMS` que decide o destino pós-login). Nenhum dos 23 sítios acima verifica `view_balances` para decidir mostrar o valor no ecrã; a única verificação real de `view_balances` está **dentro** das RPCs (#6, #7, #8).
-- **`balance_visible_to_all`**: verificado em 2 sítios do frontend — `src/pages/FinancialAccounts.tsx:342-343` (`canSeeBalance = isAdmin || account.balance_visible_to_all`, aplicado em `:674` e no total `:364`) e `src/components/ReportBankStatement.tsx:62`. Nos três modais (#6–#8) a verificação existe mas do lado do servidor, dentro de `account_true_balance`.
-- **Nada verificado (nem `view_balances` nem `balance_visible_to_all`)**: #3, #4 (usam só `isAdmin`, `FinancialAccounts.tsx:431,438`), #5, #9, #10, #11, #12, #13, #14, #15, #16, #18, #19, #20, #21, #22. Nestes o gate existente é de *módulo* (`card_manage`, `manage_accounts`, `manage_bank_reconciliation`, `view_reports`), não do número.
-- **Esconde o número vs esconde o cartão/menu**: só #1, #2 e #17 escondem o *número* (mostram "—" ou omitem). #6, #7, #8 omitem o número quando a RPC devolve NULL. Todos os restantes mostram o número a quem entra no ecrã — o controlo é a entrada no ecrã, não o valor.
-- Conclusão sobre a auditoria de 10/09: **confirma-se**. A flag continua a ser respeitada em 2 sítios de frontend (mais 3 modais que a delegam ao servidor); o resto calcula no cliente e mostra sem verificar nada específico de saldo.
+**Trava importante:** os três caminhos gravam `payment_reference` **apenas** quando o
+método não é `transfer` — `TransactionFormModal.tsx:1310`, `1352`, `1495`, `1645`;
+`TransactionEditModal.tsx:500`; `TransactionPaymentModal.tsx:385`, `451`, `584`, `598`.
+Em `transfer` (1.387 das transações) o campo é **forçado a NULL**, e ao trocar de método
+para `transfer` é limpo (`TransactionFormModal.tsx:950`,
+`TransactionEditModal.tsx:2117`). O `TransactionPaymentModal` também o anula em
+`compensation`. Conclusão: **as chaves de agrupamento tipo `ACERTO-…` não podem ser
+escritas nem preservadas pelo ecrã numa transferência** — a interface apagá-las-ia.
 
-## 3. As funções novas estão a ser usadas?
+### 2. É possível consultar por ela? Quase não
 
-Sim, mas só em três ficheiros, todos através de `src/lib/account-balance-rpc.ts`:
+- Pesquisa global de Transações: **sim**, `payment_reference` entra no "haystack"
+  pesquisável — `src/pages/Transactions.tsx:692`. Escrever `ACERTO-FOOD-IVETE-2026` na
+  caixa de pesquisa filtra as linhas.
+- Filtro dedicado: **não existe**. `src/components/TransactionFiltersPanel.tsx` não
+  menciona `payment_reference` (grep sem resultados).
+- Coluna na listagem: **não existe** (nenhuma referência ao campo fora dos ficheiros
+  listados neste relatório).
+- Detalhe da transação: só como campo de formulário editável (ponto 1), e mesmo esse
+  escondido quando o método é `transfer`. Ou seja: nas transações do grupo pagas por
+  transferência **nem aparece**.
+- Relatórios/exportações: aparece na Lista de Pagamento — `src/lib/export-payment-list.ts`
+  (linhas 174, 241, 380, 463) e `src/components/PaymentListsTab.tsx` (1804, 1836, 2140,
+  2269), sempre rotulado "Referência" e no sentido de referência MB/AT. **Não há**
+  relatório que agrupe ou some por `payment_reference`.
+- Consumo programático como chave: existe um único caso —
+  `src/hooks/useEventABRealized.ts` filtra por `ilike('payment_reference', 'ACERTO%BAR%')`
+  (linhas 85, 101) e agrupa por valores distintos (linha 144). É o precedente que prova
+  que a coluna já é usada como chave, mas apenas para A&B.
 
-- `account_has_balance_for`: chamada em `src/lib/account-balance-rpc.ts:22`; consumida por `TransactionPaymentModal`, `TransferFormModal` e `BatchPaymentModal` (imports em `TransactionPaymentModal.tsx:24`, `TransferFormModal.tsx:13`, `BatchPaymentModal.tsx:21`).
-- `account_true_balance`: chamada em `src/lib/account-balance-rpc.ts:32`; exibida em `TransactionPaymentModal.tsx:184`, `TransferFormModal.tsx:59`, `BatchPaymentModal.tsx:173`.
+**Resposta directa ao ponto 4:** não existe forma de consultar um grupo por
+`payment_reference` no ecrã, tirando escrever a string na pesquisa livre de
+`/transacoes`. Não há filtro, não há coluna, não há relatório, não há total de grupo.
+A verificação embutida do grupo `ACERTO-FOOD-IVETE-2026` (saldo ter de dar 7.530,40 €)
+não é calculável em nenhum ecrã.
 
-**Fora destes três modais, nenhuma das duas funções é usada.** A página de Contas, os cartões, as bilheteiras, o Extrato, a Projeção de Tesouraria e a Conciliação **não** as chamam.
+### 3. Quem escreve a coluna hoje
 
-## 4. Fonte única
+- Ecrã, nos três modais acima, e só fora de `transfer`.
+- Edge function `update-transaction` — o campo está nas allowlists de campos
+  editáveis (`supabase/functions/update-transaction/index.ts:136`, 244, 295, 371).
+- **Automático, confirmado:** `supabase/functions/close-camarim-session/index.ts:170`
+  gera `CAMARIM-<8 primeiros do id da sessão em maiúsculas>` e grava-o nas transações do
+  fecho (linhas 642, 825, 907). O irmão `close-card-session/index.ts:140` faz o mesmo com
+  o prefixo `CARTAO-`. É a origem de `CAMARIM-9D81140A`.
+- Migrações de renegociação copiam o valor para a transação nova
+  (`20260831184500_renegotiate_block_split_parent.sql:154`,`164` e homólogas).
+- Os grupos `ACERTO-*`, `APOIO-*` e `REVSHARE-*` não têm gerador em código — não foi
+  encontrado nenhum caminho que os escreva, logo entraram por SQL.
 
-Existe: `computeAccountBalance` em `src/lib/account-balance.ts:131-158` (+ `fetchAccountCashAdjustments:71`, `countsAfterCutoff:37`, `buildAccountCutoffs:48`).
+### Opções e risco (Parte A)
 
-Passam por ela, directa ou indirectamente: #1, #2, #4, #5, #9, #10, #12, #18, #20 e #22 — 10 dos 23. As RPCs replicam a mesma fórmula (`_account_true_balance_raw`), logo #6–#8 são consistentes com ela por desenho.
+- **(a) Não fazer nada.** Risco: a convenção existe na cabeça e na documentação, não no
+  produto; qualquer edição de uma transação do grupo pode apagar a chave em silêncio
+  (regra do `transfer`).
+- **(b) Só leitura:** coluna/filtro e total por grupo, sem tocar na escrita. Risco baixo;
+  não resolve a perda da chave na edição.
+- **(c) Separar conceitos:** referência MB/AT (o que o campo é) da chave de operação (o
+  que se lhe está a pedir). Risco: mexer em coluna com 1.400+ linhas e em quatro
+  caminhos de escrita; ganho é a chave passar a ser um objecto de primeira classe.
 
-Implementações paralelas que calculam "saldo" de forma diferente:
+---
 
-- `src/lib/ticket-office-balance.ts` (bilheteiras, #3, #15, #16): filtra `status ∈ {approved, paid}`, `reversed_at IS NULL`, `is_hidden = false`, e soma vendas e adiantamentos. **Regras diferentes** de `computeAccountBalance`, que não filtra status nem `reversed_at` nem `is_hidden` (`account-balance.ts:151-156`). Para a mesma conta os dois dão números diferentes — e é intencional: `FinancialAccounts.tsx:336-337` desvia as contas `ticket_office` para a fórmula da bilheteira.
-- `src/lib/card-session-balance.ts:58-123` e `:132-160`: recalculam a soma localmente em vez de chamar `computeAccountBalance`, ignorando `skip_balance_check` (só aplicam corte e ajustes). Numa conta sem controlo de saldo devolvem número onde a fonte única devolveria `null`.
-- `ReportBankStatement.tsx:118-134` reconstrói a cadeia linha a linha (usa os helpers de corte, não a função).
-- `ReportCashFlow.tsx` é acumulado de período, com aviso explícito (`:248-250`) de que não é saldo.
-- `CardSessionDetail`/`CloseCardSessionModal`/`CartaoEquipa` calculam o "saldo teórico da sessão", que é outro conceito e não deve convergir.
+## PARTE B — Passo 3 dos saldos
 
-## 5. Confidenciais — onde a informação escapa
+### 5. A lista continua válida. Nada mudou nestes ficheiros a 11-12/09
 
-A limitação da D-ERP34 **continua verdadeira**: `computeAccountBalance` (`src/lib/account-balance.ts:151-156`) soma `paid_amount` de todas as transações recebidas, sem filtrar `status`, `reversed_at`, `is_hidden` nem `is_confidential`. Uma busca por `is_confidential` em `src/` (excluindo `integrations/`) só devolve escrita/edição/badge (`TransactionEditModal`, `TransactionFormModal`, `TransferFormModal:98,118`, `BankLineLaunchModal:283,329`, `TransactionRow:432`) — nenhuma leitura de saldo o filtra.
+- Página de Contas — `src/pages/FinancialAccounts.tsx:339` (`computeAccountBalance`) e
+  `248` (`computeTicketOfficeBalance`): soma no cliente.
+- Extrato — `src/components/ReportBankStatement.tsx:72` (comentário) e `62`
+  (`canSeeBalance = isAdmin || balance_visible_to_all`): soma no cliente, permissão
+  avaliada no cliente.
+- Cartões — `src/pages/CardSessions.tsx:63`, `src/lib/card-account-balance.ts:37`,
+  `src/lib/card-session-balance.ts`, `src/pages/CardSessionDetail.tsx`,
+  `src/pages/CartaoEquipa.tsx`: soma no cliente.
+- Bilheteiras — `src/pages/TicketOffices.tsx:140` e
+  `src/components/TicketOfficeBalancePanel.tsx:121`, mais o relatório de auditoria
+  `src/components/ReportTicketOfficeAudit.tsx:241`: soma no cliente.
 
-Há dois efeitos distintos e importa não os confundir:
+Único ficheiro novo relevante que apareceu: `src/lib/supabase-paging.ts`
+(`fetchAllPaged`), já usado no Dashboard — não altera a lista, mas remove o risco do
+limite de 1.000 linhas nas somas do cliente.
 
-1. **Onde o número é somado no cliente** (#1–#5, #9–#22): a policy RESTRICTIVE `transactions_confidential_guard` já esconde as linhas confidenciais na query, portanto o saldo mostrado sai **acima do real** para quem não tem `view_confidential`. Não é fuga de informação; é saldo errado, e é a incoerência que a D-ERP34 aceitou. Também torna o triângulo da Conciliação (#20) e a Projeção (#18) enganosos para esses utilizadores.
-2. **Onde o número vem da RPC** (#6, #7, #8): `account_true_balance` é SECURITY DEFINER e vê tudo. Quem tenha `view_balances` numa conta com `balance_visible_to_all = true` mas **não** tenha `view_confidential` — hoje, na prática, os perfis `manager`, `editor` e `viewer` com essa permissão — vê ali um saldo que **inclui** movimentos confidenciais que não consegue listar em Transações. Comparando esse valor com o saldo somado no cliente na página de Contas, a diferença revela o montante escondido. **É aqui que a informação escapa** e é o ponto mais importante deste relatório. Notar que quem é `admin` ou `accountant` tem `view_confidential` (D-ERP34, ponto 3) e por isso não gera fuga; a exposição depende de existirem contas com `balance_visible_to_all = true` e utilizadores não-admin com `view_balances` — **não verificado** em dados de Live nesta auditoria.
-3. Contas com `is_restricted` estão fora da leitura desses utilizadores (policy reescrita, D-ERP34 ponto 4), pelo que o risco de #2 vive nas contas normais com transações marcadas `is_confidential` — tipicamente a perna Santander de transferências para conta restrita.
+### 6. O que é preciso, e o que pode partir
 
-## 6. Proposta, por risco e esforço (não executada)
+- **Página de Contas.** Os três cartões da D-ERP27 são três conceitos: caixa (contas
+  `bank`/`cash`/`prepaid_card` com controlo), retido em bilheteiras
+  (`computeTicketOfficeBalance`) e acertos em curso (contas `other`). Só o **primeiro**
+  tem equivalente no servidor. Migrar o cartão de caixa e a coluna Saldo Atual das contas
+  não-bilheteira para `account_true_balances_asof(ids, NULL)` é directo. O que pode
+  partir: `canSeeBalance` do cliente (`FinancialAccounts.tsx:343`) é `isAdmin ||
+  balance_visible_to_all` e ignora `view_balances`; o servidor é mais restritivo, logo
+  contas hoje visíveis podem passar a `NULL` — é preciso decidir o que se mostra em vez
+  do número (a D-ERP36 já fixou a regra: nunca zero, sempre ausência assumida). Segundo
+  risco: o `skip_balance_check` devolve sempre `NULL` no servidor, e a página hoje já
+  nomeia essas contas em texto — tem de continuar a distinguir "não controlado" de "sem
+  permissão".
+- **Extrato.** Já usa a fórmula canónica com data de corte; precisa da variante *asof*
+  para o saldo de abertura/fecho do período. Pode partir a coerência com a Conciliação se
+  as datas de referência não forem as mesmas.
+- **Cartões.** Saldo da CONTA do cartão (`card-account-balance.ts`) migra para a função
+  do servidor. Saldo da SESSÃO (`card-session-balance.ts`) é outro conceito — quanto
+  resta de uma dotação — e **não** converge; não há função no servidor e não faz sentido
+  criá-la a partir da fórmula das contas.
+- **Bilheteiras.** A fórmula é diferente por desenho (D-ERP15) e não deve convergir. Já
+  tem uma peça no servidor: `get_ticket_office_sales(p_account_id)`
+  (`supabase/migrations/20260910023941_….sql:1`, `GRANT` a `authenticated` na linha 17),
+  que resolve o lado das vendas. Falta o resto da fórmula.
 
-**Passo 1 — fechar a fuga do ponto 5.2. Só base de dados (DDL em Live, a autorizar).**
-Alterar `account_true_balance` para devolver NULL (ou o saldo já sem as linhas confidenciais) quando o chamador não tem `view_confidential` e a conta tem movimentos confidenciais. Ficheiros de frontend: nenhum — os três modais já tratam NULL como "não mostrar" (`account-balance-rpc.ts:53-61`). Risco: um `manager` deixa de ver o valor em contas com confidenciais; a decisão do pagamento continua a funcionar porque passa por `account_has_balance_for`, que devolve só booleano. Pode partir: mensagens que hoje mostram valor passam a genéricas.
+### 7. Falta função no servidor?
 
-**Passo 2 — a página de Contas passa a ler o saldo do servidor. Frontend + uma função nova em Live.**
-Criar `account_true_balances(uuid[]) → (account_id, balance)` (DDL em Live) e trocar `computeAccountBalance` por essa leitura em `FinancialAccounts.tsx:332-343,362-379,673-674`. Isto arruma de uma vez #1, #2, #4 e o total. Risco: a fórmula da bilheteira (#3, #15, #16) é diferente por desenho e tem de continuar à parte; se for incluída, os números de bilheteira mudam.
+Sim. Existe `account_true_balance`, `_account_true_balance_raw`,
+`account_true_balances_asof`, `_account_true_balance_asof_raw`
+(`src/integrations/supabase/types.ts:13676-13723`) e `get_ticket_office_sales`. **Não
+existe** função de saldo de bilheteira: a fórmula completa (vendas + transações +
+adiantamentos + eventos atribuídos) vive só em `src/lib/ticket-office-balance.ts:85`.
+Para a levar ao servidor seria preciso uma função que recebesse as contas de bilheteira,
+juntasse `event_ticket_office_assignments`, `event_ticket_zones`, `ticket_sales`,
+`transactions` e `event_ticket_office_advances`, e aplicasse o mesmo portão de permissão
+de `account_true_balances_asof` (valor ou `NULL`). Também não existe função para o saldo
+de sessão de cartão. **Não verificado:** se `get_ticket_office_sales` tem portão interno
+de permissão além da RLS.
 
-**Passo 3 — cartões, Extrato, Projeção e Conciliação. Só frontend.**
-`CardSessions.tsx`, `card-account-balance.ts`, `card-session-balance.ts`, `ReportBankStatement.tsx`, `ReportTreasuryProjection.tsx`, `BankReconciliation.tsx:369`: usar a função do passo 2 para o saldo *da conta* e manter local apenas o saldo *da sessão*. Risco alto de regressão numérica: o Extrato e o triângulo da Conciliação dependem de linha-a-linha e de datas efectivas; qualquer troca tem de ser validada conta a conta contra valores conhecidos (Santander Totta) antes de publicar.
+---
 
-**Passo 4 — decidir a definição de saldo. Decisão de negócio antes de código.**
-A fórmula não filtra estornadas nem escondidas. Enquanto isso não for decidido, qualquer unificação propaga a definição actual. Recomendo tratar isto como D-ERP separada, depois dos passos 1–2.
+## PARTE C — cartões de saldo no Dashboard
 
-**Passo 5 — bilheteiras. Frontend.**
-Aplicar a `computeTicketOfficeBalance` uma verificação explícita de `view_balances`/`balance_visible_to_all` no ecrã (#15, #16) ou aceitar formalmente que "retido em bilheteira" não é saldo de conta e documentá-lo. Baixo risco.
+### 8. O que o Dashboard mostra hoje
 
-Ordem recomendada: 1 → 2 → 5 → 3 → 4. Só os passos 1 e 2 envolvem DDL em Live; 3 e 5 são exclusivamente frontend.
+`src/pages/Index.tsx` (854 linhas, componente `Dashboard`, rotas `/` e `/erp` em
+`src/App.tsx:475-476`). **Não mostra saldo de conta nenhum** — não importa
+`computeAccountBalance` nem chama qualquer RPC de saldo (grep sem resultados no
+ficheiro). O dinheiro que mostra é receita/despesa/resultado **por evento**, agregado no
+cliente a partir de `transactions` (linhas 101, 154, 185, 205, 209) e apresentado nos
+cartões e na tabela de eventos (linhas 753, 761, 828), mais vendas de bilhetes de
+`ticket_sales` (linha 266). Tudo somado no cliente, com `fetchAllPaged` para fugir ao
+limite de 1.000 linhas (linha ~255).
 
-## Não verificado
+### 9. O que se pode reaproveitar da página de Contas
 
-- Se existem hoje em Live contas com `balance_visible_to_all = true` e utilizadores não-admin com `view_balances` (condição da fuga do ponto 5.2).
-- Volume real de transações com `is_confidential = true` e em que contas.
-- Comportamento no ecrã (nenhuma verificação por browser foi feita nesta auditoria).
+A lógica dos três cartões da D-ERP27 **está presa ao componente**: `computeBalance` e
+`canSeeBalance` são funções internas de `src/pages/FinancialAccounts.tsx` (linhas 336 e
+343), e o cálculo das bilheteiras é um `useMemo` local (linha 240) alimentado por cinco
+queries também locais (linhas 165-232). Partilhável hoje só existe: `computeAccountBalance`
+(`src/lib/account-balance.ts:131`), `buildAccountCutoffs`, `fetchAccountCashAdjustments`,
+`computeTicketOfficeBalance` (`src/lib/ticket-office-balance.ts:85`) e os wrappers de RPC
+em `src/lib/account-balance-rpc.ts:46`,`59`. Ou seja: os *ingredientes* são partilháveis,
+a *composição dos três cartões* não é — pô-los no Dashboard hoje significa duplicar
+~200 linhas de queries e agregação, com o risco clássico de as duas cópias divergirem.
+
+### 10. Permissões
+
+- A rota `/` não tem guarda de permissão em `src/App.tsx:475` — é a página de entrada de
+  qualquer utilizador autenticado.
+- O componente lê apenas `isAdmin` e `isManager` (`src/pages/Index.tsx:234`); **não**
+  consulta `view_balances`. A permissão existe (`src/contexts/AuthContext.tsx:68`,
+  "Ver Saldos") e é o que hoje abre o menu Contas (`src/components/AppSidebar.tsx:106`).
+- Consequência a ter em conta: se o Dashboard passar a mostrar saldos, o portão tem de
+  ser o do servidor (`NULL` = não mostrar), não `isAdmin`, e a ausência tem de ser
+  explícita. Zero é o pior resultado possível numa página de entrada — é a armadilha que
+  a D-ERP36 já nomeou para a Projeção de Tesouraria.
+
+### Opções e risco (Parte C)
+
+- **(a) Cartões só de caixa**, via `account_true_balances_asof`. Risco baixo, permissão
+  já resolvida no servidor; não cobre bilheteiras.
+- **(b) Caixa + retido em bilheteiras com a fórmula do cliente.** Cobre o pedido, mas
+  duplica a agregação da página de Contas e leva o buraco de permissões consigo
+  (a fórmula das bilheteiras não tem portão nenhum).
+- **(c) Extrair primeiro** a composição dos três cartões para um hook partilhado e só
+  depois consumi-la no Dashboard. Mais trabalho antes de haver resultado visível; é a
+  única que não cria uma segunda verdade.
+- **(d) Função de saldo de bilheteira no servidor** e o Dashboard a consumi-la. Fecha o
+  problema de permissões de vez, mas é a opção mais pesada e obriga a portar para SQL
+  uma fórmula que hoje só existe em TypeScript, com risco de divergência durante a
+  transição.
