@@ -117,6 +117,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   });
 
   const isStateCategory = categoryCode?.startsWith("10.4") || categoryCode?.startsWith("10.5");
+  /**
+   * Compensação: encontro de contas, sem movimento de caixa. Não há conta, não
+   * corre a trava de saldo e a linha em `transaction_payments` vai sem
+   * `account_id` (o trigger `trg_force_no_account_on_compensation` fá-lo-ia do
+   * lado da base, mas o ecrã não deve pedir o que vai ser ignorado).
+   */
+  const isCompensation = paymentMethod === "compensation";
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
