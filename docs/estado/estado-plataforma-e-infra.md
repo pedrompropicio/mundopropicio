@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-12 · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2 + confirmar Publish das correções de IBAN
+Atualizado: 2026-09-12 (2.ª passagem) · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2 + confirmar Publish das correções de IBAN
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -11,6 +11,8 @@ A 01/09 atacou-se a #86 pelo lado dos produtores: varreram-se as edge functions 
 
 A 11-12/09 reconstruiu-se a base de fornecedores: fusão dos duplicados por IBAN, três índices únicos parciais em Live como trava nova, e unificação da normalização de IBAN numa só função da app.
 
+Ainda a 12/09 fechou-se a conciliação bancária de **uma linha contra N transações** (tabela-ponte `bank_line_transactions`) e os documentos da linha do banco (`bank_line_documents` + réplicas `bank://`), com a coluna nova `transaction_documents.partner_visible` a impedir que a fatura de um crédito partilhado chegue ao sócio do evento.
+
 ## A trabalhar agora
 - **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 71 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. Continua aberta: falta o inventário completo das tabelas escritas sem contexto de utilizador, que é o critério de aceitação. #53 e #56 seguem como sub-tarefas; #96 saiu daqui.
 
@@ -18,6 +20,8 @@ A 11-12/09 reconstruiu-se a base de fornecedores: fusão dos duplicados por IBAN
 **Ação do Pedro:** desativar a edge function `generate-historical-transactions` no Lovable (#87 passo 2). Enquanto estiver deployed continua invocável por qualquer admin e escreve `amount` com o IVA embutido. Só depois se remove do repo.
 
 **Ação do Pedro:** confirmar o Publish das correções de IBAN (commits `3b5f702` e `c61a880`).
+
+**A seguir:** consolidação do extrato da conta — mostrar **uma** linha do movimento do banco que abre nas N transações que a explicam, sem fundir dados nem duplicar valores.
 
 ## Prazos e renovações
 - **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
@@ -55,10 +59,16 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 
 **Normalização de IBAN: uma só função em toda a app** — `normalizeIban` de `src/lib/iban.ts` (remove `[\s.\-_/]`, upper). A função local `normalizeIbanStr` do SupplierFormModal foi eliminada. Existem DOIS motores de validação e é deliberado: `lib/iban.ts` serve o aviso visual a cada tecla (puro, sem import dinâmico); `ibantools` decide a gravação no submit. Depois da unificação só podem discordar na tabela de países — daí o fallback no texto do toast.
 
-`query_database` rejeita `drop policy` (erro 499) — essas vão pelo SQL Editor de Live, exceção registada na constraint de DDL. Edge functions via `service_role` precisam de GRANTs explícitos em `crm.*`. `send_message` do Lovable dá transport error mas a mensagem chegou — verificar com `get_project`. Scanner pré-Publish: "Ignore issue", nunca "Try to fix all".
+**Método: políticas RLS alteram-se por MIGRAÇÃO RASTREADA, não pelo SQL Editor.** É isso que resolve a limitação do `query_database`, que rejeita `drop policy` (erro 499), e ao mesmo tempo deixa rasto no repositório. Substitui a nota anterior, que mandava usar o SQL Editor de Live. Edge functions via `service_role` precisam de GRANTs explícitos em `crm.*`. `send_message` do Lovable dá transport error mas a mensagem chegou — verificar com `get_project`. Scanner pré-Publish: "Ignore issue", nunca "Try to fix all".
+
+**Conciliação bancária: uma linha, N transações (12/09).** A tabela-ponte `bank_line_transactions` é a SSOT das conciliações manuais de N. O lote SEPA **NÃO** resolve o N — foge-lhe, guardando um apontador para `payment_list_sepa_exports.transaction_ids`; o `transactionIds` do motor **nunca é gravado**, é derivado em memória via `sepaSiblings`. Os lançamentos ficam **fora** da ponte (cardinalidade inversa, N linhas → 1 transação, caso TPA). Três sítios têm de conhecer a ponte, e sem eles o "Resto sem explicação" deixa de dar zero: `savedExplainedIds`, o `preUsed` do `rerunReconcile`, e a trava de escrita do `rerunReconcile`.
+
+**Documentos: `bank_line_documents` + réplicas com prefixo `bank://`.** Estrutura sem réplica em `transaction_documents` é **invisível ao contabilista** — nem o `ReportAccountingExport`, nem o ZIP, nem a aba Documentos a leem. O prefixo `bank://` tem de ser reconhecido em **CINCO** resolvedores de bucket: `accountant-tx-docs.ts`, `TransactionDocumentsModal`, `ReportAccountingExport.downloadFile`, `generate-accountant-zip` e `resolve-attachment-url`. Se um ficar de fora, o contabilista vê o anexo listado e não o abre.
+
+**`transaction_documents.partner_visible`** (novo, default `true`): a política `transaction_documents_select_partner` passa a exigi-lo. Réplicas de linhas do banco entram sempre com `false`. `is_accounting` (papel) e `partner_visible` (evento) são eixos independentes.
 
 ## Onde ler mais
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
-- `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado)
+- `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado), D-ERP41 (o anexo do movimento do banco pertence ao movimento e nunca é visível ao sócio)
 - Issues #86, #83, #87, #96, #61, #57
