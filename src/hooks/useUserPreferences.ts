@@ -72,11 +72,41 @@ export function useUserPreferences() {
     },
   });
 
+  const setConsolidateBankMovementsMutation = useMutation({
+    mutationFn: async (value: boolean) => {
+      if (!userId) throw new Error("Sem utilizador autenticado");
+      const { error } = await supabase
+        .from("user_preferences" as any)
+        .upsert(
+          { user_id: userId, consolidate_bank_movements_view: value, updated_at: new Date().toISOString() } as any,
+          { onConflict: "user_id" },
+        );
+      if (error) throw error;
+    },
+    onMutate: async (value) => {
+      await qc.cancelQueries({ queryKey: ["user_preferences", userId] });
+      const previous = qc.getQueryData<UserPreferences>(["user_preferences", userId]);
+      qc.setQueryData<UserPreferences>(["user_preferences", userId], {
+        ...(previous ?? DEFAULTS),
+        consolidate_bank_movements_view: value,
+      });
+      return { previous };
+    },
+    onError: (_err, _value, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["user_preferences", userId], ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["user_preferences", userId] });
+    },
+  });
+
   const prefs = query.data ?? DEFAULTS;
 
   return {
     isLoading: query.isLoading,
     consolidateRefunds: prefs.consolidate_refunds_view,
     setConsolidateRefunds: (v: boolean) => setConsolidateRefundsMutation.mutate(v),
+    consolidateBankMovements: prefs.consolidate_bank_movements_view,
+    setConsolidateBankMovements: (v: boolean) => setConsolidateBankMovementsMutation.mutate(v),
   };
 }
