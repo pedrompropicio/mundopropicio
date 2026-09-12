@@ -41,6 +41,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [eurAmount, setEurAmount] = useState<number>(Number(forecast.amount) || 0);
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
   const [isOverhead, setIsOverhead] = useState<boolean>(!!forecast.is_overhead);
+  // Apuramento (#146 (b)) — só editável se o evento tiver mais de um apuramento.
+  const [eventSettlementId, setEventSettlementId] = useState<string | null>(
+    forecast.event_settlement_id ?? null
+  );
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
