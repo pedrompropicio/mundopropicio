@@ -17,7 +17,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/mock-data";
-import { ACCOUNT_TYPES } from "@/lib/account-types";
+const TYPE_LABELS: Record<string, string> = {
+  bank: "Conta Bancária",
+  ticket_office: "Bilheteira",
+  credit_card: "Cartão de Crédito",
+  debit_card: "Cartão de Débito",
+  prepaid_card: "Cartão Pré-Pago",
+  cash: "Caixa",
+  other: "Outra",
+};
 import type { AccountBalanceEntry } from "@/hooks/useAccountBalanceCards";
 
 interface AccountLike {
