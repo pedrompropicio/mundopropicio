@@ -25,12 +25,6 @@ interface Props {
   onClose: () => void;
 }
 
-const methodLabels: Record<string, string> = {
-  transfer: "Transferência",
-  service_payment: "Pag. Serviços",
-  direct_debit: "Débito Direto",
-  state_payment: "Pag. Estado",
-};
 
 export function TransactionPaymentsListModal({ transaction, canApprove, eventCompleted = false, onClose }: Props) {
   const { user, role } = useAuth();
