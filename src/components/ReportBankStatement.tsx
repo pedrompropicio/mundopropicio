@@ -1,4 +1,9 @@
 import { useState, useMemo } from "react";
+import { Switch } from "@/components/ui/switch";
+import { ChevronDown, ChevronRight, Layers } from "lucide-react";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
+import { useBankMovementGroups } from "@/hooks/useBankMovementGroups";
+import { groupStatementLines, type StatementRenderItem } from "@/lib/statement-grouping";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
