@@ -1268,3 +1268,29 @@ Confirmado contra a API real neste dia.
 **Verificação (Litto Lins, 12/09/2026).** 200 vídeos YouTube + 200 Instagram,
 1.600 linhas, 5 chamadas, TikTok 0 em `notes`, 0 duplicados de permalink contra
 os 25 Reels oficiais, 1.200 métricas.
+
+## D-ERP53 — Ligação vídeo→música é estimada até confirmação (12/09/2026)
+
+A Soundcharts não devolve a música associada a Shorts/Reels. A ligação
+`artist_content.song_id` passa a ter estado explícito em
+`artist_content.song_link_status` (`none` | `estimated` | `confirmed` |
+`rejected`) e motivo em `song_link_reason`.
+
+**Decisão:** a ligação vídeo→música é ESTIMADA por menção textual (título ou
+hashtag do título base na descrição/legenda) até confirmação manual ou até
+existir fonte oficial (TikTok Display API). Nunca se apresenta uma estimativa
+como confirmada.
+
+- Motor: `artist_content_link_songs(p_artist_id, p_dry_run)` — normaliza com
+  `unaccent`+`lower`, corta sufixos `(...)`, `[...]` e ` - ...`, testa também
+  `#tituloseespacos`; liga só com UMA música a bater; entre versões do mesmo
+  título base desempata por `is_launch` e `release_date` mais antiga; empate
+  real devolve "ambíguo" sem escrever.
+- Escrita manual: `artist_content_set_song(p_content_id, p_song_id, p_status)`,
+  só admin/manager/marketing_manager/platform_admin, com registo em
+  `system_audit_log`.
+- `artist-shorts-sync` e `artist-instagram-sync` chamam o motor no fim de cada
+  corrida real e reportam `estimated_song_links`.
+- `v_content_latest` e `v_artist_content_ranking` expõem `song_link_status`;
+  `v_song_content` separa `videos_confirmed`/`videos_estimated` e os totais
+  de views/likes por estado.
