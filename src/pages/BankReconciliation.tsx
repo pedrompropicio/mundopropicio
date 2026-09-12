@@ -90,7 +90,15 @@ export default function BankReconciliation() {
   const [rerunning, setRerunning] = useState(false);
   const [statementId, setStatementId] = useState<string | null>(null);
   const [manualLine, setManualLine] = useState<any | null>(null);
-  const [manualTxId, setManualTxId] = useState<string>("");
+  /**
+   * Conciliação manual: UMA linha do banco pode ser explicada por N transações
+   * (caso real: 135.986,96 € = 108.789,56 + 27.197,40). Com uma só transação
+   * grava-se `matched_transaction_id`; com N usa-se a ponte
+   * `bank_line_transactions` e a coluna singular fica nula.
+   */
+  const [manualTxIds, setManualTxIds] = useState<string[]>([]);
+  const [manualSaving, setManualSaving] = useState(false);
+
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
   const [crossAccountAck, setCrossAccountAck] = useState(false);
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
