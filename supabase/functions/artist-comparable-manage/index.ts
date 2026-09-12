@@ -220,8 +220,7 @@ Deno.serve(async (req) => {
             name: meta.name,
             slug: `${slugify(meta.name)}-${scUuid.slice(0, 8)}`,
             photo_url: meta.image_url,
-            country: meta.country,
-            genres: meta.genres.length ? meta.genres : null,
+            genre: meta.genres[0] ?? null,
             roster_type: "referencia",
             managed: false,
           })
