@@ -61,6 +61,13 @@ Vídeos curtos (Shorts/Reels): `artist-shorts-sync` → `artist_content` com
 antes de mexer: o TikTok não existe neste endpoint, não vem música associada ao vídeo e
 o título vem vazio.
 
+TikTok oficial (Display API + Login Kit): `artist-tiktok-oauth-start` /
+`artist-tiktok-oauth-callback` / `artist-tiktok-sync`, app própria
+`TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET`, cron `carreira-tiktok-sync-diario` às
+09:55 UTC. É a fonte PRIMÁRIA dos vídeos do próprio artista (`artist_content` com
+`source = 'platform_api'`); a Soundcharts fica para YouTube/Reels e comparáveis.
+Ler **D-ERP56** antes de mexer.
+
 Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qualquer listagem
 de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
 - Relatório de lançamento por LLM: `artist-song-report` + `artist_song_reports` / `v_song_report_latest`, cron `carreira-song-report-diario` (10:00 UTC). Ver D-ERP54.

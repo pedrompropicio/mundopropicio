@@ -1339,3 +1339,38 @@ tem de ser igual ao saldo final — uma soma não depende da ordem das parcelas 
 há um teste em `src/lib/__tests__/statement-grouping.test.ts` que o verifica. Se
 divergir, há uma transação em duas unidades ou em nenhuma: corrige-se isso, não
 se compensa.
+
+## D-ERP56 — TikTok oficial é a fonte primária dos vídeos do próprio artista (12/09/2026)
+
+**Contexto.** Os vídeos curtos vinham só da Soundcharts (`artist-shorts-sync`), que
+não expõe TikTok (D-ERP52): sem música associada, sem título e sem o vídeo do
+próprio artista. A app própria "Social Music Carreira" no TikTok for Developers
+(Display API + Login Kit) dá acesso directo à conta do artista, com autorização
+dele.
+
+**Decisão.** O TikTok oficial passa a ser a fonte PRIMÁRIA dos vídeos do próprio
+artista: `artist-tiktok-sync` escreve `artist_content` e
+`artist_content_metrics_daily` com `source = 'platform_api'`, e o perfil
+(followers/following/likes/video_count) em `artist_metrics_daily`. A Soundcharts
+fica para YouTube/Reels e para os comparáveis. Cron
+`carreira-tiktok-sync-diario` às 09:55 UTC, no máximo 200 vídeos por corrida
+(páginas de 20 até `has_more = false`).
+
+**Como.** Mesmo padrão do Instagram directo: `artist-tiktok-oauth-start` (JWT,
+cria o state com `provider = 'tiktok'`), `artist-tiktok-oauth-callback` (sem JWT,
+autorizado pelo state de uso único, confirma que `username` = handle do canal e
+devolve `connection=error&reason=conta_diferente` se não bater), tokens cifrados
+via `artist_upsert_channel_connection`. Credenciais próprias
+`TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` — nunca credenciais de anúncios,
+nunca `ad_platform_connections`.
+
+**Tokens.** O access token dura 24 h e o refresh token 365 dias, ambos cifrados
+(`refresh_token_encrypted`, `refresh_expires_at`). `artist-token-refresh` renova
+quando falta menos de 6 h; a própria `artist-tiktok-sync` renova antes de ler. Se
+a renovação falhar, a ligação fica `expired` e o canal `auth_status = 'expired'`
+— é preciso religar. `artist-connection-disconnect` chama `/v2/oauth/revoke/`
+antes de apagar; a falha da revogação não impede o desligar.
+
+Nota de numeração: o pedido pedia D-ERP55, número já ocupado pela decisão do saldo
+do extrato; esta decisão ficou em D-ERP56.
+
