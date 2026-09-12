@@ -1,6 +1,6 @@
 # ESTADO — Fecho & Sócios
 
-Atualizado: 2026-09-09 · Issues: #82, #65, #85, #68, #133, #146, #147, #148, #150 · P0 aberto: nenhum
+Atualizado: 2026-09-12 · Issues: #82, #65, #85, #68, #133, #146, #147, #148, #150 · P0 aberto: nenhum
 
 ## Em que pé está
 
@@ -15,7 +15,7 @@ O **Extra do Sócio foi arrumado de ponta a ponta a 09/09**:
 
 ## A trabalhar agora
 
-Nada em execução.
+Épica #146 — Apuramentos múltiplos (D25). Sub-tarefa (a) em produção a 12/09 (Publish do Pedro): tabelas `event_settlements` e `event_settlement_participants`, 7 raízes migradas, casa explícita, espelho temporário de `event_partners`, painel só-leitura na aba Sócios. Os ecrãs continuam a ler `event_partners` até à sub-tarefa (e). Próxima: (b) perímetro por linha.
 
 O Fecho do Evento ganhou a 10/09 o painel **"Verba por usar"** — lista de revisão, por rubrica, da verba de BP não consumida (espelho do excesso por rubrica), logo a seguir à Síntese Operacional. Só leitura, mais um reconhecimento append-only em `event_bp_review_acks` (`unused_net` gravado sempre s/IVA, botão só com `manage_bp`, badge "Revisão desactualizada" quando os números mudam). Ver `.lovable/memory/features/bp-verba-por-usar.md`. Nada mudou no resultado, no acerto com sócios nem nos blockers de fecho.
 
@@ -65,7 +65,9 @@ A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146
 
 **Regra da base de apuramento:** sede fiscal **PT** → s/IVA; sede **BR** → c/IVA. Receitas sempre s/IVA. O critério é a sede, não a origem. Falta `suppliers.tax_country` — migração preparada, nunca corrida.
 
-**A Mundo Propício não é um `event_partner`.** É injetada no Encontro de Contas como "casa", com percentagem = 100 − Σ dos sócios. Não existe na tabela. Consequência no Portal: `partner_event_access` não tem `supplier_id`, pelo que o sistema não sabe que sócio um utilizador representa — a heurística em uso é a maior quota que não seja a da casa.
+**A Mundo Propício não é um `event_partner`** — continua verdade em `event_partners`; em `event_settlement_participants` já é participante `house` (D25 (a)). É injetada no Encontro de Contas como "casa", com percentagem = 100 − Σ dos sócios. Não existe na tabela. Consequência no Portal: `partner_event_access` não tem `supplier_id`, pelo que o sistema não sabe que sócio um utilizador representa — a heurística em uso é a maior quota que não seja a da casa.
+
+**A MP está escrita como participante `house` na raiz de cada evento com sócios** (Anitta 15/85, Ivete 40/40, FestVybbe 40/40, H&K Madrid 30/30, Mágicos 30/10, Plenitude 25/25, Coala 0 — porque lá a MP é sócio explícito como supplier). Enquanto o espelho existir, `event_partners` é a fonte e a raiz é derivada — nunca editar a raiz à mão.
 
 **Base de apresentação uniforme é decisão de negócio, não erro** (D-ERP10). A casa segue a base contratual do evento no documento apresentado aos sócios; a sua posição real é s/IVA. A diferença é IVA dedutível que fica na empresa. Acertos de IVA entre a MP e sócios portugueses tratam-se **fora do sistema** e arquivam-se no separador Documentos do evento, tipo "Acerto com sócio".
 
