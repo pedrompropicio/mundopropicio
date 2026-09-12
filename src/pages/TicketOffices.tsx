@@ -13,7 +13,7 @@ import { FeverImportModal } from "@/components/FeverImportModal";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { computeTicketOfficeBalance, isCountedTicketOfficeTxn } from "@/lib/ticket-office-balance";
+import { computeTicketOfficeBalance, isCountedTicketOfficeTxn, INTERNAL_TRANSFER_CATEGORY_ID } from "@/lib/ticket-office-balance";
 
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
 import { TicketOfficeAdvancesPanel } from "@/components/TicketOfficeAdvancesPanel";
@@ -84,7 +84,7 @@ export default function TicketOffices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, event_id, reversed_at, is_hidden")
+        .select("account_id, type, amount, paid_amount, status, event_id, reversed_at, is_hidden, category_id")
         .in("account_id", officeIds);
       if (error) throw error;
       return data;
@@ -127,10 +127,12 @@ export default function TicketOffices() {
     });
     const salesWithEvent = officeSales as any[];
 
+    // Transferido = despesas na rubrica 10.3 (perna de saída do par). Não existe
+    // transação de tipo 'transfer'. Indicador de leitura, fora da fórmula do saldo.
     const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
       if (!t.account_id || !isCountedTicketOfficeTxn(t, t.account_id)) return;
-      if (t.type === "transfer" || (t.type === "expense" && !t.event_id)) {
+      if (t.type === "expense" && t.category_id === INTERNAL_TRANSFER_CATEGORY_ID) {
         transfersByAccount[t.account_id] = (transfersByAccount[t.account_id] || 0) + Number(t.paid_amount || 0);
       }
     });

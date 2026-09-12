@@ -13,6 +13,7 @@ import {
   computeTicketOfficeBalance,
   isCountedTicketOfficeTxn,
   isOpenTicketOfficeAdvance,
+  INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 
@@ -67,7 +68,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status, event_id, description, reversed_at, is_hidden")
+        .select("account_id, type, amount, paid_amount, status, event_id, description, reversed_at, is_hidden, category_id")
         .eq("account_id", officeId);
       if (error) throw error;
       return data;
@@ -161,8 +162,15 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       }
     });
 
+    // Transferências são despesas na rubrica 10.3 (par expense + income) — não
+    // existe transação de tipo 'transfer'. Indicador de leitura, fora da fórmula do saldo.
     const totalTransfersOut = accountTxns
-      .filter((t: any) => isCountedTicketOfficeTxn(t, officeId) && (t.type === "transfer" || (t.type === "expense" && !t.event_id)))
+      .filter(
+        (t: any) =>
+          isCountedTicketOfficeTxn(t, officeId) &&
+          t.type === "expense" &&
+          t.category_id === INTERNAL_TRANSFER_CATEGORY_ID,
+      )
       .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
     const totalSales = Object.values(eventMap).reduce((s, e) => s + e.sales, 0);

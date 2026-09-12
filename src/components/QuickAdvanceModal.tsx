@@ -62,23 +62,35 @@ export function QuickAdvanceModal({ open, onClose, officeId, officeName, eventId
       let transactionId: string | null = null;
 
       if (createTransaction) {
-        const { data: txn, error: txErr } = await (supabase as any)
+        // Uma transferência entre contas é um PAR expense + income na rubrica
+        // 10.3 Transferências Internas — não existe transação de tipo 'transfer'.
+        const opKey =
+          "ADIANT-BILH-" +
+          crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+        const base = {
+          description: `Adiantamento bilheteira ${officeName}`,
+          amount: value,
+          paid_amount: value,
+          status: "paid",
+          payment_date: advanceDate,
+          date: advanceDate,
+          iva_rate: 0,
+          category_id: "b32df086-c995-4747-a3f9-bfefa0063d0a",
+          payment_method: "transfer",
+          exclude_from_result: true,
+          currency: "EUR",
+          event_id: eventId,
+          operation_key: opKey,
+        };
+        const { data: legs, error: txErr } = await (supabase as any)
           .from("transactions")
-          .insert({
-            type: "transfer",
-            description: `Adiantamento bilheteira ${officeName}`,
-            amount: value,
-            paid_amount: value,
-            status: "paid",
-            payment_date: advanceDate,
-            account_id: officeId,
-            target_account_id: targetAccountId,
-            event_id: eventId,
-          })
-          .select("id")
-          .single();
+          .insert([
+            { ...base, type: "expense", account_id: officeId },
+            { ...base, type: "income", account_id: targetAccountId },
+          ])
+          .select("id, type");
         if (txErr) throw txErr;
-        transactionId = txn.id;
+        transactionId = (legs || []).find((l: any) => l.type === "expense")?.id ?? null;
       }
 
       const payload: any = {

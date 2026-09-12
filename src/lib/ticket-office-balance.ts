@@ -21,6 +21,13 @@
  */
 import { ticketSaleRevenue, type TicketSaleLike } from "@/lib/ticket-sales-revenue";
 
+/**
+ * Rubrica 10.3 Transferências Internas. Uma transferência entre contas é um par
+ * expense + income nesta rubrica; não existe transação de tipo 'transfer'.
+ * Usada só como indicador de leitura — nunca entra na fórmula do saldo.
+ */
+export const INTERNAL_TRANSFER_CATEGORY_ID = "b32df086-c995-4747-a3f9-bfefa0063d0a";
+
 export interface TicketOfficeBalanceSale extends TicketSaleLike {
   event_id?: string | null;
   financial_account_id?: string | null;

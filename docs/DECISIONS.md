@@ -1174,3 +1174,35 @@ mesma tabela, com o mesmo isolamento por empresa, para as curvas serem comparáv
 **Consequência.** Um artista de referência aparece em `artists`. Qualquer listagem de elenco
 tem de filtrar `roster_type = 'elenco'`, sob pena de mostrar referências como se fossem
 artistas geridos.
+
+## D-ERP48 — Transferência do fecho de bilheteira é um par 10.3 criado na base de dados (13/09/2026)
+
+**Decisão.** Uma transferência entre contas é sempre um par `expense` + `income` na
+rubrica `10.3 Transferências Internas`. Não existe nem pode existir transação de
+tipo `transfer` (`transactions_type_check` só aceita `income` e `expense`).
+A transferência do fecho de bilheteira é criada por
+`public.create_settlement_transfer(p_settlement_id, p_from_account_id, p_to_account_id, p_amount, p_date, p_credited)`
+— SECURITY DEFINER, `search_path = public`, portão `admin` / `platform_admin` /
+permissão `manage_accounts`, empresa do fecho validada contra `current_company_id()`,
+EXECUTE revogado a PUBLIC e a `anon`. Recusa valor ≤ 0, contas iguais e fecho que já
+tenha `transfer_transaction_id`. As duas pernas levam
+`operation_key = 'TRF-FECHO-' || upper(left(replace(settlement_id,'-',''),8))`,
+`iva_rate = 0`, `payment_method = 'transfer'`, `exclude_from_result = true`.
+Só a função preenche `transfer_transaction_id`, `net_transferred` e
+`transfer_account_id`; quando o utilizador escolhe "Não transferir agora" o fecho
+grava `net_transferred = 0` e `transfer_account_id = NULL`.
+
+**Porquê.** O wizard inseria `type: 'transfer'` com `target_account_id` e
+`expected_date` (colunas inexistentes) e engolia o erro — o fecho declarava durante
+meses uma transferência que não existia em lado nenhum (issue #132). O erro nunca
+volta a ser engolido: se a função falhar, o fecho volta a `draft` e o utilizador vê a
+mensagem.
+
+**Consequências.** O estorno apaga as duas pernas pela `operation_key`. A lista de
+fechos marca `confirmed` com `net_transferred = 0` como "líquido ainda retido na
+bilheteira". Nos ecrãs de bilheteira o indicador "Transferido" e a coluna
+"Transferências" do relatório de auditoria passam a somar despesas na rubrica `10.3`,
+separadas das restantes despesas — a reconciliação
+(vendas + income) − despesas − transferências − adiantamentos = saldo mantém-se
+(BOL 140.765,00 €; Ticketline 275.792,63 €). A fórmula do saldo (D-ERP15,
+`src/lib/ticket-office-balance.ts`, `_ticket_office_balance_raw`) não mudou.

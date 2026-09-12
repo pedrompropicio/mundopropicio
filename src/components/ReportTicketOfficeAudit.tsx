@@ -44,6 +44,7 @@ import {
   computeTicketOfficeBalance,
   isCountedTicketOfficeTxn,
   isOpenTicketOfficeAdvance,
+  INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 
@@ -179,7 +180,7 @@ export default function ReportTicketOfficeAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, suppliers(name), events(name)")
+        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, category_id, suppliers(name), events(name)")
         .in("account_id", accountIds)
         .in("status", ["approved", "paid"])
         .order("date");
@@ -259,13 +260,14 @@ export default function ReportTicketOfficeAudit() {
           .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "income" && t.event_id === a.event_id)
           .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
-        // Cada transação entra numa coluna só: expense → despesas, transfer → transferências
+        // Cada transação entra numa coluna só: despesa corrente → Despesas;
+        // despesa na rubrica 10.3 (perna de saída da transferência) → Transferências.
         const eventExpenses = accountTxns
-          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "expense" && t.event_id === a.event_id)
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "expense" && t.category_id !== INTERNAL_TRANSFER_CATEGORY_ID && t.event_id === a.event_id)
           .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
         const eventTransfers = accountTxns
-          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "transfer" && t.event_id === a.event_id)
+          .filter((t: any) => isCountedTicketOfficeTxn(t, office.id) && t.type === "expense" && t.category_id === INTERNAL_TRANSFER_CATEGORY_ID && t.event_id === a.event_id)
           .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
         const eventAdvances = officeAdvances
@@ -298,11 +300,14 @@ export default function ReportTicketOfficeAudit() {
         .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       const totalDirectExpenses = countedTxns
-        .filter((t: any) => t.type === "expense")
+        .filter((t: any) => t.type === "expense" && t.category_id !== INTERNAL_TRANSFER_CATEGORY_ID)
         .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
+      // Transferências = pernas de saída na rubrica 10.3. Separadas das despesas
+      // para não contar a dobrar: (vendas + income) − despesas − transferências
+      // − adiantamentos = saldo.
       const transfers = countedTxns
-        .filter((t: any) => t.type === "transfer")
+        .filter((t: any) => t.type === "expense" && t.category_id === INTERNAL_TRANSFER_CATEGORY_ID)
         .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       const totalAdvances = officeAdvances
@@ -310,7 +315,7 @@ export default function ReportTicketOfficeAudit() {
         .reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0);
 
       const noEventOut = countedTxns
-        .filter((t: any) => !t.event_id && (t.type === "transfer" || t.type === "expense"))
+        .filter((t: any) => !t.event_id && t.type === "expense")
         .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
       return {
@@ -368,18 +373,10 @@ export default function ReportTicketOfficeAudit() {
           const supplierName = t.suppliers?.name ? ` — ${t.suppliers.name}` : "";
 
           if (t.type === "expense") {
+            const isTransfer = t.category_id === INTERNAL_TRANSFER_CATEGORY_ID;
             lines.push({
               date: t.date,
-              type: t.event_id ? "expense" : "transfer",
-              description: `${t.description}${supplierName}`,
-              eventName: t.event_id ? evName : "—",
-              eventId: t.event_id || undefined,
-              amount: -amt,
-            });
-          } else if (t.type === "transfer") {
-            lines.push({
-              date: t.date,
-              type: "transfer",
+              type: isTransfer ? "transfer" : "expense",
               description: `${t.description}${supplierName}`,
               eventName: t.event_id ? evName : "—",
               eventId: t.event_id || undefined,

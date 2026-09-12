@@ -46,7 +46,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
       if (transferIds.length === 0) return list;
       const { data: transfers } = await (supabase as any)
         .from("transactions")
-        .select("id, status, payment_date, expected_date, amount, target_account_id")
+        .select("id, status, payment_date, amount, account_id, operation_key")
         .in("id", transferIds);
       const tMap = new Map((transfers || []).map((t: any) => [t.id, t]));
       return list.map((s: any) => ({ ...s, transfer: s.transfer_transaction_id ? tMap.get(s.transfer_transaction_id) : null }));
@@ -57,17 +57,19 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
     mutationFn: async ({ transferId, date }: { transferId: string; date: string }) => {
       const { data: tt } = await (supabase as any)
         .from("transactions")
-        .select("amount")
+        .select("amount, operation_key")
         .eq("id", transferId)
         .single();
-      const { error } = await (supabase as any)
-        .from("transactions")
-        .update({
-          status: "paid",
-          payment_date: date,
-          paid_amount: Number(tt?.amount || 0),
-        })
-        .eq("id", transferId);
+      const patch = {
+        status: "paid",
+        payment_date: date,
+        paid_amount: Number(tt?.amount || 0),
+      };
+      // As duas pernas do par liquidam em conjunto.
+      const q = (supabase as any).from("transactions").update(patch);
+      const { error } = tt?.operation_key
+        ? await q.eq("operation_key", tt.operation_key)
+        : await q.eq("id", transferId);
       if (error) throw error;
       await logAudit({
         entity_type: "transaction",
@@ -94,10 +96,20 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         .from("transactions")
         .select("id, type")
         .eq("settlement_id", id);
-      // Restore expense txns to pending; delete the auto-created transfer
+      // A transferência é um PAR (expense + income) com a mesma chave de operação:
+      // estornar apaga as duas pernas, nunca só a apontada pelo fecho.
       const settlement = settlements.find((s: any) => s.id === id);
       if (settlement?.transfer_transaction_id) {
-        await (supabase as any).from("transactions").delete().eq("id", settlement.transfer_transaction_id);
+        const { data: leg } = await (supabase as any)
+          .from("transactions")
+          .select("id, operation_key")
+          .eq("id", settlement.transfer_transaction_id)
+          .maybeSingle();
+        if (leg?.operation_key) {
+          await (supabase as any).from("transactions").delete().eq("operation_key", leg.operation_key);
+        } else if (leg?.id) {
+          await (supabase as any).from("transactions").delete().eq("id", leg.id);
+        }
       }
       const expenseIds = (linked || [])
         .filter((t: any) => t.type === "expense")
@@ -120,6 +132,9 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
           reversed_at: new Date().toISOString(),
           reversed_by: user?.id,
           reversal_reason: reason,
+          transfer_transaction_id: null,
+          net_transferred: 0,
+          transfer_account_id: null,
         })
         .eq("id", id);
       if (error) throw error;
@@ -215,6 +230,11 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                           </span>
                         )
                       )}
+                      {s.status === "confirmed" && Number(s.net_transferred || 0) === 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500" title="Fecho confirmado sem transferência lançada — o líquido continua retido na bilheteira.">
+                          <AlertCircle className="h-3 w-3" /> Líquido ainda retido na bilheteira
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {s.events?.date ?? ""} • Fecho em {s.settlement_date ? new Date(s.settlement_date).toLocaleDateString("pt-PT") : new Date(s.created_at).toLocaleDateString("pt-PT")}
@@ -255,7 +275,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                   <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
                     <span className="text-amber-500">
                       Aguarda confirmação de crédito de <strong className="font-mono">{formatCurrency(Number(s.transfer.amount))}</strong>
-                      {s.transfer.expected_date && ` · previsto ${new Date(s.transfer.expected_date).toLocaleDateString("pt-PT")}`}
+                      
                     </span>
                     <Button
                       size="sm"
@@ -263,7 +283,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                       className="h-7 text-xs"
                       onClick={() => {
                         setConfirmingCredit(s);
-                        setCreditDate(s.transfer.expected_date || new Date().toISOString().slice(0, 10));
+                        setCreditDate(new Date().toISOString().slice(0, 10));
                       }}
                     >
                       <Banknote className="h-3 w-3 mr-1" /> Confirmar crédito
