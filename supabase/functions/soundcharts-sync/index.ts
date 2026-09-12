@@ -513,7 +513,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
+    const body = {
       dry_run: dryRun,
       window: { start_date: startDate, end_date: endDate, blocks: windows.length },
       platforms,
@@ -526,9 +526,26 @@ Deno.serve(async (req) => {
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
       errors,
+    };
+
+    // em dry_run conta-se o que ficaria gravado, para distinguir 'no_data' real
+    const effectiveRows = dryRun ? unique.length : written;
+    await finishSyncRun(admin, runId, startedMs, {
+      status: resolveStatus(effectiveRows, errors.length),
+      api_calls: calls,
+      rows_written: dryRun ? 0 : written,
+      details: body,
     });
+
+    return json(body);
   } catch (e) {
-    console.error("[soundcharts-sync]", e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[soundcharts-sync]", msg);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      error_text: msg,
+      details: { dry_run: runDryRun },
+    });
     return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);
   }
 });
