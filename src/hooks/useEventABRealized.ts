@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
  * entrada de dados. Não escreve nada; é uma vista de leitura.
  *
  * Identificação das transações A&B (união de critérios):
- *  (a) `payment_reference` com padrão de acerto de bares (ACERTO...BAR%),
+ *  (a) `operation_key` com padrão de acerto de bares (ACERTO...BAR%) — chave de
+ *      operação, independente do método de pagamento (D-ERP45),
  *      ex.: "ACERTO-BARES-ANITTA-2026";
  *  (b) receitas na categoria F&B (1.1.03) + despesas nas rubricas DERIVADAS
  *      das transações encontradas por (a) — no próprio evento e, em fallback,
@@ -60,7 +61,7 @@ const EMPTY: ABRealizedResult = {
 };
 
 const SELECT =
-  "id, type, description, amount, status, payment_reference, category_id, account_categories!transactions_category_id_fkey(code, name)";
+  "id, type, description, amount, status, operation_key, category_id, account_categories!transactions_category_id_fkey(code, name)";
 
 const toLine = (t: any): ABRealizedLine => ({
   id: t.id,
@@ -68,7 +69,7 @@ const toLine = (t: any): ABRealizedLine => ({
   amount: Number(t.amount || 0),
   categoryCode: t.account_categories?.code ?? null,
   categoryName: t.account_categories?.name ?? null,
-  paymentReference: t.payment_reference ?? null,
+  paymentReference: t.operation_key ?? null,
 });
 
 export function useEventABRealized(eventId: string | undefined) {
