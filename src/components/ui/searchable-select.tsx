@@ -292,22 +292,28 @@ export function SearchableSelect({
             <p className="px-2 py-4 text-center text-sm text-muted-foreground">{emptyMessage}</p>
           )}
           {canCreate && (
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={creating}
-              className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-2 text-sm text-primary hover:bg-accent disabled:opacity-60"
-            >
-              <Plus className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                {creating
-                  ? "A criar…"
-                  : createLabel
-                    ? createLabel(search.trim())
-                    : `Criar "${search.trim()}"…`}
-              </span>
-            </button>
+            <div className="mt-1 border-t border-border">
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={creating || !!createReason}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              >
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {creating
+                    ? "A criar…"
+                    : createLabel
+                      ? createLabel(search.trim())
+                      : `Criar "${search.trim()}"…`}
+                </span>
+              </button>
+              {createReason && (
+                <p className="px-2 pb-2 text-[11px] text-destructive">{createReason}</p>
+              )}
+            </div>
           )}
+
         </div>
       </PopoverContent>
     </Popover>
