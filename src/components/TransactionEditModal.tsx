@@ -525,7 +525,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        event_settlement_id: form.event_settlement_id || null,
         ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
+
 
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
