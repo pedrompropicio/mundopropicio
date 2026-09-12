@@ -1165,7 +1165,7 @@ export default function BankReconciliation() {
                       )}
 
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="sticky right-0 z-10 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
                       <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
                         <Paperclip className="mr-1 h-3.5 w-3.5" />
                         {docCountByLine.get(l.id) ?? 0}
@@ -1175,12 +1175,12 @@ export default function BankReconciliation() {
                 ))}
                 {ignoredLines.map((l) => (
                   <TableRow key={l.id} className="opacity-60">
-                    <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">{l.description}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell><Badge variant="secondary">Ignorada</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.note}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="whitespace-nowrap text-right">{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="w-[92px]"><Badge variant="secondary" className="px-1.5 text-[10px]">Ignorada</Badge></TableCell>
+                    <TableCell className="max-w-[360px] break-words text-xs text-muted-foreground">{l.note}</TableCell>
+                    <TableCell className="sticky right-0 z-10 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
                       <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
                         <Paperclip className="mr-1 h-3.5 w-3.5" />
                         {docCountByLine.get(l.id) ?? 0}
