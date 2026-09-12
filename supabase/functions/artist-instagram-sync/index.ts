@@ -31,6 +31,7 @@ import {
   toCount,
 } from "../_shared/artist-meta.ts";
 
+const FUNCTION_NAME = "artist-instagram-sync";
 const PLATFORM = "instagram";
 const SOURCE = "platform_api";
 const MEDIA_LIMIT = 25;
