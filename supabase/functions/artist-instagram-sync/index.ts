@@ -500,6 +500,8 @@ Deno.serve(async (req) => {
     connections: connections.length,
     graph_calls: graphCalls,
     rows_written: dryRun ? 0 : rowsWritten,
+    estimated_song_links: estimatedSongLinks,
+    song_link_notes: songLinkNotes,
     errors,
     artists: summary,
   };
