@@ -1325,6 +1325,85 @@ export type Database = {
           },
         ]
       }
+      artist_song_reports: {
+        Row: {
+          artist_id: string
+          company_id: string
+          created_at: string
+          error_text: string | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          input_snapshot: Json | null
+          model: string | null
+          period_end: string | null
+          period_start: string | null
+          report: Json | null
+          song_id: string
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+        }
+        Insert: {
+          artist_id: string
+          company_id?: string
+          created_at?: string
+          error_text?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          input_snapshot?: Json | null
+          model?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          report?: Json | null
+          song_id: string
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          created_at?: string
+          error_text?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          input_snapshot?: Json | null
+          model?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          report?: Json | null
+          song_id?: string
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_reports_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_reports_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_reports_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       artist_songs: {
         Row: {
           artist_id: string
@@ -14397,6 +14476,85 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_song_report_latest: {
+        Row: {
+          artist_id: string | null
+          company_id: string | null
+          created_at: string | null
+          error_text: string | null
+          generated_at: string | null
+          generated_by: string | null
+          id: string | null
+          input_snapshot: Json | null
+          model: string | null
+          period_end: string | null
+          period_start: string | null
+          report: Json | null
+          song_id: string | null
+          status: string | null
+          tokens_in: number | null
+          tokens_out: number | null
+        }
+        Insert: {
+          artist_id?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          error_text?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string | null
+          input_snapshot?: Json | null
+          model?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          report?: Json | null
+          song_id?: string | null
+          status?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Update: {
+          artist_id?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          error_text?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string | null
+          input_snapshot?: Json | null
+          model?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          report?: Json | null
+          song_id?: string | null
+          status?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_reports_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_reports_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_reports_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
           },
         ]
       }

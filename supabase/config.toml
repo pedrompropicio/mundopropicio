@@ -129,3 +129,7 @@ verify_jwt = true
 # Fase B — vídeos curtos (TikTok/YouTube/Instagram) via Soundcharts.
 [functions.artist-shorts-sync]
 verify_jwt = true
+
+# Fase C — relatorio de lancamento gerado por LLM.
+[functions.artist-song-report]
+verify_jwt = true

@@ -1294,3 +1294,25 @@ como confirmada.
 - `v_content_latest` e `v_artist_content_ranking` expõem `song_link_status`;
   `v_song_content` separa `videos_confirmed`/`videos_estimated` e os totais
   de views/likes por estado.
+
+## D-ERP54 — Relatório de lançamento é gerado por LLM só a partir do snapshot da base (12/09/2026)
+
+O relatório de lançamento de uma música (`artist-song-report`) é gerado por LLM
+(`google/gemini-2.5-flash`, temperature 0.2, saída forçada por tool) a partir de
+um snapshot montado inteiramente pela base: streams por plataforma,
+playlists, vídeos ligados à música, audiência e demografia do artista e
+comparáveis. Números fora do snapshot são PROIBIDOS: o prompt obriga a citar em
+cada recomendação o número que a justifica e a responder "sem dados" quando o
+dado não existe. O snapshot enviado fica gravado em `input_snapshot`, para o
+relatório ser auditável linha a linha.
+
+O relatório é HISTÓRICO: cada geração é uma linha nova em
+`public.artist_song_reports` (nunca se reescreve uma anterior); erros também
+ficam gravados, com `status = 'error'`. A vista `v_song_report_latest` dá o
+último relatório `ok` por música. Máximo de 1 geração automática por música por
+dia (o pedido manual não é travado). Cron `carreira-song-report-diario`, 10:00
+UTC, percorre `artist_songs` com `is_launch = true` e
+`tracking_status = 'ativo'`.
+
+Nota de numeração: o pedido pedia D-ERP53, número já ocupado pela decisão da
+ligação vídeo→música; esta decisão ficou em D-ERP54.
