@@ -505,9 +505,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         payment_method: form.payment_method,
         payment_entity: form.payment_method === "service_payment" ? (form.payment_entity.trim() || null) : null,
         payment_reference: form.payment_method !== "transfer" ? (form.payment_reference.trim() || null) : null,
-        // Chave de operação: independente do método — nunca é limpa (D-ERP45).
-        operation_key: form.operation_key.trim() || null,
       };
+
+      // Chave de operação: independente do método de pagamento e do estado —
+      // grava-se sempre, fora de `paymentFields`, para nunca ser limpa (D-ERP45).
+      const operationKeyField = { operation_key: form.operation_key.trim() || null };
 
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
