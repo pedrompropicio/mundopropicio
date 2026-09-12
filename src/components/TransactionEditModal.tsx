@@ -488,7 +488,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         event_settlement_id: "Apuramento",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
