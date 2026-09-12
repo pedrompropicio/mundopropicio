@@ -27,7 +27,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2, X } from "lucide-react";
+import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2, X, Paperclip } from "lucide-react";
+import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
 
@@ -102,6 +103,8 @@ export default function BankReconciliation() {
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
   const [crossAccountAck, setCrossAccountAck] = useState(false);
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
+  /** Linha cujo diálogo de documentos está aberto (independente da conciliação). */
+  const [docsLine, setDocsLine] = useState<any | null>(null);
   const [ignoreNote, setIgnoreNote] = useState("");
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
