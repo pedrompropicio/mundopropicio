@@ -1219,6 +1219,47 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_line_documents: {
+        Row: {
+          company_id: string
+          doc_type: string
+          file_url: string
+          id: string
+          line_id: string
+          name: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          company_id?: string
+          doc_type: string
+          file_url: string
+          id?: string
+          line_id: string
+          name: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          company_id?: string
+          doc_type?: string
+          file_url?: string
+          id?: string
+          line_id?: string
+          name?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_line_documents_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_line_rules: {
         Row: {
           action: string

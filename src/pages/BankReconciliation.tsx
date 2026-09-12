@@ -27,7 +27,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2, X } from "lucide-react";
+import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2, X, Paperclip } from "lucide-react";
+import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
 
@@ -102,6 +103,8 @@ export default function BankReconciliation() {
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
   const [crossAccountAck, setCrossAccountAck] = useState(false);
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
+  /** Linha cujo diálogo de documentos está aberto (independente da conciliação). */
+  const [docsLine, setDocsLine] = useState<any | null>(null);
   const [ignoreNote, setIgnoreNote] = useState("");
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -289,6 +292,27 @@ export default function BankReconciliation() {
         out.push(...(data ?? []));
       }
       return out;
+    },
+  });
+
+  /**
+   * Contagem de documentos por linha do extrato. O anexo é independente da
+   * conciliação — vale em matched, unmatched e ignored.
+   */
+  const { data: docCountByLine = new Map<string, number>() } = useQuery({
+    queryKey: ["bank_line_documents_counts", currentStatement?.id, savedLineIds.length],
+    enabled: savedLineIds.length > 0,
+    queryFn: async () => {
+      const m = new Map<string, number>();
+      for (let i = 0; i < savedLineIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from("bank_line_documents")
+          .select("id, line_id")
+          .in("line_id", savedLineIds.slice(i, i + 200));
+        if (error) throw error;
+        (data ?? []).forEach((d: any) => m.set(d.line_id, (m.get(d.line_id) ?? 0) + 1));
+      }
+      return m;
     },
   });
 
@@ -1079,7 +1103,7 @@ export default function BankReconciliation() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
-                  <TableHead className="text-right">Valor</TableHead><TableHead>Camada</TableHead><TableHead>Ligada a</TableHead>
+                  <TableHead className="text-right">Valor</TableHead><TableHead>Camada</TableHead><TableHead>Ligada a</TableHead><TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1141,6 +1165,12 @@ export default function BankReconciliation() {
                       )}
 
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
+                        <Paperclip className="mr-1 h-3.5 w-3.5" />
+                        {docCountByLine.get(l.id) ?? 0}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {ignoredLines.map((l) => (
@@ -1150,6 +1180,12 @@ export default function BankReconciliation() {
                     <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell><Badge variant="secondary">Ignorada</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{l.note}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
+                        <Paperclip className="mr-1 h-3.5 w-3.5" />
+                        {docCountByLine.get(l.id) ?? 0}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1373,7 +1409,7 @@ export default function BankReconciliation() {
 
       {/* Conciliação manual */}
       <Dialog open={!!manualLine} onOpenChange={(o) => !o && setManualLine(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Conciliar manualmente</DialogTitle></DialogHeader>
           {manualLine && (
             <div className="space-y-3 text-sm">
@@ -1412,27 +1448,35 @@ export default function BankReconciliation() {
                   ]}
                 />
                 {manualTxIds.length > 0 && (
-                  <div className="space-y-1 rounded-lg border px-3 py-2 text-xs">
-                    {manualTxIds.map((id) => {
-                      const t = manualCandidates.get(id);
-                      return (
-                        <div key={id} className="flex items-center justify-between gap-2">
-                          <span className="truncate">
-                            {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))} · {t?.description ?? "(transação)"}
-                            {crossAccountIds.has(id) && <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>}
-                          </span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                    <div className={`pt-1 font-medium ${Math.abs(manualDiff) > 0.01 ? "text-destructive" : "text-success"}`}>
+                  <div className="rounded-lg border px-3 py-2 text-xs">
+                    {/* Acima de 5 itens a lista rola; o total fica sempre fora da área de scroll. */}
+                    <div className={`space-y-1 ${manualTxIds.length > 5 ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
+                      {manualTxIds.map((id) => {
+                        const t = manualCandidates.get(id);
+                        return (
+                          <div key={id} className="flex items-start gap-2">
+                            <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug line-clamp-2">
+                              {t?.description ?? "(transação)"}
+                              {crossAccountIds.has(id) && (
+                                <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>
+                              )}
+                            </span>
+                            <span className="shrink-0 text-right font-medium tabular-nums">
+                              {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className={`mt-1 border-t pt-1 font-medium ${Math.abs(manualDiff) > 0.01 ? "text-destructive" : "text-success"}`}>
                       Total {formatCurrency(manualSelectedTotal)} · linha {formatCurrency(manualTarget)} · diferença{" "}
                       {formatCurrency(manualDiff)}
                     </div>
@@ -1496,6 +1540,9 @@ export default function BankReconciliation() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Documentos de uma linha do banco — independente do estado de conciliação. */}
+      <BankLineDocumentsDialog line={docsLine} onClose={() => setDocsLine(null)} />
     </div>
   );
 }

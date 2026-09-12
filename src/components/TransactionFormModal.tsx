@@ -1293,7 +1293,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 : null,
             supplier_id: data.supplier_id || null,
             account_id: null,
-            specification: data.type === "expense" ? (data.specification || null) : null,
+            specification: data.specification || null,
             pl_override_note: isPartnerExtra ? null : (needsOverride ? (data.pl_override_note.trim() || null) : null),
             date: data.date,
             due_date: parseDueDateForDb(data.due_date),
@@ -1333,7 +1333,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
           supplier_id: data.supplier_id || null,
           account_id: parentAccountId,
-          specification: data.type === "expense" ? (data.specification || null) : null,
+          specification: data.specification || null,
           pl_override_note: isPartnerExtra ? null : (data.pl_override_note.trim() || null),
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
@@ -1476,7 +1476,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           forecast_id: principalIsTransitory ? null : (selectedForecastId || null),
           supplier_id: data.supplier_id || null,
           account_id: accountId,
-          specification: data.type === "expense" ? (data.specification || null) : null,
+          specification: data.specification || null,
           pl_override_note: principalIsTransitory ? null : (data.pl_override_note.trim() || null),
           date: data.date,
           due_date: firstParcelDueDate,
@@ -1628,7 +1628,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               forecast_id: principalIsTransitory ? null : (selectedForecastId || null),
               supplier_id: data.supplier_id || null,
               account_id: accountId,
-              specification: data.type === "expense" ? (data.specification || null) : null,
+              specification: data.specification || null,
               pl_override_note: principalIsTransitory ? null : (data.pl_override_note.trim() || null),
               date: data.date,
               due_date: inst.scheduled_date,
@@ -3080,13 +3080,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Venda de bilhetes" />
           </div>
 
-          {form.type === "expense" && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
-              <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Detalhes adicionais da despesa" />
-            </div>
-          )}
+          {/* Especificação existe em receitas E despesas. */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
+            <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Detalhes adicionais" />
+          </div>
 
           {/* Ordenador da despesa — só despesas de eventos com sócios. Vazio = empresa configurada. */}
           {form.type === "expense" && eventPartners.length > 0 && (
