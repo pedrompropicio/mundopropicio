@@ -996,3 +996,33 @@ longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
 **Teste em Live (12/09/2026).** Fingindo o papel `manager`: `can_see_confidential` a `false` e **zero** anexos de transações confidenciais visíveis. Com `service_role`, os **1.371** anexos continuam todos visíveis.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP43 — Compensação não toca em saldo (12/09/2026)
+
+**Decisão.** Uma transação com `payment_method = 'compensation'` **nunca tem conta**.
+
+**O trigger.** `trg_force_no_account_on_compensation`, `BEFORE INSERT OR UPDATE` em `transactions`: se o método for `compensation`, `account_id` é forçado a **NULL**. Não rejeita — **corrige**. Compensação com conta não é uma intenção legítima que valha a pena preservar para o utilizador decidir; é sempre erro.
+
+**Porquê.** A fórmula do saldo de conta soma os movimentos por `t.account_id`. Compensação é **encontro de contas**: não há movimento de dinheiro, não há linha no extrato, não há nada a somar. Uma compensação apontada a uma conta inflaciona essa conta com dinheiro que nunca lá entrou — e o erro é silencioso, porque cada transação isolada parece correcta.
+
+**Caso real.** Quatro transações do Coala Festival apontadas ao Banco Santander Totta: A&B Bebidas **95.195,75** · Superbock **3.252,03** · Cortesias Marco Caldeira **2.520,00** · Adega Almeirim **2.500,00** — total **103.467,78 €**. Só não corromperam o saldo por acidente: a data de pagamento é **07/07/2026**, anterior à data de corte do saldo implantado (31/08/2026, D-ERP25). Foram limpas. Depois da limpeza, o saldo do Santander a 09/09 continua **439.403,92 €** e não existe **nenhuma** transação de compensação com conta na base.
+
+**Consequências no ecrã.** No modal de pagamento, escolher "Compensação" **esconde o bloco da conta** — o ecrã não pede o que vai ser ignorado — as travas de saldo (`account_has_balance_for`) não correm, e nenhuma linha de `transaction_payments` leva `account_id`.
+
+**Estado:** vigente.
+
+## D-ERP44 — Domínio fechado de `payment_method` (12/09/2026)
+
+**Decisão.** `payment_method` tem exactamente cinco valores, garantidos em três camadas: fonte única no cliente, espelho no servidor, CHECK na base.
+
+- **Cliente.** `src/lib/payment-methods.ts` é a única casa dos valores, dos rótulos em pt-PT, dos ícones e dos helpers (`isPaymentMethod`, `paymentMethodLabel`, `paymentMethodOptions` com `includeStatePayment` / `includeCompensation`). Antes a lista estava repetida em **quatro** ficheiros e um deles divergia — faltava-lhe `state_payment`.
+- **Servidor.** A edge function `update-transaction` valida `payment_method` contra a mesma lista, duplicada com comentário a apontar para a fonte e um teste que compara as duas. Antes aceitava **qualquer string** do corpo do pedido.
+- **Base.** CHECK em `transactions.payment_method` e `transaction_payments.payment_method`: só NULL ou um de `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. Confirmado antes de aplicar que os dados existentes cumprem.
+
+**A dependência que justifica o CHECK.** O trigger da D-ERP43 compara a string **exactamente** com `'compensation'`. Sem CHECK, qualquer grafia nova — `Compensation`, `compensação`, `compensacao` — passa e **desarma o trigger em silêncio**: a transação fica com conta e o saldo mente. O CHECK não é redundância de tipo; é a condição de existência da D-ERP43.
+
+**Regra futura.** Não acrescentar valores ao domínio sem alterar, na mesma tarefa, as três camadas. Método novo que não seja movimento de caixa exige rever o trigger, não só a lista.
+
+**Estado:** vigente.
