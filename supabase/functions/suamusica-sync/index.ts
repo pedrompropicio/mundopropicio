@@ -496,16 +496,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
+    const body = {
       ok: true,
       dry_run: dryRun,
       metric_date: metricDate,
       max_releases: maxReleases,
       artists: results.length,
       results,
+    };
+
+    const apiCalls = results.reduce((s, r) => s + (r.requests ?? 0), 0);
+    const rowsWritten = results.reduce(
+      (s, r) =>
+        s + (r.profile_rows_written ?? 0) + (r.releases_written ?? 0) +
+        (r.release_metric_rows_written ?? 0),
+      0,
+    );
+    const errorCount = results.reduce((s, r) => s + (r.errors?.length ?? 0), 0);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: resolveStatus(rowsWritten, errorCount),
+      api_calls: apiCalls,
+      rows_written: rowsWritten,
+      details: body,
     });
+
+    return json(body);
   } catch (e) {
-    console.error("[suamusica-sync]", String((e as Error).message ?? e));
+    const msg = String((e as Error).message ?? e);
+    console.error("[suamusica-sync]", msg);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      error_text: msg,
+      details: { dry_run: runDryRun },
+    });
     return json({ error: "sync_failed" }, 500);
   }
 });
