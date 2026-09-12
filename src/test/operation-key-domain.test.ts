@@ -23,9 +23,13 @@ describe("chave de operação (D-ERP45)", () => {
   it("recusa variantes silenciosas", () => {
     for (const k of ["acerto-food", "ACERTO FOOD 2026", "ACERTO_FOOD", "ACERTO", "ACERTO--FOOD", "ACERTO-"]) {
       expect(isValidOperationKey(k)).toBe(false);
-      expect(operationKeyRejectionReason(k) === null && k !== "ACERTO--FOOD" && k !== "ACERTO-").toBe(false);
     }
+    // Só é recusada de vez a que nem depois de normalizada dá chave válida.
+    expect(operationKeyRejectionReason("ACERTO")).toBeTruthy();
+    expect(operationKeyRejectionReason("!!!")).toBeTruthy();
+    expect(operationKeyRejectionReason("acerto food 2026")).toBeNull();
   });
+
 
   it("normaliza o que o utilizador escreve", () => {
     expect(normalizeOperationKeyInput("acerto food ivete 2026")).toBe("ACERTO-FOOD-IVETE-2026");
