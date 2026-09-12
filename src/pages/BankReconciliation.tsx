@@ -1102,14 +1102,14 @@ export default function BankReconciliation() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
-                  <TableHead className="text-right">Valor</TableHead><TableHead>Camada</TableHead><TableHead>Ligada a</TableHead><TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="whitespace-nowrap">Data</TableHead><TableHead>Descrição do banco</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Valor</TableHead><TableHead className="w-[92px]">Camada</TableHead><TableHead className="max-w-[360px]">Ligada a</TableHead><TableHead className="sticky right-0 z-20 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {matchedLines.map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">
                       {l.description}
                       {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
@@ -1118,9 +1118,9 @@ export default function BankReconciliation() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell><Badge variant="outline">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="w-[92px]"><Badge variant="outline" className="px-1.5 text-[10px]">{LAYER_LABEL[String(l.matched_by ?? "").split(":")[1] ?? "manual"] ?? "Manual"}</Badge></TableCell>
+                    <TableCell className="max-w-[360px] break-words text-xs text-muted-foreground">
                       {l.matched_sepa_export_id ? (
                         <div className="space-y-0.5">
                           <p>Lote SEPA (lista de pagamento)</p>
@@ -1165,7 +1165,7 @@ export default function BankReconciliation() {
                       )}
 
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="sticky right-0 z-10 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
                       <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
                         <Paperclip className="mr-1 h-3.5 w-3.5" />
                         {docCountByLine.get(l.id) ?? 0}
@@ -1175,12 +1175,12 @@ export default function BankReconciliation() {
                 ))}
                 {ignoredLines.map((l) => (
                   <TableRow key={l.id} className="opacity-60">
-                    <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">{l.description}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell><Badge variant="secondary">Ignorada</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.note}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="whitespace-nowrap text-right">{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="w-[92px]"><Badge variant="secondary" className="px-1.5 text-[10px]">Ignorada</Badge></TableCell>
+                    <TableCell className="max-w-[360px] break-words text-xs text-muted-foreground">{l.note}</TableCell>
+                    <TableCell className="sticky right-0 z-10 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
                       <Button size="sm" variant="outline" onClick={() => setDocsLine(l)}>
                         <Paperclip className="mr-1 h-3.5 w-3.5" />
                         {docCountByLine.get(l.id) ?? 0}
@@ -1223,8 +1223,8 @@ export default function BankReconciliation() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
-                  <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
-                  <TableHead className="text-right">Valor</TableHead><TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="whitespace-nowrap">Data</TableHead><TableHead>Descrição do banco</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Valor</TableHead><TableHead className="sticky right-0 z-20 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1241,7 +1241,7 @@ export default function BankReconciliation() {
                         }
                       />
                     </TableCell>
-                    <TableCell>{formatDatePT(l.booking_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">
                       {l.description}
                       {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
@@ -1250,8 +1250,8 @@ export default function BankReconciliation() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="sticky right-0 z-10 whitespace-nowrap bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
                       <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxIds([]); setCrossAccountAck(false); }}>
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Conciliar
                       </Button>
