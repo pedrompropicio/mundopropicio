@@ -48,6 +48,31 @@ export function EventSettlementsPanel({ eventId }: Props) {
     },
   });
 
+  /**
+   * Perímetro (#146 (b)) — quantas linhas de BP e transações estão marcadas
+   * para cada apuramento. ATENÇÃO: a coluna é `event_settlement_id`;
+   * `transactions.settlement_id` é o fecho de bilheteira, coisa diferente.
+   */
+  const { data: perimeter } = useQuery({
+    queryKey: ["event-settlement-perimeter", eventId],
+    queryFn: async () => {
+      const [f, t] = await Promise.all([
+        supabase.from("event_forecasts").select("event_settlement_id").eq("event_id", eventId).not("event_settlement_id", "is", null),
+        supabase.from("transactions").select("event_settlement_id").eq("event_id", eventId).not("event_settlement_id", "is", null),
+      ]);
+      if (f.error) throw f.error;
+      if (t.error) throw t.error;
+      const counts: Record<string, { bp: number; tx: number }> = {};
+      const bump = (id: string, k: "bp" | "tx") => {
+        counts[id] = counts[id] ?? { bp: 0, tx: 0 };
+        counts[id][k] += 1;
+      };
+      (f.data ?? []).forEach((r: any) => bump(r.event_settlement_id, "bp"));
+      (t.data ?? []).forEach((r: any) => bump(r.event_settlement_id, "tx"));
+      return counts;
+    },
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">A carregar apuramentos…</p>;
   if (settlements.length === 0)
     return <p className="text-sm text-muted-foreground">Este evento ainda não tem apuramentos.</p>;
