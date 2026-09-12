@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useBackdropClose } from "@/lib/backdropClose";
 
-type PaymentMethod = "transfer" | "service_payment" | "state_payment" | "direct_debit";
+import { methodLabels, paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
 
 interface Props {
   transaction: any;
