@@ -1373,8 +1373,17 @@ a renovação falhar, a ligação fica `expired` e o canal `auth_status = 'expir
 — é preciso religar. `artist-connection-disconnect` chama `/v2/oauth/revoke/`
 antes de apagar; a falha da revogação não impede o desligar.
 
+**Adenda (12/09/2026) — sync inicial completo por parâmetro.** `artist-tiktok-sync`
+aceita `max_videos` (default 200, máximo duro 2000) e `since` (data ISO: a paginação
+do `video/list` para quando uma página só traz vídeos anteriores a `since`). O cron
+diário `carreira-tiktok-sync-diario` mantém-se sem parâmetros, logo em 200 vídeos;
+os parâmetros usados ficam registados em `sync_runs.details.params`. Primeira corrida
+histórica do Litto Lins (`since=2026-01-01`, `max_videos=2000`): 14 chamadas à API,
+237 vídeos, mais antigo 2026-01-01T01:43:47Z.
+
 Nota de numeração: o pedido pedia D-ERP55, número já ocupado pela decisão do saldo
 do extrato; esta decisão ficou em D-ERP56.
+
 
 
 **Adenda a DR-2026-09-09-D25 — (b) construída em 2026-09-12:** `event_settlement_id`
