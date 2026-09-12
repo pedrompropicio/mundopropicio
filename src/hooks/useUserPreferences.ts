@@ -4,10 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export interface UserPreferences {
   consolidate_refunds_view: boolean;
+  /** Extrato da Conta: mostrar UM lançamento por movimento do banco (lote SEPA, conciliação N:1). */
+  consolidate_bank_movements_view: boolean;
 }
 
 const DEFAULTS: UserPreferences = {
   consolidate_refunds_view: true,
+  consolidate_bank_movements_view: true,
 };
 
 export function useUserPreferences() {
