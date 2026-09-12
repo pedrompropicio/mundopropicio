@@ -1316,3 +1316,26 @@ UTC, percorre `artist_songs` com `is_launch = true` e
 
 Nota de numeração: o pedido pedia D-ERP53, número já ocupado pela decisão da
 ligação vídeo→música; esta decisão ficou em D-ERP54.
+
+## D-ERP55 — O saldo do extrato é calculado sobre a ordem que se vê, não sobre a ordem plana (12/09/2026)
+
+**Contexto.** O extrato tem de ser conferível linha a linha contra o extrato do
+banco. Ao consolidar, as filhas de um grupo são puxadas para junto do cabeçalho e
+as linhas soltas que estavam intercaladas passam a ser desenhadas numa posição
+diferente daquela em que o seu saldo plano foi calculado. Herdar o saldo plano
+fazia uma SAÍDA aparecer a aumentar o saldo — caso real: a Passagem aérea de
+882,32 € desenhada entre o cabeçalho do lote SEPA e o da TicketLine.
+
+**Decisão.** Com a consolidação ligada, o saldo mostrado é RECALCULADO sobre a
+ordem consolidada, a partir do saldo de abertura. As unidades (transação solta ou
+grupo) ordenam-se pela data da UNIDADE — a do banco quando existe, porque é o
+banco que manda na conferência. As filhas NÃO mostram saldo: um saldo intra-grupo
+não corresponde a posição nenhuma no banco. A linha dos ajustes de caixa fica
+sempre em último, seja qual for a sua data.
+
+**Invariante.** O `lines` plano continua a ser a fonte ÚNICA do saldo final, dos
+totais e das duas exportações, que são sempre planas. O saldo da última unidade
+tem de ser igual ao saldo final — uma soma não depende da ordem das parcelas — e
+há um teste em `src/lib/__tests__/statement-grouping.test.ts` que o verifica. Se
+divergir, há uma transação em duas unidades ou em nenhuma: corrige-se isso, não
+se compensa.

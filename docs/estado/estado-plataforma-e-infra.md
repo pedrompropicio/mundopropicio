@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-12 (2.ª passagem) · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2 + confirmar Publish das correções de IBAN
+Atualizado: 2026-09-12 (3.ª passagem) · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2 + confirmar Publish das correções de IBAN
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -13,15 +13,51 @@ A 11-12/09 reconstruiu-se a base de fornecedores: fusão dos duplicados por IBAN
 
 Ainda a 12/09 fechou-se a conciliação bancária de **uma linha contra N transações** (tabela-ponte `bank_line_transactions`) e os documentos da linha do banco (`bank_line_documents` + réplicas `bank://`), com a coluna nova `transaction_documents.partner_visible` a impedir que a fatura de um crédito partilhado chegue ao sócio do evento.
 
+**E fechou-se hoje, 12/09, a consolidação do Extrato da Conta** (`/relatorios/extrato`) — ver a secção seguinte.
+
+## Extrato da Conta — consolidação de movimentos do banco (fechado a 12/09/2026)
+
+O extrato passou a mostrar o que o **banco** agrupou: um movimento único que cobre N transações aparece como **UMA linha expansível**, em vez de N linhas consecutivas. Interruptor **"Consolidar movimentos do banco"**, guardado como preferência por utilizador.
+
+**Ficheiros:**
+- `src/lib/statement-grouping.ts` — função pura `groupStatementLines` (não faz I/O, não toca a base).
+- `src/hooks/useBankMovementGroups.ts` — ponte isolada para o mundo da conciliação; só lê.
+- `src/components/ReportBankStatement.tsx` — único consumidor.
+- `src/lib/__tests__/statement-grouping.test.ts` — testes.
+
+**Chave de agrupamento, por precedência:**
+1. Linha do banco com `matched_sepa_export_id` → transações do lote, com **fusão dos exports irmãos** (mesma `payment_list_id`, mesmo total ±0,01 — a dupla geração é o MESMO acontecimento).
+2. Linha do banco com ponte `bank_line_transactions` → as N transações.
+3. Só como **recurso**, para transações sem linha do banco: `payment_list_sepa_exports`, com a mesma fusão de irmãos.
+
+A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.** Um movimento que cobre **uma** transação só **não forma grupo** — fica linha solta. `matched_transaction_id`/`created_transaction_id` são 1:1 e por isso nunca formam grupo.
+
+**Anexos:** os documentos do movimento do banco (`bank_line_documents`) chegam-se pelo **clip no cabeçalho do grupo**. Grupos de fonte `sepa` não têm linha do banco e por isso **não têm clip**.
+
+**Degradação:** se qualquer leitura da conciliação falhar, o hook devolve índices vazios e o extrato volta a **linha a linha** — nunca fica em branco nem inventa grupos.
+
+**Verificado na Live a 12/09/2026, Banco Santander Totta:**
+```
+439.196,92
++ 135.986,96  TicketLine (2 transações)   = 575.183,88
+−     882,32  Passagem aérea               = 574.301,56
+−  25.736,37  LOTE SEPA 11/09 (19 transações) = 548.565,19
++     895,70                                = 549.460,89
++     207,00  Ajustes de caixa             = 549.667,89
+```
+549.667,89 € = Saldo Final da tabela = extrato do Santander.
+
+O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
+
 ## A trabalhar agora
 - **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 71 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. Continua aberta: falta o inventário completo das tabelas escritas sem contexto de utilizador, que é o critério de aceitação. #53 e #56 seguem como sub-tarefas; #96 saiu daqui.
+
+**Fechado hoje (12/09):** a consolidação do extrato da conta saiu desta secção — está entregue, testada e verificada em Live.
 
 ## Próximo passo concreto
 **Ação do Pedro:** desativar a edge function `generate-historical-transactions` no Lovable (#87 passo 2). Enquanto estiver deployed continua invocável por qualquer admin e escreve `amount` com o IVA embutido. Só depois se remove do repo.
 
 **Ação do Pedro:** confirmar o Publish das correções de IBAN (commits `3b5f702` e `c61a880`).
-
-**A seguir:** consolidação do extrato da conta — mostrar **uma** linha do movimento do banco que abre nas N transações que a explicam, sem fundir dados nem duplicar valores.
 
 ## Prazos e renovações
 - **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
@@ -67,8 +103,10 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 
 **`transaction_documents.partner_visible`** (novo, default `true`): a política `transaction_documents_select_partner` passa a exigi-lo. Réplicas de linhas do banco entram sempre com `false`. `is_accounting` (papel) e `partner_visible` (evento) são eixos independentes.
 
+**O extrato consolidado não mexe nos números.** `closingBalance`, `totalIncome`, `totalExpense` e as **duas exportações** continuam a ler o `lines` plano. A consolidação decide só o que se DESENHA. Ver **D-ERP55**.
+
 ## Onde ler mais
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
-- `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado), D-ERP41 (o anexo do movimento do banco pertence ao movimento e nunca é visível ao sócio)
+- `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado), D-ERP41 (o anexo do movimento do banco pertence ao movimento e nunca é visível ao sócio), D-ERP55 (o saldo do extrato calcula-se sobre a ordem que se vê)
 - Issues #86, #83, #87, #96, #61, #57
