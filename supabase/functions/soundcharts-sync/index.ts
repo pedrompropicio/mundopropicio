@@ -284,7 +284,19 @@ Deno.serve(async (req) => {
     const { data: aggChannels, error: chErr } = await chQuery;
     if (chErr) throw new Error(`artist_channels: ${chErr.message}`);
 
-    const targets = (aggChannels ?? []).filter((c) => c.external_id);
+    let targets = (aggChannels ?? []).filter((c) => c.external_id);
+
+    // filtro por tipo de elenco (cadência diária = elenco; semanal = referências)
+    if (rosterType && targets.length) {
+      const { data: rosterRows, error: rErr } = await admin
+        .from("artists")
+        .select("id")
+        .eq("roster_type", rosterType)
+        .in("id", [...new Set(targets.map((c) => c.artist_id))]);
+      if (rErr) throw new Error(`artists(roster_type): ${rErr.message}`);
+      const allowed = new Set((rosterRows ?? []).map((a) => a.id as string));
+      targets = targets.filter((c) => allowed.has(c.artist_id as string));
+    }
     if (!targets.length) {
       const emptyBody = {
         artists_processed: 0,
