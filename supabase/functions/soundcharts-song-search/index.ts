@@ -28,6 +28,7 @@ interface SongResult {
   soundcharts_uuid: string;
   title: string | null;
   artists: string[];
+  credit_name: string | null;
   image_url: string | null;
   release_date: string | null;
   isrc: string | null;
@@ -44,7 +45,10 @@ export function mapScSong(raw: any): Omit<SongResult, "ja_existe"> {
   return {
     soundcharts_uuid: String(raw?.uuid ?? ""),
     title: raw?.name ?? raw?.title ?? null,
+    // A pesquisa devolve muitas vezes artists[] vazio e o crédito em creditName;
+    // os artistas completos só vêm no GET /api/v2/song/{uuid} (usado no 'add').
     artists: list.map((a: any) => a?.name).filter(Boolean),
+    credit_name: raw?.creditName ?? null,
     image_url: raw?.imageUrl ?? raw?.image_url ?? null,
     release_date: raw?.releaseDate ? String(raw.releaseDate).slice(0, 10) : null,
     isrc: raw?.isrc?.value ?? (typeof raw?.isrc === "string" ? raw.isrc : null),
@@ -77,7 +81,14 @@ Deno.serve(async (req) => {
 
     // UUID Soundcharts do artista pedido (para ordenar os resultados)
     let artistScUuid: string | null = null;
+    let artistNameForRank: string | null = null;
     if (artistId) {
+      const { data: art } = await admin
+        .from("artists")
+        .select("name")
+        .eq("id", artistId)
+        .maybeSingle();
+      artistNameForRank = (art?.name as string) ?? null;
       const { data: ch } = await admin
         .from("artist_channels")
         .select("external_id")
@@ -121,19 +132,25 @@ Deno.serve(async (req) => {
       soundcharts_uuid: m.soundcharts_uuid,
       title: m.title,
       artists: m.artists,
+      credit_name: m.credit_name,
       image_url: m.image_url,
       release_date: m.release_date,
       isrc: m.isrc,
       ja_existe: bySc.get(m.soundcharts_uuid) ?? null,
     }));
 
-    if (artistScUuid) {
-      const matchFirst = (i: number) =>
-        mapped[i]._artistUuids?.[0] === artistScUuid
-          ? 0
-          : mapped[i]._artistUuids?.includes(artistScUuid)
-          ? 1
-          : 2;
+    if (artistScUuid || artistNameForRank) {
+      // 1º: artista principal é o pedido; 2º: aparece nos créditos; 3º: resto.
+      // Quando a pesquisa não devolve artists[], usa-se o creditName por nome.
+      const artistName = String(artistNameForRank ?? "").toLowerCase();
+      const matchFirst = (i: number) => {
+        const uuids: string[] = mapped[i]._artistUuids ?? [];
+        if (uuids[0] === artistScUuid) return 0;
+        if (uuids.includes(artistScUuid)) return 1;
+        const credit = String(mapped[i].credit_name ?? "").toLowerCase();
+        if (artistName && credit.includes(artistName)) return 1;
+        return 2;
+      };
       results = results
         .map((r, i) => ({ r, rank: matchFirst(i), i }))
         .sort((a, b) => a.rank - b.rank || a.i - b.i)
