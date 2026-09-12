@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface Props {
 
 export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   const { isAdmin, hasPermission } = useAuth();
+  const navigate = useNavigate();
   const canManage = isAdmin || hasPermission("manage_accounts");
   const [settlementModal, setSettlementModal] = useState<{ open: boolean; eventId?: string }>({ open: false });
 
