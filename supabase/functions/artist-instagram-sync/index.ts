@@ -92,10 +92,37 @@ Deno.serve(async (req) => {
   if (body.artist_id) q = q.eq("artist_id", body.artist_id);
   if (body.connection_id) q = q.eq("id", body.connection_id);
 
+  // Registo técnico da execução (nunca faz a sincronização falhar).
+  const startedMs = Date.now();
+  const runId = await startSyncRun(admin, {
+    function_name: FUNCTION_NAME,
+    trigger_source: deduceTriggerSource(req),
+    dry_run: dryRun,
+    artist_id: body.artist_id ?? null,
+  });
+
   const { data: connections, error: cErr } = await q;
-  if (cErr) return json({ error: cErr.message }, 500);
+  if (cErr) {
+    // falhou antes de gravar
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      error_text: cErr.message,
+    });
+    return json({ error: cErr.message }, 500);
+  }
   if (!connections?.length) {
-    return json({ ok: true, dry_run: dryRun, connections: 0, artists: [], note: "sem ligações activas" });
+    const emptyBody = {
+      ok: true,
+      dry_run: dryRun,
+      connections: 0,
+      artists: [],
+      note: "sem ligações activas",
+    };
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "no_data",
+      details: emptyBody,
+    });
+    return json(emptyBody);
   }
 
   const today = ymd(new Date());
@@ -106,6 +133,7 @@ Deno.serve(async (req) => {
   const errors: Array<{ connection_id: string; error: string }> = [];
   const summary: Array<Record<string, unknown>> = [];
 
+  try {
   for (const conn of connections) {
     const per: Record<string, unknown> = {
       connection_id: conn.id,
