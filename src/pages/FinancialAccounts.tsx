@@ -249,6 +249,25 @@ export default function FinancialAccounts() {
   const ticketOfficeRetained = balanceCards.ticketOffice.total;
   const settlementTotal = balanceCards.settlements.total;
   const settlementAccounts = activeAccounts.filter((a: any) => a.type === "other");
+  const cashAccounts = activeAccounts.filter((a: any) =>
+    (CASH_ACCOUNT_TYPES as readonly string[]).includes(a.type),
+  );
+  const officeAccounts = activeAccounts.filter((a: any) => a.type === "ticket_office");
+
+  // Cada card de saldo abre a sua composição — sem recalcular nada (D-ERP27).
+  const clickableCard = (card: "cash" | "office" | "settlements") => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: () => setCompositionCard(card),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setCompositionCard(card);
+      }
+    },
+    className:
+      "glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all",
+  });
 
 
   return (
