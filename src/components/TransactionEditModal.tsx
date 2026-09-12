@@ -81,6 +81,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
     payment_entity: transaction.payment_entity ?? "",
     payment_reference: transaction.payment_reference ?? "",
+    /**
+     * Chave de operação — agrupa as transações do mesmo fecho. É INDEPENDENTE
+     * do método de pagamento: ao contrário de `payment_reference`, nunca é
+     * limpa por mudança de método, estado ou liquidação (D-ERP45).
+     */
+    operation_key: transaction.operation_key ?? "",
     declared_withholding_rate: transaction.declared_withholding_rate != null ? String(transaction.declared_withholding_rate) : "",
     declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
     is_reimbursement: transaction.is_reimbursement ?? false,
@@ -465,6 +471,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         payment_method: "Método Pagamento",
         payment_entity: "Entidade Pagamento",
         payment_reference: "Referência Pagamento",
+        operation_key: "Chave de operação",
         declared_withholding_rate: "Retenção IRS declarada (%)",
         declared_withholding_amount: "Retenção IRS declarada (€)",
         is_confidential: "Confidencial",
