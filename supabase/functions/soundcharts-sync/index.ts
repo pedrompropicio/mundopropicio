@@ -223,6 +223,7 @@ Deno.serve(async (req) => {
       start_date?: string;
       end_date?: string;
       platforms?: string[];
+      roster_type?: string;
     } = {};
     try {
       payload = await req.json();
@@ -231,6 +232,16 @@ Deno.serve(async (req) => {
     }
     const dryRun = payload.dry_run === true;
     const onlyArtist = payload.artist_id ?? null;
+
+    // roster_type: 'elenco' | 'referencia' | omitido (todos)
+    let rosterType: string | null = null;
+    if (payload.roster_type != null) {
+      const rt = String(payload.roster_type).toLowerCase();
+      if (rt !== "elenco" && rt !== "referencia") {
+        return json({ error: "roster_type inválido ('elenco' | 'referencia')" }, 400);
+      }
+      rosterType = rt;
+    }
 
     if (payload.start_date != null && !isDate(payload.start_date)) {
       return json({ error: "start_date inválido (YYYY-MM-DD)" }, 400);
@@ -273,7 +284,19 @@ Deno.serve(async (req) => {
     const { data: aggChannels, error: chErr } = await chQuery;
     if (chErr) throw new Error(`artist_channels: ${chErr.message}`);
 
-    const targets = (aggChannels ?? []).filter((c) => c.external_id);
+    let targets = (aggChannels ?? []).filter((c) => c.external_id);
+
+    // filtro por tipo de elenco (cadência diária = elenco; semanal = referências)
+    if (rosterType && targets.length) {
+      const { data: rosterRows, error: rErr } = await admin
+        .from("artists")
+        .select("id")
+        .eq("roster_type", rosterType)
+        .in("id", [...new Set(targets.map((c) => c.artist_id))]);
+      if (rErr) throw new Error(`artists(roster_type): ${rErr.message}`);
+      const allowed = new Set((rosterRows ?? []).map((a) => a.id as string));
+      targets = targets.filter((c) => allowed.has(c.artist_id as string));
+    }
     if (!targets.length) {
       const emptyBody = {
         artists_processed: 0,

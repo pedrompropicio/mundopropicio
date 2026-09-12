@@ -637,6 +637,61 @@ export type Database = {
           },
         ]
       }
+      artist_comparables: {
+        Row: {
+          artist_id: string
+          chosen_by: string | null
+          company_id: string
+          comparable_artist_id: string
+          created_at: string
+          id: string
+          position: number
+          reason: string | null
+        }
+        Insert: {
+          artist_id: string
+          chosen_by?: string | null
+          company_id?: string
+          comparable_artist_id: string
+          created_at?: string
+          id?: string
+          position: number
+          reason?: string | null
+        }
+        Update: {
+          artist_id?: string
+          chosen_by?: string | null
+          company_id?: string
+          comparable_artist_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_comparables_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_comparables_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_comparables_comparable_artist_id_fkey"
+            columns: ["comparable_artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artist_content: {
         Row: {
           artist_id: string
@@ -1025,6 +1080,7 @@ export type Database = {
           name: string
           notes: string | null
           photo_url: string | null
+          roster_type: string
           slug: string
           status: string
           supplier_id: string | null
@@ -1046,6 +1102,7 @@ export type Database = {
           name: string
           notes?: string | null
           photo_url?: string | null
+          roster_type?: string
           slug: string
           status?: string
           supplier_id?: string | null
@@ -1067,6 +1124,7 @@ export type Database = {
           name?: string
           notes?: string | null
           photo_url?: string | null
+          roster_type?: string
           slug?: string
           status?: string
           supplier_id?: string | null
@@ -13400,6 +13458,55 @@ export type Database = {
           },
         ]
       }
+      v_artist_comparables: {
+        Row: {
+          artist_id: string | null
+          artist_instagram_followers: number | null
+          artist_name: string | null
+          artist_slug: string | null
+          artist_spotify_monthly_listeners: number | null
+          artist_tiktok_followers: number | null
+          artist_youtube_subscribers: number | null
+          chosen_by: string | null
+          company_id: string | null
+          comparable_artist_id: string | null
+          comparable_instagram_followers: number | null
+          comparable_name: string | null
+          comparable_photo_url: string | null
+          comparable_roster_type: string | null
+          comparable_slug: string | null
+          comparable_spotify_monthly_listeners: number | null
+          comparable_tiktok_followers: number | null
+          comparable_youtube_subscribers: number | null
+          created_at: string | null
+          id: string | null
+          position: number | null
+          reason: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_comparables_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_comparables_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_comparables_comparable_artist_id_fkey"
+            columns: ["comparable_artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_artist_growth_summary: {
         Row: {
           accel_pct: number | null
@@ -13479,6 +13586,38 @@ export type Database = {
           platform: string | null
           source: string | null
           value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_artist_momentum: {
+        Row: {
+          artist_id: string | null
+          artist_name: string | null
+          company_id: string | null
+          d30_pct: number | null
+          d7_pct: number | null
+          d90_pct: number | null
+          latest_date: string | null
+          latest_value: number | null
+          metric: string | null
+          momentum_index: number | null
+          platform: string | null
+          roster_type: string | null
         }
         Relationships: [
           {
@@ -13835,6 +13974,27 @@ export type Database = {
           latest_value: number
           metric: string
           platform: string
+        }[]
+      }
+      artist_metric_indexed_common: {
+        Args: {
+          _artist_ids: string[]
+          _end_date?: string
+          _metric: string
+          _platform: string
+          _start_date?: string
+        }
+        Returns: {
+          artist_id: string
+          artist_name: string
+          base_date: string
+          base_value: number
+          company_id: string
+          indexed: number
+          metric: string
+          metric_date: string
+          platform: string
+          value: number
         }[]
       }
       artist_upsert_channel_connection: {
