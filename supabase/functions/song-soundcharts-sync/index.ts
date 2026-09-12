@@ -33,6 +33,10 @@ const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const MAX_BLOCK_DAYS = 90; // limit máx. 100 pontos por pedido
 
 /** plataforma → métrica gravada em artist_song_metrics_daily */
+// "youtube_shorts" NÃO existe na Soundcharts: a API responde
+// HTTP 400 «Platform "youtube_shorts" is not a valid platform code», e nenhuma
+// variante ("shorts", "youtube-shorts") é aceite. Confirmado contra a API real
+// a 2026-09-12 — por isso foi retirada da lista.
 const SONG_METRIC: Record<string, string> = {
   spotify: "streams",
   youtube: "views",
@@ -40,7 +44,6 @@ const SONG_METRIC: Record<string, string> = {
   shazam: "shazams",
   tiktok: "videos",
   instagram: "reels",
-  youtube_shorts: "videos",
   soundcloud: "plays",
 };
 const PLATFORMS = Object.keys(SONG_METRIC);
@@ -72,6 +75,26 @@ function buildWindows(startDate: string | null, endDate: string) {
 function numOrNull(v: unknown): number | null {
   const n = typeof v === "string" ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Valor de um ponto de audiência da Soundcharts.
+ *
+ * A resposta real NÃO tem `value` ao nível do ponto: traz
+ * `{ date, plots: [{ identifier, value }] }`, um plot por identificador da
+ * plataforma (várias edições do mesmo tema). Guardamos o MÁXIMO dos plots, não a
+ * soma: os identificadores repetem o mesmo total acumulado (confirmado na
+ * resposta real, dois plots com valores idênticos) e somar duplicaria os streams.
+ */
+function pointValue(it: any): number | null {
+  if (Array.isArray(it?.plots) && it.plots.length) {
+    const vals = it.plots
+      .map((pl: any) => numOrNull(pl?.value))
+      .filter((v: number | null): v is number => v !== null);
+    if (!vals.length) return null;
+    return Math.max(...vals);
+  }
+  return numOrNull(it?.value ?? it?.plays ?? it?.streams ?? it?.videoCount ?? it?.playCount);
 }
 
 Deno.serve(async (req) => {
@@ -145,6 +168,7 @@ Deno.serve(async (req) => {
 
     const windows = buildWindows(startDate, endDate);
     const client = await ScClient.create();
+
     const errors: Array<{ song_id: string; platform: string; error: string }> = [];
     const notes: string[] = [];
     const perSong: Array<Record<string, unknown>> = [];
@@ -169,9 +193,7 @@ Deno.serve(async (req) => {
             for (const it of body?.items ?? []) {
               const d = it?.date ? String(it.date).slice(0, 10) : null;
               if (!d || seen.has(d)) continue;
-              const value = numOrNull(
-                it?.value ?? it?.plays ?? it?.streams ?? it?.videoCount ?? it?.playCount,
-              );
+              const value = pointValue(it);
               if (value === null) continue; // métrica ausente não se grava
               seen.add(d);
               rows.push({
@@ -227,8 +249,17 @@ Deno.serve(async (req) => {
             `/api/v2.20/song/${scUuid}/playlist/current/${platform}?currentOnly=0&limit=100&sortBy=position&sortOrder=asc`,
           );
           const items = Array.isArray(body?.items) ? body.items : [];
+          // Forma real da resposta (confirmada contra a API a 2026-09-12):
+          // { playlist: { uuid, identifier, name, type, latestSubscriberCount,
+          //   latestTrackCount, latestCrawlDate }, position, peakPosition,
+          //   entryDate, exitDate, positionDate, peakPositionDate }
+          // O número de seguidores vem em latestSubscriberCount (não em
+          // subscriberCount) — era por isso que ficava tudo NULL.
+          // Este endpoint NÃO devolve dono/curador da playlist, por isso
+          // owner_name só é preenchido se a API algum dia o mandar.
           const upserts = items.map((it: any) => {
             const pl = it?.playlist ?? it;
+            const posDate = it?.positionDate ?? pl?.latestCrawlDate ?? null;
             return {
               company_id: song.company_id,
               song_id: song.id,
@@ -236,13 +267,16 @@ Deno.serve(async (req) => {
               playlist_uuid: String(pl?.uuid ?? pl?.identifier ?? ""),
               playlist_name: pl?.name ?? null,
               playlist_type: pl?.type ?? null,
-              owner_name: pl?.curator?.name ?? pl?.owner?.name ?? null,
-              subscriber_count: numOrNull(pl?.subscriberCount ?? pl?.followerCount),
+              owner_name: pl?.ownerName ?? pl?.curator?.name ?? pl?.owner?.name ?? null,
+              subscriber_count: numOrNull(
+                pl?.latestSubscriberCount ?? pl?.subscriberCount ?? pl?.followerCount,
+              ),
               position: numOrNull(it?.position),
               peak_position: numOrNull(it?.peakPosition),
               entry_date: it?.entryDate ? String(it.entryDate).slice(0, 10) : null,
               exit_date: it?.exitDate ? String(it.exitDate).slice(0, 10) : null,
-              last_seen_at: new Date().toISOString(),
+              // Data a que a posição se refere; sem ela, a hora do sync.
+              last_seen_at: posDate ? new Date(posDate).toISOString() : new Date().toISOString(),
             };
           }).filter((r: any) => r.playlist_uuid);
 

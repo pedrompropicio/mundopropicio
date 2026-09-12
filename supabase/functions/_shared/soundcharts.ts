@@ -63,7 +63,17 @@ export class ScClient {
       signal: AbortSignal.timeout(25_000),
     });
     if (!res.ok) {
-      const err = new Error(`HTTP ${res.status}`) as Error & { status: number };
+      // O corpo do erro traz a razão real (ex.: plataforma inválida) — sem ele
+      // ficávamos só com "HTTP 400" e a investigar às cegas.
+      let detail = "";
+      try {
+        detail = (await res.text()).slice(0, 400);
+      } catch (_e) {
+        detail = "";
+      }
+      const err = new Error(
+        `HTTP ${res.status}${detail ? ` — ${detail}` : ""}`,
+      ) as Error & { status: number };
       err.status = res.status;
       throw err;
     }

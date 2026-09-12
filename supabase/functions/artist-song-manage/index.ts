@@ -233,11 +233,31 @@ Deno.serve(async (req) => {
     let syncSummary: unknown = null;
     let syncError: string | null = null;
     try {
-      const { data, error } = await admin.functions.invoke("song-soundcharts-sync", {
-        body: { song_id: song.id, start_date: startDate, dry_run: false },
-      });
-      if (error) syncError = error.message;
-      else syncSummary = data;
+      // fetch directo em vez de functions.invoke: o invoke esconde o corpo do erro
+      // e devolvia sempre "Edge Function returned a non-2xx status code".
+      const res = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/song-soundcharts-sync`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+          },
+          body: JSON.stringify({ song_id: song.id, start_date: startDate, dry_run: false }),
+          signal: AbortSignal.timeout(120_000),
+        },
+      );
+      const text = await res.text();
+      if (!res.ok) {
+        syncError = `HTTP ${res.status} — ${text.slice(0, 600)}`;
+      } else {
+        try {
+          syncSummary = JSON.parse(text);
+        } catch {
+          syncSummary = text.slice(0, 600);
+        }
+      }
     } catch (e) {
       syncError = (e as Error)?.message ?? String(e);
     }
