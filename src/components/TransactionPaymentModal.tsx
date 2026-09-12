@@ -382,7 +382,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
-        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
+        payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
       };
       // Estorno que volta a ser pago: limpar o carimbo de estorno. Enquanto
       // reversed_at ficar preenchido, o BP e os agregados do sócio deixam de
@@ -448,7 +448,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
-        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
+        payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
         invoice_ref: invoiceRef.trim() || null,
         withholding_amount: withholding,
         credit_amount: totalCreditApplied,
@@ -581,7 +581,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               payment_entity:
                 paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
               payment_reference:
-                paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+                paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() || null : null,
             })
             .eq("id", sib.id);
 
@@ -595,7 +595,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             payment_entity:
               paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
             payment_reference:
-              paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+              paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() || null : null,
             invoice_ref: invoiceRef.trim() || sib.invoice_ref || null,
             withholding_amount: 0,
             credit_amount: 0,
