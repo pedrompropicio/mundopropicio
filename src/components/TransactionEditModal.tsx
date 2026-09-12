@@ -485,6 +485,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         reimbursement_to: "Colaborador (reembolso)",
         ordering_partner_id: "Ordenador da despesa",
         paying_partner_id: "Pagador da despesa",
+        event_settlement_id: "Apuramento",
       };
       const allowedFields = (paidLocked
         ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
