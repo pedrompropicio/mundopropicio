@@ -16,6 +16,14 @@
 // Data de referência: hoje em America/Fortaleza.
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import {
+  deduceTriggerSource,
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
+
+const FUNCTION_NAME = "suamusica-sync";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
