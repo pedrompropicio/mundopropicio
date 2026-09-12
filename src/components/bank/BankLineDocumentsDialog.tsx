@@ -132,6 +132,8 @@ export default function BankLineDocumentsDialog({ line, onClose }: Props) {
             doc_type: ext.toLowerCase(),
             uploaded_by: uploadedBy,
             is_accounting: isAccounting,
+            // Réplicas de linhas do banco nunca ficam visíveis ao sócio do evento.
+            partner_visible: false,
           })) as any,
         );
         if (repErr) throw repErr;

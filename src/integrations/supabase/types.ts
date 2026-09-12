@@ -12144,6 +12144,7 @@ export type Database = {
           id: string
           is_accounting: boolean
           name: string
+          partner_visible: boolean
           transaction_id: string
           uploaded_at: string
           uploaded_by: string
@@ -12155,6 +12156,7 @@ export type Database = {
           id?: string
           is_accounting?: boolean
           name: string
+          partner_visible?: boolean
           transaction_id: string
           uploaded_at?: string
           uploaded_by?: string
@@ -12166,6 +12168,7 @@ export type Database = {
           id?: string
           is_accounting?: boolean
           name?: string
+          partner_visible?: boolean
           transaction_id?: string
           uploaded_at?: string
           uploaded_by?: string
