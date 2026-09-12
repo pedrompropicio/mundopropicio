@@ -2142,6 +2142,27 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             );
           })()}
 
+          {/* Chave de operação — sempre visível, independente do método (D-ERP45). */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Chave de operação</label>
+            <input
+              type="text"
+              value={form.operation_key}
+              onChange={(e) => setForm({ ...form, operation_key: e.target.value.toUpperCase() })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="Ex: ACERTO-FOOD-IVETE-2026"
+            />
+            {form.operation_key.trim() && !/^[A-Z0-9]+(-[A-Z0-9]+)+$/.test(form.operation_key.trim()) ? (
+              <p className="mt-1 text-[11px] text-warning">
+                Fora da convenção PREFIXO-… em maiúsculas. Guarda-se assim mesmo, mas dificulta o agrupamento.
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Agrupa as transações do mesmo fecho. Não é limpa por mudança de método nem por liquidação.
+              </p>
+            )}
+          </div>
+
           {!isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>
