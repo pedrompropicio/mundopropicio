@@ -317,7 +317,13 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString(),
             });
             if (Object.keys(v.metrics).length) {
-              metricsByExternal.push({ key: v.external_id, metrics: v.metrics });
+              // A data é a que a API diz (latestAudience.date); só na ausência
+              // dela se usa a de hoje — nunca se atribui hoje a um valor antigo.
+              metricsByExternal.push({
+                key: v.external_id,
+                metrics: v.metrics,
+                metric_date: v.metric_date ?? metricDate,
+              });
             }
           }
 
