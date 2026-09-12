@@ -24,6 +24,15 @@ export const PAYMENT_METHODS = [
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+/** Acesso nomeado aos valores, para não repetir literais no código. */
+export const PAYMENT_METHOD = {
+  transfer: "transfer",
+  service_payment: "service_payment",
+  direct_debit: "direct_debit",
+  state_payment: "state_payment",
+  compensation: "compensation",
+} as const satisfies Record<PaymentMethod, PaymentMethod>;
+
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   transfer: "Transferência",
   service_payment: "Pag. Serviços",
