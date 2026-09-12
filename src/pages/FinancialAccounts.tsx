@@ -85,6 +85,7 @@ export default function FinancialAccounts() {
   const [accessModalAccount, setAccessModalAccount] = useState<{ id: string; name: string } | null>(null);
   const [implantAccount, setImplantAccount] = useState<any | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<{ id: string; name: string } | null>(null);
+  const [compositionCard, setCompositionCard] = useState<null | "cash" | "office" | "settlements">(null);
 
   // Check if account has transactions
   function accountHasTransactions(accountId: string) {
