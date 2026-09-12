@@ -43,7 +43,7 @@ describe("consolidação de movimentos do banco no extrato", () => {
   const byTx = new Map([["a", "g1"], ["b", "g1"], ["c", "g1"]]);
   const groups = new Map([["g1", group()]]);
 
-  it("emite header + filhas no lugar da primeira filha, mantendo a ordem", () => {
+  it("emite header + filhas no lugar da ÚLTIMA filha, mantendo a ordem", () => {
     const items = groupStatementLines(lines, opts(byTx, groups));
     expect(items.map((i) => i.kind)).toEqual([
       "tx",
@@ -129,5 +129,33 @@ describe("consolidação de movimentos do banco no extrato", () => {
       opts(byTx, groups),
     );
     expect(items.every((i) => i.kind === "tx")).toBe(true);
+  });
+});
+
+describe("filhas não contíguas na ordem canónica", () => {
+  // Caso real: lote SEPA de 03/09 com transações repartidas por 02/09 e 03/09,
+  // com uma linha solta pelo meio. O header tem de sair DEPOIS da última filha
+  // para a coluna Saldo continuar monótona de cima a baixo.
+  const spread: L[] = [
+    { id: "a", date: "2026-09-02", signedAmount: -60, runningBalance: 440, event: "Coala" },
+    { id: "z", date: "2026-09-02", signedAmount: -100, runningBalance: 340, event: null },
+    { id: "b", date: "2026-09-03", signedAmount: -40, runningBalance: 300, event: "Coala" },
+  ];
+  const byTx = new Map([["a", "g1"], ["b", "g1"]]);
+  const groups = new Map([["g1", group({ txIds: ["a", "b"], bankAmount: -100 })]]);
+
+  it("o header sai na posição da última filha", () => {
+    const items = groupStatementLines(spread, opts(byTx, groups));
+    expect(items.map((i) => i.kind)).toEqual(["tx", "group-header", "group-child", "group-child"]);
+    expect((items[0] as any).line.id).toBe("z");
+  });
+
+  it("o saldo do header é o da última filha e precede-o só saldo maior", () => {
+    const h = groupStatementLines(spread, opts(byTx, groups)).find(
+      (i) => i.kind === "group-header",
+    )! as any;
+    expect(h.runningBalance).toBe(300);
+    expect(h.total).toBe(-100);
+    expect(h.childCount).toBe(2);
   });
 });

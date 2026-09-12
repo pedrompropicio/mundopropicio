@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { countsAfterCutoff, effectivePaymentDate, buildAccountCutoffs, fetchAccountCashAdjustments } from "@/lib/account-balance";
 
 export default function ReportBankStatement() {
@@ -35,6 +36,12 @@ export default function ReportBankStatement() {
     !!searchParams.get("conta") && searchParams.get("auto") === "1",
   );
   const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
+  const [bankLineDocs, setBankLineDocs] = useState<{
+    id: string;
+    description: string | null;
+    booking_date: string | null;
+    amount: number | null;
+  } | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
@@ -201,6 +208,37 @@ export default function ReportBankStatement() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+
+  // Anexos do MOVIMENTO do banco (D-ERP41): vivem em `bank_line_documents`,
+  // pendurados na linha do extrato, não nas transações. Só os grupos de fonte
+  // `bank` têm linha; os de fonte `sepa` (recurso) não têm e ficam sem clip.
+  const bankLineIdsForDocs = useMemo(
+    () =>
+      Array.from(bankGroups.groups.values())
+        .filter((g) => g.source === "bank")
+        .map((g) => g.groupId.slice("bank:".length))
+        .sort(),
+    [bankGroups.groups],
+  );
+
+  const { data: bankLineDocCounts = {} } = useQuery({
+    queryKey: ["bank-line-doc-counts-bs", bankLineIdsForDocs],
+    enabled: generated && bankLineIdsForDocs.length > 0,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < bankLineIdsForDocs.length; i += 200) {
+        const { data, error } = await (supabase as any)
+          .from("bank_line_documents")
+          .select("line_id")
+          .in("line_id", bankLineIdsForDocs.slice(i, i + 200));
+        if (error) throw error;
+        (data ?? []).forEach((d: any) => {
+          counts[d.line_id] = (counts[d.line_id] || 0) + 1;
+        });
+      }
+      return counts;
+    },
+  });
 
   const renderItems: StatementRenderItem<any>[] = useMemo(() => {
     if (!consolidateBankMovements || bankGroups.groups.size === 0) {
@@ -435,7 +473,35 @@ export default function ReportBankStatement() {
                             )}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{item.eventLabel}</TableCell>
-                          <TableCell />
+                          <TableCell className="text-center">
+                            {(() => {
+                              if (item.source !== "bank") {
+                                return <span className="text-muted-foreground/30">—</span>;
+                              }
+                              const lineId = item.groupId.slice("bank:".length);
+                              const n = bankLineDocCounts[lineId] ?? 0;
+                              if (n === 0) return <span className="text-muted-foreground/30">—</span>;
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    // O clip NÃO expande nem fecha o grupo.
+                                    e.stopPropagation();
+                                    setBankLineDocs({
+                                      id: lineId,
+                                      description: item.description,
+                                      booking_date: item.date,
+                                      amount: item.bankAmount,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                                  title="Ver documentos do movimento do banco"
+                                >
+                                  <Paperclip className="h-3.5 w-3.5" />
+                                  <span className="font-medium">{n}</span>
+                                </button>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             {item.total > 0 ? (
                               <span className="text-success">{formatCurrency(item.total)}</span>
@@ -528,6 +594,10 @@ export default function ReportBankStatement() {
         transactionDescription={docsModal.description}
         onClose={() => setDocsModal(null)}
       />
+    )}
+
+    {bankLineDocs && (
+      <BankLineDocumentsDialog line={bankLineDocs} onClose={() => setBankLineDocs(null)} />
     )}
   </>
   );

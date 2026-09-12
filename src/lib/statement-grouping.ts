@@ -91,7 +91,6 @@ export function groupStatementLines<T>(
     childrenByGroup.set(gid, arr);
   }
 
-  const emitted = new Set<string>();
   const out: StatementRenderItem<T>[] = [];
 
   for (const line of lines) {
@@ -100,11 +99,14 @@ export function groupStatementLines<T>(
       out.push({ kind: "tx", line });
       continue;
     }
-    if (emitted.has(gid)) continue;
-    emitted.add(gid);
 
     const children = childrenByGroup.get(gid) ?? [];
     if (children.length === 0) continue;
+    // O cabeçalho é emitido na posição da ÚLTIMA filha, não da primeira: o
+    // saldo que mostra é o saldo DEPOIS do grupo, e as filhas podem não ser
+    // contíguas na ordem canónica. Emitir na primeira quebrava a monotonia da
+    // coluna Saldo (caso real: lote SEPA de 03/09 repartido por 02/09 e 03/09).
+    if (getId(children[children.length - 1]) !== getId(line)) continue;
     const group = groups.get(gid)!;
 
     const total = children.reduce((s, c) => s + getAmount(c), 0);
