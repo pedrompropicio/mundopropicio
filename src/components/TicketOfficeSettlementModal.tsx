@@ -1257,6 +1257,32 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {/* STEP 5 — Transfer (optional) */}
                 <section className="space-y-2">
                   <StepHeader n={5} icon={<ArrowRightLeft className="h-4 w-4" />} title="Transferência para banco (opcional)" />
+                  {transferAlreadyDone && (
+                  <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-4 space-y-2 text-xs">
+                    <p className="font-semibold text-sky-600 dark:text-sky-400">
+                      Transferência já lançada
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2 text-muted-foreground">
+                      <div>
+                        <p>Conta destino</p>
+                        <p className="font-medium text-foreground">
+                          {bankAccounts.find((a: any) => a.id === existingSettlement?.transfer_account_id)?.name ?? "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p>Valor transferido</p>
+                        <p className="font-mono font-medium text-foreground">
+                          {formatCurrency(Number(existingSettlement?.net_transferred || 0))}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Para alterar o valor ou a conta destino é preciso estornar o fecho — a
+                      transferência é um par de movimentos já registado nas contas.
+                    </p>
+                  </div>
+                  )}
+                  {!transferAlreadyDone && (
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
                       Pode adiar — o líquido fica retido na bilheteira até transferência manual.
