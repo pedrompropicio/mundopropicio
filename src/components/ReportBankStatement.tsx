@@ -35,6 +35,12 @@ export default function ReportBankStatement() {
     !!searchParams.get("conta") && searchParams.get("auto") === "1",
   );
   const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
+  const [bankLineDocs, setBankLineDocs] = useState<{
+    id: string;
+    description: string | null;
+    booking_date: string | null;
+    amount: number | null;
+  } | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
