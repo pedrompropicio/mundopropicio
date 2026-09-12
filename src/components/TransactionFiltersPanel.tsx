@@ -302,6 +302,9 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
               </section>
             )}
 
+            {/* Gestão ao nível da chave — renomear / fundir / apagar (só admin) */}
+            <OperationKeyManager isAdmin={isAdmin} />
+
             {/* Suppliers */}
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fornecedor</h3>
