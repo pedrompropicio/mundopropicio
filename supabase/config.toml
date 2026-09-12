@@ -103,3 +103,14 @@ verify_jwt = false
 # Renovação dos tokens de longa duração do Instagram (~60 dias). Sem cron.
 [functions.artist-token-refresh]
 verify_jwt = true
+
+# Comparáveis por artista (Soundcharts). Só backend; autorização por papel
+# (admin/platform_admin/manager/editor) validada dentro de cada função.
+[functions.soundcharts-artist-search]
+verify_jwt = true
+
+[functions.soundcharts-artist-similar]
+verify_jwt = true
+
+[functions.artist-comparable-manage]
+verify_jwt = true
