@@ -54,11 +54,31 @@ Deno.serve(async (req) => {
   const { creds, error: credErr } = tiktokCreds();
   if (credErr) return json({ error: credErr }, 500);
 
-  let body: { artist_id?: string; connection_id?: string; dry_run?: boolean } = {};
+  let body: {
+    artist_id?: string;
+    connection_id?: string;
+    dry_run?: boolean;
+    max_videos?: number;
+    since?: string;
+  } = {};
   try {
     body = await req.json();
   } catch (_e) { /* body opcional */ }
   const dryRun = body.dry_run !== false;
+
+  // max_videos: default 200 (igual ao cron), máximo duro 2000.
+  const rawMax = Number(body.max_videos);
+  const maxVideos = Number.isFinite(rawMax) && rawMax > 0
+    ? Math.min(Math.floor(rawMax), 2000)
+    : TT_VIDEO_LIMIT;
+
+  // since: só entra se for data ISO válida.
+  const sinceMs = body.since ? Date.parse(body.since) : NaN;
+  const sinceSec = Number.isFinite(sinceMs) ? Math.floor(sinceMs / 1000) : null;
+  if (body.since && sinceSec === null) {
+    return json({ error: `since inválido: ${body.since}` }, 400);
+  }
+
 
   let q = admin
     .from("artist_channel_connections")
@@ -218,7 +238,8 @@ Deno.serve(async (req) => {
         const videos: any[] = [];
         let cursor: number | null = null;
         let guard = 0;
-        while (videos.length < TT_VIDEO_LIMIT && guard < 20) {
+        const maxPages = Math.ceil(maxVideos / 20) + 2;
+        while (videos.length < maxVideos && guard < maxPages) {
           guard++;
           const page = await ttVideoPage(token, cursor);
           apiCalls++;
@@ -231,11 +252,31 @@ Deno.serve(async (req) => {
             notes.push(`vídeos indisponíveis: ${msg}`);
             break;
           }
-          videos.push(...page.videos);
+          const pageVideos = page.videos ?? [];
+          if (sinceSec !== null) {
+            const kept = pageVideos.filter((v: any) =>
+              Number(v?.create_time) >= sinceSec
+            );
+            videos.push(...kept);
+            // página inteira já anterior a `since` → não há mais nada útil
+            if (pageVideos.length > 0 && kept.length === 0) {
+              notes.push(`paginação parada em since=${body.since}`);
+              break;
+            }
+          } else {
+            videos.push(...pageVideos);
+          }
           if (!page.hasMore || !page.cursor) break;
           cursor = Number(page.cursor);
         }
-        const list = videos.slice(0, TT_VIDEO_LIMIT);
+        const list = videos.slice(0, maxVideos);
+        per.oldest_published_at = list.reduce((acc: string | null, v: any) => {
+          const t = Number(v?.create_time);
+          if (!Number.isFinite(t)) return acc;
+          const iso = new Date(t * 1000).toISOString();
+          return acc === null || iso < acc ? iso : acc;
+        }, null as string | null);
+
 
         const contentRows = list.map((v) => ({
           company_id: conn.company_id,
@@ -343,6 +384,7 @@ Deno.serve(async (req) => {
     // ligação estimada vídeo→música por menção textual (nunca em dry_run)
     let estimatedSongLinks = 0;
     const songLinkNotes: string[] = [];
+    const songLinksBySong: Record<string, number> = {};
     if (!dryRun) {
       const artistIds = [...new Set(connections.map((c) => c.artist_id).filter(Boolean))];
       for (const aid of artistIds) {
@@ -353,10 +395,16 @@ Deno.serve(async (req) => {
         if (linkErr) {
           songLinkNotes.push(`ligação vídeo→música falhou (${aid}): ${linkErr.message}`);
         } else {
-          estimatedSongLinks += (linked ?? []).filter((r: any) => r.song_id).length;
+          const rows = (linked ?? []).filter((r: any) => r.song_id);
+          estimatedSongLinks += rows.length;
+          for (const r of rows) {
+            const k = String(r.song_id);
+            songLinksBySong[k] = (songLinksBySong[k] ?? 0) + 1;
+          }
         }
       }
     }
+
 
     if (!dryRun) {
       await auditLog(admin, {
@@ -375,14 +423,17 @@ Deno.serve(async (req) => {
     const resBody = {
       ok: errors.length === 0,
       dry_run: dryRun,
+      params: { max_videos: maxVideos, since: body.since ?? null },
       connections: connections.length,
       api_calls: apiCalls,
       rows_written: dryRun ? 0 : rowsWritten,
       estimated_song_links: estimatedSongLinks,
+      song_links_by_song: songLinksBySong,
       song_link_notes: songLinkNotes,
       errors,
       artists: summary,
     };
+
 
     await finishSyncRun(admin, runId, startedMs, {
       status: dryRun
