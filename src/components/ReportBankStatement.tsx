@@ -202,6 +202,37 @@ export default function ReportBankStatement() {
       return next;
     });
 
+  // Anexos do MOVIMENTO do banco (D-ERP41): vivem em `bank_line_documents`,
+  // pendurados na linha do extrato, não nas transações. Só os grupos de fonte
+  // `bank` têm linha; os de fonte `sepa` (recurso) não têm e ficam sem clip.
+  const bankLineIdsForDocs = useMemo(
+    () =>
+      Array.from(bankGroups.groups.values())
+        .filter((g) => g.source === "bank")
+        .map((g) => g.groupId.slice("bank:".length))
+        .sort(),
+    [bankGroups.groups],
+  );
+
+  const { data: bankLineDocCounts = {} } = useQuery({
+    queryKey: ["bank-line-doc-counts-bs", bankLineIdsForDocs],
+    enabled: generated && bankLineIdsForDocs.length > 0,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < bankLineIdsForDocs.length; i += 200) {
+        const { data, error } = await (supabase as any)
+          .from("bank_line_documents")
+          .select("line_id")
+          .in("line_id", bankLineIdsForDocs.slice(i, i + 200));
+        if (error) throw error;
+        (data ?? []).forEach((d: any) => {
+          counts[d.line_id] = (counts[d.line_id] || 0) + 1;
+        });
+      }
+      return counts;
+    },
+  });
+
   const renderItems: StatementRenderItem<any>[] = useMemo(() => {
     if (!consolidateBankMovements || bankGroups.groups.size === 0) {
       return lines.map((line: any) => ({ kind: "tx" as const, line }));
