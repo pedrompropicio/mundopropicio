@@ -284,7 +284,7 @@ Deno.serve(async (req) => {
             if (song) linkedByPlatform[platform] = (linkedByPlatform[platform] ?? 0) + 1;
 
             const official = platform === "instagram" && v.permalink
-              ? byPermalink.get(v.permalink)
+              ? byPermalink.get(normalizeUrl(v.permalink))
               : undefined;
             if (official && official.source === "platform_api") {
               // Não duplicar o Reel oficial: só completar a ligação à obra.
