@@ -583,33 +583,6 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       }
 
-      // Transferência do fecho: par expense + income na rubrica 10.3, numa só
-      // operação na base de dados (create_settlement_transfer, issue #132).
-      // O erro nunca é engolido — sem transferência não há fecho confirmado.
-      if (
-        confirm &&
-        transferAmt > 0 &&
-        transferAccountId &&
-        !existingSettlement?.transfer_transaction_id
-      ) {
-        const isCredited = creditStatus === "credited" && !targetWithholds;
-        const { error: tErr } = await (supabase as any).rpc("create_settlement_transfer", {
-          p_settlement_id: settlementId,
-          p_from_account_id: officeId,
-          p_to_account_id: transferAccountId,
-          p_amount: transferAmt,
-          p_date: settlementDate,
-          p_credited: isCredited,
-        });
-        if (tErr) {
-          // O fecho não pode ficar confirmado a declarar uma transferência inexistente.
-          await (supabase as any)
-            .from("ticket_office_settlements")
-            .update({ status: "draft", closed_at: null, closed_by: null })
-            .eq("id", settlementId);
-          throw new Error(`Transferência não lançada — fecho ficou em rascunho. ${tErr.message}`);
-        }
-      }
 
       // Venda à porta retida pela sala — criar / reverter pagamento parcial na fatura escolhida
       const prevRetainedPaymentId = existingSettlement?.venue_retained_payment_id ?? null;
