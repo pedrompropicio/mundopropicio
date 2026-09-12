@@ -63,6 +63,7 @@ o título vem vazio.
 
 Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qualquer listagem
 de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
+- Relatório de lançamento por LLM: `artist-song-report` + `artist_song_reports` / `v_song_report_latest`, cron `carreira-song-report-diario` (10:00 UTC). Ver D-ERP54.
 
 ## Ritual de arranque (obrigatório, por esta ordem)
 
