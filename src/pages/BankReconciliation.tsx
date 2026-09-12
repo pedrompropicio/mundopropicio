@@ -1223,8 +1223,8 @@ export default function BankReconciliation() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
-                  <TableHead>Data</TableHead><TableHead>Descrição do banco</TableHead>
-                  <TableHead className="text-right">Valor</TableHead><TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="whitespace-nowrap">Data</TableHead><TableHead>Descrição do banco</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Valor</TableHead><TableHead className="sticky right-0 z-20 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
