@@ -63,11 +63,13 @@ Nada em execução.
 
 O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato fecha a zero até 11/09. O que está por fazer:
 
-1. **Pagar os seis repasses ZigPay** — `pending`, **17.906,94 €** no total, com NIF e IBAN já preenchidos nos seis fornecedores.
+1. **Pagar os seis repasses ZigPay** — `pending`, **17.906,94 €** no total, com NIF e IBAN já preenchidos nos seis fornecedores. O fluxo **por operador** é: pagar o repasse **por transferência** e liquidar a receita correspondente **por compensação**, no mesmo dia. Quando as doze estiverem liquidadas, o saldo do grupo `ACERTO-FOOD-IVETE-2026` tem de ser **7.530,40 €**.
 2. **Fechar os 121,50 € da Garrafeira Estado D'Alma** — anexar a fatura e substituir o **IVA a 0% provisório** pelo desdobramento base/IVA real.
-3. **Decompor o cashless da Ivete (895,70 €)** quando chegar o fecho dos bares, aplicando o teste: dinheiro apurado (liquidação TPA + numerário) tem de cobrir a totalidade das vendas de alimentos e bebidas.
+3. **Decompor o cashless da Ivete (895,70 €)** — o depósito está **conciliado** mas por decompor, à espera do fecho dos bares. Teste a fazer quando chegar: o dinheiro apurado (liquidação TPA + numerário) tem de cobrir a totalidade das vendas de alimentos **e** bebidas — para o que é preciso que o relatório traga a **origem do pagamento por venda**.
 4. **Entrar com os quatro ativos exclusivos MP+EIN da Anitta**, ainda fora do ERP e à espera da épica **#146**: IVA dedutível **266.345,18 €**, bares **93.969,63 €**, bengaleiro **138,82 €**, patrocínio Oeiras **50.000,00 €**.
 5. **Levar o saldo para o servidor nos sítios que faltam** — Contas, Extrato, cartões e bilheteiras continuam a somar saldo no cliente (furo assumido nas D-ERP34/D-ERP36).
+
+Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
 Depois:
 
