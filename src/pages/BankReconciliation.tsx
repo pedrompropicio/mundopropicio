@@ -1380,46 +1380,73 @@ export default function BankReconciliation() {
               <p className="text-muted-foreground">
                 {formatDatePT(manualLine.booking_date)} · {manualLine.description} · {formatCurrency(Number(manualLine.amount))}
               </p>
-              <div>
-                <Label>Transação</Label>
-                <Select
-                  value={manualTxId}
+              <div className="space-y-2">
+                <Label>Transações</Label>
+                {/* Selecção MÚLTIPLA: uma linha do banco pode ser explicada por
+                    N transações. A soma tem de bater com a linha (±0,01 €). */}
+                <SearchableSelect
+                  value=""
                   onValueChange={(v) => {
-                    setManualTxId(v);
+                    if (!v) return;
+                    setManualTxIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
                     setCrossAccountAck(false);
                   }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Escolher transação" /></SelectTrigger>
-                  <SelectContent>
-                    {(txns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id))
-                      .slice(0, 300)
-                      .map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
-                        </SelectItem>
-                      ))}
-                    {/* Candidatas de OUTRAS contas: sempre depois e sempre com aviso. */}
-                    {(crossAccountTxns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id))
-                      .slice(0, 50)
-                      .map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
-                          {"  "}⚠ conta divergente — {t.account_name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Procurar e adicionar transação"
+                  options={[
+                    ...(txns as any[])
+                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
+                        searchText: `${t.description ?? ""} ${t.paid_amount ?? ""}`,
+                      })),
+                    // Candidatas de OUTRAS contas: sempre depois e sempre com aviso.
+                    ...(crossAccountTxns as any[])
+                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
+                        description: `⚠ conta divergente — ${t.account_name}`,
+                        searchText: `${t.description ?? ""} ${t.account_name ?? ""}`,
+                      })),
+                  ]}
+                />
+                {manualTxIds.length > 0 && (
+                  <div className="space-y-1 rounded-lg border px-3 py-2 text-xs">
+                    {manualTxIds.map((id) => {
+                      const t = manualCandidates.get(id);
+                      return (
+                        <div key={id} className="flex items-center justify-between gap-2">
+                          <span className="truncate">
+                            {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))} · {t?.description ?? "(transação)"}
+                            {crossAccountIds.has(id) && <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>}
+                          </span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <div className={`pt-1 font-medium ${Math.abs(manualDiff) > 0.01 ? "text-destructive" : "text-success"}`}>
+                      Total {formatCurrency(manualSelectedTotal)} · linha {formatCurrency(manualTarget)} · diferença{" "}
+                      {formatCurrency(manualDiff)}
+                    </div>
+                  </div>
+                )}
               </div>
-              {selectedCrossAccount && (
+              {selectedCrossAccounts.length > 0 && (
                 <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs">
                   <p className="font-semibold text-destructive">
-                    Conta divergente — {selectedCrossAccount.account_name}
+                    Conta divergente — {selectedCrossAccounts.map((t) => t.account_name).join(", ")}
                   </p>
                   <p className="text-muted-foreground">
-                    Esta transação está registada noutra conta. Se o dinheiro saiu
-                    da conta deste extrato, a conta da liquidação está
+                    Estas transações estão registadas noutra conta. Se o dinheiro
+                    saiu da conta deste extrato, a conta da liquidação está
                     provavelmente errada e deve ser corrigida.
                   </p>
                   <label className="flex items-start gap-2 font-medium">
@@ -1429,7 +1456,7 @@ export default function BankReconciliation() {
                       checked={crossAccountAck}
                       onChange={(e) => setCrossAccountAck(e.target.checked)}
                     />
-                    Confirmo que quero ligar esta linha a uma transação de outra conta.
+                    Confirmo que quero ligar esta linha a transações de outra conta.
                   </label>
                 </div>
               )}
@@ -1440,11 +1467,18 @@ export default function BankReconciliation() {
             <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
             <Button
               onClick={confirmManual}
-              disabled={!manualTxId || (!!selectedCrossAccount && !crossAccountAck)}
+              disabled={
+                manualTxIds.length === 0 ||
+                manualSaving ||
+                Math.abs(manualDiff) > 0.01 ||
+                (selectedCrossAccounts.length > 0 && !crossAccountAck)
+              }
             >
+              {manualSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
               Ligar
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
