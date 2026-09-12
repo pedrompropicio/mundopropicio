@@ -864,7 +864,25 @@ Dados corrigidos a 11/09: a transação original passou para a conta Santander T
 
 **Validado a 11/09/2026.** `_account_true_balance_asof_raw('594befaa-…', '2026-09-09') = 439403.92`, igual ao `closing_balance` do extrato: diferença 0,00 €, 52 linhas conciliadas, 0 por explicar, 5 pré-corte.
 
-**Fica por fazer (Passo 3 do relatório de 11/09).** A página de Contas, o Extrato, os cartões e as bilheteiras continuam a somar saldo no cliente e a mostrá-lo sem verificar `view_balances` nem `balance_visible_to_all`. A limitação da D-ERP34 mantém-se: a fórmula não filtra status, estornadas nem escondidas.
+**Fase 2 (12/09/2026) — o Dashboard passou a mostrar saldo, e só a partir do servidor.**
+`src/pages/Index.tsx` ganhou dois cartões, via `src/components/DashboardBalanceCards.tsx`,
+que consomem o **mesmo** `useAccountBalanceCards` da página de Contas (uma verdade só, sem
+queries nem somas duplicadas): **Saldo em caixa** (`bank`, `cash`, `prepaid_card`, com os
+nomes das contas excluídas por `skip_balance_check` por baixo) e **Retido em bilheteiras**
+(`ticket_office`, pela fórmula própria da D-ERP15). Os dois **nunca se somam** — o retido
+em bilheteira não é caixa da empresa (D-ERP27). O cartão de "Acertos em curso" fica só na
+página de Contas. Duas chamadas em lote, uma por grupo de contas; nenhuma transação é
+carregada para isto.
+
+**Regra da página de entrada: ausência explícita, nunca zero.** A rota `/` não tem guarda
+de permissão e continua a não ter — o portão é por dado, não por página. Se nenhuma conta
+do grupo devolver valor, **o cartão não aparece**; e se nenhum dos dois grupos devolver
+valor, não aparece nenhum e o resto do Dashboard funciona igual. Escolheu-se desaparecer
+em vez de escrever "sem permissão" porque a página de entrada não é o lugar para explicar
+permissões — mas as contas individuais que ficam de fora continuam nomeadas, e
+"não controlado" (`skip_balance_check`) continua distinto de "sem permissão".
+
+**Fica por fazer (fase 3).** O Extrato, os cartões pré-pagos e o `CartaoEquipa` continuam a somar saldo no cliente e a mostrá-lo sem verificar `view_balances` nem `balance_visible_to_all`. A limitação da D-ERP34 mantém-se: a fórmula não filtra status, estornadas nem escondidas.
 
 **Estado:** vigente.
 
