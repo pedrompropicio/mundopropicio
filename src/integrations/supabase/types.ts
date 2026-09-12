@@ -707,6 +707,8 @@ export type Database = {
           platform: string
           published_at: string | null
           song_id: string | null
+          song_link_reason: string | null
+          song_link_status: string
           sound_external_id: string | null
           sound_name: string | null
           source: string
@@ -728,6 +730,8 @@ export type Database = {
           platform: string
           published_at?: string | null
           song_id?: string | null
+          song_link_reason?: string | null
+          song_link_status?: string
           sound_external_id?: string | null
           sound_name?: string | null
           source?: string
@@ -749,6 +753,8 @@ export type Database = {
           platform?: string
           published_at?: string | null
           song_id?: string | null
+          song_link_reason?: string | null
+          song_link_status?: string
           sound_external_id?: string | null
           sound_name?: string | null
           source?: string
@@ -13848,6 +13854,7 @@ export type Database = {
           rank_views: number | null
           shares: number | null
           song_id: string | null
+          song_link_status: string | null
           song_title: string | null
           sound_name: string | null
           thumbnail_url: string | null
@@ -14172,6 +14179,8 @@ export type Database = {
           published_at: string | null
           shares: number | null
           song_id: string | null
+          song_link_reason: string | null
+          song_link_status: string | null
           song_title: string | null
           sound_name: string | null
           source: string | null
@@ -14219,9 +14228,15 @@ export type Database = {
           song_title: string | null
           total_comments: number | null
           total_likes: number | null
+          total_likes_confirmed: number | null
+          total_likes_estimated: number | null
           total_shares: number | null
           total_views: number | null
+          total_views_confirmed: number | null
+          total_views_estimated: number | null
           videos: number | null
+          videos_confirmed: number | null
+          videos_estimated: number | null
         }
         Relationships: [
           {
@@ -14600,6 +14615,18 @@ export type Database = {
           valid: boolean
         }[]
       }
+      artist_content_link_songs: {
+        Args: { p_artist_id?: string; p_dry_run?: boolean }
+        Returns: {
+          content_id: string
+          reason: string
+          song_id: string
+        }[]
+      }
+      artist_content_set_song: {
+        Args: { p_content_id: string; p_song_id?: string; p_status?: string }
+        Returns: undefined
+      }
       artist_delete_channel_connection: {
         Args: { p_artist_channel_id: string }
         Returns: boolean
@@ -14656,6 +14683,7 @@ export type Database = {
           value: number
         }[]
       }
+      artist_song_base_title: { Args: { _title: string }; Returns: string }
       artist_upsert_channel_connection: {
         Args: {
           p_access_token: string
