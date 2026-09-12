@@ -72,7 +72,10 @@ export function DashboardBalanceCards() {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {showCash && (
-        <div className="glass rounded-xl p-4">
+        <div
+          {...clickable("cash")}
+          className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+        >
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Saldo em Caixa
