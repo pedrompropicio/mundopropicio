@@ -1317,6 +1317,45 @@ export type Database = {
           },
         ]
       }
+      bank_line_transactions: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          line_id: string
+          transaction_id: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          line_id: string
+          transaction_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          line_id?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_line_transactions_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_line_transactions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_lines: {
         Row: {
           amount: number

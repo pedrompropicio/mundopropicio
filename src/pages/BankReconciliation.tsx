@@ -27,8 +27,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2 } from "lucide-react";
+import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, PlusCircle, Trash2, X } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
+
 import type { BankLineRule } from "@/lib/bank-statement/rules";
 import {
   parseSantanderStatement,
@@ -88,7 +90,15 @@ export default function BankReconciliation() {
   const [rerunning, setRerunning] = useState(false);
   const [statementId, setStatementId] = useState<string | null>(null);
   const [manualLine, setManualLine] = useState<any | null>(null);
-  const [manualTxId, setManualTxId] = useState<string>("");
+  /**
+   * Conciliação manual: UMA linha do banco pode ser explicada por N transações
+   * (caso real: 135.986,96 € = 108.789,56 + 27.197,40). Com uma só transação
+   * grava-se `matched_transaction_id`; com N usa-se a ponte
+   * `bank_line_transactions` e a coluna singular fica nula.
+   */
+  const [manualTxIds, setManualTxIds] = useState<string[]>([]);
+  const [manualSaving, setManualSaving] = useState(false);
+
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
   const [crossAccountAck, setCrossAccountAck] = useState(false);
   const [ignoreLine, setIgnoreLine] = useState<any | null>(null);
@@ -203,10 +213,12 @@ export default function BankReconciliation() {
     () => new Set((crossAccountTxns as any[]).map((t) => t.id)),
     [crossAccountTxns],
   );
-  const selectedCrossAccount = useMemo(
-    () => (crossAccountTxns as any[]).find((t) => t.id === manualTxId) ?? null,
-    [crossAccountTxns, manualTxId],
+  /** Transações escolhidas que estão registadas NOUTRA conta (aviso + confirmação). */
+  const selectedCrossAccounts = useMemo(
+    () => (crossAccountTxns as any[]).filter((t) => manualTxIds.includes(t.id)),
+    [crossAccountTxns, manualTxIds],
   );
+
 
   const { data: sepaExports = [] } = useQuery({
     queryKey: ["bank-recon-sepa"],
@@ -257,6 +269,41 @@ export default function BankReconciliation() {
     },
   });
 
+  /**
+   * Ponte das conciliações manuais de N transações (`bank_line_transactions`).
+   * É a SSOT desse caso: com N a coluna `matched_transaction_id` fica nula.
+   */
+  const savedLineIds = useMemo(() => (savedLines as any[]).map((l) => l.id), [savedLines]);
+
+  const { data: bridgeRows = [] } = useQuery({
+    queryKey: ["bank-recon-bridge", currentStatement?.id, savedLineIds.length],
+    enabled: savedLineIds.length > 0,
+    queryFn: async () => {
+      const out: any[] = [];
+      for (let i = 0; i < savedLineIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from("bank_line_transactions")
+          .select("id, line_id, transaction_id, transactions(description, paid_amount, payment_date, date)")
+          .in("line_id", savedLineIds.slice(i, i + 200));
+        if (error) throw error;
+        out.push(...(data ?? []));
+      }
+      return out;
+    },
+  });
+
+  /** line_id → entradas da ponte. */
+  const bridgeByLine = useMemo(() => {
+    const m = new Map<string, any[]>();
+    (bridgeRows as any[]).forEach((r) => {
+      const arr = m.get(r.line_id) ?? [];
+      arr.push(r);
+      m.set(r.line_id, arr);
+    });
+    return m;
+  }, [bridgeRows]);
+
+
   // ---- Triângulo do saldo -------------------------------------------------
   const txById = useMemo(() => new Map((txns as any[]).map((t) => [t.id, t])), [txns]);
 
@@ -289,9 +336,13 @@ export default function BankReconciliation() {
           (e.transaction_ids ?? []).forEach((id) => s.add(id)),
         );
       }
+      // Terceiro ramo: conciliação manual de N transações, via ponte. Sem isto
+      // o "Resto sem explicação" não fecha a zero.
+      (bridgeByLine.get(l.id) ?? []).forEach((r) => s.add(r.transaction_id));
     });
     return s;
-  }, [savedLines, sepaSiblings]);
+  }, [savedLines, sepaSiblings, bridgeByLine]);
+
 
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
@@ -608,27 +659,77 @@ export default function BankReconciliation() {
     }
   }
 
+  /** Transações candidatas à ligação manual (conta do extrato + outras contas). */
+  const manualCandidates = useMemo(() => {
+    const m = new Map<string, any>();
+    (txns as any[]).forEach((t) => m.set(t.id, t));
+    (crossAccountTxns as any[]).forEach((t) => { if (!m.has(t.id)) m.set(t.id, t); });
+    return m;
+  }, [txns, crossAccountTxns]);
+
+  const manualSelectedTotal = useMemo(
+    () =>
+      Math.round(
+        manualTxIds.reduce((a, id) => a + Math.abs(Number(manualCandidates.get(id)?.paid_amount ?? 0)), 0) * 100,
+      ) / 100,
+    [manualTxIds, manualCandidates],
+  );
+  const manualTarget = manualLine ? Math.abs(Number(manualLine.amount ?? 0)) : 0;
+  const manualDiff = Math.round((manualSelectedTotal - manualTarget) * 100) / 100;
+
   async function confirmManual() {
-    if (!manualLine || !manualTxId) return;
-    const { error } = await supabase
-      .from("bank_statement_lines")
-      .update({
-        status: "matched",
-        matched_transaction_id: manualTxId,
-        matched_by: `manual:${user?.email ?? "sistema"}`,
-        matched_at: new Date().toISOString(),
-      })
-      .eq("id", manualLine.id);
-    if (error) return toast.error("Erro ao conciliar: " + error.message);
-    if (crossAccountIds.has(manualTxId)) {
-      toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
-    } else {
-      toast.success("Linha conciliada.");
+    if (!manualLine || manualTxIds.length === 0) return;
+    // Não existe conciliação parcial: a soma dos pagos tem de bater com a linha.
+    if (Math.abs(manualDiff) > 0.01) {
+      toast.error("A soma não bate com a linha do banco.", {
+        description: `Linha ${formatCurrency(manualTarget)} · transações ${formatCurrency(
+          manualSelectedTotal,
+        )} · diferença ${formatCurrency(manualDiff)}`,
+      });
+      return;
     }
-    setManualLine(null);
-    setManualTxId("");
-    setCrossAccountAck(false);
-    queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+    setManualSaving(true);
+    try {
+      const single = manualTxIds.length === 1;
+      const { error } = await supabase
+        .from("bank_statement_lines")
+        .update({
+          status: "matched",
+          matched_transaction_id: single ? manualTxIds[0] : null,
+          // Conciliar por cima de uma linha que era lote SEPA deixava os
+          // apontadores lá e duplicava a contagem.
+          matched_payment_list_id: null,
+          matched_sepa_export_id: null,
+          matched_by: `${single ? "manual" : "manual-multi"}:${user?.email ?? "sistema"}`,
+          matched_at: new Date().toISOString(),
+        })
+        .eq("id", manualLine.id);
+      if (error) throw error;
+
+      // A ponte só existe para o caso de N.
+      await supabase.from("bank_line_transactions").delete().eq("line_id", manualLine.id);
+      if (!single) {
+        const { error: e2 } = await supabase
+          .from("bank_line_transactions")
+          .insert(manualTxIds.map((id) => ({ line_id: manualLine.id, transaction_id: id })));
+        if (e2) throw e2;
+      }
+
+      if (manualTxIds.some((id) => crossAccountIds.has(id))) {
+        toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
+      } else {
+        toast.success(single ? "Linha conciliada." : `Linha conciliada com ${manualTxIds.length} transações.`);
+      }
+      setManualLine(null);
+      setManualTxIds([]);
+      setCrossAccountAck(false);
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+    } catch (err: any) {
+      toast.error("Erro ao conciliar: " + (err?.message ?? "desconhecido"));
+    } finally {
+      setManualSaving(false);
+    }
   }
 
   async function confirmIgnore() {
@@ -638,15 +739,24 @@ export default function BankReconciliation() {
       .update({
         status: "ignored",
         note: ignoreNote.trim(),
+        // Uma linha ignorada não explica nada: os apontadores TÊM de sair, ou o
+        // índice único continua a reservar a transação e a conciliação seguinte
+        // sobre ela rebenta com violação de chave.
+        matched_transaction_id: null,
+        matched_payment_list_id: null,
+        matched_sepa_export_id: null,
         matched_by: `ignored:${user?.email ?? "sistema"}`,
         matched_at: new Date().toISOString(),
       })
       .eq("id", ignoreLine.id);
     if (error) return toast.error("Erro ao ignorar: " + error.message);
+    await supabase.from("bank_line_transactions").delete().eq("line_id", ignoreLine.id);
     toast.success("Linha marcada como ignorada.");
     setIgnoreLine(null);
     setIgnoreNote("");
     queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+    queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+
   }
 
   /**
@@ -677,6 +787,9 @@ export default function BankReconciliation() {
             (e.transaction_ids ?? []).forEach((id) => preUsed.add(id)),
           );
         }
+        // Terceiro ramo: conciliações manuais de N (ponte). Sem isto, uma
+        // transação já explicada voltava a ser candidata das camadas automáticas.
+        (bridgeByLine.get(l.id) ?? []).forEach((r) => preUsed.add(r.transaction_id));
       });
 
 
@@ -696,8 +809,9 @@ export default function BankReconciliation() {
       const now = new Date().toISOString();
       for (const l of lines) {
         let m = result.matches.get(l.id);
-        // Trava: nunca gravar uma transação já presa por outra linha (índice único).
-        if (m?.matched_transaction_id && preUsed.has(m.matched_transaction_id)) m = undefined;
+        // Trava: nunca gravar transações já presas por outra linha (índice
+        // único). Verifica TODOS os ids do match, não só o singular.
+        if (m && (m.transactionIds ?? []).some((id) => preUsed.has(id))) m = undefined;
 
         const { error } = await supabase
           .from("bank_statement_lines")
@@ -711,8 +825,14 @@ export default function BankReconciliation() {
           })
           .eq("id", l.id);
         if (error) throw error;
-        if (m?.matched_transaction_id) preUsed.add(m.matched_transaction_id);
+        // As linhas desta passagem deixam de ter conciliação manual de N: o
+        // `on delete cascade` não cobre isto, porque a linha não é apagada.
+        if ((bridgeByLine.get(l.id) ?? []).length > 0) {
+          await supabase.from("bank_line_transactions").delete().eq("line_id", l.id);
+        }
+        (m?.transactionIds ?? []).forEach((id) => preUsed.add(id));
       }
+
 
 
       toast.success(
@@ -994,9 +1114,32 @@ export default function BankReconciliation() {
                             </p>
                           )}
                         </div>
+                      ) : (bridgeByLine.get(l.id) ?? []).length > 0 ? (
+                        // Terceiro ramo: conciliação manual de N transações. O
+                        // `matched_transaction_id` fica nulo — sem isto dava "—".
+                        <div className="space-y-0.5">
+                          <p className="text-foreground">
+                            {(bridgeByLine.get(l.id) ?? []).length} transações ·{" "}
+                            {formatCurrency(
+                              Math.round(
+                                (bridgeByLine.get(l.id) ?? []).reduce(
+                                  (a, r) => a + Math.abs(Number(r.transactions?.paid_amount ?? 0)),
+                                  0,
+                                ) * 100,
+                              ) / 100,
+                            )}
+                          </p>
+                          {(bridgeByLine.get(l.id) ?? []).map((r) => (
+                            <p key={r.id} className="max-w-[320px] truncate">
+                              {formatCurrency(Math.abs(Number(r.transactions?.paid_amount ?? 0)))} ·{" "}
+                              {r.transactions?.description ?? "(transação)"}
+                            </p>
+                          ))}
+                        </div>
                       ) : (
                         txById.get(l.matched_transaction_id)?.description ?? "—"
                       )}
+
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1073,7 +1216,7 @@ export default function BankReconciliation() {
                     </TableCell>
                     <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxId(""); }}>
+                      <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxIds([]); setCrossAccountAck(false); }}>
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Conciliar
                       </Button>
                       <Button size="sm" variant="outline" className="ml-1" onClick={() => setLaunchLines([toLaunchable(l)])}>
@@ -1237,46 +1380,73 @@ export default function BankReconciliation() {
               <p className="text-muted-foreground">
                 {formatDatePT(manualLine.booking_date)} · {manualLine.description} · {formatCurrency(Number(manualLine.amount))}
               </p>
-              <div>
-                <Label>Transação</Label>
-                <Select
-                  value={manualTxId}
+              <div className="space-y-2">
+                <Label>Transações</Label>
+                {/* Selecção MÚLTIPLA: uma linha do banco pode ser explicada por
+                    N transações. A soma tem de bater com a linha (±0,01 €). */}
+                <SearchableSelect
+                  value=""
                   onValueChange={(v) => {
-                    setManualTxId(v);
+                    if (!v) return;
+                    setManualTxIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
                     setCrossAccountAck(false);
                   }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Escolher transação" /></SelectTrigger>
-                  <SelectContent>
-                    {(txns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id))
-                      .slice(0, 300)
-                      .map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
-                        </SelectItem>
-                      ))}
-                    {/* Candidatas de OUTRAS contas: sempre depois e sempre com aviso. */}
-                    {(crossAccountTxns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id))
-                      .slice(0, 50)
-                      .map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {formatDatePT(t.payment_date ?? t.date)} · {formatCurrency(Number(t.paid_amount ?? 0))} · {t.description}
-                          {"  "}⚠ conta divergente — {t.account_name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Procurar e adicionar transação"
+                  options={[
+                    ...(txns as any[])
+                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
+                        searchText: `${t.description ?? ""} ${t.paid_amount ?? ""}`,
+                      })),
+                    // Candidatas de OUTRAS contas: sempre depois e sempre com aviso.
+                    ...(crossAccountTxns as any[])
+                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
+                        description: `⚠ conta divergente — ${t.account_name}`,
+                        searchText: `${t.description ?? ""} ${t.account_name ?? ""}`,
+                      })),
+                  ]}
+                />
+                {manualTxIds.length > 0 && (
+                  <div className="space-y-1 rounded-lg border px-3 py-2 text-xs">
+                    {manualTxIds.map((id) => {
+                      const t = manualCandidates.get(id);
+                      return (
+                        <div key={id} className="flex items-center justify-between gap-2">
+                          <span className="truncate">
+                            {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))} · {t?.description ?? "(transação)"}
+                            {crossAccountIds.has(id) && <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>}
+                          </span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <div className={`pt-1 font-medium ${Math.abs(manualDiff) > 0.01 ? "text-destructive" : "text-success"}`}>
+                      Total {formatCurrency(manualSelectedTotal)} · linha {formatCurrency(manualTarget)} · diferença{" "}
+                      {formatCurrency(manualDiff)}
+                    </div>
+                  </div>
+                )}
               </div>
-              {selectedCrossAccount && (
+              {selectedCrossAccounts.length > 0 && (
                 <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs">
                   <p className="font-semibold text-destructive">
-                    Conta divergente — {selectedCrossAccount.account_name}
+                    Conta divergente — {selectedCrossAccounts.map((t) => t.account_name).join(", ")}
                   </p>
                   <p className="text-muted-foreground">
-                    Esta transação está registada noutra conta. Se o dinheiro saiu
-                    da conta deste extrato, a conta da liquidação está
+                    Estas transações estão registadas noutra conta. Se o dinheiro
+                    saiu da conta deste extrato, a conta da liquidação está
                     provavelmente errada e deve ser corrigida.
                   </p>
                   <label className="flex items-start gap-2 font-medium">
@@ -1286,7 +1456,7 @@ export default function BankReconciliation() {
                       checked={crossAccountAck}
                       onChange={(e) => setCrossAccountAck(e.target.checked)}
                     />
-                    Confirmo que quero ligar esta linha a uma transação de outra conta.
+                    Confirmo que quero ligar esta linha a transações de outra conta.
                   </label>
                 </div>
               )}
@@ -1297,11 +1467,18 @@ export default function BankReconciliation() {
             <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
             <Button
               onClick={confirmManual}
-              disabled={!manualTxId || (!!selectedCrossAccount && !crossAccountAck)}
+              disabled={
+                manualTxIds.length === 0 ||
+                manualSaving ||
+                Math.abs(manualDiff) > 0.01 ||
+                (selectedCrossAccounts.length > 0 && !crossAccountAck)
+              }
             >
+              {manualSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
               Ligar
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
