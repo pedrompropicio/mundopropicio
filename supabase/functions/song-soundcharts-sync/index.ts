@@ -33,6 +33,10 @@ const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const MAX_BLOCK_DAYS = 90; // limit máx. 100 pontos por pedido
 
 /** plataforma → métrica gravada em artist_song_metrics_daily */
+// "youtube_shorts" NÃO existe na Soundcharts: a API responde
+// HTTP 400 «Platform "youtube_shorts" is not a valid platform code», e nenhuma
+// variante ("shorts", "youtube-shorts") é aceite. Confirmado contra a API real
+// a 2026-09-12 — por isso foi retirada da lista.
 const SONG_METRIC: Record<string, string> = {
   spotify: "streams",
   youtube: "views",
@@ -40,7 +44,6 @@ const SONG_METRIC: Record<string, string> = {
   shazam: "shazams",
   tiktok: "videos",
   instagram: "reels",
-  youtube_shorts: "videos",
   soundcloud: "plays",
 };
 const PLATFORMS = Object.keys(SONG_METRIC);
