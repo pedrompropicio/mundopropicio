@@ -472,7 +472,35 @@ export default function ReportBankStatement() {
                             )}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{item.eventLabel}</TableCell>
-                          <TableCell />
+                          <TableCell className="text-center">
+                            {(() => {
+                              if (item.source !== "bank") {
+                                return <span className="text-muted-foreground/30">—</span>;
+                              }
+                              const lineId = item.groupId.slice("bank:".length);
+                              const n = bankLineDocCounts[lineId] ?? 0;
+                              if (n === 0) return <span className="text-muted-foreground/30">—</span>;
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    // O clip NÃO expande nem fecha o grupo.
+                                    e.stopPropagation();
+                                    setBankLineDocs({
+                                      id: lineId,
+                                      description: item.description,
+                                      booking_date: item.date,
+                                      amount: item.bankAmount,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                                  title="Ver documentos do movimento do banco"
+                                >
+                                  <Paperclip className="h-3.5 w-3.5" />
+                                  <span className="font-medium">{n}</span>
+                                </button>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             {item.total > 0 ? (
                               <span className="text-success">{formatCurrency(item.total)}</span>
