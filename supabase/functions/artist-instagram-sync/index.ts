@@ -465,6 +465,24 @@ Deno.serve(async (req) => {
     summary.push(per);
   }
 
+  // ligação estimada vídeo→música por menção textual (nunca em dry_run)
+  let estimatedSongLinks = 0;
+  const songLinkNotes: string[] = [];
+  if (!dryRun) {
+    const artistIds = [...new Set(connections.map((c) => c.artist_id).filter(Boolean))];
+    for (const aid of artistIds) {
+      const { data: linked, error: linkErr } = await admin.rpc("artist_content_link_songs", {
+        p_artist_id: aid,
+        p_dry_run: false,
+      });
+      if (linkErr) {
+        songLinkNotes.push(`ligação vídeo→música falhou (${aid}): ${linkErr.message}`);
+      } else {
+        estimatedSongLinks += (linked ?? []).filter((r: any) => r.song_id).length;
+      }
+    }
+  }
+
   if (!dryRun) {
     await auditLog(admin, {
       entity_type: "artist_instagram_sync",
@@ -482,6 +500,8 @@ Deno.serve(async (req) => {
     connections: connections.length,
     graph_calls: graphCalls,
     rows_written: dryRun ? 0 : rowsWritten,
+    estimated_song_links: estimatedSongLinks,
+    song_link_notes: songLinkNotes,
     errors,
     artists: summary,
   };
