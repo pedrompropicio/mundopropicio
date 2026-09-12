@@ -473,12 +473,8 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
 
                       <div>
                         <label className="text-xs text-muted-foreground">Método</label>
-                        <div className="grid grid-cols-3 gap-1">
-                          {([
-                            { value: "transfer", label: "Transferência", icon: Building },
-                            { value: "service_payment", label: "Pag. Serviços", icon: FileText },
-                            { value: "direct_debit", label: "Débito Direto", icon: Repeat },
-                          ] as const).map((m) => (
+                        <div className={cn("grid gap-1", isStateCategory ? "grid-cols-2" : "grid-cols-3")}>
+                          {paymentMethodOptions({ includeStatePayment: isStateCategory }).map((m) => (
                             <button key={m.value} type="button"
                               onClick={() => setEditForm({ ...editForm, payment_method: m.value })}
                               className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
