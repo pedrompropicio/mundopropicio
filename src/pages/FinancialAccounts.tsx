@@ -140,122 +140,12 @@ export default function FinancialAccounts() {
     },
   });
 
-  // Data de corte do saldo inicial, por conta.
-  const cutoffs = buildAccountCutoffs(accounts as any);
+  // ---- Saldos: servidor, com permissão resolvida lá (D-ERP36) ----------------
+  // A composição dos três dinheiros da D-ERP27 vive em useAccountBalanceCards:
+  // caixa (account_true_balances_asof), retido em bilheteiras
+  // (ticket_office_balances, fórmula própria D-ERP15) e acertos em curso.
+  const balanceCards = useAccountBalanceCards(accounts as any);
 
-  // Adjustments for IRS withholding and supplier credits (non-cash deductions
-  // already embedded in transactions.paid_amount). Added back to the gross
-  // balance so the displayed value reflects the real cash position.
-  const { data: cashAdjustments } = useQuery({
-    queryKey: ["financial-accounts-cash-adjustments", (accounts as any[]).map((a) => `${a.id}:${a.initial_balance_date ?? ""}`).join(",")],
-    queryFn: () => fetchAccountCashAdjustments(undefined, cutoffs),
-  });
-
-  // ---- Bilheteiras: fonte própria (D-ERP15) ----------------------------------
-  // A receita de bilhetes vive em `ticket_sales`, não em `transactions`; com a
-  // fórmula bancária a conta só vê as saídas. O saldo retido calcula-se com
-  // computeTicketOfficeBalance, exactamente como no ecrã de Bilheteiras.
-  const officeIds = useMemo(
-    () => (accounts as any[]).filter((a) => a.type === "ticket_office").map((a) => a.id),
-    [accounts]
-  );
-
-  const { data: officeAssignments = [] } = useQuery({
-    queryKey: ["fa-office-assignments", officeIds],
-    enabled: officeIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_ticket_office_assignments")
-        .select("financial_account_id, event_id")
-        .in("financial_account_id", officeIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const officeEventIds = useMemo(
-    () => [...new Set((officeAssignments as any[]).map((a) => a.event_id))],
-    [officeAssignments]
-  );
-
-  const { data: officeZones = [] } = useQuery({
-    queryKey: ["fa-office-zones", officeEventIds],
-    enabled: officeEventIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_ticket_zones")
-        .select("id, event_id")
-        .in("event_id", officeEventIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const officeZoneIds = useMemo(() => (officeZones as any[]).map((z) => z.id), [officeZones]);
-
-  const { data: officeSales = [] } = useQuery({
-    queryKey: ["fa-office-sales", officeZoneIds],
-    enabled: officeZoneIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, total_value, financial_account_id")
-        .in("zone_id", officeZoneIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const { data: officeTxns = [] } = useQuery({
-    queryKey: ["fa-office-txns", officeIds],
-    enabled: officeIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, paid_amount, status, event_id, reversed_at, is_hidden")
-        .in("account_id", officeIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const { data: officeAdvances = [] } = useQuery({
-    queryKey: ["fa-office-advances", officeIds],
-    enabled: officeIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("event_ticket_office_advances")
-        .select("financial_account_id, event_id, amount, transaction_id, settlement_id")
-        .in("financial_account_id", officeIds);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const ticketOfficeBalances = useMemo(() => {
-    const map: Record<string, number> = {};
-    if (officeIds.length === 0) return map;
-    const officeEventMap: Record<string, string[]> = {};
-    (officeAssignments as any[]).forEach((a) => {
-      if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = [];
-      officeEventMap[a.financial_account_id].push(a.event_id);
-    });
-    const zoneEventMap: Record<string, string> = {};
-    (officeZones as any[]).forEach((z) => { zoneEventMap[z.id] = z.event_id; });
-    const salesWithEvent = (officeSales as any[]).map((s) => ({ ...s, event_id: zoneEventMap[s.zone_id] }));
-
-    officeIds.forEach((id: string) => {
-      const { total } = computeTicketOfficeBalance({
-        officeId: id,
-        assignedEventIds: officeEventMap[id] || [],
-        sales: salesWithEvent,
-        transactions: officeTxns as any[],
-        advances: (officeAdvances as any[]).filter((a) => a.financial_account_id === id),
-      });
-      map[id] = total;
-    });
-    return map;
-  }, [officeIds, officeAssignments, officeZones, officeSales, officeTxns, officeAdvances]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
