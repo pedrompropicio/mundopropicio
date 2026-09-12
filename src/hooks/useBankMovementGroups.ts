@@ -125,7 +125,7 @@ export function useBankMovementGroups(accountId: string, enabled: boolean): Bank
     const byTx = new Map<string, string>();
     const groups = new Map<string, StatementGroup>();
 
-    const claim = (txIds: string[], group: StatementGroup) => {
+    const claim = (txIds: string[], group: Omit<StatementGroup, "txIds">) => {
       const own = txIds.filter((id) => id && !byTx.has(id));
       if (own.length === 0) return;
       groups.set(group.groupId, { ...group, txIds: own });
