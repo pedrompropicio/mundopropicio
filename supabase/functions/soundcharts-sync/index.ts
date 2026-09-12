@@ -207,9 +207,15 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+  // Registo técnico da execução (nunca faz a sincronização falhar).
+  const startedMs = Date.now();
+  let runId: string | null = null;
+  let runDryRun = false;
+
   try {
     const auth = await authorize(req, admin);
     if (!auth.allowed) return json({ error: "Forbidden" }, 403);
+
 
     let payload: {
       artist_id?: string;
