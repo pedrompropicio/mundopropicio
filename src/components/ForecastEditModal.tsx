@@ -185,6 +185,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         fx_rate_source: newFxRateSource,
         is_overhead: newOverhead,
         exclude_from_result: newOverhead,
+        event_settlement_id: newSettlementId,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
