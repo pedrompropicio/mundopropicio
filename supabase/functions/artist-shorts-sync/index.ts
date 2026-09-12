@@ -367,7 +367,7 @@ Deno.serve(async (req) => {
                   artist_id: artist.id,
                   platform,
                   metric,
-                  metric_date: metricDate,
+                  metric_date: m.metric_date,
                   value,
                   source: SOURCE,
                   captured_at: new Date().toISOString(),
