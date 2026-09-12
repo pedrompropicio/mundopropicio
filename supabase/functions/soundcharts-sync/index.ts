@@ -18,6 +18,14 @@
 // Só backend. Não cria cron. Não altera tabelas.
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import {
+  deduceTriggerSource,
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
+
+const FUNCTION_NAME = "soundcharts-sync";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
