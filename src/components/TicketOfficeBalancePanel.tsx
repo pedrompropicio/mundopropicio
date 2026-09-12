@@ -151,7 +151,14 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
     accountTxns.forEach((t: any) => {
       if (!isCountedTicketOfficeTxn(t, officeId)) return;
-      if (t.type === "expense" && t.event_id && eventMap[t.event_id]) {
+      // A perna de saída da transferência do fecho é uma expense com event_id na
+      // rubrica 10.3 — conta no tile "Transferências", NUNCA nas despesas diretas.
+      if (
+        t.type === "expense" &&
+        t.category_id !== INTERNAL_TRANSFER_CATEGORY_ID &&
+        t.event_id &&
+        eventMap[t.event_id]
+      ) {
         eventMap[t.event_id].directExpenses += Number(t.paid_amount || 0);
       }
     });
