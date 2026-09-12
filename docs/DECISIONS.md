@@ -1064,7 +1064,7 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 
 **Edição.** Campo "Chave de operação" no modal de edição, sempre visível e **independente do método de pagamento**, com aviso visual quando não segue a convenção `PREFIXO-…` em maiúsculas. Não é obrigatória.
 
-**Gestão ao nível da chave** (13/09/2026). Renomear e apagar um grupo mexem em N transações de uma vez, por isso não vivem num campo de formulário: vivem no painel de filtros de Transações (`OperationKeyManager`, ao lado do filtro por chave), na lista das chaves da empresa com a contagem de cada uma.
+**Gestão ao nível da chave** (12/09/2026). Renomear e apagar um grupo mexem em N transações de uma vez, por isso não vivem num campo de formulário: vivem no painel de filtros de Transações (`OperationKeyManager`, ao lado do filtro por chave), na lista das chaves da empresa com a contagem de cada uma.
 
 - **Permissão:** só `admin` / `platform_admin`. Quem não for vê a lista e o filtro, sem acções.
 - **Renomear:** valida o nome novo contra o padrão da D-ERP46 e mostra a contagem antes de executar.
@@ -1073,7 +1073,7 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 - **Trava nos prefixos gerados por código:** `CAMARIM-` e `CARTAO-` não podem ser renomeados nem apagados por esta via. São derivados do id da sessão: mudar o nome parte a ligação e o fecho seguinte gera a original, ficando dois grupos onde havia um. O motivo está à vista na lista, não num tooltip.
 - **Atomicidade e auditoria:** as duas acções são RPCs `SECURITY DEFINER` — `rename_operation_key(_old_key, _new_key)` e `clear_operation_key(_key)` — em vez de N updates do cliente: uma renomeação de 14 linhas a meio não pode deixar metade do grupo com o nome velho. Portão de admin por dentro, `current_company_id()` a limitar o alcance, isenção para `auth.uid() IS NULL` (service_role), `REVOKE EXECUTE ... FROM PUBLIC, anon` (D-ERP37). Cada operação escreve uma linha por transação afectada em `transaction_audit_log` (`field_name` "Chave de operação (renomear grupo)" ou "(apagar grupo)", valor velho, valor novo, utilizador) **antes** do update, na mesma transação.
 
-**O total do grupo é sempre do grupo inteiro** (13/09/2026). A barra de totais no topo de Transações somava apenas as linhas visíveis: com o filtro "Em Aberto" ligado, o `ACERTO-FOOD-IVETE-2026` mostrava 12 linhas e saldo −10.061,11 € quando o grupo tem 14 linhas e +16.865,33 € — e a lista de gestão, no mesmo ecrã, dizia 14. Um número de verificação que muda com os filtros não verifica nada. Passa a vir de consulta própria (`useOperationKeyTotals`), filtrada só por `operation_key` (empresa garantida pela RLS) e paginada com `fetchAllPaged` com desempate por `id` — nunca calculada a partir das linhas já carregadas na página, que estão filtradas e podem estar truncadas nos 1.000 registos do PostgREST. O subconjunto filtrado mantém-se, mas em segunda linha e rotulado ("das quais N visíveis com os filtros actuais").
+**O total do grupo é sempre do grupo inteiro** (12/09/2026). A barra de totais no topo de Transações somava apenas as linhas visíveis: com o filtro "Em Aberto" ligado, o `ACERTO-FOOD-IVETE-2026` mostrava 12 linhas e saldo −10.061,11 € quando o grupo tem 14 linhas e +16.865,33 € — e a lista de gestão, no mesmo ecrã, dizia 14. Um número de verificação que muda com os filtros não verifica nada. Passa a vir de consulta própria (`useOperationKeyTotals`), filtrada só por `operation_key` (empresa garantida pela RLS) e paginada com `fetchAllPaged` com desempate por `id` — nunca calculada a partir das linhas já carregadas na página, que estão filtradas e podem estar truncadas nos 1.000 registos do PostgREST. O subconjunto filtrado mantém-se, mas em segunda linha e rotulado ("das quais N visíveis com os filtros actuais").
 
 **Estado:** vigente.
 
@@ -1136,7 +1136,7 @@ pré-pagos, que têm risco de regressão numérica próprio.
 
 **Estado:** vigente.
 
-## D-ERP47 — Comparáveis por artista: referências são artistas de primeira classe (13/09/2026)
+## D-ERP47 — Comparáveis por artista: referências são artistas de primeira classe (12/09/2026)
 
 **Contexto.** Cada artista do elenco precisa de comparar as suas curvas com artistas de
 referência. As referências não são "dados soltos de uma API": têm de ter séries diárias na
@@ -1212,7 +1212,7 @@ separadas das restantes despesas — a reconciliação
 (BOL 140.765,00 €; Ticketline 275.792,63 €). A fórmula do saldo (D-ERP15,
 `src/lib/ticket-office-balance.ts`, `_ticket_office_balance_raw`) não mudou.
 
-## D-ERP49 — A obra (música) é a entidade de análise de lançamentos (13/09/2026)
+## D-ERP49 — A obra (música) é a entidade de análise de lançamentos (12/09/2026)
 
 **Contexto.** `artist_releases` nasceu para os uploads na Sua Música: uma linha por
 plataforma. Isso não serve para acompanhar um lançamento, porque a mesma obra vive
