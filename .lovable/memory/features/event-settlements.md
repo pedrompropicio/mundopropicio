@@ -54,3 +54,32 @@ Réplica do padrão de `event_partners`: SELECT a autenticados (+ policy do pró
 ## Estado inicial em produção (12/09/2026)
 
 7 raízes, 9 participantes espelhados + 7 `house`. Σ `profit_pct` dos `settles` = 100 em cada raiz. Anitta: ANITTA 70/0, EVERYTHINGISNEW 15/(igual), casa 15/85. Coala PT 2026: casa a 0 (a MP é sócio explícito como supplier) — **é correcto, não corrigir**.
+
+## Perímetro (b) — 12/09/2026
+
+Coluna **`event_settlement_id`** (NULL) em `event_forecasts` e em `transactions`,
+`ON DELETE SET NULL`, índices parciais `idx_event_forecasts_event_settlement` e
+`idx_transactions_event_settlement`. Zero linhas marcadas na aplicação da migração.
+
+**Armadilha:** `transactions.settlement_id` é o **fecho de bilheteira**
+(FK `ticket_office_settlements`) e já existia — não confundir com
+`event_settlement_id`, que é o apuramento do evento (#146).
+
+Triggers:
+- `validate_forecast_event_settlement` / `validate_transaction_event_settlement`
+  (BEFORE INSERT OR UPDATE OF `event_settlement_id`, `event_id`): o apuramento tem
+  de pertencer ao mesmo evento da linha; apuramento `is_sealed` não aceita marcar
+  nem desmarcar; transação **sem `event_id`** (mãe de rateio) com apuramento é
+  recusada. Não há propagação mãe→filhas: a filha valida-se pelo seu próprio
+  `event_id`, porque a mãe de rateio nunca tem evento.
+- `prevent_delete_event_settlement_with_lines` (BEFORE DELETE em
+  `event_settlements`): recusa apagar um apuramento com linhas marcadas.
+
+`create_bp_snapshot` serializa `to_jsonb(f.*)`, logo `event_settlement_id` entra no
+`snapshot_payload` sem alteração.
+
+UI: `src/components/EventSettlementSelect.tsx` (só renderiza quando o evento tem
+2+ apuramentos; hoje nenhum tem, logo o campo é invisível), ligado ao
+`TransactionEditModal` e ao `ForecastEditModal`; badge "Perímetro" por apuramento
+no painel da aba Sócios. Nenhum cálculo consome ainda a coluna — resultado e
+repartição por apuramento são a sub-tarefa (c).

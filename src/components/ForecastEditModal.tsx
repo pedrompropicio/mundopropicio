@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { EventSettlementSelect } from "@/components/EventSettlementSelect";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
@@ -41,6 +42,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [eurAmount, setEurAmount] = useState<number>(Number(forecast.amount) || 0);
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
   const [isOverhead, setIsOverhead] = useState<boolean>(!!forecast.is_overhead);
+  // Apuramento (#146 (b)) — só editável se o evento tiver mais de um apuramento.
+  const [eventSettlementId, setEventSettlementId] = useState<string | null>(
+    forecast.event_settlement_id ?? null
+  );
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
@@ -141,6 +146,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         changes.push({ field_name: "Rateio de Overhead", old_value: forecast.is_overhead ? "Sim" : "Não", new_value: newOverhead ? "Sim" : "Não" });
       }
 
+      const newSettlementId = eventSettlementId || null;
+      if (newSettlementId !== (forecast.event_settlement_id ?? null)) {
+        changes.push({
+          field_name: "Apuramento",
+          old_value: forecast.event_settlement_id ?? "—",
+          new_value: newSettlementId ?? "—",
+        });
+      }
+
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
@@ -172,6 +186,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         fx_rate_source: newFxRateSource,
         is_overhead: newOverhead,
         exclude_from_result: newOverhead,
+        event_settlement_id: newSettlementId,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
@@ -290,6 +305,13 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
             ))}
           </select>
         </div>
+
+        {/* Apuramento — só aparece se o evento tiver mais de um (#146 (b)). */}
+        <EventSettlementSelect
+          eventId={forecast.event_id}
+          value={eventSettlementId}
+          onChange={setEventSettlementId}
+        />
 
         {/* Amount (multi-currency) + IVA */}
         <div className="space-y-3">

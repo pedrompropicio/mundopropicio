@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { EventSettlementSelect } from "@/components/EventSettlementSelect";
 import { Switch } from "@/components/ui/switch";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -68,6 +69,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     amount: String(transaction.amount),
     iva_rate: transaction.iva_rate as IvaRate,
     event_id: transaction.event_id,
+    /**
+     * Apuramento (épica #146 (b)). NÃO confundir com `settlement_id`, que nas
+     * transações é o fecho de bilheteira (`ticket_office_settlements`).
+     */
+    event_settlement_id: ((transaction as any).event_settlement_id ?? null) as string | null,
     category_id: transaction.category_id ?? "",
     supplier_id: transaction.supplier_id ?? "",
     account_id: transaction.account_id ?? "",
@@ -480,9 +486,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         reimbursement_to: "Colaborador (reembolso)",
         ordering_partner_id: "Ordenador da despesa",
         paying_partner_id: "Pagador da despesa",
+        event_settlement_id: "Apuramento",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -519,7 +526,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        event_settlement_id: form.event_settlement_id || null,
         ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
+
 
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
@@ -530,6 +539,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         amount: parseFloat(form.amount),
         iva_rate: form.iva_rate,
         event_id: form.event_id,
+        event_settlement_id: form.event_settlement_id || null,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
         account_id: partnerPaidSettled ? null : (form.account_id || null),
@@ -1426,14 +1436,22 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 </div>
               </div>
             ) : (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-                <SearchableSelect
-                  options={eventOptions}
-                  value={form.event_id}
-                  onValueChange={(v) => setForm({ ...form, event_id: v })}
-                  placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-                  searchPlaceholder="Pesquisar evento…"
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
+                  <SearchableSelect
+                    options={eventOptions}
+                    value={form.event_id}
+                    onValueChange={(v) => setForm({ ...form, event_id: v, event_settlement_id: null })}
+                    placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                    searchPlaceholder="Pesquisar evento…"
+                  />
+                </div>
+                {/* Apuramento — só aparece se o evento tiver mais de um (#146 (b)). */}
+                <EventSettlementSelect
+                  eventId={form.event_id}
+                  value={form.event_settlement_id}
+                  onChange={(v) => setForm({ ...form, event_settlement_id: v })}
                 />
               </div>
             )}
