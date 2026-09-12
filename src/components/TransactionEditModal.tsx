@@ -68,6 +68,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     amount: String(transaction.amount),
     iva_rate: transaction.iva_rate as IvaRate,
     event_id: transaction.event_id,
+    /**
+     * Apuramento (épica #146 (b)). NÃO confundir com `settlement_id`, que nas
+     * transações é o fecho de bilheteira (`ticket_office_settlements`).
+     */
+    event_settlement_id: ((transaction as any).event_settlement_id ?? null) as string | null,
     category_id: transaction.category_id ?? "",
     supplier_id: transaction.supplier_id ?? "",
     account_id: transaction.account_id ?? "",
