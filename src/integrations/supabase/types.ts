@@ -13101,18 +13101,21 @@ export type Database = {
       }
       user_preferences: {
         Row: {
+          consolidate_bank_movements_view: boolean
           consolidate_refunds_view: boolean
           created_at: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          consolidate_bank_movements_view?: boolean
           consolidate_refunds_view?: boolean
           created_at?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          consolidate_bank_movements_view?: boolean
           consolidate_refunds_view?: boolean
           created_at?: string
           updated_at?: string
