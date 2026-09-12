@@ -1095,7 +1095,7 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 
 **Estado:** vigente.
 
-## D-ERP46 — Saldo de bilheteira no servidor, e a composição dos três dinheiros num só sítio (12/09/2026)
+## D-ERP51 — Saldo de bilheteira no servidor, e a composição dos três dinheiros num só sítio (12/09/2026)
 
 **Decisão.** A fórmula da bilheteira (D-ERP15) passa a existir também em SQL, em
 `public._ticket_office_balance_raw(uuid)` (interna, fechada) e
@@ -1175,22 +1175,27 @@ mesma tabela, com o mesmo isolamento por empresa, para as curvas serem comparáv
 tem de filtrar `roster_type = 'elenco'`, sob pena de mostrar referências como se fossem
 artistas geridos.
 
-## D-ERP48 — Transferência do fecho de bilheteira é um par 10.3 criado na base de dados (13/09/2026)
+## D-ERP48 — Transferência do fecho de bilheteira é um par 10.3 criado na base de dados (12/09/2026)
 
 **Decisão.** Uma transferência entre contas é sempre um par `expense` + `income` na
 rubrica `10.3 Transferências Internas`. Não existe nem pode existir transação de
 tipo `transfer` (`transactions_type_check` só aceita `income` e `expense`).
-A transferência do fecho de bilheteira é criada por
+A transferência do fecho de bilheteira é criada **exclusivamente** por
 `public.create_settlement_transfer(p_settlement_id, p_from_account_id, p_to_account_id, p_amount, p_date, p_credited)`
+(migração `20260912193941`) — nenhum ecrã, edge function ou script a insere à mão —
 — SECURITY DEFINER, `search_path = public`, portão `admin` / `platform_admin` /
 permissão `manage_accounts`, empresa do fecho validada contra `current_company_id()`,
 EXECUTE revogado a PUBLIC e a `anon`. Recusa valor ≤ 0, contas iguais e fecho que já
 tenha `transfer_transaction_id`. As duas pernas levam
 `operation_key = 'TRF-FECHO-' || upper(left(replace(settlement_id,'-',''),8))`,
 `iva_rate = 0`, `payment_method = 'transfer'`, `exclude_from_result = true`.
+As duas pernas e a atualização do fecho acontecem **numa só transação de base de
+dados**: ou existe tudo, ou não existe nada.
 Só a função preenche `transfer_transaction_id`, `net_transferred` e
-`transfer_account_id`; quando o utilizador escolhe "Não transferir agora" o fecho
-grava `net_transferred = 0` e `transfer_account_id = NULL`.
+`transfer_account_id` — estes campos **só existem depois de a transferência
+existir**; quando o utilizador escolhe "Não transferir agora" o fecho grava
+`net_transferred = 0` e `transfer_account_id = NULL`, e nunca declara um destino
+que não usou.
 
 **Porquê.** O wizard inseria `type: 'transfer'` com `target_account_id` e
 `expected_date` (colunas inexistentes) e engolia o erro — o fecho declarava durante
@@ -1231,31 +1236,7 @@ tempo.
   `v_song_metric_latest` e `v_song_growth` (1d/7d/30d, NULL quando a série não
   cobre a janela).
 
-**Nota de arrumação.** Existem duas entradas numeradas D-ERP46 (chave de operação
-e saldo de bilheteira). Fica registado; renumerar é trabalho à parte.
+## D-ERP50 — ver D-ERP48
 
-## D-ERP50 — A transferência do fecho de bilheteira só nasce da função (13/09/2026)
-
-**Decisão.** A transferência de um fecho de bilheteira é criada **exclusivamente** por
-`public.create_settlement_transfer(uuid, uuid, uuid, numeric, date, boolean)`
-(migração `20260912193941`). Nenhum ecrã, edge function ou script insere a
-transferência à mão.
-
-- A transferência é um **par** `expense` (conta da bilheteira) + `income` (conta
-  destino) na rubrica `10.3 Transferências Internas`
-  (`b32df086-c995-4747-a3f9-bfefa0063d0a`), carimbado com
-  `operation_key = 'TRF-FECHO-' || upper(substring(replace(settlement_id::text,'-',''), 1, 8))`.
-- As duas pernas e a atualização do fecho acontecem **numa só transação de base de
-  dados**: ou existe tudo, ou não existe nada.
-- `net_transferred` e `transfer_account_id` **só existem depois de a transferência
-  existir**. Enquanto não há par, o fecho grava `net_transferred = 0` e
-  `transfer_account_id = NULL` — nunca declara um destino que não usou.
-- SECURITY DEFINER com `search_path` fixo; portão `admin` / `is_platform_admin` /
-  `has_permission('manage_accounts')`; empresa do fecho validada contra
-  `current_company_id()`; EXECUTE revogado a PUBLIC e concedido só a `authenticated`.
-  Recusa valor ≤ 0, contas iguais e fecho já transferido.
-
-**Porquê.** O insert manual do wizard era ilegal (`type: 'transfer'`, colunas
-inexistentes) e o erro era engolido: durante meses dois fechos declararam uma
-transferência que não existia (issue #132). Consolida e substitui a formulação da
-D-ERP48.
+Fundida na **D-ERP48**, que é a entrada única e completa sobre a transferência do
+fecho de bilheteira. Esta entrada fica só para não partir links já escritos.
