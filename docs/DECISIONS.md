@@ -1376,3 +1376,12 @@ antes de apagar; a falha da revogação não impede o desligar.
 Nota de numeração: o pedido pedia D-ERP55, número já ocupado pela decisão do saldo
 do extrato; esta decisão ficou em D-ERP56.
 
+
+**Adenda a DR-2026-09-09-D25 — (b) construída em 2026-09-12:** `event_settlement_id`
+(NULL) em `event_forecasts` e `transactions`, com índices parciais e triggers de
+coerência (mesmo evento; apuramento selado não aceita marcações; transação sem
+evento — mãe de rateio — não pode ter apuramento; apuramento com linhas não se
+apaga). Selector "Apuramento" só visível em eventos com 2+ apuramentos e bloco
+"Perímetro" no painel da aba Sócios. **Zero linhas marcadas** e nenhum cálculo
+consome a coluna. Armadilha registada: `transactions.settlement_id` é o fecho de
+bilheteira (`ticket_office_settlements`), não o apuramento.
