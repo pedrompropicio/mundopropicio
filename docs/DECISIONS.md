@@ -1103,8 +1103,12 @@ bilheteira; o ECI aparecia a 0,00 € tendo 29.903,25 € de vendas. A fonte ún
 
 **Efeito de permissões, aceite.** O `canSeeBalance` do cliente era
 `isAdmin || balance_visible_to_all` e ignorava `view_balances`. O servidor é mais
-restritivo: nenhuma conta da Live tem `balance_visible_to_all`, pelo que quem não é
-admin/platform_admin deixa de ver qualquer saldo nesta página, mesmo com `view_balances`.
+restritivo: só três contas activas têm `balance_visible_to_all` (Cartão Santander Pre-Pago - 0663,
+Cartão Santander Pre-pago - 8363 e o Banco Santander Totta da segunda empresa). Quem não é
+admin/platform_admin passa a ver saldo **apenas** nessas três, e só se tiver `view_balances`;
+nas restantes 18 lê "Sem permissão". Papéis afectados: manager, editor, viewer,
+accountant, producer, partner — antes viam as três (por `balance_visible_to_all`) e agora
+continuam a ver as mesmas três se tiverem `view_balances`, e nenhuma se não tiverem.
 Não se contorna.
 
 **Fica para depois.** Fase 2: Dashboard a consumir o hook. Fase 3: Extrato e cartões
