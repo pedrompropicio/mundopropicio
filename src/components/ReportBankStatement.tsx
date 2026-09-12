@@ -222,7 +222,7 @@ export default function ReportBankStatement() {
   );
 
   const { data: bankLineDocCounts = {} } = useQuery({
-    queryKey: ["bank-line-doc-counts-bs", bankLineIdsForDocs],
+    queryKey: ["bank_line_documents_counts", bankLineIdsForDocs],
     enabled: generated && bankLineIdsForDocs.length > 0,
     queryFn: async (): Promise<Record<string, number>> => {
       const counts: Record<string, number> = {};
