@@ -189,6 +189,33 @@ export default function ReportBankStatement() {
   const totalIncome = lines.filter((l) => l.signedAmount > 0).reduce((s, l) => s + l.signedAmount, 0);
   const totalExpense = lines.filter((l) => l.signedAmount < 0).reduce((s, l) => s + Math.abs(l.signedAmount), 0);
 
+  // ---- Consolidação de movimentos do banco (apenas apresentação) ----------
+  // O `lines` acima é canónico e NÃO é tocado: saldo final, totais e as duas
+  // exportações continuam a sair dele. Aqui só se decide o que se desenha.
+  const { consolidateBankMovements, setConsolidateBankMovements } = useUserPreferences();
+  const bankGroups = useBankMovementGroups(selectedAccountId, generated && !!canSeeBalance);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (id: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const renderItems: StatementRenderItem<any>[] = useMemo(() => {
+    if (!consolidateBankMovements || bankGroups.groups.size === 0) {
+      return lines.map((line: any) => ({ kind: "tx" as const, line }));
+    }
+    return groupStatementLines(lines as any[], {
+      getId: (l: any) => l.id,
+      getAmount: (l: any) => Number(l.signedAmount ?? 0),
+      getRunningBalance: (l: any) => Number(l.runningBalance ?? 0),
+      getDate: (l: any) => String(l.date ?? ""),
+      getEventName: (l: any) => l.events?.name ?? null,
+      byTx: bankGroups.byTx,
+      groups: bankGroups.groups,
+    });
+  }, [lines, consolidateBankMovements, bankGroups]);
 
   return (
     <>
