@@ -20,7 +20,8 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { useAccountBalanceCards } from "@/hooks/useAccountBalanceCards";
+import { useAccountBalanceCards, CASH_ACCOUNT_TYPES } from "@/hooks/useAccountBalanceCards";
+import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 import { formatDatePT } from "@/lib/utils";
 
 
