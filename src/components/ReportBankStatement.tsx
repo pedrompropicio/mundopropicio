@@ -25,7 +25,10 @@ export default function ReportBankStatement() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
-  const [generated, setGenerated] = useState(false);
+  // ?conta=<id>&auto=1 abre o extrato já preenchido (vem da composição do saldo).
+  const [generated, setGenerated] = useState(
+    !!searchParams.get("conta") && searchParams.get("auto") === "1",
+  );
   const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
 
   const { data: accounts = [] } = useQuery({
