@@ -240,20 +240,30 @@ export default function ReportBankStatement() {
     },
   });
 
+  // Com a consolidação DESLIGADA nada muda: usa-se o saldo do `lines` plano.
+  // LIGADA, o saldo mostrado é RECALCULADO sobre a ordem consolidada — herdar o
+  // saldo plano punha uma saída a "aumentar" o saldo, porque as filhas são
+  // puxadas para junto do cabeçalho e as linhas soltas intercaladas passam a ser
+  // desenhadas fora do ponto onde o saldo plano foi calculado.
   const renderItems: StatementRenderItem<any>[] = useMemo(() => {
     if (!consolidateBankMovements || bankGroups.groups.size === 0) {
-      return lines.map((line: any) => ({ kind: "tx" as const, line }));
+      return lines.map((line: any) => ({
+        kind: "tx" as const,
+        line,
+        runningBalance: Number(line.runningBalance ?? 0),
+      }));
     }
     return groupStatementLines(lines as any[], {
       getId: (l: any) => l.id,
       getAmount: (l: any) => Number(l.signedAmount ?? 0),
-      getRunningBalance: (l: any) => Number(l.runningBalance ?? 0),
       getDate: (l: any) => String(l.date ?? ""),
       getEventName: (l: any) => l.events?.name ?? null,
+      openingBalance,
       byTx: bankGroups.byTx,
       groups: bankGroups.groups,
     });
-  }, [lines, consolidateBankMovements, bankGroups]);
+  }, [lines, consolidateBankMovements, bankGroups, openingBalance]);
+
 
   return (
     <>
