@@ -15037,6 +15037,17 @@ export type Database = {
         }[]
       }
       artist_song_base_title: { Args: { _title: string }; Returns: string }
+      artist_song_metric_set_manual: {
+        Args: {
+          p_metric: string
+          p_metric_date: string
+          p_note?: string
+          p_platform: string
+          p_song_id: string
+          p_value: number
+        }
+        Returns: undefined
+      }
       artist_upsert_channel_connection: {
         Args: {
           p_access_token: string
