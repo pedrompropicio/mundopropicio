@@ -213,10 +213,12 @@ export default function BankReconciliation() {
     () => new Set((crossAccountTxns as any[]).map((t) => t.id)),
     [crossAccountTxns],
   );
-  const selectedCrossAccount = useMemo(
-    () => (crossAccountTxns as any[]).find((t) => t.id === manualTxId) ?? null,
-    [crossAccountTxns, manualTxId],
+  /** Transações escolhidas que estão registadas NOUTRA conta (aviso + confirmação). */
+  const selectedCrossAccounts = useMemo(
+    () => (crossAccountTxns as any[]).filter((t) => manualTxIds.includes(t.id)),
+    [crossAccountTxns, manualTxIds],
   );
+
 
   const { data: sepaExports = [] } = useQuery({
     queryKey: ["bank-recon-sepa"],
