@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { countsAfterCutoff, effectivePaymentDate, buildAccountCutoffs, fetchAccountCashAdjustments } from "@/lib/account-balance";
 
 export default function ReportBankStatement() {
@@ -593,6 +594,10 @@ export default function ReportBankStatement() {
         transactionDescription={docsModal.description}
         onClose={() => setDocsModal(null)}
       />
+    )}
+
+    {bankLineDocs && (
+      <BankLineDocumentsDialog line={bankLineDocs} onClose={() => setBankLineDocs(null)} />
     )}
   </>
   );
