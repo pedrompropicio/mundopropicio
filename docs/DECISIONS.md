@@ -1047,3 +1047,20 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 **Edição.** Campo "Chave de operação" no modal de edição, sempre visível e **independente do método de pagamento**, com aviso visual quando não segue a convenção `PREFIXO-…` em maiúsculas. Não é obrigatória.
 
 **Estado:** vigente.
+
+## D-ERP46 — Chave de operação é domínio fechado, não texto livre (12/09/2026)
+
+**O problema.** A D-ERP45 deixou a `operation_key` como texto livre com aviso visual. Numa chave de **agrupamento** o erro de escrita é silencioso: `ACERTO FOOD IVETE 2026` ou `acerto-food-ivete-2026` não falha, cria um grupo novo de uma linha e o total do fecho deixa de bater sem ninguém dar por isso. Avisar não chega — a chave só serve se for igual em todas as linhas do fecho.
+
+**Decisão.** A entrada passa a ser **escolha entre as chaves que já existem**, com criação de chave nova só quando o texto cumpre o padrão:
+
+- `src/lib/operation-key.ts` é a casa única: `OPERATION_KEY_PATTERN`, `isValidOperationKey`, `normalizeOperationKeyInput` (maiúsculas, acentos fora, espaços/underscores → hífen, caracteres inválidos caem, hífens repetidos colapsam) e `operationKeyRejectionReason`.
+- `OperationKeySelector` (usado no `TransactionEditModal`) lista as chaves distintas da empresa com o número de transações de cada uma, normaliza o que se escreve, **desactiva** a criação quando o texto não dá chave válida e mostra o motivo, e sugere a chave parecida (Dice ≥ 0,6) para travar a criação de variantes do mesmo fecho.
+- CHECK `transactions_operation_key_check` na base de dados: `operation_key IS NULL OR operation_key ~ '^[A-Z0-9]+(-[A-Z0-9]+)+$'`. Aplicado depois de confirmar em Live que as 37 linhas com chave cumprem o padrão.
+- `update-transaction` valida o campo contra o mesmo padrão (400) e converte `""` em NULL. O padrão está duplicado na função (`OPERATION_KEY_RE`) porque `src/` não é publicado com as edge functions; `src/test/operation-key-domain.test.ts` compara os dois.
+
+**Três camadas, um padrão.** Ecrã (recusa e normaliza), edge function (400) e base de dados (CHECK). Alterar o padrão exige alterar as três na mesma tarefa.
+
+**Não muda.** `payment_reference`, saldos, conciliação, métodos de pagamento, trigger `trg_force_no_account_on_compensation` e valores de transações: intactos.
+
+**Estado:** vigente.
