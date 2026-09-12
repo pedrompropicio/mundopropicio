@@ -261,7 +261,19 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         </div>
       </div>
 
-      <div className={`rounded-lg p-3 text-center ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(`/relatorios/bilheteiras?conta=${officeId}`)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            navigate(`/relatorios/bilheteiras?conta=${officeId}`);
+          }
+        }}
+        title="Ver composição transação a transação"
+        className={`rounded-lg p-3 text-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}
+      >
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
           {formatCurrency(summary.globalBalance)}
