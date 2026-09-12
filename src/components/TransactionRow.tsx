@@ -341,6 +341,18 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
             <div>
               <div className="flex items-center gap-1.5">
                 <p className="font-medium">{t.description}</p>
+                {t.operation_key && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary cursor-help">
+                        {t.operation_key}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>Chave de operação — agrupa as transações deste fecho.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {isHidden && (
                   <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     <EyeOff className="h-2.5 w-2.5" /> Oculta
