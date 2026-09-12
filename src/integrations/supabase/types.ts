@@ -695,44 +695,65 @@ export type Database = {
       artist_content: {
         Row: {
           artist_id: string
+          author_handle: string | null
           caption_excerpt: string | null
           company_id: string
           content_type: string | null
           created_at: string
+          duration_seconds: number | null
           external_id: string
           id: string
           permalink: string | null
           platform: string
           published_at: string | null
+          song_id: string | null
+          sound_external_id: string | null
+          sound_name: string | null
+          source: string
           thumbnail_url: string | null
+          title: string | null
           updated_at: string
         }
         Insert: {
           artist_id: string
+          author_handle?: string | null
           caption_excerpt?: string | null
           company_id?: string
           content_type?: string | null
           created_at?: string
+          duration_seconds?: number | null
           external_id: string
           id?: string
           permalink?: string | null
           platform: string
           published_at?: string | null
+          song_id?: string | null
+          sound_external_id?: string | null
+          sound_name?: string | null
+          source?: string
           thumbnail_url?: string | null
+          title?: string | null
           updated_at?: string
         }
         Update: {
           artist_id?: string
+          author_handle?: string | null
           caption_excerpt?: string | null
           company_id?: string
           content_type?: string | null
           created_at?: string
+          duration_seconds?: number | null
           external_id?: string
           id?: string
           permalink?: string | null
           platform?: string
           published_at?: string | null
+          song_id?: string | null
+          sound_external_id?: string | null
+          sound_name?: string | null
+          source?: string
           thumbnail_url?: string | null
+          title?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -749,6 +770,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
           },
         ]
       }
@@ -813,6 +848,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artist_content"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_content_ranking"
+            referencedColumns: ["content_id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "v_content_latest"
+            referencedColumns: ["content_id"]
           },
         ]
       }
@@ -1072,6 +1121,13 @@ export type Database = {
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "artist_releases_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
         ]
       }
       artist_song_identifiers: {
@@ -1106,6 +1162,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_identifiers_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
           },
         ]
       }
@@ -1170,6 +1233,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
           },
         ]
       }
@@ -1239,6 +1309,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlists_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
           },
         ]
       }
@@ -13757,6 +13834,58 @@ export type Database = {
           },
         ]
       }
+      v_artist_content_ranking: {
+        Row: {
+          artist_id: string | null
+          comments: number | null
+          company_id: string | null
+          content_id: string | null
+          likes: number | null
+          permalink: string | null
+          platform: string | null
+          published_at: string | null
+          rank_growth_7d: number | null
+          rank_views: number | null
+          shares: number | null
+          song_id: string | null
+          song_title: string | null
+          sound_name: string | null
+          thumbnail_url: string | null
+          title: string | null
+          views: number | null
+          views_delta_7d: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_content_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       v_artist_growth_summary: {
         Row: {
           accel_pct: number | null
@@ -13976,6 +14105,141 @@ export type Database = {
           },
         ]
       }
+      v_content_growth: {
+        Row: {
+          artist_id: string | null
+          company_id: string | null
+          content_id: string | null
+          delta_1d: number | null
+          delta_30d: number | null
+          delta_7d: number | null
+          last_metric_date: string | null
+          metric: string | null
+          platform: string | null
+          value_latest: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_content_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "artist_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_content_ranking"
+            referencedColumns: ["content_id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "v_content_latest"
+            referencedColumns: ["content_id"]
+          },
+        ]
+      }
+      v_content_latest: {
+        Row: {
+          artist_id: string | null
+          author_handle: string | null
+          comments: number | null
+          company_id: string | null
+          content_id: string | null
+          content_type: string | null
+          duration_seconds: number | null
+          last_metric_date: string | null
+          likes: number | null
+          permalink: string | null
+          platform: string | null
+          published_at: string | null
+          shares: number | null
+          song_id: string | null
+          song_title: string | null
+          sound_name: string | null
+          source: string | null
+          thumbnail_url: string | null
+          title: string | null
+          views: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_content_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
+      v_song_content: {
+        Row: {
+          artist_id: string | null
+          company_id: string | null
+          platform: string | null
+          song_id: string | null
+          song_title: string | null
+          total_comments: number | null
+          total_likes: number | null
+          total_shares: number | null
+          total_views: number | null
+          videos: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_songs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_songs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_song_growth: {
         Row: {
           artist_id: string | null
@@ -14021,6 +14285,13 @@ export type Database = {
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
         ]
       }
       v_song_metric_latest: {
@@ -14057,6 +14328,13 @@ export type Database = {
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
         ]
       }
       v_song_playlists_current: {
@@ -14090,6 +14368,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artist_songs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlists_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
           },
           {
             foreignKeyName: "artist_songs_artist_id_fkey"

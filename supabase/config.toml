@@ -125,3 +125,7 @@ verify_jwt = true
 
 [functions.song-soundcharts-sync]
 verify_jwt = true
+
+# Fase B — vídeos curtos (TikTok/YouTube/Instagram) via Soundcharts.
+[functions.artist-shorts-sync]
+verify_jwt = true

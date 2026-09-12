@@ -179,6 +179,9 @@ no repositório), `timeout_milliseconds := 180000`, body `{"dry_run":false}`.
 | `carreira-suamusica-sync-diario` | `0 9 * * *` (06:00 America/Fortaleza) | `suamusica-sync` |
 | `carreira-soundcharts-sync-diario` | `10 9 * * *` (06:10 America/Fortaleza) | `soundcharts-sync` (`roster_type: 'elenco'`) |
 | `carreira-soundcharts-sync-referencias-semanal` | `30 9 * * 0` (domingos) | `soundcharts-sync` (`roster_type: 'referencia'`) |
+| `carreira-instagram-sync-diario` | `20 9 * * *` | `artist-instagram-sync` |
+| `carreira-song-sync-diario` | `40 9 * * *` | `song-soundcharts-sync` |
+| `carreira-shorts-sync-diario` | `50 9 * * *` | `artist-shorts-sync` (ver **D-ERP52**) |
 
 Sem `artist_id` no body: percorre todos os artistas com canal `sua_musica` / `aggregator`.
 Lembrete: crons não propagam Test→Live via Publish.

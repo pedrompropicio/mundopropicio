@@ -56,6 +56,11 @@ Fase A (músicas): a **obra** é `artist_songs` — é ali que se acompanha um l
 (`song-soundcharts-sync`, cron `carreira-song-sync-diario` às 09:40 UTC). Ler **D-ERP49**
 antes de mexer — sobretudo a parte de que o Spotify não dá plays por playlist.
 
+Vídeos curtos (Shorts/Reels): `artist-shorts-sync` → `artist_content` com
+`source = 'aggregator'`, cron `carreira-shorts-sync-diario` às 09:50 UTC. Ler **D-ERP52**
+antes de mexer: o TikTok não existe neste endpoint, não vem música associada ao vídeo e
+o título vem vazio.
+
 Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qualquer listagem
 de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
 
