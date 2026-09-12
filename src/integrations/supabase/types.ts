@@ -6085,6 +6085,7 @@ export type Database = {
           currency: string
           description: string
           event_id: string
+          event_settlement_id: string | null
           exclude_from_result: boolean
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
@@ -6125,6 +6126,7 @@ export type Database = {
           currency?: string
           description: string
           event_id: string
+          event_settlement_id?: string | null
           exclude_from_result?: boolean
           formalidade?: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at?: string | null
@@ -6165,6 +6167,7 @@ export type Database = {
           currency?: string
           description?: string
           event_id?: string
+          event_settlement_id?: string | null
           exclude_from_result?: boolean
           formalidade?: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at?: string | null
@@ -6219,6 +6222,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_event_settlement_id_fkey"
+            columns: ["event_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
             referencedColumns: ["id"]
           },
           {
@@ -13012,6 +13022,7 @@ export type Database = {
           description: string
           due_date: string | null
           event_id: string | null
+          event_settlement_id: string | null
           exclude_from_result: boolean
           forecast_id: string | null
           fx_rate: number | null
@@ -13069,6 +13080,7 @@ export type Database = {
           description: string
           due_date?: string | null
           event_id?: string | null
+          event_settlement_id?: string | null
           exclude_from_result?: boolean
           forecast_id?: string | null
           fx_rate?: number | null
@@ -13126,6 +13138,7 @@ export type Database = {
           description?: string
           due_date?: string | null
           event_id?: string | null
+          event_settlement_id?: string | null
           exclude_from_result?: boolean
           forecast_id?: string | null
           fx_rate?: number | null
@@ -13203,6 +13216,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_event_settlement_id_fkey"
+            columns: ["event_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
             referencedColumns: ["id"]
           },
           {
@@ -15764,6 +15784,7 @@ export type Database = {
           currency: string
           description: string
           event_id: string
+          event_settlement_id: string | null
           exclude_from_result: boolean
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
