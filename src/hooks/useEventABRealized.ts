@@ -82,7 +82,7 @@ export function useEventABRealized(eventId: string | undefined) {
         .select(SELECT)
         .eq("event_id", eventId!)
         .in("status", REALIZED_STATUSES)
-        .ilike("payment_reference", AB_REF_PATTERN);
+        .ilike("operation_key", AB_REF_PATTERN);
       if (refErr) throw refErr;
 
       // rubricas de despesa derivadas do próprio evento
@@ -98,7 +98,7 @@ export function useEventABRealized(eventId: string | undefined) {
           .from("transactions")
           .select("category_id, type, account_categories!transactions_category_id_fkey(name)")
           .eq("type", "expense")
-          .ilike("payment_reference", AB_REF_PATTERN)
+          .ilike("operation_key", AB_REF_PATTERN)
           .limit(1000);
         if (gErr) throw gErr;
         for (const t of (globalTx ?? []) as any[]) {
@@ -141,7 +141,7 @@ export function useEventABRealized(eventId: string | undefined) {
       const receita = incomeLines.reduce((s, l) => s + l.amount, 0);
       const despesas = expenseLines.reduce((s, l) => s + l.amount, 0);
       const references = Array.from(
-        new Set(all.map((t) => t.payment_reference).filter(Boolean) as string[]),
+        new Set(all.map((t) => t.operation_key).filter(Boolean) as string[]),
       );
 
       return {
