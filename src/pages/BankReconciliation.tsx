@@ -292,6 +292,27 @@ export default function BankReconciliation() {
     },
   });
 
+  /**
+   * Contagem de documentos por linha do extrato. O anexo é independente da
+   * conciliação — vale em matched, unmatched e ignored.
+   */
+  const { data: docCountByLine = new Map<string, number>() } = useQuery({
+    queryKey: ["bank_line_documents_counts", currentStatement?.id, savedLineIds.length],
+    enabled: savedLineIds.length > 0,
+    queryFn: async () => {
+      const m = new Map<string, number>();
+      for (let i = 0; i < savedLineIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from("bank_line_documents")
+          .select("id, line_id")
+          .in("line_id", savedLineIds.slice(i, i + 200));
+        if (error) throw error;
+        (data ?? []).forEach((d: any) => m.set(d.line_id, (m.get(d.line_id) ?? 0) + 1));
+      }
+      return m;
+    },
+  });
+
   /** line_id → entradas da ponte. */
   const bridgeByLine = useMemo(() => {
     const m = new Map<string, any[]>();
