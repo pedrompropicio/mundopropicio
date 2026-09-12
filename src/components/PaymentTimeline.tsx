@@ -354,12 +354,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
     );
   }
 
-  const methodLabels: Record<string, string> = {
-    transfer: "Transferência",
-    service_payment: "Pag. Serviços",
-  direct_debit: "Débito Direto",
-    state_payment: "Pag. Estado",
-  };
 
   return (
     <div className="space-y-3">
