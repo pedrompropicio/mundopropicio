@@ -969,3 +969,16 @@ longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
 - Fornecedores duplicados resolvem-se por **fusão**: repontar transações e mapeamentos para o registo com mais histórico, desativar o outro com nota em `notes`, nunca apagar.
 
 **Estado:** vigente.
+
+## D-ERP41 — O anexo de um movimento do banco pertence ao movimento, não às transações — e nunca é visível ao sócio (12/09/2026)
+
+**Decisão.** O documento de uma linha do extrato vive na linha, não numa transação.
+
+- Um crédito único do banco pode cobrir N transações de eventos diferentes. Caso real: FT 11.1/101 da Ticketline, **135.986,96 €**, com a parcela dos 4% no evento *Anitta EDA 2026* e a do 1% fora dele. A fatura não pertence a nenhuma transação isolada: vive em `bank_line_documents`, pendurada na linha do extrato.
+- Para chegar ao contabilista, o upload cria **réplicas** em `transaction_documents` — uma por transação ligada, das três origens (`matched_transaction_id`, `created_transaction_id`, tabela-ponte `bank_line_transactions`), com `file_url` prefixado `bank://` e o mesmo ficheiro no storage. Estrutura sem réplica é **invisível à contabilidade**: foi o erro cometido na primeira versão.
+- As réplicas entram **SEMPRE** com `partner_visible = false`. A política `transaction_documents_select_partner` dá acesso por acesso ao evento, e a réplica dos 4% está num evento com sócios — sem a trava, a fatura ficava exposta.
+- **Dois eixos independentes, que não se confundem:** `is_accounting` decide se o documento vai para o contabilista (acesso por **PAPEL** — admin, manager, accountant); `partner_visible` decide se o sócio vê (acesso por **EVENTO**). Um não substitui o outro.
+- Uma linha do banco conciliada manualmente contra N transações exige que a soma dos `paid_amount` bata com o valor da linha a **±0,01**. Não existe conciliação parcial.
+- Os lançamentos (`created_transaction_id`) **não** entram na tabela-ponte: são a cardinalidade inversa (N linhas → 1 transação) e violariam o `unique (transaction_id)`.
+
+**Estado:** vigente.
