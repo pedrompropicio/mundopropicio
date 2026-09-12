@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-11 · Issues abertas: #91, #92, #124, #125, #126, #127, #134, #135, #149, #151 · #90 fechada a 09/09 (fonte única do saldo + skip_balance_check respeitado) · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
+Atualizado: 2026-09-12 · Issues abertas: #91, #92, #124, #125, #126, #127, #134, #135, #146, #149, #151 · #90 fechada a 09/09 (fonte única do saldo + skip_balance_check respeitado) · #93 fechada por decisão do Pedro (não reabrir a auditoria do paid_amount)
 
 ## Em que pé está
 
