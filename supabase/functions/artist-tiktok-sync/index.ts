@@ -384,6 +384,7 @@ Deno.serve(async (req) => {
     // ligação estimada vídeo→música por menção textual (nunca em dry_run)
     let estimatedSongLinks = 0;
     const songLinkNotes: string[] = [];
+    const songLinksBySong: Record<string, number> = {};
     if (!dryRun) {
       const artistIds = [...new Set(connections.map((c) => c.artist_id).filter(Boolean))];
       for (const aid of artistIds) {
@@ -394,10 +395,16 @@ Deno.serve(async (req) => {
         if (linkErr) {
           songLinkNotes.push(`ligação vídeo→música falhou (${aid}): ${linkErr.message}`);
         } else {
-          estimatedSongLinks += (linked ?? []).filter((r: any) => r.song_id).length;
+          const rows = (linked ?? []).filter((r: any) => r.song_id);
+          estimatedSongLinks += rows.length;
+          for (const r of rows) {
+            const k = String(r.song_id);
+            songLinksBySong[k] = (songLinksBySong[k] ?? 0) + 1;
+          }
         }
       }
     }
+
 
     if (!dryRun) {
       await auditLog(admin, {
