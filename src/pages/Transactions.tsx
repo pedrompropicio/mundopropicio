@@ -77,6 +77,9 @@ export default function Transactions() {
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
   // Chave de operação (D-ERP45) — agrupa as transações de um mesmo fecho.
   const [selectedOperationKeys, setSelectedOperationKeys] = useState<Set<string>>(new Set());
+  // Total do grupo completo (D-ERP45) — consulta própria, nunca as linhas da página.
+  const operationKeyTotals = useOperationKeyTotals([...selectedOperationKeys]);
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
