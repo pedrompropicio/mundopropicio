@@ -1055,7 +1055,10 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 - **Trava nos prefixos gerados por código:** `CAMARIM-` e `CARTAO-` não podem ser renomeados nem apagados por esta via. São derivados do id da sessão: mudar o nome parte a ligação e o fecho seguinte gera a original, ficando dois grupos onde havia um. O motivo está à vista na lista, não num tooltip.
 - **Atomicidade e auditoria:** as duas acções são RPCs `SECURITY DEFINER` — `rename_operation_key(_old_key, _new_key)` e `clear_operation_key(_key)` — em vez de N updates do cliente: uma renomeação de 14 linhas a meio não pode deixar metade do grupo com o nome velho. Portão de admin por dentro, `current_company_id()` a limitar o alcance, isenção para `auth.uid() IS NULL` (service_role), `REVOKE EXECUTE ... FROM PUBLIC, anon` (D-ERP37). Cada operação escreve uma linha por transação afectada em `transaction_audit_log` (`field_name` "Chave de operação (renomear grupo)" ou "(apagar grupo)", valor velho, valor novo, utilizador) **antes** do update, na mesma transação.
 
+**O total do grupo é sempre do grupo inteiro** (13/09/2026). A barra de totais no topo de Transações somava apenas as linhas visíveis: com o filtro "Em Aberto" ligado, o `ACERTO-FOOD-IVETE-2026` mostrava 12 linhas e saldo −10.061,11 € quando o grupo tem 14 linhas e +16.865,33 € — e a lista de gestão, no mesmo ecrã, dizia 14. Um número de verificação que muda com os filtros não verifica nada. Passa a vir de consulta própria (`useOperationKeyTotals`), filtrada só por `operation_key` (empresa garantida pela RLS) e paginada com `fetchAllPaged` com desempate por `id` — nunca calculada a partir das linhas já carregadas na página, que estão filtradas e podem estar truncadas nos 1.000 registos do PostgREST. O subconjunto filtrado mantém-se, mas em segunda linha e rotulado ("das quais N visíveis com os filtros actuais").
+
 **Estado:** vigente.
+
 
 ## D-ERP46 — Chave de operação é domínio fechado, não texto livre (12/09/2026)
 
