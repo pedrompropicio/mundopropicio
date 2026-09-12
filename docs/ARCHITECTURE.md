@@ -182,6 +182,7 @@ no repositório), `timeout_milliseconds := 180000`, body `{"dry_run":false}`.
 | `carreira-instagram-sync-diario` | `20 9 * * *` | `artist-instagram-sync` |
 | `carreira-song-sync-diario` | `40 9 * * *` | `song-soundcharts-sync` |
 | `carreira-shorts-sync-diario` | `50 9 * * *` | `artist-shorts-sync` (ver **D-ERP52**) |
+| `carreira-tiktok-sync-diario` | `55 9 * * *` | `artist-tiktok-sync` (TikTok oficial, ver **D-ERP56**) |
 
 Sem `artist_id` no body: percorre todos os artistas com canal `sua_musica` / `aggregator`.
 Lembrete: crons não propagam Test→Live via Publish.
