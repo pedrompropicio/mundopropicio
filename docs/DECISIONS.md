@@ -1394,3 +1394,22 @@ apaga). Selector "Apuramento" só visível em eventos com 2+ apuramentos e bloco
 "Perímetro" no painel da aba Sócios. **Zero linhas marcadas** e nenhum cálculo
 consome a coluna. Armadilha registada: `transactions.settlement_id` é o fecho de
 bilheteira (`ticket_office_settlements`), não o apuramento.
+
+**Adenda a DR-2026-09-09-D25 — (c) motor construído em 2026-09-12:** motor PURO
+`src/lib/event-settlement-engine.ts` (+ totais partilhados
+`src/lib/event-settlement-inputs.ts`, hook `useEventSettlementEngine`), ligado ao
+painel "Apuramentos" em modo **só leitura**. Fórmulas: perímetro da raiz = total do
+evento − linhas marcadas; quota do filho = `parent_share_pct` × resultado do pai na
+`parent_share_basis` (irmãos não se subtraem); resultado do nó em duas bases
+(R_s s/IVA, R_c c/IVA) = quota + receitas − despesas da base; parte do participante
+= % × resultado na base do participante (casa sempre s/IVA, D-ERP10; % de perda
+quando o resultado é negativo); residual da MP = resultado s/IVA do evento − Σ partes
+`settles`, decomposto em declarada + IVA dedutível + nominal−real + resto.
+Conferências: **C1** Σ partes pagas + residual = resultado do evento; **C2** resto = 0
+(≠ 0 é erro de configuração das percentagens). Prova conta-a-conta contra o Encontro
+de Contas em modo "por contrato de cada sócio": **0,00 € de diferença** em 13
+participantes / 6 eventos legíveis pela sessão MP (a 7.ª raiz é do tenant Coala e a
+RLS esconde-a — correcto). Anitta nível 1, quota de 70%: referência da v4
+418.028,42 € vs BP vivo 417.293,42 € na base "previsto + excedido · despesas c/IVA"
+(desvio 735,00 €) e 1.357.819,77 € na base "realizado" — o painel mostra o critério
+em uso. Nenhum ecrã existente mudou; o Encontro de Contas continua a ser a fonte.
