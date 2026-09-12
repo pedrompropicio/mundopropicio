@@ -114,3 +114,14 @@ verify_jwt = true
 
 [functions.artist-comparable-manage]
 verify_jwt = true
+
+# Músicas/obras acompanhadas via Soundcharts (Fase A). Mesmo padrão: só backend,
+# papel validado dentro da função (admin/platform_admin/manager/editor).
+[functions.soundcharts-song-search]
+verify_jwt = true
+
+[functions.artist-song-manage]
+verify_jwt = true
+
+[functions.song-soundcharts-sync]
+verify_jwt = true
