@@ -50,6 +50,7 @@ import {
 } from "@/components/TransactionRenegotiateInstallmentsModal";
 
 import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
+import { OperationKeySelector } from "@/components/OperationKeySelector";
 
 interface Props {
   transaction: any;
