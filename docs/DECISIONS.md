@@ -1081,7 +1081,9 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 
 **Decisão.** A fórmula da bilheteira (D-ERP15) passa a existir também em SQL, em
 `public._ticket_office_balance_raw(uuid)` (interna, fechada) e
-`public.ticket_office_balances(uuid[])` (com portão). A fórmula **não converge** com a
+`public.ticket_office_balances(uuid[])` (com portão), arredondada a 2 casas **apenas no
+total** — `computeTicketOfficeBalance` não arredonda nenhuma parcela, pelo que arredondar
+por parcela divergiria do cliente. A fórmula **não converge** com a
 bancária: continua a ser vendas de `ticket_sales` + movimentos `approved|paid` com
 `reversed_at IS NULL` e `is_hidden` falso, sempre por `paid_amount`, menos adiantamentos
 sem transação e sem fecho. O portão é o mesmo de `account_true_balances_asof`:
