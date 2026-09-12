@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-01 · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2
+Atualizado: 2026-09-12 · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2 + confirmar Publish das correções de IBAN
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -9,14 +9,18 @@ A 30/08 fez-se limpeza estrutural: 42 tabelas tinham dois triggers idênticos de
 
 A 01/09 atacou-se a #86 pelo lado dos produtores: varreram-se as edge functions à procura de inserts sob `service_role` sem `company_id` explícito, e corrigiram-se os dois casos com dano medido. Publicado e verificado em Live.
 
+A 11-12/09 reconstruiu-se a base de fornecedores: fusão dos duplicados por IBAN, três índices únicos parciais em Live como trava nova, e unificação da normalização de IBAN numa só função da app.
+
 ## A trabalhar agora
 - **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 71 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. Continua aberta: falta o inventário completo das tabelas escritas sem contexto de utilizador, que é o critério de aceitação. #53 e #56 seguem como sub-tarefas; #96 saiu daqui.
 
 ## Próximo passo concreto
 **Ação do Pedro:** desativar a edge function `generate-historical-transactions` no Lovable (#87 passo 2). Enquanto estiver deployed continua invocável por qualquer admin e escreve `amount` com o IVA embutido. Só depois se remove do repo.
 
+**Ação do Pedro:** confirmar o Publish das correções de IBAN (commits `3b5f702` e `c61a880`).
+
 ## Prazos e renovações
-- **PAT do GitHub expira 24/set/2026** (#15) — 23 dias.
+- **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
 - Token Meta da conta da Ivete expira 08/10/2026. Fortal e Siriguella expirados desde 22/08 (#36).
 
 ## Factos que não se reinvestigam
@@ -39,9 +43,22 @@ A 01/09 atacou-se a #86 pelo lado dos produtores: varreram-se as edge functions 
 
 **Um trigger de `company_id` por tabela, com o nome `trg_set_company_id`.** Três tabelas mantêm nomes legados (`event_courtesies`, `event_ticket_types`, `event_ticket_type_zones`) — cada uma com um só trigger. Não criar um segundo com outro nome.
 
+**Base de fornecedores reconstruída a 11-12/09.** Estado final: 455 ativos, 86 desativados por duplicação, ZERO grupos duplicados por IBAN, 1.443 transações (inalterado). Antes: 541 fornecedores, 330 com IBAN mas só 244 IBANs distintos, 48 IBANs gravados com separadores.
+
+Origem: importação de **29/04/2026 às 23:49:50** — 93 fornecedores criados no mesmo segundo, com IBAN (86) mas quase sem NIF (14). Sem NIF não havia como reconhecer o fornecedor existente, e a única proteção era `suppliers_company_name_unique (company_id, lower(trim(name))) WHERE is_active`, que falha ao primeiro espaço a mais: `RICARDO COVOES S A ` não colide com `RICARDO COVOES S A`. Dos 86 desativados, 81 nasceram nesse dia. O lote de 09/08 (67 fornecedores) não produziu duplicados.
+
+Trava nova, criada em Live a 12/09: três índices únicos parciais `suppliers_company_iban_unique`, `suppliers_company_iban2_unique`, `suppliers_company_iban3_unique`, sobre `(company_id, iban|iban_2|iban_3) WHERE is_active AND <coluna> IS NOT NULL AND <coluna> <> ''`. O `WHERE is_active` é deliberado — os desativados mantêm o IBAN para o histórico. Apanham colisões dentro da MESMA coluna; o caso cruzado (iban_2 de um = iban de outro) fica coberto pela RPC `check_supplier_iban_duplicate` no formulário.
+
+⚠️ A PRÓXIMA IMPORTAÇÃO EM MASSA DE FORNECEDORES VAI REBENTAR contra estes índices em vez de criar gémeos. É intencional. A solução é reconciliar pelo IBAN normalizado antes de inserir, nunca desativar o índice.
+
+Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN — fundido em <id>. …`
+
+**Normalização de IBAN: uma só função em toda a app** — `normalizeIban` de `src/lib/iban.ts` (remove `[\s.\-_/]`, upper). A função local `normalizeIbanStr` do SupplierFormModal foi eliminada. Existem DOIS motores de validação e é deliberado: `lib/iban.ts` serve o aviso visual a cada tecla (puro, sem import dinâmico); `ibantools` decide a gravação no submit. Depois da unificação só podem discordar na tabela de países — daí o fallback no texto do toast.
+
 `query_database` rejeita `drop policy` (erro 499) — essas vão pelo SQL Editor de Live, exceção registada na constraint de DDL. Edge functions via `service_role` precisam de GRANTs explícitos em `crm.*`. `send_message` do Lovable dá transport error mas a mensagem chegou — verificar com `get_project`. Scanner pré-Publish: "Ignore issue", nunca "Try to fix all".
 
 ## Onde ler mais
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
+- `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado)
 - Issues #86, #83, #87, #96, #61, #57
