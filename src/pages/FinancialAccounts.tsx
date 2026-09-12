@@ -20,9 +20,9 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
-import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
+import { useAccountBalanceCards } from "@/hooks/useAccountBalanceCards";
 import { formatDatePT } from "@/lib/utils";
+
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
