@@ -256,6 +256,14 @@ Deno.serve(async (req) => {
 
     const windows = buildWindows(startDate, endDate);
 
+    runDryRun = dryRun;
+    runId = await startSyncRun(admin, {
+      function_name: FUNCTION_NAME,
+      trigger_source: deduceTriggerSource(req),
+      dry_run: dryRun,
+      artist_id: onlyArtist,
+    });
+
     // 1. canais agregadores
     let chQuery = admin
       .from("artist_channels")
