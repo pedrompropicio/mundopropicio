@@ -1357,6 +1357,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       </div>
                     )}
                   </div>
+                  )}
+
                 </section>
 
                 {/* STEP 6 — Document & notes */}
