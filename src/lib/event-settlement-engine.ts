@@ -340,8 +340,12 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
 
     const moneyKey = p.event_partner_id ?? p.supplier_id ?? "";
     const money = (moneyKey && input.moneyByPartner?.[moneyKey]) || {};
-    const paidByPartner = isHouse ? 0 : num(money.paidByPartner);
-    const extras = isHouse ? 0 : num(money.extras);
+    const paidByPartner = isHouse
+      ? 0
+      : num(usesGross && money.paidByPartnerGross != null ? money.paidByPartnerGross : money.paidByPartner);
+    const extras = isHouse
+      ? 0
+      : num(usesGross && money.extrasGross != null ? money.extrasGross : money.extras);
 
     if (!isHouse && p.mode === "settles") {
       const key = p.supplier_id ?? p.event_partner_id ?? p.id;
