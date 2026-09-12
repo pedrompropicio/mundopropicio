@@ -214,7 +214,7 @@ export function SearchableSelect({
           <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             placeholder={searchPlaceholder}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
