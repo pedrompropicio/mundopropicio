@@ -41,8 +41,8 @@ export function DashboardBalanceCards() {
   const office = cards.ticketOffice;
 
   // Sem um único valor visível no grupo → o cartão não aparece (nunca zero).
-  const showCash = cash.count > 0 && cash.hiddenNames.length < cash.count - cash.uncontrolledNames.length + cash.uncontrolledNames.length && cash.hiddenNames.length < cash.count;
-  const showOffice = office.count > 0 && office.hiddenNames.length < office.count;
+  const showCash = cash.count - cash.hiddenNames.length - cash.uncontrolledNames.length > 0;
+  const showOffice = office.count - office.hiddenNames.length - office.uncontrolledNames.length > 0;
 
   if (!showCash && !showOffice) return null;
 
