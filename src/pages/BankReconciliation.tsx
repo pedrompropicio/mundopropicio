@@ -1250,8 +1250,8 @@ export default function BankReconciliation() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className={`text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell className="sticky right-0 z-10 whitespace-nowrap bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
                       <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxIds([]); setCrossAccountAck(false); }}>
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Conciliar
                       </Button>
