@@ -541,8 +541,10 @@ export default function FinancialAccounts() {
                   {activeAccounts.map((acc: any) => {
                     const typeInfo = getTypeInfo(acc.type);
                     const Icon = typeInfo.icon;
-                    const balance = computeBalance(acc);
-                    const showBalance = canSeeBalance(acc);
+                    const entry = balanceOf(acc);
+                    const balance = entry.value;
+                    const showBalance = balance !== null;
+
 
                     return (
                       <TableRow key={acc.id}>
