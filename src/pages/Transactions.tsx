@@ -22,6 +22,8 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
+import { useOperationKeyTotals } from "@/hooks/useOperationKeyTotals";
+
 import { groupTransactionsByRefund, type RefundNoteSummary, type RefundRenderItem } from "@/lib/refund-grouping";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { Switch } from "@/components/ui/switch";
