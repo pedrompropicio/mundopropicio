@@ -310,30 +310,44 @@ Deno.serve(async (req) => {
       body: null,
     };
     try {
+      // Mesmo padrão do artist-song-manage: sem o header `apikey` o gateway
+      // responde 403 {"error":"Forbidden"} antes de chegar à função. O corpo do
+      // erro é devolvido tal e qual em history_sync.result.
       const res = await fetch(
         `${Deno.env.get("SUPABASE_URL")}/functions/v1/soundcharts-sync`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
             "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
           },
           body: JSON.stringify({
             artist_id: comparableId,
             start_date: startDate,
             dry_run: false,
           }),
+          signal: AbortSignal.timeout(120_000),
         },
       );
+      const text = await res.text();
       let body: unknown = null;
       try {
-        body = await res.json();
+        body = text ? JSON.parse(text) : null;
       } catch {
-        body = null;
+        body = text.slice(0, 600);
       }
-      sync = { ok: res.ok, status: res.status, body };
+      if (!res.ok) {
+        sync = {
+          ok: false,
+          status: res.status,
+          body: { error: `HTTP ${res.status} — ${text.slice(0, 600)}`, response: body },
+        };
+      } else {
+        sync = { ok: true, status: res.status, body };
+      }
     } catch (e) {
-      sync = { ok: false, status: 0, body: { error: (e as Error).message } };
+      sync = { ok: false, status: 0, body: { error: (e as Error)?.message ?? String(e) } };
     }
 
     return json({
