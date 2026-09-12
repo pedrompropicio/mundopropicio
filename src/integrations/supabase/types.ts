@@ -14189,6 +14189,17 @@ export type Database = {
         }
         Returns: string
       }
+      create_settlement_transfer: {
+        Args: {
+          p_amount: number
+          p_credited: boolean
+          p_date: string
+          p_from_account_id: string
+          p_settlement_id: string
+          p_to_account_id: string
+        }
+        Returns: string
+      }
       create_vault_secret: {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string

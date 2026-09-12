@@ -102,12 +102,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         if (existingSettlement.transfer_transaction_id) {
           const { data: tt } = await (supabase as any)
             .from("transactions")
-            .select("status, expected_date")
+            .select("status")
             .eq("id", existingSettlement.transfer_transaction_id)
             .single();
           if (tt) {
             setCreditStatus(tt.status === "paid" ? "credited" : "pending");
-            setExpectedCreditDate(tt.expected_date ?? "");
+            setExpectedCreditDate("");
           }
         } else {
           setCreditStatus("credited");
@@ -435,6 +435,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     if (transferAmt > 0 && !transferAccountId) {
       return toast.error("Selecione a conta destino da transferência");
     }
+    if (transferAccountId && !(transferAmt > 0)) {
+      return toast.error("Falta o valor da transferência", {
+        description: 'Preencha o valor a transferir ou escolha "— Não transferir agora —".',
+      });
+    }
 
     setSubmitting(true);
     try {
@@ -462,8 +467,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         net_calculated: netCalculated,
         net_adjusted: hasAdjustment ? Number(adjustedNet) : null,
         adjustment_notes: hasAdjustment ? adjustmentNotes : null,
-        net_transferred: transferAmt,
-        transfer_account_id: transferAccountId || null,
+        // net_transferred / transfer_account_id só são preenchidos por
+        // create_settlement_transfer, quando a transferência existe de facto.
+        net_transferred: existingSettlement?.transfer_transaction_id
+          ? Number(existingSettlement.net_transferred || 0)
+          : 0,
+        transfer_account_id: existingSettlement?.transfer_transaction_id
+          ? (existingSettlement.transfer_account_id ?? null)
+          : null,
         document_url: docUrl,
         document_name: docName,
         notes: notes || null,
@@ -538,34 +549,31 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       }
 
-      // Create transfer transaction if requested and confirming
-      if (confirm && transferAmt > 0 && transferAccountId) {
+      // Transferência do fecho: par expense + income na rubrica 10.3, numa só
+      // operação na base de dados (create_settlement_transfer, issue #132).
+      // O erro nunca é engolido — sem transferência não há fecho confirmado.
+      if (
+        confirm &&
+        transferAmt > 0 &&
+        transferAccountId &&
+        !existingSettlement?.transfer_transaction_id
+      ) {
         const isCredited = creditStatus === "credited" && !targetWithholds;
-        const baseDesc = targetWithholds
-          ? `Acerto fecho com ${targetAccount?.name} (a receber)`
-          : `Transferência fecho bilheteira ${officeName}${isCredited ? "" : " (a receber)"}`;
-        const { data: transferTxn, error: tErr } = await (supabase as any)
-          .from("transactions")
-          .insert({
-            type: "transfer",
-            description: baseDesc,
-            amount: transferAmt,
-            paid_amount: isCredited ? transferAmt : 0,
-            status: isCredited ? "paid" : "pending",
-            payment_date: isCredited ? settlementDate : null,
-            expected_date: isCredited ? null : (expectedCreditDate || settlementDate),
-            account_id: officeId,
-            target_account_id: transferAccountId,
-            event_id: eventId,
-            settlement_id: settlementId,
-          })
-          .select("id")
-          .single();
-        if (!tErr && transferTxn) {
+        const { error: tErr } = await (supabase as any).rpc("create_settlement_transfer", {
+          p_settlement_id: settlementId,
+          p_from_account_id: officeId,
+          p_to_account_id: transferAccountId,
+          p_amount: transferAmt,
+          p_date: settlementDate,
+          p_credited: isCredited,
+        });
+        if (tErr) {
+          // O fecho não pode ficar confirmado a declarar uma transferência inexistente.
           await (supabase as any)
             .from("ticket_office_settlements")
-            .update({ transfer_transaction_id: transferTxn.id })
+            .update({ status: "draft", closed_at: null, closed_by: null })
             .eq("id", settlementId);
+          throw new Error(`Transferência não lançada — fecho ficou em rascunho. ${tErr.message}`);
         }
       }
 
