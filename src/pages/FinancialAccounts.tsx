@@ -580,7 +580,7 @@ export default function FinancialAccounts() {
                           ) : "••••••"}
                         </TableCell>
                         <TableCell className="text-right">
-                        <TableCell className="text-right">
+
                           {balanceCards.isLoading ? (
                             <span className="text-xs text-muted-foreground">…</span>
                           ) : balance !== null ? (
