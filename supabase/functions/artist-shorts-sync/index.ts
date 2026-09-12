@@ -271,7 +271,11 @@ Deno.serve(async (req) => {
           const toUpsert: Array<Record<string, unknown>> = [];
           const enrichOnly: Array<{ id: string; patch: Record<string, unknown> }> = [];
           // external_id do nosso registo → métricas do dia
-          const metricsByExternal: Array<{ key: string; metrics: Record<string, number> }> = [];
+          const metricsByExternal: Array<{
+            key: string;
+            metrics: Record<string, number>;
+            metric_date: string;
+          }> = [];
 
           for (const v of videos) {
             const song = v.song_uuid ? songByUuid.get(v.song_uuid) ?? null : null;
