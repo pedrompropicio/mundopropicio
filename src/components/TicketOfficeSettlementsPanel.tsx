@@ -230,7 +230,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                           </span>
                         )
                       )}
-                      {s.status === "confirmed" && Number(s.net_transferred || 0) === 0 && (
+                      {s.status === "confirmed" && Number(s.net_transferred || 0) === 0 && Number(netFinal || 0) > 0.01 && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500" title="Fecho confirmado sem transferência lançada — o líquido continua retido na bilheteira.">
                           <AlertCircle className="h-3 w-3" /> Líquido ainda retido na bilheteira
                         </span>
