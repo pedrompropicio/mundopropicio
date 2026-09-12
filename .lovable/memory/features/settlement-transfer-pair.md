@@ -4,7 +4,7 @@ description: create_settlement_transfer cria o par expense+income na rubrica 10.
 type: feature
 ---
 
-# Transferência do fecho de bilheteira (issue #132, 13/09/2026)
+# Transferência do fecho de bilheteira (issue #132, 12/09/2026)
 
 **Regra:** transferência entre contas = par `expense` (conta de origem) + `income`
 (conta destino) na rubrica `10.3 Transferências Internas`
