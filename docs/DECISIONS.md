@@ -1076,3 +1076,42 @@ Resultado: as chaves de operação eram **apagadas em silêncio** no momento em 
 **Não muda.** `payment_reference`, saldos, conciliação, métodos de pagamento, trigger `trg_force_no_account_on_compensation` e valores de transações: intactos.
 
 **Estado:** vigente.
+
+## D-ERP46 — Saldo de bilheteira no servidor, e a composição dos três dinheiros num só sítio (12/09/2026)
+
+**Decisão.** A fórmula da bilheteira (D-ERP15) passa a existir também em SQL, em
+`public._ticket_office_balance_raw(uuid)` (interna, fechada) e
+`public.ticket_office_balances(uuid[])` (com portão). A fórmula **não converge** com a
+bancária: continua a ser vendas de `ticket_sales` + movimentos `approved|paid` com
+`reversed_at IS NULL` e `is_hidden` falso, sempre por `paid_amount`, menos adiantamentos
+sem transação e sem fecho. O portão é o mesmo de `account_true_balances_asof`:
+admin/platform_admin, ou `view_balances` **e** `balance_visible_to_all`; `NULL` nos
+restantes casos e sempre que `skip_balance_check` está ligado. D-ERP37 aplicada às duas.
+
+**Composição dos três dinheiros (D-ERP27) sai do componente** para
+`src/hooks/useAccountBalanceCards.ts`: caixa, retido em bilheteiras e acertos em curso,
+cada conta com saldo **ou** ausência, e as duas ausências separadas —
+`"uncontrolled"` (sem controlo de saldo) e `"no_permission"`. Nunca zero em vez de
+ausência (D-ERP36). A página de Contas deixou de somar no cliente.
+
+**Duas correcções numéricas que vêm de graça.** (a) A página lia `ticket_sales` em bruto
+e o PostgREST corta em 1.000 linhas: a Ticketline tem 2.840 vendas e o valor estava
+truncado. (b) A página restringia as vendas às zonas de eventos **atribuídos** a alguma
+bilheteira; o ECI aparecia a 0,00 € tendo 29.903,25 € de vendas. A fonte única
+(`get_ticket_office_sales`, D-ERP15) nunca fez essa restrição — o servidor segue a fonte
+única.
+
+**Efeito de permissões, aceite.** O `canSeeBalance` do cliente era
+`isAdmin || balance_visible_to_all` e ignorava `view_balances`. O servidor é mais
+restritivo: só três contas activas têm `balance_visible_to_all` (Cartão Santander Pre-Pago - 0663,
+Cartão Santander Pre-pago - 8363 e o Banco Santander Totta da segunda empresa). Quem não é
+admin/platform_admin passa a ver saldo **apenas** nessas três, e só se tiver `view_balances`;
+nas restantes 18 lê "Sem permissão". Papéis afectados: manager, editor, viewer,
+accountant, producer, partner — antes viam as três (por `balance_visible_to_all`) e agora
+continuam a ver as mesmas três se tiverem `view_balances`, e nenhuma se não tiverem.
+Não se contorna.
+
+**Fica para depois.** Fase 2: Dashboard a consumir o hook. Fase 3: Extrato e cartões
+pré-pagos, que têm risco de regressão numérica próprio.
+
+**Estado:** vigente.
