@@ -20,6 +20,7 @@ import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
+import { EventSettlementsPanel } from "@/components/EventSettlementsPanel";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventFecho } from "@/components/EventFecho";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
