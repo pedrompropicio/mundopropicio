@@ -1409,7 +1409,7 @@ export default function BankReconciliation() {
 
       {/* Conciliação manual */}
       <Dialog open={!!manualLine} onOpenChange={(o) => !o && setManualLine(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Conciliar manualmente</DialogTitle></DialogHeader>
           {manualLine && (
             <div className="space-y-3 text-sm">
@@ -1532,6 +1532,9 @@ export default function BankReconciliation() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Documentos de uma linha do banco — independente do estado de conciliação. */}
+      <BankLineDocumentsDialog line={docsLine} onClose={() => setDocsLine(null)} />
     </div>
   );
 }
