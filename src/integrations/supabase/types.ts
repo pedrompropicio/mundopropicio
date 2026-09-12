@@ -6768,6 +6768,171 @@ export type Database = {
           },
         ]
       }
+      event_settlement_participants: {
+        Row: {
+          can_order: boolean
+          can_pay: boolean
+          company_id: string
+          created_at: string
+          event_id: string
+          event_partner_id: string | null
+          expense_includes_iva: boolean | null
+          id: string
+          loss_pct: number | null
+          mode: string
+          notes: string | null
+          participant_kind: string
+          profit_pct: number
+          settlement_id: string
+          supplier_id: string | null
+          updated_at: string
+          visible_in_docs: boolean
+        }
+        Insert: {
+          can_order?: boolean
+          can_pay?: boolean
+          company_id?: string
+          created_at?: string
+          event_id: string
+          event_partner_id?: string | null
+          expense_includes_iva?: boolean | null
+          id?: string
+          loss_pct?: number | null
+          mode?: string
+          notes?: string | null
+          participant_kind: string
+          profit_pct?: number
+          settlement_id: string
+          supplier_id?: string | null
+          updated_at?: string
+          visible_in_docs?: boolean
+        }
+        Update: {
+          can_order?: boolean
+          can_pay?: boolean
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          event_partner_id?: string | null
+          expense_includes_iva?: boolean | null
+          id?: string
+          loss_pct?: number | null
+          mode?: string
+          notes?: string | null
+          participant_kind?: string
+          profit_pct?: number
+          settlement_id?: string
+          supplier_id?: string | null
+          updated_at?: string
+          visible_in_docs?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_settlement_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_settlement_participants_event_partner_id_fkey"
+            columns: ["event_partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_settlement_participants_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_settlement_participants_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_settlements: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          is_sealed: boolean
+          name: string
+          notes: string | null
+          parent_id: string | null
+          parent_share_basis: string | null
+          parent_share_pct: number | null
+          position: number
+          sealed_at: string | null
+          sealed_bp_version_id: string | null
+          sealed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          is_sealed?: boolean
+          name: string
+          notes?: string | null
+          parent_id?: string | null
+          parent_share_basis?: string | null
+          parent_share_pct?: number | null
+          position?: number
+          sealed_at?: string | null
+          sealed_bp_version_id?: string | null
+          sealed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_sealed?: boolean
+          name?: string
+          notes?: string | null
+          parent_id?: string | null
+          parent_share_basis?: string | null
+          parent_share_pct?: number | null
+          position?: number
+          sealed_at?: string | null
+          sealed_bp_version_id?: string | null
+          sealed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_settlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_settlements_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_settlements_sealed_bp_version_id_fkey"
+            columns: ["sealed_bp_version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_simulator_config: {
         Row: {
           ab_drink_passthrough_pct: number
@@ -15176,6 +15341,10 @@ export type Database = {
       }
       event_budget_mode: { Args: { _event_id: string }; Returns: string }
       event_close_blockers: { Args: { _event_id: string }; Returns: Json }
+      event_settlement_sync_root: {
+        Args: { _event_id: string }
+        Returns: string
+      }
       expire_supplier_credits: { Args: never; Returns: number }
       find_admin_absorbing_events: {
         Args: { p_company_id: string; p_date: string }

@@ -20,6 +20,7 @@ import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
+import { EventSettlementsPanel } from "@/components/EventSettlementsPanel";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventFecho } from "@/components/EventFecho";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
@@ -1523,6 +1524,10 @@ export default function EventDetail() {
           <TabsContent value="partners">
             <div className="space-y-6">
               {(isAdmin || isManager) && <EventPartnersTab eventId={event.id} eventStatus={event.status} />}
+              <div className="glass rounded-xl p-5">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Apuramentos</h2>
+                <EventSettlementsPanel eventId={event.id} />
+              </div>
               <div className="glass rounded-xl p-5">
                 <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas pagas pelos Sócios</h2>
                 <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
