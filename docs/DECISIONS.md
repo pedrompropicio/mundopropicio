@@ -982,3 +982,17 @@ longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
 - Os lançamentos (`created_transaction_id`) **não** entram na tabela-ponte: são a cardinalidade inversa (N linhas → 1 transação) e violariam o `unique (transaction_id)`.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP42 — Os anexos seguem a confidencialidade da transação (12/09/2026)
+
+**O buraco que a D-ERP34 deixou.** A D-ERP34 protegeu a **transação** confidencial com a policy RESTRICTIVE `transactions_confidential_guard`, mas o **comprovativo** ficou de fora: `transaction_documents` continuava legível por admin, platform_admin, manager, editor, viewer e accountant. Quem não podia ver a transação via, ainda assim, a fatura, o recibo e o comprovativo de transferência que a descrevem ao cêntimo — incluindo os movimentos de conta restrita, que é precisamente o caso que a D-ERP34 existe para tapar.
+
+**Decisão.** Policy **RESTRICTIVE** nova `transaction_documents_confidential_guard`, a espelhar exactamente a `transactions_confidential_guard`: um documento anexado a uma transação **confidencial** (`transactions.is_confidential`) ou a uma transação em **conta restrita** (`financial_accounts.is_restricted`) só é legível por quem tem `view_confidential`. Aplica-se `TO authenticated`, logo o `service_role` — crons, edge functions, exportações — não é afectado.
+
+**Dois eixos independentes, que continuam a não se confundir** (ver D-ERP41): `is_accounting` decide se o documento vai para o contabilista (acesso por **PAPEL**); `partner_visible` decide se o sócio vê (acesso por **EVENTO**). A confidencialidade é um **terceiro** eixo, herdado da transação e não gravado no documento — não há coluna nova.
+
+**Teste em Live (12/09/2026).** Fingindo o papel `manager`: `can_see_confidential` a `false` e **zero** anexos de transações confidenciais visíveis. Com `service_role`, os **1.371** anexos continuam todos visíveis.
+
+**Estado:** vigente.
