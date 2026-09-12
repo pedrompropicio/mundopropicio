@@ -160,7 +160,8 @@ Deno.serve(async (req) => {
     // Recusa-se em vez de avisar: uma variante silenciosa cria um grupo de uma
     // linha e o total do fecho deixa de bater.
     const OPERATION_KEY_RE = /^[A-Z0-9]+(-[A-Z0-9]+)+$/;
-    if ("operation_key" in updates && updates.operation_key !== null && updates.operation_key !== "") {
+    if ("operation_key" in updates && updates.operation_key === "") updates.operation_key = null;
+    if ("operation_key" in updates && updates.operation_key !== null) {
       if (typeof updates.operation_key !== "string" || !OPERATION_KEY_RE.test(updates.operation_key)) {
         return new Response(
           JSON.stringify({
