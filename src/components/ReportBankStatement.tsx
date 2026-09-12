@@ -576,9 +576,10 @@ export default function ReportBankStatement() {
                         </TableCell>
                         {/* Filha de grupo: célula de saldo VAZIA. Um saldo
                             intra-grupo não corresponde a posição nenhuma no banco. */}
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : line.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                          {isChild ? "" : isUncontrolledBalance ? "N/C" : formatCurrency(line.runningBalance)}
+                        <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : shownBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                          {isChild ? "" : isUncontrolledBalance ? "N/C" : formatCurrency(shownBalance)}
                         </TableCell>
+
                       </TableRow>
                     );
                   })}
