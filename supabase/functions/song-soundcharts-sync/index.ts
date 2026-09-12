@@ -169,43 +169,6 @@ Deno.serve(async (req) => {
     const windows = buildWindows(startDate, endDate);
     const client = await ScClient.create();
 
-    // Modo de diagnóstico: devolve as respostas BRUTAS da Soundcharts para uma
-    // música, sem escrever nada. Serve para confirmar nomes de campos antes de
-    // mapear (nunca inventar campos).
-    if ((p as any).debug === true) {
-      const scUuid = songs[0].soundcharts_uuid as string;
-      const probe = async (path: string) => {
-        try {
-          return await client.get(path);
-        } catch (e) {
-          return { __error: (e as Error)?.message ?? String(e) };
-        }
-      };
-      const candidates: string[] = Array.isArray((p as any).probe_platforms)
-        ? (p as any).probe_platforms
-        : [];
-      const probes: Record<string, unknown> = {};
-      for (const plat of candidates) {
-        const r = await probe(
-          `/api/v2/song/${scUuid}/audience/${plat}?endDate=${endDate}&limit=2`,
-        );
-        probes[plat] = (r as any)?.__error
-          ? { error: (r as any).__error }
-          : { total: (r as any)?.page?.total ?? null, first: (r as any)?.items?.[0] ?? null };
-      }
-      const out = {
-        debug: true,
-        song: { id: songs[0].id, title: songs[0].title, soundcharts_uuid: scUuid },
-        platform_probes: probes,
-        soundcharts_calls: client.calls,
-      };
-      await finishSyncRun(admin, runId, startedMs, {
-        status: "success",
-        api_calls: client.calls,
-        details: { debug: true },
-      });
-      return json(out);
-    }
     const errors: Array<{ song_id: string; platform: string; error: string }> = [];
     const notes: string[] = [];
     const perSong: Array<Record<string, unknown>> = [];
