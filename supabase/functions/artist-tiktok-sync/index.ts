@@ -54,11 +54,31 @@ Deno.serve(async (req) => {
   const { creds, error: credErr } = tiktokCreds();
   if (credErr) return json({ error: credErr }, 500);
 
-  let body: { artist_id?: string; connection_id?: string; dry_run?: boolean } = {};
+  let body: {
+    artist_id?: string;
+    connection_id?: string;
+    dry_run?: boolean;
+    max_videos?: number;
+    since?: string;
+  } = {};
   try {
     body = await req.json();
   } catch (_e) { /* body opcional */ }
   const dryRun = body.dry_run !== false;
+
+  // max_videos: default 200 (igual ao cron), máximo duro 2000.
+  const rawMax = Number(body.max_videos);
+  const maxVideos = Number.isFinite(rawMax) && rawMax > 0
+    ? Math.min(Math.floor(rawMax), 2000)
+    : TT_VIDEO_LIMIT;
+
+  // since: só entra se for data ISO válida.
+  const sinceMs = body.since ? Date.parse(body.since) : NaN;
+  const sinceSec = Number.isFinite(sinceMs) ? Math.floor(sinceMs / 1000) : null;
+  if (body.since && sinceSec === null) {
+    return json({ error: `since inválido: ${body.since}` }, 400);
+  }
+
 
   let q = admin
     .from("artist_channel_connections")
