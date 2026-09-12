@@ -66,7 +66,7 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
   // 1) Anexos diretos da TX
   const { data: ownDocs } = await (supabase as any)
     .from("transaction_documents")
-    .select("id, name, file_url")
+    .select("id, name, file_url, is_accounting")
     .eq("transaction_id", txId);
 
   for (const d of ownDocs ?? []) {
@@ -78,8 +78,10 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
       path,
       bucket,
       source_tx_id: txId,
-      origin: bucket === "camarim-documents" ? "camarim" : "transaction",
-      source_label: bucket === "camarim-documents" ? "Camarim" : undefined,
+      origin: bucket === "camarim-documents" ? "camarim" : bucket === "bank-statements" ? "bank" : "transaction",
+      source_label:
+        bucket === "camarim-documents" ? "Camarim" : bucket === "bank-statements" ? "Movimento do banco" : undefined,
+      is_accounting: d.is_accounting ?? true,
     });
   }
 
@@ -139,7 +141,7 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
 
   const { data: childDocs } = await (supabase as any)
     .from("transaction_documents")
-    .select("id, name, file_url, transaction_id")
+    .select("id, name, file_url, transaction_id, is_accounting")
     .in("transaction_id", childIds);
 
   for (const d of childDocs ?? []) {
@@ -153,6 +155,7 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
       source_tx_id: d.transaction_id,
       origin: "reimbursement",
       source_label: `Reembolso · ${descById.get(d.transaction_id) ?? ""}`.trim(),
+      is_accounting: d.is_accounting ?? true,
     });
   }
 
