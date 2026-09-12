@@ -16,6 +16,14 @@
 // Data de referência: hoje em America/Fortaleza.
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import {
+  deduceTriggerSource,
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
+
+const FUNCTION_NAME = "suamusica-sync";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -194,6 +202,11 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Registo técnico da execução (nunca faz a sincronização falhar).
+  const startedMs = Date.now();
+  let runId: string | null = null;
+  let runDryRun = false;
+
   try {
     const auth = await authorize(req, admin);
     if (!auth.allowed) return json({ error: "Forbidden" }, 403);
@@ -205,11 +218,19 @@ Deno.serve(async (req) => {
       payload = {};
     }
     const dryRun = payload.dry_run === true;
+    runDryRun = dryRun;
     const maxReleases = Math.max(
       1,
       Math.min(50, Number(payload.max_releases ?? 10) || 10),
     );
     const metricDate = todayFortaleza();
+
+    runId = await startSyncRun(admin, {
+      function_name: FUNCTION_NAME,
+      trigger_source: deduceTriggerSource(req),
+      dry_run: dryRun,
+      artist_id: payload.artist_id ?? null,
+    });
 
     // Canais sua_musica (com o artista, para o company_id explícito)
     let q = admin
@@ -475,16 +496,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
+    const body = {
       ok: true,
       dry_run: dryRun,
       metric_date: metricDate,
       max_releases: maxReleases,
       artists: results.length,
       results,
+    };
+
+    const apiCalls = results.reduce((s, r) => s + (r.requests ?? 0), 0);
+    const rowsWritten = results.reduce(
+      (s, r) =>
+        s + (r.profile_rows_written ?? 0) + (r.releases_written ?? 0) +
+        (r.release_metric_rows_written ?? 0),
+      0,
+    );
+    const errorCount = results.reduce((s, r) => s + (r.errors?.length ?? 0), 0);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: resolveStatus(rowsWritten, errorCount),
+      api_calls: apiCalls,
+      rows_written: rowsWritten,
+      details: body,
     });
+
+    return json(body);
   } catch (e) {
-    console.error("[suamusica-sync]", String((e as Error).message ?? e));
+    const msg = String((e as Error).message ?? e);
+    console.error("[suamusica-sync]", msg);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      error_text: msg,
+      details: { dry_run: runDryRun },
+    });
     return json({ error: "sync_failed" }, 500);
   }
 });

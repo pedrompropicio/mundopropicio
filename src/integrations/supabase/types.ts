@@ -11376,6 +11376,68 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_runs: {
+        Row: {
+          api_calls: number
+          artist_id: string | null
+          company_id: string | null
+          created_at: string | null
+          details: Json | null
+          dry_run: boolean
+          duration_ms: number | null
+          error_text: string | null
+          finished_at: string | null
+          function_name: string
+          id: string
+          rows_written: number
+          started_at: string
+          status: string
+          trigger_source: string
+        }
+        Insert: {
+          api_calls?: number
+          artist_id?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          dry_run?: boolean
+          duration_ms?: number | null
+          error_text?: string | null
+          finished_at?: string | null
+          function_name: string
+          id?: string
+          rows_written?: number
+          started_at?: string
+          status: string
+          trigger_source: string
+        }
+        Update: {
+          api_calls?: number
+          artist_id?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          dry_run?: boolean
+          duration_ms?: number | null
+          error_text?: string | null
+          finished_at?: string | null
+          function_name?: string
+          id?: string
+          rows_written?: number
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_runs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_audit_log: {
         Row: {
           action: string
@@ -13521,6 +13583,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_sync_health: {
+        Row: {
+          api_calls_month: number | null
+          function_name: string | null
+          last_api_calls: number | null
+          last_dry_run: boolean | null
+          last_duration_ms: number | null
+          last_finished_at: string | null
+          last_rows_written: number | null
+          last_started_at: string | null
+          last_status: string | null
+        }
+        Relationships: []
       }
       vw_event_daily_sales: {
         Row: {

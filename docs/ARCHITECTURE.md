@@ -182,6 +182,20 @@ no repositório), `timeout_milliseconds := 180000`, body `{"dry_run":false}`.
 Sem `artist_id` no body: percorre todos os artistas com canal `sua_musica` / `aggregator`.
 Lembrete: crons não propagam Test→Live via Publish.
 
+### Registo de execuções das sincronizações
+
+`soundcharts-sync`, `suamusica-sync` e `artist-instagram-sync` abrem uma linha em
+`public.sync_runs` com `status='running'` e fecham-na com `finished_at`, `duration_ms`,
+`api_calls`, `rows_written`, `details` (o resumo JSON que já devolvem) e `error_text`.
+Helper partilhado: `supabase/functions/_shared/sync-run.ts` (`startSyncRun`, `finishSyncRun`,
+`resolveStatus`, `deduceTriggerSource`).
+
+Regras: `success` = gravou algo sem erros; `partial` = gravou com erros; `no_data` = sem erro e
+nada gravado (não é sucesso); `error` = falhou antes de gravar. `trigger_source` é `cron` quando
+a chamada vem com JWT `service_role` sem utilizador, senão `manual`. O registo **nunca** faz a
+sincronização falhar e `details` nunca leva tokens ou chaves. Leitura agregada em
+`public.v_sync_health` (última execução por função + chamadas do mês). Detalhe em `DATABASE.md` §18.2.
+
 ### Ligação oficial do Instagram dos artistas (Instagram API with Facebook Login)
 
 Quatro edge functions dedicadas ao módulo Carreira Artística. **Não reutilizam nem alteram

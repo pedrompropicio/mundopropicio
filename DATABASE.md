@@ -524,6 +524,37 @@ Regras de cálculo:
 - **`accel_pct`:** % dos últimos 30 dias menos % dos 30 dias anteriores (`latest-30 → latest` vs `latest-60 → latest-30`); NULL se faltar qualquer ponto.
 - **Contadores acumulados:** as métricas de lançamento são acumuladas. Quando a primeira leitura é muito posterior à publicação (todos os lançamentos antigos), `first_value` já vem alto e **não** representa o arranque — usar `tracking_started_days_after_release` para saber se a comparação é justa. Com uma única leitura, `days_tracked = 0` e `avg_daily_gain` é NULL.
 
+### 18.2 Registo de execuções (`public.sync_runs` + `v_sync_health`)
+
+Registo **técnico** das execuções das sincronizações (`soundcharts-sync`, `suamusica-sync`,
+`artist-instagram-sync`). Escrito pelas próprias edge functions com `service_role`.
+
+- `company_id` é **nullable**: uma execução de cron cobre várias empresas.
+- `artist_id` → `artists(id) ON DELETE SET NULL`; `trigger_source ∈ {cron, manual, api}`
+  (`cron` = JWT `service_role` sem utilizador; caso contrário `manual`).
+- Índices: `(function_name, started_at DESC)` e `(artist_id, started_at DESC)`.
+- RLS: `SELECT` PERMISSIVE a `authenticated` **sem filtro de empresa** (registo técnico, sem
+  dados de negócio, e `company_id` pode ser NULL); escrita só `service_role`.
+  `GRANT SELECT` a `authenticated`, `ALL` a `service_role`.
+- `details` guarda o resumo JSON que a função devolve e **nunca** tokens, chaves ou credenciais.
+
+Estados (`status`):
+
+| valor | significado |
+|---|---|
+| `running` | linha aberta no início da execução |
+| `success` | gravou ≥ 1 linha e sem erros |
+| `partial` | gravou alguma coisa mas houve erros nalguma plataforma/artista |
+| `no_data` | correu sem erro mas **não** gravou nada (fonte não respondeu, 0 pontos) — **não é sucesso** |
+| `error` | falhou antes de gravar |
+
+`dry_run` também é registado (`dry_run = true`), com `rows_written = 0` e o número de linhas
+previstas a servir apenas para distinguir `no_data` real de simulação com dados.
+O registo nunca faz a sincronização falhar: erro no insert/update vai só para o log.
+
+`v_sync_health` (SECURITY INVOKER, `security_invoker = true`, `GRANT SELECT` a `authenticated`
+e `service_role`): última execução por `function_name` (estado, início/fim, duração,
+`api_calls`, `rows_written`, `dry_run`) + `api_calls_month` = total de chamadas do mês corrente.
 
 ## Convenção obrigatória — funções SECURITY DEFINER
 

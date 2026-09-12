@@ -18,6 +18,14 @@
 // Só backend. Não cria cron. Não altera tabelas.
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import {
+  deduceTriggerSource,
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
+
+const FUNCTION_NAME = "soundcharts-sync";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -199,9 +207,15 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+  // Registo técnico da execução (nunca faz a sincronização falhar).
+  const startedMs = Date.now();
+  let runId: string | null = null;
+  let runDryRun = false;
+
   try {
     const auth = await authorize(req, admin);
     if (!auth.allowed) return json({ error: "Forbidden" }, 403);
+
 
     let payload: {
       artist_id?: string;
@@ -242,6 +256,14 @@ Deno.serve(async (req) => {
 
     const windows = buildWindows(startDate, endDate);
 
+    runDryRun = dryRun;
+    runId = await startSyncRun(admin, {
+      function_name: FUNCTION_NAME,
+      trigger_source: deduceTriggerSource(req),
+      dry_run: dryRun,
+      artist_id: onlyArtist,
+    });
+
     // 1. canais agregadores
     let chQuery = admin
       .from("artist_channels")
@@ -253,13 +275,19 @@ Deno.serve(async (req) => {
 
     const targets = (aggChannels ?? []).filter((c) => c.external_id);
     if (!targets.length) {
-      return json({
+      const emptyBody = {
         artists_processed: 0,
         soundcharts_calls: 0,
         rows_written: {},
         errors: [],
         note: "Nenhum artista com canal 'aggregator' e external_id.",
+      };
+      // correu sem erro mas não gravou nada
+      await finishSyncRun(admin, runId, startedMs, {
+        status: "no_data",
+        details: emptyBody,
       });
+      return json(emptyBody);
     }
 
     const artistIds = [...new Set(targets.map((c) => c.artist_id))];
@@ -485,7 +513,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
+    const body = {
       dry_run: dryRun,
       window: { start_date: startDate, end_date: endDate, blocks: windows.length },
       platforms,
@@ -498,9 +526,26 @@ Deno.serve(async (req) => {
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
       errors,
+    };
+
+    // em dry_run conta-se o que ficaria gravado, para distinguir 'no_data' real
+    const effectiveRows = dryRun ? unique.length : written;
+    await finishSyncRun(admin, runId, startedMs, {
+      status: resolveStatus(effectiveRows, errors.length),
+      api_calls: calls,
+      rows_written: dryRun ? 0 : written,
+      details: body,
     });
+
+    return json(body);
   } catch (e) {
-    console.error("[soundcharts-sync]", e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[soundcharts-sync]", msg);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      error_text: msg,
+      details: { dry_run: runDryRun },
+    });
     return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);
   }
 });

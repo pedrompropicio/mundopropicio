@@ -13,6 +13,12 @@
 // artist_content, artist_content_metrics_daily.
 
 import {
+  deduceTriggerSource,
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
+import {
   adminClient,
   auditLog,
   authorize,
@@ -25,6 +31,7 @@ import {
   toCount,
 } from "../_shared/artist-meta.ts";
 
+const FUNCTION_NAME = "artist-instagram-sync";
 const PLATFORM = "instagram";
 const SOURCE = "platform_api";
 const MEDIA_LIMIT = 25;
@@ -85,10 +92,37 @@ Deno.serve(async (req) => {
   if (body.artist_id) q = q.eq("artist_id", body.artist_id);
   if (body.connection_id) q = q.eq("id", body.connection_id);
 
+  // Registo técnico da execução (nunca faz a sincronização falhar).
+  const startedMs = Date.now();
+  const runId = await startSyncRun(admin, {
+    function_name: FUNCTION_NAME,
+    trigger_source: deduceTriggerSource(req),
+    dry_run: dryRun,
+    artist_id: body.artist_id ?? null,
+  });
+
   const { data: connections, error: cErr } = await q;
-  if (cErr) return json({ error: cErr.message }, 500);
+  if (cErr) {
+    // falhou antes de gravar
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      error_text: cErr.message,
+    });
+    return json({ error: cErr.message }, 500);
+  }
   if (!connections?.length) {
-    return json({ ok: true, dry_run: dryRun, connections: 0, artists: [], note: "sem ligações activas" });
+    const emptyBody = {
+      ok: true,
+      dry_run: dryRun,
+      connections: 0,
+      artists: [],
+      note: "sem ligações activas",
+    };
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "no_data",
+      details: emptyBody,
+    });
+    return json(emptyBody);
   }
 
   const today = ymd(new Date());
@@ -99,6 +133,7 @@ Deno.serve(async (req) => {
   const errors: Array<{ connection_id: string; error: string }> = [];
   const summary: Array<Record<string, unknown>> = [];
 
+  try {
   for (const conn of connections) {
     const per: Record<string, unknown> = {
       connection_id: conn.id,
@@ -440,7 +475,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  return json({
+  const resBody = {
     ok: errors.length === 0,
     dry_run: dryRun,
     graph_version: "v25.0",
@@ -449,5 +484,29 @@ Deno.serve(async (req) => {
     rows_written: dryRun ? 0 : rowsWritten,
     errors,
     artists: summary,
+  };
+
+  // em dry_run conta-se o que ficaria gravado, para distinguir 'no_data' real
+  const effectiveRows = dryRun
+    ? summary.reduce((s, p) => s + Number(p.metrics_prepared ?? 0), 0)
+    : rowsWritten;
+  await finishSyncRun(admin, runId, startedMs, {
+    status: resolveStatus(effectiveRows, errors.length),
+    api_calls: graphCalls,
+    rows_written: dryRun ? 0 : rowsWritten,
+    details: resBody,
   });
+
+  return json(resBody);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[artist-instagram-sync]", msg);
+    await finishSyncRun(admin, runId, startedMs, {
+      status: rowsWritten > 0 ? "partial" : "error",
+      api_calls: graphCalls,
+      rows_written: dryRun ? 0 : rowsWritten,
+      error_text: msg,
+    });
+    return json({ error: "sync_failed" }, 500);
+  }
 });
