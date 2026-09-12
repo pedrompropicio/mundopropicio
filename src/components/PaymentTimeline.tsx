@@ -16,6 +16,7 @@ import {
   X as XIcon, Repeat } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
+import { methodLabels } from "@/lib/payment-methods";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
