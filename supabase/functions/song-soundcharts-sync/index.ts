@@ -77,6 +77,26 @@ function numOrNull(v: unknown): number | null {
   return typeof n === "number" && Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Valor de um ponto de audiência da Soundcharts.
+ *
+ * A resposta real NÃO tem `value` ao nível do ponto: traz
+ * `{ date, plots: [{ identifier, value }] }`, um plot por identificador da
+ * plataforma (várias edições do mesmo tema). Guardamos o MÁXIMO dos plots, não a
+ * soma: os identificadores repetem o mesmo total acumulado (confirmado na
+ * resposta real, dois plots com valores idênticos) e somar duplicaria os streams.
+ */
+function pointValue(it: any): number | null {
+  if (Array.isArray(it?.plots) && it.plots.length) {
+    const vals = it.plots
+      .map((pl: any) => numOrNull(pl?.value))
+      .filter((v: number | null): v is number => v !== null);
+    if (!vals.length) return null;
+    return Math.max(...vals);
+  }
+  return numOrNull(it?.value ?? it?.plays ?? it?.streams ?? it?.videoCount ?? it?.playCount);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
