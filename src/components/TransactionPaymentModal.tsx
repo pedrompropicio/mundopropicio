@@ -900,13 +900,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           {/* Método de Pagamento */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-2" : "grid-cols-3")}>
-              {([
-                { value: "transfer" as const, label: "Transferência", icon: Building },
-                { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-              { value: "direct_debit" as const, label: "Débito Direto", icon: Repeat },
-                ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
-              ]).map((m) => (
+            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
+              {paymentMethodOptions({
+                includeStatePayment: isStateCategory,
+                includeCompensation: true,
+              }).map((m) => (
                 <button
                   key={m.value}
                   type="button"
