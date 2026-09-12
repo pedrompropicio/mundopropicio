@@ -106,7 +106,10 @@ export function DashboardBalanceCards() {
       )}
 
       {showOffice && (
-        <div className="glass rounded-xl p-4">
+        <div
+          {...clickable("office")}
+          className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+        >
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Retido em Bilheteiras
