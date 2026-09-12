@@ -1435,14 +1435,22 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 </div>
               </div>
             ) : (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-                <SearchableSelect
-                  options={eventOptions}
-                  value={form.event_id}
-                  onValueChange={(v) => setForm({ ...form, event_id: v })}
-                  placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-                  searchPlaceholder="Pesquisar evento…"
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
+                  <SearchableSelect
+                    options={eventOptions}
+                    value={form.event_id}
+                    onValueChange={(v) => setForm({ ...form, event_id: v, event_settlement_id: null })}
+                    placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                    searchPlaceholder="Pesquisar evento…"
+                  />
+                </div>
+                {/* Apuramento — só aparece se o evento tiver mais de um (#146 (b)). */}
+                <EventSettlementSelect
+                  eventId={form.event_id}
+                  value={form.event_settlement_id}
+                  onChange={(v) => setForm({ ...form, event_settlement_id: v })}
                 />
               </div>
             )}
