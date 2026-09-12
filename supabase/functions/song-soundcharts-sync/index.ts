@@ -286,8 +286,17 @@ Deno.serve(async (req) => {
             `/api/v2.20/song/${scUuid}/playlist/current/${platform}?currentOnly=0&limit=100&sortBy=position&sortOrder=asc`,
           );
           const items = Array.isArray(body?.items) ? body.items : [];
+          // Forma real da resposta (confirmada contra a API a 2026-09-12):
+          // { playlist: { uuid, identifier, name, type, latestSubscriberCount,
+          //   latestTrackCount, latestCrawlDate }, position, peakPosition,
+          //   entryDate, exitDate, positionDate, peakPositionDate }
+          // O número de seguidores vem em latestSubscriberCount (não em
+          // subscriberCount) — era por isso que ficava tudo NULL.
+          // Este endpoint NÃO devolve dono/curador da playlist, por isso
+          // owner_name só é preenchido se a API algum dia o mandar.
           const upserts = items.map((it: any) => {
             const pl = it?.playlist ?? it;
+            const posDate = it?.positionDate ?? pl?.latestCrawlDate ?? null;
             return {
               company_id: song.company_id,
               song_id: song.id,
@@ -295,13 +304,16 @@ Deno.serve(async (req) => {
               playlist_uuid: String(pl?.uuid ?? pl?.identifier ?? ""),
               playlist_name: pl?.name ?? null,
               playlist_type: pl?.type ?? null,
-              owner_name: pl?.curator?.name ?? pl?.owner?.name ?? null,
-              subscriber_count: numOrNull(pl?.subscriberCount ?? pl?.followerCount),
+              owner_name: pl?.ownerName ?? pl?.curator?.name ?? pl?.owner?.name ?? null,
+              subscriber_count: numOrNull(
+                pl?.latestSubscriberCount ?? pl?.subscriberCount ?? pl?.followerCount,
+              ),
               position: numOrNull(it?.position),
               peak_position: numOrNull(it?.peakPosition),
               entry_date: it?.entryDate ? String(it.entryDate).slice(0, 10) : null,
               exit_date: it?.exitDate ? String(it.exitDate).slice(0, 10) : null,
-              last_seen_at: new Date().toISOString(),
+              // Data a que a posição se refere; sem ela, a hora do sync.
+              last_seen_at: posDate ? new Date(posDate).toISOString() : new Date().toISOString(),
             };
           }).filter((r: any) => r.playlist_uuid);
 
