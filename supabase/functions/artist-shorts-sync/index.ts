@@ -401,8 +401,12 @@ Deno.serve(async (req) => {
             }));
         } catch (e) {
           const status = (e as { status?: number })?.status;
-          if (status === 403 || status === 404) {
-            notes.push(`${artist.name}: ${platform} sem acesso/sem dados (HTTP ${status})`);
+          const msg = (e as Error)?.message ?? String(e);
+          // "not a valid platform code for this endpoint" é o caso do TikTok:
+          // a plataforma existe na Soundcharts mas este endpoint não a serve.
+          // Não é erro nosso — vai para notes, como o 403/404.
+          if (status === 403 || status === 404 || /not a valid platform code/i.test(msg)) {
+            notes.push(`${artist.name}: ${platform} indisponível neste endpoint (HTTP ${status ?? "?"})`);
             seenByPlatform[platform] = 0;
           } else {
             errors.push({
