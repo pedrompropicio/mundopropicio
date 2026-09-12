@@ -13,6 +13,12 @@
 // artist_content, artist_content_metrics_daily.
 
 import {
+  deduceTriggerSource,
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
+import {
   adminClient,
   auditLog,
   authorize,
