@@ -109,10 +109,12 @@ function mapVideo(raw: any): MappedVideo | null {
   }
 
   const caption = str(raw?.description ?? raw?.caption ?? raw?.text);
+  const audienceDate = str(audience?.date);
 
   return {
     external_id,
-    permalink: str(raw?.url ?? raw?.permalink ?? raw?.link),
+    metric_date: audienceDate ? audienceDate.slice(0, 10) : null,
+    permalink: str(raw?.externalUrl ?? raw?.url ?? raw?.permalink ?? raw?.link),
     title: str(raw?.title ?? raw?.name) ?? (caption ? caption.slice(0, 120) : null),
     caption_excerpt: caption ? caption.slice(0, 500) : null,
     thumbnail_url: str(raw?.thumbnailUrl ?? raw?.imageUrl ?? raw?.thumbnail),
