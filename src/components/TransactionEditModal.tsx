@@ -538,6 +538,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         amount: parseFloat(form.amount),
         iva_rate: form.iva_rate,
         event_id: form.event_id,
+        event_settlement_id: form.event_settlement_id || null,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
         account_id: partnerPaidSettled ? null : (form.account_id || null),
