@@ -593,8 +593,8 @@ export default function FinancialAccounts() {
                             <span className="text-xs text-muted-foreground italic">Sem permissão</span>
                           )}
                         </TableCell>
+                        <TableCell className="text-center">
 
-                          {acc.balance_visible_to_all ? (
                             <Eye className="h-4 w-4 text-success mx-auto" />
                           ) : (
                             <EyeOff className="h-4 w-4 text-muted-foreground mx-auto" />
