@@ -508,6 +508,40 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         settlementId = data.id;
       }
 
+      // Transferência do fecho: par expense + income na rubrica 10.3, numa só
+      // operação na base de dados (create_settlement_transfer, issue #132).
+      // Corre ANTES de marcar as deduções como pagas: se falhar, não fica nada
+      // meio-feito. O erro nunca é engolido — sem transferência não há fecho.
+      if (
+        confirm &&
+        transferAmt > 0 &&
+        transferAccountId &&
+        !existingSettlement?.transfer_transaction_id
+      ) {
+        const isCredited = creditStatus === "credited" && !targetWithholds;
+        const { error: tErr } = await (supabase as any).rpc("create_settlement_transfer", {
+          p_settlement_id: settlementId,
+          p_from_account_id: officeId,
+          p_to_account_id: transferAccountId,
+          p_amount: transferAmt,
+          p_date: settlementDate,
+          p_credited: isCredited,
+        });
+        if (tErr) {
+          // O fecho não pode ficar confirmado a declarar uma transferência inexistente.
+          const { error: demoteErr } = await (supabase as any)
+            .from("ticket_office_settlements")
+            .update({ status: "draft", closed_at: null, closed_by: null })
+            .eq("id", settlementId);
+          if (demoteErr) {
+            throw new Error(
+              `Transferência não lançada (${tErr.message}) e NÃO foi possível voltar o fecho a rascunho (${demoteErr.message}) — corrija o fecho manualmente.`,
+            );
+          }
+          throw new Error(`Transferência não lançada — fecho ficou em rascunho. ${tErr.message}`);
+        }
+      }
+
       // Unlink previously linked transactions not in current selection (admin edits)
       if (existingSettlement) {
         await (supabase as any)
