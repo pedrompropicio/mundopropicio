@@ -68,6 +68,8 @@ interface MappedVideo {
   sound_name: string | null;
   sound_external_id: string | null;
   metrics: Record<string, number>;
+  /** Data a que as métricas se referem (latestAudience.date), se a API a der. */
+  metric_date: string | null;
 }
 
 function mapVideo(raw: any): MappedVideo | null {
@@ -76,7 +78,11 @@ function mapVideo(raw: any): MappedVideo | null {
   );
   if (!external_id) return null;
 
-  const audience = raw?.audience ?? raw?.metrics ?? raw ?? {};
+  // Forma real da resposta (confirmada contra a API a 2026-09-12):
+  // { identifier, title (vazio), description, createdAt, externalUrl,
+  //   latestAudience: { date, views, likes, comments } }
+  // Não traz shares, thumbnail, duração, autor nem a música associada.
+  const audience = raw?.latestAudience ?? raw?.audience ?? raw?.metrics ?? raw ?? {};
   const metrics: Record<string, number> = {};
   const pick = (metric: string, ...candidates: unknown[]) => {
     for (const c of candidates) {
