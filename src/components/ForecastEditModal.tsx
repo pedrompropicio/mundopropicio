@@ -46,6 +46,11 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [eventSettlementId, setEventSettlementId] = useState<string | null>(
     forecast.event_settlement_id ?? null
   );
+  // (g6) Devolução de custos internos da sociedade a um fechamento abaixo.
+  const [addbackSettlementId, setAddbackSettlementId] = useState<string | null>(
+    forecast.addback_settlement_id ?? null
+  );
+  const [addbackReason, setAddbackReason] = useState<string>(forecast.addback_reason ?? "");
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
