@@ -19,6 +19,64 @@ export interface InternalCascadeDeduction {
   mode: "settles" | "nominal";
   percentage: number;
   value: number;
+  /**
+   * (g15-c) Quando a posição é NOMINAL, a dedução na cascata continua a ser o
+   * valor nominal (é o que sai do pool), mas o leitor tem de ver o número real
+   * do fecho desse sócio. Esta nota é apresentação — vem já composta do motor.
+   */
+  realNote?: string;
+}
+
+/**
+ * (g15-c) RESUMO GERAL (Mundo Propício) — visão do EVENTO INTEIRO, independente
+ * do fechamento seleccionado. Todos os números vêm do motor
+ * (`eventNetResult`, partes reais por participante, `house.residual`,
+ * `house.declared`, `house.nominalGap`, `house.ivaDeductible`).
+ */
+export interface InternalOverviewPartnerRow {
+  name: string;
+  /** Nome do fechamento onde o sócio acerta. */
+  settlesAt: string;
+  /** Percentagem em cadeia, ex.: "20% de 30%". */
+  pctLabel: string;
+  /** Parte REAL do motor. */
+  realShare: number;
+}
+
+export interface InternalOverviewNominalRow {
+  name: string;
+  nominalPctLabel: string;
+  nominalValue: number;
+  realPctLabel: string;
+  realValue: number;
+  realSettlesAt: string;
+  diff: number;
+}
+
+export interface InternalOverview {
+  /** Âncora C1 do motor: `eventNetResult`. */
+  resultReal: number;
+  revenueNet: number;
+  expensesNet: number;
+  vatNonRecoverableCost: number;
+  exclusiveRevenuesTotal: number;
+  thirdPartyTotal: number;
+  addbackTotal: number;
+  partners: InternalOverviewPartnerRow[];
+  /** `partnersPaidTotal` do motor. */
+  distributedTotal: number;
+  /** `house.residual` do motor. */
+  houseNet: number;
+  /** Decomposição do residual: declarada, nominal−real, IVA dedutível, resto. */
+  houseParts: Array<{ label: string; value: number }>;
+  nominalRows: InternalOverviewNominalRow[];
+  /** Valor da conferência C1 do motor. */
+  c1: number;
+}
+
+/** Prova da secção 1: total distribuído + líquido da MP − resultado real. */
+export function overviewMismatch(o: InternalOverview): number {
+  return roundCents(roundCents(o.distributedTotal) + roundCents(o.houseNet) - roundCents(o.resultReal));
 }
 
 export interface InternalCascadeStep {
@@ -120,6 +178,12 @@ export interface InternalReportInput {
   /** Critério do evento (IVA · base · overhead) — `describeFechoBasis`. */
   criterion: string;
   generatedAt?: Date;
+  /** (g15-c) Este relatório é o documento da Mundo Propício. */
+  companyName?: string;
+  /** (g15-c) Logótipo da empresa (data URL), igual ao documento do sócio. */
+  logoDataUrl?: string | null;
+  /** (g15-c) Resumo geral do evento inteiro — secção 1. */
+  overview?: InternalOverview | null;
   rootTotals: InternalRootTotals;
   /** Vazio na raiz. Ordenado de cima para baixo. */
   cascadeSteps: InternalCascadeStep[];
@@ -144,7 +208,7 @@ export interface InternalReportInput {
   expenseCategoryLevel?: "l2" | "l3";
 }
 
-export type InternalCascadeLineKind = "start" | "deduction" | "quota" | "add" | "total";
+export type InternalCascadeLineKind = "start" | "deduction" | "quota" | "add" | "total" | "note";
 
 export interface InternalCascadeLine {
   kind: InternalCascadeLineKind;
@@ -262,10 +326,18 @@ export function buildInternalSettlementReport(input: InternalReportInput): Inter
     for (const d of step.deductions) {
       lines.push({
         kind: "deduction",
-        label: `(-) ${d.name}${d.mode === "nominal" ? " (nominal)" : ""}`,
+        label:
+          d.mode === "nominal"
+            ? `(-) ${d.name} — posição nominal`
+            : `(-) ${d.name}`,
         pctLabel: pct(d.percentage),
         value: -Math.abs(roundCents(d.value)),
       });
+      // (g15-c) A dedução é o nominal (é o que sai do pool); a nota mostra o
+      // número real do fecho do sócio e para onde vai a diferença.
+      if (d.mode === "nominal" && d.realNote) {
+        lines.push({ kind: "note", label: d.realNote, value: 0 });
+      }
     }
     lines.push({
       kind: "quota",

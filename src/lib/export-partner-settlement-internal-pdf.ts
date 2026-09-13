@@ -17,6 +17,7 @@ import { safeFileToken } from "@/lib/partner-statement-doc";
 import {
   buildInternalSettlementReport,
   internalReportCloses,
+  overviewMismatch,
   partnerAccountLines,
   partnerBlockMismatch,
   reconcileDisplayValues,
@@ -110,7 +111,7 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     boldRows?: Set<number>;
     fontSize?: number;
     keepTogether?: boolean;
-    rowStyle?: (i: number) => { fill?: [number, number, number]; bold?: boolean } | null;
+    rowStyle?: (i: number) => { fill?: [number, number, number]; bold?: boolean; italic?: boolean; textColor?: number } | null;
   }) {
     const aligns = opts.aligns ?? opts.widths.map((_, i) => (i === 0 ? "left" : "right"));
     const columnStyles: Record<number, any> = {};
@@ -139,13 +140,93 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
           const st = opts.rowStyle?.(data.row.index);
           if (st?.fill) data.cell.styles.fillColor = st.fill;
           if (st?.bold) data.cell.styles.fontStyle = "bold";
+          if (st?.italic) data.cell.styles.fontStyle = "italic";
+          if (st?.textColor != null) data.cell.styles.textColor = st.textColor;
         }
       },
     });
     y = (doc as any).lastAutoTable.finalY + 5;
   }
 
-  // ===== 1. RESULTADO DO EVENTO (PERÍMETRO RAIZ) =====
+  // ===== 1. (g15-c) RESUMO GERAL (MUNDO PROPÍCIO) — EVENTO INTEIRO =====
+  const ov = input.overview ?? null;
+  if (ov) {
+    nextSection(`Resumo geral (${input.companyName ?? "Mundo Propício"})`, 6);
+    note(
+      "Visão do evento inteiro, independente do fechamento seleccionado. Todos os valores vêm do motor de fechamentos.",
+    );
+
+    subTitle("Resultado real do evento");
+    const realBody: any[][] = [
+      ["Receitas s/IVA", money(ov.revenueNet)],
+      ["(-) Despesas s/IVA", money(-Math.abs(ov.expensesNet))],
+    ];
+    if (Math.abs(ov.vatNonRecoverableCost) > 0.004) {
+      realBody.push(["(-) IVA não recuperável (custo real)", money(-Math.abs(ov.vatNonRecoverableCost))]);
+    }
+    if (Math.abs(ov.exclusiveRevenuesTotal) > 0.004) {
+      realBody.push(["(+) Receitas exclusivas", money(ov.exclusiveRevenuesTotal)]);
+    }
+    if (Math.abs(ov.thirdPartyTotal) > 0.004) {
+      realBody.push(["(+) Operações de terceiros — resultado adicional", money(ov.thirdPartyTotal)]);
+    }
+    if (Math.abs(ov.addbackTotal) > 0.004) {
+      realBody.push(["(+) Custos internos devolvidos", money(ov.addbackTotal)]);
+    }
+    realBody.push(["= Resultado real do evento", money(ov.resultReal)]);
+    smallTable({
+      head: ["", "Valor"],
+      body: realBody,
+      widths: [width - 45, 45],
+      boldRows: new Set([realBody.length - 1]),
+      fontSize: 8.6,
+    });
+
+    subTitle("O que cada sócio leva de facto");
+    const ovShares = reconcileDisplayValues(ov.partners.map((p) => p.realShare), ov.distributedTotal);
+    smallTable({
+      head: ["Sócio", "Acerta em", "%", "Parte real"],
+      body: ov.partners.map((p, i) => [p.name, p.settlesAt, p.pctLabel, money(ovShares[i])]),
+      foot: [["TOTAL DISTRIBUÍDO", "", "", money(ov.distributedTotal)]],
+      widths: [width - 132, 54, 32, 46],
+      aligns: ["left", "left", "center", "right"],
+      fontSize: 8,
+    });
+
+    subTitle(`Líquido final da ${input.companyName ?? "Mundo Propício"}`);
+    const hBody: any[][] = [[`Líquido final`, money(ov.houseNet)]];
+    for (const part of ov.houseParts) hBody.push([`      ${part.label}`, money(part.value)]);
+    smallTable({
+      head: ["", "Valor"],
+      body: hBody,
+      widths: [width - 45, 45],
+      boldRows: new Set([0]),
+      fontSize: 8.4,
+    });
+    for (const n of ov.nominalRows) {
+      note(
+        `${n.name}: posição nominal ${n.nominalPctLabel} · ${money(n.nominalValue)} · acerta ${n.realPctLabel} = ${money(n.realValue)} em ${n.realSettlesAt} · diferença ${money(n.diff)} fica com a ${input.companyName ?? "Mundo Propício"}.`,
+      );
+    }
+
+    smallTable({
+      head: ["Prova", "Valor"],
+      body: [
+        ["Total distribuído aos sócios", money(ov.distributedTotal)],
+        [`(+) Líquido final da ${input.companyName ?? "Mundo Propício"}`, money(ov.houseNet)],
+        ["= Resultado real do evento", money(ov.resultReal)],
+      ],
+      widths: [width - 45, 45],
+      boldRows: new Set([2]),
+      fontSize: 8.4,
+    });
+    const ovMismatch = overviewMismatch(ov);
+    if (!internalReportCloses(ovMismatch)) {
+      warn(`Aviso: o resumo geral não fecha (diferença ${money(ovMismatch)}; C1 do motor ${money(ov.c1)}).`);
+    }
+  }
+
+  // ===== 2. RESULTADO DO EVENTO (PERÍMETRO RAIZ) =====
   nextSection("Resultado do evento (perímetro raiz)", 5);
   smallTable({
     head: ["", "Valor"],
@@ -167,15 +248,24 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     report.cascade.length,
   );
   const cascadeBody: any[][] = [];
-  const cascadeStyle: Array<{ fill?: [number, number, number]; bold?: boolean } | null> = [];
+  const cascadeStyle: Array<
+    { fill?: [number, number, number]; bold?: boolean; italic?: boolean; textColor?: number } | null
+  > = [];
   for (const line of report.cascade) {
-    cascadeBody.push([line.label, line.pctLabel ?? "", money(line.value)]);
+    // (g15-c) A nota da posição nominal não tem valor: é leitura.
+    cascadeBody.push([
+      line.kind === "note" ? `      ${line.label}` : line.label,
+      line.pctLabel ?? "",
+      line.kind === "note" ? "" : money(line.value),
+    ]);
     cascadeStyle.push(
       line.kind === "total"
         ? { fill: [225, 235, 225], bold: true }
         : line.kind === "quota"
           ? { fill: GREY, bold: true }
-          : null,
+          : line.kind === "note"
+            ? { italic: true, textColor: 95 }
+            : null,
     );
     // (g15-b) Os itens do termo somam exactamente o valor do termo.
     const items = line.items ?? [];
@@ -490,6 +580,17 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     doc.text(`Critério: ${input.criterion}`, MARGIN, 17);
     doc.text(`Emitido em ${format(generatedAt, "dd/MM/yyyy HH:mm")}`, MARGIN, 21);
     doc.text(`Página ${p}/${total}`, pageW - MARGIN, 21, { align: "right" });
+    // (g15-c) Nome da empresa no cabeçalho corrente; logótipo só na 1.ª página.
+    const company = input.companyName ?? "Mundo Propício";
+    doc.text(company, pageW - MARGIN, 17, { align: "right" });
+    if (p === 1 && input.logoDataUrl) {
+      try {
+        const fmt = input.logoDataUrl.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+        doc.addImage(input.logoDataUrl, fmt as any, pageW - MARGIN - 34, 4, 34, 9.5);
+      } catch {
+        /* o logótipo é decoração */
+      }
+    }
     doc.setDrawColor(200);
     doc.line(MARGIN, 23.5, pageW - MARGIN, 23.5);
     doc.setFontSize(7);
