@@ -4,6 +4,8 @@ import {
   internalReportCloses,
   partnerAccountLines,
   partnerBlockMismatch,
+  reconcileDisplayValues,
+  reconcileDisplayField,
   type InternalPartnerBlock,
   type InternalReportInput,
 } from "../partner-settlement-internal-report";
@@ -116,5 +118,40 @@ describe("linha g5 do sócio", () => {
 
   it("acusa detalhe que não bate com a base a transferir", () => {
     expect(partnerBlockMismatch(partner({ transferBase: 300 }))).toBe(-50);
+  });
+});
+
+describe("(g15-b) totais do modelo, linhas como apresentação", () => {
+  it("reconcileDisplayValues mantém o total do modelo ao cêntimo", () => {
+    const raw = [33.333, 33.333, 33.334];
+    const out = reconcileDisplayValues(raw, 100);
+    expect(out.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 10);
+    out.forEach((v) => expect(Math.round(v * 100)).toBe(v * 100));
+  });
+
+  it("reconcileDisplayField ajusta a lista de objectos sem alterar o total", () => {
+    const rows = [{ v: 76996.783 }, { v: 76996.783 }, { v: 76996.784 }];
+    const out = reconcileDisplayField(rows, "v", 230990.35);
+    expect(out.reduce((a, r) => a + r.v, 0)).toBeCloseTo(230990.35, 10);
+  });
+
+  it("a base a transferir do sócio é a do ecrã (SSoT), sem cêntimo de diferença", () => {
+    const p = partner({
+      partnerShare: 119226.69,
+      disbursement: 200000,
+      adjustmentsTotal: -34304.72,
+      revenuesHeldTotal: 53931.62,
+      extrasTotal: 0,
+      transferBase: 230990.35,
+    });
+    expect(partnerBlockMismatch(p)).toBe(0);
+  });
+
+  it("falha se um total apresentado divergir do modelo em 0,01 ou mais", () => {
+    expect(Math.abs(partnerBlockMismatch(partner({ transferBase: 250.01 })))).toBeGreaterThanOrEqual(
+      0.01,
+    );
+    expect(internalReportCloses(0.01)).toBe(false);
+    expect(internalReportCloses(0.003)).toBe(true);
   });
 });
