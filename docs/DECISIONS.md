@@ -1505,3 +1505,10 @@ DEFAULT, **incluindo a Anitta**: é exactamente o critério da planilha v23/v4
 (previsto + excedido, com overhead, despesa c/IVA). Nenhum caso especial. O
 resultado 597.183,45 dessa planilha não se reproduz hoje por faltarem os níveis
 2/3, os activos exclusivos e ajustes de IVA — peça posterior, com autorização.
+
+## 2026-09-13 — Selo do fechamento é a única via de alteração do selo
+Decisão: os campos do selo em `event_settlements` só mudam pelas RPCs
+`seal_event_settlement` / `unseal_event_settlement`; qualquer UPDATE directo é
+recusado por trigger. Selar exige as duas conferências a 0,00 €; reabrir exige motivo
+e fica registado em `system_audit_log`. O desvio entre valor selado e valor ao vivo é
+informação interna — nunca aparece em documentos de sócio.
