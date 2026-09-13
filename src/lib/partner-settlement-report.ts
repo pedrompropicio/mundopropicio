@@ -7,11 +7,6 @@ import {
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import {
-  HOUSE_PARTNER_ID,
-  HOUSE_PARTNER_NAME,
-  computeHousePercentage,
-} from "@/lib/house-partner";
 
 type NamedSupplier = { name?: string | null } | null | undefined;
 
