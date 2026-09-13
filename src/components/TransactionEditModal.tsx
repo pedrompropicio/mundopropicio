@@ -493,12 +493,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         ordering_partner_id: "Ordenador da despesa",
         paying_partner_id: "Pagador da despesa",
         event_settlement_id: "Fechamento",
+        held_by_supplier_id: "Recebido por",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id", "held_by_supplier_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
+
 
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
