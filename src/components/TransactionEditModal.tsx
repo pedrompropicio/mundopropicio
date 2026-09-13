@@ -527,6 +527,32 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       // grava-se sempre, fora de `paymentFields`, para nunca ser limpa (D-ERP45).
       const operationKeyField = { operation_key: form.operation_key.trim() || null };
 
+      /**
+       * (g7) "Recebido por" — só se aplica a receitas por encontro de contas e só
+       * vai no payload quando muda, para não depender do campo em transações que
+       * nunca o usam. Ao marcar um sócio, a receita fica paga (a base reforça isto
+       * com trigger próprio): nunca pode ficar "a receber".
+       */
+      const heldByValue =
+        transaction.type === "income" && form.payment_method === "compensation"
+          ? (form.held_by_supplier_id || null)
+          : null;
+      const heldByDirty = heldByValue !== (((transaction as any).held_by_supplier_id ?? null) as string | null);
+      const heldByFields: Record<string, unknown> = heldByDirty
+        ? {
+            held_by_supplier_id: heldByValue,
+            ...(heldByValue
+              ? {
+                  status: "paid",
+                  payment_date: form.payment_date || form.date,
+                  paid_amount: parseFloat(form.amount) || Number(transaction.amount) || 0,
+                }
+              : {}),
+          }
+        : {};
+
+
+
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
         specification: form.specification || null,
