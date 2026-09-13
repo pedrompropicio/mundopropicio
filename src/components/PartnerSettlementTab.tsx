@@ -32,10 +32,9 @@ import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 
 import {
-  HOUSE_PARTNER_ID,
-  HOUSE_PARTNER_NAME,
-  computeHousePercentage,
-} from "@/lib/house-partner";
+  fetchEventSettlements,
+  fetchSettlementParticipants,
+} from "@/lib/settlement-participants";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
