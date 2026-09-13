@@ -664,22 +664,31 @@ export function buildPartnerStatement(
   );
   const totalAdvanced = partnerAdvancedTotal(extrasTotal);
 
-  const transferBase = roundCents(partnerShare + financingToReturn - totalAdvanced);
+  /**
+   * (g15-b) Os componentes são arredondados ao cêntimo ANTES de compor a base a
+   * transferir: assim a coluna apresentada soma exactamente ao total do modelo e
+   * o total é o mesmo que o Encontro de Contas mostra (nunca ruído de vírgula
+   * flutuante a fazer saltar um cêntimo).
+   */
+  const shareCents = roundCents(partnerShare);
+  const financingCents = roundCents(financingToReturn);
+  const advancedCents = roundCents(totalAdvanced);
+  const transferBase = roundCents(shareCents + financingCents - advancedCents);
   const transferWithVat = me.transfer_with_vat === true;
   const transferVat = transferWithVat && transferBase > 0 ? calcIvaAmount(transferBase, TRANSFER_IVA_RATE) : 0;
   const transferTotal = roundCents(transferBase + transferVat);
 
   const account: PartnerAccountLine = {
-    share: partnerShare,
-    disbursement,
-    adjustments,
+    share: shareCents,
+    disbursement: roundCents(disbursement),
+    adjustments: roundCents(adjustments),
     revenuesHeld: revenuesHeldRows.map((r: any) => ({
       label: `${REVENUE_HELD_SOURCE_LABEL[r.source] ?? r.source} · ${r.accountName}`,
       value: r.amount,
     })),
-    totalRevenuesHeld,
-    extrasTotal: totalAdvanced,
-    financingToReturn,
+    totalRevenuesHeld: roundCents(totalRevenuesHeld),
+    extrasTotal: advancedCents,
+    financingToReturn: financingCents,
     transferBase,
     transferVat,
     transferTotal,
@@ -772,10 +781,10 @@ export function buildPartnerStatement(
     eventLocation: bundle.eventLocation,
     logoDataUrl: opts.logoDataUrl ?? null,
     recipientName: me.name,
-    paidByPartner: disbursement,
-    disbursementAdjustments: adjustments,
+    paidByPartner: roundCents(disbursement),
+    disbursementAdjustments: roundCents(adjustments),
     revenuesHeld: account.revenuesHeld,
-    partnerExtras: totalAdvanced,
+    partnerExtras: advancedCents,
     partnerAdvances: 0,
     transferWithVat,
     participants: nodeParticipants
@@ -789,9 +798,9 @@ export function buildPartnerStatement(
     extras: docExtras,
     cascade,
     resultOverride: result,
-    recipientShareOverride: partnerShare,
-    totalRevenuesHeldOverride: totalRevenuesHeld,
-    financingToReturnOverride: financingToReturn,
+    recipientShareOverride: shareCents,
+    totalRevenuesHeldOverride: roundCents(totalRevenuesHeld),
+    financingToReturnOverride: financingCents,
     transferBaseOverride: transferBase,
     transferVatOverride: transferVat,
     transferTotalOverride: transferTotal,
