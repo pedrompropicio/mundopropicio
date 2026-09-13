@@ -554,6 +554,11 @@ export default function CrmConnections() {
                           <CardDescription className="text-xs">
                             {conn.external_business_name ?? "Sem Business Manager"}
                           </CardDescription>
+                          {artistLabel(conn) && (
+                            <div className="mt-1 inline-flex rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {artistLabel(conn)}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <StatusBadge status={conn.status} />
