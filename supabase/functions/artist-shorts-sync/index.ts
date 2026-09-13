@@ -298,10 +298,15 @@ Deno.serve(async (req) => {
             if (official && official.source === "platform_api") {
               // Não duplicar o Reel oficial: só completar a ligação à obra.
               const patch: Record<string, unknown> = {};
-              if (song && !official.song_id) patch.song_id = song.id;
+              if (song && !official.song_id) {
+                patch.song_id = song.id;
+                patch.song_link_status = "estimated";
+                patch.song_link_reason = "som identificado pela Soundcharts";
+              }
               if (v.sound_name) patch.sound_name = v.sound_name;
               if (v.sound_external_id) patch.sound_external_id = v.sound_external_id;
               if (Object.keys(patch).length) enrichOnly.push({ id: official.id, patch });
+
               continue;
             }
 
