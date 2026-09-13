@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { buildPartnerSettlementReportData } from "@/lib/partner-settlement-report";
+import { fetchAllSettlementParticipants } from "@/lib/settlement-participants";
 
 export default function ReportPartnerSettlement() {
   // Partes vindas dos apuramentos (event_settlement_participants), incluindo a casa.
