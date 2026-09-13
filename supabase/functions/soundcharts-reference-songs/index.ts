@@ -197,12 +197,16 @@ Deno.serve(async (req) => {
     const syncResults: Array<Record<string, unknown>> = [];
     if (!dryRun && syncTargets.length) {
       const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/song-soundcharts-sync`;
-      const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      // Reencaminha o Authorization de quem chamou (cron usa service_role); o
+      // env SUPABASE_SERVICE_ROLE_KEY é só recurso de reserva.
+      const auth = req.headers.get("Authorization") ??
+        `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`;
       for (const t of syncTargets) {
         try {
           const res = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            headers: { "Content-Type": "application/json", Authorization: auth },
+
             body: JSON.stringify({
               song_id: t.song_id,
               start_date: t.start_date ?? undefined,
