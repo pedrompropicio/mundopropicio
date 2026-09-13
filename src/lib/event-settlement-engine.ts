@@ -588,6 +588,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       resultGross: roundCents(n.resultGross),
       moneyNet: roundCents(n.moneyNet),
       childQuotasNet: roundCents(n.childQuotasNet),
+      vatReturnedOut: roundCents(n.vatReturnedOut),
     })),
     eventNetResult: roundCents(eventNetResult),
     partnersPaidTotal: roundCents(partnersPaidTotal),
