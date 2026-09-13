@@ -842,7 +842,7 @@ export default function EventDetail() {
     acc[catName].value += Number(t.amount);
     return acc;
   }, {});
-  const pieData = Object.values(expenseByCategory);
+  const pieData: { name: string; value: number }[] = Object.values(expenseByCategory);
 
   // Cartão "Fora do resultado" — SÓ LEITURA. Isola exactamente `exclude_from_result`,
   // ao contrário do contador da aba BP (que mistura os 4 flags bloqueadores).
