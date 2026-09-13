@@ -344,6 +344,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       if (accRes.error) throw accRes.error;
       if (opsRes.error) throw opsRes.error;
+      if (compRes.error) throw compRes.error;
+
 
       const accounts = accRes.data ?? [];
       const rows: RevenueHeldRow[] = [];
