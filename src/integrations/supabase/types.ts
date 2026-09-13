@@ -6256,6 +6256,7 @@ export type Database = {
           transaction_id: string | null
           type: string
           updated_at: string
+          vat_non_recoverable: boolean
           version_id: string | null
         }
         Insert: {
@@ -6299,6 +6300,7 @@ export type Database = {
           transaction_id?: string | null
           type: string
           updated_at?: string
+          vat_non_recoverable?: boolean
           version_id?: string | null
         }
         Update: {
@@ -6342,6 +6344,7 @@ export type Database = {
           transaction_id?: string | null
           type?: string
           updated_at?: string
+          vat_non_recoverable?: boolean
           version_id?: string | null
         }
         Relationships: [
@@ -16466,6 +16469,7 @@ export type Database = {
           transaction_id: string | null
           type: string
           updated_at: string
+          vat_non_recoverable: boolean
           version_id: string | null
         }
         SetofOptions: {
