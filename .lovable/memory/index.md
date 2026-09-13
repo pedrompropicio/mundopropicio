@@ -16,3 +16,4 @@
 - [Transferência do fecho de bilheteira](mem://features/settlement-transfer-pair) — par expense+income na rubrica 10.3 via create_settlement_transfer, operation_key TRF-FECHO-; nunca type 'transfer'
 - [Participantes de apuramento = fonte de verdade](mem://features/settlement-participants-source-of-truth) — event_partners derivada por trigger; casa nunca injectada; estanquidade "Sócios locais" e get_partner_event_shares por sócio
 - [Identidade do sócio e visibilidade dos fechamentos](mem://security/partner-identity-and-settlement-visibility) — user_supplier_id é canónica; partner_id→event_partners; visibilidade nunca sobe; fechamento visível = onde o sócio settles; nominal não dá vista; casa implícita = Mundo Propício; cache por identidade
+- [Contas de tráfego por artista](mem://features/artist-ads-connections) — Ligações Meta/Google/TikTok Ads das contas do próprio artista (connection_scope='artist', D-ERP57)
