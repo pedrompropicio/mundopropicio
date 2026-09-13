@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 // Vive no pacote partilhado (ERP + edge functions) — ver @shared/settlement.
 import { compareHierarchicalCodes } from "@shared/settlement/hierarchical-codes.ts";
+import { calcTotalWithIva } from "@shared/settlement/iva.ts";
 
 export { compareHierarchicalCodes };
 
