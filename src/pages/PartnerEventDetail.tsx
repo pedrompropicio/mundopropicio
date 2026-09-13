@@ -29,6 +29,7 @@ import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
+import { PartnerSettlementBlock, type PartnerSettlementBlockData } from "@/components/partner/PartnerSettlementBlock";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
 
@@ -1031,66 +1032,36 @@ export default function PartnerEventDetail() {
   const canExportStatement = hasPermission("view_bp");
 
   /**
-   * (g4) Documento do sócio no padrão da prestação de contas — estanque: só o
-   * destinatário aparece pelo nome; os restantes colapsam numa linha.
+   * (g17) O Portal NÃO calcula o fecho. Pede ao servidor a prestação de contas
+   * já feita pelo mesmo motor e gerador do Encontro de Contas
+   * (edge function `partner-statement`). Sem parâmetros de sócio ou de
+   * fechamento: tudo é derivado do utilizador autenticado.
+   */
+  const { data: serverStatement, isFetching: statementBusy } = useQuery({
+    queryKey: ["partner-statement", user?.id, activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("partner-statement", {
+        body: { event_id: activeEventId },
+      });
+      if (error) return null;
+      return (data ?? null) as
+        | { doc: PartnerStatementDocInput; block: PartnerSettlementBlockData; cards: { revenueNet: number; expenses: number; result: number; expensesWithVat: boolean } }
+        | null;
+    },
+    enabled: !!activeEventId && canExportStatement,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /**
+   * (g4/g13/g15-b) Documento do sócio — o input vem inteiro do servidor; aqui só
+   * se acrescenta o logótipo da empresa, que é um asset do browser.
    */
   const buildStatementDocInput = (logoDataUrl?: string | null): PartnerStatementDocInput | null => {
-    if (!event) return null;
-    // R2 — filtro canónico das despesas (overhead ENTRA).
-    const canonical = (bpExpenses ?? []).filter(
-      (f: any) =>
-        f.type === "expense" &&
-        !f.is_transitory &&
-        (!f.exclude_from_result || f.is_overhead),
-    );
-    const participants = (partnerShares ?? []).map((s) => ({
-      name: s.partner_name,
-      percentage: Number(s.percentage) || 0,
-      isHouse: s.partner_name?.toUpperCase().includes("MUNDO PROPÍCIO"),
-    }));
-    const recipientName =
-      participants.find((p) => p.name === viewerPartner?.name)?.name ??
-      viewerPartner?.name ??
-      participants.find((p) => !p.isHouse)?.name ??
-      "Sócio";
-    const t = statementTerms(viewerPartner?.locale);
-    return {
-      locale: viewerPartner?.locale ?? "pt-PT",
-      eventName: event.name,
-      eventDate: event.date ?? null,
-      eventLocation: (event as any).location ?? null,
-      companyName: companyDisplayName,
-      logoDataUrl: logoDataUrl ?? null,
-      recipientName,
-      participants,
-      // (g4 adenda) Base a transferir ao sócio.
-      paidByPartner: Number(portalSummary?.disbursement ?? totalPaidByPartner) || 0,
-      disbursementAdjustments: Number(portalSummary?.adjustments ?? 0) || 0,
-      revenuesHeld:
-        portalSummary && Number(portalSummary.revenues_held) !== 0
-          ? [{ label: "Receitas do evento em poder do sócio", value: Number(portalSummary.revenues_held) }]
-          : [],
-      partnerExtras: Number(portalSummary?.extras ?? 0) || 0,
-      partnerAdvances: totalAdvances,
-      transferWithVat: (partnerShares as any[]).find((s: any) => s.partner_name === recipientName)?.transfer_with_vat === true,
-      categories: allCategories as any[],
-      usesGrossExpenses: usesGrossExpenseAmounts((event as any).partner_calc_basis),
-      returnsDeductibleVat: portalReturnsVat === true,
-      expenseLines: canonical.map((f: any) => ({
-        categoryId: f.category_id ?? null,
-        description: f.description || f.account_categories?.name || "—",
-        base: Number(f.amount) || 0,
-        ivaRate: Number(f.iva_rate) || 0,
-        attachments: f.category_id ? (bpAttachmentsByCategory[f.category_id]?.length ?? 0) : 0,
-      })),
-      revenues: [
-        { origin: t.ticketing, net: ticketRevenueNet },
-        { origin: "Bares (A&B)", net: barsRealNet },
-        { origin: "Patrocínios", net: sponsorshipRealNet },
-        { origin: "Outras receitas", net: otherIncomeRealNet },
-      ],
-    };
+    const doc = serverStatement?.doc;
+    if (!doc) return null;
+    return { ...doc, logoDataUrl: logoDataUrl ?? doc.logoDataUrl ?? null };
   };
+
 
   const handleExportBPExcel = async () => {
     if (canExportStatement) {
