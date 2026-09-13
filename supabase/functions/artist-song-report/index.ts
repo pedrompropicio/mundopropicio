@@ -533,6 +533,42 @@ const REPORT_TOOL = {
             required: ["dia", "acao"],
           },
         },
+        benchmark: {
+          type: "array",
+          description: "Linhas do benchmark alinhado por idade usadas na análise.",
+          items: {
+            type: "object",
+            properties: {
+              artista: { type: "string" },
+              musica: { type: "string" },
+              idade_dias: { type: "integer" },
+              metrica: { type: "string" },
+              valor: { type: "number" },
+              posicao: { type: "integer" },
+            },
+            required: ["artista", "musica", "idade_dias", "metrica", "valor", "posicao"],
+          },
+        },
+        avaliacao_relativa: {
+          type: "array",
+          description: "Uma entrada por métrica: spotify, tiktok_ugc, videos_artista, playlists.",
+          items: {
+            type: "object",
+            properties: {
+              metrica: {
+                type: "string",
+                enum: ["spotify", "tiktok_ugc", "videos_artista", "playlists"],
+              },
+              posicao: { type: "integer", description: "0 quando não há referência." },
+              total: { type: "integer", description: "0 quando não há referência." },
+              frase: {
+                type: "string",
+                description: "Uma frase curta, sempre relativa; 'sem referência' se não houver dados.",
+              },
+            },
+            required: ["metrica", "posicao", "total", "frase"],
+          },
+        },
         lacunas_de_dados: { type: "array", items: { type: "string" } },
       },
       required: [
@@ -542,8 +578,11 @@ const REPORT_TOOL = {
         "sinais_de_alerta",
         "recomendacoes",
         "plano_7_dias",
+        "benchmark",
+        "avaliacao_relativa",
         "lacunas_de_dados",
       ],
+
       additionalProperties: false,
     },
   },
