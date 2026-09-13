@@ -12,6 +12,7 @@
  */
 
 import { roundCents } from "@/lib/iva";
+import { partnerFinancingToReturn } from "@/lib/partner-disbursement";
 
 export interface InternalCascadeDeduction {
   name: string;
@@ -170,10 +171,63 @@ export interface InternalReport {
   hasCascade: boolean;
 }
 
-const CLOSE_TOLERANCE = 0.02;
+/**
+ * (g15-b) Um documento não tem "tolerância": os totais impressos são os totais
+ * do modelo, ao cêntimo. Este limite serve apenas para decidir se o aviso
+ * vermelho aparece — e é ZERO à escala do cêntimo.
+ */
+const CLOSE_TOLERANCE = 0.004;
 
 export function internalReportCloses(mismatch: number): boolean {
   return Math.abs(mismatch) <= CLOSE_TOLERANCE;
+}
+
+/**
+ * (g15-b) APRESENTAÇÃO DE LINHAS ITEMIZADAS.
+ *
+ * Os totais vêm sempre do modelo (SSoT). As linhas são apresentação: se a soma
+ * das linhas arredondadas a cêntimos divergir do total do modelo por
+ * arredondamento, o residual é colocado na linha de maior valor absoluto (a
+ * última em caso de empate). Cada linha é arredondada em *round-half-even*
+ * (banker's rounding) para o erro não acumular sempre no mesmo sentido.
+ *
+ * O total NUNCA se altera — é o que o ecrã mostra.
+ */
+export function reconcileDisplayValues(values: number[], total: number): number[] {
+  const halfEven = (v: number): number => {
+    const cents = (Number(v) || 0) * 100;
+    const floor = Math.floor(cents);
+    const frac = cents - floor;
+    let n: number;
+    if (Math.abs(frac - 0.5) < 1e-9) n = floor % 2 === 0 ? floor : floor + 1;
+    else n = Math.round(cents);
+    return n / 100;
+  };
+  const out = values.map(halfEven);
+  if (out.length === 0) return out;
+  const sum = roundCents(out.reduce((s, v) => s + v, 0));
+  const residual = roundCents(roundCents(total) - sum);
+  if (residual === 0) return out;
+  let idx = 0;
+  let best = -1;
+  out.forEach((v, i) => {
+    if (Math.abs(v) >= best) {
+      best = Math.abs(v);
+      idx = i;
+    }
+  });
+  out[idx] = roundCents(out[idx] + residual);
+  return out;
+}
+
+/** Aplica `reconcileDisplayValues` a uma lista de objectos, por campo numérico. */
+export function reconcileDisplayField<T, K extends keyof T>(
+  rows: T[],
+  field: K,
+  total: number,
+): T[] {
+  const fixed = reconcileDisplayValues(rows.map((r) => Number(r[field]) || 0), total);
+  return rows.map((r, i) => ({ ...r, [field]: fixed[i] }) as T);
 }
 
 const pct = (v: number) => `${String(Math.round(Number(v || 0) * 10000) / 10000).replace(".", ",")}%`;
@@ -298,10 +352,15 @@ export function partnerAccountLines(p: InternalPartnerBlock): Array<{ label: str
   return rows;
 }
 
-/** Prova do bloco do sócio: soma das linhas do detalhe contra a base a transferir. */
+/**
+ * Prova do bloco do sócio contra a base a transferir do modelo.
+ *
+ * (g15-b) Usa EXACTAMENTE a mesma cadeia de arredondamento do ecrã
+ * (`partnerFinancingToReturn` → base a transferir), senão o documento acusava
+ * um cêntimo de diferença que não existe.
+ */
 export function partnerBlockMismatch(p: InternalPartnerBlock): number {
-  const detail = roundCents(
-    p.partnerShare + p.disbursement + p.adjustmentsTotal - p.revenuesHeldTotal - p.extrasTotal,
-  );
+  const financing = partnerFinancingToReturn(p.disbursement, p.adjustmentsTotal, p.revenuesHeldTotal);
+  const detail = roundCents(p.partnerShare + financing - p.extrasTotal);
   return roundCents(detail - roundCents(p.transferBase));
 }

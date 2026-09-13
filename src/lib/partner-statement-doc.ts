@@ -16,6 +16,7 @@ import { calcIvaAmount, roundCents, type IvaRate } from "@/lib/iva";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import { reconcileDisplayField } from "@/lib/partner-settlement-internal-report";
 import {
   effectiveExpenseBasisLabel,
   effectiveResultBasisLabel,
@@ -133,6 +134,17 @@ export interface PartnerStatementDocInput {
   partnerAdvances?: number;
   /** Repasse facturado com IVA (23%) — só incide quando a base é positiva. */
   transferWithVat?: boolean;
+  /**
+   * (g15-b) TOTAIS DO ACERTO VINDOS DO ECRÃ (SSoT `partner-disbursement`).
+   * Quando dados, mandam sobre o cálculo local — o documento nunca mostra um
+   * total diferente do que o Encontro de Contas mostra. As linhas itemizadas
+   * são apresentação e absorvem o residual de arredondamento.
+   */
+  totalRevenuesHeldOverride?: number | null;
+  financingToReturnOverride?: number | null;
+  transferBaseOverride?: number | null;
+  transferVatOverride?: number | null;
+  transferTotalOverride?: number | null;
 }
 
 export interface StatementRubrica {
@@ -563,20 +575,36 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
   const partnerExtras = roundCents(input.partnerExtras ?? 0);
   const partnerAdvances = roundCents(input.partnerAdvances ?? 0);
   const disbursementAdjustments = roundCents(input.disbursementAdjustments ?? 0);
-  const revenuesHeld = (input.revenuesHeld ?? []).map((r) => ({
+  const rawRevenuesHeld = (input.revenuesHeld ?? []).map((r) => ({
     label: r.label,
-    value: roundCents(Number(r.value) || 0),
+    value: Number(r.value) || 0,
   }));
-  const totalRevenuesHeld = roundCents(revenuesHeld.reduce((a, r) => a + r.value, 0));
-  const financingToReturn = roundCents(paidByPartner + disbursementAdjustments - totalRevenuesHeld);
-  const transferBase = roundCents(
-    recipientShare + financingToReturn - partnerExtras - partnerAdvances,
-  );
+  // (g15-b) O total manda; as linhas absorvem o residual (round-half-even).
+  const totalRevenuesHeld =
+    input.totalRevenuesHeldOverride != null
+      ? roundCents(input.totalRevenuesHeldOverride)
+      : roundCents(rawRevenuesHeld.reduce((a, r) => a + r.value, 0));
+  const revenuesHeld = reconcileDisplayField(rawRevenuesHeld, "value", totalRevenuesHeld);
+  const financingToReturn =
+    input.financingToReturnOverride != null
+      ? roundCents(input.financingToReturnOverride)
+      : roundCents(paidByPartner + disbursementAdjustments - totalRevenuesHeld);
+  const transferBase =
+    input.transferBaseOverride != null
+      ? roundCents(input.transferBaseOverride)
+      : roundCents(recipientShare + financingToReturn - partnerExtras - partnerAdvances);
   const transferWithVat = input.transferWithVat === true;
   // O IVA do repasse só incide quando há valor a transferir ao sócio.
   const transferVat =
-    transferWithVat && transferBase > 0 ? calcIvaAmount(transferBase, TRANSFER_IVA_RATE) : 0;
-  const transferTotal = roundCents(transferBase + transferVat);
+    input.transferVatOverride != null
+      ? roundCents(input.transferVatOverride)
+      : transferWithVat && transferBase > 0
+        ? calcIvaAmount(transferBase, TRANSFER_IVA_RATE)
+        : 0;
+  const transferTotal =
+    input.transferTotalOverride != null
+      ? roundCents(input.transferTotalOverride)
+      : roundCents(transferBase + transferVat);
 
   const generatedAt = input.generatedAt ?? new Date();
   const generatedLabel = `${String(generatedAt.getDate()).padStart(2, "0")}/${String(

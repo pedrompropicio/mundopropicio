@@ -1625,6 +1625,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       cascade,
       resultOverride: row.result,
       recipientShareOverride: row.partnerShare,
+      // (g15-b) Os totais do acerto vêm do SSoT do ecrã — o documento nunca
+      // apresenta um valor diferente do Encontro de Contas.
+      totalRevenuesHeldOverride: row.totalRevenuesHeld,
+      financingToReturnOverride: row.financingToReturn,
+      transferBaseOverride: row.transferBase,
+      transferVatOverride: row.transferVat,
+      transferTotalOverride: row.transferTotal,
     };
   }
 
