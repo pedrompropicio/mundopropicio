@@ -544,76 +544,12 @@ export default function PartnerEventDetail() {
     },
   });
 
-  // ── Quotas dos sócios (RPC SECURITY DEFINER — só nome + percentagem)
-  const { data: partnerShares = [] } = useQuery({
-    queryKey: ["partner_event_shares", user?.id, activeEventId],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_partner_event_shares" as any, {
-        p_event_id: activeEventId!,
-      } as any);
-      if (error) throw error;
-      return (data ?? []) as Array<{ partner_name: string; percentage: number }>;
-    },
-    enabled: !!activeEventId && hasPermission("view_bp"),
-  });
-
-
-
-  /**
-   * (g5·H) Resumo do acerto do sócio no Portal, via RPC SECURITY DEFINER.
-   * O RPC valida que o sócio autenticado participa no fechamento; devolve o
-   * desembolso, os ajustes e as receitas que já estão em poder dele.
-   * `partner_share` fica a 0 — a quota é calculada no documento.
+  /*
+   * (g17) As leituras parciais do fecho no browser (quotas, fechamento visível,
+   * base efectiva, resumo do acerto) saíram daqui: o Portal passou a consumir a
+   * edge function `partner-statement`, que corre o mesmo cálculo do ERP.
    */
-  const { data: portalSettlementId } = useQuery({
-    queryKey: ["partner-visible-settlement", user?.id, activeEventId],
-    queryFn: async () => {
-      // (g9b) O fechamento visível é aquele onde o sócio ACERTA CONTAS (mode='settles').
-      // A presença nominal num nó acima é contabilística e não é uma vista.
-      const { data, error } = await supabase.rpc("get_partner_visible_settlements" as any, {
-        _event_id: activeEventId!,
-      } as any);
-      if (error) throw error;
-      const rows = (data ?? []) as Array<{ settlement_id: string }>;
-      return (rows[0]?.settlement_id ?? null) as string | null;
-    },
-    enabled: !!activeEventId && hasPermission("view_bp"),
-  });
 
-  /**
-   * (g10) Base efetiva: se o fechamento do sócio devolve o IVA dedutível do
-   * fechamento acima, o documento apresenta-se em despesas s/IVA. Leitura
-   * tolerante — sem acesso, mantém-se a base do próprio nó.
-   */
-  const { data: portalReturnsVat = false } = useQuery({
-    queryKey: ["partner-settlement-returns-vat", portalSettlementId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("event_settlements")
-        .select("returns_parent_deductible_vat")
-        .eq("id", portalSettlementId!)
-        .maybeSingle();
-      return (data as any)?.returns_parent_deductible_vat === true;
-    },
-    enabled: !!portalSettlementId && hasPermission("view_bp"),
-  });
-
-  const { data: portalSummary } = useQuery({
-    queryKey: ["partner-settlement-summary", user?.id, activeEventId, portalSettlementId],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_partner_settlement_summary" as any, {
-        _event_id: activeEventId!,
-        _settlement_id: portalSettlementId!,
-        _partner_share: 0,
-        _transfer_with_vat: false,
-      } as any);
-      if (error) throw error;
-      return ((data ?? [])[0] ?? null) as
-        | { disbursement: number; adjustments: number; revenues_held: number; extras: number }
-        | null;
-    },
-    enabled: !!activeEventId && !!portalSettlementId && hasPermission("view_bp"),
-  });
 
   const openBpAttachment = async (kind: string, documentId: string) => {
     try {
