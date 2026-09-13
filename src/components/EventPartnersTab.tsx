@@ -6,8 +6,11 @@
  * `trg_esp_sync_event_partners` reescreve-a a partir dos participantes com
  * `mode = 'settles'`. Nada nesta peça escreve em `event_partners`.
  *
- * A casa (Mundo Propício) é um participante `participant_kind = 'house'` no
- * apuramento raiz e é read-only aqui: a sua percentagem é 100 − Σ(sócios).
+ * A casa (Mundo Propício) é um participante `participant_kind = 'house'`.
+ * (g1) Pode existir em QUALQUER fechamento (uma por fechamento):
+ *  • na raiz, a % continua calculada (100 − Σ sócios) e só o modo é editável —
+ *    em `nominal` a casa é o pool que desce para os fechamentos abaixo;
+ *  • num fechamento filho, a casa tem % e modo próprios, editáveis à mão.
  */
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +50,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [newSettlementId, setNewSettlementId] = useState("");
+  const [newKind, setNewKind] = useState<"partner" | "house">("partner");
   const [newMode, setNewMode] = useState<"settles" | "nominal">("settles");
   const [percentage, setPercentage] = useState("");
   const [lossPercentage, setLossPercentage] = useState("");
@@ -121,10 +125,16 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     () => (participants as any[]).filter((p) => p.participant_kind === "partner"),
     [participants],
   );
-  const houseRow = useMemo(
-    () => (participants as any[]).find((p) => p.participant_kind === "house") ?? null,
+  const houseRows = useMemo(
+    () => (participants as any[]).filter((p) => p.participant_kind === "house"),
     [participants],
   );
+  /** (g1) A casa da raiz é a única com % calculada; as dos filhos são manuais. */
+  const rootHouseRow = useMemo(
+    () => houseRows.find((p: any) => p.settlement_id === rootSettlement?.id) ?? null,
+    [houseRows, rootSettlement],
+  );
+  const houseSettlementIds = houseRows.map((p: any) => p.settlement_id);
 
   const settlementName = (id: string) =>
     (settlements as any[]).find((s) => s.id === id)?.name ?? "—";
@@ -191,7 +201,9 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
    * contava-a duas vezes (declarada + nominalGap) e a C2 deixava de fechar.
    */
   const syncHouse = async () => {
-    if (!houseRow || !rootSettlement) return;
+    // (g1) só a casa da RAIZ é recalculada, e só quando acerta ali. Uma casa
+    // `nominal` na raiz é o pool que desce: a sua % é decidida à mão.
+    if (!rootHouseRow || !rootSettlement || rootHouseRow.mode !== "settles") return;
     const { data: rows } = await supabase
       .from("event_settlement_participants")
       .select("profit_pct, loss_pct, mode, participant_kind")
@@ -205,7 +217,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     await supabase
       .from("event_settlement_participants")
       .update({ profit_pct: 100 - sumProfit, loss_pct: 100 - sumLoss })
-      .eq("id", houseRow.id);
+      .eq("id", rootHouseRow.id);
   };
 
 
@@ -218,8 +230,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         settlement_id: settlementId,
         event_id: eventId,
         company_id: ev?.company_id,
-        participant_kind: "partner",
-        supplier_id: selectedSupplier,
+        participant_kind: newKind,
+        supplier_id: newKind === "house" ? null : selectedSupplier,
         mode: newMode,
         profit_pct: Number(percentage),
         loss_pct: lossPercentage ? Number(lossPercentage) : null,
@@ -235,13 +247,38 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setShowForm(false);
       setSelectedSupplier("");
       setNewSettlementId("");
+      setNewKind("partner");
       setNewMode("settles");
       setPercentage("");
       setLossPercentage("");
       setNotes("");
       setCanOrder(true);
       setCanPay(false);
-      toast({ title: "Sócio adicionado ao fechamento" });
+      toast({ title: newKind === "house" ? "Casa adicionada ao fechamento" : "Sócio adicionado ao fechamento" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  /** (g1) Casa: na raiz só o modo; nos filhos também a %. */
+  const updateHouse = useMutation({
+    mutationFn: async (row: any) => {
+      const isRootHouse = row.settlement_id === rootSettlement?.id;
+      const patch: Record<string, unknown> = { mode: editMode };
+      if (!isRootHouse) {
+        patch.profit_pct = Number(editPercentage || 0);
+        patch.loss_pct = editLossPercentage ? Number(editLossPercentage) : null;
+      }
+      const { error } = await supabase
+        .from("event_settlement_participants")
+        .update(patch as any)
+        .eq("id", row.id);
+      if (error) throw error;
+      await syncHouse();
+    },
+    onSuccess: () => {
+      invalidate();
+      setEditingId(null);
+      toast({ title: "Casa atualizada" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -376,7 +413,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 setNewSettlementId(rootSettlement.id);
                 setShowForm(true);
               }}
-              disabled={availableSuppliers.length === 0}
+              disabled={availableSuppliers.length === 0 && settlements.length === houseSettlementIds.length}
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar
             </Button>
@@ -396,7 +433,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           </div>
         )}
 
-        {partnerRows.length > 0 && (
+        {(partnerRows.length > 0 || houseRows.length > 0) && (
           <Table>
             <TableHeader>
               <TableRow>
@@ -620,28 +657,99 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 );
               })}
 
-              {houseRow && (
-                <TableRow className="[&>td]:py-1 [&>td]:px-2 bg-secondary/10">
-                  <TableCell className="font-medium">
-                    {HOUSE_PARTNER_NAME}
-                    <Badge variant="outline" className="ml-2 text-[10px]">casa</Badge>
-                  </TableCell>
-                  <TableCell className="text-xs">{settlementName(houseRow.settlement_id)}</TableCell>
-                  <TableCell className="text-xs">
-                    <Badge variant="secondary" className="text-[10px]">Acerta aqui</Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">{Number(houseRow.profit_pct).toFixed(1)}%</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {houseRow.loss_pct != null ? `${Number(houseRow.loss_pct).toFixed(1)}%` : <span className="text-muted-foreground text-xs">Igual</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">—</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">—</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Calculada: 100 − Σ(sócios). Não é editável.
-                  </TableCell>
-                  {canEdit && <TableCell />}
-                </TableRow>
-              )}
+              {houseRows.map((h: any) => {
+                const isRootHouse = h.settlement_id === rootSettlement?.id;
+                const isEditing = editingId === h.id;
+                return (
+                  <TableRow key={h.id} className="[&>td]:py-1 [&>td]:px-2 bg-secondary/10">
+                    <TableCell className="font-medium">
+                      {HOUSE_PARTNER_NAME}
+                      <Badge variant="outline" className="ml-2 text-[10px]">casa</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">{settlementName(h.settlement_id)}</TableCell>
+                    <TableCell className="text-xs">
+                      {isEditing ? (
+                        <Select value={editMode} onValueChange={(v) => setEditMode(v as any)}>
+                          <SelectTrigger className="h-7 w-[130px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="settles">Acerta aqui</SelectItem>
+                            <SelectItem value="nominal">Nominal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : h.mode === "settles" ? (
+                        <Badge variant="secondary" className="text-[10px]">Acerta aqui</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">Nominal</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {isEditing && !isRootHouse ? (
+                        <Input
+                          type="number" min="0" max="100" step="0.1"
+                          value={editPercentage}
+                          onChange={(e) => setEditPercentage(e.target.value)}
+                          className="h-7 w-20 text-right ml-auto"
+                        />
+                      ) : (
+                        <>{Number(h.profit_pct).toFixed(1)}%</>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {isEditing && !isRootHouse ? (
+                        <Input
+                          type="number" min="0" max="100" step="0.1"
+                          value={editLossPercentage}
+                          onChange={(e) => setEditLossPercentage(e.target.value)}
+                          className="h-7 w-20 text-right ml-auto"
+                          placeholder="Igual"
+                        />
+                      ) : h.loss_pct != null ? (
+                        `${Number(h.loss_pct).toFixed(1)}%`
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Igual</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">s/IVA</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">—</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {isRootHouse
+                        ? h.mode === "settles"
+                          ? "Calculada: 100 − Σ(sócios)."
+                          : "Nominal: é o pool que desce para os fechamentos abaixo."
+                        : "% e modo definidos à mão neste fechamento."}
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {isEditing ? (
+                            <>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateHouse.mutate(h)}>
+                                <Check className="h-3.5 w-3.5 text-primary" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(h)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              {!isRootHouse && (
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeParticipant.mutate(h.id)}>
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -657,6 +765,19 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           <div className="border border-border/50 rounded-lg p-4 space-y-4 bg-secondary/10">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
+                <Label className="text-xs">Tipo</Label>
+                <Select value={newKind} onValueChange={(v) => setNewKind(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="partner">Sócio / Parceiro</SelectItem>
+                    <SelectItem value="house">Casa ({HOUSE_PARTNER_NAME})</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  A casa pode entrar num fechamento filho com % e modo próprios (uma por fechamento).
+                </p>
+              </div>
+              <div className={`space-y-1.5 ${newKind === "house" ? "hidden" : ""}`}>
                 <Label className="text-xs">Parceiro / Sócio</Label>
                 <div className="flex gap-2">
                   <div className="flex-1">
@@ -688,9 +809,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <Select value={newSettlementId} onValueChange={setNewSettlementId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
                   <SelectContent>
-                    {(settlements as any[]).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
+                    {(settlements as any[])
+                      .filter((s) => newKind !== "house" || !houseSettlementIds.includes(s.id))
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -751,9 +874,15 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
               <Button
                 size="sm"
                 onClick={() => addParticipant.mutate()}
-                disabled={!selectedSupplier || !newSettlementId || !percentage || Number(percentage) <= 0 || addParticipant.isPending}
+                disabled={
+                  (newKind === "partner" && !selectedSupplier) ||
+                  !newSettlementId ||
+                  !percentage ||
+                  Number(percentage) <= 0 ||
+                  addParticipant.isPending
+                }
               >
-                Adicionar Sócio
+                {newKind === "house" ? "Adicionar Casa" : "Adicionar Sócio"}
               </Button>
             </div>
           </div>
@@ -763,7 +892,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           A lista de sócios do evento é agora derivada destes participantes: os que
           "acertam aqui" descem automaticamente para os seletores de ordenador/pagador
-          do BP e das transações. A casa nunca desce.
+          do BP e das transações. A casa nunca desce, em nenhum fechamento.
         </p>
       </div>
     </div>
