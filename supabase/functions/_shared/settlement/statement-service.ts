@@ -12,7 +12,7 @@
  *    `cost_include_overhead`) — nunca uma preferência de ecrã.
  *  • `buildPartnerStatement(bundle, supplierId)` — puro: corre o motor, apura a
  *    linha do sócio (g5), monta a cascata (g13/g13-b) e devolve o
- *    `StatementDocInput` que os exportadores (PDF/XLSX) já usam, mais o bloco
+ *    `PartnerStatementDocInput` que os exportadores (PDF/XLSX) já usam, mais o bloco
  *    "O seu fechamento" do Portal e os números do fecho para os cards.
  *
  * Limitação registada: operações de terceiros com `source = 'ab_module'` usam os
@@ -48,7 +48,7 @@ import {
   buildPartnerStatementDoc,
   statementTerms,
   type DocLocale,
-  type StatementDocInput,
+  type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
 
 const TRANSFER_IVA_RATE = 23;
@@ -379,7 +379,7 @@ export interface PartnerAccountLine {
 
 export interface PartnerStatementResult {
   /** Input completo do documento — mesmo objecto que o ERP passa aos exportadores. */
-  doc: StatementDocInput;
+  doc: PartnerStatementDocInput;
   /** Bloco "O seu fechamento" do Portal. */
   block: {
     partnerName: string;
@@ -754,7 +754,7 @@ export function buildPartnerStatement(
   const othersPct = Math.round((100 - Number(me.percentage || 0)) * 10000) / 10000;
   const onlyHouseLeft = nodeParticipants.filter((p) => !p.isHouse && p.supplier_id !== supplierId).length === 0;
 
-  const doc: StatementDocInput = {
+  const doc: PartnerStatementDocInput = {
     locale,
     eventName: bundle.eventName,
     eventDate: bundle.eventDate,
@@ -784,7 +784,7 @@ export function buildPartnerStatement(
     transferBaseOverride: transferBase,
     transferVatOverride: transferVat,
     transferTotalOverride: transferTotal,
-  } as StatementDocInput;
+  } as PartnerStatementDocInput;
 
   // Bloco resumido do Portal — cascata pelos mesmos números do motor.
   const blockCascade: PartnerStatementResult["block"]["cascade"] = [];
