@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-12 · Issues: #73, #78, #128, #129, #130, #132 (fechada), #145, #155
+Atualizado: 2026-09-13 · Issues: #73, #78, #128, #129, #130, #132 (fechada), #145, #155
 
 ## Em que pé está
 
@@ -29,7 +29,7 @@ Nada em execução. A confirmar no próximo ciclo horário: se o import das cinc
 
 ## Próximo passo concreto
 
-Os dois fechos do H&K estão resolvidos. Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558/2026 — ver "Factos" para os valores.
+Os dois fechos do H&K estão resolvidos e o da Anitta está feito desde 09/09/2026. **Registar o fecho de bilheteira do IVETE (apuramento 2816/2026)** em `/bilheteiras` → Fechos. Tem tudo o que precisa: bruto **493.152,50 €** (bate ao cêntimo com `ticket_sales`), FT **FA.2026/3045** lançada (2.223,36 + IVA = **2.734,73 €**), os **10 repasses do pool lançados** (**706.000,00 €**) e **9 adiantamentos registados no evento** — o apuramento lista 10, portanto **falta ligar um, a verificar antes de abrir o wizard**. O acerto de **55.834,14 €** entra como **dedução** e é o mesmo valor que saiu do **H&K Porto**; deixar isso explícito no fecho.
 
 Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenhar o cron; a carga manual repete-se por extração do dashboard enquanto isso.
 
