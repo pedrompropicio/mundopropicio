@@ -12,7 +12,7 @@
  *       de outros participantes; nunca "nível", "fechamento acima/abaixo" nem
  *       "bases diferentes".
  */
-import { calcIvaAmount, roundCents } from "@/lib/iva";
+import { calcIvaAmount, roundCents, type IvaRate } from "@/lib/iva";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
@@ -73,6 +73,18 @@ export interface PartnerStatementDocInput {
   resultOverride?: number | null;
   /** Parte do destinatário vinda do motor — quando dada, manda sobre R6. */
   recipientShareOverride?: number | null;
+  /**
+   * (g4 adenda 13/09) Termos do acerto do sócio — a secção 5 fecha na base a
+   * transferir e, quando o repasse é facturado, no total com IVA 23%.
+   */
+  /** Despesas do evento pagas pelo próprio sócio (financiamento a devolver-lhe). */
+  paidByPartner?: number;
+  /** Extras do sócio a abater. */
+  partnerExtras?: number;
+  /** Já adiantado ao sócio. */
+  partnerAdvances?: number;
+  /** Repasse facturado com IVA (23%) — só incide quando a base é positiva. */
+  transferWithVat?: boolean;
 }
 
 export interface StatementRubrica {
@@ -124,6 +136,14 @@ export interface PartnerStatementDoc {
   result: number;
   recipientShare: number;
   othersShare: number;
+  /** (g4 adenda) Acerto do sócio — base a transferir, IVA do repasse e total. */
+  paidByPartner: number;
+  partnerExtras: number;
+  partnerAdvances: number;
+  transferBase: number;
+  transferWithVat: boolean;
+  transferVat: number;
+  transferTotal: number;
 }
 
 export interface StatementTerms {
@@ -157,6 +177,15 @@ export interface StatementTerms {
   ivaNote: string;
   detailARevenues: string;
   detailBExpenses: string;
+  shareOfResult: (partner: string) => string;
+  paidByPartnerLine: (partner: string) => string;
+  extrasLine: string;
+  advancesLine: (partner: string) => string;
+  transferBaseLine: (partner: string) => string;
+  receiveBaseLine: (partner: string) => string;
+  vatOnTransfer: string;
+  transferTotalLine: (partner: string) => string;
+  receiveTotalLine: (partner: string) => string;
   fileName: string;
   page: string;
   of: string;
@@ -195,6 +224,15 @@ const TERMS: Record<DocLocale, StatementTerms> = {
       "O IVA é calculado linha a linha sobre o valor da despesa (artigo 18.º do CIVA) e só depois somado.",
     detailARevenues: "A. Receitas linha a linha (s/IVA)",
     detailBExpenses: "B. Despesas por família e rubrica (c/IVA)",
+    shareOfResult: (p) => `${p} — parte do resultado`,
+    paidByPartnerLine: (p) => `+ Despesas do evento pagas por ${p}`,
+    extrasLine: "− Extras",
+    advancesLine: (p) => `− Já adiantado a ${p}`,
+    transferBaseLine: (p) => `= BASE A TRANSFERIR A ${p.toUpperCase()}`,
+    receiveBaseLine: (p) => `= BASE A RECEBER DE ${p.toUpperCase()}`,
+    vatOnTransfer: "+ IVA 23% sobre o repasse",
+    transferTotalLine: (p) => `= TOTAL A TRANSFERIR A ${p.toUpperCase()}`,
+    receiveTotalLine: (p) => `= TOTAL A RECEBER DE ${p.toUpperCase()}`,
     fileName: "Prestacao_de_Contas",
     page: "Página",
     of: "de",
@@ -231,6 +269,15 @@ const TERMS: Record<DocLocale, StatementTerms> = {
       "O IVA é calculado linha a linha sobre o valor da despesa (artigo 18.º do CIVA) e só depois somado.",
     detailARevenues: "A. Receitas linha a linha (s/IVA)",
     detailBExpenses: "B. Despesas por família e rubrica (c/IVA)",
+    shareOfResult: (p) => `${p} — parte do resultado`,
+    paidByPartnerLine: (p) => `+ Despesas do evento pagas por ${p}`,
+    extrasLine: "− Extras",
+    advancesLine: (p) => `− Já adiantado a ${p}`,
+    transferBaseLine: (p) => `= BASE A TRANSFERIR A ${p.toUpperCase()}`,
+    receiveBaseLine: (p) => `= BASE A RECEBER DE ${p.toUpperCase()}`,
+    vatOnTransfer: "+ IVA 23% sobre o repasse",
+    transferTotalLine: (p) => `= TOTAL A TRANSFERIR A ${p.toUpperCase()}`,
+    receiveTotalLine: (p) => `= TOTAL A RECEBER DE ${p.toUpperCase()}`,
     fileName: "Prestacao_de_Contas",
     page: "Página",
     of: "de",
@@ -249,6 +296,9 @@ export const FORBIDDEN_DOC_TERMS = [
   "fechamento abaixo",
   "bases diferentes",
 ];
+
+/** Taxa normal de IVA PT aplicada ao repasse facturado. */
+export const TRANSFER_IVA_RATE: IvaRate = 23;
 
 const isHouseName = (n: string) => n.toLowerCase().includes(HOUSE_PARTNER_NAME.toLowerCase());
 
@@ -376,6 +426,17 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     agreement.push({ name: othersLabel, percentage: othersPct, value: othersShare, isRecipient: false });
   }
 
+  // ---- (g4 adenda) Acerto do sócio: base a transferir e IVA do repasse ----
+  const paidByPartner = roundCents(input.paidByPartner ?? 0);
+  const partnerExtras = roundCents(input.partnerExtras ?? 0);
+  const partnerAdvances = roundCents(input.partnerAdvances ?? 0);
+  const transferBase = roundCents(recipientShare + paidByPartner - partnerExtras - partnerAdvances);
+  const transferWithVat = input.transferWithVat === true;
+  // O IVA do repasse só incide quando há valor a transferir ao sócio.
+  const transferVat =
+    transferWithVat && transferBase > 0 ? calcIvaAmount(transferBase, TRANSFER_IVA_RATE) : 0;
+  const transferTotal = roundCents(transferBase + transferVat);
+
   const generatedAt = input.generatedAt ?? new Date();
   const generatedLabel = `${String(generatedAt.getDate()).padStart(2, "0")}/${String(
     generatedAt.getMonth() + 1,
@@ -407,5 +468,12 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     result,
     recipientShare,
     othersShare,
+    paidByPartner,
+    partnerExtras,
+    partnerAdvances,
+    transferBase,
+    transferWithVat,
+    transferVat,
+    transferTotal,
   };
 }
