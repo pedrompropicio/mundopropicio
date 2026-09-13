@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus, Wallet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
+import { useEventSettlementOptions } from "@/components/EventSettlementSelect";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
 // Lazy: a Planilha (Handsontable) só carrega quando o utilizador escolhe a vista.
