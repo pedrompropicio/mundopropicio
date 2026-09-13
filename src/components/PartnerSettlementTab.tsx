@@ -1299,6 +1299,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       .filter((s) => !s.isHouse)
       .map((s) => ({
         name: s.partnerName,
+        mode: modeByParticipant.get(s.partnerId) ?? "settles",
+        settlesAt: settlesAtOf(s.supplierId),
         profitPct: s.percentage,
         lossPct: s.lossPercentage,
         partnerShare: s.partnerShare,
