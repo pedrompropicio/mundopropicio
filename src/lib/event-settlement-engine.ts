@@ -243,6 +243,15 @@ export interface SettlementNodeResult {
   vatReturnedIn: number;
   /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
   vatReturnedOut: number;
+  /** (g14) IVA das linhas do perímetro deste nó que a sociedade não recupera. */
+  vatNonRecoverable: number;
+  /** (g14) Detalhe dessas linhas (label + IVA). */
+  vatNonRecoverableLines: VatExclusionNodeLine[];
+  /**
+   * (g14) IVA deste perímetro que NÃO foi devolvido ao fechamento abaixo por ser
+   * não recuperável — fica no residual da casa ("IVA não repassado").
+   */
+  vatNotReturned: number;
   /** (g6) Custos do evento devolvidos a ESTE fechamento (internos da sociedade). */
   addbackIn: number;
   /** (g6) Detalhe das linhas devolvidas a este fechamento. */
