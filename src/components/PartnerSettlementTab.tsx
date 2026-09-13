@@ -279,6 +279,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   const activeSettlementId = selectedSettlementId ?? rootSettlementId;
 
+  /** (g3/g13) Perímetro da raiz — base de qualquer documento do sócio. */
+  const rootSettlementIds = useMemo(
+    () => new Set((eventSettlements as any[]).filter((s) => !s.parent_id).map((s) => s.id as string)),
+    [eventSettlements],
+  );
+
   const partners = useMemo(
     () => (allParticipants as any[]).filter((p) => !activeSettlementId || p.settlement_id === activeSettlementId),
     [allParticipants, activeSettlementId],
@@ -290,7 +296,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(name, code, parent_id)")
+        .select()
         .in("event_id", allEventIds);
       if (error) throw error;
       return data;
@@ -437,7 +443,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-          .select("id, event_id, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, account_categories(name, code)")
+          .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null);
       if (error) throw error;
