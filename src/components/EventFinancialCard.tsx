@@ -69,15 +69,15 @@ export function EventFinancialCard(props: Props) {
   const userId = user?.id ?? "anon";
   const isExpense = kind === "expense";
 
-  // Critério ÚNICO por evento (partilhado com o Fecho). Só o card de CUSTOS o usa;
-  // o card de receitas mantém a sua própria preferência de IVA.
+  // Critério ÚNICO por evento (partilhado com o Fecho), gravado na BD (D25 e2 / D57).
+  // Vale para os DOIS cards: "Realizado" vs "Previsto + excedido" é o mesmo eixo do
+  // Fecho, do Encontro de Contas e do Portal. O localStorage só guarda a escolha
+  // exploratória "Forecast" (que não existe na BD) — nunca sobrepõe o critério.
   const shared = useEventCostBasis(eventId, props.partnerCalcBasis);
 
-  const [mode, setMode] = useState<CardMode>(() => {
-    const stored = readStoredMode(userId, eventId, kind);
-    if (isExpense && (stored === "realized" || stored === "committed")) return shared.expenseSource;
-    return stored;
-  });
+  const [storedMode, setStoredMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
+  // Modo efetivo: só "Forecast" é preferência de utilizador; o resto vem da BD.
+  const mode: CardMode = storedMode === "forecast" ? "forecast" : shared.expenseSource;
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
   const [incomeWithVat, setIncomeWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
   const [incomeOverhead, setIncomeOverhead] = useState<boolean>(
