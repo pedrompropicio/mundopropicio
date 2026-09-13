@@ -643,6 +643,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   let declared = 0;
   let ivaDeductible = 0;
   let nominalGap = 0;
+  let houseAbsorbedVat = 0;
   const computed: Array<{
     p: EngineParticipant;
     key: string;
