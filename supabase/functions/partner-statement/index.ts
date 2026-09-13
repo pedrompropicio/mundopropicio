@@ -52,17 +52,29 @@ Deno.serve(async (req) => {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
     // Sócio do utilizador (identidade canónica).
-    const { data: supplierId } = await admin.rpc("user_supplier_id", { _user_id: user.id });
+    // Assinatura real na BD: public.user_supplier_id(p_user_id uuid).
+    const { data: supplierId, error: supplierErr } = await admin.rpc("user_supplier_id", {
+      p_user_id: user.id,
+    });
+    // Erro de RPC nunca é 403 — é falha nossa.
+    if (supplierErr) {
+      console.error("partner-statement user_supplier_id", supplierErr);
+      return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+    }
     if (!supplierId) return json({ error: "Sem acesso a esta informação." }, 403);
 
     // Acesso activo ao evento.
-    const { data: access } = await admin
+    const { data: access, error: accessErr } = await admin
       .from("partner_event_access")
       .select("id, company_id")
       .eq("user_id", user.id)
       .eq("event_id", eventId)
       .eq("is_active", true)
       .maybeSingle();
+    if (accessErr) {
+      console.error("partner-statement partner_event_access", accessErr);
+      return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+    }
     if (!access) return json({ error: "Sem acesso a esta informação." }, 403);
 
     const bundle = await loadStatementBundle(admin as any, eventId);
