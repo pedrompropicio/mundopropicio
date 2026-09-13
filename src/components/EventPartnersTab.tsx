@@ -355,7 +355,10 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         </RadioGroup>
       </div>
 
+      <EventSettlementsManager eventId={eventId} canEdit={canEdit} />
+
       {/* Participants list */}
+
       <div className="glass rounded-xl p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
