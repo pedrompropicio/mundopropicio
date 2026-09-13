@@ -101,6 +101,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     reimbursement_note_id: "",
     ordering_partner_id: transaction.ordering_partner_id ?? "",
     paying_partner_id: (transaction as any).paying_partner_id ?? "",
+    /**
+     * (g7) "Recebido por" — receita recebida por encontro de contas em nome de um
+     * sócio. Vazio = Mundo Propício. Só existe em receitas por compensação.
+     */
+    held_by_supplier_id: ((transaction as any).held_by_supplier_id ?? "") as string,
+
   });
   const queryClient = useQueryClient();
   const { user, isManager, hasPermission } = useAuth();
@@ -384,7 +390,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       if (!form.event_id) return [];
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, percentage, can_order, can_pay, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, supplier_id, suppliers(name)")
         .eq("event_id", form.event_id);
       if (error) throw error;
       return data ?? [];
