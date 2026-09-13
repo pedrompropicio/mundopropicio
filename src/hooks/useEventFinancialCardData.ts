@@ -202,7 +202,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             ...(ab !== 0 ? [{ label: "A&B", value: ab }] : []),
             { label: "Outros", value: pick("outros") },
           ],
-          formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+          realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
 
       } else {
@@ -254,7 +254,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             ...(c && c.buckets.ab !== 0 ? [{ label: "A&B", value: c.buckets.ab }] : []),
             { label: "Outros", value: c?.buckets.outros ?? null },
           ],
-          formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
+          realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
         };
       }
       // Operacionais: linhas aprovadas que entram no resultado.
@@ -319,7 +319,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "A&B", value: f?.buckets.ab ?? null },
             { label: "Outros", value: f?.buckets.outros ?? null },
           ],
-          formalidadeBreakdown: null, phase, modeUsed,
+          realValue, formalidadeBreakdown: null, phase, modeUsed,
           unavailable: !f || f.total == null,
         };
       }
@@ -332,7 +332,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "A&B", value: null },
             { label: "Outros", value: null },
           ],
-          formalidadeBreakdown: null, phase, modeUsed, unavailable: true,
+          realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: true,
         };
       }
       const cfg: CoalaConfig = {
@@ -377,7 +377,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
           { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
         ],
-        formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+        realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     } else {
       // Forecast custos: formalidade-aware.
