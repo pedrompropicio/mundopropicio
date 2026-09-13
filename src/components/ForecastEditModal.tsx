@@ -149,7 +149,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       const newSettlementId = eventSettlementId || null;
       if (newSettlementId !== (forecast.event_settlement_id ?? null)) {
         changes.push({
-          field_name: "Apuramento",
+          field_name: "Fechamento",
           old_value: forecast.event_settlement_id ?? "—",
           new_value: newSettlementId ?? "—",
         });

@@ -42,14 +42,14 @@ export function EventSettlementSelect({ eventId, value, onChange, disabled }: Pr
 
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-muted-foreground">Apuramento</label>
+      <label className="mb-1 block text-xs font-medium text-muted-foreground">Fechamento</label>
       <select
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         value={value ?? ""}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value || null)}
       >
-        <option value="">Sem apuramento definido</option>
+        <option value="">Sem fechamento definido</option>
         {settlements.map((s: any) => (
           <option key={s.id} value={s.id} disabled={s.is_sealed}>
             {s.parent_id ? `— ${s.name}` : s.name}

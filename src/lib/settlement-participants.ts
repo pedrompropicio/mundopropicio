@@ -66,7 +66,7 @@ export function toSettlementParticipant(row: RawParticipant): SettlementParticip
     participantId: row.id,
     event_id: row.event_id,
     settlement_id: row.settlement_id,
-    settlementName: row.event_settlements?.name || "Fecho do evento",
+    settlementName: row.event_settlements?.name || "Fechamento do evento",
     settlementParentId: row.event_settlements?.parent_id ?? null,
     settlementPosition: Number(row.event_settlements?.position ?? 0),
     event_partner_id: row.event_partner_id,

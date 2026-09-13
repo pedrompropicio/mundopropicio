@@ -163,7 +163,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       if (evErr) throw evErr;
       const { data: root, error } = await supabase
         .from("event_settlements")
-        .insert({ event_id: eventId, company_id: ev.company_id, name: "Fecho do evento" })
+        .insert({ event_id: eventId, company_id: ev.company_id, name: "Fechamento do evento" })
         .select("id")
         .single();
       if (error) throw error;
@@ -180,7 +180,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     },
     onSuccess: () => {
       invalidate();
-      toast({ title: "Apuramento raiz criado" });
+      toast({ title: "Fechamento raiz criado" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -212,7 +212,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const addParticipant = useMutation({
     mutationFn: async () => {
       const settlementId = newSettlementId || rootSettlement?.id;
-      if (!settlementId) throw new Error("Este evento ainda não tem apuramento. Cria o apuramento raiz primeiro.");
+      if (!settlementId) throw new Error("Este evento ainda não tem fechamento. Cria o fechamento raiz primeiro.");
       const { data: ev } = await supabase.from("events").select("company_id").eq("id", eventId).single();
       const { error } = await supabase.from("event_settlement_participants").insert({
         settlement_id: settlementId,
@@ -241,7 +241,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setNotes("");
       setCanOrder(true);
       setCanPay(false);
-      toast({ title: "Sócio adicionado ao apuramento" });
+      toast({ title: "Sócio adicionado ao fechamento" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -254,7 +254,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     },
     onSuccess: () => {
       invalidate();
-      toast({ title: "Sócio removido do apuramento" });
+      toast({ title: "Sócio removido do fechamento" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -365,7 +365,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium">Sócios / Participações por apuramento</p>
+            <p className="text-sm font-medium">Sócios / Participações por fechamento</p>
             <span className="text-xs text-muted-foreground">({totalPercentage}% atribuído)</span>
           </div>
           {canEdit && !showForm && rootSettlement && (
@@ -386,11 +386,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         {!rootSettlement && (
           <div className="rounded-lg border border-border/50 bg-secondary/10 p-4 text-sm">
             <p className="text-muted-foreground">
-              Este evento ainda não tem apuramento. Os sócios vivem dentro de um apuramento.
+              Este evento ainda não tem fechamento. Os sócios vivem dentro de um fechamento.
             </p>
             {canEdit && (
               <Button size="sm" className="mt-3" onClick={() => createRoot.mutate()} disabled={createRoot.isPending}>
-                Criar apuramento raiz
+                Criar fechamento raiz
               </Button>
             )}
           </div>
@@ -401,7 +401,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Sócio</TableHead>
-                <TableHead>Apuramento</TableHead>
+                <TableHead>Fechamento</TableHead>
                 <TableHead>Modo</TableHead>
                 <TableHead className="text-right">% Lucro</TableHead>
                 <TableHead className="text-right">% Prejuízo</TableHead>
@@ -546,7 +546,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                             </label>
                             <label className="flex items-center gap-2 text-xs text-foreground">
                               <Switch checked={editVisibleInDocs} onCheckedChange={setEditVisibleInDocs} />
-                              Visível nos documentos deste apuramento
+                              Visível nos documentos deste fechamento
                             </label>
                             <p className="text-[10px] leading-tight text-muted-foreground">
                               Não confundir com "Pago pelo Sócio" nas transações: esse é o registo pontual de um desembolso e continua disponível para qualquer sócio, mesmo sem esta opção ligada.
@@ -684,7 +684,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Apuramento</Label>
+                <Label className="text-xs">Fechamento</Label>
                 <Select value={newSettlementId} onValueChange={setNewSettlementId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
                   <SelectContent>
@@ -699,8 +699,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <Select value={newMode} onValueChange={(v) => setNewMode(v as any)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="settles">Acerta aqui (é pago neste apuramento)</SelectItem>
-                    <SelectItem value="nominal">Nominal (acerta noutro apuramento)</SelectItem>
+                    <SelectItem value="settles">Acerta aqui (é pago neste fechamento)</SelectItem>
+                    <SelectItem value="nominal">Nominal (acerta noutro fechamento)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -131,7 +131,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
       setBasis("net_result");
       setPosition("");
       setNotes("");
-      toast({ title: "Apuramento criado" });
+      toast({ title: "Fechamento criado" });
     },
     onError: fail,
   });
@@ -149,7 +149,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
     onSuccess: () => {
       invalidate();
       setEditingId(null);
-      toast({ title: "Apuramento atualizado" });
+      toast({ title: "Fechamento atualizado" });
     },
     onError: fail,
   });
@@ -180,14 +180,14 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
   const removeChild = useMutation({
     mutationFn: async (row: SettlementRow) => {
       if ((participantCounts as Record<string, number>)[row.id]) {
-        throw new Error("Este apuramento ainda tem participantes. Remove-os primeiro.");
+        throw new Error("Este fechamento ainda tem participantes. Remove-os primeiro.");
       }
       const { error } = await supabase.from("event_settlements").delete().eq("id", row.id);
       if (error) throw error;
     },
     onSuccess: () => {
       invalidate();
-      toast({ title: "Apuramento apagado" });
+      toast({ title: "Fechamento apagado" });
     },
     onError: fail,
   });
@@ -207,12 +207,12 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
-          <p className="text-sm font-medium">Apuramentos do evento</p>
+          <p className="text-sm font-medium">Fechamentos do evento</p>
           <span className="text-xs text-muted-foreground">({settlements.length})</span>
         </div>
         {canEdit && rootExists && !showForm && (
           <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo apuramento
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo fechamento
           </Button>
         )}
       </div>
@@ -237,7 +237,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
                     {!isRoot && (
                       <>
                         <div className="space-y-1">
-                          <Label className="text-xs">% sobre o apuramento acima</Label>
+                          <Label className="text-xs">% sobre o fechamento acima</Label>
                           <Input
                             className="h-8"
                             type="number"
@@ -342,7 +342,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Acerto com o promotor local" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Apuramento acima</Label>
+              <Label className="text-xs">Fechamento acima</Label>
               <Select value={parentId} onValueChange={setParentId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar…" />
@@ -357,7 +357,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">% sobre o apuramento acima</Label>
+              <Label className="text-xs">% sobre o fechamento acima</Label>
               <Input type="number" min="0" max="100" step="0.01" value={pct} onChange={(e) => setPct(e.target.value)} />
             </div>
             <div className="space-y-1.5">
@@ -390,15 +390,15 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
               onClick={() => createChild.mutate()}
               disabled={!name.trim() || !parentId || !pct || createChild.isPending}
             >
-              Criar apuramento
+              Criar fechamento
             </Button>
           </div>
         </div>
       )}
 
       <p className="text-[11px] leading-snug text-muted-foreground">
-        Cada apuramento é estanque: recebe a quota do apuramento acima e acerta só com
-        os seus participantes. A casa (Mundo Propício) existe apenas no apuramento raiz.
+        Cada fechamento é estanque: recebe a quota do fechamento acima e acerta só com
+        os seus participantes. A casa (Mundo Propício) existe apenas no fechamento raiz.
       </p>
     </div>
   );
