@@ -123,10 +123,9 @@ export function EventSettlementsPanel({ eventId }: Props) {
           </p>
           {n.addbacks.length > 0 && (
             <ul className="mt-1 space-y-0.5 text-muted-foreground">
-              {n.addbacks.map((a) => (
-                <li key={a.id}>
-                  · {a.label}: {formatCurrency(a.amount)}
-                  {a.reason ? ` — ${a.reason}` : ""}
+              {n.addbacks.map((a, i) => (
+                <li key={`${a.label}-${i}`}>
+                  · {a.label}: {formatCurrency(a.value)}
                 </li>
               ))}
             </ul>
