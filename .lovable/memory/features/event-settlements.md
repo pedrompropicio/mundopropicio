@@ -361,3 +361,13 @@ acrescenta `+ IVA 23% sobre o repasse` (só se a base for positiva) e
 `= TOTAL A TRANSFERIR`. Campo editável na aba Sócios ("Repasse facturado com IVA
 (23%)"), default false. Constante `TRANSFER_IVA_RATE = 23` em
 `src/lib/partner-statement-doc.ts`.
+
+## (g4·2) Desembolso efectivo do sócio e contas de acerto
+
+O "+ Despesas pagas por <sócio>" da secção 5 e do Encontro de Contas soma
+transações pagas pelo sócio **e** linhas de BP com `paying_partner_id` = sócio
+sem transação ligada (valorizadas na base do fechamento). O "− Já adiantado"
+soma extras/adiantamentos **e** as entradas de `income` nas contas de acerto do
+sócio (`financial_accounts.partner_id`), filtradas pelo evento. Helpers puros em
+`src/lib/partner-disbursement.ts`. Prova: EIN na Anitta EDA 2026 → base
+674.910,86 · IVA 155.229,50 · total 830.140,36.

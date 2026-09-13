@@ -1649,3 +1649,35 @@ linha final de cada sócio no Encontro de Contas (base · IVA · total). Prova:
 EVERYTHINGISNEW com `transfer_with_vat` ligado — base 264.273,90 (273.953,35 +
 18.420,55 − 3.100,00 − 25.000,00), IVA 60.783,00, total 325.056,90 (sem escrita
 na BD).
+
+### Adenda (g4·2) — desembolso efectivo do sócio e contas de acerto (13/09/2026)
+
+Precisão do Pedro à secção 5 e à linha final do Encontro de Contas:
+
+- **"+ Despesas do evento pagas por \<sócio\>"** = (a) transações de despesa
+  pagas pelo sócio (como hoje) **+ (b) linhas de BP com `paying_partner_id` =
+  sócio e **sem** transação ligada** (D-ERP14: o fornecedor factura em nome do
+  sócio, que refactura à MP; essas linhas nunca viram transações). As linhas de
+  BP são valorizadas no critério do evento e **na base do fechamento** (c/IVA na
+  raiz da Anitta). Sem dupla contagem: linha de BP com transação conta pela
+  transação. É o "desembolso efectivo do sócio" da planilha.
+- **"− Já adiantado a \<sócio\>"** = extras/adiantamentos como antes **+ as
+  entradas nas contas de acerto do sócio** (`financial_accounts.partner_id` =
+  sócio, ex. "Acerto EIN · Anitta EDA 2026"), filtradas pelo `event_id` das
+  transações. É dinheiro do evento que já está com o sócio.
+- **"= BASE A TRANSFERIR"** = parte + desembolso − adiantado; `+ IVA 23%` quando
+  `transfer_with_vat`; `= TOTAL`.
+
+SSoT do cálculo: `src/lib/partner-disbursement.ts` (`collectBpPaidLines`,
+`sumLineAmounts`, `collectSettlementAccountEntries`, `partnerDisbursement`,
+`partnerAdvancedTotal`), com testes em
+`src/lib/__tests__/partner-disbursement.test.ts`.
+
+Prova ao vivo (só leitura, Anitta EDA 2026, EVERYTHINGISNEW): parte 273.953,35 +
+desembolso 1.305.957,51 (118 linhas de BP c/IVA, 0 transações) − 905.000,00
+(conta de acerto) = **base 674.910,86**; IVA 23% **155.229,50**; total
+**830.140,36**.
+
+Cobre a issue #133 ("Encontro de Contas não lê as contas de acerto") no lado da
+equipa. O Portal do Sócio mantém o desembolso só por transações — as linhas de
+BP e as contas de acerto não são legíveis pelo sócio com a RLS actual.
