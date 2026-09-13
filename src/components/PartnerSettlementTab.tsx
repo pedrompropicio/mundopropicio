@@ -157,6 +157,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   type CalcMode = "contract" | "event";
   const [calcMode, setCalcMode] = useState<CalcMode>("contract");
 
+  // Apuramento activo do Encontro de Contas (null = raiz).
+  const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
+
 
   // Event info (master + cities)
   const { data: event } = useQuery({
