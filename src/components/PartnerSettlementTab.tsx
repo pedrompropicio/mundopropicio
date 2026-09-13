@@ -1486,10 +1486,50 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       catMap.set(key, row);
     }
 
+    // (g15-c) Este relatório é o documento da Mundo Propício: marca no cabeçalho.
+    const branding = await fetchExportBranding();
+    const engineHouse = engine.result?.house;
+    const houseParts: Array<{ label: string; value: number }> = [];
+    if (engineHouse) {
+      if (Math.abs(engineHouse.declared) > 0.004)
+        houseParts.push({ label: "Parte declarada nos fechamentos", value: engineHouse.declared });
+      if (Math.abs(engineHouse.nominalGap) > 0.004)
+        houseParts.push({ label: "Diferença de posições nominais", value: engineHouse.nominalGap });
+      if (Math.abs(engineHouse.ivaDeductible) > 0.004)
+        houseParts.push({ label: "IVA dedutível que fica na sociedade", value: engineHouse.ivaDeductible });
+      if (Math.abs(engineHouse.rest) > 0.004)
+        houseParts.push({ label: "Resto sem explicação (verificar percentagens)", value: engineHouse.rest });
+    }
+    const overview = engine.result
+      ? {
+          resultReal: engine.result.eventNetResult,
+          revenueNet: nodes.reduce((a, n) => a + n.perimeter.revenueNet, 0),
+          expensesNet: nodes.reduce((a, n) => a + n.perimeter.expensesNet, 0),
+          vatNonRecoverableCost: engine.result.house.vatNonRecoverableCost,
+          exclusiveRevenuesTotal: 0,
+          thirdPartyTotal: engine.result.additionalActivesTotal,
+          addbackTotal: engine.result.addbacksTotal,
+          partners: [...realByName.values()].map((p) => ({
+            name: p.name,
+            settlesAt: p.settlesAt,
+            pctLabel: p.pctLabel,
+            realShare: p.share,
+          })),
+          distributedTotal: engine.result.partnersPaidTotal,
+          houseNet: engine.result.house.residual,
+          houseParts,
+          nominalRows,
+          c1: engine.result.c1.value,
+        }
+      : null;
+
     exportPartnerSettlementInternalPdf({
       eventName,
       settlementName,
       criterion: describeFechoBasis(basis),
+      companyName: branding.displayName,
+      logoDataUrl: branding.logoDataUrl,
+      overview,
       rootTotals,
       cascadeSteps,
       vatReturnedIn: activeNode?.vatReturnedIn ?? 0,
