@@ -276,6 +276,12 @@ export default function EventDetail() {
       ? [selectedSubEvent]
       : [id!];
 
+  // Perímetro do fechamento raiz (D25 g3).
+  const { data: rootSettlementInfo } = useEventRootSettlements(transactionEventIds);
+  const rootSettlementIds = rootSettlementInfo?.rootIds;
+  const settlementNameById = rootSettlementInfo?.nameById;
+
+
   // Data EFETIVA do evento (não a data genérica/criação de events.date):
   // max(events.date, event_dates, sub-eventos). Usada na detecção de fase dos cards.
   const effectiveEventDate = useMemo(() => {
