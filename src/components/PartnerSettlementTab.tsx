@@ -46,6 +46,7 @@ import {
   settlementDocTitle,
 } from "@/lib/settlement-doc-text";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
+import PartnerDisbursementDetail from "@/components/PartnerDisbursementDetail";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
 import {
@@ -901,6 +902,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       cur = parent;
     }
     return chain.length ? chain.join(" > ") : (fallback || "—");
+  };
+  // (g12) Rubrica de Nível 2 da categoria — usada só para agrupar o detalhe do desembolso.
+  const categoryL2Label = (catId?: string | null): string => {
+    if (!catId) return "Sem rubrica";
+    const chain: Array<{ code: string; name: string }> = [];
+    let cur = catByIdAll[catId];
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      chain.unshift({ code: cur.code, name: cur.name });
+      if (!cur.parent_id) break;
+      const parent = catByIdAll[cur.parent_id];
+      if (!parent) break;
+      cur = parent;
+    }
+    const node = chain[1] ?? chain[chain.length - 1];
+    if (!node) return "Sem rubrica";
+    return node.code ? `${node.code} ${node.name}` : node.name;
   };
 
   // ---- Crédito transitório (cauções pagas e ainda não devolvidas) ----
@@ -2687,6 +2706,30 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 </p>
               )}
             </div>
+
+            {/* (g12) Detalhe expansível — só apresentação, mesmas linhas do export de conferência. */}
+            {!s.isHouse && (
+              <PartnerDisbursementDetail
+                bpPaidLines={s.bpPaidLines}
+                totalBpPaidByPartner={s.totalBpPaidByPartner}
+                paidExpenses={s.paidExpenses}
+                totalPaidByPartner={s.totalPaidByPartner}
+                totalDisbursement={s.totalDisbursement}
+                adjustments={s.disbursementAdjustments}
+                totalAdjustments={s.totalDisbursementAdjustments}
+                revenuesHeld={s.revenuesHeld}
+                totalRevenuesHeld={s.totalRevenuesHeld}
+                financingToReturn={s.financingToReturn}
+                extras={s.partnerExtras}
+                totalAdvanced={s.totalAdvanced}
+                partnerShare={s.partnerShare}
+                transferBase={s.transferBase}
+                transferWithVat={s.transferWithVat}
+                transferVat={s.transferVat}
+                transferTotal={s.transferTotal}
+                l2LabelOf={categoryL2Label}
+              />
+            )}
 
             {(s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">

@@ -37,6 +37,7 @@ export interface BpPaidForecastRow {
   paying_partner_id?: string | null;
   transaction_id?: string | null;
   event_id?: string | null;
+  category_id?: string | null;
   account_categories?: { name?: string | null; code?: string | null } | null;
 }
 
@@ -48,6 +49,8 @@ export interface BpPaidLine {
   base: number;
   ivaRate: number;
   category: string;
+  /** (g12) Id da categoria, para agrupar o detalhe por rubrica de Nível 2. */
+  categoryId: string | null;
   cityLabel: string;
   /** (g5) A linha tem transação ligada no sistema? (coluna do export de conferência.) */
   hasTransaction: boolean;
@@ -142,6 +145,7 @@ export function collectBpPaidLines(
         base,
         ivaRate,
         category: f.account_categories?.name || "—",
+        categoryId: f.category_id ?? null,
         cityLabel: (f.event_id && cityLabelByEvent[f.event_id]) || "—",
         hasTransaction: !!f.transaction_id,
         status: f.status || "—",
