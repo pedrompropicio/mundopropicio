@@ -2170,6 +2170,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const extras: Array<{ label: string; value: number }> = [];
     if (activeNode?.parentQuota) extras.push({ label: "Quota contratual do acordo", value: activeNode.parentQuota });
     if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível devolvido", value: activeNode.vatReturnedIn });
+    // (g6) Custos do evento devolvidos a este fechamento (internos da sociedade).
+    if (activeNode?.addbackIn)
+      extras.push({
+        label: "Custos do evento devolvidos a este fechamento (internos da sociedade)",
+        value: activeNode.addbackIn,
+      });
     if (activeNode?.additionalActiveTotal)
       extras.push({ label: "Activos adicionais", value: activeNode.additionalActiveTotal });
 
