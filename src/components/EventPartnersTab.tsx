@@ -392,7 +392,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     );
   };
 
-  const colCount = canEdit ? 9 : 8;
+  const colCount = canEdit ? 8 : 7;
 
   return (
     <div className="space-y-6">
@@ -438,7 +438,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
             <p className="text-sm font-medium">Sócios / Participações por fechamento</p>
-            <span className="text-xs text-muted-foreground">({totalPercentage}% atribuído)</span>
+            {assignedPctText && (
+              <span className="text-xs text-muted-foreground" title="Percentagem atribuída dentro de cada fechamento.">
+                ({assignedPctText})
+              </span>
+            )}
           </div>
           {canEdit && !showForm && rootSettlement && (
             <Button
@@ -477,7 +481,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <TableHead>Modo</TableHead>
                 <TableHead className="text-right">% Lucro</TableHead>
                 <TableHead className="text-right">% Prejuízo</TableHead>
-                <TableHead>Base IVA</TableHead>
+                
                 <TableHead>BP</TableHead>
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-20" />}
@@ -531,6 +535,13 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           <span className="inline-flex items-center gap-1">
                             <Layers className="h-3 w-3 text-muted-foreground" />
                             {settlementName(p.settlement_id)}
+                            <Badge
+                              variant="outline"
+                              className="ml-1 text-[10px]"
+                              title="Base de cálculo do fechamento — igual para todos os seus participantes, casa incluída."
+                            >
+                              {settlementBasisLabel(p.settlement_id)}
+                            </Badge>
                           </span>
                         )}
                       </TableCell>
@@ -576,33 +587,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           <>{Number(p.loss_pct).toFixed(1)}%</>
                         ) : (
                           <span className="text-muted-foreground text-xs">Igual</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {isEditing ? (
-                          <div className="space-y-1">
-                            <Select value={editIvaBasis} onValueChange={(v) => setEditIvaBasis(v as IvaBasis)}>
-                              <SelectTrigger className="h-7 w-[190px] text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="inherit">Herda do evento</SelectItem>
-                                <SelectItem value="gross">Apura c/IVA</SelectItem>
-                                <SelectItem value="net">Apura s/IVA</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-[10px] leading-tight text-muted-foreground">
-                              Um sócio com sede fora de Portugal não recupera o IVA: o custo dele é o valor c/IVA. Esta regra é contratual e não muda com o seletor de vista do Fecho.
-                            </p>
-                          </div>
-                        ) : (
-                          <span
-                            className="text-xs"
-                            title={describePartnerExpenseBasis(event?.partner_calc_basis, p.expense_includes_iva)}
-                          >
-                            {partnerUsesGrossExpenses(event?.partner_calc_basis, p.expense_includes_iva) ? "c/IVA" : "s/IVA"}
-                            {(p.expense_includes_iva === null || p.expense_includes_iva === undefined) && (
-                              <span className="ml-1 text-[10px] text-muted-foreground">(herda)</span>
-                            )}
-                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
