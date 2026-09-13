@@ -21,6 +21,8 @@ import {
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
+import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
 import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
