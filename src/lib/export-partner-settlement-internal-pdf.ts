@@ -251,8 +251,11 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
 
     if (p.bpLines.length > 0) {
       subTitle("Business Plan pago pelo sócio, por rubrica");
-      const groups = new Map<string, typeof p.bpLines>();
-      for (const l of p.bpLines) {
+      // (g15-b) As linhas absorvem o residual; o TOTAL é o do modelo.
+      const bpAmounts = reconcileDisplayValues(p.bpLines.map((l) => l.amount), p.bpTotal);
+      const bpLines = p.bpLines.map((l, i) => ({ ...l, amount: bpAmounts[i] }));
+      const groups = new Map<string, typeof bpLines>();
+      for (const l of bpLines) {
         const arr = groups.get(l.rubrica);
         if (arr) arr.push(l);
         else groups.set(l.rubrica, [l]);
@@ -281,9 +284,10 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
 
     if (p.paidExpenses.length > 0) {
       subTitle("Transações pagas pelo sócio");
+      const paid = reconcileDisplayValues(p.paidExpenses.map((e) => e.amount), p.paidExpensesTotal);
       table({
         head: ["Descrição", "Cidade", "Categoria", "Data", "Valor"],
-        body: p.paidExpenses.map((e) => [e.description, e.cityLabel, e.category, dt(e.date), money(e.amount)]),
+        body: p.paidExpenses.map((e, i) => [e.description, e.cityLabel, e.category, dt(e.date), money(paid[i])]),
         foot: [["TOTAL", "", "", "", money(p.paidExpensesTotal)]],
         widths: [width - 116, 26, 40, 18, 32],
         aligns: ["left", "left", "left", "center", "right"],
@@ -293,9 +297,10 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
 
     if (p.adjustments.length > 0) {
       subTitle("Ajustes ao desembolso");
+      const adj = reconcileDisplayValues(p.adjustments.map((a) => a.amount), p.adjustmentsTotal);
       smallTable({
         head: ["Descrição", "Cidade", "Data", "Valor"],
-        body: p.adjustments.map((a) => [a.description, a.cityLabel, dt(a.date), money(a.amount)]),
+        body: p.adjustments.map((a, i) => [a.description, a.cityLabel, dt(a.date), money(adj[i])]),
         foot: [["TOTAL", "", "", money(p.adjustmentsTotal)]],
         widths: [width - 92, 30, 22, 40],
         aligns: ["left", "left", "center", "right"],
@@ -305,9 +310,10 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
 
     if (p.revenuesHeld.length > 0) {
       subTitle("Receitas do evento em poder do sócio");
+      const held = reconcileDisplayValues(p.revenuesHeld.map((r) => r.amount), p.revenuesHeldTotal);
       table({
         head: ["Fonte", "Conta / operação", "Descrição", "Data", "Valor"],
-        body: p.revenuesHeld.map((r) => [r.sourceLabel, r.accountName, r.description, dt(r.date), money(r.amount)]),
+        body: p.revenuesHeld.map((r, i) => [r.sourceLabel, r.accountName, r.description, dt(r.date), money(held[i])]),
         foot: [["TOTAL", "", "", "", money(p.revenuesHeldTotal)]],
         widths: [32, 40, width - 124, 20, 32],
         aligns: ["left", "left", "left", "center", "right"],
@@ -317,9 +323,10 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
 
     if (p.extras.length > 0) {
       subTitle("Extras / adiantamentos ao sócio");
+      const ex = reconcileDisplayValues(p.extras.map((e) => e.amount), p.extrasTotal);
       smallTable({
         head: ["Origem", "Descrição", "Cidade", "Data", "Valor"],
-        body: p.extras.map((e) => [e.originLabel ?? "—", e.description, e.cityLabel, dt(e.date), money(e.amount)]),
+        body: p.extras.map((e, i) => [e.originLabel ?? "—", e.description, e.cityLabel, dt(e.date), money(ex[i])]),
         foot: [["TOTAL", "", "", "", money(p.extrasTotal)]],
         widths: [22, width - 118, 30, 20, 46],
         aligns: ["left", "left", "left", "center", "right"],
