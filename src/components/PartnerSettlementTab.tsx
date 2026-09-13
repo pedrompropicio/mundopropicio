@@ -193,19 +193,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Partners (external — Mundo Propício é injetada depois)
-  const { data: partners = [] } = useQuery({
-    queryKey: ["event-partners", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partners")
-        .select("*, suppliers(name)")
-        .eq("event_id", eventId)
-        .order("created_at");
-      if (error) throw error;
-      return data;
-    },
+  // Apuramentos do evento (separador do Encontro de Contas)
+  const { data: eventSettlements = [] } = useQuery({
+    queryKey: ["event-settlements-fecho", eventId],
+    queryFn: () => fetchEventSettlements([eventId]),
   });
+
+  // Participantes — fonte de verdade (inclui a casa como linha real)
+  const { data: allParticipants = [] } = useQuery({
+    queryKey: ["event-settlement-participants-fecho", eventId],
+    queryFn: () => fetchSettlementParticipants([eventId]),
+  });
+
+  const rootSettlementId = useMemo(() => {
+    const root = (eventSettlements as any[]).find((s) => !s.parent_id) ?? (eventSettlements as any[])[0];
+    return root?.id ?? null;
+  }, [eventSettlements]);
+
+  const activeSettlementId = selectedSettlementId ?? rootSettlementId;
+
+  const partners = useMemo(
+    () => (allParticipants as any[]).filter((p) => !activeSettlementId || p.settlement_id === activeSettlementId),
+    [allParticipants, activeSettlementId],
+  );
 
   // Event transactions (with category)
   const { data: transactions = [] } = useQuery({
