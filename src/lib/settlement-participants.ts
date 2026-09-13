@@ -138,6 +138,44 @@ export function localPartnersPct(partnerPct: number): number {
 }
 
 /**
+ * Documento estanque de um sócio (e2): o destinatário só vê a SUA linha e uma
+ * linha agregada "Sócios locais" com o resto (100 − a sua %). Nunca vê nomes,
+ * percentagens nem participantes de outros apuramentos — em particular não vê
+ * os participantes do apuramento acima do seu.
+ */
+export interface PartnerDocRow {
+  label: string;
+  pct: number;
+  isRecipient: boolean;
+}
+
+export function partnerDocRows<T extends { participantId: string; settlement_id: string; percentage: number; suppliers: { name: string } | null }>(
+  participants: T[],
+  recipientParticipantId: string,
+): PartnerDocRow[] {
+  const me = participants.find((p) => p.participantId === recipientParticipantId);
+  if (!me) return [];
+  const pct = Number(me.percentage || 0);
+  const rows: PartnerDocRow[] = [
+    { label: me.suppliers?.name || "—", pct, isRecipient: true },
+  ];
+  const rest = localPartnersPct(pct);
+  if (rest > 0) rows.push({ label: "Sócios locais", pct: rest, isRecipient: false });
+  return rows;
+}
+
+/** Apuramentos que um participante pode ver: só o seu nó (nunca a raiz do pai). */
+export function visibleSettlementIdsForParticipant<T extends { supplier_id: string | null; settlement_id: string }>(
+  participants: T[],
+  supplierId: string,
+): string[] {
+  return Array.from(
+    new Set(participants.filter((p) => p.supplier_id === supplierId).map((p) => p.settlement_id)),
+  );
+}
+
+
+/**
  * Quota residual da casa: 100 − Σ profit_pct de TODOS os participantes `partner`
  * do apuramento (settles **e** nominal).
  *
