@@ -87,7 +87,7 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   );
 
   // 3. AS DESPESAS DO EVENTO
-  section(`${t.section3} · ${doc.expenseBasisLabel}`);
+  section(`${t.section3} (${doc.expenseBasisLabel.toLowerCase()})`);
   arial(ws.addRow([t.family, t.value, t.iva, t.totalWithIva]), { bold: true });
   doc.families.forEach((f) =>
     moneyCells(arial(ws.addRow([`${f.code} · ${f.name}`, f.base, f.iva, f.total])), [2, 3, 4]),
@@ -98,11 +98,17 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   );
 
   // 4. O RESULTADO (com cascata quando o acordo apura sobre parte do resultado)
-  section(`${t.section4} · ${doc.resultBasisLabel}`);
+  // (g13-b) Em cascata o título não leva base: a base vai na linha de partida.
+  section(doc.cascade ? t.section4 : `${t.section4} · ${doc.resultBasisLabel}`);
   if (doc.cascade) {
     doc.cascade.forEach((lv, i) => {
       moneyCells(
-        arial(ws.addRow([i === 0 ? t.eventResultLine : t.carriedResultLine, lv.baseValue]), {
+        arial(ws.addRow([
+          i === 0
+            ? `${t.eventResultLine} (${doc.expenseBasisLabel.toLowerCase()})`
+            : t.carriedResultLine,
+          lv.baseValue,
+        ]), {
           bold: true,
         }),
         [2],
