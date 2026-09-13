@@ -117,3 +117,54 @@ Anitta EDA 2026.
 2. Prova formal contra a planilha v23.
 3. Repetir auditoria de estanqueidade com utilizadores ligados (P2-13).
 4. Selar os 3 fechamentos, fechar #146.
+
+## 5-ter. Adenda g16 → g17-d (Publish final da sessão)
+
+- **g16** — a ligação utilizador ↔ sócio saiu do SQL: seletor "Sócio" no cartão
+  de acesso de parceiro (`profiles.linked_supplier_id`) e lista dos utilizadores
+  ligados na ficha do fornecedor. Pendente: migração
+  `<ts>_profiles_admin_update_linked_supplier.sql` (policy UPDATE em `profiles`
+  para admin/manager da empresa) — escrita mas **não aplicada**, à espera da
+  decisão sobre incluir `manager` no SELECT.
+- **g17** — o Portal do Sócio deixou de calcular. Todo o cálculo vive no pacote
+  partilhado `supabase/functions/_shared/settlement/` (16 módulos puros; os
+  `src/lib/*.ts` são shims `export * from "@shared/settlement/…"`).
+  `statement-service.ts` expõe `loadStatementBundle` + `buildPartnerStatement`
+  → `{ doc, block, cards }`. Edge function `partner-statement`
+  (`verify_jwt = true`, service_role) valida o utilizador, resolve o sócio por
+  `user_supplier_id`, exige `partner_event_access` activo e participação
+  `mode = 'settles'`; do cliente só vem `event_id`. Log em `system_audit_log`.
+- **g17-b / g17-c** — bloco `PartnerSettlementBlock` ("O seu fechamento") no topo
+  de `PartnerEventDetail` e `PartnerFinancialCards` com prop `fecho`: os cards do
+  evento passam a mostrar receitas, despesas e resultado DO FECHO (perímetro da
+  raiz). PDF/XLSX gerados no browser a partir do mesmo `doc`.
+- **g17-d** — regra única de arredondamento: `roundCents`
+  (`_shared/settlement/iva.ts`, reexportado por `src/lib/iva.ts`) normaliza o
+  ruído binário (`toPrecision(15)` + notação exponencial, half-away-from-zero) e
+  é a ÚNICA função de arredondamento do fecho. `Math.round(x*100)/100`, `toFixed`
+  e truncatura ficam proibidos em valores do fecho. Corrigiu 417.293,41 →
+  **417.293,42** na parte da ANITTA (596.133,45 × 70% = 417293.4149999999).
+  `calcWithIva` em `src/lib/utils.ts` delega em `calcTotalWithIva`.
+
+## 7. Prova real no Portal publicado (13/09)
+
+Login com `pedroneto@socialmusic.com.br`, ligado sucessivamente a RAFAEL LOBO,
+EVERYTHINGISNEW e ANITTA:
+
+- Estanqueidade total: cada sócio vê só o seu fechamento, sem qualquer referência
+  a outros sócios ou fechamentos; troca de identidade sem cache suja.
+- RAFAEL LOBO 596.133,45 − ANITTA 70% = 178.840,04 → 20% = **35.768,01**.
+- EVERYTHINGISNEW: cascata 119.226,69 + 262.459,85 + 72.250,52 + 93.969,63 =
+  547.906,69; parte **273.953,34**; base a transferir **230.990,35** com receitas
+  em poder itemizadas.
+- ANITTA "ANITTA 70% · Sócios locais 30%" = **417.293,42**.
+- PDFs gerados do Portal para os três. Utilizador de teste devolvido a sem sócio.
+- Ligações reais: lobo→RAFAEL LOBO, taniatadeu→EVERYTHINGISNEW, marianna→ANITTA.
+
+**P2-13 concluída** (issue #168 a fechar com este resumo).
+
+## 8. Pendentes menores registados
+
+- `suppliers.doc_locale` da ANITTA → `pt-BR` (DML do Pedro).
+- ANITTA duplicada na empresa Coala (`d24f8f88…`), sem uso.
+- Descrições de linhas de BP com "· EIN" visíveis ao sócio (P2).
