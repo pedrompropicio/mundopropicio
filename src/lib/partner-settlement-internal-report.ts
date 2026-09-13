@@ -351,10 +351,15 @@ export function partnerAccountLines(p: InternalPartnerBlock): Array<{ label: str
   return rows;
 }
 
-/** Prova do bloco do sócio: soma das linhas do detalhe contra a base a transferir. */
+/**
+ * Prova do bloco do sócio contra a base a transferir do modelo.
+ *
+ * (g15-b) Usa EXACTAMENTE a mesma cadeia de arredondamento do ecrã
+ * (`partnerFinancingToReturn` → base a transferir), senão o documento acusava
+ * um cêntimo de diferença que não existe.
+ */
 export function partnerBlockMismatch(p: InternalPartnerBlock): number {
-  const detail = roundCents(
-    p.partnerShare + p.disbursement + p.adjustmentsTotal - p.revenuesHeldTotal - p.extrasTotal,
-  );
+  const financing = partnerFinancingToReturn(p.disbursement, p.adjustmentsTotal, p.revenuesHeldTotal);
+  const detail = roundCents(p.partnerShare + financing - p.extrasTotal);
   return roundCents(detail - roundCents(p.transferBase));
 }
