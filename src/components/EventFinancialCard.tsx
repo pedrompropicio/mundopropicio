@@ -89,17 +89,14 @@ export function EventFinancialCard(props: Props) {
   const setWithVat = isExpense ? shared.setWithVat : setIncomeWithVat;
   const setIncludeOverhead = isExpense ? shared.setIncludeOverhead : setIncomeOverhead;
 
-  // Modo <-> base da despesa: mexer no card reflete-se no Fecho e vice-versa.
+  // Modo <-> critério do evento: mexer no card grava na BD e reflete-se no Fecho
+  // (e vice-versa) para TODOS os utilizadores.
   const handleModeChange = (next: CardMode) => {
-    setMode(next);
-    if (isExpense && (next === "realized" || next === "committed")) shared.setExpenseSource(next);
+    setStoredMode(next);
+    if (next === "realized" || next === "committed") shared.setExpenseSource(next);
   };
-  useEffect(() => {
-    if (!isExpense) return;
-    setMode((cur) => (cur === "realized" || cur === "committed" ? shared.expenseSource : cur));
-  }, [isExpense, shared.expenseSource]);
 
-  useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
+  useEffect(() => { writeStoredMode(userId, eventId, kind, storedMode); }, [userId, eventId, kind, storedMode]);
   useEffect(() => {
     if (!isExpense) writeStoredWithVat(userId, eventId, kind, incomeWithVat);
   }, [isExpense, userId, eventId, kind, incomeWithVat]);
@@ -164,8 +161,7 @@ export function EventFinancialCard(props: Props) {
         </div>
         <div className="flex items-center gap-1">
           <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {MODE_LABEL[mode === "auto" ? "auto" : data.modeUsed]}
-            {mode === "auto" && <span className="opacity-60"> · {MODE_LABEL[data.modeUsed]}</span>}
+            {MODE_LABEL[data.modeUsed]}
           </span>
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
