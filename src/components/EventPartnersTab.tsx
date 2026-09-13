@@ -27,7 +27,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
-import { HOUSE_PARTNER_NAME } from "@/lib/house-partner";
+import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
 
 interface Props {
   eventId: string;
