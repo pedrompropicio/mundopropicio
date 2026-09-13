@@ -142,7 +142,12 @@ export interface PartnerStatementDoc {
   expenseTotal: number;
   /** Valor de despesa que entra no resultado (c/IVA ou s/IVA conforme o fechamento). */
   expenseForResult: number;
+  /** Base EFETIVA do fechamento (já com a regra g10 aplicada). */
   usesGrossExpenses: boolean;
+  /** (g10) "Despesas c/IVA" | "Despesas s/IVA" — rótulo da secção 3/4. */
+  expenseBasisLabel: string;
+  /** (g10) "Resultado c/IVA" | "Resultado s/IVA". */
+  resultBasisLabel: string;
   result: number;
   recipientShare: number;
   othersShare: number;
