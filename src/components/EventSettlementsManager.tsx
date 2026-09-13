@@ -370,8 +370,20 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">% sobre o fechamento acima</Label>
-              <Input type="number" min="0" max="100" step="0.01" value={pct} onChange={(e) => setPct(e.target.value)} />
+              <Label className="text-xs">Quota do fechamento acima (opcional)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="0"
+                value={pct}
+                onChange={(e) => setPct(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Deixa vazio (0%) se este fechamento vive só das suas próprias receitas e despesas
+                marcadas.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Base da quota</Label>
