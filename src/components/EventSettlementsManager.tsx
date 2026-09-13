@@ -33,6 +33,8 @@ interface SettlementRow {
   is_sealed: boolean;
   parent_share_pct: number | null;
   parent_share_basis: ParentShareBasis | null;
+  /** (g1) devolve a este fechamento o IVA dedutível das despesas do fechamento acima. */
+  returns_parent_deductible_vat: boolean;
   notes: string | null;
 }
 
