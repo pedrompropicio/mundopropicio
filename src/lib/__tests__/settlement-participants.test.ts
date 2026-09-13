@@ -62,15 +62,18 @@ describe("quotas", () => {
     expect(localPartnersPct(100)).toBe(0);
   });
 
-  it("residual da casa ignora a própria casa e os nominais", () => {
+  // (e2) ponto 3: os nominais TAMBÉM reduzem a quota da casa — se a casa
+  // absorvesse a parte nominal, o motor contava-a duas vezes (declarada +
+  // nominalGap) e a conferência C2 deixava de fechar.
+  it("residual da casa desconta todos os sócios, settles e nominais", () => {
     const rows = [
       { percentage: 70, mode: "settles" },
-      { percentage: 15, mode: "settles" },
-      { percentage: 40, mode: "nominal" },
+      { percentage: 15, mode: "nominal" },
       { percentage: 15, mode: "settles", isHouse: true },
     ];
     expect(residualHousePct(rows)).toBe(15);
   });
+
 
   it("residual zero quando os sócios cobrem 100%", () => {
     expect(residualHousePct([{ percentage: 35, mode: "settles" }, { percentage: 65, mode: "settles" }])).toBe(0);
