@@ -6730,6 +6730,45 @@ export type Database = {
           },
         ]
       }
+      event_partners_mirror_inversion_proof: {
+        Row: {
+          can_order: boolean | null
+          can_pay: boolean | null
+          event_id: string
+          expense_includes_iva: boolean | null
+          id: string
+          loss_percentage: number | null
+          percentage: number | null
+          phase: string
+          supplier_id: string
+          taken_at: string
+        }
+        Insert: {
+          can_order?: boolean | null
+          can_pay?: boolean | null
+          event_id: string
+          expense_includes_iva?: boolean | null
+          id?: string
+          loss_percentage?: number | null
+          percentage?: number | null
+          phase: string
+          supplier_id: string
+          taken_at?: string
+        }
+        Update: {
+          can_order?: boolean | null
+          can_pay?: boolean | null
+          event_id?: string
+          expense_includes_iva?: boolean | null
+          id?: string
+          loss_percentage?: number | null
+          percentage?: number | null
+          phase?: string
+          supplier_id?: string
+          taken_at?: string
+        }
+        Relationships: []
+      }
       event_portal_endorsements: {
         Row: {
           added_at: string
@@ -15499,9 +15538,9 @@ export type Database = {
       }
       event_budget_mode: { Args: { _event_id: string }; Returns: string }
       event_close_blockers: { Args: { _event_id: string }; Returns: Json }
-      event_settlement_sync_root: {
+      event_partners_sync_from_settlements: {
         Args: { _event_id: string }
-        Returns: string
+        Returns: number
       }
       expire_supplier_credits: { Args: never; Returns: number }
       find_admin_absorbing_events: {
@@ -15767,6 +15806,7 @@ export type Database = {
         Args: { _company_id: string }
         Returns: boolean
       }
+      is_settlement_staff: { Args: { _user: string }; Returns: boolean }
       list_bp_versions: {
         Args: { _event_id: string }
         Returns: {
@@ -16126,6 +16166,10 @@ export type Database = {
         Args: { _value: boolean }
         Returns: undefined
       }
+      settlement_local_partners_pct: {
+        Args: { _settlement_id: string }
+        Returns: number
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       slugify: { Args: { txt: string }; Returns: string }
@@ -16189,6 +16233,11 @@ export type Database = {
       user_has_event_access: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: boolean
+      }
+      user_settlement_ids: { Args: { _user: string }; Returns: string[] }
+      user_settlement_visible_ids: {
+        Args: { _user: string }
+        Returns: string[]
       }
       user_supplier_id: { Args: { p_user_id: string }; Returns: string }
       validate_trusted_device: {
