@@ -1,19 +1,20 @@
-# Estado — Fecho, Sócios e Apuramentos
+# Estado — Fecho, Sócios e Fechamentos
 
 Atualizado: 13/09/2026 (épica #146, alíneas (a)–(e2) construídas; (f) selo em aberto).
+Termo de utilizador: **Fechamento** (decisão do Pedro, 13/09/2026). Nomes técnicos `settlement` mantêm-se.
 
 ## 1. O que existe hoje
 
-### Apuramentos (`event_settlements`)
-Árvore por evento. A **raiz** ("Fecho do evento") representa o evento inteiro;
+### Fechamentos (`event_settlements`)
+Árvore por evento. A **raiz** ("Fechamento do evento") representa o evento inteiro;
 cada **filho** é um fecho bilateral estanque que recebe uma **quota do
-apuramento acima** (`parent_share_pct` sobre `parent_share_basis`:
+fechamento acima** (`parent_share_pct` sobre `parent_share_basis`:
 `net_result` = despesas s/IVA, `net_result_gross_expenses` = despesas c/IVA).
 
 Hoje em Live: 7 raízes, nenhum filho criado. A Anitta é raiz única.
 
 ### Participantes (`event_settlement_participants`) — fonte de verdade
-Uma linha por participante e apuramento:
+Uma linha por participante e fechamento:
 - `participant_kind`: `partner` ou `house` (a casa, Mundo Propício);
 - `mode`: `settles` (acerta) ou `nominal` (só informativo);
 - `profit_pct` / `loss_pct`, `expense_includes_iva` (base própria do sócio),
@@ -30,10 +31,10 @@ EXECUTE só `service_role`).
 
 ### Marcação de linhas
 `event_forecasts.event_settlement_id` e `transactions.event_settlement_id`
-(ON DELETE SET NULL) marcam uma linha como pertencente a um apuramento. Validação
+(ON DELETE SET NULL) marcam uma linha como pertencente a um fechamento. Validação
 por triggers: a linha valida-se pelo **seu próprio `event_id`**; transação sem
-`event_id` e com apuramento é recusada. `prevent_delete_event_settlement_with_lines`
-impede apagar um apuramento com linhas marcadas.
+`event_id` e com fechamento é recusada. `prevent_delete_event_settlement_with_lines`
+impede apagar um fechamento com linhas marcadas.
 
 ### Operações de terceiros (`event_third_party_operations` / `event_operation_participations`)
 A&B, bengaleiro, merchandising, estacionamento. Modos de participação:
@@ -58,19 +59,19 @@ casa e as conferências **C1** (âncora do evento) e **C2** (a soma fecha). TOL 
 receitas mantém preferência local de IVA (não é matéria de fecho).
 
 Consumidores com o mesmo critério: card da capa, Fecho, Encontro de Contas,
-painel Apuramentos, PDFs e Portal do Sócio.
+painel Fechamentos, PDFs e Portal do Sócio.
 
 ## 3. UI
 
 - **Aba Sócios** (`EventPartnersTab` + `EventSettlementsManager`): cria a raiz,
   cria/renomeia/reordena/apaga filhos, adiciona e edita participantes; a casa é
   read-only e recalculada. Tudo gated por `manage_bp` e bloqueado em evento
-  concluído ou apuramento selado.
-- **Encontro de Contas** (`PartnerSettlementTab`): selector de apuramento (só
+  concluído ou fechamento selado.
+- **Encontro de Contas** (`PartnerSettlementTab`): selector de fechamento (só
   aparece com 2+); calcula pelo nó activo; num filho mostra a origem da quota e
-  nunca os participantes do pai; PDF com o nome do apuramento no ficheiro e no
+  nunca os participantes do pai; PDF com o nome do fechamento no ficheiro e no
   cabeçalho.
-- **Painel Apuramentos** (`EventSettlementsPanel` + `EventThirdPartyOperationsPanel`):
+- **Painel Fechamentos** (`EventSettlementsPanel` + `EventThirdPartyOperationsPanel`):
   árvore, participantes com nome resolvido, operações e activos adicionais, C1/C2.
 - **Portal do Sócio** e documentos: estanques — cada sócio vê a sua linha e
   "Sócios locais" (100 − a sua %); a equipa interna vê tudo.
@@ -107,9 +108,10 @@ entra na prova.
 
 ## 5. Em aberto
 
-- **(f) selo do apuramento** — congelar um apuramento (`is_sealed`) e o que fica
+- **(f) selo do fechamento** — congelar um fechamento (`is_sealed`) e o que fica
   bloqueado a partir daí. Não iniciado.
 - **Anitta 597.183,45 da planilha v23/v4** — não se reproduz hoje: faltam os
   níveis 2/3, os activos exclusivos e ajustes de IVA. Peça posterior, com
   autorização do Pedro.
-- Publish não foi feito nesta épica.
+- Publish: as alíneas (a)–(e) foram publicadas a 13/09/2026; a (e2) e esta mudança de
+  terminologia ainda não foram publicadas.
