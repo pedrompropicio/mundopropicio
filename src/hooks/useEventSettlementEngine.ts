@@ -296,18 +296,19 @@ export function useEventSettlementEngine(eventId: string) {
       m.extrasGross! += ex.origem === "transacao" ? calcTotalWithIva(net, Number(ex.iva_rate || 0)) : net;
     });
 
-    const engineParticipants: EngineParticipant[] = (participants as any[]).map((p) => ({
-      id: p.id,
+    const engineParticipants: EngineParticipant[] = (participants as SettlementParticipant[]).map((p) => ({
+      id: p.participantId,
       settlement_id: p.settlement_id,
-      participant_kind: p.participant_kind,
-      name: p.participant_kind === "house" ? HOUSE_PARTNER_NAME : (p.supplier?.name ?? "—"),
+      participant_kind: p.isHouse ? "house" : "partner",
+      name: p.isHouse ? HOUSE_PARTNER_NAME : (p.suppliers?.name || "—"),
       supplier_id: p.supplier_id ?? null,
       event_partner_id: p.event_partner_id ?? null,
-      mode: p.mode,
-      profit_pct: p.profit_pct,
-      loss_pct: p.loss_pct,
+      mode: p.mode as "settles" | "nominal",
+      profit_pct: p.percentage,
+      loss_pct: p.loss_percentage,
       expense_includes_iva: p.expense_includes_iva,
     }));
+
 
     return computeSettlementEngine({
       eventBasis: normalizePartnerCalcBasis(event?.partner_calc_basis),
