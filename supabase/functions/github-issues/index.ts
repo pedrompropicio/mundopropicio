@@ -104,7 +104,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           updated_at: it.updated_at,
           body: it.body,
         }));
-      return json({ issues });
+      return json({ issues, page, has_more: items.length === 100 });
     }
 
     if (action === "create") {
