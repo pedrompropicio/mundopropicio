@@ -274,6 +274,8 @@ function orderTopologically(settlements: EngineSettlement[]): EngineSettlement[]
 export function computeSettlementEngine(input: EngineInput): EngineResult {
   const errors: string[] = [];
   const ignoresExpenses = ignoresOperationalExpenses(input.eventBasis as any);
+  /** (g4) Base contratual do evento — base do fechamento raiz. */
+  const eventUsesGross = usesGrossExpenseAmounts(input.eventBasis as any);
   const marked = input.markedLines ?? [];
 
   // ── Operações de terceiros (d): valor da participação por apuramento ─
