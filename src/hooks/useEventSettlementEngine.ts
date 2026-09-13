@@ -277,6 +277,17 @@ export function useEventSettlementEngine(eventId: string) {
         })),
     ];
 
+    // (g6) Linhas do BP devolvidas a um fechamento abaixo: continuam no
+    // perímetro de cima (a raiz é imutável) e somam ao resultado do filho.
+    const addbackLines = (forecasts as any[])
+      .filter((f) => f.addback_settlement_id && f.type === "expense" && !f.exclude_from_result && !f.is_transitory)
+      .map((f) => ({
+        addback_settlement_id: f.addback_settlement_id as string,
+        label: String(f.description || "Linha do BP"),
+        amount: f.amount,
+        iva_rate: f.iva_rate,
+      }));
+
     const moneyByPartner: Record<string, EngineParticipantMoney> = {};
     const bumpMoney = (key: string) => {
       moneyByPartner[key] = moneyByPartner[key] ?? {
