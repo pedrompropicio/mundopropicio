@@ -9,6 +9,7 @@ import {
   getDefaultIvaRateForCountry,
   getIvaRatesForCountries,
   getDefaultIvaRateForCountries,
+  roundCents,
 } from "../iva";
 
 describe("calcIvaAmount", () => {
@@ -128,5 +129,44 @@ describe("IVA por conjunto de países (turnês)", () => {
 
   it("ignora países desconhecidos", () => {
     expect(getIvaRatesForCountries(["Narnia", "Espanha"])).toEqual([0, 4, 10, 21]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (g17-d) Regra ÚNICA de arredondamento ao cêntimo — motor, ERP, edge function
+// e Portal usam roundCents. Nunca toFixed nem truncatura.
+// ---------------------------------------------------------------------------
+describe("roundCents (g17-d)", () => {
+  it("arredonda .415 para cima mesmo com erro de vírgula flutuante", () => {
+    // 596.133,45 × 70% = 417293.4149999999 em binário → tem de dar 417.293,42
+    expect(roundCents(596133.45 * 0.7)).toBe(417293.42);
+    expect(roundCents(417293.415)).toBe(417293.42);
+    expect(roundCents(1.005)).toBe(1.01);
+    expect(roundCents(2.675)).toBe(2.68);
+  });
+
+  it("arredonda simetricamente valores negativos", () => {
+    expect(roundCents(-(596133.45 * 0.7))).toBe(-417293.42);
+    expect(roundCents(-1.005)).toBe(-1.01);
+  });
+
+  it("mantém os números de referência da Anitta EDA 2026", () => {
+    const root = 596133.45;
+    const anitta = roundCents(root * 0.7);
+    const society = roundCents(root - anitta);
+    const lobo = roundCents(society * 0.2);
+    expect(anitta).toBe(417293.42);
+    expect(lobo).toBe(35768.01);
+    const level3 = 547906.69;
+    const ein = roundCents(level3 * 0.5);
+    expect(roundCents(ein + roundCents(level3 - ein))).toBe(level3);
+    expect(ein).toBe(273953.35);
+  });
+
+  it("é estável e não usa truncatura", () => {
+    expect(roundCents(0)).toBe(0);
+    expect(roundCents(Number.NaN)).toBe(0);
+    expect(roundCents(0.004)).toBe(0);
+    expect(roundCents(0.005)).toBe(0.01);
   });
 });

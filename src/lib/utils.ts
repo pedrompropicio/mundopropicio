@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 // Vive no pacote partilhado (ERP + edge functions) — ver @shared/settlement.
 import { compareHierarchicalCodes } from "@shared/settlement/hierarchical-codes.ts";
+import { calcTotalWithIva } from "@shared/settlement/iva.ts";
 
 export { compareHierarchicalCodes };
 
@@ -37,10 +38,8 @@ export function compareReportCodesUnclassifiedLast(a?: string | null, b?: string
  * Delega no SSoT em src/lib/iva.ts.
  */
 export function calcWithIva(baseAmount: number, ivaRate: number): number {
-  const base = Number(baseAmount) || 0;
-  const rate = Number(ivaRate) || 0;
-  const iva = Math.round(base * (rate / 100) * 100) / 100;
-  return Math.round((base + iva) * 100) / 100;
+  // (g17-d) Regra única de arredondamento: roundCents do pacote partilhado.
+  return calcTotalWithIva(Number(baseAmount) || 0, Number(ivaRate) || 0);
 }
 
 /**

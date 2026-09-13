@@ -81,9 +81,28 @@ export const IVA_RATE_LABELS: Record<number, string> = {
 export const IVA_TOLERANCE = 0.01;
 
 
-/** Arredonda a 2 casas decimais (cêntimo). */
+/**
+ * Arredonda a 2 casas decimais (cêntimo) — regra ÚNICA para motor, ERP, edge
+ * functions e Portal (g17-d).
+ *
+ * `Math.round(x * 100) / 100` falha em casos como 596.133,45 × 70% =
+ * 417293.4149999999 (devolvia 417.293,41 em vez de 417.293,42). A notação
+ * exponencial reescala o número sem introduzir erro binário adicional.
+ * Nunca usar `toFixed` nem truncatura na apresentação.
+ */
 export function roundCents(value: number): number {
-  return Math.round((Number(value) || 0) * 100) / 100;
+  const n = Number(value) || 0;
+  if (!Number.isFinite(n)) return 0;
+  const sign = n < 0 ? -1 : 1;
+  // 1) Normaliza o ruído binário (417293.4149999999 → 417293.415) a 15 dígitos
+  //    significativos — precisão de facto de um double.
+  const abs = Number(Math.abs(n).toPrecision(15));
+  // 2) Reescala em notação exponencial (sem erro binário extra) e arredonda
+  //    simetricamente (half away from zero, como o Art.º 18.º CIVA exige).
+  const scaled = Number(`${abs}e2`);
+  const rounded = Number.isFinite(scaled) ? Math.round(scaled) : Math.round(abs * 100);
+  const out = Number(`${rounded}e-2`);
+  return sign * (Number.isFinite(out) ? out : rounded / 100);
 }
 
 /** Calcula o montante de IVA sobre uma base sem IVA. */
