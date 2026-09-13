@@ -13,6 +13,8 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { isCapitalCategoryCode, capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
 import { fetchSettlementParticipants } from "@/lib/settlement-participants";
+import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 
 type CapitalFlow = "event_cash" | "partner_settlement";
 
@@ -99,6 +101,9 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
 
   const linkByTx = new Map<string, any>((links as any[]).map((l) => [l.transaction_id, l]));
 
+  /** (g5·G) Fechamentos raiz do evento — o caixa lê só o perímetro da raiz. */
+  const { rootIds: rootSettlementIds } = useEventRootSettlements(eventId);
+
   /** Destino escolhido antes de gravar o vínculo (por transação). */
   const [flowByTx, setFlowByTx] = useState<Record<string, CapitalFlow>>({});
 
@@ -108,7 +113,7 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, amount, paid_amount, type, status, is_transitory, is_hidden, reversed_at, account_categories(code)")
+        .select("id, amount, paid_amount, type, status, is_transitory, is_hidden, reversed_at, event_settlement_id, account_categories(code)")
         .in("event_id", treeIds);
       if (error) throw error;
       return (data ?? []).filter(
@@ -178,14 +183,24 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
-  // Resumo por sócio
-  const summary = (partners as any[]).map((p) => {
+  // Resumo por sócio — (g5·G) uma linha por sócio (dedupe por fornecedor).
+  const partnerIdsBySupplier = new Map<string, string[]>();
+  (partners as any[]).forEach((p) => {
+    const key = p.supplier_id ?? p.id;
+    partnerIdsBySupplier.set(key, [...(partnerIdsBySupplier.get(key) ?? []), p.id]);
+  });
+  const uniquePartners = (partners as any[]).filter(
+    (p) => (partnerIdsBySupplier.get(p.supplier_id ?? p.id) ?? [])[0] === p.id,
+  );
+
+  const summary = uniquePartners.map((p) => {
+    const myIds = new Set(partnerIdsBySupplier.get(p.supplier_id ?? p.id) ?? [p.id]);
     let aportes = 0;
     let devolucoes = 0;
     let distribuicoes = 0;
     (capitalTxs as any[]).forEach((tx) => {
       const link = linkByTx.get(tx.id);
-      if (!link || link.partner_id !== p.id) return;
+      if (!link || !myIds.has(link.partner_id)) return;
       const v = Number(tx.amount || 0);
       if (link.kind === "aporte") aportes += v;
       else if (link.kind === "devolucao") devolucoes += v;
@@ -204,9 +219,11 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
   const hasAny = summary.some((s) => s.aportes || s.devolucoes || s.distribuicoes);
 
   // ————— Equilíbrio de financiamento (leitura; não altera o resumo nem o acerto) —————
+  // (g5·G) O caixa do evento é o perímetro do fechamento raiz.
+  const opExpensesAll = (opTxs as any[]).filter((t) => t.type === "expense");
   const OP_EXPENSE_STATUS = ["approved", "paid", "partially_paid"];
   const OP_INCOME_STATUS = ["approved", "paid"];
-  const opExpenses = (opTxs as any[]).filter((t) => t.type === "expense");
+  const opExpenses = keepRootPerimeter(opExpensesAll, rootSettlementIds);
   const opIncome = (opTxs as any[]).filter((t) => t.type === "income");
 
   const despesaPaga = opExpenses.reduce((s, t) => s + Number(t.paid_amount || 0), 0);
@@ -262,16 +279,6 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
     });
   }
 
-  const financing = financingRows.map((r) => {
-    const competia = (r.pct / 100) * necessidadeAtual;
-    return {
-      ...r,
-      competia,
-      desvio: r.pos - competia,
-      faltaAteAoFim: Math.max(0, (r.pct / 100) * necessidadeTotal - r.pos),
-    };
-  });
-
   const financingBlock = (
     <div className="space-y-4">
       <div className="glass rounded-xl overflow-hidden">
@@ -285,7 +292,7 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
               <TableCell className="text-right font-mono text-success">{formatCurrency(entrouNoEvento)}</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell className="text-sm">Saiu (despesas pagas)</TableCell>
+              <TableCell className="text-sm">Saiu (despesas pagas do perímetro da raiz)</TableCell>
               <TableCell className="text-right font-mono">{formatCurrency(despesaPaga)}</TableCell>
             </TableRow>
             <TableRow>
@@ -304,45 +311,42 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
       <div className="glass rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border/50 bg-muted/30">
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Equilíbrio de financiamento
+            Posição de caixa por sócio
           </span>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Sócio</TableHead>
-              <TableHead className="text-right">%</TableHead>
-              <TableHead className="text-right">Já pôs</TableHead>
-              <TableHead className="text-right">Competia</TableHead>
-              <TableHead className="text-right">Desvio</TableHead>
-              <TableHead className="text-right">Falta até ao fim</TableHead>
+              <TableHead className="text-right">Aportes</TableHead>
+              <TableHead className="text-right">Devoluções</TableHead>
+              <TableHead className="text-right">Despesas pagas por ele</TableHead>
+              <TableHead className="text-right">Posição de caixa</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {financing.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="text-sm font-medium">{r.name}</TableCell>
-                <TableCell className="text-right font-mono text-xs">{r.pct}%</TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(r.pos)}</TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(r.competia)}</TableCell>
-                <TableCell
-                  className={`text-right font-mono font-medium ${r.desvio >= 0 ? "text-success" : "text-destructive"}`}
-                >
-                  {r.desvio >= 0 ? "+" : ""}
-                  {formatCurrency(r.desvio)}
-                </TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(r.faltaAteAoFim)}</TableCell>
-              </TableRow>
-            ))}
+            {financingRows.map((r) => {
+              const sm = summary.find((x) => x.partnerId === r.id);
+              const pagas = paidByPartner.get(r.id) ?? 0;
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="text-sm font-medium">{r.name}</TableCell>
+                  <TableCell className="text-right font-mono text-success">{formatCurrency(sm?.aportes ?? 0)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(sm?.devolucoes ?? 0)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(r.isHouse ? 0 : pagas)}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">{formatCurrency(r.pos)}</TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
         <p className="px-4 py-2.5 text-[11px] text-muted-foreground">
-          Competia e Falta até ao fim calculados sobre a despesa líquida da receita já recebida.
+          Posição de caixa = aportes − devoluções + despesas do evento pagas pelo sócio. A casa mostra o que
+          financiou depois do dinheiro posto pelos sócios.
         </p>
       </div>
     </div>
   );
-
 
   if (partners.length === 0) {
     if (summaryOnly) return null;
