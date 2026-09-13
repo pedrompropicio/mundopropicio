@@ -1561,3 +1561,36 @@ Live: ANITTA 417.293,42 antes e depois (ao cêntimo), Rafael Lobo 35.768,01
 (= 20% × 30% × 596.133,45), nível 3 547.906,69, EIN = casa = 273.953,35, C1 e C2 a
 0,00. A prova apanhou um bug de paridade — o Encontro de Contas mostrava a nota do
 IVA devolvido sem o somar à receita do nó — corrigido em `PartnerSettlementTab`.
+
+**Adenda (g3) a DR-2026-09-09-D25 — construída em 2026-09-13.**
+**O resultado do evento é o PERÍMETRO DA RAIZ.** Em qualquer ecrã ou documento, o
+resultado do evento = totais do evento **menos** as linhas (transações e linhas de
+BP) marcadas com um fechamento que **não** é a raiz. Essas linhas são exclusivas
+desse fechamento e nunca entram em receita, custo, lucro, margem, card, Resumo,
+Fecho, DRE de evento nem Portal do Sócio. Linhas marcadas com a própria raiz
+contam normalmente.
+
+SSoT: `src/lib/settlement-perimeter.ts` (`isOutsideRootPerimeter` /
+`keepRootPerimeter` / `pickOutsideRootPerimeter`) + hook
+`src/hooks/useEventRootSettlements`. Aplicada em `event-revenue-basis`,
+`useEventFinancialCardData`, `EventFecho`, `ResultsAnalysis`, `ReportDRE`,
+`EventDetail` e — no servidor — na RPC `get_partner_event_tx_aggregates`
+(SECURITY DEFINER, search_path e grants inalterados; filtro
+`event_settlement_id IS NULL OR pertence a um fechamento raiz`).
+
+**DRE Empresarial e DRE Brasil ficam como estão** (vistas de EMPRESA, não de
+evento): o dinheiro dos exclusivos continua a ser da empresa e por isso mantém-se
+nessas vistas. O corte do perímetro é só de EVENTO.
+
+**Critério do card (D57):** o eixo "Realizado" vs "Previsto + excedido" vive na BD
+(`events.cost_expense_source`) para os DOIS cards (receitas e custos). O modo
+"Automático (pela fase do evento)" foi REMOVIDO — era um resto anterior à D57 e
+fazia o card de receitas escolher o modo pela fase do evento a partir do
+`localStorage` de cada browser, pelo que dois utilizadores viam números
+diferentes. O `localStorage` guarda apenas a escolha exploratória "Forecast"
+(que não existe na BD). Enquanto a query do evento não chega, o card mostra "—"
+e não propaga valor ao card Lucro.
+
+Prova em Live: só a Anitta EDA 2026 tem linhas fora do perímetro (3 TX de receita,
+72.250,52 s/IVA, "Fechamento MP + EIN"); 0 linhas de BP em toda a base. Os
+restantes 55 eventos dão receita/custo/lucro idênticos antes e depois.

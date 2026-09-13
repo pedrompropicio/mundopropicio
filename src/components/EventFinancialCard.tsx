@@ -69,15 +69,15 @@ export function EventFinancialCard(props: Props) {
   const userId = user?.id ?? "anon";
   const isExpense = kind === "expense";
 
-  // Critério ÚNICO por evento (partilhado com o Fecho). Só o card de CUSTOS o usa;
-  // o card de receitas mantém a sua própria preferência de IVA.
+  // Critério ÚNICO por evento (partilhado com o Fecho), gravado na BD (D25 e2 / D57).
+  // Vale para os DOIS cards: "Realizado" vs "Previsto + excedido" é o mesmo eixo do
+  // Fecho, do Encontro de Contas e do Portal. O localStorage só guarda a escolha
+  // exploratória "Forecast" (que não existe na BD) — nunca sobrepõe o critério.
   const shared = useEventCostBasis(eventId, props.partnerCalcBasis);
 
-  const [mode, setMode] = useState<CardMode>(() => {
-    const stored = readStoredMode(userId, eventId, kind);
-    if (isExpense && (stored === "realized" || stored === "committed")) return shared.expenseSource;
-    return stored;
-  });
+  const [storedMode, setStoredMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
+  // Modo efetivo: só "Forecast" é preferência de utilizador; o resto vem da BD.
+  const mode: CardMode = storedMode === "forecast" ? "forecast" : shared.expenseSource;
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
   const [incomeWithVat, setIncomeWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
   const [incomeOverhead, setIncomeOverhead] = useState<boolean>(
@@ -89,17 +89,14 @@ export function EventFinancialCard(props: Props) {
   const setWithVat = isExpense ? shared.setWithVat : setIncomeWithVat;
   const setIncludeOverhead = isExpense ? shared.setIncludeOverhead : setIncomeOverhead;
 
-  // Modo <-> base da despesa: mexer no card reflete-se no Fecho e vice-versa.
+  // Modo <-> critério do evento: mexer no card grava na BD e reflete-se no Fecho
+  // (e vice-versa) para TODOS os utilizadores.
   const handleModeChange = (next: CardMode) => {
-    setMode(next);
-    if (isExpense && (next === "realized" || next === "committed")) shared.setExpenseSource(next);
+    setStoredMode(next);
+    if (next === "realized" || next === "committed") shared.setExpenseSource(next);
   };
-  useEffect(() => {
-    if (!isExpense) return;
-    setMode((cur) => (cur === "realized" || cur === "committed" ? shared.expenseSource : cur));
-  }, [isExpense, shared.expenseSource]);
 
-  useEffect(() => { writeStoredMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
+  useEffect(() => { writeStoredMode(userId, eventId, kind, storedMode); }, [userId, eventId, kind, storedMode]);
   useEffect(() => {
     if (!isExpense) writeStoredWithVat(userId, eventId, kind, incomeWithVat);
   }, [isExpense, userId, eventId, kind, incomeWithVat]);
@@ -124,7 +121,11 @@ export function EventFinancialCard(props: Props) {
     includeOverhead,
   });
 
-  useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
+  // Nunca propagar números antes de o critério da BD chegar (evita Lucro com critério errado).
+  useEffect(() => {
+    if (shared.isLoading) return;
+    onValueChange?.(data.displayValue);
+  }, [shared.isLoading, data.displayValue, onValueChange]);
 
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
@@ -164,8 +165,7 @@ export function EventFinancialCard(props: Props) {
         </div>
         <div className="flex items-center gap-1">
           <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {MODE_LABEL[mode === "auto" ? "auto" : data.modeUsed]}
-            {mode === "auto" && <span className="opacity-60"> · {MODE_LABEL[data.modeUsed]}</span>}
+            {MODE_LABEL[data.modeUsed]}
           </span>
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
@@ -189,19 +189,17 @@ export function EventFinancialCard(props: Props) {
               <DropdownMenuLabel className="text-xs">Modo</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={mode} onValueChange={(v) => handleModeChange(v as CardMode)}>
                 <DropdownMenuRadioItem
-                  value="auto"
-                  title="escolhe o modo pela fase do evento: em planeamento usa Forecast, durante a produção usa Previsto + excedido, depois de concluído usa Realizado"
+                  value="realized"
+                  disabled={!shared.canEditBasis}
+                  title="critério gravado no evento — igual para todos os utilizadores"
                 >
-                  Automático (pela fase do evento)
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="realized" disabled={isExpense && !shared.canEditBasis}>
                   Realizado
                 </DropdownMenuRadioItem>
 
                 <DropdownMenuRadioItem
                   value="committed"
-                  disabled={isExpense && !shared.canEditBasis}
-                  title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
+                  disabled={!shared.canEditBasis}
+                  title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica — critério gravado no evento"
                 >
                   Previsto + excedido
                 </DropdownMenuRadioItem>
@@ -256,7 +254,9 @@ export function EventFinancialCard(props: Props) {
       </div>
 
       <div className="mt-3">
-        {data.unavailable && data.modeUsed === "forecast" && kind === "income" ? (
+        {shared.isLoading ? (
+          <p className="text-2xl font-bold text-muted-foreground animate-pulse">—</p>
+        ) : data.unavailable && data.modeUsed === "forecast" && kind === "income" ? (
           <p className="text-2xl font-bold text-muted-foreground">—</p>
         ) : (
           <p className="text-2xl font-bold">{formatCurrency(data.displayValue)}</p>

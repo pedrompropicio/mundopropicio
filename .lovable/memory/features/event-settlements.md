@@ -311,3 +311,25 @@ Nível 3 = 119.226,69 (quota) + 262.459,85 (IVA devolvido) + 72.250,52 (exclusiv
 filho aparecia com 285.446,84 em vez de 547.906,69. Corrigido em
 `totalRevenueNet`. Resta 1 cêntimo de diferença de apresentação (o ecrã trunca,
 o motor arredonda): 417.293,41 vs 417.293,42.
+
+## (g3) Resultado do evento = perímetro da raiz — 2026-09-13
+
+Regra: resultado do evento = totais − linhas marcadas com fechamento ≠ raiz.
+SSoT `src/lib/settlement-perimeter.ts` + `useEventRootSettlements`; aplicada em
+`event-revenue-basis`, `useEventFinancialCardData`, `EventFecho`,
+`ResultsAnalysis`, `ReportDRE`, `EventDetail` (bloco "EXCLUSIVOS DE FECHAMENTOS" +
+badge "Exclusivo · <fechamento>") e na RPC `get_partner_event_tx_aggregates`
+(SECURITY DEFINER/search_path/grants inalterados).
+
+**DRE Empresarial e DRE Brasil ficam como estão** — vistas de EMPRESA; o corte é
+só de evento.
+
+**Critério do card (D57):** o eixo Realizado/Previsto+excedido vem sempre de
+`events.cost_expense_source`, nos dois cards. O modo "Automático (pela fase do
+evento)" foi removido (resto pré-D57 que lia `localStorage` e fazia dois
+utilizadores ver números diferentes); o `localStorage` só guarda "Forecast".
+Enquanto o critério não carrega, o card mostra "—".
+
+Prova Live: só a Anitta tem exclusivos (3 TX income, 72.250,52 s/IVA, "Fechamento
+MP + EIN"); 0 linhas de BP marcadas em toda a base; os outros 55 eventos com
+receita/custo/lucro idênticos antes e depois.
