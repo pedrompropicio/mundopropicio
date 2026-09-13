@@ -643,7 +643,6 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   let declared = 0;
   let ivaDeductible = 0;
   let nominalGap = 0;
-  let houseAbsorbedVat = 0;
   const computed: Array<{
     p: EngineParticipant;
     key: string;
@@ -701,9 +700,6 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     if (isHouse && p.mode === "settles") {
       declared += share;
       ivaDeductible += shareNet - share;
-      // (g14) A parte que a casa deixou de receber neste nó por o IVA não
-      // recuperável não ter sido devolvido reaparece no seu residual.
-      houseAbsorbedVat += node.vatReducedIn * (effectivePct / 100);
     }
 
     computed.push({ p, key, isHouse, shareNet });
@@ -763,8 +759,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   const residual = eventNetResult - partnersPaidTotal;
   // (g14) O IVA não repassado é uma parcela EXPLÍCITA do residual da casa.
   const vatNotReturnedTotal = nodes.reduce((s, n) => s + n.vatNotReturned, 0);
-  const rest =
-    residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal + houseAbsorbedVat);
+  const rest = residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal);
 
   const c1Value = partnersPaidTotal + residual - eventNetResult;
   const c2Value = rest;

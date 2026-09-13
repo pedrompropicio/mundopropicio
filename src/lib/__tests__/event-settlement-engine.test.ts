@@ -543,12 +543,3 @@ describe("(g14) IVA não recuperável fica fora da devolução", () => {
   });
 });
 
-describe("dbg", () => {
-  it("dump", () => {
-    const base = computeSettlementEngine(anittaThreeLevels());
-    const ex = computeSettlementEngine(anittaThreeLevels({ vatExclusionLines: [{ event_settlement_id: null, label: "x", amount: 64_029.83, iva_rate: 23 }] }));
-    console.log("base", JSON.stringify({ h: base.house, p: base.partnersPaidTotal, e: base.eventNetResult }));
-    console.log("ex", JSON.stringify({ h: ex.house, p: ex.partnersPaidTotal, e: ex.eventNetResult }));
-    expect(1).toBe(1);
-  });
-});
