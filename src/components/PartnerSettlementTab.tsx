@@ -35,6 +35,7 @@ import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { collectSettlementExpenseDocLines } from "@/lib/event-settlement-inputs";
+import { exportPartnerSettlementInternalPdf } from "@/lib/export-partner-settlement-internal-pdf";
 
 
 import {
@@ -1205,1014 +1206,279 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     "Sócios com bases de cálculo diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
   /**
-   * `recipient` ausente/null → relatório completo (inalterado).
-   * Com `recipient` → variante de impressão individual: mesmos cálculos, outra apresentação.
+   * (g15) RELATÓRIO INTERNO do Encontro de Contas — vista de staff.
+   *
+   * Não recalcula nada: junta os números das fontes únicas (motor dos
+   * fechamentos, critério de custo do evento, desembolso do sócio) e entrega-os
+   * ao gerador. A cascata prova-se contra o resultado do fechamento do motor.
    */
-  function exportPdf(recipient?: PartnerSettlement | null) {
-    const solo = recipient ?? null;
-    const soloPct = solo ? solo.effectivePercentage / 100 : 0;
-    const share = (v: number) => v * soloPct;
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const margin = 14;
-    let y = 16;
+  function exportInternalReport() {
+    const nodes = engine.result?.nodes ?? [];
+    const rootNode = nodes.find((n) => !n.parentId) ?? null;
+    const settlementName =
+      (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fechamento do evento";
 
-    // Numeração sequencial das secções efetivamente impressas (várias são condicionais).
-    let sec = 0;
-    const secTitle = (t: string) => `${++sec}. ${t}`;
+    const rootTotals = rootNode
+      ? {
+          revenueNet: rootNode.perimeter.revenueNet,
+          expensesNet: rootNode.perimeter.expensesNet,
+          expensesGross: rootNode.perimeter.expensesGross,
+          usesGrossExpenses: rootNode.nodeUsesGrossExpenses,
+        }
+      : {
+          revenueNet: eventRevenueNet,
+          expensesNet: eventExpensesNet,
+          expensesGross: eventExpensesGross,
+          usesGrossExpenses: partnerUsesGrossExpenses(calcBasis, null),
+        };
 
-    // Coluna "Extras (-)": sinal só quando há valor; zero imprime sem sinal.
-    const fmtExtras = (v: number) => (v > 0 ? `-${formatCurrency(v)}` : formatCurrency(v));
+    // Cadeia de nós acima do activo (igual à cascata do documento do sócio, g13),
+    // aqui com os nomes visíveis porque é peça interna.
+    const chain: typeof nodes = [];
+    for (let cur = activeNode; cur?.parentId; cur = nodes.find((n) => n.id === cur!.parentId) ?? null) {
+      chain.unshift(cur);
+    }
+    const cascadeSteps = chain.map((node) => {
+      const parent = nodes.find((n) => n.id === node.parentId) ?? null;
+      const baseValue =
+        node.parentQuotaBasis === "net_result_gross_expenses" ? parent?.resultGross ?? 0 : parent?.resultNet ?? 0;
+      return {
+        baseValue,
+        quotaPct: Number(node.parentSharePct ?? 0),
+        quota: Number(node.parentQuota ?? 0),
+        deductions: (parent?.participants ?? [])
+          .filter((p) => p.kind !== "house")
+          .map((p) => ({
+            name: p.name,
+            mode: p.mode,
+            percentage: p.effectivePct,
+            value: p.share,
+          })),
+      };
+    });
 
-    const ensureSpace = (needed: number) => {
-      if (y + needed > pageH - 12) { doc.addPage(); y = 16; }
+    const exclusiveRevenues = (incomeTransactions as any[])
+      .filter((tx: any) => tx.event_settlement_id && tx.event_settlement_id === activeSettlementId)
+      .map((tx: any) => ({
+        label: tx.description || tx.account_categories?.name || "—",
+        value: Number(tx.amount) || 0,
+      }));
+
+    const nodeForTotals = activeNode ?? rootNode;
+    const nodeResult = nodeForTotals
+      ? nodeForTotals.nodeUsesGrossExpenses
+        ? nodeForTotals.resultGross
+        : nodeForTotals.resultNet
+      : rootTotals.revenueNet - (rootTotals.usesGrossExpenses ? rootTotals.expensesGross : rootTotals.expensesNet);
+
+    // Onde cada participante acerta (nome do fechamento) e o modo do participante.
+    const settlementNameById = new Map<string, string>(
+      (eventSettlements as any[]).map((s) => [s.id as string, (s.name as string) || "—"]),
+    );
+    const modeByParticipant = new Map<string, "settles" | "nominal">(
+      (partners as any[]).map((p) => [p.id as string, (p.mode === "nominal" ? "nominal" : "settles")]),
+    );
+    const settlesAtOf = (supplierId: string | null) => {
+      if (!supplierId) return settlementName;
+      const hit = (allParticipants as any[]).find((p) => p.supplier_id === supplierId && p.mode === "settles");
+      return hit ? settlementNameById.get(hit.settlement_id) ?? "—" : "—";
     };
 
-    // ===== HEADER =====
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(settlementDocTitle(eventName, solo?.partnerName).replace("—", "-"), margin, y);
-    y += 7;
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100);
-    doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
-    y += 5;
-    doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
-    y += 5;
-    const activeSettlementName =
-      (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
-    // O nome do fechamento é INTERNO (#146 (f)): nunca entra no documento.
-    // Origem da quota escrita como cálculo contratual, sem hierarquia.
-    if (activeNode?.parentId && parentNode) {
-      const gross = activeNode.parentQuotaBasis === "net_result_gross_expenses";
-      doc.text(
-        quotaOriginText(
-          {
-            parentResult: gross ? parentNode.resultGross : parentNode.resultNet,
-            grossExpenses: gross,
-            sharePct: activeNode.parentSharePct ?? 0,
-            quota: activeNode.parentQuota ?? 0,
-            partnerName: solo?.partnerName,
-            partnerPct: solo?.effectivePercentage,
-            partnerShare: solo?.partnerShare,
-          },
-          formatCurrency,
-        ),
-        margin,
-        y,
-      );
-      y += 5;
-    }
+    const distribution = settlements.map((s) => ({
+      name: s.partnerName,
+      isHouse: s.isHouse,
+      mode: modeByParticipant.get(s.partnerId) ?? "settles",
+      profitPct: s.percentage,
+      lossPct: s.lossPercentage,
+      basisLabel: s.expenseBasisLabel,
+      share: s.partnerShare,
+      settlesAt: s.isHouse ? settlementName : settlesAtOf(s.supplierId),
+    }));
 
-    doc.text(`Regra: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
-    if (solo) {
-      y += 5;
-      doc.text(
-        `Socio: ${solo.partnerName} · ${solo.effectivePercentage}% · despesas ${effectiveBasisShortLabel({ usesGrossExpenses: solo.usesGrossExpenses, returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat })}`,
-        margin,
-        y,
-      );
-    }
-    doc.setTextColor(0);
-    y += 8;
+    const partnerBlocks = settlements
+      .filter((s) => !s.isHouse)
+      .map((s) => ({
+        name: s.partnerName,
+        mode: modeByParticipant.get(s.partnerId) ?? "settles",
+        settlesAt: settlesAtOf(s.supplierId),
+        profitPct: s.percentage,
+        lossPct: s.lossPercentage,
+        partnerShare: s.partnerShare,
+        disbursement: s.totalDisbursement,
+        adjustmentsTotal: s.totalDisbursementAdjustments,
+        revenuesHeldTotal: s.totalRevenuesHeld,
+        extrasTotal: s.totalAdvanced,
+        transferBase: s.transferBase,
+        transferWithVat: s.transferWithVat,
+        transferVat: s.transferVat,
+        transferTotal: s.transferTotal,
+        bpLines: s.bpPaidLines.map((l) => ({
+          rubrica: categoryL2Label(l.categoryId),
+          description: l.description,
+          cityLabel: l.cityLabel,
+          hasTransaction: l.hasTransaction,
+          amount: l.amount,
+        })),
+        bpTotal: s.totalBpPaidByPartner,
+        paidExpenses: s.paidExpenses.map((e) => ({
+          description: e.description,
+          cityLabel: e.cityLabel,
+          category: e.category,
+          date: e.date,
+          amount: e.amount,
+        })),
+        paidExpensesTotal: s.totalPaidByPartner,
+        adjustments: s.disbursementAdjustments.map((a) => ({
+          description: a.description,
+          cityLabel: a.cityLabel,
+          date: a.date,
+          amount: a.amount,
+        })),
+        revenuesHeld: s.revenuesHeld.map((r) => ({
+          sourceLabel: REVENUE_HELD_SOURCE_LABEL[r.source],
+          accountName: r.accountName,
+          description: r.description,
+          date: r.date,
+          amount: r.amount,
+        })),
+        extras: s.partnerExtras.map((e) => ({
+          originLabel: e.originLabel,
+          description: e.description,
+          cityLabel: e.cityLabel,
+          date: e.date,
+          amount: e.amount,
+        })),
+        transitoryItems: s.transitoryItems,
+        transitoryCredit: s.transitoryCredit,
+      }));
 
-
-    // ===== RESUMO FINANCEIRO =====
-    // Receita SEM IVA; despesa conforme o critério selecionado no seletor.
-    const tableWidth = pageW - margin * 2;
-    const labelColW = 130;
-    const valueColW = tableWidth - labelColW;
-    const expenseTotalForPdf = basis.withVat ? totalExpensesGross : totalExpensesNet;
-    const resultGross = totalRevenueNet - expenseTotalForPdf;
-    const revenueIva = Math.max(0, totalRevenueGross - totalRevenueNet);
-    const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
-    const externalSettlements = settlements.filter((s) => !s.isHouse);
-    const houseSettlement = settlements.find((s) => s.isHouse);
-    const totalPaidByPartners = externalSettlements.reduce((sum, s) => sum + s.totalPaidByPartner, 0);
-    const companyPaidOperationalCosts = Math.max(0, expenseTotalForPdf - totalPaidByPartners);
-    const retainedCash = houseSettlement?.transitoryCredit || 0;
-    const distributableRevenueCash = Math.max(0, totalRevenueGross - revenueIva);
-    const cashBeforeReserve = Math.max(0, distributableRevenueCash - companyPaidOperationalCosts);
-    const cashAvailableForDistribution = Math.max(0, cashBeforeReserve - retainedCash);
-
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(secTitle("Resumo Financeiro"), margin, y);
-    y += 5;
-
-    if (solo) {
-      // Variante individual: base da despesa e resultado seguem a BASE EFETIVA do destinatário,
-      // não o seletor de vista. A 3.ª coluna é a quota-parte dele (resultado × pct = partnerShare).
-      const expForRecipient = solo.usesGrossExpenses ? totalExpensesGross : totalExpensesNet;
-      const resForRecipient = solo.result;
-      const soloLabelW = 96;
-      const soloValW = (tableWidth - soloLabelW) / 2;
-      autoTable(doc, {
-        startY: y,
-        head: [["", "Evento", `A sua parte (${solo.effectivePercentage}%)`]],
-        body: [
-          ["Receita (s/IVA)", formatCurrency(revenueBase), formatCurrency(share(revenueBase))],
-          [`Despesas (${effectiveBasisShortLabel({ usesGrossExpenses: solo.usesGrossExpenses, returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat })})`, formatCurrency(expForRecipient), formatCurrency(share(expForRecipient))],
-          ["Resultado", formatCurrency(resForRecipient), formatCurrency(share(resForRecipient))],
-        ],
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 9, cellPadding: 2.5 },
-        headStyles: { fillColor: [41, 41, 41], halign: "right" },
-        columnStyles: {
-          0: { cellWidth: soloLabelW, halign: "left", fontStyle: "bold" },
-          1: { cellWidth: soloValW, halign: "right" },
-          2: { cellWidth: soloValW, halign: "right", fontStyle: "bold" },
-        },
-      });
-    } else {
-      autoTable(doc, {
-        startY: y,
-        head: [["", "Valor"]],
-        body: [
-          ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-          [`Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})`, formatCurrency(expenseTotalForPdf)],
-          ["Resultado", formatCurrency(resultGross)],
-        ],
-
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 9, cellPadding: 2.5 },
-        headStyles: { fillColor: [41, 41, 41], halign: "right" },
-        columnStyles: {
-          0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
-          1: { cellWidth: valueColW, halign: "right" },
-        },
-      });
-    }
-    y = (doc as any).lastAutoTable.finalY + 4;
-    if (hasMixedExpenseBases) {
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "normal");
-      const noteText = solo
-        ? `Os socios deste evento tem bases de calculo diferentes conforme contrato. Este relatorio esta integralmente na base aplicavel a ${solo.partnerName}. A soma das quotas dos socios nao corresponde ao resultado de nenhuma das bases isoladamente.`
-        : mixedBasesNote;
-      const lines = doc.splitTextToSize(noteText, pageW - margin * 2);
-      doc.text(lines, margin, y);
-      y += lines.length * 3.4 + 2;
-      doc.setFontSize(9);
-    }
-
-    y += 2;
-
-    // ===== QUEBRA POR CIDADE (turnê) =====
-    if (cityBreakdown.length > 0) {
-      ensureSpace(40);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text(secTitle("Quebra por Cidade"), margin, y);
-      y += 5;
-      const cityCol1 = 60;
-      const cityValW = (tableWidth - cityCol1) / 3;
-      autoTable(doc, {
-        startY: y,
-        head: [["Cidade", "Receita s/IVA", "Despesas", "Resultado"]],
-        body: cityBreakdown.map((c) => [
-          c.cityName,
-          formatCurrency(c.revenueNet),
-          formatCurrency(c.expensesGross),
-          formatCurrency(c.revenueNet - c.expensesGross),
-        ]),
-        foot: [["TOTAL",
-          formatCurrency(cityBreakdown.reduce((s, c) => s + c.revenueNet, 0)),
-          formatCurrency(cityBreakdown.reduce((s, c) => s + c.expensesGross, 0)),
-          formatCurrency(cityBreakdown.reduce((s, c) => s + (c.revenueNet - c.expensesGross), 0)),
-        ]],
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 9, cellPadding: 2.5 },
-        headStyles: { fillColor: [41, 41, 41], halign: "right" },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
-        columnStyles: {
-          0: { cellWidth: cityCol1, halign: "left", fontStyle: "bold" },
-          1: { cellWidth: cityValW, halign: "right" },
-          2: { cellWidth: cityValW, halign: "right" },
-          3: { cellWidth: cityValW, halign: "right" },
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // ===== DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
-    ensureSpace(50);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(secTitle("Distribuição aos Sócios"), margin, y);
-    y += 5;
-    autoTable(doc, {
-      startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional"]],
-      body: settlements.map((s) => {
-        const dash = "—";
-        const isRecipient = !solo || s.partnerId === solo.partnerId;
-        const name = solo
-          ? `${s.partnerName} (${effectiveBasisShortLabel({ usesGrossExpenses: s.usesGrossExpenses, returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat })})`
-          : s.partnerName;
-        if (!isRecipient) {
-          return [name, `${s.effectivePercentage}%`, dash, dash, dash, dash, dash];
-        }
-        return [
-          name,
-          `${s.effectivePercentage}%`,
-          formatCurrency(s.partnerShare),
-          formatCurrency(s.resultRepasseNow),
-          formatCurrency(s.totalPaidByPartner),
-          fmtExtras(s.totalPartnerExtras),
-          formatCurrency(s.operationalSettlement),
-        ];
-      }),
-      foot: solo ? [] : [[hasMixedExpenseBases ? "TOTAL DISTRIBUÍDO" : "TOTAL", hasMixedExpenseBases ? "" : "100%",
-        formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.resultRepasseNow, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        fmtExtras(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.operationalSettlement, 0)),
-      ]],
-      margin: { left: margin, right: margin },
-      tableWidth,
-      styles: { fontSize: 8.5 },
-      headStyles: { fillColor: [41, 41, 41] },
-      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: (() => {
-        const colPct = 14;
-        const colSocio = 34;
-        const colVal = (tableWidth - colSocio - colPct) / 5;
-        return {
-          0: { cellWidth: colSocio, halign: "left" },
-          1: { cellWidth: colPct, halign: "center" },
-          2: { cellWidth: colVal, halign: "right" },
-          3: { cellWidth: colVal, halign: "right" },
-          4: { cellWidth: colVal, halign: "right" },
-          5: { cellWidth: colVal, halign: "right" },
-          6: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
-        };
-      })(),
-      didParseCell: (data) => {
-        if (data.section === "head" || data.section === "foot") {
-          if (data.column.index === 0) data.cell.styles.halign = "left";
-          else if (data.column.index === 1) data.cell.styles.halign = "center";
-          else data.cell.styles.halign = "right";
-        }
-      },
-    });
-    y = (doc as any).lastAutoTable.finalY + 3;
-    if (settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0) {
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(80);
-      const note2 = "Operacional = quota do resultado com liquidez imediata + pagas - extras. O item 4 detalha o que ficou pendente por desencaixe de caixa em caucoes/transitorias e o que ainda depende de devolucao.";
-      const lines2 = doc.splitTextToSize(note2, tableWidth);
-      doc.text(lines2, margin, y);
-      y += lines2.length * 3 + 3;
-      doc.setTextColor(0);
-    } else {
-      y += 3;
-    }
-
-    // ===== DETALHES POR SÓCIO (página 2) =====
-    // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
-    {
-      const externalSettlementsP2 = settlements
-        .filter((x: any) => !x.isHouse)
-        .filter((x: any) => !solo || x.partnerId === solo.partnerId);
-      if (externalSettlementsP2.length > 0) {
-        doc.addPage();
-        y = 16;
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text(secTitle("Detalhes por Sócio"), margin, y);
-        y += 5;
-
-        for (const s of externalSettlementsP2) {
-          ensureSpace(40);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
-          doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
-          y += 3;
-
-          // Resumo numa única linha — separa liquidez imediata da pendência de caixa
-          autoTable(doc, {
-            startY: y,
-            head: [["Quota", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional", "Saldo total"]],
-            body: [[
-              formatCurrency(s.partnerShare),
-              formatCurrency(s.resultRepasseNow),
-              formatCurrency(s.totalPaidByPartner),
-              fmtExtras(s.totalPartnerExtras),
-              formatCurrency(s.operationalSettlement),
-              formatCurrency(s.settlement),
-            ]],
-            margin: { left: margin, right: margin },
-            tableWidth,
-            styles: { fontSize: 8, cellPadding: 1.8, halign: "right" },
-            headStyles: { fillColor: [60, 60, 60], halign: "right" },
-            columnStyles: (() => {
-              const w = tableWidth / 6;
-              return {
-                0: { cellWidth: w },
-                1: { cellWidth: w },
-                2: { cellWidth: w },
-                3: { cellWidth: w, fontStyle: "bold" },
-                4: { cellWidth: w, fontStyle: "bold" },
-                5: { cellWidth: w, fontStyle: "bold" },
-              };
-            })(),
-          });
-          y = (doc as any).lastAutoTable.finalY + 1.5;
-
-          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) {
-            autoTable(doc, {
-              startY: y,
-              head: [["Liquidez e pendências de caixa", "Valor"]],
-              body: [
-                ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
-                ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
-                ["Prejuízo absorvido provisoriamente por cauções ainda retidas", formatCurrency(s.transitoryOffset)],
-                ["Aporte necessário para fechar a conta", formatCurrency(s.equityContribution)],
-                ["Cauções / transitórias a devolver ao pagador", formatCurrency(s.transitoryCredit)],
-                ["Saldo total após devoluções", formatCurrency(s.settlement)],
-              ],
-              margin: { left: margin, right: margin },
-              tableWidth,
-              styles: { fontSize: 7.5, cellPadding: 1.6 },
-              headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
-              columnStyles: {
-                0: { halign: "left" },
-                1: { halign: "right", fontStyle: "bold" },
-              },
-            });
-            y = (doc as any).lastAutoTable.finalY + 1.5;
-          }
-
-          if (s.paidExpenses.length > 0) {
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "italic");
-            doc.text("Despesas pagas pelo sócio:", margin, y);
-            y += 2.5;
-            autoTable(doc, {
-              startY: y,
-              head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
-              body: s.paidExpenses.map(e => [
-                e.description,
-                e.cityLabel,
-                e.category,
-                e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-                formatCurrency(e.amount),
-              ]),
-              foot: [[
-                { content: "Total", colSpan: 4, styles: { halign: "right" } },
-                { content: formatCurrency(s.totalPaidByPartner), styles: { halign: "right" } },
-              ]],
-              margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7.5, cellPadding: 1.4 },
-              headStyles: { fillColor: [80, 80, 80] },
-              footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-              columnStyles: { 4: { halign: "right" } },
-            });
-            y = (doc as any).lastAutoTable.finalY + 1.5;
-          }
-
-          // Cauções / transitórias pagas pelo sócio (entram no acerto até serem devolvidas)
-          if (s.transitoryItems.length > 0) {
-            ensureSpace(20);
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(0, 100, 120);
-            doc.text("Caucoes / transitorias pagas pelo socio (creditadas ate serem devolvidas):", margin, y);
-            doc.setTextColor(0);
-            y += 2.5;
-            autoTable(doc, {
-              startY: y,
-              head: [["Descrição", "Categoria (Plano de Contas)", "Data", "Tipo", "Valor"]],
-              body: s.transitoryItems.map((e) => [
-                e.description,
-                e.category,
-                e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-                e.sign > 0 ? "Caução" : "Devolução",
-                `${e.sign > 0 ? "+" : "-"}${formatCurrency(e.amount)}`,
-              ]),
-              foot: [[
-                { content: "Crédito líquido (após devoluções)", colSpan: 4, styles: { halign: "right" } },
-                { content: formatCurrency(s.transitoryCredit), styles: { halign: "right" } },
-              ]],
-              margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7.5, cellPadding: 1.4, overflow: "linebreak", valign: "top" },
-              headStyles: { fillColor: [60, 130, 150] },
-              footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
-              columnStyles: {
-                0: { cellWidth: 70 },               // Descrição (texto livre da transação)
-                1: { cellWidth: 75 },               // Categoria — caminho hierárquico completo
-                2: { cellWidth: 18, halign: "center" },
-                3: { cellWidth: 18, halign: "center" },
-                4: { halign: "right" },
-              },
-            });
-            y = (doc as any).lastAutoTable.finalY + 1.5;
-          }
-
-          if (s.partnerExtras.length > 0) {
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "italic");
-            doc.text("Extras do sócio (abatidos no acerto):", margin, y);
-            y += 2.5;
-            autoTable(doc, {
-              startY: y,
-              head: [["Origem", "Descrição", "Cidade", "Categoria", "Data", "Valor"]],
-              body: s.partnerExtras.map(e => [
-                e.originLabel,
-                e.description,
-                e.cityLabel,
-                e.category,
-                e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-                `-${formatCurrency(e.amount)}`,
-              ]),
-              foot: [[
-                { content: "Total a abater", colSpan: 5, styles: { halign: "right" } },
-                { content: `-${formatCurrency(s.totalPartnerExtras)}`, styles: { halign: "right" } },
-              ]],
-              margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7.5, cellPadding: 1.4 },
-              headStyles: { fillColor: [120, 60, 60] },
-              footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
-              columnStyles: { 0: { cellWidth: 18 }, 5: { halign: "right" } },
-            });
-            y = (doc as any).lastAutoTable.finalY + 1.5;
-          }
-
-          y += 2;
-        }
-      }
-    }
-
-    // ===== CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
-    // A MP não tem secção própria em "Detalhes por Sócio", mas as suas cauções
-    // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
-    {
-        const houseSettlement = settlements.find((s) => s.isHouse);
-      if (!solo && houseSettlement && houseSettlement.transitoryItems.length > 0) {
-        // Mantém na mesma página de "Detalhes por Sócio"; só quebra se não couber o cabeçalho
-        if (y > pageH - 40) {
-          doc.addPage();
-          y = margin;
-        } else {
-          y += 4;
-        }
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text(secTitle("Cauções pagas pela Mundo Propício"), margin, y);
-        y += 5;
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.setTextColor(80);
-        const houseNote = "Caucoes/transitorias pagas com o caixa da empresa, ainda nao devolvidas. Nao compoem o resultado do evento — regressam ao caixa da Mundo Propicio quando a entidade terceira que as reteve fizer a devolucao (ex: recinto/venue).";
-        const hLines = doc.splitTextToSize(houseNote, tableWidth);
-        doc.text(hLines, margin, y);
-        y += hLines.length * 3 + 2;
-        doc.setTextColor(0);
-        autoTable(doc, {
-          startY: y,
-          head: [["Descrição", "Categoria (Plano de Contas)", "Data", "Tipo", "Valor"]],
-          body: houseSettlement.transitoryItems.map((e) => [
-            e.description,
-            e.category,
-            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            e.sign > 0 ? "Caução" : "Devolução",
-            `${e.sign > 0 ? "+" : "-"}${formatCurrency(e.amount)}`,
-          ]),
-          foot: [[
-            { content: "Total caixa retido (a recuperar)", colSpan: 4, styles: { halign: "right" } },
-            { content: formatCurrency(houseSettlement.transitoryCredit), styles: { halign: "right" } },
-          ]],
-          margin: { left: margin, right: margin },
-          tableWidth,
-          styles: { fontSize: 8.5, cellPadding: 1.8, overflow: "linebreak", valign: "top" },
-          headStyles: { fillColor: [60, 130, 150] },
-          footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
-          columnStyles: {
-            0: { cellWidth: tableWidth * 0.32 },
-            1: { cellWidth: tableWidth * 0.36 },
-            2: { cellWidth: tableWidth * 0.12, halign: "center" },
-            3: { cellWidth: tableWidth * 0.10, halign: "center" },
-            4: { halign: "right" },
-          },
-        });
-        y = (doc as any).lastAutoTable.finalY + 6;
-      }
-    }
-
-    // ===== BILHETEIRA - RESUMOS (nova página) =====
-    if (ticketBreakdown.length > 0) {
-      doc.addPage();
-      y = 16;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0);
-      doc.text(secTitle("Bilheteira - Totais Vendidos"), margin, y);
-      y += 6;
-
-      // Larguras explícitas para a tabela de bilheteira (sem coluna s/IVA)
-      const tbCol1 = 170; // descrição (cidade/dia/sessão)
-      const tbColQ = 30;
-      const tbColV = tableWidth - tbCol1 - tbColQ;
-
-      const fmtRow = (label: string, qty: number, gross: number) => [
-        label, qty.toString(), formatCurrency(gross),
-      ];
-
-      // Helper para agregar e renderizar mini-tabela genérica (modos session/day/zone/lot)
-      const renderSimple = (
-        title: string,
-        firstColLabel: string,
-        groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
-      ) => {
-        if (groups.length === 0) return;
-        ensureSpace(20 + groups.length * 5);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(60);
-        doc.text(title, margin, y);
-        y += 3;
-        autoTable(doc, {
-          startY: y,
-          head: [[firstColLabel, "Qtd.", "Total c/IVA"]],
-          body: groups.map((g) => fmtRow(g.key, g.quantity, g.totalGross)),
-          foot: [fmtRow(
-            "TOTAL",
-            groups.reduce((s, g) => s + g.quantity, 0),
-            groups.reduce((s, g) => s + g.totalGross, 0),
-          )],
-          margin: { left: margin, right: margin },
-          tableWidth,
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [41, 41, 41], halign: "right" },
-          footStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
-          columnStyles: {
-            0: { cellWidth: tbCol1, halign: "left" },
-            1: { cellWidth: tbColQ, halign: "right" },
-            2: { cellWidth: tbColV, halign: "right" },
-          },
-        });
-        y = (doc as any).lastAutoTable.finalY + 6;
-      };
-
-      const groupBy = (keyFn: (r: TicketBreakdownRow) => string) => {
-        const map: Record<string, { key: string; quantity: number; totalGross: number; totalNet: number }> = {};
-        ticketBreakdown.forEach((r) => {
-          const k = keyFn(r);
-          if (!map[k]) map[k] = { key: k, quantity: 0, totalGross: 0, totalNet: 0 };
-          map[k].quantity += r.quantity;
-          map[k].totalGross += r.totalGross;
-          map[k].totalNet += r.totalNet;
-        });
-        return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
-      };
-
-      // Renderiza apenas o agrupamento escolhido pelo utilizador
+    // Anexo A — bilheteira no agrupamento escolhido no ecrã.
+    const groupLabel: Record<TicketGroupMode, string> = {
+      sub_date_session: "Cidade / Data / Sessão",
+      session: "Sessão",
+      day: "Dia",
+      zone: "Zona",
+      lot: "Lote",
+    };
+    const keyOf = (r: TicketBreakdownRow) => {
       switch (ticketGroupMode) {
-        case "sub_date_session": {
-          // Agrupar por Cidade > Dia > Sessão com subtotais
-          // Estrutura: { cidade: { dia: { sessão: agg } } }
-          const tree: Record<string, Record<string, Record<string, { quantity: number; totalGross: number; totalNet: number }>>> = {};
-          ticketBreakdown.forEach((r) => {
-            const city = r.cityName || "—";
-            const day = r.dayLabel || "—";
-            const sess = r.sessionLabel || "—";
-            tree[city] = tree[city] || {};
-            tree[city][day] = tree[city][day] || {};
-            tree[city][day][sess] = tree[city][day][sess] || { quantity: 0, totalGross: 0, totalNet: 0 };
-            const a = tree[city][day][sess];
-            a.quantity += r.quantity;
-            a.totalGross += r.totalGross;
-            a.totalNet += r.totalNet;
-          });
-
-          const body: any[] = [];
-          let grandQty = 0, grandGross = 0, grandNet = 0;
-
-          const sortedCities = Object.keys(tree).sort();
-          sortedCities.forEach((city) => {
-            let cityQty = 0, cityGross = 0, cityNet = 0;
-            const sortedDays = Object.keys(tree[city]).sort((a, b) => {
-              // dd/MM/yyyy → ordenar cronologicamente
-              const pa = a.split("/"); const pb = b.split("/");
-              const da = pa.length === 3 ? `${pa[2]}-${pa[1]}-${pa[0]}` : a;
-              const db = pb.length === 3 ? `${pb[2]}-${pb[1]}-${pb[0]}` : b;
-              return da.localeCompare(db);
-            });
-            sortedDays.forEach((day) => {
-              let dayQty = 0, dayGross = 0, dayNet = 0;
-              const sortedSess = Object.keys(tree[city][day]).sort();
-              sortedSess.forEach((sess) => {
-                const a = tree[city][day][sess];
-                body.push({
-                  row: fmtRow(`    ${sess}`, a.quantity, a.totalGross),
-                  style: "detail",
-                });
-                dayQty += a.quantity; dayGross += a.totalGross; dayNet += a.totalNet;
-              });
-              body.push({
-                row: fmtRow(`  Subtotal ${day}`, dayQty, dayGross),
-                style: "subday",
-              });
-              cityQty += dayQty; cityGross += dayGross; cityNet += dayNet;
-            });
-            body.push({
-              row: fmtRow(`Subtotal ${city}`, cityQty, cityGross),
-              style: "subcity",
-            });
-            grandQty += cityQty; grandGross += cityGross; grandNet += cityNet;
-          });
-
-          ensureSpace(20 + body.length * 5);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(60);
-          doc.text("Por Cidade / Data / Sessao", margin, y);
-          y += 3;
-
-          autoTable(doc, {
-            startY: y,
-            head: [["Cidade / Data / Sessao", "Qtd.", "Total c/IVA"]],
-            body: body.map((b) => b.row),
-            foot: [fmtRow("TOTAL GERAL", grandQty, grandGross)],
-            margin: { left: margin, right: margin },
-            tableWidth,
-            styles: { fontSize: 9, cellPadding: 2 },
-            headStyles: { fillColor: [41, 41, 41], halign: "right" },
-            footStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
-            columnStyles: {
-              0: { cellWidth: tbCol1, halign: "left" },
-              1: { cellWidth: tbColQ, halign: "right" },
-              2: { cellWidth: tbColV, halign: "right" },
-            },
-            didParseCell: (data) => {
-              if (data.section !== "body") return;
-              const meta = body[data.row.index];
-              if (!meta) return;
-              if (meta.style === "subcity") {
-                data.cell.styles.fontStyle = "bold";
-                data.cell.styles.fillColor = [220, 220, 220];
-              } else if (meta.style === "subday") {
-                data.cell.styles.fontStyle = "bold";
-                data.cell.styles.fillColor = [240, 240, 240];
-              }
-            },
-          });
-          y = (doc as any).lastAutoTable.finalY + 6;
-          break;
-        }
-        case "session": {
-          renderSimple("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
-          break;
-        }
-        case "day": {
-          renderSimple("Por Dia", "Dia", groupBy((r) => r.dayLabel));
-          break;
-        }
-        case "zone": {
-          renderSimple("Por Zona", "Zona", groupBy((r) => r.zoneName));
-          break;
-        }
-        case "lot": {
-          renderSimple("Por Lote", "Lote", groupBy((r) => r.lotName));
-          break;
-        }
+        case "session":
+          return r.sessionLabel;
+        case "day":
+          return r.dayLabel;
+        case "zone":
+          return r.zoneName;
+        case "lot":
+          return r.lotName;
+        default:
+          return [r.cityName, r.dayLabel, r.sessionLabel].filter(Boolean).join(" · ");
       }
-    }
+    };
+    const ticketMap = new Map<string, { label: string; quantity: number; totalGross: number }>();
+    (ticketBreakdown as TicketBreakdownRow[]).forEach((r) => {
+      const k = keyOf(r) || "—";
+      const cur = ticketMap.get(k) ?? { label: k, quantity: 0, totalGross: 0 };
+      cur.quantity += r.quantity;
+      cur.totalGross += r.totalGross;
+      ticketMap.set(k, cur);
+    });
+    const ticketing = [...ticketMap.values()].sort((a, b) => a.label.localeCompare(b.label));
 
-    // ===== FECHO DE BILHETEIRA =====
-    if (boxOfficeRows.length > 0) {
-      ensureSpace(40);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text(secTitle("Fecho de Bilheteiras / Recintos"), margin, y);
-      y += 5;
-      autoTable(doc, {
-        startY: y,
-        head: [["Bilheteira", "Vendas Brutas", "Deduções", "Líquido Recebido", "Estado"]],
-        body: boxOfficeRows.map((r) => [
-          r.accountName,
-          formatCurrency(r.grossSales),
-          formatCurrency(r.deductions),
-          formatCurrency(r.netReceived),
-          r.status,
-        ]),
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // ===== DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
-    if (expenseByCategory.length > 0) {
-      doc.addPage();
-      y = 16;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
-      doc.text(secTitle(`Despesas por Categoria ${lvlLabel}`), margin, y);
-      y += 5;
-
-      // Larguras explícitas (uma única coluna de valor c/IVA; na variante individual há 2 colunas de valor)
-      const expCol1 = solo ? 130 : 160; // descrição (L1/L2/L3)
-      const expColC = 40;  // contagem (cabe "Lançamentos")
-      const expColV = solo ? (tableWidth - expCol1 - expColC) / 2 : tableWidth - expCol1 - expColC;
-      // Na variante individual acrescenta-se a quota-parte do destinatário a cada valor.
-      const expRow = (label: string, count: number, gross: number) =>
-        solo
-          ? [label, count.toString(), formatCurrency(gross), formatCurrency(share(gross))]
-          : [label, count.toString(), formatCurrency(gross)];
-
-      // Agregação consoante o nível escolhido
-      // L2: agrupa em L1 → L2 (atual)
-      // L3: agrupa em L1 → L2 → L3 (folha do plano)
-      const byL1: Record<string, { l1Code: string; l1Name: string; rows: CategoryExpenseRow[] }> = {};
-      expenseByCategory.forEach((r) => {
-        const k = r.l1Code || "_";
-        if (!byL1[k]) byL1[k] = { l1Code: r.l1Code, l1Name: r.l1Name, rows: [] };
-        byL1[k].rows.push(r);
-      });
-
-      const body: { row: any[]; style: "l1" | "l2" | "l3" }[] = [];
-      let grandCount = 0, grandGross = 0;
-
-      Object.values(byL1)
-        .sort((a, b) => a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true }))
-        .forEach((g) => {
-          // Subtotal por L1
-          const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
-          const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
-          body.push({
-            row: expRow(`${g.l1Code} ${g.l1Name}`.trim(), l1Count, l1Gross),
-            style: "l1",
-          });
-
-          // Agrupa filhas do L1 por L2
-          const byL2: Record<string, CategoryExpenseRow[]> = {};
-          g.rows.forEach((r) => {
-            const k = r.l2Code || "_";
-            if (!byL2[k]) byL2[k] = [];
-            byL2[k].push(r);
-          });
-
-          Object.entries(byL2)
-            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-            .forEach(([_, rowsL2]) => {
-              const first = rowsL2[0];
-              // Se L2 == L1 (categoria sem filho intermédio), saltar a linha L2 para não duplicar
-              const skipL2Row = first.l2Code === g.l1Code && first.l2Name === g.l1Name;
-              if (!skipL2Row) {
-                const l2Count = rowsL2.reduce((s, r) => s + r.count, 0);
-                const l2Gross = rowsL2.reduce((s, r) => s + r.amountGross, 0);
-                body.push({
-                  row: expRow(`    ${first.l2Code} ${first.l2Name}`.trim(), l2Count, l2Gross),
-                  style: "l2",
-                });
-              }
-
-              // Detalhe L3 — apenas se nível escolhido é L3 e L3 != L2
-              if (expenseCategoryLevel === "l3") {
-                rowsL2.forEach((r) => {
-                  if (r.l3Code === r.l2Code && r.l3Name === r.l2Name) return; // sem nível 3 real
-                  body.push({
-                    row: expRow(`        ${r.l3Code} ${r.l3Name}`.trim(), r.count, r.amountGross),
-                    style: "l3",
-                  });
-                });
-              }
-            });
-
-          grandCount += l1Count;
-          grandGross += l1Gross;
-        });
-
-      autoTable(doc, {
-        startY: y,
-        head: [solo
-          ? ["Categoria", "Lançamentos", "Despesas", "A sua parte"]
-          : ["Categoria", "Lançamentos", "Despesas"]],
-        body: body.map((b) => b.row),
-        foot: [solo
-          ? ["TOTAL", grandCount.toString(), formatCurrency(grandGross), formatCurrency(share(grandGross))]
-          : ["TOTAL", grandCount.toString(), formatCurrency(grandGross)]],
-        showFoot: "lastPage",
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [41, 41, 41], halign: "right" },
-        footStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
-        columnStyles: {
-          0: { cellWidth: expCol1, halign: "left" },
-          1: { cellWidth: expColC, halign: "right" },
-          2: { cellWidth: expColV, halign: "right" },
-          ...(solo ? { 3: { cellWidth: expColV, halign: "right" as const, fontStyle: "bold" as const } } : {}),
-        },
-        didParseCell: (data) => {
-          if (data.section !== "body") return;
-          const meta = body[data.row.index];
-          if (!meta) return;
-          if (meta.style === "l1") {
-            data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = [230, 230, 230];
-          } else if (meta.style === "l2") {
-            data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = [245, 245, 245];
-          }
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    if (includeLiquidityAppendix && externalSettlements.length > 0) {
-      doc.addPage();
-      y = 16;
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0);
-      doc.text(secTitle("Análise Final de Liquidez da Distribuição"), margin, y);
-      y += 6;
-
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
-      const intro = doc.splitTextToSize(
-        "Esta folha opcional traduz a disponibilidade real de caixa no fecho: parte da receita ficou na Mundo Propício, parte das despesas foi suportada pelos sócios externos e a caução/transitória ainda retida reduz o montante disponível para reembolso e distribuição do resultado.",
-        tableWidth,
-      );
-      doc.text(intro, margin, y);
-      y += intro.length * 3.2 + 4;
-
-      autoTable(doc, {
-        startY: y,
-        head: [["Passo de liquidez", "Valor"]],
-        body: [
-          ["Receita bruta efetivamente recebida nas vendas", formatCurrency(totalRevenueGross)],
-          ["(-) IVA da receita bruta", formatCurrency(revenueIva)],
-          ["(-) Despesas operacionais pagas pela Mundo Propício / empresa", formatCurrency(companyPaidOperationalCosts)],
-          ["Caixa disponível antes das retenções transitórias", formatCurrency(cashBeforeReserve)],
-          ["(-) Cauções / transitórias ainda retidas e sem disponibilidade", formatCurrency(retainedCash)],
-          ["Caixa efetivamente disponível para distribuição agora", formatCurrency(cashAvailableForDistribution)],
-        ],
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 8.5, cellPadding: 2 },
-        headStyles: { fillColor: [41, 41, 41], halign: "right" },
-        columnStyles: {
-          0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
-          1: { cellWidth: valueColW, halign: "right" },
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 5;
-
-      let remainingCash = cashAvailableForDistribution;
-      const liquidityRows = externalSettlements.map((s) => {
-        const reimbursableNow = Math.max(0, Math.min(s.totalPaidByPartner, remainingCash));
-        remainingCash = Math.max(0, remainingCash - reimbursableNow);
-        const reimbursablePending = Math.max(0, s.totalPaidByPartner - reimbursableNow);
-
-        const resultDue = Math.max(0, s.partnerShare);
-        const resultPayableNow = Math.max(0, Math.min(resultDue, remainingCash));
-        remainingCash = Math.max(0, remainingCash - resultPayableNow);
-        const resultPending = Math.max(0, resultDue - resultPayableNow);
-
-        const totalDue = Math.max(0, s.totalPaidByPartner - s.totalPartnerExtras + resultDue);
-        const totalNow = Math.max(0, reimbursableNow - s.totalPartnerExtras + resultPayableNow);
-        const totalPending = Math.max(0, totalDue - totalNow);
-
-        return {
-          partnerName: s.partnerName,
-          reimbursableNow,
-          reimbursablePending,
-          resultPayableNow,
-          resultPending,
-          totalDue,
-          totalNow,
-          totalPending,
-        };
-      });
-
-      const formatLiquidityAmount = (value: number) => formatCurrency(value).replace(/\s*€/u, "").trim();
-
-      autoTable(doc, {
-        startY: y,
-        head: [["Sócio", "Caixa\nDisponível (€)", "Despesas Pagas\n(Pagas pelo Sócio) (€)", "Resultado Evento\n(Lucro ou Prejuízo) (€)", "Total\n(€)", "Caixa Disponível\n(Liquidez) (€)", "Saldo Pendente\n(€)"]],
-        body: liquidityRows
-          // A cascata de caixa é sempre calculada com todos os sócios; na variante
-          // individual apenas se imprime a linha do destinatário.
-          .filter((row) => !solo || row.partnerName === solo.partnerName)
-          .map((row) => [
-            row.partnerName,
-            formatLiquidityAmount(row.reimbursableNow),
-            formatLiquidityAmount(row.reimbursableNow + row.reimbursablePending),
-            formatLiquidityAmount(row.resultPayableNow + row.resultPending),
-            formatLiquidityAmount(row.totalDue),
-            formatLiquidityAmount(row.totalNow),
-            formatLiquidityAmount(row.totalPending),
-          ]),
-        foot: solo ? [] : [[
-          "TOTAL",
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow + row.reimbursablePending, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.resultPayableNow + row.resultPending, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.totalDue, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.totalNow, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.totalPending, 0)),
-        ]],
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 7.4, cellPadding: 1.4 },
-        headStyles: { fillColor: [41, 41, 41], halign: "right" },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: {
-          0: { cellWidth: 42, halign: "left" },
-          1: { cellWidth: 19, halign: "right" },
-          2: { cellWidth: 24, halign: "right" },
-          3: { cellWidth: 24, halign: "right" },
-          4: { cellWidth: 21, halign: "right" },
-          5: { cellWidth: 22, halign: "right", fontStyle: "bold" },
-          6: { cellWidth: 20, halign: "right", fontStyle: "bold" },
-        },
-        didParseCell: (data) => {
-          if (data.column.index === 0) {
-            data.cell.styles.halign = "left";
-            return;
-          }
-
-          data.cell.styles.halign = "right";
-          data.cell.styles.font = "courier";
-
-          if (data.section === "head") {
-            data.cell.styles.fontStyle = "bold";
-          }
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 4;
-
-      // O que sobra do caixa depois de servir os sócios externos fica retido na MP
-      // (a tabela acima usa externalSettlements e exclui a casa).
-      if (!solo && remainingCash > 0) {
-        autoTable(doc, {
-          startY: y,
-          body: [["Retido na Mundo Propício (não distribuído)", formatCurrency(remainingCash)]],
-          margin: { left: margin, right: margin },
-          tableWidth,
-          styles: { fontSize: 8.5, cellPadding: 2 },
-          columnStyles: {
-            0: { halign: "left", fontStyle: "bold" },
-            1: { halign: "right", fontStyle: "bold" },
-          },
-          didParseCell: (data) => {
-            data.cell.styles.fillColor = [240, 240, 240];
-            data.cell.styles.textColor = [0, 0, 0];
-          },
-        });
-        y = (doc as any).lastAutoTable.finalY + 4;
-      }
-
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(80);
-      const outro = doc.splitTextToSize(
-        "Lógica desta folha: primeiro abate-se a indisponibilidade de caixa das cauções/transitórias ainda retidas; depois prioriza-se o reembolso das despesas pagas pelos sócios externos; só o saldo remanescente suporta distribuição do resultado.",
-        tableWidth,
-      );
-      doc.text(outro, margin, y);
-      doc.setTextColor(0);
-    }
-
-    // ("Detalhes por Sócio" é impresso na 1.ª página, logo após a "Distribuição aos Sócios".)
-
-
-    // Footer institucional
-    const totalPages = (doc as any).internal.getNumberOfPages();
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p);
-      doc.setFontSize(7);
-      doc.setTextColor(150);
-      doc.text("MP Gestão Eventos · Relatório de Fecho", margin, pageH - 6);
-      doc.text(`Página ${p}/${totalPages}`, pageW - margin, pageH - 6, { align: "right" });
-    }
-
-    doc.save(
-      settlementDocFileName({
-        eventName,
-        partnerName: solo?.partnerName,
-        settlementName: activeSettlementName,
-        multipleSettlements: (eventSettlements as any[]).length > 1,
+    // Anexo B — despesas por categoria NA BASE DO CRITÉRIO (não transações).
+    const docLines = keepRootPerimeter(
+      collectSettlementExpenseDocLines({
+        events: subEvents as any[],
+        transactions: transactions as any[],
+        forecasts: forecasts as any[],
+        ticketSales: ticketSales as any[],
+        basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
       }),
+      rootSettlementIds,
     );
+    const levelsOf = (catId: string | null | undefined) => {
+      const chainCats: any[] = [];
+      let cur = catId ? catByIdAll[catId] : undefined;
+      const guard = new Set<string>();
+      while (cur && !guard.has(cur.id)) {
+        guard.add(cur.id);
+        chainCats.unshift(cur);
+        if (!cur.parent_id) break;
+        const parent = catByIdAll[cur.parent_id];
+        if (!parent) break;
+        cur = parent;
+      }
+      const l1 = chainCats[0];
+      const l2 = chainCats[1] ?? chainCats[0];
+      const l3 = chainCats[2] ?? chainCats[1] ?? chainCats[0];
+      return { l1, l2, l3 };
+    };
+    const catMap = new Map<string, any>();
+    for (const l of docLines) {
+      const { l1, l2, l3 } = levelsOf(l.categoryId);
+      const key = `${l1?.code ?? "_"}|${l2?.code ?? "_"}|${l3?.code ?? "_"}`;
+      const row =
+        catMap.get(key) ??
+        {
+          l1Code: l1?.code ?? "",
+          l1Name: l1?.name ?? "Sem categoria",
+          l2Code: l2?.code ?? "",
+          l2Name: l2?.name ?? "Sem categoria",
+          l3Code: l3?.code ?? "",
+          l3Name: l3?.name ?? "Sem categoria",
+          base: 0,
+          iva: 0,
+          total: 0,
+        };
+      const total = calcTotalWithIva(l.base, l.ivaRate);
+      row.base += l.base;
+      row.iva += total - l.base;
+      row.total += total;
+      catMap.set(key, row);
+    }
 
+    exportPartnerSettlementInternalPdf({
+      eventName,
+      settlementName,
+      criterion: describeFechoBasis(basis),
+      rootTotals,
+      cascadeSteps,
+      vatReturnedIn: activeNode?.vatReturnedIn ?? 0,
+      exclusiveRevenues,
+      exclusiveRevenuesTotal: activeNode?.perimeter.revenueNet ?? 0,
+      exclusiveExpensesTotal: activeNode
+        ? activeNode.nodeUsesGrossExpenses
+          ? activeNode.perimeter.expensesGross
+          : activeNode.perimeter.expensesNet
+        : 0,
+      thirdPartyOperations: (activeNode?.operations ?? [])
+        .filter((o) => Math.abs(o.additionalActive) > 0.004)
+        .map((o) => ({ label: o.name, value: o.additionalActive })),
+      thirdPartyTotal: activeNode?.additionalActiveTotal ?? 0,
+      addbacks: (activeNode?.addbacks ?? []).map((a) => ({ label: a.label, value: a.value })),
+      addbackTotal: activeNode?.addbackIn ?? 0,
+      nodeResult,
+      distribution,
+      partners: partnerBlocks,
+      house: showHouseInternalPosition
+        ? {
+            resultRealNet,
+            deductions: settlements
+              .filter((s) => !s.isHouse)
+              .map((s) => ({ name: s.partnerName, basisLabel: s.expenseBasisLabel, value: s.partnerShare })),
+            positionReal: housePositionReal,
+            nominalShare: houseNominalShare,
+            ivaDeductibleGain: houseIvaGain,
+            vatNonRecoverableCost: vatNotReturnedTotal,
+            vatNonRecoverableLines: vatNotReturnedLines.map((l) => ({ label: l.label, vat: l.vat })),
+          }
+        : null,
+      ticketing,
+      ticketingGroupLabel: groupLabel[ticketGroupMode],
+      expenseCategories: [...catMap.values()],
+      expenseCategoryLevel,
+    });
   }
+
 
   /**
    * (g4) DOCUMENTO DO SÓCIO — padrão da prestação de contas, estanque.
@@ -2478,7 +1744,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo (gestão)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportInternalReport()}>Relatório completo (gestão)</DropdownMenuItem>
               {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
               {settlements.filter((s) => !s.isHouse).map((s) => (
                 <React.Fragment key={s.partnerId}>

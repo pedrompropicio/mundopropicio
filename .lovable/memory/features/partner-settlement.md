@@ -305,3 +305,38 @@ com o resumo, aviso vermelho com a diferença — nunca se ajusta para fechar.
 g7, g9c, g10, g11, g12, g13, g13-b e g14 estão em produção. Referências da Anitta
 EDA 2026: ANITTA 417.293,42 · RAFAEL LOBO 178.840,04 · nível 3 547.906,69 · EIN
 273.953,35 · IVA devolvido 262.459,85 · base a transferir da EIN 230.990,35.
+
+## (g15) Relatório interno do Encontro de Contas — PDF reformulado
+
+Botão "Exportar PDF → Relatório completo (gestão)". Gerador novo:
+`src/lib/partner-settlement-internal-report.ts` (modelo puro) +
+`src/lib/export-partner-settlement-internal-pdf.ts` (jsPDF A4 **retrato**). O
+antigo `exportPdf()` embutido em `PartnerSettlementTab.tsx` (A4 horizontal, com
+quebra de página por secção) foi removido.
+
+É vista de STAFF: pode nomear o fechamento e todos os sócios (os termos proibidos
+valem só para documentos de sócio).
+
+Secções: 1 resultado do evento no perímetro raiz · 2 cascata até este fechamento
+(igual à g13/g13-b, com nomes: raiz → sócios de cima → parte deste fechamento →
++ IVA dedutível recuperado → + exclusivos → + operações de terceiros →
++ devoluções g6 → − despesas exclusivas do nó) provada contra o resultado do nó
+do motor · 3 distribuição (modo, %, base efectiva g10, onde acerta) · 4 por sócio
+a linha g5 completa + os quadros do "Ver detalhe" g12 · 5 posição da Mundo
+Propício · 6 anexos A bilheteira e B **despesas por categoria na base do
+critério** (previsto + excedido, com overhead), não transações realizadas.
+
+Regras fixas:
+- Nunca se ajusta um número para fechar: `cascadeMismatch` / `partnerBlockMismatch`
+  imprimem aviso vermelho com a diferença.
+- Participante nominal aparece como "Posição nominal de X · acerta em <fechamento>",
+  não como "Acerto com X".
+- Sem quebra de página forçada por secção; tabelas pequenas em keep-together,
+  grandes com cabeçalho repetido.
+- Nos PDFs usar sempre "(-)" e "(+/-)" em ASCII: os sinais − e ± não existem nas
+  fontes padrão do jsPDF e saem como caracteres estranhos.
+
+Verificado nos 3 fechamentos da Anitta EDA 2026 (13/09/2026): raiz 596.133,45 ·
+Rafael Lobo 178.840,04 · MP + EIN 547.906,69 com IVA 262.459,85 · base a
+transferir da EIN 230.990,36 (1 cêntimo de arredondamento face aos 230.990,35 do
+ecrã) · anexo B 1.931.219,49. Sem avisos de conta que não fecha.
