@@ -342,6 +342,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <input type="checkbox" id="sup-is-partner" name="is_partner" defaultChecked={s?.is_partner ?? defaultIsPartner ?? false} className="h-4 w-4 rounded border-border" />
             <Label htmlFor="sup-is-partner" className="cursor-pointer">Parceiro / Sócio (não aparece nos relatórios de fornecedores)</Label>
           </div>
+          {/* (g9c · P2-12) Ligação ao utilizador do Portal — só na edição (precisa do id). */}
+          {isEditing && s?.id && <SupplierPortalUserLink supplierId={s.id} />}
           <button type="submit" disabled={isPending}
             className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
