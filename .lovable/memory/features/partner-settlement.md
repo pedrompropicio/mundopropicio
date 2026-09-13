@@ -206,6 +206,12 @@ acerto, export de conferência, prestação de contas (secção 5) e Portal (via
 `get_partner_settlement_summary`). Nunca duplica com as contas de acerto porque
 uma compensação não tem `account_id`.
 
+Base (aplicado 13/09/2026): coluna + índice parcial, CHECK
+`transactions_held_by_only_compensation_income`, bloco (C) da RPC, trigger
+`trg_enforce_held_revenue_is_paid` e isenção da compensação em
+`enforce_tx_paid_requires_account` (uma receita por compensação é paga sem
+conta, por desenho).
+
 ## Descrições são texto de negócio
 
 Descrições de transações e de linhas de BP escrevem-se como o sócio ou o
