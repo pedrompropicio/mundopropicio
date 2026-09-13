@@ -400,6 +400,39 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
   }));
   if (comparaveis.length === 0) lacunas.push("sem artistas comparáveis definidos");
 
+  // ---- benchmark alinhado por idade (D-ERP59)
+  const { data: benchRows, error: bErr } = await admin.rpc("song_benchmark_aligned", {
+    p_song_id: songId,
+  });
+  if (bErr) lacunas.push(`benchmark alinhado indisponível: ${bErr.message}`);
+  const benchmarkAlinhado = (benchRows ?? []).map((r: Row) => ({
+    artista: r.artist_name,
+    musica: r.title,
+    e_a_propria: r.is_self,
+    release_date: r.release_date,
+    idade_hoje_dias: r.dias_desde_lancamento,
+    idade_comparada_dias: r.idade_alinhada_dias,
+    nota_da_musica: r.song_notes ?? null,
+    spotify_streams_a_esta_idade: r.spotify_streams_dia_n,
+    spotify_streams_a_esta_idade_data: r.spotify_streams_dia_n_date,
+    spotify_streams_por_dia_a_esta_idade: r.spotify_streams_por_dia_n,
+    spotify_streams_hoje: r.spotify_streams_hoje,
+    spotify_posicao_a_esta_idade: r.rank_spotify_dia_n,
+    spotify_total_com_dados: r.total_spotify_dia_n,
+    tiktok_ugc_publicacoes: r.tiktok_ugc_latest,
+    tiktok_ugc_data: r.tiktok_ugc_date,
+    tiktok_ugc_fonte: r.tiktok_ugc_source,
+    tiktok_ugc_por_dia: r.tiktok_ugc_por_dia,
+    tiktok_ugc_posicao_por_dia: r.rank_tiktok_ugc_por_dia,
+    tiktok_ugc_total_com_dados: r.total_tiktok_ugc_por_dia,
+    instagram_reels: r.instagram_reels_latest,
+    instagram_reels_posicao: r.rank_instagram_reels,
+    instagram_reels_total_com_dados: r.total_instagram_reels,
+  }));
+  if (benchmarkAlinhado.length <= 1) {
+    lacunas.push("sem músicas de referência dos comparáveis para comparar à mesma idade");
+  }
+
   return {
     notFound: false as const,
     song,
@@ -418,9 +451,11 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
         demografia,
       },
       comparaveis,
+      benchmark_alinhado: benchmarkAlinhado,
       lacunas,
     },
   };
+
 }
 
 // ---------------------------------------------------------------- LLM
