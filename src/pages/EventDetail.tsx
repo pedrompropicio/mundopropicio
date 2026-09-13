@@ -690,9 +690,27 @@ export default function EventDetail() {
 
 
   // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
-  const realizedTransactions = eventTransactions.filter(
+  // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
+  // exclusivas desse fechamento e não entram no resultado do evento.
+  const realizedTransactions = keepRootPerimeter(eventTransactions, rootSettlementIds).filter(
     (t) => t.status === "paid" || t.status === "approved" || t.status === "partially_paid"
   );
+
+  // Bloco informativo "Exclusivos de fechamentos".
+  const settlementExclusives = (() => {
+    const rows = pickOutsideRootPerimeter(eventTransactions as any[], rootSettlementIds).filter(
+      (t: any) => t.is_hidden !== true && t.reversed_at == null,
+    );
+    const value = rows.reduce(
+      (s: number, t: any) =>
+        s + (costBasis.withVat ? calcTotalWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)) : Number(t.amount ?? 0)),
+      0,
+    );
+    const names = Array.from(
+      new Set(rows.map((t: any) => settlementNameById?.[t.event_settlement_id] ?? "outro fechamento")),
+    );
+    return { count: rows.length, value, names };
+  })();
 
   // Simetria income/expense: movimentos transitórios (ramo 10.1 Capital — aportes, devoluções,
   // distribuições — e cauções) NUNCA entram nos cards de resultado, em nenhum dos lados.
