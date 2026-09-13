@@ -56,7 +56,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
   const [pct, setPct] = useState("");
-  const [basis, setBasis] = useState<ParentShareBasis>("net_result");
+  const [basis, setBasis] = useState<ParentShareBasis>("net_result_gross_expenses");
   const [position, setPosition] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -118,7 +118,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
         company_id: ev.company_id,
         name: name.trim(),
         parent_id: parentId,
-        parent_share_pct: Number(pct),
+        parent_share_pct: pct.trim() === "" ? 0 : Number(pct),
         parent_share_basis: basis,
         position: position ? Number(position) : maxPos + 1,
         notes: notes.trim() || null,
@@ -131,7 +131,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
       setName("");
       setParentId("");
       setPct("");
-      setBasis("net_result");
+      setBasis("net_result_gross_expenses");
       setPosition("");
       setNotes("");
       toast({ title: "Fechamento criado" });
@@ -143,7 +143,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
     mutationFn: async (row: SettlementRow) => {
       const patch: Record<string, unknown> = { name: editName.trim(), notes: editNotes.trim() || null };
       if (row.parent_id) {
-        patch.parent_share_pct = Number(editPct);
+        patch.parent_share_pct = editPct.trim() === "" ? 0 : Number(editPct);
         patch.parent_share_basis = editBasis;
       }
       const { error } = await supabase.from("event_settlements").update(patch as any).eq("id", row.id);
