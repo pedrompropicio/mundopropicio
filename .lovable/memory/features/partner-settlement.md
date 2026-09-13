@@ -173,3 +173,10 @@ só o destinatário pelo nome; os restantes colapsam em "Sócios locais — NN%"
 "fechamento acima/abaixo" ou "bases diferentes". Língua por
 `suppliers.doc_locale`. Base de cálculo é do fechamento (ver event-settlements
 (g4)); `expense_includes_iva` por participante já não é usado.
+
+## (g4·2) Base a transferir com desembolso efectivo
+
+Base a transferir = parte no fechamento + desembolso efectivo (transações do
+sócio + linhas de BP com `paying_partner_id` sem transação, na base do nó) −
+adiantado (extras + entradas nas contas de acerto do sócio). IVA 23% só com
+`transfer_with_vat`. Ver `src/lib/partner-disbursement.ts`.

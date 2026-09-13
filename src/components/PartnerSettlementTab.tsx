@@ -52,6 +52,15 @@ import {
 } from "@/lib/export-partner-statement-doc";
 import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
 import { fetchExportBranding } from "@/lib/export-header";
+import {
+  collectBpPaidLines,
+  collectSettlementAccountEntries,
+  partnerAdvancedTotal,
+  partnerDisbursement,
+  sumLineAmounts,
+  type BpPaidLine,
+  type SettlementAccountEntryRow,
+} from "@/lib/partner-disbursement";
 
 
 
@@ -85,6 +94,16 @@ interface PartnerSettlement {
   partnerShare: number;
   paidExpenses: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPaidByPartner: number;
+  /** (g4 precisão) Linhas de BP pagas pelo sócio que nunca geraram transação (D-ERP14). */
+  bpPaidLines: BpPaidLine[];
+  totalBpPaidByPartner: number;
+  /** Desembolso efectivo do sócio = transações pagas por ele + linhas de BP sem transação. */
+  totalDisbursement: number;
+  /** Entradas nas contas de acerto do sócio (dinheiro do evento já em poder dele). */
+  settlementAccountEntries: SettlementAccountEntryRow[];
+  totalSettlementAccountAdvances: number;
+  /** Já adiantado ao sócio = extras/adiantamentos + entradas nas contas de acerto. */
+  totalAdvanced: number;
   partnerExtras: { origem?: "transacao" | "manual"; originLabel?: string; description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPartnerExtras: number;
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
@@ -292,6 +311,42 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
+  // (g4 precisão) Contas de acerto do sócio — entradas = dinheiro do evento já com ele.
+  const { data: settlementAccountEntries = [] } = useQuery({
+    queryKey: ["partner-settlement-account-entries", allEventIdsKey],
+    queryFn: async (): Promise<SettlementAccountEntryRow[]> => {
+      const { data: accounts, error: accErr } = await supabase
+        .from("financial_accounts")
+        .select("id, name, partner_id")
+        .not("partner_id", "is", null);
+      if (accErr) throw accErr;
+      const ids = (accounts ?? []).map((a: any) => a.id);
+      if (!ids.length) return [];
+      const { data: txs, error: txErr } = await supabase
+        .from("transactions")
+        .select("id, description, amount, date, type, status, account_id, event_id, reversed_at")
+        .in("account_id", ids)
+        .in("event_id", allEventIds)
+        .eq("type", "income");
+      if (txErr) throw txErr;
+      const byAccount = new Map((accounts ?? []).map((a: any) => [a.id, a]));
+      return (txs ?? [])
+        .filter((t: any) => !t.reversed_at && (t.status === "paid" || t.status === "approved"))
+        .map((t: any) => {
+          const acc = byAccount.get(t.account_id);
+          return {
+            id: t.id,
+            partnerId: acc?.partner_id as string,
+            accountName: acc?.name || "—",
+            description: t.description || "—",
+            amount: Number(t.amount) || 0,
+            date: t.date || "",
+            eventId: t.event_id ?? null,
+          };
+        });
+    },
+  });
+
   // Extras do Sócio — união das duas naturezas (despesa paga pela empresa + registo manual).
   // Ambas abatem ao acerto do sócio e nenhuma é custo do evento.
   const { data: partnerAdvances = [] } = useQuery({
@@ -305,7 +360,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-          .select("id, event_id, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, category_id, account_categories(name, code)")
+          .select("id, event_id, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, account_categories(name, code)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null);
       if (error) throw error;
@@ -840,6 +895,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
+    // (g4 precisão / D-ERP14) Linhas de BP em nome do sócio que nunca viraram transação:
+    // o fornecedor factura ao sócio e ele refactura à MP. Entram no desembolso efectivo.
+    const bpPaidLines = isHouse
+      ? []
+      : collectBpPaidLines(forecasts as any[], p.id, usesGrossExpenses, cityLabelByEvent);
+    const totalBpPaidByPartner = sumLineAmounts(bpPaidLines);
+    const totalDisbursement = partnerDisbursement(totalPaidByPartner, totalBpPaidByPartner);
+
+    // (g4 precisão / issue #133) Entradas nas contas de acerto do sócio.
+    const myAccountEntries = isHouse
+      ? []
+      : collectSettlementAccountEntries(settlementAccountEntries as SettlementAccountEntryRow[], p.id);
+    const totalSettlementAccountAdvances = sumLineAmounts(myAccountEntries);
+    const totalAdvanced = partnerAdvancedTotal(totalPartnerExtras, totalSettlementAccountAdvances);
+
     // Items transitórios:
     //  • Sócio externo → linhas vinculadas em partner_paid_expenses (despesas e devoluções diretas)
     //  • Mundo Propício → todas as transitórias órfãs do evento
@@ -882,6 +952,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPaidByPartner,
       partnerExtras: extrasForPartner,
       totalPartnerExtras,
+      bpPaidLines,
+      totalBpPaidByPartner,
+      totalDisbursement,
+      settlementAccountEntries: myAccountEntries,
+      totalSettlementAccountAdvances,
+      totalAdvanced,
       transitoryCredit: 0, // calculado abaixo
       transitoryItems,
       resultRepasseNow: 0,
@@ -930,7 +1006,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
     s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
     // (g4 adenda) Base a transferir ao sócio e IVA do repasse quando facturado.
-    s.transferBase = roundCents(s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras);
+    // Desembolso efectivo do sócio (transações + BP sem transação) e tudo o que já lhe
+    // chegou (extras/adiantamentos + entradas nas contas de acerto).
+    s.transferBase = roundCents(s.partnerShare + s.totalDisbursement - s.totalAdvanced);
     s.transferVat =
       s.transferWithVat && s.transferBase > 0 ? calcIvaAmount(s.transferBase, TRANSFER_IVA_RATE) : 0;
     s.transferTotal = roundCents(s.transferBase + s.transferVat);
@@ -2030,9 +2108,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       eventLocation: ((event as any)?.cities as any)?.name ?? null,
       logoDataUrl: logoDataUrl ?? null,
       recipientName: row.partnerName,
-      paidByPartner: row.totalPaidByPartner,
+      paidByPartner: row.totalDisbursement,
       partnerExtras: row.totalPartnerExtras,
-      partnerAdvances: 0,
+      partnerAdvances: row.totalSettlementAccountAdvances,
       transferWithVat: row.transferWithVat,
       participants: settlements.map((s) => ({
         name: s.partnerName,
@@ -2362,6 +2440,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 flex flex-wrap items-center gap-x-6 gap-y-1">
+              {!s.isHouse && (
+                <>
+                  <div>
+                    <span className="text-xs text-muted-foreground" title="Transações pagas pelo sócio + linhas de BP em nome dele sem transação">
+                      Desembolso efectivo (+)
+                    </span>
+                    <p className="font-mono font-bold text-success">{formatCurrency(s.totalDisbursement)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground" title="Extras/adiantamentos + entradas nas contas de acerto do sócio">
+                      Já adiantado (−)
+                    </span>
+                    <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalAdvanced)}</p>
+                  </div>
+                </>
+              )}
               <div>
                 <span className="text-xs text-muted-foreground">
                   {s.transferBase >= 0 ? "Base a transferir" : "Base a receber"}
@@ -2386,6 +2480,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
               {!s.transferWithVat && (
                 <span className="text-[11px] text-muted-foreground italic">Repasse sem IVA facturado.</span>
+              )}
+              {!s.isHouse && (s.totalBpPaidByPartner > 0 || s.totalSettlementAccountAdvances > 0) && (
+                <p className="w-full text-[11px] text-muted-foreground">
+                  Inclui {formatCurrency(s.totalBpPaidByPartner)} de linhas do BP facturadas em nome do sócio sem transação
+                  {s.settlementAccountEntries.length > 0 && (
+                    <> e {formatCurrency(s.totalSettlementAccountAdvances)} já recebidos em{" "}
+                    {Array.from(new Set(s.settlementAccountEntries.map((e) => e.accountName))).join(", ")}</>
+                  )}.
+                </p>
               )}
             </div>
 

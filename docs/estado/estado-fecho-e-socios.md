@@ -43,3 +43,11 @@ Live por leitura; o Publish é decisão do Pedro.
   parte 273.953,35).
 - Testes: motor 21 · perímetro 6 · documento 6; `tsgo --noEmit` limpo.
 - Sem Publish. Sem DML.
+
+## Actualização 13/09/2026 — desembolso efectivo e contas de acerto (g4·2)
+
+O Encontro de Contas e o documento do sócio já leem as linhas de BP pagas pelo
+sócio (sem transação) e as contas de acerto do sócio. Anitta EDA 2026 /
+EVERYTHINGISNEW: 273.953,35 + 1.305.957,51 − 905.000,00 = 674.910,86 (base),
+155.229,50 (IVA 23%), 830.140,36 (total). Portal do Sócio continua a mostrar só
+o desembolso por transações (RLS).
