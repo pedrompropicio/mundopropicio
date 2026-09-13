@@ -177,10 +177,13 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
           ? { fill: GREY, bold: true }
           : null,
     );
-    for (const it of line.items ?? []) {
-      cascadeBody.push([`      ${it.label}`, "", money(it.value)]);
+    // (g15-b) Os itens do termo somam exactamente o valor do termo.
+    const items = line.items ?? [];
+    const itemValues = reconcileDisplayValues(items.map((it) => it.value), line.value);
+    items.forEach((it, i) => {
+      cascadeBody.push([`      ${it.label}`, "", money(itemValues[i])]);
       cascadeStyle.push(null);
-    }
+    });
   }
   table({
     head: ["Conta do resultado", "%", "Valor"],
