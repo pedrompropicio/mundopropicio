@@ -410,3 +410,9 @@ sócio (`financial_accounts.partner_id`), filtradas pelo evento. Helpers puros e
 - Documento do sócio: só "IVA dedutível recuperado" já líquido. Portal idem.
 - Anitta EDA 2026: **nenhuma linha marcada** — referências mantêm-se
   (IVA devolvido 262.459,85 / nível 3 547.906,69 / EIN 273.953,35).
+
+## Regra de trabalho — DDL
+
+"Apresenta DDL" = escrever o ficheiro em `supabase/migrations/` e parar. Nunca
+usar a ferramenta de migração nem correr DDL/DML sem autorização explícita nesse
+pedido; Publish é sempre decisão do Pedro.

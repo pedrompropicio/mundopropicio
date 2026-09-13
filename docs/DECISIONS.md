@@ -1952,3 +1952,32 @@ base, no filtro do extra do IVA e nos rótulos) e `export-partner-statement-doc.
 (títulos das secções 3 e 4 e linha de partida). Teste: EIN fecha ao cêntimo
 (596.133,45 − 417.293,42 − 59.613,35 = 119.226,69; + 262.459,85 + 72.250,52 +
 93.969,63 = 547.906,69), Rafael Lobo 178.840,04, Anitta inalterada. Sem DDL/DML.
+
+## D25 adenda (g10/g11/g12, 13/09/2026) — base efectiva, receitas em poder e detalhe
+
+Registo retroactivo das três alterações publicadas hoje que não tinham adenda
+própria:
+
+- **(g10) Base EFECTIVA de despesa é só rótulo.** Um fechamento com
+  `returns_parent_deductible_vat = true` apura de facto sobre despesas s/IVA, por
+  isso ele e os seus participantes apresentam-se "Despesas s/IVA" /
+  "Resultado s/IVA" e a linha do IVA dedutível não aparece. Fonte única:
+  `src/lib/settlement-basis.ts`. **O cálculo não muda.** Excepção definitiva:
+  documentos em cascata (ver adenda g13-b).
+- **(g11) Receitas em poder do sócio carregavam 0** por o `select` pedir
+  `account_type` numa tabela cuja coluna é `type`. Regra: qualquer leitura de
+  contas financeiras usa `type`; nenhuma soma de sócio pode ficar a 0 sem erro
+  visível.
+- **(g12) Detalhe do desembolso é apresentação, nunca outra aritmética.**
+  `PartnerDisbursementDetail` mostra os MESMOS dados do export de conferência
+  (linhas do BP por rubrica de Nível 2, transacções pagas pelo sócio, ajustes com
+  sinal, receitas em poder, extras) e a conta por extenso. Quando o detalhe não
+  bate com o resumo imprime aviso vermelho com a diferença — nunca ajusta valores
+  para fechar.
+
+## Regra de trabalho — "apresenta DDL" nunca é aplicar a migração (13/09/2026)
+
+Quando o pedido diz "apresenta DDL e pára", o entregável é o **ficheiro de
+migração pendente** em `supabase/migrations/`, mais a explicação. Não se usa a
+ferramenta de migração nem se corre DDL/DML em Test ou Live sem autorização
+explícita nesse pedido. O Publish é sempre decisão do Pedro.
