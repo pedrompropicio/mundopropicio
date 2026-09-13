@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   collectBpPaidLines,
-  collectSettlementAccountEntries,
+  collectDisbursementAdjustments,
+  collectRevenuesHeld,
   partnerAdvancedTotal,
   partnerDisbursement,
+  partnerFinancingToReturn,
   sumLineAmounts,
 } from "@/lib/partner-disbursement";
 
@@ -12,43 +14,68 @@ const EIN = "ein-partner";
 const forecasts = [
   { id: "1", description: "Palco", amount: 75000, iva_rate: 23, type: "expense", paying_partner_id: EIN, transaction_id: null },
   { id: "2", description: "Bombeiros", amount: 6000, iva_rate: 0, type: "expense", paying_partner_id: EIN, transaction_id: null },
-  { id: "3", description: "Já tem transação", amount: 1000, iva_rate: 23, type: "expense", paying_partner_id: EIN, transaction_id: "tx-1" },
-  { id: "4", description: "De outro sócio", amount: 500, iva_rate: 23, type: "expense", paying_partner_id: "outro", transaction_id: null },
-  { id: "5", description: "Receita", amount: 900, iva_rate: 0, type: "income", paying_partner_id: EIN, transaction_id: null },
+  { id: "3", description: "Open bar", amount: 64029.84, iva_rate: 23, type: "expense", paying_partner_id: EIN, transaction_id: "tx-open-bar" },
+  { id: "4", description: "Já em partner_paid_expenses", amount: 1000, iva_rate: 23, type: "expense", paying_partner_id: EIN, transaction_id: "tx-paid" },
+  { id: "5", description: "De outro sócio", amount: 500, iva_rate: 23, type: "expense", paying_partner_id: "outro", transaction_id: null },
+  { id: "6", description: "Receita", amount: 900, iva_rate: 0, type: "income", paying_partner_id: EIN, transaction_id: null },
 ];
 
-describe("desembolso do sócio (BP sem transação)", () => {
-  it("conta só despesas do sócio sem transação", () => {
-    const lines = collectBpPaidLines(forecasts as any, EIN, false);
-    expect(lines.map((l) => l.id)).toEqual(["1", "2"]);
-    expect(sumLineAmounts(lines)).toBe(81000);
+describe("(g5) desembolso do sócio", () => {
+  it("inclui linhas com transação ligada (open bar) e exclui só as já contadas por transação", () => {
+    const lines = collectBpPaidLines(forecasts as any, EIN, false, {}, ["tx-paid"]);
+    expect(lines.map((l) => l.id)).toEqual(["1", "2", "3"]);
+    expect(sumLineAmounts(lines)).toBe(145029.84);
+    expect(lines.find((l) => l.id === "3")?.hasTransaction).toBe(true);
   });
 
-  it("valoriza c/IVA quando a base do fechamento é bruta", () => {
-    const lines = collectBpPaidLines(forecasts as any, EIN, true);
-    expect(sumLineAmounts(lines)).toBe(roundish(75000 * 1.23 + 6000));
+  it("valoriza s/IVA por defeito", () => {
+    const lines = collectBpPaidLines(forecasts as any, EIN, false, {}, ["tx-paid"]);
+    expect(lines[0].amount).toBe(75000);
+  });
+
+  it("valoriza c/IVA quando o sócio não deduz IVA (pt-BR)", () => {
+    const lines = collectBpPaidLines(forecasts as any, EIN, true, {}, ["tx-paid"]);
+    expect(lines[0].amount).toBe(roundish(75000 * 1.23));
   });
 
   it("soma ao pago por transações sem dupla contagem", () => {
-    const bp = sumLineAmounts(collectBpPaidLines(forecasts as any, EIN, false));
-    expect(partnerDisbursement(18420.55, bp)).toBe(99420.55);
+    const bp = sumLineAmounts(collectBpPaidLines(forecasts as any, EIN, false, {}, ["tx-paid"]));
+    expect(partnerDisbursement(1000, bp)).toBe(146029.84);
   });
 });
 
-describe("contas de acerto do sócio", () => {
-  const entries = [
-    { id: "a", partnerId: EIN, accountName: "Acerto EIN", description: "Ticketline", amount: 905000, date: "2026-09-04", eventId: "e1" },
-    { id: "b", partnerId: "outro", accountName: "Acerto X", description: "—", amount: 1000, date: "2026-09-04", eventId: "e1" },
+describe("(g5) ajustes ao desembolso", () => {
+  const rows = [
+    { id: "a", partner_id: EIN, description: "SPA: lançada a 5% no BP, paga a 3,5%", amount: -34304.72, kind: "disbursement_adjustment" },
+    { id: "b", partner_id: EIN, description: "Extra normal", amount: 3100, kind: "extra" },
+    { id: "c", partner_id: "outro", description: "Outro sócio", amount: -1, kind: "disbursement_adjustment" },
   ];
 
-  it("filtra pelo sócio e abate no já adiantado", () => {
-    const mine = collectSettlementAccountEntries(entries, EIN);
-    expect(mine).toHaveLength(1);
-    expect(partnerAdvancedTotal(28100, sumLineAmounts(mine))).toBe(933100);
+  it("filtra pelo sócio e pelo tipo, mantendo o sinal", () => {
+    const adj = collectDisbursementAdjustments(rows as any, EIN);
+    expect(adj).toHaveLength(1);
+    expect(adj[0].amount).toBe(-34304.72);
+  });
+});
+
+describe("(g5) receitas em poder do sócio e financiamento a devolver", () => {
+  const held = [
+    { id: "h1", partnerId: EIN, source: "settlement_account" as const, accountName: "Acerto EIN", description: "Ticketline", amount: 905000, date: "2026-09-04", eventId: "e1" },
+    { id: "h2", partnerId: EIN, source: "third_party" as const, accountName: "Bares", description: "Resultado do operador", amount: 194468.13, date: "", eventId: "e1" },
+    { id: "h3", partnerId: "outro", source: "partner_account" as const, accountName: "X", description: "—", amount: 10, date: "", eventId: "e1" },
+  ];
+
+  it("filtra pelo sócio nas três fontes", () => {
+    expect(collectRevenuesHeld(held, EIN)).toHaveLength(2);
   });
 
-  it("sem contas de acerto o já adiantado são só os extras", () => {
-    expect(partnerAdvancedTotal(3100, 0)).toBe(3100);
+  it("financiamento a devolver = desembolso ± ajustes − receitas em poder", () => {
+    const revenues = sumLineAmounts(collectRevenuesHeld(held, EIN));
+    expect(partnerFinancingToReturn(1170562.18, -34304.72, revenues)).toBe(36789.33);
+  });
+
+  it("já adiantado são só os extras", () => {
+    expect(partnerAdvancedTotal(3100)).toBe(3100);
   });
 });
 

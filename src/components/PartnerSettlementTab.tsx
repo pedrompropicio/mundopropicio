@@ -54,12 +54,16 @@ import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatemen
 import { fetchExportBranding } from "@/lib/export-header";
 import {
   collectBpPaidLines,
-  collectSettlementAccountEntries,
+  collectDisbursementAdjustments,
+  collectRevenuesHeld,
   partnerAdvancedTotal,
   partnerDisbursement,
+  partnerFinancingToReturn,
   sumLineAmounts,
+  REVENUE_HELD_SOURCE_LABEL,
   type BpPaidLine,
-  type SettlementAccountEntryRow,
+  type PartnerAdjustment,
+  type RevenueHeldRow,
 } from "@/lib/partner-disbursement";
 
 
@@ -99,9 +103,14 @@ interface PartnerSettlement {
   totalBpPaidByPartner: number;
   /** Desembolso efectivo do sócio = transações pagas por ele + linhas de BP sem transação. */
   totalDisbursement: number;
-  /** Entradas nas contas de acerto do sócio (dinheiro do evento já em poder dele). */
-  settlementAccountEntries: SettlementAccountEntryRow[];
-  totalSettlementAccountAdvances: number;
+  /** (g5) Receitas em poder do sócio (contas de acerto, contas dele, operações de terceiros). */
+  revenuesHeld: RevenueHeldRow[];
+  totalRevenuesHeld: number;
+  /** (g5) Ajustes manuais ao desembolso (valor com sinal). */
+  disbursementAdjustments: PartnerAdjustment[];
+  totalDisbursementAdjustments: number;
+  /** (g5) Financiamento a devolver = desembolso ± ajustes − receitas em poder. */
+  financingToReturn: number;
   /** Já adiantado ao sócio = extras/adiantamentos + entradas nas contas de acerto. */
   totalAdvanced: number;
   partnerExtras: { origem?: "transacao" | "manual"; originLabel?: string; description: string; amount: number; date: string; category: string; cityLabel: string }[];
@@ -311,39 +320,74 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // (g4 precisão) Contas de acerto do sócio — entradas = dinheiro do evento já com ele.
-  const { data: settlementAccountEntries = [] } = useQuery({
-    queryKey: ["partner-settlement-account-entries", allEventIdsKey],
-    queryFn: async (): Promise<SettlementAccountEntryRow[]> => {
-      const { data: accounts, error: accErr } = await supabase
-        .from("financial_accounts")
-        .select("id, name, partner_id")
-        .not("partner_id", "is", null);
-      if (accErr) throw accErr;
-      const ids = (accounts ?? []).map((a: any) => a.id);
-      if (!ids.length) return [];
-      const { data: txs, error: txErr } = await supabase
-        .from("transactions")
-        .select("id, description, amount, date, type, status, account_id, event_id, reversed_at")
-        .in("account_id", ids)
-        .in("event_id", allEventIds)
-        .eq("type", "income");
-      if (txErr) throw txErr;
-      const byAccount = new Map((accounts ?? []).map((a: any) => [a.id, a]));
-      return (txs ?? [])
-        .filter((t: any) => !t.reversed_at && (t.status === "paid" || t.status === "approved"))
-        .map((t: any) => {
-          const acc = byAccount.get(t.account_id);
-          return {
+  // (g5) Receitas em poder do sócio — 3 fontes: contas de acerto do sócio, receitas
+  // do evento em contas com partner_id, e operações de terceiros retidas por ele.
+  const { data: revenuesHeldRaw = [] } = useQuery({
+    queryKey: ["partner-revenues-held", allEventIdsKey],
+    queryFn: async (): Promise<RevenueHeldRow[]> => {
+      const [accRes, opsRes] = await Promise.all([
+        supabase.from("financial_accounts").select("id, name, partner_id, account_type").not("partner_id", "is", null),
+        supabase
+          .from("event_third_party_operations")
+          .select("id, name, operator_result, held_by_supplier_id, event_id")
+          .in("event_id", allEventIds)
+          .not("held_by_supplier_id", "is", null),
+      ]);
+      if (accRes.error) throw accRes.error;
+      if (opsRes.error) throw opsRes.error;
+
+      const accounts = accRes.data ?? [];
+      const rows: RevenueHeldRow[] = [];
+
+      if (accounts.length > 0) {
+        const { data: txs, error: txErr } = await supabase
+          .from("transactions")
+          .select("id, description, amount, date, type, status, account_id, event_id, reversed_at")
+          .in("account_id", accounts.map((a: any) => a.id))
+          .in("event_id", allEventIds)
+          .eq("type", "income");
+        if (txErr) throw txErr;
+        const byAccount = new Map(accounts.map((a: any) => [a.id, a]));
+        for (const t of (txs ?? []) as any[]) {
+          if (t.reversed_at || !(t.status === "paid" || t.status === "approved")) continue;
+          const acc: any = byAccount.get(t.account_id);
+          rows.push({
             id: t.id,
             partnerId: acc?.partner_id as string,
+            source: acc?.account_type === "settlement" ? "settlement_account" : "partner_account",
             accountName: acc?.name || "—",
             description: t.description || "—",
             amount: Number(t.amount) || 0,
             date: t.date || "",
             eventId: t.event_id ?? null,
-          };
+          });
+        }
+      }
+
+      for (const op of (opsRes.data ?? []) as any[]) {
+        rows.push({
+          id: op.id,
+          // Guardado por supplier_id — resolvido para o participante mais abaixo.
+          partnerId: `supplier:${op.held_by_supplier_id}`,
+          source: "third_party",
+          accountName: op.name || "Operação de terceiros",
+          description: "Resultado do operador",
+          amount: Number(op.operator_result) || 0,
+          date: "",
+          eventId: op.event_id ?? null,
         });
+      }
+      return rows;
+    },
+  });
+
+  // (g5) Sócios que não deduzem IVA em PT (doc_locale pt-BR) — desembolso valorizado c/IVA.
+  const { data: grossDisbursementSupplierIds = [] } = useQuery({
+    queryKey: ["suppliers-doc-locale-br"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id").eq("doc_locale", "pt-BR");
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.id as string);
     },
   });
 
@@ -880,7 +924,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const extrasForPartner = isHouse
       ? []
       : partnerAdvances
-          .filter((pe) => pe.partner_id === p.id)
+          .filter((pe) => pe.partner_id === p.id && pe.kind !== "disbursement_adjustment")
           .map((pe) => ({
             origem: pe.origem,
             originLabel: ORIGIN_LABEL[pe.origem],
@@ -897,18 +941,41 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     // (g4 precisão / D-ERP14) Linhas de BP em nome do sócio que nunca viraram transação:
     // o fornecedor factura ao sócio e ele refactura à MP. Entram no desembolso efectivo.
+    // (g5) Desembolso: s/IVA por defeito; c/IVA só quando o sócio não deduz IVA em PT.
+    const disbursementGross = !!p.supplier_id && (grossDisbursementSupplierIds as string[]).includes(p.supplier_id);
+    const paidTxIds = new Set(
+      (paidExpenses as any[])
+        .filter((pe) => pe.partner_id === p.id && pe.transaction_id)
+        .map((pe) => pe.transaction_id as string),
+    );
     const bpPaidLines = isHouse
       ? []
-      : collectBpPaidLines(forecasts as any[], p.id, usesGrossExpenses, cityLabelByEvent);
+      : collectBpPaidLines(forecasts as any[], p.id, disbursementGross, cityLabelByEvent, paidTxIds);
     const totalBpPaidByPartner = sumLineAmounts(bpPaidLines);
     const totalDisbursement = partnerDisbursement(totalPaidByPartner, totalBpPaidByPartner);
 
-    // (g4 precisão / issue #133) Entradas nas contas de acerto do sócio.
-    const myAccountEntries = isHouse
+    // (g5·B) Ajustes manuais ao desembolso.
+    const disbursementAdjustments = isHouse
       ? []
-      : collectSettlementAccountEntries(settlementAccountEntries as SettlementAccountEntryRow[], p.id);
-    const totalSettlementAccountAdvances = sumLineAmounts(myAccountEntries);
-    const totalAdvanced = partnerAdvancedTotal(totalPartnerExtras, totalSettlementAccountAdvances);
+      : collectDisbursementAdjustments(
+          (partnerAdvances as any[]).map((e) => ({ ...e, kind: e.kind })),
+          p.id,
+          cityLabelByEvent,
+        );
+    const totalDisbursementAdjustments = sumLineAmounts(disbursementAdjustments);
+
+    // (g5·C / issue #133) Receitas em poder do sócio (3 fontes).
+    const heldRows = (revenuesHeldRaw as RevenueHeldRow[]).map((r) =>
+      r.partnerId === `supplier:${p.supplier_id ?? ""}` ? { ...r, partnerId: p.id } : r,
+    );
+    const revenuesHeld = isHouse ? [] : collectRevenuesHeld(heldRows, p.id);
+    const totalRevenuesHeld = sumLineAmounts(revenuesHeld);
+    const financingToReturn = partnerFinancingToReturn(
+      totalDisbursement,
+      totalDisbursementAdjustments,
+      totalRevenuesHeld,
+    );
+    const totalAdvanced = partnerAdvancedTotal(totalPartnerExtras);
 
     // Items transitórios:
     //  • Sócio externo → linhas vinculadas em partner_paid_expenses (despesas e devoluções diretas)
@@ -955,8 +1022,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       bpPaidLines,
       totalBpPaidByPartner,
       totalDisbursement,
-      settlementAccountEntries: myAccountEntries,
-      totalSettlementAccountAdvances,
+      revenuesHeld,
+      totalRevenuesHeld,
+      disbursementAdjustments,
+      totalDisbursementAdjustments,
+      financingToReturn,
       totalAdvanced,
       transitoryCredit: 0, // calculado abaixo
       transitoryItems,
@@ -1008,7 +1078,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // (g4 adenda) Base a transferir ao sócio e IVA do repasse quando facturado.
     // Desembolso efectivo do sócio (transações + BP sem transação) e tudo o que já lhe
     // chegou (extras/adiantamentos + entradas nas contas de acerto).
-    s.transferBase = roundCents(s.partnerShare + s.totalDisbursement - s.totalAdvanced);
+    // (g5·D) parte + desembolso ± ajustes − receitas em poder − extras/adiantamentos.
+    s.transferBase = roundCents(s.partnerShare + s.financingToReturn - s.totalAdvanced);
     s.transferVat =
       s.transferWithVat && s.transferBase > 0 ? calcIvaAmount(s.transferBase, TRANSFER_IVA_RATE) : 0;
     s.transferTotal = roundCents(s.transferBase + s.transferVat);
@@ -2109,8 +2180,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       logoDataUrl: logoDataUrl ?? null,
       recipientName: row.partnerName,
       paidByPartner: row.totalDisbursement,
+      disbursementAdjustments: row.totalDisbursementAdjustments,
+      revenuesHeld: row.revenuesHeld.map((r) => ({
+        label: `${REVENUE_HELD_SOURCE_LABEL[r.source]} · ${r.accountName}`,
+        value: r.amount,
+      })),
       partnerExtras: row.totalPartnerExtras,
-      partnerAdvances: row.totalSettlementAccountAdvances,
+      partnerAdvances: 0,
       transferWithVat: row.transferWithVat,
       participants: settlements.map((s) => ({
         name: s.partnerName,
@@ -2448,8 +2524,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     </span>
                     <p className="font-mono font-bold text-success">{formatCurrency(s.totalDisbursement)}</p>
                   </div>
+                  {s.totalDisbursementAdjustments !== 0 && (
+                    <div>
+                      <span className="text-xs text-muted-foreground" title="Ajustes manuais ao desembolso do sócio">
+                        Ajustes ao desembolso (±)
+                      </span>
+                      <p className="font-mono font-bold">{formatCurrency(s.totalDisbursementAdjustments)}</p>
+                    </div>
+                  )}
                   <div>
-                    <span className="text-xs text-muted-foreground" title="Extras/adiantamentos + entradas nas contas de acerto do sócio">
+                    <span className="text-xs text-muted-foreground" title="Contas de acerto do sócio, receitas em contas dele e operações de terceiros retidas por ele">
+                      Receitas em poder do sócio (−)
+                    </span>
+                    <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalRevenuesHeld)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground" title="Desembolso ± ajustes − receitas em poder do sócio">
+                      Financiamento a devolver
+                    </span>
+                    <p className="font-mono font-bold">{formatCurrency(s.financingToReturn)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground" title="Extras/adiantamentos ao sócio">
                       Já adiantado (−)
                     </span>
                     <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalAdvanced)}</p>
@@ -2481,12 +2577,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               {!s.transferWithVat && (
                 <span className="text-[11px] text-muted-foreground italic">Repasse sem IVA facturado.</span>
               )}
-              {!s.isHouse && (s.totalBpPaidByPartner > 0 || s.totalSettlementAccountAdvances > 0) && (
+              {!s.isHouse && (s.totalBpPaidByPartner > 0 || s.totalRevenuesHeld > 0) && (
                 <p className="w-full text-[11px] text-muted-foreground">
-                  Inclui {formatCurrency(s.totalBpPaidByPartner)} de linhas do BP facturadas em nome do sócio sem transação
-                  {s.settlementAccountEntries.length > 0 && (
-                    <> e {formatCurrency(s.totalSettlementAccountAdvances)} já recebidos em{" "}
-                    {Array.from(new Set(s.settlementAccountEntries.map((e) => e.accountName))).join(", ")}</>
+                  Inclui {formatCurrency(s.totalBpPaidByPartner)} de linhas do BP facturadas em nome do sócio
+                  {s.revenuesHeld.length > 0 && (
+                    <> e {formatCurrency(s.totalRevenuesHeld)} de receitas já em poder dele ({" "}
+                    {Array.from(new Set(s.revenuesHeld.map((e) => e.accountName))).join(", ")})</>
                   )}.
                 </p>
               )}

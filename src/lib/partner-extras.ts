@@ -32,6 +32,8 @@ export interface PartnerExtraItem {
   iva_rate: number;
   /** Categoria contabilística (só origem 'transacao'). */
   category: string | null;
+  /** (g5) 'extra' = abate ao acerto; 'disbursement_adjustment' = ajuste ao desembolso (com sinal). */
+  kind: "extra" | "disbursement_adjustment";
   notes: string | null;
 }
 
@@ -76,7 +78,7 @@ export async function fetchPartnerExtras(eventIds: string[]): Promise<PartnerExt
       .order("created_at"),
     supabase
       .from("event_partner_extras")
-      .select("id, partner_id, event_id, description, amount, notes, created_at")
+      .select("id, partner_id, event_id, description, amount, notes, kind, created_at")
       .in("event_id", ids)
       .order("created_at"),
   ]);
@@ -95,6 +97,7 @@ export async function fetchPartnerExtras(eventIds: string[]): Promise<PartnerExt
     transaction_id: row.transaction_id ?? null,
     iva_rate: Number(row.transactions?.iva_rate || 0),
     category: row.transactions?.account_categories?.name ?? null,
+    kind: "extra" as const,
     notes: null,
   }));
 
@@ -109,6 +112,7 @@ export async function fetchPartnerExtras(eventIds: string[]): Promise<PartnerExt
     transaction_id: null,
     iva_rate: 0,
     category: null,
+    kind: (row.kind === "disbursement_adjustment" ? "disbursement_adjustment" : "extra") as PartnerExtraItem["kind"],
     notes: row.notes ?? null,
   }));
 
