@@ -106,11 +106,9 @@ export function EventSettlementsPanel({ eventId }: Props) {
         </div>
       </div>
 
-      {(n.vatReturnedIn !== 0 || n.vatReturnedOut !== 0) && (
+      {/* (g10) A devolução recebida já vai no badge da quota — aqui só a entregue. */}
+      {n.vatReturnedOut !== 0 && (
         <p className="mb-3 text-xs text-muted-foreground">
-          {n.vatReturnedIn !== 0 && (
-            <>IVA dedutível devolvido pelo fechamento acima: {formatCurrency(n.vatReturnedIn)}. </>
-          )}
           {n.vatReturnedOut !== 0 && (
             <>IVA dedutível entregue a um fechamento abaixo: {formatCurrency(n.vatReturnedOut)}.</>
           )}
