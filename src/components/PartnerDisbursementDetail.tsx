@@ -60,7 +60,7 @@ export default function PartnerDisbursementDetail(props: PartnerDisbursementDeta
 
   const groups = new Map<string, BpPaidLine[]>();
   for (const l of props.bpPaidLines) {
-    const key = props.l2LabelOf((l as any).categoryId) || "—";
+    const key = props.l2LabelOf(l.categoryId) || "—";
     const arr = groups.get(key);
     if (arr) arr.push(l);
     else groups.set(key, [l]);
