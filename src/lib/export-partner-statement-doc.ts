@@ -433,17 +433,19 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     pdf.addPage();
     ry = margin;
   }
-  pdf.setFillColor(20, 20, 20);
-  pdf.setTextColor(255);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.rect(margin, ry, pageW - margin * 2, 9, "F");
-  pdf.text(`${t.section4} · ${doc.resultBasisLabel}`, margin + 3, ry + 6);
-  pdf.text(money(doc.result, loc), pageW - margin - 3, ry + 6, { align: "right" });
-  pdf.setTextColor(0);
+  if (!doc.cascade) {
+    pdf.setFillColor(20, 20, 20);
+    pdf.setTextColor(255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.rect(margin, ry, pageW - margin * 2, 9, "F");
+    pdf.text(`${t.section4} · ${doc.resultBasisLabel}`, margin + 3, ry + 6);
+    pdf.text(money(doc.result, loc), pageW - margin - 3, ry + 6, { align: "right" });
+    pdf.setTextColor(0);
+  }
 
   // 5. A PARTE DE <SÓCIO>
-  const sy = sectionTitle(t.section5(doc.recipientName), ry + 16);
+  const sy = sectionTitle(t.section5(doc.recipientName), doc.cascade ? ry + 4 : ry + 16);
   table({
     startY: sy,
     head: [[t.partner, t.quota, t.value]],
