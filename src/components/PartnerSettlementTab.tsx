@@ -1205,6 +1205,58 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const mixedBasesNote =
     "Sócios com bases de cálculo diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
+  // (g15-c) Partes REAIS por sócio e posições nominais — tudo vem do motor.
+  // Usado no relatório interno e no ecrã (a linha nominal nunca fica sozinha).
+  const engineNodes = engine.result?.nodes ?? [];
+  const nodeById = new Map(engineNodes.map((n) => [n.id, n]));
+  const fmtPct = (v: number) => `${Number(v || 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`;
+  const pctChain = (nodeId: string, ownPct: number) => {
+    const parts = [fmtPct(ownPct)];
+    for (let cur = nodeById.get(nodeId); cur?.parentId; cur = nodeById.get(cur.parentId)) {
+      if (cur.parentSharePct != null) parts.push(fmtPct(Number(cur.parentSharePct)));
+    }
+    return parts.join(" de ");
+  };
+  const realByName = new Map<string, { name: string; share: number; settlesAt: string; pctLabel: string }>();
+  for (const n of engineNodes)
+    for (const p of n.participants) {
+      if (p.kind === "house" || p.mode !== "settles") continue;
+      realByName.set(p.name, {
+        name: p.name,
+        share: p.share,
+        settlesAt: n.name,
+        pctLabel: pctChain(n.id, p.effectivePct),
+      });
+    }
+  const nominalRows = engineNodes.flatMap((n) =>
+    n.participants
+      .filter((p) => p.kind !== "house" && p.mode === "nominal")
+      .map((p) => {
+        const real = realByName.get(p.name);
+        return {
+          name: p.name,
+          settlementId: n.id,
+          nominalPctLabel: pctChain(n.id, p.effectivePct),
+          nominalValue: p.shareNet,
+          realPctLabel: real?.pctLabel ?? "—",
+          realValue: real?.share ?? 0,
+          realSettlesAt: real?.settlesAt ?? "—",
+          diff: roundCents(p.shareNet - (real?.share ?? 0)),
+        };
+      }),
+  );
+  const nominalNoteOf = (name: string, nodeId: string) => {
+    const real = realByName.get(name);
+    if (!real) return undefined;
+    const nominal = nodeById.get(nodeId)?.participants.find((p) => p.name === name)?.shareNet ?? 0;
+    return `acerta ${real.pctLabel} = ${formatCurrency(real.share)} no ${real.settlesAt} · diferença ${formatCurrency(roundCents(nominal - real.share))} fica com a Mundo Propício`;
+  };
+  /** Nota da linha nominal deste sócio no fechamento activo (g15-c). */
+  const nominalScreenNote = (partnerName: string) => {
+    const row = nominalRows.find((r) => r.name === partnerName && r.settlementId === activeSettlementId);
+    return row ? `posição nominal ${row.nominalPctLabel} · ${nominalNoteOf(row.name, row.settlementId)}` : null;
+  };
+
   /**
    * (g15) RELATÓRIO INTERNO do Encontro de Contas — vista de staff.
    *
