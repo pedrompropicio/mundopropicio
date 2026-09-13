@@ -15185,6 +15185,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_ads_register_external: {
+        Args: {
+          p_artist_id: string
+          p_external_id: string
+          p_name?: string
+          p_platform: string
+        }
+        Returns: string
+      }
       artist_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
@@ -15506,8 +15515,10 @@ export type Database = {
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
+          artist_id: string
           company_id: string
           platform: string
+          return_url: string
           user_id: string
           valid: boolean
         }[]
