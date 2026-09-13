@@ -45,6 +45,25 @@ describe("computeSettlementEngine", () => {
     expect(r.c1.ok && r.c2.ok).toBe(true);
   });
 
+  // (e2) ponto 3: a casa fica com 100 − Σ(TODOS os sócios, settles e nominais).
+  it("casa com nominal: 70 settles + 15 nominal + casa 15 fecha a C2 em zero", () => {
+    const r = computeSettlementEngine(
+      base({
+        participants: [
+          { id: "a", settlement_id: "root", participant_kind: "partner", name: "A", mode: "settles", profit_pct: 70, loss_pct: null },
+          { id: "b", settlement_id: "root", participant_kind: "partner", name: "B", mode: "nominal", profit_pct: 15, loss_pct: null },
+          { id: "h", settlement_id: "root", participant_kind: "house", name: "MP", mode: "settles", profit_pct: 15, loss_pct: null },
+        ],
+      }),
+    );
+    expect(r.house.declared).toBe(90_000);
+    expect(r.house.nominalGap).toBe(90_000);
+    expect(r.house.rest).toBe(0);
+    expect(r.c1.ok && r.c2.ok).toBe(true);
+  });
+
+
+
   it("perímetro marcado sai da raiz e forma o apuramento filho", () => {
     const r = computeSettlementEngine(
       base({
