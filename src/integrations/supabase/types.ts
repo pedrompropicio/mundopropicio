@@ -15583,6 +15583,7 @@ export type Database = {
         Args: { _version_id: string }
         Returns: undefined
       }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
@@ -15747,7 +15748,7 @@ export type Database = {
         }[]
       }
       get_partner_event_shares: {
-        Args: { p_event_id: string }
+        Args: { p_event_id: string; p_settlement_id?: string }
         Returns: {
           partner_name: string
           percentage: number
@@ -15782,6 +15783,13 @@ export type Database = {
           transfer_base: number
           transfer_total: number
           transfer_vat: number
+        }[]
+      }
+      get_partner_visible_settlements: {
+        Args: { _event_id: string }
+        Returns: {
+          settlement_id: string
+          settlement_position: number
         }[]
       }
       get_sales_last_sync: { Args: never; Returns: string }
@@ -16333,6 +16341,10 @@ export type Database = {
       upsert_vault_secret: {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
+      }
+      user_event_partner_ids: {
+        Args: { _event_ids: string[]; _user: string }
+        Returns: string[]
       }
       user_has_event_access: {
         Args: { p_event_id: string; p_user_id: string }

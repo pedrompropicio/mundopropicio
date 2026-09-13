@@ -1774,3 +1774,19 @@ escopo de empresa de `has_role`.
 Em 13/09/2026 as 51 políticas legacy (50 SELECT + 1 INSERT) foram substituídas
 por este padrão, com prova antes/depois na mesma transação. O papel `user` deixa
 de dar acesso a dados: quem é staff tem de ter papel de staff.
+
+## Adenda (g9b) — identidade do sócio e visibilidade dos fechamentos (13/09/2026)
+
+1. **Identidade canónica do sócio** é `public.user_supplier_id(uuid)`:
+   `profiles.linked_supplier_id` com recurso ao email como alternativa. Nenhum
+   código novo pode ler `linked_supplier_id` directamente para decidir acesso.
+   Os campos `partner_id` / `paying_partner_id` apontam para `event_partners(id)`
+   e nunca podem ser comparados com um `suppliers.id`: usar
+   `user_event_partner_ids(user, event_ids[])`.
+2. **A visibilidade nunca sobe.** Um sócio vê o seu nó e os descendentes; jamais
+   os ascendentes ou nós irmãos.
+3. **Fechamento visível = onde o sócio acerta contas (`mode='settles'`).** A
+   presença nominal num nó acima é contabilística, não é uma vista. Qualquer
+   escolha de "fechamento do Portal" por `position` ou por `parent_id` está
+   errada — usar `get_partner_visible_settlements`.
+4. **Staff do fecho** é `has_staff_role`: o papel `user` não dá acesso a nada.

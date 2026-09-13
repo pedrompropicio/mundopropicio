@@ -247,3 +247,76 @@ Prova corrida como cada utilizador com `SET LOCAL ROLE authenticated` +
 sócio: era staff que entrava só pelas políticas legacy e hoje não entra. Pertence
 à empresa **Coala Festival Portugal** (`7d831e59`), não à Mundo Propício. Atribuir
 o papel correcto nessa empresa é decisão do Pedro e é DML.
+
+## Correcção #159–#165 — prova (g9b, 13/09/2026)
+
+Uma migration, uma transação, prova automática com `RAISE EXCEPTION` (qualquer
+desvio faria rollback de tudo). Nenhum DML. Nada publicado.
+
+### O que mudou
+
+1. **#161 Identidade canónica do sócio** — `user_supplier_id(uuid)` resolve por
+   `profiles.linked_supplier_id` com recurso ao email (`suppliers.email`) como
+   alternativa. Fim da identidade duplicada.
+   Novo auxiliar `user_event_partner_ids(user, event_ids[])`: o conjunto de
+   `event_partners.id` do sócio — `partner_paid_expenses.partner_id`,
+   `event_forecasts.paying_partner_id`, `event_partner_extras.partner_id` e
+   `financial_accounts.partner_id` apontam para `event_partners(id)`, nunca para
+   `suppliers(id)`. Era por aqui que `get_partner_settlement_summary` nunca casava.
+2. **#160 `is_settlement_staff`** delega em `has_staff_role` — o papel `user`
+   deixa de ser staff do fecho.
+3. **#164 `user_settlement_visible_ids`** — o nó do sócio e os seus descendentes;
+   nunca sobe aos ascendentes.
+4. **#163 `get_partner_event_shares(p_event_id, p_settlement_id DEFAULT NULL)`** —
+   percentagens por nó (a versão de 1 argumento foi dropada para evitar
+   sobrecarga ambígua); só participantes com `mode='settles'`; o resto do nó
+   colapsa em "MUNDO PROPÍCIO" ou "Sócios locais".
+5. **#159 `get_partner_event_partner_expenses`** — só as linhas cujo
+   `partner_id` é do próprio sócio.
+6. **#165 `get_partner_event_tx_aggregates`** — exige
+   `has_permission(view_partner_transactions)`, participação real
+   (`mode='settles'`), perímetro do fechamento raiz e o mesmo critério de
+   confidencialidade do `transactions_confidential_guard`.
+7. **Novo `get_partner_visible_settlements(_event_id)`** →
+   `(settlement_id, settlement_position)`, sem nome interno nem `parent_id`.
+
+### Correcção obrigatória do Pedro — "visível" = onde SETTLES
+
+Fechamento visível é aquele onde o sócio **acerta contas**, nunca onde é apenas
+nominal. Caso real: RAFAEL LOBO é nominal 10% na raiz da Anitta
+(`b415da54`, position 0) e settles 20% no seu fechamento (`55a48a9f`,
+position 1). Sem o filtro `mode='settles'` a raiz vinha primeiro por position,
+era escolhida, e `get_partner_event_shares` devolvia vazio porque lá ele não
+settles. Filtro aplicado em `get_partner_visible_settlements`, na verificação de
+participação de `get_partner_settlement_summary` e na de
+`get_partner_event_tx_aggregates`.
+
+### Prova
+
+| Prova | Antes | Depois |
+| --- | --- | --- |
+| `get_partner_event_tx_aggregates` a `lobo@vybbe.com.br` (fuga activa) | 34 linhas / base 749.207,58 € | **0 linhas / 0,00 €** |
+| `get_partner_event_shares` a lobo / tania | 0 | 0 |
+| `get_partner_event_partner_expenses` a lobo / tania | 0 | 0 |
+| `get_partner_visible_settlements` a lobo / tania | — (função nova) | 0 |
+| `user_settlement_visible_ids` a lobo / tania | 0 | 0 |
+| `is_settlement_staff` a lobo / tania | false | false |
+| `is_settlement_staff` a `pedroneto` (staff) | true | true |
+| Contagens da staff (shares, tx_agg, expenses) no evento Anitta | 0 | 0 (sem regressão) |
+
+A queda de 34 linhas a 0 não é regressão de ecrã: `lobo` e `tania` não têm
+qualquer registo de `view_partner_transactions` em `user_permissions`, e a aba já
+estava gateada na UI pela mesma permissão. Era fuga de RPC, não vista.
+
+Simulação RAFAEL LOBO (sem DML, por consulta directa ao predicado da função com
+o supplier `1d62b176`): exactamente **1** fechamento onde settles, e é
+`55a48a9f` "Fechamento Rafael Lobo" — não a raiz. Quota do nó > 0.
+
+`NOTICE: PROVA g9b OK`.
+
+### Frontend
+
+`src/pages/PartnerEventDetail.tsx` — a escolha do fechamento do Portal passa a
+vir de `get_partner_visible_settlements` em vez de "primeiro filho por position".
+`get_partner_event_shares` continua a ser chamada com um argumento (o segundo tem
+default). `tsgo` limpo; 45 testes verdes.
