@@ -91,12 +91,12 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // IMPORTANTE: aplicar os mesmos filtros do PartnerSettlementTab para que os dois fechos coincidam.
   // Filtro canónico em `@/lib/fecho-filters` (ver .lovable/memory/features/fecho-filter-parity.md):
   //   status ∈ {approved, paid} · !is_transitory · !exclude_from_result · reversed_at IS NULL · !is_hidden
-  const { data: transactions = [] } = useQuery({
+  const { data: transactionsAll = [] } = useQuery({
     queryKey: ["fecho-transactions", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, account_categories(name, code)")
+        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(name, code)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]);
       if (error) throw error;
@@ -105,12 +105,12 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ---- Forecasts overhead (do próprio evento + filhos)
-  const { data: ownOverheads = [] } = useQuery({
+  const { data: ownOverheadsAll = [] } = useQuery({
     queryKey: ["fecho-overheads", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
+        .select("id, event_id, type, amount, iva_rate, description, event_settlement_id, account_categories(code, name)")
         .in("event_id", allEventIds)
         .eq("is_overhead", true).is("version_id", null);
       if (error) throw error;
@@ -119,12 +119,12 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ---- Forecasts operacionais aprovados (base "Previsto + excedido" do seletor)
-  const { data: operationalForecasts = [] } = useQuery({
+  const { data: operationalForecastsAll = [] } = useQuery({
     queryKey: ["fecho-operational-forecasts", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("status", "approved")
@@ -134,6 +134,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       return (data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
     },
   });
+
+  // ---- Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho
+  // são exclusivas desse fechamento e não entram no resultado do evento.
+  const { data: rootInfo } = useEventRootSettlements(allEventIds);
+  const rootIds = rootInfo?.rootIds;
+  const transactions = keepRootPerimeter(transactionsAll as any[], rootIds);
+  const ownOverheads = keepRootPerimeter(ownOverheadsAll as any[], rootIds);
+  const operationalForecasts = keepRootPerimeter(operationalForecastsAll as any[], rootIds);
 
 
 
