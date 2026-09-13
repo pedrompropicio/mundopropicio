@@ -94,9 +94,11 @@ export function roundCents(value: number): number {
   const n = Number(value) || 0;
   if (!Number.isFinite(n)) return 0;
   const sign = n < 0 ? -1 : 1;
-  const abs = Math.abs(n);
-  // Reescala em notação exponencial (sem erro binário extra) e arredonda
-  // simetricamente (half away from zero, como o Art.º 18.º CIVA exige).
+  // 1) Normaliza o ruído binário (417293.4149999999 → 417293.415) a 15 dígitos
+  //    significativos — precisão de facto de um double.
+  const abs = Number(Math.abs(n).toPrecision(15));
+  // 2) Reescala em notação exponencial (sem erro binário extra) e arredonda
+  //    simetricamente (half away from zero, como o Art.º 18.º CIVA exige).
   const scaled = Number(`${abs}e2`);
   const rounded = Number.isFinite(scaled) ? Math.round(scaled) : Math.round(abs * 100);
   const out = Number(`${rounded}e-2`);
