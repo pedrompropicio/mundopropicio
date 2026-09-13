@@ -400,9 +400,38 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
       const t = rows.reduce((s, r) => s + r.total, 0);
       body.push([`${code} ${name}`.trim(), money(b), money(i), money(t)]);
       styles.push({ fill: [230, 230, 230], bold: true });
-      for (const r of rows.sort((a, z) => a.l2Code.localeCompare(z.l2Code, undefined, { numeric: true }))) {
-        body.push([`      ${r.l2Code} ${r.l2Name}`.trim(), money(r.base), money(r.iva), money(r.total)]);
-        styles.push(null);
+      const byL2 = new Map<string, typeof rows>();
+      for (const r of rows) {
+        const k2 = `${r.l2Code}|${r.l2Name}`;
+        const arr2 = byL2.get(k2);
+        if (arr2) arr2.push(r);
+        else byL2.set(k2, [r]);
+      }
+      for (const [k2, rows2] of [...byL2.entries()].sort(([a], [z]) =>
+        a.localeCompare(z, undefined, { numeric: true }),
+      )) {
+        const [c2, n2] = k2.split("|");
+        body.push([
+          `      ${c2} ${n2}`.trim(),
+          money(rows2.reduce((s, r) => s + r.base, 0)),
+          money(rows2.reduce((s, r) => s + r.iva, 0)),
+          money(rows2.reduce((s, r) => s + r.total, 0)),
+        ]);
+        styles.push({ fill: [245, 245, 245] });
+        if (input.expenseCategoryLevel === "l3") {
+          for (const r of rows2.sort((a, z) =>
+            String(a.l3Code ?? "").localeCompare(String(z.l3Code ?? ""), undefined, { numeric: true }),
+          )) {
+            if (!r.l3Code || (r.l3Code === r.l2Code && r.l3Name === r.l2Name)) continue;
+            body.push([
+              `            ${r.l3Code} ${r.l3Name}`.trim(),
+              money(r.base),
+              money(r.iva),
+              money(r.total),
+            ]);
+            styles.push(null);
+          }
+        }
       }
       tBase += b;
       tIva += i;
