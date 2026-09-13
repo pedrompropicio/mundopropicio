@@ -567,14 +567,14 @@ export default function PartnerEventDetail() {
   const { data: portalSettlementId } = useQuery({
     queryKey: ["partner-visible-settlement", activeEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_settlements")
-        .select("id, parent_id, position")
-        .eq("event_id", activeEventId!)
-        .order("position", { ascending: true });
+      // (g9b) O fechamento visível é aquele onde o sócio ACERTA CONTAS (mode='settles').
+      // A presença nominal num nó acima é contabilística e não é uma vista.
+      const { data, error } = await supabase.rpc("get_partner_visible_settlements" as any, {
+        _event_id: activeEventId!,
+      } as any);
       if (error) throw error;
-      const rows = (data ?? []) as any[];
-      return (rows.find((r) => r.parent_id !== null)?.id ?? rows[0]?.id ?? null) as string | null;
+      const rows = (data ?? []) as Array<{ settlement_id: string }>;
+      return (rows[0]?.settlement_id ?? null) as string | null;
     },
     enabled: !!activeEventId && hasPermission("view_bp"),
   });
