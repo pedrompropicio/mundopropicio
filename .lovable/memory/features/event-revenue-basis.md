@@ -19,3 +19,12 @@ fonte da receita de um evento ou Master+Splits — DR-2026-09-06-D24.
 Realizado devolve `{net, gross}` por bucket (Bilheteira / A&B / Patrocínio / Outros);
 o previsto é sempre s/IVA. Consumidores: `useEventFinancialCardData`, `EventFecho`,
 `EventDetail`, `computeTicketSynthetic`. Nunca recriar cálculo local de receita.
+
+## Perímetro da raiz (g3, #146)
+
+Antes de somar, a receita passa por `keepRootPerimeter` (`src/lib/settlement-perimeter.ts`):
+transações e linhas de BP marcadas com um fechamento que NÃO é a raiz do evento
+são exclusivas desse fechamento e ficam FORA da receita, custo e lucro do evento
+(card, Resumo, Fecho, DRE de evento, Portal do Sócio). As raízes vêm de
+`useEventRootSettlements`. **DRE Empresarial e DRE Brasil são vistas de empresa e
+mantêm essas linhas.**
