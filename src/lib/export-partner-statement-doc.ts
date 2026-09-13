@@ -119,6 +119,11 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   // (g4 adenda) Base a transferir + IVA do repasse quando facturado.
   const rcp = doc.recipientName;
   moneyCells(arial(ws.addRow([t.paidByPartnerLine(rcp), null, doc.paidByPartner])), [3]);
+  if (doc.disbursementAdjustments !== 0)
+    moneyCells(arial(ws.addRow([t.adjustmentsLine, null, doc.disbursementAdjustments])), [3]);
+  for (const r of doc.revenuesHeld) moneyCells(arial(ws.addRow([`  ${r.label}`, null, -r.value])), [3]);
+  if (doc.revenuesHeld.length > 0 || doc.disbursementAdjustments !== 0)
+    moneyCells(arial(ws.addRow([t.financingLine, null, doc.financingToReturn])), [3]);
   moneyCells(arial(ws.addRow([t.extrasLine, null, doc.partnerExtras])), [3]);
   moneyCells(arial(ws.addRow([t.advancesLine(rcp), null, doc.partnerAdvances])), [3]);
   moneyCells(
@@ -371,6 +376,17 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
         { content: money(s.value, loc), styles: { fontStyle: s.isRecipient ? "bold" : "normal", halign: "right" } },
       ]),
       [t.paidByPartnerLine(doc.recipientName), "", { content: money(doc.paidByPartner, loc), styles: { halign: "right" } }],
+      ...(doc.disbursementAdjustments !== 0
+        ? [[t.adjustmentsLine, "", { content: money(doc.disbursementAdjustments, loc), styles: { halign: "right" as const } }]]
+        : []),
+      ...doc.revenuesHeld.map((r) => [
+        `  ${r.label}`,
+        "",
+        { content: money(-r.value, loc), styles: { halign: "right" as const } },
+      ]),
+      ...(doc.revenuesHeld.length > 0 || doc.disbursementAdjustments !== 0
+        ? [[t.financingLine, "", { content: money(doc.financingToReturn, loc), styles: { halign: "right" as const } }]]
+        : []),
       [t.extrasLine, "", { content: money(doc.partnerExtras, loc), styles: { halign: "right" } }],
       [t.advancesLine(doc.recipientName), "", { content: money(doc.partnerAdvances, loc), styles: { halign: "right" } }],
       [
