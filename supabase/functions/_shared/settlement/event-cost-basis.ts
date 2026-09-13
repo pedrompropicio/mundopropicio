@@ -15,7 +15,7 @@
  *    excesso — o excesso compara só rubricas operacionais.
  */
 
-import { calcTotalWithIva } from "@/lib/iva";
+import { calcTotalWithIva } from "./iva.ts";
 
 /** Tolerância do "ultrapassou o previsto" (meio cêntimo). */
 export const EXCESS_EPSILON = 0.005;

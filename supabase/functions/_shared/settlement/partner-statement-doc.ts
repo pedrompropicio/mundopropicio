@@ -12,16 +12,16 @@
  *       de outros participantes; nunca "nível", "fechamento acima/abaixo" nem
  *       "bases diferentes".
  */
-import { calcIvaAmount, roundCents, type IvaRate } from "@/lib/iva";
-import { buildCategoryLookup } from "@/lib/category-hierarchy";
-import { compareHierarchicalCodes } from "@/lib/utils";
-import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
-import { reconcileDisplayField } from "@/lib/partner-settlement-internal-report";
+import { calcIvaAmount, roundCents, type IvaRate } from "./iva.ts";
+import { buildCategoryLookup } from "./category-hierarchy.ts";
+import { compareHierarchicalCodes } from "./hierarchical-codes.ts";
+import { HOUSE_PARTNER_NAME } from "./house.ts";
+import { reconcileDisplayField } from "./partner-settlement-internal-report.ts";
 import {
   effectiveExpenseBasisLabel,
   effectiveResultBasisLabel,
   effectiveUsesGrossExpenses,
-} from "@/lib/settlement-basis";
+} from "./settlement-basis.ts";
 
 export type DocLocale = "pt-PT" | "pt-BR";
 

@@ -24,14 +24,14 @@
  *    `expense_includes_iva` já não é lido pelo motor.
  *  • Arredondamento ao cêntimo só na saída, nunca por bloco intermédio.
  */
-import { roundCents } from "@/lib/iva";
-import { effectiveUsesGrossExpenses } from "@/lib/settlement-basis";
-import { lineValue } from "@/lib/event-cost-basis";
+import { roundCents } from "./iva.ts";
+import { effectiveUsesGrossExpenses } from "./settlement-basis.ts";
+import { lineValue } from "./event-cost-basis.ts";
 import {
   ignoresOperationalExpenses,
   usesGrossExpenseAmounts,
   type PartnerCalcBasis,
-} from "@/lib/partner-calc-basis";
+} from "./partner-calc-basis.ts";
 
 export type ParentShareBasis = "net_result" | "net_result_gross_expenses";
 

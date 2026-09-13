@@ -11,8 +11,8 @@
  * o gerador imprimir o aviso — nunca se ajusta um número para fechar.
  */
 
-import { roundCents } from "@/lib/iva";
-import { partnerFinancingToReturn } from "@/lib/partner-disbursement";
+import { roundCents } from "./iva.ts";
+import { partnerFinancingToReturn } from "./partner-disbursement.ts";
 
 export interface InternalCascadeDeduction {
   name: string;

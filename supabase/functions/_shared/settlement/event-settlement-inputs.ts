@@ -10,11 +10,11 @@
  * Vive num módulo próprio para que o painel de Apuramentos e o script de prova
  * usem exactamente a mesma aritmética sem tocar no Encontro de Contas.
  */
-import { calcTotalWithIva } from "@/lib/iva";
-import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from "@/lib/event-cost-basis";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
-import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
+import { calcTotalWithIva } from "./iva.ts";
+import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from "./event-cost-basis.ts";
+import { expandOverheadToSplits } from "./overhead-proration.ts";
+import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
+import { isValidFechoTransaction, isTicketingRevenueTx } from "./fecho-filters.ts";
 
 export interface SettlementTotalsBasis {
   includeOverhead: boolean;

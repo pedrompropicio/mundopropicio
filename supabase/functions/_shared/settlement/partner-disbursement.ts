@@ -25,7 +25,7 @@
  * Módulo puro (sem React nem Supabase) para poder ser testado.
  */
 
-import { calcTotalWithIva, roundCents } from "@/lib/iva";
+import { calcTotalWithIva, roundCents } from "./iva.ts";
 
 export interface BpPaidForecastRow {
   id: string;

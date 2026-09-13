@@ -1,4 +1,4 @@
-import { compareHierarchicalCodes } from "@/lib/utils";
+import { compareHierarchicalCodes } from "./hierarchical-codes.ts";
 
 /**
  * Utility to group transactions/forecasts by the chart of accounts hierarchy.
