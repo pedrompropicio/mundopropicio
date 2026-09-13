@@ -199,24 +199,23 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
   // ===== 3. DISTRIBUIÇÃO NESTE FECHAMENTO =====
   if (input.distribution.length > 0) {
     nextSection("Distribuição neste fechamento", input.distribution.length + 1);
+    // (g15-b) O TOTAL é o resultado do fechamento vindo do motor; as partes são
+    // apresentação e absorvem o residual de arredondamento.
+    const shares = reconcileDisplayValues(
+      input.distribution.map((r) => r.share),
+      input.nodeResult,
+    );
     smallTable({
       head: ["Participante", "Modo", "% lucro / prejuízo", "Base efectiva", "Parte", "Onde acerta"],
-      body: input.distribution.map((r) => [
+      body: input.distribution.map((r, i) => [
         r.isHouse ? `${r.name} (casa)` : r.name,
         r.mode === "settles" ? "acerta" : "nominal",
         r.lossPct != null ? `${r.profitPct}% / ${r.lossPct}%` : `${r.profitPct}%`,
         r.basisLabel,
-        money(r.share),
+        money(shares[i]),
         r.settlesAt || "—",
       ]),
-      foot: [[
-        "TOTAL",
-        "",
-        "",
-        "",
-        money(input.distribution.reduce((s, r) => s + r.share, 0)),
-        "",
-      ]],
+      foot: [["TOTAL", "", "", "", money(input.nodeResult), ""]],
       widths: [38, 16, 24, 34, 32, width - 144],
       aligns: ["left", "center", "center", "left", "right", "left"],
       fontSize: 7.8,
