@@ -516,7 +516,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const results: Array<Record<string, unknown>> = [];
 
   for (const conn of connections) {
-    const customerId = String(conn.selected_ad_account_id || "").replace(/-/g, "");
+    const customerId = String(
+      conn.selected_ad_account_id || conn.external_business_id || "",
+    ).replace(/-/g, "");
     const loginCustomerId = String(
       (conn.login_customer_id as string | null) ||
         GOOGLE_ADS_LOGIN_CUSTOMER_ID_FALLBACK ||
