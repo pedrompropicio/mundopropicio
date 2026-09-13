@@ -54,12 +54,16 @@ import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatemen
 import { fetchExportBranding } from "@/lib/export-header";
 import {
   collectBpPaidLines,
-  collectSettlementAccountEntries,
+  collectDisbursementAdjustments,
+  collectRevenuesHeld,
   partnerAdvancedTotal,
   partnerDisbursement,
+  partnerFinancingToReturn,
   sumLineAmounts,
+  REVENUE_HELD_SOURCE_LABEL,
   type BpPaidLine,
-  type SettlementAccountEntryRow,
+  type PartnerAdjustment,
+  type RevenueHeldRow,
 } from "@/lib/partner-disbursement";
 
 
@@ -99,9 +103,14 @@ interface PartnerSettlement {
   totalBpPaidByPartner: number;
   /** Desembolso efectivo do sócio = transações pagas por ele + linhas de BP sem transação. */
   totalDisbursement: number;
-  /** Entradas nas contas de acerto do sócio (dinheiro do evento já em poder dele). */
-  settlementAccountEntries: SettlementAccountEntryRow[];
-  totalSettlementAccountAdvances: number;
+  /** (g5) Receitas em poder do sócio (contas de acerto, contas dele, operações de terceiros). */
+  revenuesHeld: RevenueHeldRow[];
+  totalRevenuesHeld: number;
+  /** (g5) Ajustes manuais ao desembolso (valor com sinal). */
+  disbursementAdjustments: PartnerAdjustment[];
+  totalDisbursementAdjustments: number;
+  /** (g5) Financiamento a devolver = desembolso ± ajustes − receitas em poder. */
+  financingToReturn: number;
   /** Já adiantado ao sócio = extras/adiantamentos + entradas nas contas de acerto. */
   totalAdvanced: number;
   partnerExtras: { origem?: "transacao" | "manual"; originLabel?: string; description: string; amount: number; date: string; category: string; cityLabel: string }[];
