@@ -540,7 +540,13 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     }
     // (g1) A casa só é "declarada" quando acerta: uma casa `nominal` é o pool
     // que desce para os fechamentos abaixo, não uma quota da MP neste nó.
-    if (isHouse && p.mode === "settles") declared += shareNet;
+    // (g4) A casa é calculada na base do fechamento: a parte declarada é `share`
+    // e a diferença de bases vai para o termo "IVA dedutível não devolvido" —
+    // o total da MP (parte + residual) fica igual ao de antes e a C2 fecha.
+    if (isHouse && p.mode === "settles") {
+      declared += share;
+      ivaDeductible += shareNet - share;
+    }
 
     computed.push({ p, key, isHouse, shareNet });
 
