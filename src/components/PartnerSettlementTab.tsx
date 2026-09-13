@@ -30,6 +30,8 @@ import {
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
+
 
 import {
   fetchEventSettlements,
