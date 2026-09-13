@@ -42,7 +42,15 @@ function CheckSeal({ check }: { check: EngineCheck }) {
 }
 
 export function EventSettlementsPanel({ eventId }: Props) {
-  const { result, isLoading, basis } = useEventSettlementEngine(eventId);
+  const {
+    result,
+    isLoading,
+    basis,
+    settlements,
+    rawOperations,
+    rawParticipations,
+    hasAbModule,
+  } = useEventSettlementEngine(eventId);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">A carregar apuramentos…</p>;
   if (!result || result.nodes.length === 0)
@@ -168,6 +176,15 @@ export function EventSettlementsPanel({ eventId }: Props) {
       )}
 
       {result.nodes.filter((n) => !n.parentId).map(renderNode)}
+
+      <EventThirdPartyOperationsPanel
+        eventId={eventId}
+        result={result}
+        settlements={settlements as any}
+        rawOperations={rawOperations}
+        rawParticipations={rawParticipations}
+        hasAbModule={hasAbModule}
+      />
 
       <div className="rounded-lg border border-border/60 p-3">
         <div className="mb-2 text-sm font-semibold">Mundo Propício residual</div>
