@@ -408,15 +408,27 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     }
     const body: any[][] = [];
     const styles: Array<{ fill?: [number, number, number]; bold?: boolean } | null> = [];
-    let tBase = 0;
-    let tIva = 0;
-    let tTotal = 0;
-    for (const [k, rows] of [...byL1.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))) {
+    // (g15-b) O TOTAL do anexo é o do modelo (a mesma base da secção 1); os
+    // grupos absorvem o residual de arredondamento.
+    const l1Entries = [...byL1.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+    const modelBase = input.rootTotals.expensesNet;
+    const modelIva = report.rootExpenseIva;
+    const modelTotal = input.rootTotals.expensesGross;
+    const l1Base = reconcileDisplayValues(
+      l1Entries.map(([, rows]) => rows.reduce((s, r) => s + r.base, 0)),
+      modelBase,
+    );
+    const l1Iva = reconcileDisplayValues(
+      l1Entries.map(([, rows]) => rows.reduce((s, r) => s + r.iva, 0)),
+      modelIva,
+    );
+    const l1Total = reconcileDisplayValues(
+      l1Entries.map(([, rows]) => rows.reduce((s, r) => s + r.total, 0)),
+      modelTotal,
+    );
+    l1Entries.forEach(([k, rows], gi) => {
       const [code, name] = k.split("|");
-      const b = rows.reduce((s, r) => s + r.base, 0);
-      const i = rows.reduce((s, r) => s + r.iva, 0);
-      const t = rows.reduce((s, r) => s + r.total, 0);
-      body.push([`${code} ${name}`.trim(), money(b), money(i), money(t)]);
+      body.push([`${code} ${name}`.trim(), money(l1Base[gi]), money(l1Iva[gi]), money(l1Total[gi])]);
       styles.push({ fill: [230, 230, 230], bold: true });
       const byL2 = new Map<string, typeof rows>();
       for (const r of rows) {
