@@ -185,19 +185,17 @@ export function EventFinancialCard(props: Props) {
               <DropdownMenuLabel className="text-xs">Modo</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={mode} onValueChange={(v) => handleModeChange(v as CardMode)}>
                 <DropdownMenuRadioItem
-                  value="auto"
-                  title="escolhe o modo pela fase do evento: em planeamento usa Forecast, durante a produção usa Previsto + excedido, depois de concluído usa Realizado"
+                  value="realized"
+                  disabled={!shared.canEditBasis}
+                  title="critério gravado no evento — igual para todos os utilizadores"
                 >
-                  Automático (pela fase do evento)
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="realized" disabled={isExpense && !shared.canEditBasis}>
                   Realizado
                 </DropdownMenuRadioItem>
 
                 <DropdownMenuRadioItem
                   value="committed"
-                  disabled={isExpense && !shared.canEditBasis}
-                  title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
+                  disabled={!shared.canEditBasis}
+                  title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica — critério gravado no evento"
                 >
                   Previsto + excedido
                 </DropdownMenuRadioItem>
@@ -252,7 +250,9 @@ export function EventFinancialCard(props: Props) {
       </div>
 
       <div className="mt-3">
-        {data.unavailable && data.modeUsed === "forecast" && kind === "income" ? (
+        {shared.isLoading ? (
+          <p className="text-2xl font-bold text-muted-foreground animate-pulse">—</p>
+        ) : data.unavailable && data.modeUsed === "forecast" && kind === "income" ? (
           <p className="text-2xl font-bold text-muted-foreground">—</p>
         ) : (
           <p className="text-2xl font-bold">{formatCurrency(data.displayValue)}</p>
