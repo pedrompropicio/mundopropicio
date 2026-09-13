@@ -11,7 +11,7 @@
  * usem exactamente a mesma aritmética sem tocar no Encontro de Contas.
  */
 import { calcTotalWithIva } from "@/lib/iva";
-import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
+import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from "@/lib/event-cost-basis";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
