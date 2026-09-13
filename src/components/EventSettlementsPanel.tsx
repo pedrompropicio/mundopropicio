@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/mock-data";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import type { EngineCheck, SettlementNodeResult } from "@/lib/event-settlement-engine";
+import { EventThirdPartyOperationsPanel } from "@/components/EventThirdPartyOperationsPanel";
 
 interface Props {
   eventId: string;
