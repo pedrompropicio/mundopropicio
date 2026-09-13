@@ -364,3 +364,26 @@ Regras:
   sinalizar erro real, não arredondamento.
 - Referência Anitta EDA 2026: base a transferir da EIN = 230.990,35 no ecrã,
   no PDF interno e no documento do sócio.
+
+## g15-c — o relatório interno é o documento da Mundo Propício (2026-09-13)
+
+Três regras, todas alimentadas pelo motor (`event-settlement-engine`):
+
+1. **Marca** — logótipo da empresa (`fetchExportBranding`) no cabeçalho da 1.ª
+   página e nome da empresa no cabeçalho corrente. Sem marca de terceiros.
+2. **Secção 1 "Resumo geral (Mundo Propício)"**, antes de tudo e independente do
+   fechamento seleccionado: (a) resultado real do evento = `eventNetResult`
+   (receitas s/IVA − despesas s/IVA − IVA não recuperável + operações de
+   terceiros + custos internos devolvidos); (b) "O que cada sócio leva de facto"
+   — parte REAL de cada participante `settles`, com o fechamento onde acerta e a
+   % em cadeia ("20% de 30%"); (c) "Líquido final da Mundo Propício" =
+   `house.residual`, decomposto em `declared` + `nominalGap` + `ivaDeductible`
+   (+ `rest` com aviso). Prova na própria secção: total distribuído + líquido MP
+   = resultado real (`overviewMismatch` = 0, C1 = 0).
+3. **Posição nominal na cascata** — a dedução continua a ser o valor NOMINAL (é o
+   que sai do pool), mas por baixo, em itálico, fica a nota "acerta X% de Y% =
+   … no <fechamento> · diferença … fica com a Mundo Propício". Mesma nota no
+   ecrã do Encontro de Contas, sob a participação no resultado.
+
+Símbolos: `InternalOverview`, `InternalOverviewNominalRow`, `overviewMismatch`,
+`InternalCascadeDeduction.realNote`, kind de linha `"note"`.
