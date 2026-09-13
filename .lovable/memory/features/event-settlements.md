@@ -265,3 +265,49 @@ e fora do selector de fechamento acima. Desvio selado↔ao vivo é vista interna
    `src/lib/__tests__/event-settlement-engine.test.ts` (planilha de 02/09/2026):
    ANITTA 417.677,51 · Carvalheira 35.800,93 · nível 3 548.198,06 · EIN e casa
    274.099,03 · nominal−real 23.867,29 · residual 297.966,32 · C1 e C2 a 0,00.
+
+## (g2) Anitta EDA 2026 configurada a três níveis em Live (13/09/2026)
+Configuração de referência (evento `fdfb39fe`), aplicada por transacção única com
+verificações V1–V9:
+- **Raiz "Fechamento Anitta"** — ANITTA `settles` 70/0 (c/IVA, herda), RAFAEL LOBO
+  `nominal` 10/10, casa `nominal` 20/20 (pool que desce). A EIN saiu da raiz.
+- **"Fechamento Rafael Lobo"** (filho da raiz) — quota 30% do resultado c/IVA;
+  RAFAEL LOBO `settles` 20/20.
+- **"Fechamento MP + EIN"** (filho da raiz, irmão do anterior) — quota 20% do
+  resultado c/IVA, `returns_parent_deductible_vat = true`; EIN `settles` 50/50 e
+  casa `settles` 50/50. Recebe as receitas exclusivas marcadas (1% Ticketline
+  22.111,70 · bengaleiro 138,82 · patrocínio Câmara de Oeiras 50.000,00 =
+  72.250,52) e o adicional dos bares.
+- **Operação de terceiros "A&B Bares"** (`kind='outro'`, `source='manual'`,
+  bruto 287.138,58, resultado do operador 194.468,13): raiz `gross_pct` 35%
+  (100.498,50) e nível 3 `result_share` 100% → adicional 194.468,13 − 100.498,50 =
+  93.969,63.
+- **Trigger `check_partner_percentage_trigger` REMOVIDO** de `event_partners`: com a
+  árvore de fechamentos o espelho legítimo soma 140% (ANITTA 70 + EIN 50 + Lobo 20).
+  A soma ≤ 100% deixou de ser invariante.
+- **Receitas exclusivas de um fechamento são transações do EVENTO marcadas com
+  `event_settlement_id`** — não ficam fora do evento. A raiz = totais − marcadas,
+  pelo que o resultado da raiz não muda (revoga a nota de 25/08 que as punha fora).
+
+**Valores em Live (critério do evento: base c/IVA, overhead ligado, despesa
+comprometida)** — receita 2.599.603,46 · despesa s/IVA 1.668.759,64 · c/IVA
+1.931.219,49 · IVA dedutível 262.459,85:
+| nó | quota do pai | resultado | participante | parte |
+| --- | --- | --- | --- | --- |
+| raiz | — | s/IVA 858.593,30 · c/IVA 596.133,45 | ANITTA `settles` 70% | **417.293,42** |
+| raiz | — | | RAFAEL LOBO `nominal` 10% | 59.613,35 |
+| raiz | — | | casa `nominal` 20% | 119.226,69 |
+| Fech. Rafael Lobo | 178.840,04 | 178.840,04 | RAFAEL LOBO `settles` 20% | 35.768,01 |
+| Fech. MP + EIN | 119.226,69 | 547.906,69 | EIN `settles` 50% | 273.953,35 |
+| Fech. MP + EIN | | | casa `settles` 50% | 273.953,35 |
+
+Nível 3 = 119.226,69 (quota) + 262.459,85 (IVA devolvido) + 72.250,52 (exclusivos)
++ 93.969,63 (bares) = 547.906,69. Casa: residual 297.798,68 = declarada 273.953,35
++ nominal gap 23.845,34 + IVA dedutível 0,00. **C1 e C2 a 0,00.** A parte da ANITTA
+é **exactamente a mesma antes e depois** (417.293,42).
+
+**Bug corrigido na paridade ecrã × motor:** `PartnerSettlementTab` mostrava a nota
+"IVA dedutível devolvido" mas **não somava `vatReturnedIn` à receita do nó** — o
+filho aparecia com 285.446,84 em vez de 547.906,69. Corrigido em
+`totalRevenueNet`. Resta 1 cêntimo de diferença de apresentação (o ecrã trunca,
+o motor arredonda): 417.293,41 vs 417.293,42.

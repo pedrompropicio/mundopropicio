@@ -495,7 +495,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     : null;
 
   const totalRevenueNet = useNodeTotals
-    ? activeNode!.perimeter.revenueNet + activeNode!.additionalActiveTotal + (activeNode!.parentQuota ?? 0)
+    ? activeNode!.perimeter.revenueNet +
+      activeNode!.additionalActiveTotal +
+      (activeNode!.parentQuota ?? 0) +
+      // (g1/g2) o IVA dedutível devolvido pelo fechamento acima é receita deste
+      // fechamento — sem isto o ecrã mostrava a nota mas não somava o valor.
+      activeNode!.vatReturnedIn
     : eventRevenueNet;
   // A receita é sempre s/IVA (D24): num nó, bruto = líquido.
   const totalRevenueGross = useNodeTotals ? totalRevenueNet : eventRevenueGross;

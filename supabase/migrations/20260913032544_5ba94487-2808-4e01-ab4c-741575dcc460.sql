@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS check_partner_percentage_trigger ON public.event_partners;
