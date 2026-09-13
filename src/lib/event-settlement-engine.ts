@@ -538,8 +538,8 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
             );
           } else {
             // (g14) Sai da base dos sócios do pai o IVA TODO (para eles é custo),
-            // mas só é devolvido o que a sociedade recupera: o IVA das linhas
-            // marcadas como não recuperável fica no residual da casa.
+            // mas só é devolvido o IVA que é legalmente dedutível: o IVA das
+            // linhas marcadas é custo real e não se devolve a ninguém.
             const fullVat = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
             const notReturned = Math.min(Math.max(parent.vatNonRecoverable, 0), Math.max(fullVat, 0));
             vatReturnedIn = fullVat - notReturned;
