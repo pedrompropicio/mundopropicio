@@ -749,7 +749,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       0,
     ) + additionalActivesTotal + addbacksTotal;
   const residual = eventNetResult - partnersPaidTotal;
-  const rest = residual - (declared + ivaDeductible + nominalGap);
+  // (g14) O IVA não repassado é uma parcela EXPLÍCITA do residual da casa.
+  const vatNotReturnedTotal = nodes.reduce((s, n) => s + n.vatNotReturned, 0);
+  const rest = residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal);
 
   const c1Value = partnersPaidTotal + residual - eventNetResult;
   const c2Value = rest;
