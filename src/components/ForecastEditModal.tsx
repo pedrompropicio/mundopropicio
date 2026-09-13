@@ -340,6 +340,18 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           onChange={setEventSettlementId}
         />
 
+        {/* (g6) Devolução de custos internos da sociedade — só despesas. */}
+        {isExpenseType ? (
+          <EventAddbackSelect
+            eventId={forecast.event_id}
+            value={addbackSettlementId}
+            reason={addbackReason}
+            onChange={setAddbackSettlementId}
+            onReasonChange={setAddbackReason}
+            disabledByPerimeter={!!eventSettlementId}
+          />
+        ) : null}
+
         {/* Amount (multi-currency) + IVA */}
         <div className="space-y-3">
           <CurrencyAmountInput
