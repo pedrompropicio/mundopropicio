@@ -387,3 +387,39 @@ Três regras, todas alimentadas pelo motor (`event-settlement-engine`):
 
 Símbolos: `InternalOverview`, `InternalOverviewNominalRow`, `overviewMismatch`,
 `InternalCascadeDeduction.realNote`, kind de linha `"note"`.
+
+## g17 — Portal do Sócio = consumidor do gerador único (2026-09-13)
+
+O Portal **não calcula nada do fecho**. O cálculo vive num só sítio:
+
+- Pacote partilhado `supabase/functions/_shared/settlement/` (os 16 módulos
+  puros do fecho). `src/lib/*.ts` são shims `export * from "@shared/settlement/…"`
+  — alias `@shared` em tsconfig/vite/vitest. Nunca duplicar código de cálculo.
+- `_shared/settlement/statement-service.ts`:
+  `loadStatementBundle(client, eventId)` (mesmas queries do Encontro de Contas,
+  critério de custo lido de `events.cost_expense_source` / `cost_include_overhead`)
+  + `buildPartnerStatement(bundle, supplierId)` → `{ doc, block, cards }`.
+  Só devolve algo se o sócio tiver participação `mode = 'settles'`.
+- Edge function `partner-statement` (`verify_jwt = true`, service_role): valida
+  o utilizador, resolve o sócio por `user_supplier_id`, exige
+  `partner_event_access` activo e participação `settles`; **nada** vem do
+  cliente a não ser `event_id`. Log em `system_audit_log`
+  (`entity_type = 'partner_statement'`). Devolve JSON; o PDF/XLSX é gerado no
+  browser com os exportadores existentes a partir do mesmo `doc`.
+- `PartnerEventDetail`: saíram as leituras parciais
+  (`get_partner_event_shares`, `get_partner_visible_settlements`,
+  `get_partner_settlement_summary`, `returns_parent_deductible_vat`) e o segundo
+  gerador (`buildStatementDocInput` passou a devolver o `doc` do servidor + logo).
+  Novo bloco `PartnerSettlementBlock` ("O seu fechamento") no topo, com a
+  cascata resumida, a linha g5 e os botões PDF/Excel.
+- `PartnerFinancialCards` ganhou `fecho` — quando presente mostra receitas,
+  despesas e resultado DO FECHO (perímetro da raiz), nunca um resultado
+  calculado com o que a RLS deixa ver.
+- (g15-b) Na base a transferir os componentes são arredondados ao cêntimo
+  ANTES de compor o total, para o Portal e o ERP darem o mesmo número.
+  Anitta: base da EIN 230.990,35; resultados 596.133,45 (raiz) · 178.840,04
+  (Rafael Lobo) · 547.906,69 (MP + EIN).
+- Limitação registada: operações de terceiros com `source = 'ab_module'` usam os
+  valores gravados; o servidor não recalcula o cenário A&B ao vivo.
+- Nota: `suppliers.doc_locale` não tem GRANT de leitura a `authenticated` — no
+  browser o locale cai para pt-PT; no servidor (service_role) é lido.
