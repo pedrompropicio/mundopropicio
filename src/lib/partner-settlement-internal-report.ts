@@ -178,6 +178,12 @@ export interface InternalReportInput {
   /** Critério do evento (IVA · base · overhead) — `describeFechoBasis`. */
   criterion: string;
   generatedAt?: Date;
+  /** (g15-c) Este relatório é o documento da Mundo Propício. */
+  companyName?: string;
+  /** (g15-c) Logótipo da empresa (data URL), igual ao documento do sócio. */
+  logoDataUrl?: string | null;
+  /** (g15-c) Resumo geral do evento inteiro — secção 1. */
+  overview?: InternalOverview | null;
   rootTotals: InternalRootTotals;
   /** Vazio na raiz. Ordenado de cima para baixo. */
   cascadeSteps: InternalCascadeStep[];
