@@ -275,8 +275,12 @@ Deno.serve(async (req) => {
             if (e.permalink) byPermalink.set(normalizeUrl(String(e.permalink)), e);
           }
 
-          const toUpsert: Array<Record<string, unknown>> = [];
+          // Linhas novas (com ligação à obra) e linhas já existentes (NUNCA
+          // tocam song_id / song_link_status / song_link_reason — D-ERP53).
+          const toInsert: Array<Record<string, unknown>> = [];
+          const toUpdate: Array<Record<string, unknown>> = [];
           const enrichOnly: Array<{ id: string; patch: Record<string, unknown> }> = [];
+
           // external_id do nosso registo → métricas do dia
           const metricsByExternal: Array<{
             key: string;
