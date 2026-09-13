@@ -174,6 +174,12 @@ export interface PartnerStatementDoc {
   revenueNet: number;
   extras: StatementExtraItem[];
   extrasTotal: number;
+  /** (g13) Cascata do resultado (null na raiz, onde nada muda). */
+  cascade: StatementCascadeLevel[] | null;
+  /** (g13) Parte da sociedade — última quota da cascata. */
+  cascadeQuota: number | null;
+  /** (g13) Diferença entre quota + termos adicionais e o resultado apresentado. */
+  cascadeMismatch: number;
   families: StatementFamily[];
   expenseBase: number;
   expenseIva: number;
