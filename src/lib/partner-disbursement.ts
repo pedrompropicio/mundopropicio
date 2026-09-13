@@ -49,6 +49,8 @@ export interface BpPaidLine {
   base: number;
   ivaRate: number;
   category: string;
+  /** (g12) Id da categoria, para agrupar o detalhe por rubrica de Nível 2. */
+  categoryId: string | null;
   cityLabel: string;
   /** (g5) A linha tem transação ligada no sistema? (coluna do export de conferência.) */
   hasTransaction: boolean;
