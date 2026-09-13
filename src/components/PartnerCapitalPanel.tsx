@@ -63,17 +63,10 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
 
   const treeIds = [eventId, ...subEventIds];
 
+  // Partes do apuramento (inclui a casa como linha real).
   const { data: partners = [] } = useQuery({
-    queryKey: ["event-partners", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partners")
-        .select("*, suppliers(name)")
-        .eq("event_id", eventId)
-        .order("created_at");
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryKey: ["event-settlement-participants-capital", eventId],
+    queryFn: () => fetchSettlementParticipants([eventId]),
   });
 
   // Transações do ramo 10.1 · Capital em todo o tree do evento
