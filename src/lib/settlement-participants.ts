@@ -137,10 +137,18 @@ export function localPartnersPct(partnerPct: number): number {
   return Math.round((100 - Number(partnerPct || 0)) * 10000) / 10000;
 }
 
-/** Quota residual da casa num conjunto de participantes que acertam no apuramento. */
+/**
+ * Quota residual da casa: 100 − Σ profit_pct de TODOS os participantes `partner`
+ * do apuramento (settles **e** nominal).
+ *
+ * Porque também os nominais: o motor decompõe o residual da MP em `declared`
+ * (casa) + `ivaDeductible` + `nominalGap`. Se a casa absorvesse a quota nominal,
+ * essa parcela era contada duas vezes e a conferência C2 deixava de fechar.
+ */
 export function residualHousePct(participants: Array<{ percentage: number | string; mode?: string; isHouse?: boolean }>): number {
   const sum = participants
-    .filter((p) => !p.isHouse && (p.mode ?? "settles") === "settles")
+    .filter((p) => !p.isHouse)
     .reduce((s, p) => s + Number(p.percentage || 0), 0);
   return Math.round((100 - sum) * 10000) / 10000;
 }
+
