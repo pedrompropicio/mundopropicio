@@ -472,12 +472,18 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
   const expenseTotal = roundCents(expenseBase + expenseIva);
+  const hasCascade = !!input.cascade && input.cascade.levels.length > 0;
   // (g10) Base EFETIVA: quando o fechamento devolve o IVA dedutível do
   // fechamento acima, o documento apura sobre despesas s/IVA.
-  const usesGrossEffective = effectiveUsesGrossExpenses({
-    usesGrossExpenses: input.usesGrossExpenses,
-    returnsParentDeductibleVat: input.returnsDeductibleVat,
-  });
+  // (g13-b) EXCEPÇÃO: num documento EM CASCATA a conta parte do resultado do
+  // evento na base da raiz (c/IVA) e o IVA recuperado soma-se explicitamente
+  // mais abaixo — esconder a base c/IVA faria a conta não fechar.
+  const usesGrossEffective = hasCascade
+    ? input.usesGrossExpenses === true
+    : effectiveUsesGrossExpenses({
+        usesGrossExpenses: input.usesGrossExpenses,
+        returnsParentDeductibleVat: input.returnsDeductibleVat,
+      });
   const expenseForResult = usesGrossEffective ? expenseTotal : expenseBase;
 
   // ---- Receitas ----
@@ -497,7 +503,8 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .filter((e) => Math.abs(e.value) > 0.004)
     // (g10) Com base efetiva s/IVA não se descreve o mecanismo do IVA dedutível:
     // as despesas já aparecem s/IVA e o resultado é o mesmo.
-    .filter((e) => usesGrossEffective || !/iva\s*dedut/i.test(e.label));
+    // (g13-b) Num documento em cascata a linha do IVA recuperado NUNCA se esconde.
+    .filter((e) => hasCascade || usesGrossEffective || !/iva\s*dedut/i.test(e.label));
   const extrasTotal = roundCents(extras.reduce((s, e) => s + e.value, 0));
 
   // ---- (g13) Cascata desde o resultado do evento ----
@@ -602,14 +609,19 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     expenseTotal,
     expenseForResult,
     usesGrossExpenses: usesGrossEffective,
-    expenseBasisLabel: effectiveExpenseBasisLabel({
-      usesGrossExpenses: input.usesGrossExpenses,
-      returnsParentDeductibleVat: input.returnsDeductibleVat,
-    }),
-    resultBasisLabel: effectiveResultBasisLabel({
-      usesGrossExpenses: input.usesGrossExpenses,
-      returnsParentDeductibleVat: input.returnsDeductibleVat,
-    }),
+    // (g13-b) Em cascata o rótulo é o da base da conta apresentada (a da raiz).
+    expenseBasisLabel: hasCascade
+      ? effectiveExpenseBasisLabel({ usesGrossExpenses: usesGrossEffective })
+      : effectiveExpenseBasisLabel({
+          usesGrossExpenses: input.usesGrossExpenses,
+          returnsParentDeductibleVat: input.returnsDeductibleVat,
+        }),
+    resultBasisLabel: hasCascade
+      ? effectiveResultBasisLabel({ usesGrossExpenses: usesGrossEffective })
+      : effectiveResultBasisLabel({
+          usesGrossExpenses: input.usesGrossExpenses,
+          returnsParentDeductibleVat: input.returnsDeductibleVat,
+        }),
     result,
     recipientShare,
     othersShare,

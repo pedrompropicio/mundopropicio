@@ -1926,3 +1926,29 @@ Medeiros (reutilizou o artista de referência existente, `created_reference_arti
 `history_sync.ok = true`, 1.317 linhas escritas, **20 chamadas Soundcharts**.
 Posições repostas: 1 Léo Foguete, 2 Jonas Esticado, 3 Eric Land, 4 Henry Freitas,
 5 Nuzio Medeiros.
+
+## D25 adenda g13-b — a linha do IVA nunca se esconde num documento em cascata (13/09/2026)
+
+O PDF da EIN (Anitta) mostrava a cascata a fechar em "Parte da sociedade 20%
+119.226,69 + exclusivas + operações = 547.906,69" e a seguir o aviso "a conta não
+fecha (diferença 262.459,85 €)": a regra da g10 (apresentação s/IVA em nós que
+devolvem o IVA dedutível) escondia a linha "+ IVA dedutível recuperado", que a
+cascata precisa porque parte da base da RAIZ (despesas c/IVA).
+
+Regra definitiva:
+- Documento **em cascata**: base = base da raiz (c/IVA na Anitta); secção 3
+  "As despesas do evento (despesas c/IVA)" com Valor s/IVA, IVA e Total c/IVA;
+  secção 4 "O resultado" (sem "s/IVA"), a começar em "Resultado do evento
+  (despesas c/IVA)"; deduz os sócios acima pelo nome; chega à parte da
+  sociedade; e soma explicitamente "+ IVA dedutível recuperado" (só o
+  recuperável, g14), exclusivas, operações de terceiros e devoluções.
+- A g10 continua válida para o **rótulo de base efectiva** do participante no
+  ecrã e para documentos **sem cascata** (fechamento raiz).
+- O aviso vermelho mantém-se como mecanismo: desaparece por a conta fechar,
+  nunca por ser removido.
+
+Implementação: `partner-statement-doc.ts` (`hasCascade` desliga a regra g10 na
+base, no filtro do extra do IVA e nos rótulos) e `export-partner-statement-doc.ts`
+(títulos das secções 3 e 4 e linha de partida). Teste: EIN fecha ao cêntimo
+(596.133,45 − 417.293,42 − 59.613,35 = 119.226,69; + 262.459,85 + 72.250,52 +
+93.969,63 = 547.906,69), Rafael Lobo 178.840,04, Anitta inalterada. Sem DDL/DML.

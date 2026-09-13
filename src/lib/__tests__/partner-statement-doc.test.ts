@@ -238,6 +238,9 @@ describe("(g13) cascata desde o resultado do evento", () => {
       expenseLines: eventExpenses,
       categories: [],
       usesGrossExpenses: true,
+      // (g13-b) o nó devolve o IVA dedutível: mesmo assim a conta em cascata
+      // parte da base c/IVA e soma o IVA recuperado — nunca o esconde.
+      returnsDeductibleVat: true,
       cascade: {
         levels: [
           {
@@ -277,6 +280,20 @@ describe("(g13) cascata desde o resultado do evento", () => {
     expect(doc.recipientShare).toBeCloseTo(273953.35, 2);
     // As receitas do evento ficam limpas dos termos adicionais.
     expect(doc.revenueNet).toBeCloseTo(2527352.94, 2);
+  });
+
+  it("(g13-b) mantém a base c/IVA e a linha do IVA recuperado", () => {
+    const doc = societyDoc("pt-PT");
+    expect(doc.usesGrossExpenses).toBe(true);
+    expect(doc.expenseBasisLabel).toBe("Despesas c/IVA");
+    expect(doc.expenseForResult).toBeCloseTo(doc.expenseTotal, 2);
+    expect(doc.extras.map((e) => e.label)).toContain("IVA dedutível recuperado");
+    // 596.133,45 − 417.293,42 − 59.613,35 = 119.226,69
+    const lv = doc.cascade![0];
+    expect(lv.baseValue - lv.deductions.reduce((s, d) => s + d.value, 0)).toBeCloseTo(119226.69, 1);
+    // + 262.459,85 + 72.250,52 + 93.969,63 = 547.906,69 → sem aviso
+    expect(doc.cascadeQuota! + doc.extrasTotal).toBeCloseTo(547906.69, 2);
+    expect(Math.abs(doc.cascadeMismatch)).toBeLessThan(0.02);
   });
 
   it("nomeia só os sócios dos acordos acima e o destinatário", () => {
