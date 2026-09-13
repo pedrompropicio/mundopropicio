@@ -196,3 +196,9 @@ herdam o problema P1 de vocabulário.
 ## 10. Contagem
 
 **P0: 5 · P1: 5 · P2: 3** (11 fugas de tabela agrupadas na correcção P0-1).
+
+## 11. Issues abertas
+
+- P0: #158 (políticas RLS legacy) · #159 (get_partner_event_partner_expenses) · #160 (is_settlement_staff aceita `user`) · #161 (identidade do sócio duplicada) · #162 (fechamento visível no Portal)
+- P1: #163 (percentagens por fechamento) · #164 (user_settlement_visible_ids) · #165 (get_partner_event_tx_aggregates) · #166 (vocabulário do documento) · #167 (cache do react-query no signOut)
+- P2: sem issue — registados no §9 para tarefa de higiene.
