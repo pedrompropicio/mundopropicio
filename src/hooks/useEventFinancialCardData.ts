@@ -176,6 +176,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     });
     const modeUsed: ModeUsed = resolveMode(mode, phase, kind);
 
+    // Receita REAL (perímetro da raiz) na base de IVA do card — alimenta o Lucro.
+    const realValue = kind === "income"
+      ? (revenue ? (withVat ? revenue.real.total.gross : revenue.real.total.net) : 0)
+      : undefined;
+
 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
