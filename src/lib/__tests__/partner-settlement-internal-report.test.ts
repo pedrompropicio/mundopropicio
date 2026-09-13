@@ -6,6 +6,7 @@ import {
   partnerBlockMismatch,
   reconcileDisplayValues,
   reconcileDisplayField,
+  overviewMismatch,
   type InternalPartnerBlock,
   type InternalReportInput,
 } from "../partner-settlement-internal-report";
@@ -153,5 +154,55 @@ describe("(g15-b) totais do modelo, linhas como apresentação", () => {
     );
     expect(internalReportCloses(0.01)).toBe(false);
     expect(internalReportCloses(0.003)).toBe(true);
+  });
+});
+
+describe("(g15-c) resumo geral (Mundo Propício)", () => {
+  const overview = {
+    resultReal: 1024985.46,
+    revenueNet: 0,
+    expensesNet: 0,
+    vatNonRecoverableCost: 0,
+    exclusiveRevenuesTotal: 0,
+    thirdPartyTotal: 0,
+    addbackTotal: 0,
+    partners: [
+      { name: "ANITTA", settlesAt: "Fechamento do evento", pctLabel: "70%", realShare: 417293.42 },
+      { name: "RAFAEL LOBO", settlesAt: "Fechamento Rafael Lobo", pctLabel: "20% de 30%", realShare: 35768.01 },
+      { name: "EVERYTHINGISNEW", settlesAt: "Fechamento MP + EIN", pctLabel: "50%", realShare: 273953.35 },
+    ],
+    distributedTotal: 417293.42 + 35768.01 + 273953.35,
+    houseNet: 297798.68,
+    houseParts: [
+      { label: "Parte declarada nos fechamentos", value: 273953.35 },
+      { label: "Diferença de posições nominais", value: 23845.34 },
+    ],
+    nominalRows: [
+      {
+        name: "RAFAEL LOBO",
+        nominalPctLabel: "10%",
+        nominalValue: 59613.35,
+        realPctLabel: "20% de 30%",
+        realValue: 35768.01,
+        realSettlesAt: "Fechamento Rafael Lobo",
+        diff: 23845.34,
+      },
+    ],
+    c1: 0,
+  };
+
+  it("total distribuído + líquido da MP = resultado real (C1 = 0)", () => {
+    expect(overviewMismatch(overview)).toBe(0);
+    expect(internalReportCloses(overviewMismatch(overview))).toBe(true);
+  });
+
+  it("a decomposição do líquido explica o residual da casa", () => {
+    const soma = overview.houseParts.reduce((a, p) => a + p.value, 0);
+    expect(Math.abs(soma - overview.houseNet)).toBeLessThan(0.01);
+  });
+
+  it("a diferença nominal é nominal − real", () => {
+    const n = overview.nominalRows[0];
+    expect(n.nominalValue - n.realValue).toBeCloseTo(n.diff, 2);
   });
 });
