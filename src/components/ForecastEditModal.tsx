@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
-import { EventSettlementSelect } from "@/components/EventSettlementSelect";
+import { EventSettlementSelect, EventAddbackSelect } from "@/components/EventSettlementSelect";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
