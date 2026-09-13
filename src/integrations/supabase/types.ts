@@ -8218,6 +8218,8 @@ export type Database = {
           budget_mode: string | null
           city_id: string | null
           company_id: string
+          cost_expense_source: string
+          cost_include_overhead: boolean
           created_at: string
           date: string
           description_en: string | null
@@ -8281,6 +8283,8 @@ export type Database = {
           budget_mode?: string | null
           city_id?: string | null
           company_id?: string
+          cost_expense_source?: string
+          cost_include_overhead?: boolean
           created_at?: string
           date: string
           description_en?: string | null
@@ -8344,6 +8348,8 @@ export type Database = {
           budget_mode?: string | null
           city_id?: string | null
           company_id?: string
+          cost_expense_source?: string
+          cost_include_overhead?: boolean
           created_at?: string
           date?: string
           description_en?: string | null
