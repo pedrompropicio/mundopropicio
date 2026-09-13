@@ -127,9 +127,12 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const settlementName = (id: string) =>
     (settlements as any[]).find((s) => s.id === id)?.name ?? "—";
 
-  const totalPercentage = partnerRows
-    .filter((p) => p.mode === "settles")
-    .reduce((sum: number, p: any) => sum + Number(p.profit_pct || 0), 0);
+  // Inclui os `nominal`: também eles reduzem a quota da casa (#146 (e2) ponto 3).
+  const totalPercentage = partnerRows.reduce(
+    (sum: number, p: any) => sum + Number(p.profit_pct || 0),
+    0,
+  );
+
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["event-settlement-participants", eventId] });
