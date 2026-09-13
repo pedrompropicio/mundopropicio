@@ -692,7 +692,7 @@ export default function EventDetail() {
   // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
   // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
   // exclusivas desse fechamento e não entram no resultado do evento.
-  const realizedTransactions = keepRootPerimeter(eventTransactions, rootSettlementIds).filter(
+  const realizedTransactions = keepRootPerimeter(eventTransactions as any[], rootSettlementIds).filter(
     (t) => t.status === "paid" || t.status === "approved" || t.status === "partially_paid"
   );
 
