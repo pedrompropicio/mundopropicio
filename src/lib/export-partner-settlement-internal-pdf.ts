@@ -463,14 +463,11 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
           }
         }
       }
-      tBase += b;
-      tIva += i;
-      tTotal += t;
-    }
+    });
     table({
       head: ["Categoria", "Valor s/IVA", "IVA", "Total c/IVA"],
       body,
-      foot: [["TOTAL", money(tBase), money(tIva), money(tTotal)]],
+      foot: [["TOTAL", money(modelBase), money(modelIva), money(modelTotal)]],
       widths: [width - 120, 40, 34, 46],
       aligns: ["left", "right", "right", "right"],
       fontSize: 7.8,
