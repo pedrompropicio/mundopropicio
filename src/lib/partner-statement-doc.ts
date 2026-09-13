@@ -503,7 +503,8 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .filter((e) => Math.abs(e.value) > 0.004)
     // (g10) Com base efetiva s/IVA não se descreve o mecanismo do IVA dedutível:
     // as despesas já aparecem s/IVA e o resultado é o mesmo.
-    .filter((e) => usesGrossEffective || !/iva\s*dedut/i.test(e.label));
+    // (g13-b) Num documento em cascata a linha do IVA recuperado NUNCA se esconde.
+    .filter((e) => hasCascade || usesGrossEffective || !/iva\s*dedut/i.test(e.label));
   const extrasTotal = roundCents(extras.reduce((s, e) => s + e.value, 0));
 
   // ---- (g13) Cascata desde o resultado do evento ----
