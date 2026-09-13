@@ -155,6 +155,8 @@ export interface EngineInput {
   settlements: EngineSettlement[];
   participants: EngineParticipant[];
   markedLines?: EngineMarkedLine[];
+  /** (g6) Linhas devolvidas a fechamentos abaixo. */
+  addbackLines?: EngineAddbackLine[];
   /** Por `event_partner_id` (ou `supplier_id` em fallback). */
   moneyByPartner?: Record<string, EngineParticipantMoney>;
   /** Operações de terceiros do evento (peça (d)). */
