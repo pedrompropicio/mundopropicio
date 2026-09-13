@@ -259,6 +259,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setRole(null);
     setPermissions([]);
+    // (g9c · #167) nada do utilizador anterior fica em cache.
+    cacheIdentityRef.current = null;
+    queryClient.clear();
   };
 
   return (
