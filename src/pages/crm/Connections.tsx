@@ -307,6 +307,42 @@ export default function CrmConnections() {
     },
   });
 
+  // D-ERP57 — nomes dos artistas cujas contas de tráfego estão ligadas nesta
+  // empresa, para etiquetar as ligações com connection_scope='artist'.
+  const artistIds = useMemo(
+    () =>
+      [...new Set(
+        (connections ?? [])
+          .map((c) => c.artist_id)
+          .filter((id): id is string => !!id),
+      )],
+    [connections],
+  );
+
+  const { data: artistNames } = useQuery({
+    queryKey: ["crm-connections-artists", artistIds.join(",")],
+    enabled: artistIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("artists")
+        .select("id, name")
+        .in("id", artistIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((a) => {
+        map[a.id] = a.name;
+      });
+      return map;
+    },
+  });
+
+  const artistLabel = (conn: ConnectionRow): string | null => {
+    if (conn.connection_scope !== "artist" || !conn.artist_id) return null;
+    return `Artista: ${artistNames?.[conn.artist_id] ?? "…"}`;
+  };
+
+
+
   // Auto-hidratação dos detalhes da Page (nome + IG) quando há selected_page_id
   // mas o cache local está vazio. Evita o placeholder "ID 184... — clique 'Atualizar'".
   useEffect(() => {
