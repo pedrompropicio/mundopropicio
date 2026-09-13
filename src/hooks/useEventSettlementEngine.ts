@@ -134,19 +134,14 @@ export function useEventSettlementEngine(eventId: string) {
     },
   });
 
+  // Participantes pela fonte de verdade única (#146 (e)) — resolve já o nome do
+  // fornecedor. Antes o embed `supplier:suppliers(name)` vinha vazio e o painel
+  // mostrava "—" (caso SUPERSOUNDS na Ivete).
   const { data: participants = [] } = useQuery({
-    queryKey: ["event-settlement-participants", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_settlement_participants")
-        .select(
-          "id, settlement_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, can_order, can_pay, visible_in_docs, supplier_id, event_partner_id, supplier:suppliers(name)",
-        )
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryKey: ["event-settlement-participants-engine", eventId],
+    queryFn: () => fetchSettlementParticipants([eventId]),
   });
+
 
   const { data: paidExpenses = [] } = useQuery({
     queryKey: ["event-settlement-engine-paid", idsKey],
