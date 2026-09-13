@@ -320,3 +320,53 @@ o supplier `1d62b176`): exactamente **1** fechamento onde settles, e é
 vir de `get_partner_visible_settlements` em vez de "primeiro filho por position".
 `get_partner_event_shares` continua a ser chamada com um argumento (o segundo tem
 default). `tsgo` limpo; 45 testes verdes.
+
+## Correcção g9c — prova (13/09/2026)
+
+Migration única, numa transação, com prova automática (simulação do utilizador
+`lobo@vybbe.com.br` ligado ao fornecedor RAFAEL LOBO revertida em subtransacção;
+nenhum DML persistente).
+
+### DDL
+
+1. `public.user_settlement_ids(_user uuid)` passa a filtrar `p.mode = 'settles'`
+   — a presença nominal num nó deixa de dar visibilidade.
+2. `public.get_partner_event_shares(event, settlement)` — quando não existe outro
+   participante não-casa no nó do sócio (`v_others = 0`), o resto é
+   **MUNDO PROPÍCIO**, esteja a casa registada explicitamente ou seja implícita
+   (casa = 100 − Σ participantes). Antes dizia "Sócios locais".
+
+### Prova
+
+| Prova | Antes | Depois |
+| --- | --- | --- |
+| A1 — `user_settlement_ids(lobo)` com lobo ligado a RAFAEL LOBO | 3 fechamentos (raiz nominal incluída) | **1** — `55a48a9f` "Fechamento Rafael Lobo" |
+| A1b — operações de terceiros do evento atribuídas ao lobo | — | **0** |
+| A2 — `get_partner_event_shares` ao lobo no nó `55a48a9f` | "RAFAEL LOBO 20 \| Sócios locais 80" | **"MUNDO PROPÍCIO 80 \| RAFAEL LOBO 20"** |
+| A3 — `get_partner_event_shares` a `pedroneto` (staff) na raiz | 0 linhas (sem `partner_event_access`) | 0 linhas — inalterado |
+
+`NOTICE: PROVA g9c OK`. Simulação revertida; `profiles.linked_supplier_id` de
+todos os utilizadores continua NULL.
+
+Erros encontrados e corrigidos durante a aplicação: `min(uuid)` não existe (usar
+`min(x::text)::uuid`); `event_third_party_operations` não tem
+`event_settlement_id` (a atribuição ao sócio é `held_by_supplier_id`);
+`get_partner_event_shares` está gateada por `user_has_event_access`, que o staff
+não satisfaz — o ramo de staff só responde a quem tem `partner_event_access`.
+
+Linter Supabase: 281 questões, o mesmo número de antes da migration
+(pré-existentes, nenhuma introduzida aqui).
+
+### Parte B — código (#162 #166 #167 + P2-12)
+
+- **#162** — o Portal escolhe o fechamento por `get_partner_visible_settlements`
+  (primeiro resultado); sem resultado, o bloco de fecho não aparece.
+- **#166** — o documento do sócio nunca usa vocabulário interno: "IVA dedutível
+  recuperado" e "Custos internos da sociedade"; a folha chama-se "Resumo";
+  `FORBIDDEN_DOC_TERMS` inclui "fechamento" e "fecho"; teste gera o documento dos
+  3 sócios da Anitta em pt-PT e pt-BR e falha com qualquer termo proibido.
+- **#167** — `AuthContext` limpa a cache de queries na troca de identidade e no
+  `signOut`; as 13 queryKeys do Portal ficam prefixadas por `user.id`.
+- **P2-12** — `SupplierPortalUserLink` na ficha do fornecedor (só em edição) liga
+  o utilizador do Portal ao sócio; `PartnerAccessManager` avisa em amarelo quando
+  o sócio não tem utilizador ligado.

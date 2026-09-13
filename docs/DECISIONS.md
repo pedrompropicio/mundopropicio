@@ -1790,3 +1790,21 @@ de dar acesso a dados: quem é staff tem de ter papel de staff.
    escolha de "fechamento do Portal" por `position` ou por `parent_id` está
    errada — usar `get_partner_visible_settlements`.
 4. **Staff do fecho** é `has_staff_role`: o papel `user` não dá acesso a nada.
+
+## Adenda (g9c) — nominal nunca dá vista; casa implícita é a casa (13/09/2026)
+
+1. **Presença nominal não é visibilidade.** `user_settlement_ids` só devolve nós
+   com `mode = 'settles'`. Um sócio inscrito nominalmente num nó acima (para
+   efeito contabilístico) não passa a ver esse nó, nem os seus dados, nem as
+   operações de terceiros a ele associadas. Qualquer função de perímetro nova tem
+   de repetir este filtro.
+2. **Casa implícita = Mundo Propício.** Nas quotas mostradas ao sócio, quando no
+   seu nó não existe outro participante não-casa, a percentagem restante é da
+   casa e mostra-se com o nome da casa — mesmo que não haja linha `house` no nó
+   (regra do motor: casa = 100 − Σ participantes). "Sócios locais" só aparece
+   quando existem, de facto, outros sócios no mesmo nó.
+3. **Documento do sócio não usa vocabulário interno.** Nunca "fechamento",
+   "fecho", "IVA dedutível da casa" nem "custos internos MP": a lista
+   `FORBIDDEN_DOC_TERMS` é a fonte de verdade e está coberta por teste.
+4. **Cache por identidade.** Trocar de utilizador ou sair limpa a cache de
+   queries; toda a chave do Portal é prefixada pelo `user.id`.
