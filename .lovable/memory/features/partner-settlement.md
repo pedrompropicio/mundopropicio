@@ -340,3 +340,27 @@ Verificado nos 3 fechamentos da Anitta EDA 2026 (13/09/2026): raiz 596.133,45 ·
 Rafael Lobo 178.840,04 · MP + EIN 547.906,69 com IVA 262.459,85 · base a
 transferir da EIN 230.990,36 (1 cêntimo de arredondamento face aos 230.990,35 do
 ecrã) · anexo B 1.931.219,49. Sem avisos de conta que não fecha.
+
+## g15-b — os totais vêm do SSoT, as linhas são apresentação (2026-09-13)
+
+Em documento não existe "dentro da tolerância". O PDF interno (g15) e o
+documento do sócio apresentam EXACTAMENTE os totais calculados pelo SSoT
+(`partner-disbursement.ts`: `partnerDisbursement`, `partnerFinancingToReturn`,
+base a transferir, IVA e total) — os mesmos objectos que o ecrã usa. Nunca se
+re-soma uma lista de linhas já arredondadas para produzir um total.
+
+Regras:
+- `reconcileDisplayValues(values, total)` / `reconcileDisplayField(rows, field, total)`
+  em `partner-settlement-internal-report.ts`: arredondam cada linha em
+  round-half-even e empurram o residual para a linha de maior valor absoluto.
+- Aplicado a: cascata (itens de cada termo), distribuição (partes vs `nodeResult`),
+  blocos do sócio (BP, transações pagas, ajustes, receitas em poder, extras) e
+  Anexo B (grupos L1 vs base/IVA/total do modelo).
+- `StatementDocInput` aceita overrides `totalRevenuesHeldOverride`,
+  `financingToReturnOverride`, `transferBaseOverride`, `transferVatOverride`,
+  `transferTotalOverride`; `PartnerSettlementTab.buildSoloDocInput` passa-os
+  sempre a partir da linha do ecrã.
+- `CLOSE_TOLERANCE = 0.004` — o aviso vermelho "a conta não fecha" passa a
+  sinalizar erro real, não arredondamento.
+- Referência Anitta EDA 2026: base a transferir da EIN = 230.990,35 no ecrã,
+  no PDF interno e no documento do sócio.
