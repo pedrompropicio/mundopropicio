@@ -558,6 +558,44 @@ export default function PartnerEventDetail() {
 
 
 
+  /**
+   * (g5·H) Resumo do acerto do sócio no Portal, via RPC SECURITY DEFINER.
+   * O RPC valida que o sócio autenticado participa no fechamento; devolve o
+   * desembolso, os ajustes e as receitas que já estão em poder dele.
+   * `partner_share` fica a 0 — a quota é calculada no documento.
+   */
+  const { data: portalSettlementId } = useQuery({
+    queryKey: ["partner-visible-settlement", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_settlements")
+        .select("id, parent_id, position")
+        .eq("event_id", activeEventId!)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      return (rows.find((r) => r.parent_id !== null)?.id ?? rows[0]?.id ?? null) as string | null;
+    },
+    enabled: !!activeEventId && hasPermission("view_bp"),
+  });
+
+  const { data: portalSummary } = useQuery({
+    queryKey: ["partner-settlement-summary", activeEventId, portalSettlementId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_partner_settlement_summary" as any, {
+        _event_id: activeEventId!,
+        _settlement_id: portalSettlementId!,
+        _partner_share: 0,
+        _transfer_with_vat: false,
+      } as any);
+      if (error) throw error;
+      return ((data ?? [])[0] ?? null) as
+        | { disbursement: number; adjustments: number; revenues_held: number; extras: number }
+        | null;
+    },
+    enabled: !!activeEventId && !!portalSettlementId && hasPermission("view_bp"),
+  });
+
   const openBpAttachment = async (kind: string, documentId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("resolve-attachment-url", {
@@ -1008,8 +1046,13 @@ export default function PartnerEventDetail() {
       recipientName,
       participants,
       // (g4 adenda) Base a transferir ao sócio.
-      paidByPartner: totalPaidByPartner,
-      partnerExtras: 0,
+      paidByPartner: Number(portalSummary?.disbursement ?? totalPaidByPartner) || 0,
+      disbursementAdjustments: Number(portalSummary?.adjustments ?? 0) || 0,
+      revenuesHeld:
+        portalSummary && Number(portalSummary.revenues_held) !== 0
+          ? [{ label: "Receitas do evento em poder do sócio", value: Number(portalSummary.revenues_held) }]
+          : [],
+      partnerExtras: Number(portalSummary?.extras ?? 0) || 0,
       partnerAdvances: totalAdvances,
       transferWithVat: (partnerShares as any[]).find((s: any) => s.partner_name === recipientName)?.transfer_with_vat === true,
       categories: allCategories as any[],

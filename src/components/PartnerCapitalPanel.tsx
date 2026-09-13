@@ -102,7 +102,8 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
   const linkByTx = new Map<string, any>((links as any[]).map((l) => [l.transaction_id, l]));
 
   /** (g5·G) Fechamentos raiz do evento — o caixa lê só o perímetro da raiz. */
-  const { rootIds: rootSettlementIds } = useEventRootSettlements(eventId);
+  const { data: rootInfo } = useEventRootSettlements(treeIds);
+  const rootSettlementIds = rootInfo?.rootIds ?? new Set<string>();
 
   /** Destino escolhido antes de gravar o vínculo (por transação). */
   const [flowByTx, setFlowByTx] = useState<Record<string, CapitalFlow>>({});

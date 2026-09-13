@@ -51,3 +51,13 @@ sócio (sem transação) e as contas de acerto do sócio. Anitta EDA 2026 /
 EVERYTHINGISNEW: 273.953,35 + 1.305.957,51 − 905.000,00 = 674.910,86 (base),
 155.229,50 (IVA 23%), 830.140,36 (total). Portal do Sócio continua a mostrar só
 o desembolso por transações (RLS).
+
+## (g5) — 13/09/2026
+
+Financiamento do sócio fechado: desembolso (transações + linhas de BP com
+pagador, incluindo as que têm transação), ajustes manuais com sinal, receitas em
+poder do sócio (contas de acerto, contas do sócio, operações de terceiros via
+`held_by_supplier_id`) e "financiamento a devolver". Painel de capital com
+"Posição de caixa por sócio". Portal do Sócio via RPC
+`get_partner_settlement_summary`. Export "Desembolso de <sócio> (Excel)".
+Issue #133 fechada; #126 coberta no âmbito do evento. Sem Publish.

@@ -371,3 +371,17 @@ soma extras/adiantamentos **e** as entradas de `income` nas contas de acerto do
 sócio (`financial_accounts.partner_id`), filtradas pelo evento. Helpers puros em
 `src/lib/partner-disbursement.ts`. Prova: EIN na Anitta EDA 2026 → base
 674.910,86 · IVA 155.229,50 · total 830.140,36.
+
+## (g5) Desembolso do sócio, receitas em poder e Portal
+
+- **Desembolso** = `partner_paid_expenses` + TODAS as linhas de BP aprovadas com
+  `paying_partner_id` = sócio (incl. com transação ligada); só se exclui a linha
+  cuja transação ligada já esteja em `partner_paid_expenses` do sócio.
+  s/IVA por defeito, c/IVA se `suppliers.doc_locale='pt-BR'`.
+- **Ajustes ao desembolso**: `event_partner_extras.kind='disbursement_adjustment'`
+  (valor com sinal). `kind='extra'` continua a abater ao acerto.
+- **Receitas em poder do sócio**: contas de acerto, receitas em contas com
+  `partner_id` do sócio e `event_third_party_operations.held_by_supplier_id`.
+- **Financiamento a devolver** = desembolso ± ajustes − receitas em poder.
+- **Portal**: RPC SECURITY DEFINER `get_partner_settlement_summary` (estanque).
+- **Export de conferência**: `src/lib/export-partner-disbursement.ts`.

@@ -180,3 +180,12 @@ Base a transferir = parte no fechamento + desembolso efectivo (transações do
 sócio + linhas de BP com `paying_partner_id` sem transação, na base do nó) −
 adiantado (extras + entradas nas contas de acerto do sócio). IVA 23% só com
 `transfer_with_vat`. Ver `src/lib/partner-disbursement.ts`.
+
+## (g5) Linha final do sócio
+
+parte · + desembolso · ± ajustes ao desembolso · − receitas em poder do sócio
+(itemizadas) · − extras/adiantamentos · = BASE A TRANSFERIR · + IVA 23% se
+`event_settlement_participants.transfer_with_vat` · = TOTAL.
+
+SSoT do cálculo: `src/lib/partner-disbursement.ts`. Painel de capital tem
+"Posição de caixa por sócio" (aportes − devoluções + despesas pagas por ele).

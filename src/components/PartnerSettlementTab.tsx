@@ -52,6 +52,7 @@ import {
 } from "@/lib/export-partner-statement-doc";
 import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
 import { fetchExportBranding } from "@/lib/export-header";
+import { exportDisbursementExcel } from "@/lib/export-partner-disbursement";
 import {
   collectBpPaidLines,
   collectDisbursementAdjustments,
@@ -2328,6 +2329,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => requestSoloPdf(s, "xlsx")}>
                     Prestação de contas · {s.partnerName} (Excel)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void exportDisbursementExcel({
+                        eventName,
+                        partnerName: s.partnerName,
+                        paidExpenses: s.paidExpenses,
+                        totalPaidByPartner: s.totalPaidByPartner,
+                        bpPaidLines: s.bpPaidLines,
+                        totalBpPaidByPartner: s.totalBpPaidByPartner,
+                        totalDisbursement: s.totalDisbursement,
+                        adjustments: s.disbursementAdjustments,
+                        totalAdjustments: s.totalDisbursementAdjustments,
+                        revenuesHeld: s.revenuesHeld,
+                        totalRevenuesHeld: s.totalRevenuesHeld,
+                        financingToReturn: s.financingToReturn,
+                      })
+                    }
+                  >
+                    Desembolso de {s.partnerName} (Excel)
                   </DropdownMenuItem>
                 </React.Fragment>
               ))}

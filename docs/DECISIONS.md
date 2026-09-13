@@ -1681,3 +1681,51 @@ desembolso 1.305.957,51 (118 linhas de BP c/IVA, 0 transações) − 905.000,00
 Cobre a issue #133 ("Encontro de Contas não lê as contas de acerto") no lado da
 equipa. O Portal do Sócio mantém o desembolso só por transações — as linhas de
 BP e as contas de acerto não são legíveis pelo sócio com a RLS actual.
+
+### Adenda (g5) — desembolso, receitas em poder do sócio e Portal (13/09/2026)
+
+Modelo definitivo do financiamento do sócio, decidido pelo Pedro:
+
+- **Desembolso do sócio** = (a) transações em `partner_paid_expenses` + (b)
+  **todas** as linhas de BP aprovadas (`version_id IS NULL`) com
+  `paying_partner_id` = sócio, **incluindo as que têm transação ligada** (ex.
+  open bar 64.029,84). Só se exclui a linha cuja transação ligada já esteja em
+  `partner_paid_expenses` do mesmo sócio. Valorização **s/IVA por defeito**;
+  c/IVA apenas quando `suppliers.doc_locale = 'pt-BR'`. Isto substitui a regra da
+  adenda (g4·2), que excluía as linhas com transação.
+- **Ajustes ao desembolso** — lançamentos manuais por sócio × evento, com sinal e
+  descrição obrigatória, em `event_partner_extras` com
+  `kind = 'disbursement_adjustment'` (CHECK `('extra','disbursement_adjustment')`).
+  `kind = 'extra'` mantém o comportamento anterior (abate ao acerto).
+- **Receitas em poder do sócio** (abatem ao financiamento, itemizadas):
+  (i) entradas nas contas de acerto do sócio; (ii) receitas do evento cuja
+  `account_id` é conta com `partner_id` = sócio; (iii) operações de terceiros com
+  `event_third_party_operations.held_by_supplier_id` = sócio (selector
+  "Resultado ficou com" no painel de operações de terceiros).
+- **Linha final do sócio** — parte · + desembolso · ± ajustes · − receitas em
+  poder · − extras/adiantamentos · = BASE A TRANSFERIR · + IVA 23% se
+  `transfer_with_vat` · = TOTAL. **Financiamento a devolver** = desembolso ±
+  ajustes − receitas em poder.
+- **Demonstrativo do fechamento que devolve o IVA** — linha "IVA dedutível
+  recuperado — devolvido pelo fechamento acima" antes do resultado.
+- **Export de conferência** — "Desembolso de \<sócio\> (Excel)"
+  (`src/lib/export-partner-disbursement.ts`): transações, linhas de BP com marca
+  "tem transação", ajustes e receitas em poder, linha a linha.
+- **Painel de capital** — bloco "Posição de caixa por sócio" = aportes −
+  devoluções + despesas do evento pagas pelo sócio, já dentro do perímetro da
+  raiz (g3).
+- **Portal do Sócio** — RPC SECURITY DEFINER
+  `get_partner_settlement_summary(_event_id, _settlement_id, _partner_share, _transfer_with_vat)`:
+  resolve o sócio por `profiles.linked_supplier_id`, devolve zero linhas se ele
+  não participar no fechamento, inclui eventos filho por `parent_event_id` e é
+  estanque quanto aos restantes sócios. Levanta a limitação da (g4·2).
+
+DDL (sem DML): `event_partner_extras.kind`, `event_third_party_operations.held_by_supplier_id`
+e a RPC acima. `github-issues` ganhou `action: "get"` e paginação na `list`
+(`page`, `state`, `has_more`).
+
+Prova ao vivo (Anitta EDA 2026 · EVERYTHINGISNEW): desembolso de BP 124 linhas ·
+1.170.562,18; parte 273.953,35 + desembolso 1.305.957,51 − adiantado 905.000,00 =
+**base 674.910,86 · IVA 155.229,50 · total 830.140,36**. C1/C2 a 0,00.
+
+Fecha a issue #133 e cobre a #126 no âmbito do evento.

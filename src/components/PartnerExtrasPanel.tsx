@@ -42,6 +42,8 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
+  /** (g5·B) 'extra' abate ao acerto; 'disbursement_adjustment' ajusta o desembolso (com sinal). */
+  const [kind, setKind] = useState<"extra" | "disbursement_adjustment">("extra");
   const [showTxForm, setShowTxForm] = useState(false);
   const [editingTx, setEditingTx] = useState<any>(null);
 
@@ -72,7 +74,8 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
         description,
         amount: parseFloat(amount) || 0,
         notes: notes || null,
-      };
+        kind,
+      } as any;
       if (editingId) {
         const { error } = await supabase.from("event_partner_extras").update(payload).eq("id", editingId);
         if (error) throw error;
@@ -115,6 +118,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
     setDescription("");
     setAmount("");
     setNotes("");
+    setKind("extra");
   }
 
   function startEdit(extra: PartnerExtraItem) {
@@ -122,6 +126,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
     setDescription(extra.description);
     setAmount(String(extra.amount));
     setNotes(extra.notes || "");
+    setKind(extra.kind === "disbursement_adjustment" ? "disbursement_adjustment" : "extra");
     setShowForm(true);
   }
 
@@ -197,6 +202,19 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
               <Label className="text-xs">Valor (€) *</Label>
               <Input className="h-7 text-sm" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Natureza</Label>
+            <select
+              className="h-7 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "extra" | "disbursement_adjustment")}
+            >
+              <option value="extra">Extra do sócio (abate ao acerto)</option>
+              <option value="disbursement_adjustment">
+                Ajuste ao desembolso (valor com sinal: negativo reduz)
+              </option>
+            </select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Notas</Label>
@@ -291,7 +309,7 @@ function ExtraRow({ extra, usesGross, canEdit, onEdit, onDelete, onFileUpload, o
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <Badge variant={isManual ? "outline" : "secondary"} className="text-[10px] px-1 py-0 shrink-0">
-            {ORIGIN_LABEL[extra.origem]}
+            {extra.kind === "disbursement_adjustment" ? "Ajuste" : ORIGIN_LABEL[extra.origem]}
           </Badge>
           <span className="font-medium truncate">{extra.description}</span>
           <span className="font-mono text-warning whitespace-nowrap">{formatCurrency(partnerExtraValue(extra, usesGross))}</span>
