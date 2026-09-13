@@ -102,6 +102,8 @@ export interface InternalCategoryRow {
   l1Name: string;
   l2Code: string;
   l2Name: string;
+  l3Code?: string;
+  l3Name?: string;
   base: number;
   iva: number;
   total: number;
@@ -131,6 +133,8 @@ export interface InternalReportInput {
   ticketing: InternalTicketRow[];
   ticketingGroupLabel: string;
   expenseCategories: InternalCategoryRow[];
+  /** Nível de detalhe do Anexo B (grupo ou folha do plano). */
+  expenseCategoryLevel?: "l2" | "l3";
 }
 
 export type InternalCascadeLineKind = "start" | "deduction" | "quota" | "add" | "total";
