@@ -51,6 +51,11 @@ const BASIS_LABEL: Record<ParentShareBasis, string> = {
 /** Tooltip único para tudo o que o selo bloqueia. */
 const SEALED_HINT = "Fechamento selado: reabra-o para poder alterar.";
 
+/** (g1) Ajuda da regra do IVA dedutível devolvido pelo fechamento acima. */
+const VAT_RETURN_LABEL = "Devolve o IVA dedutível do fechamento acima a este fechamento";
+const VAT_RETURN_HELP =
+  "Para fechos em que estes sócios recuperam o IVA que o fechamento acima suportou como custo. Só um fechamento por nível acima.";
+
 export function EventSettlementsManager({ eventId, canEdit }: Props) {
   const queryClient = useQueryClient();
 
