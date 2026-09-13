@@ -28,6 +28,7 @@ import {
   mapScArtist,
   ScClient,
 } from "../_shared/soundcharts.ts";
+import { invokeInternal } from "../_shared/internal-call.ts";
 
 const FUNCTION_NAME = "artist-comparable-manage";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];

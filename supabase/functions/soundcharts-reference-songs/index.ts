@@ -17,6 +17,7 @@ import {
   json,
   ScClient,
 } from "../_shared/soundcharts.ts";
+import { invokeInternal } from "../_shared/internal-call.ts";
 import {
   deduceTriggerSource,
   finishSyncRun,
