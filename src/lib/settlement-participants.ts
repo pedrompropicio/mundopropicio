@@ -42,6 +42,8 @@ export interface SettlementParticipant {
   percentage: number;
   loss_percentage: number | null;
   expense_includes_iva: boolean | null;
+  /** (g4) Repasse ao sócio facturado com IVA 23% sobre a base a transferir. */
+  transfer_with_vat: boolean;
   visible_in_docs: boolean;
   can_order: boolean;
   can_pay: boolean;
@@ -60,6 +62,7 @@ type RawParticipant = {
   profit_pct: number | string | null;
   loss_pct: number | string | null;
   expense_includes_iva: boolean | null;
+  transfer_with_vat?: boolean | null;
   visible_in_docs: boolean;
   can_order: boolean;
   can_pay: boolean;
@@ -87,6 +90,7 @@ export function toSettlementParticipant(row: RawParticipant): SettlementParticip
     percentage: Number(row.profit_pct || 0),
     loss_percentage: row.loss_pct == null ? null : Number(row.loss_pct),
     expense_includes_iva: row.expense_includes_iva ?? null,
+    transfer_with_vat: row.transfer_with_vat === true,
     visible_in_docs: row.visible_in_docs !== false,
     can_order: !!row.can_order,
     can_pay: !!row.can_pay,
@@ -96,7 +100,7 @@ export function toSettlementParticipant(row: RawParticipant): SettlementParticip
 }
 
 const SELECT =
-  "id, event_id, settlement_id, event_partner_id, supplier_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, visible_in_docs, can_order, can_pay, notes, suppliers(name), event_settlements(name, parent_id, position)";
+  "id, event_id, settlement_id, event_partner_id, supplier_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, transfer_with_vat, visible_in_docs, can_order, can_pay, notes, suppliers(name), event_settlements(name, parent_id, position)";
 
 /** Participantes de todos os apuramentos dos eventos indicados. */
 export async function fetchSettlementParticipants(eventIds: string[]): Promise<SettlementParticipant[]> {

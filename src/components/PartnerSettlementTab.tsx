@@ -14,7 +14,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { calcTotalWithIva } from "@/lib/iva";
+import { calcTotalWithIva, calcIvaAmount, roundCents } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
@@ -50,7 +50,7 @@ import {
   exportPartnerStatementDocExcel,
   exportPartnerStatementDocPdf,
 } from "@/lib/export-partner-statement-doc";
-import { statementTerms, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
+import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
 import { fetchExportBranding } from "@/lib/export-header";
 
 
@@ -104,6 +104,12 @@ interface PartnerSettlement {
   /** Acerto liquidável agora — quota com liquidez imediata + pagas pelo sócio − extras.
    *  Exclui cauções pendentes e exclui a parcela do resultado sem liquidez imediata. */
   operationalSettlement: number;
+  /** (g4 adenda) Repasse facturado com IVA 23% (campo do participante). */
+  transferWithVat: boolean;
+  /** Base a transferir = parte do resultado + pagas pelo sócio − extras/adiantamentos. */
+  transferBase: number;
+  transferVat: number;
+  transferTotal: number;
   /** Saldo total incluindo o resultado ainda sem liquidez imediata e as cauções pendentes.
    *  positive = empresa paga sócio, negative = sócio paga empresa */
   settlement: number;
@@ -883,6 +889,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       transitoryOffset: 0,
       equityContribution: 0,
       operationalSettlement: 0, // calculado abaixo
+      transferWithVat: (p as any).transfer_with_vat === true,
+      transferBase: 0,      // calculado abaixo
+      transferVat: 0,
+      transferTotal: 0,
       settlement: 0,        // recalculado abaixo
     };
   });
@@ -919,6 +929,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
     s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
+    // (g4 adenda) Base a transferir ao sócio e IVA do repasse quando facturado.
+    s.transferBase = roundCents(s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras);
+    s.transferVat =
+      s.transferWithVat && s.transferBase > 0 ? calcIvaAmount(s.transferBase, TRANSFER_IVA_RATE) : 0;
+    s.transferTotal = roundCents(s.transferBase + s.transferVat);
   });
 
   // ---- Reconciliação interna da posição real da Mundo Propício ----
@@ -2015,6 +2030,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       eventLocation: ((event as any)?.cities as any)?.name ?? null,
       logoDataUrl: logoDataUrl ?? null,
       recipientName: row.partnerName,
+      paidByPartner: row.totalPaidByPartner,
+      partnerExtras: row.totalPartnerExtras,
+      partnerAdvances: 0,
+      transferWithVat: row.transferWithVat,
       participants: settlements.map((s) => ({
         name: s.partnerName,
         percentage: s.effectivePercentage,
@@ -2342,6 +2361,34 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 flex flex-wrap items-center gap-x-6 gap-y-1">
+              <div>
+                <span className="text-xs text-muted-foreground">
+                  {s.transferBase >= 0 ? "Base a transferir" : "Base a receber"}
+                </span>
+                <p className="font-mono font-bold">{formatCurrency(Math.abs(s.transferBase))}</p>
+              </div>
+              {s.transferWithVat && (
+                <>
+                  <div>
+                    <span className="text-xs text-muted-foreground">IVA 23% sobre o repasse</span>
+                    <p className="font-mono font-bold">{formatCurrency(s.transferVat)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">
+                      {s.transferTotal >= 0 ? "Total a transferir" : "Total a receber"}
+                    </span>
+                    <p className={`font-mono font-bold text-lg ${s.transferTotal >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(Math.abs(s.transferTotal))}
+                    </p>
+                  </div>
+                </>
+              )}
+              {!s.transferWithVat && (
+                <span className="text-[11px] text-muted-foreground italic">Repasse sem IVA facturado.</span>
+              )}
+            </div>
+
             {(s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
                 ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> No item 4, o fecho mostra separadamente

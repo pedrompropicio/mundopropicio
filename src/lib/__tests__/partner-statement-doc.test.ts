@@ -79,3 +79,47 @@ describe("(g4) planilha do documento", () => {
     );
   });
 });
+
+/** (g4 adenda 13/09) Secção 5 — base a transferir e IVA 23% do repasse. */
+describe("(g4 adenda) base a transferir", () => {
+  const base = {
+    eventName: "Evento X",
+    eventDate: "2026-08-31",
+    recipientName: "EVERYTHINGISNEW",
+    participants: [
+      { name: "EVERYTHINGISNEW", percentage: 50 },
+      { name: "MUNDO PROPÍCIO", percentage: 50, isHouse: true },
+    ],
+    revenues: [{ origin: "Bilheteira", net: 1000 }],
+    expenseLines: [],
+    categories: [],
+    usesGrossExpenses: false,
+    resultOverride: 547906.69,
+    recipientShareOverride: 273953.35,
+  } as any;
+
+  it("soma pagas e abate extras e adiantamentos", () => {
+    const doc = buildPartnerStatementDoc({ ...base, paidByPartner: 10000, partnerExtras: 1500, partnerAdvances: 2500 });
+    expect(doc.transferBase).toBeCloseTo(273953.35 + 10000 - 1500 - 2500, 2);
+    expect(doc.transferVat).toBe(0);
+    expect(doc.transferTotal).toBeCloseTo(doc.transferBase, 2);
+  });
+
+  it("acrescenta IVA 23% quando o repasse é facturado", () => {
+    const doc = buildPartnerStatementDoc({ ...base, paidByPartner: 0, transferWithVat: true });
+    expect(doc.transferBase).toBeCloseTo(273953.35, 2);
+    expect(doc.transferVat).toBeCloseTo(63009.27, 2);
+    expect(doc.transferTotal).toBeCloseTo(336962.62, 2);
+  });
+
+  it("não aplica IVA quando a base é negativa", () => {
+    const doc = buildPartnerStatementDoc({
+      ...base,
+      recipientShareOverride: -1000,
+      partnerAdvances: 500,
+      transferWithVat: true,
+    });
+    expect(doc.transferBase).toBeCloseTo(-1500, 2);
+    expect(doc.transferVat).toBe(0);
+  });
+});

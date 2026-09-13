@@ -351,3 +351,13 @@ receita/custo/lucro idênticos antes e depois.
 - Documento do sócio: `partner-statement-doc.ts` (construtor puro) +
   `export-partner-statement-doc.ts` (XLSX 2 folhas sem fórmulas / PDF).
   Estanque no Portal e no export da equipa. Export interno de gestão intacto.
+
+## (g4) adenda 13/09 — base a transferir e IVA do repasse
+
+Secção 5 do documento do sócio e linha final do Encontro de Contas fecham em:
+parte do resultado + despesas pagas pelo sócio − extras − adiantamentos = BASE A
+TRANSFERIR; quando `event_settlement_participants.transfer_with_vat = true`
+acrescenta `+ IVA 23% sobre o repasse` (só se a base for positiva) e
+`= TOTAL A TRANSFERIR`. Campo editável na aba Sócios ("Repasse facturado com IVA
+(23%)"), default false. Constante `TRANSFER_IVA_RATE = 23` em
+`src/lib/partner-statement-doc.ts`.

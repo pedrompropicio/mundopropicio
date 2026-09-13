@@ -101,13 +101,51 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   section(t.section5(doc.recipientName));
   arial(ws.addRow([t.partner, t.quota, t.value]), { bold: true });
   doc.agreement.forEach((s) => {
-    const r = arial(ws.addRow([s.name, s.percentage / 100, s.value]), {
-      bold: s.isRecipient,
-      size: s.isRecipient ? 12 : 11,
-    });
+    const r = arial(
+      ws.addRow([
+        s.isRecipient ? `${s.name} — ${s.percentage.toFixed(2).replace(".", ",")}% ${t.ofResult}` : s.name,
+        s.percentage / 100,
+        s.value,
+      ]),
+      {
+        bold: s.isRecipient,
+        size: s.isRecipient ? 12 : 11,
+      },
+    );
     r.getCell(2).numFmt = "0.00%";
     moneyCells(r, [3]);
   });
+
+  // (g4 adenda) Base a transferir + IVA do repasse quando facturado.
+  const rcp = doc.recipientName;
+  moneyCells(arial(ws.addRow([t.paidByPartnerLine(rcp), null, doc.paidByPartner])), [3]);
+  moneyCells(arial(ws.addRow([t.extrasLine, null, doc.partnerExtras])), [3]);
+  moneyCells(arial(ws.addRow([t.advancesLine(rcp), null, doc.partnerAdvances])), [3]);
+  moneyCells(
+    arial(
+      ws.addRow([
+        doc.transferBase >= 0 ? t.transferBaseLine(rcp) : t.receiveBaseLine(rcp),
+        null,
+        Math.abs(doc.transferBase),
+      ]),
+      { bold: true, size: 12 },
+    ),
+    [3],
+  );
+  if (doc.transferWithVat) {
+    moneyCells(arial(ws.addRow([t.vatOnTransfer, null, doc.transferVat])), [3]);
+    moneyCells(
+      arial(
+        ws.addRow([
+          doc.transferTotal >= 0 ? t.transferTotalLine(rcp) : t.receiveTotalLine(rcp),
+          null,
+          Math.abs(doc.transferTotal),
+        ]),
+        { bold: true, size: 12 },
+      ),
+      [3],
+    );
+  }
 
   // ===================== Folha 2 — Detalhamento =====================
   const wd = wb.addWorksheet(t.detailSheet);
@@ -323,11 +361,43 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
   table({
     startY: sy,
     head: [[t.partner, t.quota, t.value]],
-    body: doc.agreement.map((s) => [
-      { content: s.name, styles: { fontStyle: s.isRecipient ? "bold" : "normal" } },
-      { content: pct(s.percentage, loc), styles: { halign: "right" } },
-      { content: money(s.value, loc), styles: { fontStyle: s.isRecipient ? "bold" : "normal", halign: "right" } },
-    ]),
+    body: [
+      ...doc.agreement.map((s) => [
+        {
+          content: s.isRecipient ? `${s.name} — ${pct(s.percentage, loc)} ${t.ofResult}` : s.name,
+          styles: { fontStyle: s.isRecipient ? "bold" : "normal" },
+        },
+        { content: pct(s.percentage, loc), styles: { halign: "right" } },
+        { content: money(s.value, loc), styles: { fontStyle: s.isRecipient ? "bold" : "normal", halign: "right" } },
+      ]),
+      [t.paidByPartnerLine(doc.recipientName), "", { content: money(doc.paidByPartner, loc), styles: { halign: "right" } }],
+      [t.extrasLine, "", { content: money(doc.partnerExtras, loc), styles: { halign: "right" } }],
+      [t.advancesLine(doc.recipientName), "", { content: money(doc.partnerAdvances, loc), styles: { halign: "right" } }],
+      [
+        {
+          content: doc.transferBase >= 0 ? t.transferBaseLine(doc.recipientName) : t.receiveBaseLine(doc.recipientName),
+          styles: { fontStyle: "bold" },
+        },
+        "",
+        { content: money(Math.abs(doc.transferBase), loc), styles: { fontStyle: "bold", halign: "right" } },
+      ],
+      ...(doc.transferWithVat
+        ? [
+            [t.vatOnTransfer, "", { content: money(doc.transferVat, loc), styles: { halign: "right" } }],
+            [
+              {
+                content:
+                  doc.transferTotal >= 0
+                    ? t.transferTotalLine(doc.recipientName)
+                    : t.receiveTotalLine(doc.recipientName),
+                styles: { fontStyle: "bold" },
+              },
+              "",
+              { content: money(Math.abs(doc.transferTotal), loc), styles: { fontStyle: "bold", halign: "right" } },
+            ],
+          ]
+        : []),
+    ] as any,
     styles: { ...styles, fontSize: 9.5 },
     columnStyles: { 1: { halign: "right", cellWidth: 26 }, 2: { halign: "right", cellWidth: 40 } },
   });

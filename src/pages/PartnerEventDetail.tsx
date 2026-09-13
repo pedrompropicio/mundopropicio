@@ -1007,6 +1007,11 @@ export default function PartnerEventDetail() {
       logoDataUrl: logoDataUrl ?? null,
       recipientName,
       participants,
+      // (g4 adenda) Base a transferir ao sócio.
+      paidByPartner: totalPaidByPartner,
+      partnerExtras: 0,
+      partnerAdvances: totalAdvances,
+      transferWithVat: (partnerShares as any[]).find((s: any) => s.partner_name === recipientName)?.transfer_with_vat === true,
       categories: allCategories as any[],
       usesGrossExpenses: usesGrossExpenseAmounts((event as any).partner_calc_basis),
       expenseLines: canonical.map((f: any) => ({

@@ -6898,6 +6898,7 @@ export type Database = {
           profit_pct: number
           settlement_id: string
           supplier_id: string | null
+          transfer_with_vat: boolean
           updated_at: string
           visible_in_docs: boolean
         }
@@ -6917,6 +6918,7 @@ export type Database = {
           profit_pct?: number
           settlement_id: string
           supplier_id?: string | null
+          transfer_with_vat?: boolean
           updated_at?: string
           visible_in_docs?: boolean
         }
@@ -6936,6 +6938,7 @@ export type Database = {
           profit_pct?: number
           settlement_id?: string
           supplier_id?: string | null
+          transfer_with_vat?: boolean
           updated_at?: string
           visible_in_docs?: boolean
         }
