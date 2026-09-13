@@ -15185,6 +15185,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_ads_register_external: {
+        Args: {
+          p_artist_id: string
+          p_external_id: string
+          p_name?: string
+          p_platform: string
+        }
+        Returns: string
+      }
       artist_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
@@ -15506,8 +15515,10 @@ export type Database = {
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
+          artist_id: string
           company_id: string
           platform: string
+          return_url: string
           user_id: string
           valid: boolean
         }[]
@@ -15538,6 +15549,25 @@ export type Database = {
       crm_meta_audiences_dashboard: { Args: never; Returns: Json }
       crm_meta_capi_dashboard: { Args: { p_days?: number }; Returns: Json }
       crm_rgpd_erase_contact: { Args: { p_contact_id: string }; Returns: Json }
+      crm_upsert_artist_meta_connection: {
+        Args: {
+          p_access_token: string
+          p_artist_id: string
+          p_available_ad_accounts?: Json
+          p_company_id: string
+          p_expires_at: string
+          p_external_business_id: string
+          p_external_business_name: string
+          p_master_key: string
+          p_selected_ad_account_currency?: string
+          p_selected_ad_account_id?: string
+          p_selected_ad_account_name?: string
+          p_status?: string
+          p_token_type: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       crm_upsert_meta_connection: {
         Args: {
           p_access_token: string

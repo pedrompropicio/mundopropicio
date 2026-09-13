@@ -72,6 +72,16 @@ Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qual
 de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
 - Relatório de lançamento por LLM: `artist-song-report` + `artist_song_reports` / `v_song_report_latest`, cron `carreira-song-report-diario` (10:00 UTC). Ver D-ERP54.
 
+Contas de TRÁFEGO do próprio artista (≠ captação): vivem em
+`crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`, ligadas pelo
+próprio artista via `artist-ads-meta-oauth-start` / `artist-ads-meta-oauth-callback`
+(mesmo app e scopes da ligação Meta do CRM), escolha de conta em
+`artist-ads-select-account`, corte em `artist-ads-disconnect`. Google/TikTok sem OAuth:
+RPC `artist_ads_register_external` grava o Customer/Advertiser ID em `pending_link`
+(Google fica `active` quando `crm-google-sync-campaigns` a alcança sob o MCC).
+Ler **D-ERP57** antes de mexer.
+
+
 ## Ritual de arranque (obrigatório, por esta ordem)
 
 1. Ler `docs/INDEX.md` (este ficheiro).

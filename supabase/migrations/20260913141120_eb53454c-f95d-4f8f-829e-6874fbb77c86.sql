@@ -1,0 +1,1 @@
+ALTER TABLE crm.oauth_states ALTER COLUMN user_id DROP NOT NULL;

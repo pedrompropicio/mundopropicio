@@ -77,6 +77,10 @@ interface ConnectionRow {
   available_ad_accounts: AdAccountOption[] | null;
   selected_page_id?: string | null;
   selected_instagram_id?: string | null;
+  // D-ERP57 — contas de tráfego do próprio artista: a linha pertence à empresa
+  // gestora, mas a conta de anúncios é do artista.
+  artist_id?: string | null;
+  connection_scope?: "company" | "artist" | null;
 }
 
 const PLATFORMS: Array<{
@@ -303,6 +307,42 @@ export default function CrmConnections() {
     },
   });
 
+  // D-ERP57 — nomes dos artistas cujas contas de tráfego estão ligadas nesta
+  // empresa, para etiquetar as ligações com connection_scope='artist'.
+  const artistIds = useMemo(
+    () =>
+      [...new Set(
+        (connections ?? [])
+          .map((c) => c.artist_id)
+          .filter((id): id is string => !!id),
+      )],
+    [connections],
+  );
+
+  const { data: artistNames } = useQuery({
+    queryKey: ["crm-connections-artists", artistIds.join(",")],
+    enabled: artistIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("artists")
+        .select("id, name")
+        .in("id", artistIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((a) => {
+        map[a.id] = a.name;
+      });
+      return map;
+    },
+  });
+
+  const artistLabel = (conn: ConnectionRow): string | null => {
+    if (conn.connection_scope !== "artist" || !conn.artist_id) return null;
+    return `Artista: ${artistNames?.[conn.artist_id] ?? "…"}`;
+  };
+
+
+
   // Auto-hidratação dos detalhes da Page (nome + IG) quando há selected_page_id
   // mas o cache local está vazio. Evita o placeholder "ID 184... — clique 'Atualizar'".
   useEffect(() => {
@@ -514,6 +554,11 @@ export default function CrmConnections() {
                           <CardDescription className="text-xs">
                             {conn.external_business_name ?? "Sem Business Manager"}
                           </CardDescription>
+                          {artistLabel(conn) && (
+                            <div className="mt-1 inline-flex rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {artistLabel(conn)}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <StatusBadge status={conn.status} />

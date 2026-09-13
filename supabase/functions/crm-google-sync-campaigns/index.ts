@@ -486,14 +486,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // Selecciona connection(s) google active
+  // D-ERP57: inclui as contas de tráfego do próprio artista registadas sem
+  // OAuth (status 'pending_link'): o Customer ID está em external_business_id e
+  // a ligação passa a 'active' quando a conta responde sob o MCC.
   let q = (supabase as any)
     .schema("crm")
     .from("ad_platform_connections")
     .select(
-      "id, company_id, selected_ad_account_id, login_customer_id, status",
+      "id, company_id, selected_ad_account_id, external_business_id, login_customer_id, status, connection_scope, artist_id",
     )
     .eq("platform", "google")
-    .eq("status", "active");
+    .in("status", ["active", "pending_link"]);
   if (bodyJson.connection_id) q = q.eq("id", bodyJson.connection_id);
   if (bodyJson.company_id) q = q.eq("company_id", bodyJson.company_id);
   const { data: connections, error: connErr } = await q;
@@ -513,7 +516,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const results: Array<Record<string, unknown>> = [];
 
   for (const conn of connections) {
-    const customerId = String(conn.selected_ad_account_id || "").replace(/-/g, "");
+    const customerId = String(
+      conn.selected_ad_account_id || conn.external_business_id || "",
+    ).replace(/-/g, "");
     const loginCustomerId = String(
       (conn.login_customer_id as string | null) ||
         GOOGLE_ADS_LOGIN_CUSTOMER_ID_FALLBACK ||
@@ -646,7 +651,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         dailyUpserted += chunk.length;
       }
 
-      // Marca connection saudável
+      // Marca connection saudável. Se era 'pending_link' (D-ERP57), a conta já
+      // responde sob o MCC: passa a 'active' e fixa customer + login customer.
       await (supabase as any)
         .schema("crm")
         .from("ad_platform_connections")
@@ -654,6 +660,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
           last_validated_at: new Date().toISOString(),
           last_error: null,
           consecutive_failures: 0,
+          ...(conn.status === "pending_link"
+            ? {
+                status: "active",
+                selected_ad_account_id: customerId,
+                login_customer_id: loginCustomerId,
+              }
+            : {}),
         })
         .eq("id", conn.id);
 
