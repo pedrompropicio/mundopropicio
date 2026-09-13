@@ -54,20 +54,24 @@ export function PartnerFinancialCards({
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-emerald-500 shrink-0" />
           <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">
-            Receitas Realizadas
+            {fecho ? "Receitas do evento" : "Receitas Realizadas"}
           </h3>
         </div>
         <p className="mt-2 text-xl sm:text-2xl font-bold font-mono text-emerald-500">
           {formatCurrency(incomeNet)}
         </p>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-          <span><span className="font-medium text-foreground/70">Bilheteira:</span> {formatCurrency(ticketsNet)}</span>
-          <span><span className="font-medium text-foreground/70">Patrocínio:</span> {formatCurrency(sponsorshipNet)}</span>
-          <span><span className="font-medium text-foreground/70">Bares:</span> {formatCurrency(barsNet)}</span>
-          {otherNet !== 0 && (
-            <span><span className="font-medium text-foreground/70">Outras:</span> {formatCurrency(otherNet)}</span>
-          )}
-        </div>
+        {fecho ? (
+          <p className="mt-2 text-[10px] text-muted-foreground">Valores do fecho do evento, sem IVA</p>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+            <span><span className="font-medium text-foreground/70">Bilheteira:</span> {formatCurrency(ticketsNet)}</span>
+            <span><span className="font-medium text-foreground/70">Patrocínio:</span> {formatCurrency(sponsorshipNet)}</span>
+            <span><span className="font-medium text-foreground/70">Bares:</span> {formatCurrency(barsNet)}</span>
+            {otherNet !== 0 && (
+              <span><span className="font-medium text-foreground/70">Outras:</span> {formatCurrency(otherNet)}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* DESPESAS BP + OVERHEAD (bruto c/IVA) */}
@@ -79,9 +83,13 @@ export function PartnerFinancialCards({
           </h3>
         </div>
         <p className="mt-2 text-xl sm:text-2xl font-bold font-mono text-amber-500">
-          {formatCurrency(bpExpenseGross)}
+          {formatCurrency(expenseTotal)}
         </p>
-        {showRealized ? (
+        {fecho ? (
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Despesas do evento {fecho.expensesWithVat ? "c/IVA" : "s/IVA"}
+          </p>
+        ) : showRealized ? (
           realizedError ? (
             <p className="mt-2 text-[10px] text-red-400">Não foi possível carregar os realizados</p>
           ) : (
