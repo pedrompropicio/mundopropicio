@@ -606,6 +606,8 @@ Decisão — **"Em aberto neste evento" começa recolhido e tem pesquisa.** O gr
 
 ## DR-2026-09-09-D25 — Apuramentos múltiplos por evento (fechos bilaterais, MP residual)
 
+> **Nota de terminologia (Pedro, 13/09/2026).** O termo visível ao utilizador é **"Fechamento"** (fechamento do evento, fechamentos filhos), não "apuramento". Nos textos abaixo lê-se "apuramento" como sinónimo histórico. O modelo técnico mantém-se `settlement` (tabelas, colunas, funções, ficheiros). "Fecho" continua a designar a peça do fecho do evento (Encontro de Contas) e o fecho de bilheteira.
+
 Decidida pelo Pedro a 09/09/2026. Deriva de `claude/varios-fechos-por-evento-possibilidade-2026-09-03.md` e `claude/apuramentos-multiplos-decisoes-2026-09-09.md` no projecto Claude. O padrão cobre 100% dos casos conhecidos em Portugal e no Brasil (Pedro, 09/09).
 
 **Um evento tem N apuramentos.** Todos os eventos existentes ficam com exactamente 1 — a raiz, que apanha tudo o que não está marcado. Cascata e fechos exclusivos coexistem: um apuramento pode receber X% do resultado de um pai, calculado na base indicada, e um pai pode ter vários filhos sobre a mesma quota (fechos bilaterais irmãos).
