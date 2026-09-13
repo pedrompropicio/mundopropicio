@@ -175,7 +175,7 @@ export function useEventSettlementEngine(eventId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_third_party_operations")
-        .select("id, kind, name, source, gross_amount, operator_result, document_ref, operator_supplier_id, supplier:suppliers(name)")
+        .select("id, kind, name, source, gross_amount, operator_result, document_ref, operator_supplier_id, held_by_supplier_id, supplier:suppliers!event_third_party_operations_operator_supplier_id_fkey(name)")
         .eq("event_id", eventId)
         .order("created_at", { ascending: true });
       if (error) throw error;
