@@ -82,6 +82,33 @@ export function computeOutsideBpExcess(
   return excess;
 }
 
+/**
+ * (g13) O MESMO excesso, mas itemizado por rubrica, para os documentos poderem
+ * apresentar as linhas que compõem o total sem recalcular nada por fora.
+ * Σ dos `net` iguala `computeOutsideBpExcess(..., false)` e Σ dos `gross`
+ * iguala `computeOutsideBpExcess(..., true)`.
+ */
+export function computeOutsideBpExcessLines(
+  forecasts: AmountLine[],
+  transactions: AmountLine[],
+): Array<{ categoryId: string | null; net: number; gross: number }> {
+  const fcNet = groupByCategory(forecasts, false);
+  const fcGross = groupByCategory(forecasts, true);
+  const realNet = groupByCategory(transactions, false);
+  const realGross = groupByCategory(transactions, true);
+  const out: Array<{ categoryId: string | null; net: number; gross: number }> = [];
+  for (const k of new Set([...realNet.keys(), ...realGross.keys()])) {
+    const diffNet = (realNet.get(k) ?? 0) - (fcNet.get(k) ?? 0);
+    const diffGross = (realGross.get(k) ?? 0) - (fcGross.get(k) ?? 0);
+    const net = diffNet > EXCESS_EPSILON ? diffNet : 0;
+    const gross = diffGross > EXCESS_EPSILON ? diffGross : 0;
+    if (net === 0 && gross === 0) continue;
+    out.push({ categoryId: k === NO_CATEGORY ? null : k, net, gross });
+  }
+  return out;
+}
+
+
 export interface UnusedBudgetEntry {
   key: string;
   forecast: number;

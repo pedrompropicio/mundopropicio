@@ -33,6 +33,8 @@ import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { collectSettlementExpenseDocLines } from "@/lib/event-settlement-inputs";
 
 
 import {
@@ -279,6 +281,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   const activeSettlementId = selectedSettlementId ?? rootSettlementId;
 
+  /** (g3/g13) Perímetro da raiz — base de qualquer documento do sócio. */
+  const rootSettlementIds = useMemo(
+    () => new Set((eventSettlements as any[]).filter((s) => !s.parent_id).map((s) => s.id as string)),
+    [eventSettlements],
+  );
+
   const partners = useMemo(
     () => (allParticipants as any[]).filter((p) => !activeSettlementId || p.settlement_id === activeSettlementId),
     [allParticipants, activeSettlementId],
@@ -290,7 +298,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(name, code, parent_id)")
+        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, account_categories(name, code, parent_id)")
         .in("event_id", allEventIds);
       if (error) throw error;
       return data;
@@ -437,7 +445,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-          .select("id, event_id, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, account_categories(name, code)")
+          .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null);
       if (error) throw error;
@@ -2221,20 +2229,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
     const t = statementTerms(locale);
 
-    const expenseLines = [
-      ...expenseTransactions.map((tx: any) => ({
-        categoryId: tx.category_id ?? null,
-        description: tx.description || tx.account_categories?.name || "—",
-        base: Number(tx.amount) || 0,
-        ivaRate: Number(tx.iva_rate) || 0,
-      })),
-      ...overheads.map((o: any) => ({
-        categoryId: o.category_id ?? null,
-        description: o.description || o.account_categories?.name || "—",
-        base: Number(o.amount) || 0,
-        ivaRate: Number(o.iva_rate) || 0,
-      })),
-    ];
+    // (g13) As despesas do documento vêm SEMPRE da mesma fonte dos totais do
+    // evento (critério do Fecho: realizado ou previsto + excedido, overhead pelo
+    // toggle) e do perímetro da raiz — nunca do apuramento do sócio.
+    const expenseLines = keepRootPerimeter(
+      collectSettlementExpenseDocLines({
+        events: subEvents as any[],
+        transactions: transactions as any[],
+        forecasts: forecasts as any[],
+        ticketSales: ticketSales as any[],
+        basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
+      }),
+      rootSettlementIds,
+    ).map((l) => ({
+      categoryId: l.categoryId,
+      description: l.description,
+      base: l.base,
+      ivaRate: l.ivaRate,
+    }));
 
     // Receitas: bilheteira agregada por sessão/zona + restantes receitas linha a linha.
     const revenues = [
@@ -2243,16 +2255,58 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         description: [r.cityName, r.sessionLabel, r.zoneName, r.lotName].filter(Boolean).join(" · "),
         net: r.totalNet,
       })),
-      ...revenueTxForTotals.map((tx: any) => ({
+      // (g13) Só as receitas do evento: as exclusivas da sociedade aparecem na
+      // conta do resultado, itemizadas, e nunca somadas às receitas do evento.
+      ...keepRootPerimeter(revenueTxForTotals as any[], rootSettlementIds).map((tx: any) => ({
         origin: tx.account_categories?.name || "Outras receitas",
         description: tx.description || "—",
         net: Number(tx.amount) || 0,
       })),
     ];
 
-    const extras: Array<{ label: string; value: number }> = [];
-    if (activeNode?.parentQuota) extras.push({ label: "Quota contratual do acordo", value: activeNode.parentQuota });
+    // (g13) CASCATA: quando o acordo do sócio apura sobre uma parte do resultado
+    // do evento, a conta parte do resultado do evento e deduz, PELO NOME, as
+    // partes dos sócios de cada acordo acima. Os sócios do mesmo acordo e os
+    // acordos ao lado ou abaixo continuam invisíveis.
+    const nodes = engine.result?.nodes ?? [];
+    const chain: typeof nodes = [];
+    for (let cur = activeNode; cur?.parentId; cur = nodes.find((n) => n.id === cur!.parentId) ?? null) {
+      chain.unshift(cur);
+    }
+    const cascade =
+      chain.length > 0
+        ? {
+            levels: chain.map((node) => {
+              const parent = nodes.find((n) => n.id === node.parentId) ?? null;
+              const baseValue =
+                node.parentQuotaBasis === "gross" ? parent?.resultGross ?? 0 : parent?.resultNet ?? 0;
+              return {
+                baseValue,
+                quotaPct: Number(node.parentSharePct ?? 0),
+                quota: Number(node.parentQuota ?? 0),
+                deductions: (parent?.participants ?? [])
+                  .filter((p) => p.kind !== "house" && p.name !== row.partnerName)
+                  .map((p) => ({ name: p.name, percentage: p.effectivePct, value: p.share })),
+              };
+            }),
+          }
+        : null;
+
+    const exclusiveRevenues = (incomeTransactions as any[])
+      .filter((tx: any) => tx.event_settlement_id && tx.event_settlement_id === activeSettlementId)
+      .map((tx: any) => ({
+        label: tx.description || tx.account_categories?.name || "—",
+        value: Number(tx.amount) || 0,
+      }));
+
+    const extras: Array<{ label: string; value: number; items?: Array<{ label: string; value: number }> }> = [];
     if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível recuperado", value: activeNode.vatReturnedIn });
+    if (cascade && activeNode?.perimeter.revenueNet)
+      extras.push({
+        label: "Receitas exclusivas da sociedade",
+        value: activeNode.perimeter.revenueNet,
+        items: exclusiveRevenues,
+      });
     // (g6) Custos do evento devolvidos a este fechamento (internos da sociedade).
     if (activeNode?.addbackIn)
       extras.push({
@@ -2260,7 +2314,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         value: activeNode.addbackIn,
       });
     if (activeNode?.additionalActiveTotal)
-      extras.push({ label: "Activos adicionais", value: activeNode.additionalActiveTotal });
+      extras.push({
+        label: "Operações de terceiros — resultado adicional",
+        value: activeNode.additionalActiveTotal,
+        items: (activeNode.operations ?? [])
+          .filter((o) => Math.abs(o.additionalActive) > 0.004)
+          .map((o) => ({ label: o.name, value: o.additionalActive })),
+      });
 
     return {
       locale,
@@ -2289,6 +2349,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       expenseLines,
       revenues,
       extras,
+      cascade,
       resultOverride: row.result,
       recipientShareOverride: row.partnerShare,
     };

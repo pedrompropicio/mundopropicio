@@ -11,7 +11,7 @@
  * usem exactamente a mesma aritmética sem tocar no Encontro de Contas.
  */
 import { calcTotalWithIva } from "@/lib/iva";
-import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
+import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from "@/lib/event-cost-basis";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
@@ -106,4 +106,79 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
     expensesGross: sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross,
     hasTicketSales,
   };
+}
+
+/** (g13) Linha de despesa tal como entra nos documentos do sócio. */
+export interface SettlementExpenseDocLine {
+  categoryId: string | null;
+  description: string;
+  base: number;
+  ivaRate: number;
+  event_settlement_id?: string | null;
+}
+
+/**
+ * (g13) As MESMAS linhas que compõem `expensesNet`/`expensesGross` acima —
+ * fonte única para o documento do sócio (secção 3 e Detalhamento B), incluindo
+ * o overhead pelo critério e o excedido itemizado por rubrica.
+ *
+ * Não faz nenhum filtro por apuramento: quem chama aplica o perímetro da raiz
+ * (`keepRootPerimeter`), porque a base do documento é sempre o evento.
+ */
+export function collectSettlementExpenseDocLines(input: SettlementTotalsInput): SettlementExpenseDocLine[] {
+  const { events, transactions, forecasts, basis } = input;
+
+  const overheads = expandOverheadToSplits(
+    (forecasts as any[]).filter((f: any) => f.is_overhead) as any,
+    events as any,
+  );
+  const adoptedMasterExpenseSlices = expandMasterAdoptedExpensesToSplits({
+    events: events as any,
+    forecasts: forecasts as any,
+    transactions: (transactions as any[]).filter((t: any) => t.type === "expense"),
+  });
+  const validTx = transactions.filter((t: any) => isValidFechoTransaction(t));
+  const adoptedMasterSourceIds = new Set(
+    adoptedMasterExpenseSlices.map((s: any) => s._master_transaction_id).filter(Boolean),
+  );
+  const expenseTransactions = [
+    ...validTx.filter((t: any) => t.type === "expense" && !adoptedMasterSourceIds.has(t.id)),
+    ...adoptedMasterExpenseSlices,
+  ];
+  const operationalForecasts = (forecasts as any[]).filter(
+    (f: any) =>
+      f.type === "expense" &&
+      f.status === "approved" &&
+      !f.is_transitory &&
+      !f.is_overhead &&
+      !f.exclude_from_result,
+  );
+  const expenseSourceLines =
+    basis.expenseSource === "committed" ? operationalForecasts : expenseTransactions;
+
+  const toLine = (l: any, fallback: string): SettlementExpenseDocLine => ({
+    categoryId: l.category_id ?? null,
+    description: String(l.description || l.suppliers?.name || fallback),
+    base: Number(l.amount || 0),
+    ivaRate: Number(l.iva_rate || 0),
+    event_settlement_id: l.event_settlement_id ?? null,
+  });
+
+  const lines: SettlementExpenseDocLine[] = expenseSourceLines.map((l: any) => toLine(l, "Despesa"));
+
+  if (basis.includeOverhead) lines.push(...overheads.map((o: any) => toLine(o, "Rateio")));
+
+  if (basis.expenseSource === "committed") {
+    for (const x of computeOutsideBpExcessLines(operationalForecasts, expenseTransactions)) {
+      const ivaRate = x.net > 0 ? ((x.gross / x.net) - 1) * 100 : 0;
+      lines.push({
+        categoryId: x.categoryId,
+        description: "Excedido ao Business Plan",
+        base: x.net,
+        ivaRate,
+      });
+    }
+  }
+
+  return lines;
 }

@@ -214,3 +214,144 @@ describe("(g10) base efetiva no documento", () => {
     expect(doc.result).toBeCloseTo(900, 2);
   });
 });
+
+/**
+ * (g13) Documento de um sócio cujo acordo apura sobre parte do resultado do
+ * evento: as despesas são as do evento e a conta desce em cascata, nomeando os
+ * sócios dos acordos acima. Números reais de um evento a três acordos.
+ */
+describe("(g13) cascata desde o resultado do evento", () => {
+  const eventRevenues = [{ origin: "Bilheteira", net: 2527352.94 }];
+  const eventExpenses = [{ categoryId: null, description: "Despesas do evento", base: 1668759.64, ivaRate: (262459.85 / 1668759.64) * 100 }];
+
+  const societyDoc = (locale: "pt-PT" | "pt-BR") =>
+    buildPartnerStatementDoc({
+      locale,
+      eventName: "Evento a três acordos",
+      eventDate: "2026-08-31",
+      recipientName: "EVERYTHINGISNEW",
+      participants: [
+        { name: "EVERYTHINGISNEW", percentage: 50 },
+        { name: "MUNDO PROPÍCIO", percentage: 50, isHouse: true },
+      ],
+      revenues: eventRevenues,
+      expenseLines: eventExpenses,
+      categories: [],
+      usesGrossExpenses: true,
+      cascade: {
+        levels: [
+          {
+            baseValue: 596133.45,
+            quotaPct: 20,
+            quota: 119226.69,
+            deductions: [
+              { name: "ANITTA", percentage: 70, value: 417293.42 },
+              { name: "RAFAEL LOBO", percentage: 10, value: 59613.35 },
+            ],
+          },
+        ],
+      },
+      extras: [
+        { label: "IVA dedutível recuperado", value: 262459.85 },
+        {
+          label: "Receitas exclusivas da sociedade",
+          value: 72250.52,
+          items: [
+            { label: "Oeiras", value: 50000 },
+            { label: "Bengaleiro", value: 138.82 },
+            { label: "Ticketline RS 1%", value: 22111.7 },
+          ],
+        },
+        { label: "Operações de terceiros — resultado adicional", value: 93969.63 },
+      ],
+      resultOverride: 547906.69,
+      recipientShareOverride: 273953.35,
+    });
+
+  it("as despesas são as do evento e a cascata fecha ao cêntimo", () => {
+    const doc = societyDoc("pt-PT");
+    expect(doc.expenseTotal).toBeCloseTo(1931219.49, 0);
+    expect(doc.cascadeQuota).toBeCloseTo(119226.69, 2);
+    expect(doc.result).toBeCloseTo(547906.69, 2);
+    expect(doc.cascadeMismatch).toBeCloseTo(0, 2);
+    expect(doc.recipientShare).toBeCloseTo(273953.35, 2);
+    // As receitas do evento ficam limpas dos termos adicionais.
+    expect(doc.revenueNet).toBeCloseTo(2527352.94, 2);
+  });
+
+  it("nomeia só os sócios dos acordos acima e o destinatário", () => {
+    const doc = societyDoc("pt-PT");
+    const names = doc.cascade?.[0].deductions.map((d) => d.name);
+    expect(names).toEqual(["ANITTA", "RAFAEL LOBO"]);
+    expect(doc.agreement.map((r) => r.name)).toEqual(["EVERYTHINGISNEW", "Mundo Propício"]);
+  });
+
+  it("não usa termos proibidos em nenhuma das línguas, na planilha inclusive", async () => {
+    for (const locale of ["pt-PT", "pt-BR"] as const) {
+      const doc = societyDoc(locale);
+      const wb = await buildStatementWorkbook(doc);
+      const cells: string[] = [];
+      wb.worksheets.forEach((ws) =>
+        ws.eachRow((row) => row.eachCell((cell) => cells.push(String(cell.value ?? "")))),
+      );
+      const text = `${JSON.stringify(doc)} | ${cells.join(" | ")}`.toLowerCase();
+      for (const term of FORBIDDEN_DOC_TERMS) expect(text).not.toContain(term.toLowerCase());
+    }
+  });
+
+  it("outro sócio da mesma cascata não vê o primeiro", () => {
+    const doc = buildPartnerStatementDoc({
+      eventName: "Evento a três acordos",
+      eventDate: "2026-08-31",
+      recipientName: "RAFAEL LOBO",
+      participants: [
+        { name: "RAFAEL LOBO", percentage: 20 },
+        { name: "MUNDO PROPÍCIO", percentage: 80, isHouse: true },
+      ],
+      revenues: eventRevenues,
+      expenseLines: eventExpenses,
+      categories: [],
+      usesGrossExpenses: true,
+      cascade: {
+        levels: [
+          {
+            baseValue: 596133.45,
+            quotaPct: 30,
+            quota: 178840.04,
+            deductions: [{ name: "ANITTA", percentage: 70, value: 417293.42 }],
+          },
+        ],
+      },
+      resultOverride: 178840.04,
+      recipientShareOverride: 35768.01,
+    });
+    expect(doc.cascadeQuota).toBeCloseTo(178840.04, 2);
+    expect(doc.recipientShare).toBeCloseTo(35768.01, 2);
+    expect(doc.agreement[1].percentage).toBeCloseTo(80, 2);
+    expect(JSON.stringify(doc)).not.toContain("EVERYTHINGISNEW");
+  });
+
+  it("na raiz nada muda: sem cascata e sem nomes de outros", () => {
+    const doc = buildPartnerStatementDoc({
+      eventName: "Evento a três acordos",
+      eventDate: "2026-08-31",
+      recipientName: "ANITTA",
+      participants: [
+        { name: "ANITTA", percentage: 70 },
+        { name: "RAFAEL LOBO", percentage: 10 },
+        { name: "MUNDO PROPÍCIO", percentage: 20, isHouse: true },
+      ],
+      revenues: eventRevenues,
+      expenseLines: eventExpenses,
+      categories: [],
+      usesGrossExpenses: true,
+      resultOverride: 596133.45,
+      recipientShareOverride: 417293.42,
+    });
+    expect(doc.cascade).toBeNull();
+    expect(doc.agreement.map((r) => r.name)).toEqual(["ANITTA", "Sócios locais"]);
+    const text = JSON.stringify(doc);
+    expect(text).not.toContain("EVERYTHINGISNEW");
+    expect(text).not.toContain("RAFAEL");
+  });
+});

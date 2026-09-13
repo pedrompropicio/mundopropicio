@@ -49,6 +49,33 @@ export interface StatementExpenseLine {
 export interface StatementExtraItem {
   label: string;
   value: number;
+  /** (g13) Itemização do termo (ex.: receitas próprias, operações de terceiros). */
+  items?: Array<{ label: string; value: number }>;
+}
+
+/**
+ * (g13) CASCATA do resultado — quando o acordo do sócio se apura sobre uma parte
+ * do resultado do evento, o documento mostra a conta desde o evento inteiro e
+ * nomeia os sócios cujas partes são deduzidas antes da parte da sociedade.
+ * Nunca se nomeiam os acordos, só as pessoas.
+ */
+export interface StatementCascadeDeduction {
+  name: string;
+  percentage: number;
+  value: number;
+}
+
+export interface StatementCascadeLevel {
+  /** Valor de partida deste passo (o resultado do evento no primeiro passo). */
+  baseValue: number;
+  deductions: StatementCascadeDeduction[];
+  /** Percentagem contratada da sociedade sobre o valor de partida. */
+  quotaPct: number;
+  quota: number;
+}
+
+export interface StatementCascade {
+  levels: StatementCascadeLevel[];
 }
 
 export interface PartnerStatementDocInput {
@@ -80,6 +107,12 @@ export interface PartnerStatementDocInput {
    * Entram no resultado depois das receitas e antes das despesas.
    */
   extras?: StatementExtraItem[];
+  /**
+   * (g13) Cascata desde o resultado do evento até à parte da sociedade. Quando
+   * dada, a secção 2 mostra só as receitas do evento e os termos adicionais
+   * passam para a secção 4, depois da parte da sociedade.
+   */
+  cascade?: StatementCascade | null;
   /** Resultado do nó vindo do motor — quando dado, manda sobre o cálculo local. */
   resultOverride?: number | null;
   /** Parte do destinatário vinda do motor — quando dada, manda sobre R6. */
@@ -141,6 +174,12 @@ export interface PartnerStatementDoc {
   revenueNet: number;
   extras: StatementExtraItem[];
   extrasTotal: number;
+  /** (g13) Cascata do resultado (null na raiz, onde nada muda). */
+  cascade: StatementCascadeLevel[] | null;
+  /** (g13) Parte da sociedade — última quota da cascata. */
+  cascadeQuota: number | null;
+  /** (g13) Diferença entre quota + termos adicionais e o resultado apresentado. */
+  cascadeMismatch: number;
   families: StatementFamily[];
   expenseBase: number;
   expenseIva: number;
@@ -195,6 +234,11 @@ export interface StatementTerms {
   subtotal: string;
   total: string;
   resultLine: string;
+  eventResultLine: string;
+  carriedResultLine: string;
+  societyShareLine: string;
+  societyResultLine: string;
+  cascadeMismatchLine: (v: string) => string;
   ticketing: string;
   localPartners: string;
   dataAt: (d: string) => string;
@@ -244,6 +288,11 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     subtotal: "Subtotal",
     total: "TOTAL",
     resultLine: "Resultado",
+    eventResultLine: "Resultado do evento",
+    carriedResultLine: "Resultado a repartir",
+    societyShareLine: "Parte da sociedade",
+    societyResultLine: "Resultado da sociedade",
+    cascadeMismatchLine: (v) => `Aviso: a conta não fecha (diferença ${v})`,
     ticketing: "Bilheteira",
     localPartners: "Sócios locais",
     dataAt: (d) => `Dados do sistema em ${d} · valores em euros`,
@@ -292,6 +341,11 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     subtotal: "Subtotal",
     total: "TOTAL",
     resultLine: "Resultado",
+    eventResultLine: "Resultado do evento",
+    carriedResultLine: "Resultado a repartir",
+    societyShareLine: "Parte da sociedade",
+    societyResultLine: "Resultado da sociedade",
+    cascadeMismatchLine: (v) => `Aviso: a conta não fecha (diferença ${v})`,
     ticketing: "Bilheteria",
     localPartners: "Sócios locais",
     dataAt: (d) => `Dados do sistema em ${d} · valores em euros`,
@@ -433,17 +487,43 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
   const revenueNet = roundCents(revenues.reduce((s, r) => s + r.net, 0));
 
   const extras = (input.extras ?? [])
-    .map((e) => ({ label: e.label, value: roundCents(e.value) }))
+    .map((e) => ({
+      label: e.label,
+      value: roundCents(e.value),
+      items: (e.items ?? [])
+        .map((i) => ({ label: i.label, value: roundCents(i.value) }))
+        .filter((i) => Math.abs(i.value) > 0.004),
+    }))
     .filter((e) => Math.abs(e.value) > 0.004)
     // (g10) Com base efetiva s/IVA não se descreve o mecanismo do IVA dedutível:
     // as despesas já aparecem s/IVA e o resultado é o mesmo.
     .filter((e) => usesGrossEffective || !/iva\s*dedut/i.test(e.label));
   const extrasTotal = roundCents(extras.reduce((s, e) => s + e.value, 0));
 
+  // ---- (g13) Cascata desde o resultado do evento ----
+  const cascade =
+    input.cascade && input.cascade.levels.length > 0
+      ? input.cascade.levels.map((lv) => ({
+          baseValue: roundCents(lv.baseValue),
+          quotaPct: roundCents(lv.quotaPct),
+          quota: roundCents(lv.quota),
+          deductions: lv.deductions.map((d) => ({
+            name: d.name,
+            percentage: roundCents(d.percentage),
+            value: roundCents(d.value),
+          })),
+        }))
+      : null;
+  const cascadeQuota = cascade ? cascade[cascade.length - 1].quota : null;
+
   const result =
     input.resultOverride != null
       ? roundCents(input.resultOverride)
-      : roundCents(revenueNet + extrasTotal - expenseForResult);
+      : cascadeQuota != null
+        ? roundCents(cascadeQuota + extrasTotal)
+        : roundCents(revenueNet + extrasTotal - expenseForResult);
+  const cascadeMismatch =
+    cascadeQuota == null ? 0 : roundCents(result - roundCents(cascadeQuota + extrasTotal));
 
   // ---- Acordo: destinatário nomeado + colapso de todos os outros ----
   const recipient =
@@ -513,6 +593,9 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     revenueNet,
     extras,
     extrasTotal,
+    cascade,
+    cascadeQuota,
+    cascadeMismatch,
     families,
     expenseBase,
     expenseIva,
