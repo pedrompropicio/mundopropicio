@@ -651,7 +651,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         dailyUpserted += chunk.length;
       }
 
-      // Marca connection saudável
+      // Marca connection saudável. Se era 'pending_link' (D-ERP57), a conta já
+      // responde sob o MCC: passa a 'active' e fixa customer + login customer.
       await (supabase as any)
         .schema("crm")
         .from("ad_platform_connections")
@@ -659,6 +660,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
           last_validated_at: new Date().toISOString(),
           last_error: null,
           consecutive_failures: 0,
+          ...(conn.status === "pending_link"
+            ? {
+                status: "active",
+                selected_ad_account_id: customerId,
+                login_customer_id: loginCustomerId,
+              }
+            : {}),
         })
         .eq("id", conn.id);
 
