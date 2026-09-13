@@ -105,31 +105,12 @@ async function getSoundchartsToken(): Promise<string> {
 
 type Caller = { allowed: boolean; reason?: string };
 
+// Autorização única (ver _shared/soundcharts.ts): aceita a service role key do
+// runtime — que hoje é `sb_secret_…`, NÃO um JWT — e também JWT service_role
+// (crons via net.http_post) ou utilizador com papel privilegiado.
 async function authorize(req: Request, admin: SupabaseClient): Promise<Caller> {
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const bearer = authHeader.replace(/^Bearer\s+/i, "");
-  if (!bearer) return { allowed: false, reason: "missing token" };
-
-  // JWT já verificado pelo gateway (verify_jwt = true): basta ler o claim role
-  try {
-    const payload = JSON.parse(atob(bearer.split(".")[1] ?? ""));
-    if (payload?.role === "service_role") return { allowed: true };
-  } catch (_e) {
-    // token não-JWT: segue para validação de utilizador
-  }
-
-  const { data, error } = await admin.auth.getUser(bearer);
-  if (error || !data?.user) return { allowed: false, reason: "invalid token" };
-
-  const { data: roles } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", data.user.id);
-
-  const ok = (roles ?? []).some((r: { role: string }) =>
-    r.role === "admin" || r.role === "platform_admin"
-  );
-  return ok ? { allowed: true } : { allowed: false, reason: "insufficient role" };
+  const caller = await sharedAuthorize(req, admin, ["admin", "platform_admin"]);
+  return { allowed: caller.allowed, reason: caller.reason };
 }
 
 interface MetricRow {
