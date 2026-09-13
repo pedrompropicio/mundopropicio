@@ -77,6 +77,25 @@ export interface EngineMarkedLine {
 }
 
 /**
+ * (g6) Linha de BP DEVOLVIDA a um fechamento abaixo ("custos internos da
+ * sociedade"): continua a contar no perímetro de cima (a raiz é imutável) e é
+ * somada ao resultado do fechamento indicado. Valorização: s/IVA quando o
+ * fechamento tem `returns_parent_deductible_vat` (o IVA já lhe foi devolvido),
+ * senão na base do próprio fechamento.
+ */
+export interface EngineAddbackLine {
+  addback_settlement_id: string;
+  label: string;
+  amount: number | string | null;
+  iva_rate?: number | string | null;
+}
+
+export interface AddbackNodeResult {
+  label: string;
+  value: number;
+}
+
+/**
  * Extras do sócio e despesas por ele pagas — nas duas bases, porque o Encontro
  * de Contas aplica-lhes a mesma base do apuramento do sócio (informativo).
  */
