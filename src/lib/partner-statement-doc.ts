@@ -413,7 +413,13 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
   const expenseTotal = roundCents(expenseBase + expenseIva);
-  const expenseForResult = input.usesGrossExpenses ? expenseTotal : expenseBase;
+  // (g10) Base EFETIVA: quando o fechamento devolve o IVA dedutível do
+  // fechamento acima, o documento apura sobre despesas s/IVA.
+  const usesGrossEffective = effectiveUsesGrossExpenses({
+    usesGrossExpenses: input.usesGrossExpenses,
+    returnsParentDeductibleVat: input.returnsDeductibleVat,
+  });
+  const expenseForResult = usesGrossEffective ? expenseTotal : expenseBase;
 
   // ---- Receitas ----
   const revenues = input.revenues
