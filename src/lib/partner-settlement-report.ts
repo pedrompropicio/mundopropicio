@@ -169,25 +169,11 @@ export function buildPartnerSettlementReportData(input: {
     );
     const resultBase = revenueBase - expenseBase;
 
-    const housePct = computeHousePercentage(
-      familyPartners.map((partner) => ({ percentage: partner.percentage })),
+    // A casa já vem nos participantes do apuramento (linha real); só entra
+    // quando tem quota residual, como acontecia com a injeção antiga.
+    const allPartners = familyPartners.filter(
+      (partner: any) => !partner.isHouse || Number(partner.percentage || 0) > 0.0001,
     );
-
-    const allPartners = [
-      ...familyPartners,
-      ...(housePct != null
-        ? [{
-            id: `${HOUSE_PARTNER_ID}-${rootEvent.id}`,
-            event_id: rootEvent.id,
-            percentage: housePct,
-            loss_percentage: null,
-            // A casa segue sempre a base contratual do evento.
-            expense_includes_iva: null,
-            suppliers: { name: HOUSE_PARTNER_NAME },
-            isHouse: true,
-          }]
-        : []),
-    ];
 
     const familyPaidExpenses = paidExpenses.filter((expense) => familyEventIds.has(expense.event_id));
     const familyPartnerAdvances = partnerAdvances.filter((advance) => familyEventIds.has(advance.event_id));
