@@ -36,6 +36,8 @@ export interface EventCostBasis extends EventCostBasisState {
   /** false ⇒ os seletores devem ficar desativados. */
   canEditBasis: boolean;
   isSaving: boolean;
+  /** true ⇒ o critério da BD ainda não chegou; NÃO mostrar números. */
+  isLoading: boolean;
 }
 
 interface CostBasisRow {
@@ -56,7 +58,7 @@ export function useEventCostBasis(eventId: string, partnerCalcBasis?: string | n
   const canEditBasis = !!(isAdmin || isManager || hasPermission("manage_bp"));
   const queryClient = useQueryClient();
 
-  const { data } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: eventCostBasisQueryKey(eventId),
     enabled: !!eventId,
     queryFn: async (): Promise<CostBasisRow | null> => {
@@ -118,5 +120,6 @@ export function useEventCostBasis(eventId: string, partnerCalcBasis?: string | n
     ),
     canEditBasis,
     isSaving: save.isPending,
+    isLoading: !!eventId && isPending,
   };
 }
