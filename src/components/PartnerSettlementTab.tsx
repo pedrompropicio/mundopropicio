@@ -2707,6 +2707,30 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
 
+            {/* (g12) Detalhe expansível — só apresentação, mesmas linhas do export de conferência. */}
+            {!s.isHouse && (
+              <PartnerDisbursementDetail
+                bpPaidLines={s.bpPaidLines}
+                totalBpPaidByPartner={s.totalBpPaidByPartner}
+                paidExpenses={s.paidExpenses}
+                totalPaidByPartner={s.totalPaidByPartner}
+                totalDisbursement={s.totalDisbursement}
+                adjustments={s.disbursementAdjustments}
+                totalAdjustments={s.totalDisbursementAdjustments}
+                revenuesHeld={s.revenuesHeld}
+                totalRevenuesHeld={s.totalRevenuesHeld}
+                financingToReturn={s.financingToReturn}
+                extras={s.partnerExtras}
+                totalAdvanced={s.totalAdvanced}
+                partnerShare={s.partnerShare}
+                transferBase={s.transferBase}
+                transferWithVat={s.transferWithVat}
+                transferVat={s.transferVat}
+                transferTotal={s.transferTotal}
+                l2LabelOf={categoryL2Label}
+              />
+            )}
+
             {(s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
                 ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> No item 4, o fecho mostra separadamente
