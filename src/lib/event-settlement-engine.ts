@@ -478,14 +478,45 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       }
     }
 
+    // (g6) Devolução de custos internos: entra pelo valor s/IVA quando este
+    // fechamento já recebeu o IVA dedutível de cima, senão na base do nó.
+    const nodeUsesGross = isRoot
+      ? eventUsesGross
+      : basis == null
+        ? eventUsesGross
+        : basis === "net_result_gross_expenses";
+    const addback = addbackByNode.get(s.id);
+    let addbackIn = 0;
+    let addbacks: AddbackNodeResult[] = [];
+    if (addback) {
+      if (isRoot) {
+        errors.push(
+          `O fechamento raiz "${s.name}" não pode receber custos devolvidos de si próprio.`,
+        );
+      } else {
+        const useGrossForAddback = !s.returns_parent_deductible_vat && nodeUsesGross;
+        addbackIn = useGrossForAddback ? addback.gross : addback.net;
+        addbacks = addback.lines.map((l) => ({
+          label: l.label,
+          value: roundCents(useGrossForAddback ? l.gross : l.net),
+        }));
+      }
+    }
+
     const quota = parentQuota ?? 0;
     const revenueWithOps = revenueNet + additionalActiveTotal;
-    const resultNet = vatReturnedIn + (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet);
-    const resultGross = vatReturnedIn + (ignoresExpenses
-      ? quota + revenueWithOps
-      : quota + revenueWithOps - expensesGross);
+    const resultNet =
+      vatReturnedIn +
+      addbackIn +
+      (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet);
+    const resultGross =
+      vatReturnedIn +
+      addbackIn +
+      (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesGross);
 
     const node: SettlementNodeResult = {
+      addbackIn: roundCents(addbackIn),
+      addbacks,
       id: s.id,
       name: s.name,
       parentId: s.parent_id ?? null,
