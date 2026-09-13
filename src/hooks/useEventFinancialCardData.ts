@@ -47,6 +47,13 @@ export interface Subtotal {
 
 export interface UseEventFinancialCardDataResult {
   displayValue: number;
+  /**
+   * Receita REAL do perímetro da raiz na base de IVA do card (D24 + D25 g3).
+   * Só definido em kind='income'. É este o valor que alimenta o Lucro/margem,
+   * porque o fecho nunca usa receita prevista — o toggle "previsto + excedido"
+   * é apenas uma vista do card de Receitas.
+   */
+  realValue?: number;
   subtotals: Subtotal[];
   formalidadeBreakdown: FormalidadeBreakdown | null;
   phase: Phase;
@@ -169,6 +176,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     });
     const modeUsed: ModeUsed = resolveMode(mode, phase, kind);
 
+    // Receita REAL (perímetro da raiz) na base de IVA do card — alimenta o Lucro.
+    const realValue = kind === "income"
+      ? (revenue ? (withVat ? revenue.real.total.gross : revenue.real.total.net) : 0)
+      : undefined;
+
 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
@@ -190,7 +202,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             ...(ab !== 0 ? [{ label: "A&B", value: ab }] : []),
             { label: "Outros", value: pick("outros") },
           ],
-          formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+          realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
 
       } else {
@@ -242,7 +254,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             ...(c && c.buckets.ab !== 0 ? [{ label: "A&B", value: c.buckets.ab }] : []),
             { label: "Outros", value: c?.buckets.outros ?? null },
           ],
-          formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
+          realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
         };
       }
       // Operacionais: linhas aprovadas que entram no resultado.
@@ -307,7 +319,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "A&B", value: f?.buckets.ab ?? null },
             { label: "Outros", value: f?.buckets.outros ?? null },
           ],
-          formalidadeBreakdown: null, phase, modeUsed,
+          realValue, formalidadeBreakdown: null, phase, modeUsed,
           unavailable: !f || f.total == null,
         };
       }
@@ -320,7 +332,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "A&B", value: null },
             { label: "Outros", value: null },
           ],
-          formalidadeBreakdown: null, phase, modeUsed, unavailable: true,
+          realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: true,
         };
       }
       const cfg: CoalaConfig = {
@@ -365,7 +377,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
           { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
         ],
-        formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+        realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     } else {
       // Forecast custos: formalidade-aware.

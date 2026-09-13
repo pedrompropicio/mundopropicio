@@ -28,3 +28,9 @@ são exclusivas desse fechamento e ficam FORA da receita, custo e lucro do event
 (card, Resumo, Fecho, DRE de evento, Portal do Sócio). As raízes vêm de
 `useEventRootSettlements`. **DRE Empresarial e DRE Brasil são vistas de empresa e
 mantêm essas linhas.**
+
+**(g3+) Lucro nunca usa receita prevista.** `useEventFinancialCardData` devolve
+`realValue` (receita real do perímetro da raiz na base de IVA do card) e o
+`EventFinancialCard` propaga esse valor ao card Lucro/margem, mesmo em "Previsto +
+excedido"; nota discreta "real: X" quando divergem. Garante Lucro do evento =
+resultado do fechamento raiz no Encontro de Contas.
