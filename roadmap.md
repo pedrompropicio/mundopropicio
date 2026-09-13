@@ -30,6 +30,6 @@
 - [x] Fase 4 — DECISIONS adenda (e) e estado-fecho-e-socios actualizados.
 
 ## Em aberto
-- [ ] Comentário/checkbox (e) na épica #146 (feito via edge function).
+- [x] Comentário e checkboxes (a)–(e) na épica #146 (issuecomment-5649753808).
 
 Nota: nenhum Publish feito.
