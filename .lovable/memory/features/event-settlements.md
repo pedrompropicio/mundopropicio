@@ -237,3 +237,31 @@ versão de BP opcional (`sealed_bp_version_id`, validada contra o próprio event
 Só se sela com C1 e C2 a 0,00 €. Reabrir exige motivo. Campos do selo são intocáveis
 fora das RPCs (trigger + `app.settlement_seal_op`). Selado ⇒ sem editar/mover/remover
 e fora do selector de fechamento acima. Desvio selado↔ao vivo é vista interna.
+
+## (g1) Casa em qualquer fechamento, IVA devolvido e nominal gap
+1. **A casa (Mundo Propício) pode existir em QUALQUER fechamento**, uma por
+   fechamento (índice único parcial). `validate_settlement_participant` deixou de
+   a limitar à raiz. Na raiz a casa pode estar em **`nominal`**: nesse caso não é
+   uma quota da MP, é o **pool que desce** para os fechamentos abaixo.
+   `syncHouse` (aba Sócios) só recalcula a casa da **raiz** e só quando ela está
+   em `settles`; a % das casas dos filhos é manual.
+2. **Parte declarada da MP** = Σ (pct da casa × resultado do nó) sobre **todos**
+   os nós em que a casa está em `settles`. Casa `nominal` nunca é declarada.
+3. **`event_settlements.returns_parent_deductible_vat`** (boolean, default false):
+   soma ao resultado do filho o **IVA dedutível das despesas do perímetro do pai**
+   (IVA linha a linha, critério de custo do evento) e retira-o do dinheiro que
+   fica no pai. Só **um** filho por pai pode ter a regra (índice único parcial) e a
+   **raiz nunca** a pode ter (CHECK). O motor valida as duas coisas com erro.
+   Consequência aritmética: a base dos participantes do pai passa a
+   `resultNet − vatReturnedOut`, pelo que o termo "IVA dedutível" do residual da MP
+   fica **0** quando a regra está activa — sem caso especial no código.
+4. **Nominal gap** = Σ, para participantes `partner` em `nominal` que tenham um
+   `settles` noutro fechamento do mesmo evento, de (parte nominal − parte real).
+   Um `nominal` **sem** `settles` em lado nenhum é **erro de configuração** com
+   mensagem clara — era este o caso do teste dos Mágicos que dava C2 −968,18.
+5. Residual da MP = declarada + nominal gap + IVA dedutível não devolvido; C1 e C2
+   inalteradas nas definições.
+6. Prova: caso "(g1) Anitta três níveis" em
+   `src/lib/__tests__/event-settlement-engine.test.ts` (planilha de 02/09/2026):
+   ANITTA 417.677,51 · Carvalheira 35.800,93 · nível 3 548.198,06 · EIN e casa
+   274.099,03 · nominal−real 23.867,29 · residual 297.966,32 · C1 e C2 a 0,00.
