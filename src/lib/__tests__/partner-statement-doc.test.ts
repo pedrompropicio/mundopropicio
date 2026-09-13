@@ -238,6 +238,9 @@ describe("(g13) cascata desde o resultado do evento", () => {
       expenseLines: eventExpenses,
       categories: [],
       usesGrossExpenses: true,
+      // (g13-b) o nó devolve o IVA dedutível: mesmo assim a conta em cascata
+      // parte da base c/IVA e soma o IVA recuperado — nunca o esconde.
+      returnsDeductibleVat: true,
       cascade: {
         levels: [
           {
