@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.crm_consume_oauth_state(uuid) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.crm_upsert_artist_meta_connection(uuid,uuid,uuid,text,text,text,text,timestamptz,text,jsonb,text,text,text,text) FROM anon, authenticated;
