@@ -494,10 +494,30 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .filter((e) => usesGrossEffective || !/iva\s*dedut/i.test(e.label));
   const extrasTotal = roundCents(extras.reduce((s, e) => s + e.value, 0));
 
+  // ---- (g13) Cascata desde o resultado do evento ----
+  const cascade =
+    input.cascade && input.cascade.levels.length > 0
+      ? input.cascade.levels.map((lv) => ({
+          baseValue: roundCents(lv.baseValue),
+          quotaPct: roundCents(lv.quotaPct),
+          quota: roundCents(lv.quota),
+          deductions: lv.deductions.map((d) => ({
+            name: d.name,
+            percentage: roundCents(d.percentage),
+            value: roundCents(d.value),
+          })),
+        }))
+      : null;
+  const cascadeQuota = cascade ? cascade[cascade.length - 1].quota : null;
+
   const result =
     input.resultOverride != null
       ? roundCents(input.resultOverride)
-      : roundCents(revenueNet + extrasTotal - expenseForResult);
+      : cascadeQuota != null
+        ? roundCents(cascadeQuota + extrasTotal)
+        : roundCents(revenueNet + extrasTotal - expenseForResult);
+  const cascadeMismatch =
+    cascadeQuota == null ? 0 : roundCents(result - roundCents(cascadeQuota + extrasTotal));
 
   // ---- Acordo: destinatário nomeado + colapso de todos os outros ----
   const recipient =
@@ -567,6 +587,9 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     revenueNet,
     extras,
     extrasTotal,
+    cascade,
+    cascadeQuota,
+    cascadeMismatch,
     families,
     expenseBase,
     expenseIva,
