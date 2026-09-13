@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,12 @@ import {
   fetchEventSettlements,
   fetchSettlementParticipants,
 } from "@/lib/settlement-participants";
+import {
+  inferSettlesSettlementId,
+  quotaOriginText,
+  settlementDocFileName,
+  settlementDocTitle,
+} from "@/lib/settlement-doc-text";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
@@ -53,6 +59,8 @@ interface Props {
 interface PartnerSettlement {
   partnerId: string;
   partnerName: string;
+  /** supplier_id do participante — usado para inferir o fechamento onde acerta. */
+  supplierId: string | null;
   isHouse: boolean;
   percentage: number;
   lossPercentage: number | null;
@@ -161,6 +169,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   // Apuramento activo do Encontro de Contas (null = raiz).
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
+
+  // Export do PDF de um sócio: o fechamento é INFERIDO (onde ele acerta) — o
+  // selector serve só para a peça interna (#146 (f) ponto 1). Quando o
+  // fechamento inferido não é o activo, troca-se primeiro e o export corre no
+  // efeito abaixo, já com os totais desse nó.
+  const [pendingSoloPartnerId, setPendingSoloPartnerId] = useState<string | null>(null);
 
 
   // Event info (master + cities)
@@ -836,6 +850,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     return {
       partnerId: p.id,
       partnerName: p.suppliers?.name || "—",
+      supplierId: p.supplier_id ?? null,
       isHouse,
       percentage: Number(p.percentage),
       lossPercentage: p.loss_percentage != null ? Number(p.loss_percentage) : null,
@@ -947,7 +962,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // ===== HEADER =====
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(`Relatorio de Fecho - ${eventName}`, margin, y);
+    doc.text(settlementDocTitle(eventName, solo?.partnerName).replace("—", "-"), margin, y);
     y += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
@@ -958,15 +973,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     const activeSettlementName =
       (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
-    doc.text(`Fechamento: ${activeSettlementName}`, margin, y);
-    y += 5;
-    // Origem da quota num apuramento filho — o documento é estanque: nunca leva
-    // os participantes do pai, só de onde vem o dinheiro (#146 (e2)).
+    // O nome do fechamento é INTERNO (#146 (f)): nunca entra no documento.
+    // Origem da quota escrita como cálculo contratual, sem hierarquia.
     if (activeNode?.parentId && parentNode) {
+      const gross = activeNode.parentQuotaBasis === "net_result_gross_expenses";
       doc.text(
-        `Quota do fechamento acima: ${parentNode.name} · ${activeNode.parentSharePct ?? 0}% de ${formatCurrency(
-          activeNode.parentQuotaBasis === "net_result_gross_expenses" ? parentNode.resultGross : parentNode.resultNet,
-        )} (${activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) = ${formatCurrency(activeNode.parentQuota ?? 0)}`,
+        quotaOriginText(
+          {
+            parentResult: gross ? parentNode.resultGross : parentNode.resultNet,
+            grossExpenses: gross,
+            sharePct: activeNode.parentSharePct ?? 0,
+            quota: activeNode.parentQuota ?? 0,
+            partnerName: solo?.partnerName,
+            partnerPct: solo?.effectivePercentage,
+            partnerShare: solo?.partnerShare,
+          },
+          formatCurrency,
+        ),
         margin,
         y,
       );
@@ -1910,17 +1933,41 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(`Página ${p}/${totalPages}`, pageW - margin, pageH - 6, { align: "right" });
     }
 
-    const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");
-    // O nome do ficheiro identifica o apuramento quando o evento tem mais do que um.
-    const settlementSuffix =
-      (eventSettlements as any[]).length > 1 ? `_${safe(activeSettlementName)}` : "";
     doc.save(
-      solo
-        ? `Fecho_${safe(eventName)}${settlementSuffix}_${safe(solo.partnerName)}.pdf`
-        : `Fecho_${safe(eventName)}${settlementSuffix}.pdf`,
+      settlementDocFileName({
+        eventName,
+        partnerName: solo?.partnerName,
+        settlementName: activeSettlementName,
+        multipleSettlements: (eventSettlements as any[]).length > 1,
+      }),
     );
 
   }
+
+  /** Pede o PDF de um sócio no fechamento onde ele acerta. */
+  function requestSoloPdf(row: PartnerSettlement) {
+    const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
+    if (!inferred || inferred === activeSettlementId) {
+      exportPdf(row);
+      return;
+    }
+    setSelectedSettlementId(inferred);
+    setPendingSoloPartnerId(row.partnerId);
+  }
+
+  useEffect(() => {
+    if (!pendingSoloPartnerId) return;
+    const row = settlements.find((r) => r.partnerId === pendingSoloPartnerId);
+    if (!row) {
+      setPendingSoloPartnerId(null);
+      return;
+    }
+    const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
+    if (inferred && inferred !== activeSettlementId) return;
+    exportPdf(row);
+    setPendingSoloPartnerId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSoloPartnerId, activeSettlementId, settlements]);
 
   return (
     <div className="space-y-6">
@@ -1992,7 +2039,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo</DropdownMenuItem>
               {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
               {settlements.filter((s) => !s.isHouse).map((s) => (
-                <DropdownMenuItem key={s.partnerId} onClick={() => exportPdf(s)}>
+                <DropdownMenuItem key={s.partnerId} onClick={() => requestSoloPdf(s)}>
                   Para {s.partnerName}
                 </DropdownMenuItem>
               ))}
@@ -2001,20 +2048,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         </div>
       </div>
 
-      {/* Origem da quota num apuramento filho — estanque: nunca os participantes do pai */}
+      {/* Origem da quota — vista da EQUIPA (pode nomear o fechamento de origem).
+          Nos documentos de sócio e no Portal usa-se `quotaOriginText` (#146 (f)). */}
       {activeNode?.parentId && parentNode && (
         <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
-          <p className="font-semibold">{activeNode.name}</p>
+          <p className="font-semibold">
+            {activeNode.name} <span className="font-normal text-muted-foreground">· origem: {parentNode.name}</span>
+          </p>
           <p className="text-muted-foreground">
-            Quota do fechamento acima <strong>{parentNode.name}</strong>:{" "}
-            {activeNode.parentSharePct ?? 0}% de{" "}
-            {formatCurrency(
-              activeNode.parentQuotaBasis === "net_result_gross_expenses"
-                ? parentNode.resultGross
-                : parentNode.resultNet,
-            )}{" "}
-            ({activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) ={" "}
-            <strong>{formatCurrency(activeNode.parentQuota ?? 0)}</strong>
+            {quotaOriginText(
+              {
+                parentResult:
+                  activeNode.parentQuotaBasis === "net_result_gross_expenses"
+                    ? parentNode.resultGross
+                    : parentNode.resultNet,
+                grossExpenses: activeNode.parentQuotaBasis === "net_result_gross_expenses",
+                sharePct: activeNode.parentSharePct ?? 0,
+                quota: activeNode.parentQuota ?? 0,
+              },
+              formatCurrency,
+            )}
             {activeNode.additionalActiveTotal !== 0 && (
               <> · activos adicionais {formatCurrency(activeNode.additionalActiveTotal)}</>
             )}
