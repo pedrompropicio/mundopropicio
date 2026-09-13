@@ -388,8 +388,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           eventId: op.event_id ?? null,
         });
       }
+
+      // (g7) Receitas recebidas por encontro de contas em nome de um sócio.
+      // Nunca têm conta, logo não há interseção com as contas de acerto acima.
+      for (const t of (compRes.data ?? []) as any[]) {
+        if (t.reversed_at || !(t.status === "paid" || t.status === "approved")) continue;
+        rows.push({
+          id: t.id,
+          partnerId: `supplier:${t.held_by_supplier_id}`,
+          source: "compensation",
+          accountName: t.description || "Encontro de contas",
+          description: t.description || "—",
+          amount: Number(t.amount) || 0,
+          date: t.date || "",
+          eventId: t.event_id ?? null,
+        });
+      }
       return rows;
     },
+
   });
 
   // (g5) Sócios que não deduzem IVA em PT (doc_locale pt-BR) — desembolso valorizado c/IVA.
