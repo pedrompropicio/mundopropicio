@@ -47,6 +47,13 @@ export interface Subtotal {
 
 export interface UseEventFinancialCardDataResult {
   displayValue: number;
+  /**
+   * Receita REAL do perímetro da raiz na base de IVA do card (D24 + D25 g3).
+   * Só definido em kind='income'. É este o valor que alimenta o Lucro/margem,
+   * porque o fecho nunca usa receita prevista — o toggle "previsto + excedido"
+   * é apenas uma vista do card de Receitas.
+   */
+  realValue?: number;
   subtotals: Subtotal[];
   formalidadeBreakdown: FormalidadeBreakdown | null;
   phase: Phase;
