@@ -807,21 +807,61 @@ export function buildPartnerStatement(
   } as PartnerStatementDocInput;
 
   // Bloco resumido do Portal — cascata pelos mesmos números do motor.
+  // (g17-c) Todos os valores saem já arredondados ao cêntimo: o modelo é o SSoT,
+  // a apresentação não corrige nada (g15-b).
   const blockCascade: PartnerStatementResult["block"]["cascade"] = [];
+  let lastQuotaPct: number | null = null;
   if (cascade) {
     const first = cascade.levels[0];
-    blockCascade.push({ label: `Resultado do evento`, value: first.baseValue, kind: "base" });
+    blockCascade.push({ label: `Resultado do evento`, value: roundCents(first.baseValue), kind: "base" });
     for (const lvl of cascade.levels) {
       for (const d of lvl.deductions)
-        blockCascade.push({ label: `${d.name} — ${d.percentage}%`, value: -d.value, kind: "deduction" });
-      blockCascade.push({ label: `Parte da sociedade — ${lvl.quotaPct}%`, value: lvl.quota, kind: "quota" });
+        blockCascade.push({ label: `${d.name} — ${d.percentage}%`, value: roundCents(-d.value), kind: "deduction" });
+      blockCascade.push({
+        label: `Parte da sociedade — ${lvl.quotaPct}%`,
+        value: roundCents(lvl.quota),
+        kind: "quota",
+      });
+      lastQuotaPct = lvl.quotaPct;
     }
   } else {
-    blockCascade.push({ label: "Resultado do evento", value: result, kind: "base" });
+    blockCascade.push({ label: "Resultado do evento", value: roundCents(result), kind: "base" });
   }
-  for (const e of docExtras) blockCascade.push({ label: e.label, value: e.value, kind: "term" });
-  blockCascade.push({ label: "Resultado", value: result, kind: "result" });
-  blockCascade.push({ label: `A sua parte — ${effectivePct}%`, value: partnerShare, kind: "result" });
+  for (const e of docExtras) blockCascade.push({ label: e.label, value: roundCents(e.value), kind: "term" });
+
+  /**
+   * (g17-c) Quando não há IVA/exclusivos/operações a somar, a linha "Resultado"
+   * repetiria o valor da quota — fica uma só linha ("Resultado da sociedade — NN%").
+   */
+  const hasTerms = docExtras.length > 0;
+  const lastLine = blockCascade[blockCascade.length - 1];
+  if (!hasTerms && lastLine?.kind === "quota" && Math.abs(lastLine.value - roundCents(result)) < 0.005) {
+    lastLine.label = `Resultado da sociedade — ${lastQuotaPct}%`;
+    lastLine.kind = "result";
+  } else {
+    blockCascade.push({ label: "Resultado", value: roundCents(result), kind: "result" });
+  }
+  blockCascade.push({ label: `A sua parte — ${effectivePct}%`, value: shareCents, kind: "result" });
+
+  /**
+   * (g17-c) Cards do Portal — o EVENTO INTEIRO na base do fechamento raiz, nunca
+   * o resultado do nó do sócio. É exactamente a primeira linha da cascata.
+   */
+  const rootNode = nodes.find((n) => !n.parentId) ?? null;
+  const rootUsesGross = rootNode ? rootNode.nodeUsesGrossExpenses : usesGrossExpenses;
+  const cards = rootNode
+    ? {
+        revenueNet: roundCents(rootNode.perimeter.revenueNet),
+        expenses: roundCents(rootUsesGross ? rootNode.perimeter.expensesGross : rootNode.perimeter.expensesNet),
+        result: roundCents(rootUsesGross ? rootNode.resultGross : rootNode.resultNet),
+        expensesWithVat: rootUsesGross,
+      }
+    : {
+        revenueNet: roundCents(eventRevenueNet),
+        expenses: roundCents(rootUsesGross ? eventExpensesGross : eventExpensesNet),
+        result: roundCents(eventRevenueNet - (rootUsesGross ? eventExpensesGross : eventExpensesNet)),
+        expensesWithVat: rootUsesGross,
+      };
 
   return {
     doc,
@@ -833,11 +873,6 @@ export function buildPartnerStatement(
       cascade: blockCascade,
       account,
     },
-    cards: {
-      revenueNet: revenueBase,
-      expenses,
-      result,
-      expensesWithVat: usesGrossExpenses,
-    },
+    cards,
   };
 }
