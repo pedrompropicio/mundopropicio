@@ -240,20 +240,23 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
   const entrouNoEvento = aportesEventCash + receitaRecebida;
   const financiadoPelaMP = despesaPaga - entrouNoEvento;
 
-  const externalRows = (partners as any[]).map((p) => {
-    const s = summary.find((x) => x.partnerId === p.id);
-    const pos = (s?.aportes ?? 0) - (s?.devolucoes ?? 0) + (paidByPartner.get(p.id) ?? 0);
-    return { id: p.id, name: p.suppliers?.name ?? "—", pct: Number(p.percentage || 0), pos, isHouse: false };
-  });
+  const externalRows = (partners as any[])
+    .filter((p) => !p.isHouse)
+    .map((p) => {
+      const s = summary.find((x) => x.partnerId === p.id);
+      const pos = (s?.aportes ?? 0) - (s?.devolucoes ?? 0) + (paidByPartner.get(p.id) ?? 0);
+      return { id: p.id, name: p.suppliers?.name ?? "—", pct: Number(p.percentage || 0), pos, isHouse: false };
+    });
 
-  const housePct = computeHousePercentage(partners as any[]);
+  // A casa vem dos participantes do apuramento; só financia se tiver quota.
+  const houseRow = (partners as any[]).find((p) => p.isHouse && Number(p.percentage || 0) > 0.0001);
   const financingRows = [...externalRows];
-  if (housePct != null) {
+  if (houseRow) {
     const posCasa = necessidadeAtual - externalRows.reduce((s, r) => s + r.pos, 0);
     financingRows.push({
-      id: HOUSE_PARTNER_ID,
-      name: HOUSE_PARTNER_NAME,
-      pct: housePct,
+      id: houseRow.id,
+      name: houseRow.suppliers?.name ?? "MUNDO PROPÍCIO",
+      pct: Number(houseRow.percentage || 0),
       pos: posCasa,
       isHouse: true,
     });
