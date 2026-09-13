@@ -696,15 +696,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allPartners = (partners as any[]).filter(
     (p) => !p.isHouse || Number(p.percentage || 0) > 0.0001,
   );
-  
 
-  if (allPartners.length === 0) {
-    return (
-      <div className="text-center py-8 text-sm text-muted-foreground">
-        Sem sócios cadastrados neste evento.
-      </div>
-    );
-  }
+  // Sem sócios: a mensagem sai no fim (a seguir a TODOS os hooks). Um `return`
+  // aqui saltava o `useEffect` da exportação por sócio e rebentava a vista
+  // ("Rendered more hooks than during the previous render").
+  const hasNoPartners = allPartners.length === 0;
+
 
   // ---- Helper: caminho hierárquico completo da categoria (L1 > L2 > L3) ----
   // Usado nos detalhes de cauções/transitórias para dar contexto contabilístico real
