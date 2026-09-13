@@ -111,7 +111,7 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     boldRows?: Set<number>;
     fontSize?: number;
     keepTogether?: boolean;
-    rowStyle?: (i: number) => { fill?: [number, number, number]; bold?: boolean } | null;
+    rowStyle?: (i: number) => { fill?: [number, number, number]; bold?: boolean; italic?: boolean; textColor?: number } | null;
   }) {
     const aligns = opts.aligns ?? opts.widths.map((_, i) => (i === 0 ? "left" : "right"));
     const columnStyles: Record<number, any> = {};
