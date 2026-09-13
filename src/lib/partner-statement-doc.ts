@@ -133,6 +133,17 @@ export interface PartnerStatementDocInput {
   partnerAdvances?: number;
   /** Repasse facturado com IVA (23%) — só incide quando a base é positiva. */
   transferWithVat?: boolean;
+  /**
+   * (g15-b) TOTAIS DO ACERTO VINDOS DO ECRÃ (SSoT `partner-disbursement`).
+   * Quando dados, mandam sobre o cálculo local — o documento nunca mostra um
+   * total diferente do que o Encontro de Contas mostra. As linhas itemizadas
+   * são apresentação e absorvem o residual de arredondamento.
+   */
+  totalRevenuesHeldOverride?: number | null;
+  financingToReturnOverride?: number | null;
+  transferBaseOverride?: number | null;
+  transferVatOverride?: number | null;
+  transferTotalOverride?: number | null;
 }
 
 export interface StatementRubrica {
