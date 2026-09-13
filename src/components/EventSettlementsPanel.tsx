@@ -104,6 +104,17 @@ export function EventSettlementsPanel({ eventId }: Props) {
         </div>
       </div>
 
+      {(n.vatReturnedIn !== 0 || n.vatReturnedOut !== 0) && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          {n.vatReturnedIn !== 0 && (
+            <>IVA dedutível devolvido pelo fechamento acima: {formatCurrency(n.vatReturnedIn)}. </>
+          )}
+          {n.vatReturnedOut !== 0 && (
+            <>IVA dedutível entregue a um fechamento abaixo: {formatCurrency(n.vatReturnedOut)}.</>
+          )}
+        </p>
+      )}
+
       {n.childQuotasNet !== 0 && (
         <p className="mb-3 text-xs text-muted-foreground">
           Quotas levadas por fechamentos abaixo: {formatCurrency(n.childQuotasNet)} · fica neste
@@ -206,7 +217,7 @@ export function EventSettlementsPanel({ eventId }: Props) {
             <div className="font-semibold">{formatCurrency(result.house.declared)}</div>
           </div>
           <div>
-            <div className="text-muted-foreground">IVA dedutível</div>
+            <div className="text-muted-foreground">IVA dedutível não devolvido</div>
             <div className="font-semibold">{formatCurrency(result.house.ivaDeductible)}</div>
           </div>
           <div>
@@ -221,8 +232,10 @@ export function EventSettlementsPanel({ eventId }: Props) {
           </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Resultado s/IVA do evento {formatCurrency(result.eventNetResult)} · partes pagas aos sócios{" "}
-          {formatCurrency(result.partnersPaidTotal)}.
+          Residual = declarada + IVA dedutível não devolvido + (nominal − real). O IVA
+          devolvido a um fechamento abaixo já pertence aos sócios desse fechamento e por
+          isso não entra aqui. Resultado s/IVA do evento {formatCurrency(result.eventNetResult)} ·
+          partes pagas aos sócios {formatCurrency(result.partnersPaidTotal)}.
         </p>
       </div>
 

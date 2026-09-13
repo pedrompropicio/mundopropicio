@@ -6983,6 +6983,7 @@ export type Database = {
           parent_share_basis: string | null
           parent_share_pct: number | null
           position: number
+          returns_parent_deductible_vat: boolean
           seal_note: string | null
           sealed_at: string | null
           sealed_bp_version_id: string | null
@@ -7005,6 +7006,7 @@ export type Database = {
           parent_share_basis?: string | null
           parent_share_pct?: number | null
           position?: number
+          returns_parent_deductible_vat?: boolean
           seal_note?: string | null
           sealed_at?: string | null
           sealed_bp_version_id?: string | null
@@ -7027,6 +7029,7 @@ export type Database = {
           parent_share_basis?: string | null
           parent_share_pct?: number | null
           position?: number
+          returns_parent_deductible_vat?: boolean
           seal_note?: string | null
           sealed_at?: string | null
           sealed_bp_version_id?: string | null

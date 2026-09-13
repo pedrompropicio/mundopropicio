@@ -1524,3 +1524,22 @@ informação interna — nunca aparece em documentos de sócio.
 2. A **quota do fechamento acima é opcional**: vazio grava 0% e o fechamento vive só das
    suas próprias receitas e despesas marcadas. A **base** da quota continua obrigatória,
    com default «resultado com despesas c/IVA».
+
+**Adenda (g1) a DR-2026-09-09-D25 — construída em 2026-09-13.**
+1. **A casa pode ser participante de qualquer fechamento** (uma por fechamento) e
+   não apenas da raiz. Na raiz a casa pode ficar em **Nominal**: aí não é quota da
+   MP, é o pool que desce para os fechamentos abaixo. A % da casa da raiz continua
+   calculada (100 − Σ sócios) só quando ela liquida; nos filhos é definida à mão.
+2. **Parte declarada da MP** = soma das partes da casa em todos os fechamentos onde
+   ela liquida. Casa nominal nunca conta como declarada.
+3. **Nova regra por fechamento: "devolve o IVA dedutível do fechamento acima"**
+   (`event_settlements.returns_parent_deductible_vat`). Serve os fechos em que
+   aqueles sócios recuperam o IVA que o fechamento acima suportou como custo. Só um
+   fechamento por nível acima pode ter a regra (o IVA não se devolve duas vezes) e a
+   raiz nunca a pode ter — garantido por índice único parcial + CHECK e validado
+   também no motor. O IVA devolvido sai da base dos participantes do pai, pelo que o
+   termo "IVA dedutível" do residual da MP fica a 0 quando a regra está activa.
+4. **Nominal gap** define-se como a soma de (parte nominal − parte real) dos sócios
+   que liquidam noutro fechamento do mesmo evento. Um nominal sem liquidação em
+   nenhum fechamento passa a ser **erro de configuração explícito** em vez de uma
+   conferência C2 falhada sem explicação (era o caso do teste dos Mágicos, −968,18).

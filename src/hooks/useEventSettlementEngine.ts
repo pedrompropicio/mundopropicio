@@ -132,7 +132,7 @@ export function useEventSettlementEngine(eventId: string) {
       const { data, error } = await supabase
         .from("event_settlements")
         .select(
-          "id, name, parent_id, parent_share_pct, parent_share_basis, position, is_sealed, sealed_at, sealed_by, sealed_snapshot, seal_note, sealed_bp_version_id",
+          "id, name, parent_id, parent_share_pct, parent_share_basis, returns_parent_deductible_vat, position, is_sealed, sealed_at, sealed_by, sealed_snapshot, seal_note, sealed_bp_version_id",
         )
         .eq("event_id", eventId)
         .order("position", { ascending: true });

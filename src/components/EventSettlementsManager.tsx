@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, Plus, Trash2, Pencil, Check, X, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -33,6 +34,8 @@ interface SettlementRow {
   is_sealed: boolean;
   parent_share_pct: number | null;
   parent_share_basis: ParentShareBasis | null;
+  /** (g1) devolve a este fechamento o IVA dedutível das despesas do fechamento acima. */
+  returns_parent_deductible_vat: boolean;
   notes: string | null;
 }
 
@@ -49,6 +52,11 @@ const BASIS_LABEL: Record<ParentShareBasis, string> = {
 /** Tooltip único para tudo o que o selo bloqueia. */
 const SEALED_HINT = "Fechamento selado: reabra-o para poder alterar.";
 
+/** (g1) Ajuda da regra do IVA dedutível devolvido pelo fechamento acima. */
+const VAT_RETURN_LABEL = "Devolve o IVA dedutível do fechamento acima a este fechamento";
+const VAT_RETURN_HELP =
+  "Para fechos em que estes sócios recuperam o IVA que o fechamento acima suportou como custo. Só um fechamento por nível acima.";
+
 export function EventSettlementsManager({ eventId, canEdit }: Props) {
   const queryClient = useQueryClient();
 
@@ -59,19 +67,21 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
   const [basis, setBasis] = useState<ParentShareBasis>("net_result_gross_expenses");
   const [position, setPosition] = useState("");
   const [notes, setNotes] = useState("");
+  const [vatReturn, setVatReturn] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editPct, setEditPct] = useState("");
   const [editBasis, setEditBasis] = useState<ParentShareBasis>("net_result");
   const [editNotes, setEditNotes] = useState("");
+  const [editVatReturn, setEditVatReturn] = useState(false);
 
   const { data: settlements = [] } = useQuery({
     queryKey: ["event-settlements", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_settlements")
-        .select("id, name, parent_id, position, is_sealed, parent_share_pct, parent_share_basis, notes")
+        .select("id, name, parent_id, position, is_sealed, parent_share_pct, parent_share_basis, returns_parent_deductible_vat, notes")
         .eq("event_id", eventId)
         .order("position", { ascending: true });
       if (error) throw error;
@@ -121,6 +131,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
         parent_share_pct: pct.trim() === "" ? 0 : Number(pct),
         parent_share_basis: basis,
         position: position ? Number(position) : maxPos + 1,
+        returns_parent_deductible_vat: vatReturn,
         notes: notes.trim() || null,
       } as any);
       if (error) throw error;
@@ -134,6 +145,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
       setBasis("net_result_gross_expenses");
       setPosition("");
       setNotes("");
+      setVatReturn(false);
       toast({ title: "Fechamento criado" });
     },
     onError: fail,
@@ -145,6 +157,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
       if (row.parent_id) {
         patch.parent_share_pct = editPct.trim() === "" ? 0 : Number(editPct);
         patch.parent_share_basis = editBasis;
+        patch.returns_parent_deductible_vat = editVatReturn;
       }
       const { error } = await supabase.from("event_settlements").update(patch as any).eq("id", row.id);
       if (error) throw error;
@@ -201,6 +214,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
     setEditPct(s.parent_share_pct != null ? String(s.parent_share_pct) : "");
     setEditBasis((s.parent_share_basis ?? "net_result") as ParentShareBasis);
     setEditNotes(s.notes ?? "");
+    setEditVatReturn(!!s.returns_parent_deductible_vat);
   };
 
   const rootExists = settlements.some((s) => !s.parent_id);
@@ -270,6 +284,17 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
                             </SelectContent>
                           </Select>
                         </div>
+                        <label className="flex items-start gap-2 sm:col-span-3">
+                          <Checkbox
+                            className="mt-0.5"
+                            checked={editVatReturn}
+                            onCheckedChange={(v) => setEditVatReturn(v === true)}
+                          />
+                          <span className="text-xs">
+                            {VAT_RETURN_LABEL}
+                            <span className="block text-[11px] text-muted-foreground">{VAT_RETURN_HELP}</span>
+                          </span>
+                        </label>
                       </>
                     )}
                   </div>
@@ -301,6 +326,11 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
                     <Badge variant="outline" className="text-[10px]">
                       {Number(s.parent_share_pct ?? 0)}% de {parent?.name ?? "—"} ·{" "}
                       {BASIS_LABEL[(s.parent_share_basis ?? "net_result") as ParentShareBasis]}
+                    </Badge>
+                  )}
+                  {s.returns_parent_deductible_vat && (
+                    <Badge variant="outline" className="text-[10px]">
+                      + IVA dedutível do fechamento acima
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">
@@ -405,6 +435,13 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
               <Label className="text-xs">Notas (opcional)</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
+            <label className="flex items-start gap-2 sm:col-span-3">
+              <Checkbox className="mt-0.5" checked={vatReturn} onCheckedChange={(v) => setVatReturn(v === true)} />
+              <span className="text-xs">
+                {VAT_RETURN_LABEL}
+                <span className="block text-[11px] text-muted-foreground">{VAT_RETURN_HELP}</span>
+              </span>
+            </label>
           </div>
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
@@ -423,7 +460,8 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
 
       <p className="text-[11px] leading-snug text-muted-foreground">
         Cada fechamento é estanque: recebe a quota do fechamento acima e acerta só com
-        os seus participantes. A casa (Mundo Propício) existe apenas no fechamento raiz.
+        os seus participantes. A casa (Mundo Propício) pode existir em qualquer
+        fechamento — uma por fechamento.
       </p>
     </div>
   );
