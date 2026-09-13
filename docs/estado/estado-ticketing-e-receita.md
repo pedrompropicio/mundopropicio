@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-12 · Issues: #73, #78, #128, #129, #130, #132 (fechada), #145, #155
+Atualizado: 2026-09-13 · Issues: #73, #78, #128, #129, #130, #132 (fechada), #145, #155
 
 ## Em que pé está
 
@@ -29,7 +29,7 @@ Nada em execução. A confirmar no próximo ciclo horário: se o import das cinc
 
 ## Próximo passo concreto
 
-Os dois fechos do H&K estão resolvidos. Registar o fecho da Ticketline para a Anitta, com os números do apuramento 2558/2026 — ver "Factos" para os valores.
+Os dois fechos do H&K estão resolvidos e o da Anitta está feito desde 09/09/2026. **Registar o fecho de bilheteira do IVETE (apuramento 2816/2026)** em `/bilheteiras` → Fechos. Tem tudo o que precisa: bruto **493.152,50 €** (bate ao cêntimo com `ticket_sales`), FT **FA.2026/3045** lançada (2.223,36 + IVA = **2.734,73 €**), os **10 repasses do pool lançados** (**706.000,00 €**) e **9 adiantamentos registados no evento** — o apuramento lista 10, portanto **falta ligar um, a verificar antes de abrir o wizard**. O acerto de **55.834,14 €** entra como **dedução** e é o mesmo valor que saiu do **H&K Porto**; deixar isso explícito no fecho.
 
 Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenhar o cron; a carga manual repete-se por extração do dashboard enquanto isso.
 
@@ -39,6 +39,18 @@ Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenh
 - **#73** — corte por tipo de bilhete.
 
 ## Factos que não se reinvestigam
+
+**A POSIÇÃO DA CONTA-CORRENTE MP↔TICKETLINE É POSITIVA PARA A MP: 283.427,63 € (consultado em Live a 13/09/2026 21:47 UTC).** A Ticketline deve à MP. O saldo de **−271.416,37 €** do apuramento 2816 **NÃO é a posição da conta-corrente** — é o saldo de fecho do evento Ivete, que por regra transita e é abatido das vendas dos eventos seguintes. A conta: vendas dos eventos ainda em venda e sem apuramento **554.844,00** (SM Porto 192.310,00 · SM Lisboa 150.105,00 · RG Porto 61.449,00 · RG Braga 37.375,00 · RG Lisboa 27.065,00 · RG Almada 24.250,00 · RG Estoril 18.570,00 · RG Albufeira 16.676,00 · Deive Leonardo Braga 14.374,00 · RG Santarém 12.425,00 · RG Montijo 245,00) menos 271.416,37 = **283.427,63**. O ERP chega ao mesmo por outro caminho e bate com `_ticket_office_balance_raw`: vendas totais 3.940.440,70 − despesas 35.841,40 − transferências 3.621.171,67 = **283.427,63**.
+
+**O débito que transita decompõe-se em dois eventos.** Ivete 493.152,50 − 2.734,73 − 706.000,00 = **−215.582,23**; H&K Porto 107.652,70 − 20.242,84 − 143.244,00 = **−55.834,14**; soma **−271.416,37**. É a passagem de testemunho do apuramento **1158/2026** para o **2816/2026**. Conferência das despesas: 12.863,83 (Anitta) + 20.242,84 (H&K Porto) + 2.734,73 (Ivete) = **35.841,40**.
+
+**NÃO EXISTE APURAMENTO MAIS RECENTE QUE O 2816/2026.** Só há três em todo o material: **1158/2026** (H&K Porto), **2558/2026** (Anitta) e **2816/2026** (Ivete).
+
+**O FECHO DE BILHETEIRA DA ANITTA ESTÁ FEITO e não tem nada pendente.** Settlement `ed7b4b3c-2fd7-44ec-b3b5-4c36c8567294`, **09/09/2026**, confirmado, 11 adiantamentos e 6 transações ligados, líquido −0,00. **Não voltar a escrever que está por registar.**
+
+**Registar o fecho do Ivete não altera a posição da conta-corrente.** Os 493.152,50 € de vendas e os 706.000,00 € de repasses já estão os dois dentro da conta. O fecho só **reclassifica** — tira o evento das vendas em aberto e converte os repasses em adiantamentos atribuídos.
+
+**Os 10 repasses do pool ESTÃO TODOS LANÇADOS**, mais o acerto de abertura das Maiara & Maraisa (176.290,00 + 184.301,50 = **360.591,50**, "liquidado a zero antes do ERP", 31/03/2026). Se aparecer algures a frase "nenhum dos 10 repasses do pool está lançado", está **desatualizada** — corrigir.
 
 **`public.vw_event_daily_sales` é a série diária única por evento (criada 08/09/2026).** Colunas: `event_id`, `company_id`, `sale_date`, `quantity`, `total_value`, `source`. **Precedência por evento, nunca por linha:** se o evento tiver pelo menos uma linha num dos espelhos (`ticketline_daily_sales`, `bol_daily_sales`, `onebox_daily_sales`), a série vem só desses espelhos, agregada por `(event_id, sale_date)`, com `source` = `ticketline` | `bol` | `onebox`; caso contrário vem de `ticket_sales` (join `zone_id → event_ticket_zones.event_id`), com `total_value = sum(coalesce(total_value, quantity * unit_price))` e `source = 'ticket_sales'`. **As duas famílias nunca se somam no mesmo evento** — somá-las duplicaria vendas, porque nos 5 eventos Ticketline com espelho o `ticket_sales` está desatualizado (RG - Albufeira: 472 bilhetes no espelho contra 42 em `ticket_sales`). A vista tem `security_invoker = true`, logo o RLS das tabelas de origem continua a aplicar-se a quem consulta. **O custo de ignorar a vista foi medido a 09/09/2026:** a leitura de tráfego pago somou as fontes à mão e deu ao Raphael Ghanem 208 bilhetes e ROAS 2,24× lendo só `ticket_sales`, quando a vista dá 577 bilhetes e 18 754 € para o mesmo período de 1 a 8 de setembro — a conclusão da análise chegou a ficar invertida, e foi preciso refazê-la duas vezes. Qualquer leitura de vendas por dia começa nesta vista ou no `get_daily_sales_series`, nunca numa soma montada de raiz.
 
