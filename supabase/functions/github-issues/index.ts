@@ -56,10 +56,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!action) return json({ error: "missing action" }, 400);
 
   try {
+    // (g5·I) Leitura de UMA issue pelo número — a "list" só devolve a 1.ª página.
+    if (action === "get") {
+      const { number } = body;
+      if (!Number.isInteger(number)) return json({ error: "missing number" }, 400);
+      const res = await gh(token, `/repos/${OWNER}/${REPO}/issues/${number}`, { method: "GET" });
+      if (!res.ok) {
+        return json({ error: "github_api_error", github_status: res.status, github_body: res.body }, 502);
+      }
+      const it = res.body;
+      return json({
+        issue: {
+          number: it.number,
+          title: it.title,
+          state: it.state,
+          body: it.body,
+          labels: Array.isArray(it.labels)
+            ? it.labels.map((l: any) => ({ name: typeof l === "string" ? l : l?.name }))
+            : [],
+        },
+      });
+    }
+
     if (action === "list") {
+      // (g5·I) `page` e `state` opcionais — sem eles o comportamento é o anterior.
+      const page = Number.isInteger(body?.page) && body.page > 0 ? body.page : 1;
+      const state = body?.state === "closed" || body?.state === "all" ? body.state : "open";
       const res = await gh(
         token,
-        `/repos/${OWNER}/${REPO}/issues?state=open&per_page=100&sort=created&direction=asc`,
+        `/repos/${OWNER}/${REPO}/issues?state=${state}&per_page=100&page=${page}&sort=created&direction=asc`,
         { method: "GET" },
       );
       if (!res.ok) {
