@@ -140,6 +140,8 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
           const st = opts.rowStyle?.(data.row.index);
           if (st?.fill) data.cell.styles.fillColor = st.fill;
           if (st?.bold) data.cell.styles.fontStyle = "bold";
+          if (st?.italic) data.cell.styles.fontStyle = "italic";
+          if (st?.textColor != null) data.cell.styles.textColor = st.textColor;
         }
       },
     });
