@@ -107,6 +107,12 @@ export interface PartnerStatementDocInput {
    * Entram no resultado depois das receitas e antes das despesas.
    */
   extras?: StatementExtraItem[];
+  /**
+   * (g13) Cascata desde o resultado do evento até à parte da sociedade. Quando
+   * dada, a secção 2 mostra só as receitas do evento e os termos adicionais
+   * passam para a secção 4, depois da parte da sociedade.
+   */
+  cascade?: StatementCascade | null;
   /** Resultado do nó vindo do motor — quando dado, manda sobre o cálculo local. */
   resultOverride?: number | null;
   /** Parte do destinatário vinda do motor — quando dada, manda sobre R6. */
