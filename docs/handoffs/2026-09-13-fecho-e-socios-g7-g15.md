@@ -1,12 +1,13 @@
-# HANDOFF — 2026-09-13 · fecho e sócios (g7 → g14)
+# HANDOFF — 2026-09-13 · fecho e sócios (g7 → g15-c)
 
 > Arquivo. **Não é fonte de estado.** Para saber onde estamos, ver
 > `docs/estado/estado-fecho-e-socios.md`.
 
 **Frente:** fecho-e-socios · **Épico:** #146 · **Issues mexidas:** #158–#167
-(fechadas)
-**Executado em produção:** sim — dois Publish do Pedro (g7, g9c, g10, g11, g12,
-g13, g13-b, g14) e DML autorizado nos dados da Anitta EDA 2026.
+(fechadas), #168 aberta
+**Executado em produção:** sim — Publish do Pedro (g7, g9c, g10, g11, g12, g13,
+g13-b, g14) e Publish posterior (g15, g15-b, g15-c) e DML autorizado nos dados da
+Anitta EDA 2026.
 
 ## 1. Congelamentos e avisos
 
