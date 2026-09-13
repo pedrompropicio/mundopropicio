@@ -1543,3 +1543,21 @@ informação interna — nunca aparece em documentos de sócio.
    que liquidam noutro fechamento do mesmo evento. Um nominal sem liquidação em
    nenhum fechamento passa a ser **erro de configuração explícito** em vez de uma
    conferência C2 falhada sem explicação (era o caso do teste dos Mágicos, −968,18).
+
+**Adenda (g2) a DR-2026-09-09-D25 — construída em 2026-09-13.** A Anitta EDA 2026
+passou a ser o caso de referência a três níveis em Live (raiz + "Fechamento Rafael
+Lobo" + "Fechamento MP + EIN", os dois filhos irmãos da raiz). Três decisões ficam
+fechadas: (1) **o trigger `check_partner_percentage_trigger` foi removido** de
+`event_partners` — com fechamentos em árvore o espelho soma legitimamente mais de
+100% (70 + 50 + 20 = 140) e a soma ≤ 100% deixou de ser invariante do sistema;
+(2) **as receitas exclusivas de um fechamento são transações do próprio evento
+marcadas com `event_settlement_id`**, e não transações fora do evento — a raiz
+calcula-se por "totais − marcadas", pelo que marcá-las não altera o resultado da
+raiz nem a parte de nenhum sócio da raiz; isto **revoga a nota de 25/08/2026** que
+as mandava manter fora do evento; (3) o filho com
+`returns_parent_deductible_vat` recebe o IVA dedutível do **perímetro da raiz**
+(todo o IVA dedutível das despesas do evento), como faz a planilha v23. Prova em
+Live: ANITTA 417.293,42 antes e depois (ao cêntimo), Rafael Lobo 35.768,01
+(= 20% × 30% × 596.133,45), nível 3 547.906,69, EIN = casa = 273.953,35, C1 e C2 a
+0,00. A prova apanhou um bug de paridade — o Encontro de Contas mostrava a nota do
+IVA devolvido sem o somar à receita do nó — corrigido em `PartnerSettlementTab`.
