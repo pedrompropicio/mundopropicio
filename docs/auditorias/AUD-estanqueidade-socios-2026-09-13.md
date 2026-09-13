@@ -202,3 +202,48 @@ herdam o problema P1 de vocabulário.
 - P0: #158 (políticas RLS legacy) · #159 (get_partner_event_partner_expenses) · #160 (is_settlement_staff aceita `user`) · #161 (identidade do sócio duplicada) · #162 (fechamento visível no Portal)
 - P1: #163 (percentagens por fechamento) · #164 (user_settlement_visible_ids) · #165 (get_partner_event_tx_aggregates) · #166 (vocabulário do documento) · #167 (cache do react-query no signOut)
 - P2: sem issue — registados no §9 para tarefa de higiene.
+
+## 12. Correcção #158 — prova (13/09/2026)
+
+Migration `20260913132000_*` aplicada numa única transação, com prova automática
+dentro da própria transação (qualquer regressão faria rollback de tudo).
+
+### Condição prévia — tabelas lidas pelo Portal do Sócio
+
+Inventário das superfícies `/parceiro/*` (`PartnerPortal.tsx`,
+`PartnerEventDetail.tsx`, `PartnerLayout.tsx`, `src/components/partner/*`,
+`AuthContext.tsx`): `partner_event_access`, `events`, `account_categories`,
+`bp_versions`, `event_forecasts`, `event_ticket_zones` (+ `event_ticket_lots`
+aninhados), `event_sessions`, `ticket_sales`, `profiles`, `suppliers`,
+`event_settlements`, `user_roles`, `role_permissions`, `user_permissions`.
+
+RPCs chamadas pelo Portal — todas `SECURITY DEFINER`, logo fora do alcance destas
+políticas: `get_partner_event_tx_aggregates`, `get_partner_event_shares`,
+`get_partner_event_partner_expenses`, `get_partner_settlement_summary`,
+`get_partner_bp_realized`, `get_bp_l3_attachments`.
+
+Cruzamento com a lista `v_zero` da prova: **nenhuma** tabela lida pelo Portal
+entra na lista das que passam a 0. As que o Portal lê e estavam no inventário
+legacy (`events`, `event_sessions`, `event_ticket_zones`) já têm política
+estanque de sócio; `account_categories` e `role_permissions` receberam política
+de sócio nesta mesma migration. Condição cumprida — aplicado de imediato.
+
+### Estado antes / depois
+
+| Métrica | Antes | Depois |
+| --- | --- | --- |
+| Políticas PERMISSIVE com `auth.uid() IS NOT NULL` | 51 | **0** |
+| Políticas `*_privileged_roles` com `has_staff_role` | 0 | 51 (50 SELECT + 1 INSERT) |
+| Contagens da staff (`pedroneto`) nas 48 tabelas medidas | baseline | iguais ou superiores |
+| Tabelas fora do âmbito de sócio visíveis a `lobo@vybbe.com.br` | 45 com dados | **0** |
+| `events` visíveis a `lobo@vybbe.com.br` | 52 | apenas os seus |
+
+Prova corrida como cada utilizador com `SET LOCAL ROLE authenticated` +
+`request.jwt.claims`; passou sem excepção (`NOTICE: Prova #158 OK`).
+
+### Pendência do Pedro (DML — não executado)
+
+`producaotec@mundopropicio.com` (`89f1397b`) tem apenas o papel `user` e não é
+sócio: era staff que entrava só pelas políticas legacy e hoje não entra. Pertence
+à empresa **Coala Festival Portugal** (`7d831e59`), não à Mundo Propício. Atribuir
+o papel correcto nessa empresa é decisão do Pedro e é DML.

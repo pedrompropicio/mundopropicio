@@ -1755,3 +1755,22 @@ parcial; CHECK `transactions_held_by_only_compensation_income`; bloco (C) da
 Sem essa isenção, criar a receita já marcada falharia no INSERT.
 
 Sem DML: a marcação do caso real (A&B Food, Anitta EDA 2026) é feita no ecrã.
+
+## Adenda (g9a) — políticas RLS abertas são proibidas (13/09/2026)
+
+Decisão: nenhuma tabela do schema `public` pode ter uma política PERMISSIVE com
+qual genérico (`auth.uid() IS NOT NULL`, `true`, `is_authenticated()`). O padrão
+único é: **`<tabela>_select_privileged_roles`** (staff, por papel) **+ política
+estanque de sócio** quando o sócio precisa de ler (`has_role(...,'partner')` com
+`user_has_event_access` ou equivalente), sempre com o RESTRICTIVE
+`company_isolation_*` por cima.
+
+O predicado de staff é `public.has_staff_role(uuid)` (STABLE, SECURITY DEFINER,
+`search_path public`): um único EXISTS em `user_roles` com os papéis admin,
+platform_admin, manager, editor, viewer, accountant, producer, field_producer,
+content_manager, marketing_manager — nunca `user` nem `partner` — com o mesmo
+escopo de empresa de `has_role`.
+
+Em 13/09/2026 as 51 políticas legacy (50 SELECT + 1 INSERT) foram substituídas
+por este padrão, com prova antes/depois na mesma transação. O papel `user` deixa
+de dar acesso a dados: quem é staff tem de ter papel de staff.
