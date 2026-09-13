@@ -288,10 +288,12 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     expenseIva = roundCents(expenseIva + iva);
 
     const info = line.categoryId ? lookup[line.categoryId] : null;
-    const famCode = info?.l2Code ?? info?.code ?? "Z";
-    const famName = info?.l2Name ?? info?.name ?? "Sem grupo";
+    // Linhas sem rubrica no plano de contas agrupam numa família neutra
+    // ("Outras despesas") — nunca aparecem códigos técnicos no documento.
+    const famCode = info?.l2Code ?? info?.code ?? "";
+    const famName = info?.l2Name ?? info?.name ?? "Outras despesas";
     const rubCode = info?.code ?? "";
-    const rubName = info?.name ?? "Sem rubrica";
+    const rubName = info?.name ?? "Outras despesas";
     const rubKey = `${rubCode}|${rubName}`;
 
     let fam = famMap.get(famCode);
