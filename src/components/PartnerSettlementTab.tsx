@@ -1212,7 +1212,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
    * fechamentos, critério de custo do evento, desembolso do sócio) e entrega-os
    * ao gerador. A cascata prova-se contra o resultado do fechamento do motor.
    */
-  function exportInternalReport() {
+  async function exportInternalReport() {
     const nodes = engine.result?.nodes ?? [];
     const rootNode = nodes.find((n) => !n.parentId) ?? null;
     const settlementName =
