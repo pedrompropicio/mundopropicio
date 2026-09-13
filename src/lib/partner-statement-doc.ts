@@ -49,6 +49,33 @@ export interface StatementExpenseLine {
 export interface StatementExtraItem {
   label: string;
   value: number;
+  /** (g13) Itemização do termo (ex.: receitas próprias, operações de terceiros). */
+  items?: Array<{ label: string; value: number }>;
+}
+
+/**
+ * (g13) CASCATA do resultado — quando o acordo do sócio se apura sobre uma parte
+ * do resultado do evento, o documento mostra a conta desde o evento inteiro e
+ * nomeia os sócios cujas partes são deduzidas antes da parte da sociedade.
+ * Nunca se nomeiam os acordos, só as pessoas.
+ */
+export interface StatementCascadeDeduction {
+  name: string;
+  percentage: number;
+  value: number;
+}
+
+export interface StatementCascadeLevel {
+  /** Valor de partida deste passo (o resultado do evento no primeiro passo). */
+  baseValue: number;
+  deductions: StatementCascadeDeduction[];
+  /** Percentagem contratada da sociedade sobre o valor de partida. */
+  quotaPct: number;
+  quota: number;
+}
+
+export interface StatementCascade {
+  levels: StatementCascadeLevel[];
 }
 
 export interface PartnerStatementDocInput {
