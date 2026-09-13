@@ -580,6 +580,17 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     doc.text(`Critério: ${input.criterion}`, MARGIN, 17);
     doc.text(`Emitido em ${format(generatedAt, "dd/MM/yyyy HH:mm")}`, MARGIN, 21);
     doc.text(`Página ${p}/${total}`, pageW - MARGIN, 21, { align: "right" });
+    // (g15-c) Nome da empresa no cabeçalho corrente; logótipo só na 1.ª página.
+    const company = input.companyName ?? "Mundo Propício";
+    doc.text(company, pageW - MARGIN, 17, { align: "right" });
+    if (p === 1 && input.logoDataUrl) {
+      try {
+        const fmt = input.logoDataUrl.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+        doc.addImage(input.logoDataUrl, fmt as any, pageW - MARGIN - 34, 4, 34, 9.5);
+      } catch {
+        /* o logótipo é decoração */
+      }
+    }
     doc.setDrawColor(200);
     doc.line(MARGIN, 23.5, pageW - MARGIN, 23.5);
     doc.setFontSize(7);
