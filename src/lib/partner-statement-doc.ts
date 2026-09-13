@@ -487,7 +487,13 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
   const revenueNet = roundCents(revenues.reduce((s, r) => s + r.net, 0));
 
   const extras = (input.extras ?? [])
-    .map((e) => ({ label: e.label, value: roundCents(e.value) }))
+    .map((e) => ({
+      label: e.label,
+      value: roundCents(e.value),
+      items: (e.items ?? [])
+        .map((i) => ({ label: i.label, value: roundCents(i.value) }))
+        .filter((i) => Math.abs(i.value) > 0.004),
+    }))
     .filter((e) => Math.abs(e.value) > 0.004)
     // (g10) Com base efetiva s/IVA não se descreve o mecanismo do IVA dedutível:
     // as despesas já aparecem s/IVA e o resultado é o mesmo.
