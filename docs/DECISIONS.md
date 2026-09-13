@@ -2017,3 +2017,14 @@ videos_artista, playlists) com posição, total e frase curta.
 
 **Prova.** Relatório da "Roupa de Solteira" regenerado: spotify 4.º de 11,
 tiktok_ugc 1.º de 6, videos_artista e playlists "sem referência".
+
+### D25 — adenda g17 (2026-09-13): um só gerador da prestação de contas
+
+O Portal do Sócio deixou de calcular o fecho no browser (calculava com o que a
+RLS lhe deixava ver e dava números que não eram os do fecho). O cálculo passou a
+viver no pacote partilhado `supabase/functions/_shared/settlement/`, usado pelo
+ERP e pela edge function `partner-statement` (service_role, `verify_jwt = true`),
+que valida o utilizador, resolve o sócio por `user_supplier_id`, exige acesso ao
+evento e participação `mode = 'settles'`, e devolve o input do documento, o bloco
+"O seu fechamento" e os números do fecho para os cards. Nada de sócio ou de
+fechamento vem do cliente. Acesso registado em `system_audit_log`.
