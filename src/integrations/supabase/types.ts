@@ -15185,6 +15185,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_ads_connections: {
+        Args: { p_artist_id: string }
+        Returns: {
+          available_ad_accounts: Json
+          connected_at: string
+          disconnected_at: string
+          expires_at: string
+          external_business_id: string
+          external_business_name: string
+          id: string
+          last_error: string
+          platform: string
+          selected_ad_account_currency: string
+          selected_ad_account_id: string
+          selected_ad_account_name: string
+          status: string
+        }[]
+      }
       artist_ads_register_external: {
         Args: {
           p_artist_id: string
