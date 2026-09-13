@@ -13249,6 +13249,7 @@ export type Database = {
           forecast_id: string | null
           fx_rate: number | null
           fx_rate_source: string | null
+          held_by_supplier_id: string | null
           iban_override: string | null
           id: string
           installment_group_id: string | null
@@ -13307,6 +13308,7 @@ export type Database = {
           forecast_id?: string | null
           fx_rate?: number | null
           fx_rate_source?: string | null
+          held_by_supplier_id?: string | null
           iban_override?: string | null
           id?: string
           installment_group_id?: string | null
@@ -13365,6 +13367,7 @@ export type Database = {
           forecast_id?: string | null
           fx_rate?: number | null
           fx_rate_source?: string | null
+          held_by_supplier_id?: string | null
           iban_override?: string | null
           id?: string
           installment_group_id?: string | null
@@ -13452,6 +13455,13 @@ export type Database = {
             columns: ["forecast_id"]
             isOneToOne: false
             referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_held_by_supplier_id_fkey"
+            columns: ["held_by_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {
