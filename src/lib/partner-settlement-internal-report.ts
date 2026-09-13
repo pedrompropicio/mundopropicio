@@ -230,6 +230,13 @@ export function buildInternalSettlementReport(input: InternalReportInput): Inter
       items: input.exclusiveRevenues,
     });
   }
+  if (hasCascade && Math.abs(input.exclusiveExpensesTotal ?? 0) > 0.004) {
+    adds.push({
+      kind: "add",
+      label: "(−) Despesas exclusivas deste fechamento",
+      value: -Math.abs(roundCents(input.exclusiveExpensesTotal ?? 0)),
+    });
+  }
   if (Math.abs(input.thirdPartyTotal) > 0.004) {
     adds.push({
       kind: "add",
