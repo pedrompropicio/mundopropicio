@@ -19,6 +19,64 @@ export interface InternalCascadeDeduction {
   mode: "settles" | "nominal";
   percentage: number;
   value: number;
+  /**
+   * (g15-c) Quando a posição é NOMINAL, a dedução na cascata continua a ser o
+   * valor nominal (é o que sai do pool), mas o leitor tem de ver o número real
+   * do fecho desse sócio. Esta nota é apresentação — vem já composta do motor.
+   */
+  realNote?: string;
+}
+
+/**
+ * (g15-c) RESUMO GERAL (Mundo Propício) — visão do EVENTO INTEIRO, independente
+ * do fechamento seleccionado. Todos os números vêm do motor
+ * (`eventNetResult`, partes reais por participante, `house.residual`,
+ * `house.declared`, `house.nominalGap`, `house.ivaDeductible`).
+ */
+export interface InternalOverviewPartnerRow {
+  name: string;
+  /** Nome do fechamento onde o sócio acerta. */
+  settlesAt: string;
+  /** Percentagem em cadeia, ex.: "20% de 30%". */
+  pctLabel: string;
+  /** Parte REAL do motor. */
+  realShare: number;
+}
+
+export interface InternalOverviewNominalRow {
+  name: string;
+  nominalPctLabel: string;
+  nominalValue: number;
+  realPctLabel: string;
+  realValue: number;
+  realSettlesAt: string;
+  diff: number;
+}
+
+export interface InternalOverview {
+  /** Âncora C1 do motor: `eventNetResult`. */
+  resultReal: number;
+  revenueNet: number;
+  expensesNet: number;
+  vatNonRecoverableCost: number;
+  exclusiveRevenuesTotal: number;
+  thirdPartyTotal: number;
+  addbackTotal: number;
+  partners: InternalOverviewPartnerRow[];
+  /** `partnersPaidTotal` do motor. */
+  distributedTotal: number;
+  /** `house.residual` do motor. */
+  houseNet: number;
+  /** Decomposição do residual: declarada, nominal−real, IVA dedutível, resto. */
+  houseParts: Array<{ label: string; value: number }>;
+  nominalRows: InternalOverviewNominalRow[];
+  /** Valor da conferência C1 do motor. */
+  c1: number;
+}
+
+/** Prova da secção 1: total distribuído + líquido da MP − resultado real. */
+export function overviewMismatch(o: InternalOverview): number {
+  return roundCents(roundCents(o.distributedTotal) + roundCents(o.houseNet) - roundCents(o.resultReal));
 }
 
 export interface InternalCascadeStep {
