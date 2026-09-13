@@ -88,6 +88,14 @@ export type Caller = {
   isServiceRole?: boolean;
 };
 
+/** Comparação em tempo (quase) constante, para não vazar a chave por timing. */
+function sameSecret(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 /** service_role sempre aceite; utilizador só com um dos papéis pedidos. */
 export async function authorize(
   req: Request,
@@ -96,6 +104,11 @@ export async function authorize(
 ): Promise<Caller> {
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!bearer) return { allowed: false, reason: "missing token" };
+
+  // Chaves de serviço novas (`sb_secret_…`) NÃO são JWT: o atob abaixo falha e a
+  // chamada interna caía em 403. Comparar directamente com a chave do runtime.
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (sameSecret(bearer, serviceKey)) return { allowed: true, isServiceRole: true };
 
   try {
     const payload = JSON.parse(atob(bearer.split(".")[1] ?? ""));
