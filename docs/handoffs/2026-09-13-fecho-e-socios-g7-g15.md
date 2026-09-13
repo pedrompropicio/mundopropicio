@@ -1,12 +1,13 @@
-# HANDOFF — 2026-09-13 · fecho e sócios (g7 → g14)
+# HANDOFF — 2026-09-13 · fecho e sócios (g7 → g15-c)
 
 > Arquivo. **Não é fonte de estado.** Para saber onde estamos, ver
 > `docs/estado/estado-fecho-e-socios.md`.
 
 **Frente:** fecho-e-socios · **Épico:** #146 · **Issues mexidas:** #158–#167
-(fechadas)
-**Executado em produção:** sim — dois Publish do Pedro (g7, g9c, g10, g11, g12,
-g13, g13-b, g14) e DML autorizado nos dados da Anitta EDA 2026.
+(fechadas), #168 aberta
+**Executado em produção:** sim — Publish do Pedro (g7, g9c, g10, g11, g12, g13,
+g13-b, g14) e Publish posterior (g15, g15-b, g15-c) e DML autorizado nos dados da
+Anitta EDA 2026.
 
 ## 1. Congelamentos e avisos
 
@@ -69,6 +70,45 @@ g13, g13-b, g14) e DML autorizado nos dados da Anitta EDA 2026.
 - "Apresenta DDL" = escrever o ficheiro de migração e **parar**; nunca aplicar
   pela ferramenta de migração sem autorização.
 - Descrições de transações e de linhas de BP são texto de negócio.
+- **Documento não tem tolerância**: os totais do PDF são os do SSoT, nunca
+  re-somados a partir de linhas já arredondadas (g15-b).
+- O relatório interno é o documento **da Mundo Propício** — logótipo MP, nome da
+  empresa no cabeçalho, sem marca de terceiros (g15-c).
+
+## 5-bis. Adenda g15 → g15-c (Publish posterior)
+
+- **g15** — relatório interno do Encontro de Contas reformulado. Novo modelo puro
+  `src/lib/partner-settlement-internal-report.ts`
+  (`buildInternalSettlementReport`, `partnerAccountLines`, `partnerBlockMismatch`)
+  e novo gerador `src/lib/export-partner-settlement-internal-pdf.ts` (jsPDF, A4
+  retrato, cabeçalho/rodapé em todas as páginas, sem quebras forçadas, tabelas
+  pequenas keep-together, grandes com cabeçalho repetido). `exportPdf()` antigo
+  de `PartnerSettlementTab.tsx` substituído por `exportInternalReport()`.
+  Secções: cascata até ao fechamento, distribuição, linha g5 por sócio + quadros
+  de detalhe da g12, Posição da Mundo Propício, anexo A bilheteira e **anexo B
+  despesas na base do critério (previsto + excedido, c/IVA e s/IVA) =
+  1.931.219,49**. Ficheiro `Fecho_<evento>_<fechamento>.pdf`. Anexo C (realizado)
+  excluído.
+- **g15-b** — zero cêntimos de diferença entre PDF e ecrã. Totais sempre do SSoT
+  (`partnerDisbursement`, `partnerFinancingToReturn`, base a transferir);
+  `reconcileDisplayValues` / `reconcileDisplayField` arredondam as linhas em
+  round-half-even e empurram o residual para a linha de maior valor absoluto;
+  `CLOSE_TOLERANCE` de 0,02 → 0,004. Teste falha se qualquer total do PDF
+  divergir do modelo em ≥ 0,01. Base a transferir da EIN **230.990,35** em ambos.
+- **g15-c** — resumo geral da Mundo Propício como secção 1 (independente do
+  fechamento escolhido): resultado real do evento (âncora C1), "O que cada sócio
+  leva de facto" com partes **reais** (ANITTA 417.293,42 · RAFAEL LOBO 35.768,01
+  · EVERYTHINGISNEW 273.953,35) e **líquido final da MP 297.798,68** decomposto
+  (parte declarada 273.953,35 + diferença de posição nominal 23.845,34), com a
+  prova C1 = 0 impressa na própria secção. Logótipo MP na 1.ª página e nome da
+  empresa no cabeçalho corrente. Na cascata, participante nominal mostra o
+  nominal (RAFAEL LOBO 10% · 59.613,35) e, em itálico, o real do fecho dele (20%
+  de 30% = 35.768,01) e o destino da diferença; mesma nota no ecrã.
+- Provas: PDF gerado para os 3 fechamentos (raiz 596.133,45 + exclusivos +
+  operações · Rafael Lobo 178.840,04 · MP + EIN 547.906,69), sem avisos de "a
+  conta não fecha"; `bunx tsgo --noEmit` limpo e 126/126 testes.
+
+
 
 ## 6. Fila
 
