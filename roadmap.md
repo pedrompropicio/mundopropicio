@@ -33,3 +33,8 @@
 - [x] Comentário e checkboxes (a)–(e) na épica #146 (issuecomment-5649753808).
 
 Nota: nenhum Publish feito.
+
+## Épica #146 — (g4) acrescentos de 13/09 (Pedro)
+- [ ] Cabeçalho da aba Sócios: "(NN% atribuído)" por fechamento (ou só raiz), nunca soma cruzada
+- [ ] Confirmar que o aviso "Fechamento X sem percentagem sobre o pai" desaparece (motor lê parent_share_pct: 0 válido, NULL só na raiz)
+- [ ] Remover coluna "Base IVA" e "(herda)" da tabela de participantes; mostrar a base junto ao nome do fechamento
