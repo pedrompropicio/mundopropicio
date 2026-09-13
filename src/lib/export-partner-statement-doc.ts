@@ -370,7 +370,7 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
   });
 
   // 3. AS DESPESAS
-  y = sectionTitle(`${t.section3} · ${doc.expenseBasisLabel}`, nextY());
+  y = sectionTitle(`${t.section3} (${doc.expenseBasisLabel.toLowerCase()})`, nextY());
   table({
     startY: y,
     head: [[t.family, t.value, t.iva, t.totalWithIva]],
