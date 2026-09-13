@@ -259,13 +259,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Apuramentos do evento (separador do Encontro de Contas)
-  const { data: eventSettlements = [] } = useQuery({
+  const { data: eventSettlements = [], error: settlementsError } = useQuery({
     queryKey: ["event-settlements-fecho", eventId],
     queryFn: () => fetchEventSettlements([eventId]),
   });
 
   // Participantes — fonte de verdade (inclui a casa como linha real)
-  const { data: allParticipants = [] } = useQuery({
+  const { data: allParticipants = [], error: participantsError } = useQuery({
     queryKey: ["event-settlement-participants-fecho", eventId],
     queryFn: () => fetchSettlementParticipants([eventId]),
   });
@@ -283,7 +283,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   );
 
   // Event transactions (with category)
-  const { data: transactions = [] } = useQuery({
+  const { data: transactions = [], error: transactionsError } = useQuery({
     queryKey: ["event-transactions-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -308,7 +308,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Partner paid expenses
-  const { data: paidExpenses = [] } = useQuery({
+  const { data: paidExpenses = [], error: paidExpensesError } = useQuery({
     queryKey: ["partner-paid-expenses", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -325,7 +325,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // (g5) Receitas em poder do sócio — contas de acerto do sócio, receitas do evento
   // em contas com partner_id, operações de terceiros retidas por ele e (g7) receitas
   // recebidas por encontro de contas marcadas com "Recebido por".
-  const { data: revenuesHeldRaw = [] } = useQuery({
+  const { data: revenuesHeldRaw = [], error: revenuesHeldError } = useQuery({
     queryKey: ["partner-revenues-held", allEventIdsKey],
     queryFn: async (): Promise<RevenueHeldRow[]> => {
       const [accRes, opsRes, compRes] = await Promise.all([
@@ -424,13 +424,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   // Extras do Sócio — união das duas naturezas (despesa paga pela empresa + registo manual).
   // Ambas abatem ao acerto do sócio e nenhuma é custo do evento.
-  const { data: partnerAdvances = [] } = useQuery({
+  const { data: partnerAdvances = [], error: partnerAdvancesError } = useQuery({
     queryKey: ["partner-advance-expenses", allEventIdsKey],
     queryFn: () => fetchPartnerExtras(allEventIds),
   });
 
   // BP (forecast) for BP × Real reconciliation
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecasts = [], error: forecastsError } = useQuery({
     queryKey: ["event-forecasts-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -474,7 +474,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Ticket sales detalhadas (zone+lot) com sessão, dia, cidade e sub-evento
-  const { data: ticketBreakdown = [] } = useQuery({
+  const { data: ticketBreakdown = [], error: ticketBreakdownError } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
       const [zonesRes, sessionsRes, eventsRes] = await Promise.all([
@@ -548,7 +548,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Ticket sales (consolidado para receita global — mantém lógica existente)
-  const { data: ticketSales = [] } = useQuery({
+  const { data: ticketSales = [], error: ticketSalesError } = useQuery({
     queryKey: ["event-ticket-sales-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data: zones } = await supabase
