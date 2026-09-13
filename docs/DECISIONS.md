@@ -1299,6 +1299,22 @@ como confirmada.
   `v_song_content` separa `videos_confirmed`/`videos_estimated` e os totais
   de views/likes por estado.
 
+Adenda (13/09/2026) — a sincronização NUNCA sobrescreve a ligação. O
+`artist-shorts-sync` escrevia `song_id: null` no upsert e apagava as ligações
+existentes (13/09 09:50 perdeu 3 ligações do Litto, que ficaram com `song_id`
+NULL e `song_link_status = 'estimated'`). Passou a separar linhas novas (única
+via onde escreve `song_id`/`song_link_status`/`song_link_reason`) de linhas já
+existentes (só conteúdo e métricas); o `artist-tiktok-sync` nunca inclui essas
+colunas. Coerência garantida na base: trigger
+`trg_artist_content_normalize_song_link` (BEFORE INSERT/UPDATE) põe o estado a
+`none` quando `song_id` fica NULL, e o CHECK
+`artist_content_song_link_coherent` proíbe `estimated`/`confirmed` sem música.
+`artist_content_link_songs` passou a considerar também linhas com `song_id` NULL
+em estado `estimated` (auto-reparação). Prova: sync do Litto com
+`dry_run=false` manteve as 15 ligações da música `74c40d7b` e 0 linhas
+incoerentes.
+
+
 ## D-ERP54 — Relatório de lançamento é gerado por LLM só a partir do snapshot da base (12/09/2026)
 
 O relatório de lançamento de uma música (`artist-song-report`) é gerado por LLM

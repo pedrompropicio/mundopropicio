@@ -278,7 +278,11 @@ Deno.serve(async (req) => {
         }, null as string | null);
 
 
+        // D-ERP53: nunca incluir song_id / song_link_status / song_link_reason
+        // aqui — o upsert só escreve as colunas listadas, e as ligações a obras
+        // (manuais ou estimadas) têm de sobreviver a cada sincronização.
         const contentRows = list.map((v) => ({
+
           company_id: conn.company_id,
           artist_id: conn.artist_id,
           platform: PLATFORM,
