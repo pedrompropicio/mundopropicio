@@ -105,7 +105,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
      * (g7) "Recebido por" — receita recebida por encontro de contas em nome de um
      * sócio. Vazio = Mundo Propício. Só existe em receitas por compensação.
      */
-    held_by_supplier_id: ((transaction as any).held_by_supplier_id ?? "") as string,
+    held_by_supplier_id: (transaction.held_by_supplier_id ?? "") as string,
 
   });
   const queryClient = useQueryClient();
@@ -537,7 +537,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         transaction.type === "income" && form.payment_method === "compensation"
           ? (form.held_by_supplier_id || null)
           : null;
-      const heldByDirty = heldByValue !== (((transaction as any).held_by_supplier_id ?? null) as string | null);
+      const heldByDirty = heldByValue !== ((transaction.held_by_supplier_id ?? null) as string | null);
       const heldByFields: Record<string, unknown> = heldByDirty
         ? {
             held_by_supplier_id: heldByValue,

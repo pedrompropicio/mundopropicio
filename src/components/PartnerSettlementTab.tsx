@@ -336,10 +336,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .not("held_by_supplier_id", "is", null),
         supabase
           .from("transactions")
-          .select("id, description, amount, date, event_id, status, reversed_at, held_by_supplier_id" as any)
+          .select("id, description, amount, date, event_id, status, reversed_at, held_by_supplier_id")
           .in("event_id", allEventIds)
           .eq("type", "income")
-          .not("held_by_supplier_id" as any, "is", null),
+          .not("held_by_supplier_id", "is", null),
       ]);
 
       if (accRes.error) throw accRes.error;
