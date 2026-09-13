@@ -1075,6 +1075,7 @@ export default function PartnerEventDetail() {
       transferWithVat: (partnerShares as any[]).find((s: any) => s.partner_name === recipientName)?.transfer_with_vat === true,
       categories: allCategories as any[],
       usesGrossExpenses: usesGrossExpenseAmounts((event as any).partner_calc_basis),
+      returnsDeductibleVat: portalReturnsVat === true,
       expenseLines: canonical.map((f: any) => ({
         categoryId: f.category_id ?? null,
         description: f.description || f.account_categories?.name || "—",
