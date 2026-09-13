@@ -326,10 +326,18 @@ export function buildInternalSettlementReport(input: InternalReportInput): Inter
     for (const d of step.deductions) {
       lines.push({
         kind: "deduction",
-        label: `(-) ${d.name}${d.mode === "nominal" ? " (nominal)" : ""}`,
+        label:
+          d.mode === "nominal"
+            ? `(-) ${d.name} — posição nominal`
+            : `(-) ${d.name}`,
         pctLabel: pct(d.percentage),
         value: -Math.abs(roundCents(d.value)),
       });
+      // (g15-c) A dedução é o nominal (é o que sai do pool); a nota mostra o
+      // número real do fecho do sócio e para onde vai a diferença.
+      if (d.mode === "nominal" && d.realNote) {
+        lines.push({ kind: "note", label: d.realNote, value: 0 });
+      }
     }
     lines.push({
       kind: "quota",
