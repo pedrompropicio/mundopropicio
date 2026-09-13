@@ -134,19 +134,25 @@ export async function computeEventRevenueBasis(
   const ids = Array.from(new Set([eventId, ...(args.eventIds ?? [])])).filter(Boolean);
 
   // ── REAL ─────────────────────────────────────────────────────────
-  const [ticket, txRes] = await Promise.all([
+  const [ticket, txRes, roots] = await Promise.all([
     fetchTicketSalesRevenue(ids),
     supabase
       .from("transactions")
       .select(
-        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, account_categories(code, name)",
+        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, event_settlement_id, account_categories(code, name)",
       )
       .in("event_id", ids)
       .eq("type", "income")
       .in("status", ["approved", "paid"]),
+    fetchRootSettlements(ids),
   ]);
 
-  const allIncomeTx = ((txRes.data ?? []) as any[]).filter((t) => isValidFechoTransaction(t));
+  // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
+  // exclusivas desse fechamento e não entram no resultado do evento.
+  const allIncomeTx = keepRootPerimeter(
+    ((txRes.data ?? []) as any[]).filter((t) => isValidFechoTransaction(t)),
+    roots.rootIds,
+  );
   const hasTicketSales = ticket.gross !== 0 || ticket.net !== 0;
 
   // Anti-duplicação: com ticket_sales, as TX da rubrica 1.1.01 (e descendentes)
