@@ -37,6 +37,12 @@ import {
   fetchEventSettlements,
   fetchSettlementParticipants,
 } from "@/lib/settlement-participants";
+import {
+  inferSettlesSettlementId,
+  quotaOriginText,
+  settlementDocFileName,
+  settlementDocTitle,
+} from "@/lib/settlement-doc-text";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
@@ -947,7 +953,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // ===== HEADER =====
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(`Relatorio de Fecho - ${eventName}`, margin, y);
+    doc.text(settlementDocTitle(eventName, solo?.partnerName).replace("—", "-"), margin, y);
     y += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
@@ -958,15 +964,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     const activeSettlementName =
       (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
-    doc.text(`Fechamento: ${activeSettlementName}`, margin, y);
-    y += 5;
-    // Origem da quota num apuramento filho — o documento é estanque: nunca leva
-    // os participantes do pai, só de onde vem o dinheiro (#146 (e2)).
+    // O nome do fechamento é INTERNO (#146 (f)): nunca entra no documento.
+    // Origem da quota escrita como cálculo contratual, sem hierarquia.
     if (activeNode?.parentId && parentNode) {
+      const gross = activeNode.parentQuotaBasis === "net_result_gross_expenses";
       doc.text(
-        `Quota do fechamento acima: ${parentNode.name} · ${activeNode.parentSharePct ?? 0}% de ${formatCurrency(
-          activeNode.parentQuotaBasis === "net_result_gross_expenses" ? parentNode.resultGross : parentNode.resultNet,
-        )} (${activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) = ${formatCurrency(activeNode.parentQuota ?? 0)}`,
+        quotaOriginText(
+          {
+            parentResult: gross ? parentNode.resultGross : parentNode.resultNet,
+            grossExpenses: gross,
+            sharePct: activeNode.parentSharePct ?? 0,
+            quota: activeNode.parentQuota ?? 0,
+            partnerName: solo?.partnerName,
+            partnerPct: solo?.effectivePercentage,
+            partnerShare: solo?.partnerShare,
+          },
+          formatCurrency,
+        ),
         margin,
         y,
       );
@@ -1910,14 +1924,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(`Página ${p}/${totalPages}`, pageW - margin, pageH - 6, { align: "right" });
     }
 
-    const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");
-    // O nome do ficheiro identifica o apuramento quando o evento tem mais do que um.
-    const settlementSuffix =
-      (eventSettlements as any[]).length > 1 ? `_${safe(activeSettlementName)}` : "";
     doc.save(
-      solo
-        ? `Fecho_${safe(eventName)}${settlementSuffix}_${safe(solo.partnerName)}.pdf`
-        : `Fecho_${safe(eventName)}${settlementSuffix}.pdf`,
+      settlementDocFileName({
+        eventName,
+        partnerName: solo?.partnerName,
+        settlementName: activeSettlementName,
+        multipleSettlements: (eventSettlements as any[]).length > 1,
+      }),
     );
 
   }
