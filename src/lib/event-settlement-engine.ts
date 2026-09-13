@@ -534,6 +534,12 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       parentId: s.parent_id ?? null,
       depth: num((s as any).__depth),
       isSealed: !!s.is_sealed,
+      // (g10) Só apresentação: a base efetiva deriva dos parâmetros do nó.
+      returnsParentDeductibleVat: !isRoot && !!s.returns_parent_deductible_vat,
+      effectiveUsesGrossExpenses: effectiveUsesGrossExpenses({
+        usesGrossExpenses: nodeUsesGross,
+        returnsParentDeductibleVat: !isRoot && !!s.returns_parent_deductible_vat,
+      }),
       nodeUsesGrossExpenses: isRoot
         ? eventUsesGross
         : basis == null
