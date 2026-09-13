@@ -486,14 +486,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // Selecciona connection(s) google active
+  // D-ERP57: inclui as contas de tráfego do próprio artista registadas sem
+  // OAuth (status 'pending_link'): o Customer ID está em external_business_id e
+  // a ligação passa a 'active' quando a conta responde sob o MCC.
   let q = (supabase as any)
     .schema("crm")
     .from("ad_platform_connections")
     .select(
-      "id, company_id, selected_ad_account_id, login_customer_id, status",
+      "id, company_id, selected_ad_account_id, external_business_id, login_customer_id, status, connection_scope, artist_id",
     )
     .eq("platform", "google")
-    .eq("status", "active");
+    .in("status", ["active", "pending_link"]);
   if (bodyJson.connection_id) q = q.eq("id", bodyJson.connection_id);
   if (bodyJson.company_id) q = q.eq("company_id", bodyJson.company_id);
   const { data: connections, error: connErr } = await q;
