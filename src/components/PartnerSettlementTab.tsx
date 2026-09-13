@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { effectiveBasisShortLabel, effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -916,9 +917,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       : !!p.expense_includes_iva;
     const override = calcMode === "event" ? null : (isHouse ? false : rawOverride);
     const usesGrossExpenses = partnerUsesGrossExpenses(calcBasis, override);
+    // (g10) Num fechamento que devolve o IVA dedutível, a base EFETIVA é s/IVA.
     const expenseBasisLabel = isHouse && calcMode === "contract"
       ? "Despesas s/IVA · convenção da empresa gestora"
-      : describePartnerExpenseBasis(calcBasis, override);
+      : activeNode?.returnsParentDeductibleVat
+        ? effectiveExpenseBasisLabel({ usesGrossExpenses, returnsParentDeductibleVat: true })
+        : describePartnerExpenseBasis(calcBasis, override);
 
     const expenses = ignoresOperationalExpenses(calcBasis)
       ? 0
@@ -1201,7 +1205,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     if (solo) {
       y += 5;
       doc.text(
-        `Socio: ${solo.partnerName} · ${solo.effectivePercentage}% · ${solo.usesGrossExpenses ? "despesas c/IVA" : "despesas s/IVA"}`,
+        `Socio: ${solo.partnerName} · ${solo.effectivePercentage}% · despesas ${effectiveBasisShortLabel({ usesGrossExpenses: solo.usesGrossExpenses, returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat })}`,
         margin,
         y,
       );
@@ -1245,7 +1249,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         head: [["", "Evento", `A sua parte (${solo.effectivePercentage}%)`]],
         body: [
           ["Receita (s/IVA)", formatCurrency(revenueBase), formatCurrency(share(revenueBase))],
-          [`Despesas (${solo.usesGrossExpenses ? "c/IVA" : "s/IVA"})`, formatCurrency(expForRecipient), formatCurrency(share(expForRecipient))],
+          [`Despesas (${effectiveBasisShortLabel({ usesGrossExpenses: solo.usesGrossExpenses, returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat })})`, formatCurrency(expForRecipient), formatCurrency(share(expForRecipient))],
           ["Resultado", formatCurrency(resForRecipient), formatCurrency(share(resForRecipient))],
         ],
         margin: { left: margin, right: margin },
@@ -1344,7 +1348,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         const dash = "—";
         const isRecipient = !solo || s.partnerId === solo.partnerId;
         const name = solo
-          ? `${s.partnerName} (${s.usesGrossExpenses ? "c/IVA" : "s/IVA"})`
+          ? `${s.partnerName} (${effectiveBasisShortLabel({ usesGrossExpenses: s.usesGrossExpenses, returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat })})`
           : s.partnerName;
         if (!isRecipient) {
           return [name, `${s.effectivePercentage}%`, dash, dash, dash, dash, dash];
@@ -2229,6 +2233,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       })),
       categories: allCategories as any[],
       usesGrossExpenses: activeNode?.nodeUsesGrossExpenses ?? row.usesGrossExpenses,
+      returnsDeductibleVat: activeNode?.returnsParentDeductibleVat ?? false,
       expenseLines,
       revenues,
       extras,
