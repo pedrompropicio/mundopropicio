@@ -156,27 +156,43 @@ Deno.serve(async (req) => {
           chosen.push({ ...c, song_id: null });
           continue;
         }
+        // O UUID é único por empresa e a mesma obra pode já existir como
+        // lançamento do elenco (feats). NUNCA reatribuir nem reescrever essas
+        // linhas: só se insere o que ainda não existe.
+        const { data: existing, error: exErr } = await admin
+          .from("artist_songs")
+          .select("id, artist_id, is_reference")
+          .eq("company_id", artist.company_id)
+          .eq("soundcharts_uuid", c.uuid)
+          .maybeSingle();
+        if (exErr) {
+          errors.push({ artist_id: artist.id as string, error: `lookup ${c.title}: ${exErr.message}` });
+          continue;
+        }
+        if (existing) {
+          notes.push(`${artist.name}: "${c.title}" já existe no sistema — mantida como está.`);
+          chosen.push({ ...c, song_id: existing.id, already_existed: true });
+          continue;
+        }
         const { data: up, error: uErr } = await admin
           .from("artist_songs")
-          .upsert(
-            {
-              company_id: artist.company_id,
-              artist_id: artist.id,
-              title: c.title,
-              soundcharts_uuid: c.uuid,
-              release_date: c.release_date,
-              tracking_status: "ativo",
-              is_launch: false,
-              is_reference: true,
-            },
-            { onConflict: "company_id,soundcharts_uuid" },
-          )
+          .insert({
+            company_id: artist.company_id,
+            artist_id: artist.id,
+            title: c.title,
+            soundcharts_uuid: c.uuid,
+            release_date: c.release_date,
+            tracking_status: "ativo",
+            is_launch: false,
+            is_reference: true,
+          })
           .select("id")
           .maybeSingle();
         if (uErr) {
-          errors.push({ artist_id: artist.id as string, error: `upsert ${c.title}: ${uErr.message}` });
+          errors.push({ artist_id: artist.id as string, error: `insert ${c.title}: ${uErr.message}` });
           continue;
         }
+
         songsUpserted++;
         chosen.push({ ...c, song_id: up?.id ?? null });
         if (up?.id) {
