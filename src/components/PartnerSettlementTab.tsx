@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -180,6 +180,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // selector serve só para a peça interna (#146 (f) ponto 1). Quando o
   // fechamento inferido não é o activo, troca-se primeiro e o export corre no
   // efeito abaixo, já com os totais desse nó.
+  const [pendingSoloKind, setPendingSoloKind] = useState<"pdf" | "xlsx">("pdf");
   const [pendingSoloPartnerId, setPendingSoloPartnerId] = useState<string | null>(null);
 
 
@@ -2041,12 +2042,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   }
 
   /** Pede o documento de um sócio no fechamento onde ele acerta. */
-  function requestSoloPdf(row: PartnerSettlement) {
+  function requestSoloPdf(row: PartnerSettlement, kind: "pdf" | "xlsx" = "pdf") {
     const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
     if (!inferred || inferred === activeSettlementId) {
-      exportPdf(row);
+      void exportSoloDoc(row, kind);
       return;
     }
+    setPendingSoloKind(kind);
     setSelectedSettlementId(inferred);
     // Guarda-se o fornecedor, não a linha: ao mudar de fechamento a linha é
     // outra (mesmo sócio, participação diferente).
@@ -2064,7 +2066,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
     const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
     if (inferred && inferred !== activeSettlementId) return;
-    exportPdf(row);
+    void exportSoloDoc(row, pendingSoloKind);
     setPendingSoloPartnerId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSoloPartnerId, activeSettlementId, settlements]);
@@ -2144,12 +2146,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo (gestão)</DropdownMenuItem>
               {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
               {settlements.filter((s) => !s.isHouse).map((s) => (
-                <DropdownMenuItem key={s.partnerId} onClick={() => requestSoloPdf(s)}>
-                  Para {s.partnerName}
-                </DropdownMenuItem>
+                <React.Fragment key={s.partnerId}>
+                  <DropdownMenuItem onClick={() => requestSoloPdf(s, "pdf")}>
+                    Prestação de contas · {s.partnerName} (PDF)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => requestSoloPdf(s, "xlsx")}>
+                    Prestação de contas · {s.partnerName} (Excel)
+                  </DropdownMenuItem>
+                </React.Fragment>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
