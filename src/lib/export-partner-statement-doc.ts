@@ -393,11 +393,17 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
   // 4. O RESULTADO — cascata desde o resultado do evento (g13)
   let ry = nextY();
   if (doc.cascade) {
-    const cy = sectionTitle(`${t.section4} · ${doc.resultBasisLabel}`, ry);
+    const cy = sectionTitle(t.section4, ry);
     const rows: any[] = [];
     doc.cascade.forEach((lv, i) => {
       rows.push([
-        { content: i === 0 ? t.eventResultLine : t.carriedResultLine, styles: { fontStyle: "bold" } },
+        {
+          content:
+            i === 0
+              ? `${t.eventResultLine} (${doc.expenseBasisLabel.toLowerCase()})`
+              : t.carriedResultLine,
+          styles: { fontStyle: "bold" },
+        },
         { content: money(lv.baseValue, loc), styles: { fontStyle: "bold", halign: "right" } },
       ]);
       lv.deductions.forEach((d) =>
