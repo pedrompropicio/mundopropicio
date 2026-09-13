@@ -2001,7 +2001,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         </div>
       </div>
 
+      {/* Origem da quota num apuramento filho — estanque: nunca os participantes do pai */}
+      {activeNode?.parentId && parentNode && (
+        <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
+          <p className="font-semibold">{activeNode.name}</p>
+          <p className="text-muted-foreground">
+            Quota do apuramento acima <strong>{parentNode.name}</strong>:{" "}
+            {activeNode.parentSharePct ?? 0}% de{" "}
+            {formatCurrency(
+              activeNode.parentQuotaBasis === "net_result_gross_expenses"
+                ? parentNode.resultGross
+                : parentNode.resultNet,
+            )}{" "}
+            ({activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) ={" "}
+            <strong>{formatCurrency(activeNode.parentQuota ?? 0)}</strong>
+            {activeNode.additionalActiveTotal !== 0 && (
+              <> · activos adicionais {formatCurrency(activeNode.additionalActiveTotal)}</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Global summary — critério conforme seletor */}
+
       <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
