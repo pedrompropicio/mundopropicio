@@ -2394,6 +2394,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               {parentNode.name} suportou como custo é recuperado por este fechamento.
             </p>
           )}
+          {/* (g6) Custos internos da sociedade devolvidos a este fechamento. */}
+          {activeNode.addbackIn !== 0 && (
+            <p className="mt-1 text-muted-foreground">
+              Custos do evento devolvidos a este fechamento (internos da sociedade): +
+              {formatCurrency(activeNode.addbackIn)} — contam no fechamento de cima e voltam por
+              inteiro a este.
+            </p>
+          )}
         </div>
       )}
 
