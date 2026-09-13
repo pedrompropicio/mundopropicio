@@ -2040,6 +2040,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
+                {nominalScreenNote(s.partnerName) && (
+                  <p className="text-[10px] italic text-muted-foreground mt-0.5">{nominalScreenNote(s.partnerName)}</p>
+                )}
               </div>
               <div>
                 <span className="text-xs text-muted-foreground" title="Parcela da quota do resultado já suportada por liquidez disponível">Repasse já líquido</span>
