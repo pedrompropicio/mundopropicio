@@ -682,7 +682,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allPartners = (partners as any[]).filter(
     (p) => !p.isHouse || Number(p.percentage || 0) > 0.0001,
   );
-  const housePct = (partners as any[]).find((p) => p.isHouse)?.percentage ?? null;
+  
 
   if (allPartners.length === 0) {
     return (
