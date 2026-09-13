@@ -126,3 +126,62 @@ UI: painel `EventSettlementsPanel` mostra resultado s/IVA e c/IVA, quota do pai,
 tabela de participantes, bloco "Mundo Propício residual" e os dois selos de
 conferência, com rodapé "Dados ao vivo — não substitui o Encontro de Contas até à
 peça (e)".
+
+## Operações de terceiros (d) — 13/09/2026
+
+Duas tabelas novas, **vazias** na aplicação:
+
+- `event_third_party_operations` — `kind` ∈ (`ab_bebidas`, `ab_alimentos`,
+  `bengaleiro`, `merchandising`, `estacionamento`, `outro`), `source` ∈
+  (`ab_module`, `manual`), `gross_amount` (bruto s/IVA), `operator_result`
+  (resultado do operador s/IVA), `document_ref`. CHECK `etpo_ab_from_module`:
+  `ab_*` ⇒ `source='ab_module'` **e montantes NULL** (lêem-se do A&B ao vivo);
+  outros kinds ⇒ `source='manual'`. Índice único parcial: uma operação
+  `ab_bebidas` e uma `ab_alimentos` por evento.
+- `event_operation_participations` — participação de um apuramento numa operação;
+  `mode` ∈ (`gross_pct`, `result_share`, `per_capita`, `fee`) com CHECK a amarrar
+  `pct` (0–100) aos dois primeiros e `amount` aos dois últimos. Único
+  (operation_id, settlement_id). `settlement_id` com **ON DELETE RESTRICT**.
+  Trigger `validate_operation_participation`: operação e apuramento do mesmo
+  evento; apuramento selado recusa alterações.
+
+RLS no padrão de `event_settlements` (SELECT a autenticados, escrita admin/manager,
+RESTRICTIVE `company_id = current_company_id()`).
+
+### Valor da participação
+
+| modo | valor |
+|---|---|
+| `gross_pct` | pct × bruto da operação |
+| `result_share` | pct × resultado do operador |
+| `per_capita` | amount × público (o mesmo do A&B) |
+| `fee` | amount |
+
+Fonte `ab_module`: `useEventSettlementEngine` usa `useEventABScenarios` (cenário
+**real**) e lê `faturacaoBebidas`/`parteGeradorBebidas` (ou os equivalentes de
+alimentos) — o A&B é lido, **nunca duplicado nem escrito**.
+
+### Activo adicional (regra central)
+
+A **raiz não ganha valor novo**: a sua participação já está na receita do
+perímetro (linha do BP / sintética A&B); serve só para saber "o que já foi
+lançado no pai". Cada **filho** ganha
+
+```
+activo adicional = participação do filho − Σ participações dos ascendentes
+```
+
+como receita **exclusiva** do nó, somada à receita do perímetro antes de R_s/R_c.
+
+Caso Anitta: raiz `gross_pct` 35 % × 287.138,58 = 100.498,50; nível 3
+`result_share` 100 % × 194.468,13 ⇒ activo adicional **93.969,63**.
+
+**C1** passa a incluir `additionalActivesTotal` na âncora do evento; **C2**
+mantém-se. Testes: `event-settlement-engine.test.ts` (11 verdes) cobre o caso
+Anitta, `per_capita` e `fee`.
+
+UI: `src/components/EventThirdPartyOperationsPanel.tsx` dentro do painel
+Apuramentos — lista operações e, por apuramento, modo · valor · já lançado acima ·
+activo adicional. Edição mínima gated por `manage_bp`: criar operação manual,
+"Ligar ao A&B" (só cria a linha de ligação, sem montantes) e definir participação.
+Paridade da (c) repetida a 13/09: 0,00 € em 13 participantes / 6 eventos.
