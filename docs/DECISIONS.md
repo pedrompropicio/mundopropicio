@@ -2018,6 +2018,15 @@ videos_artista, playlists) com posição, total e frase curta.
 **Prova.** Relatório da "Roupa de Solteira" regenerado: spotify 4.º de 11,
 tiktok_ugc 1.º de 6, videos_artista e playlists "sem referência".
 
+### D25 — adenda g16 (2026-09-13): a ligação utilizador ↔ sócio é de UI
+
+A ligação entre um utilizador do Portal e o sócio (`profiles.linked_supplier_id`)
+deixa de se fazer por SQL: faz-se no seletor "Sócio" do cartão de acesso de
+parceiro, e a ficha do fornecedor lista os utilizadores ligados. Sem esta ligação
+o Portal não devolve fechamento nenhum (é ela que ancora `user_supplier_id`).
+Pendente: policy UPDATE em `profiles` para admin/manager da empresa (migração
+escrita, não aplicada).
+
 ### D25 — adenda g17 (2026-09-13): um só gerador da prestação de contas
 
 O Portal do Sócio deixou de calcular o fecho no browser (calculava com o que a

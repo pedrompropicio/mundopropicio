@@ -438,3 +438,24 @@ na apresentação de valores (só em percentagens).
 Números confirmados após a correcção: ANITTA 417.293,42 · RAFAEL LOBO 35.768,01
 · EIN 273.953,35 (+ MP 273.953,34 = 547.906,69) · base a transferir da EIN
 230.990,35. `calcWithIva` em `src/lib/utils.ts` delega em `calcTotalWithIva`.
+
+## g16 — Ligação utilizador ↔ sócio é de UI (2026-09-13)
+
+`profiles.linked_supplier_id` define-se no seletor "Sócio" do cartão de acesso de
+parceiro; a ficha do fornecedor lista os utilizadores ligados. Sem ela o Portal
+não devolve fechamento (é o que ancora `user_supplier_id`). Policy UPDATE em
+`profiles` para admin/manager: migração escrita, ainda não aplicada.
+
+## Prova de estanqueidade no Portal publicado (2026-09-13)
+
+Utilizador de teste ligado sucessivamente a RAFAEL LOBO, EVERYTHINGISNEW e
+ANITTA no site publicado: cada sócio vê só o seu fechamento, sem qualquer
+referência a outros sócios ou fechamentos, e a troca de identidade não deixa
+cache. RAFAEL LOBO 35.768,01 (596.133,45 − 70% = 178.840,04 → 20%) ·
+EVERYTHINGISNEW parte 273.953,34 e base a transferir 230.990,35 (cascata
+119.226,69 + 262.459,85 + 72.250,52 + 93.969,63 = 547.906,69) · ANITTA
+417.293,42. PDFs gerados do Portal para os três. P2-13 fechada.
+
+Pendentes menores: `suppliers.doc_locale` da ANITTA → `pt-BR` (DML);
+ANITTA duplicada na empresa Coala (`d24f8f88…`) sem uso; descrições de linhas de
+BP com "· EIN" visíveis ao sócio.
