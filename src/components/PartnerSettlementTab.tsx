@@ -104,6 +104,12 @@ interface PartnerSettlement {
   /** Acerto liquidável agora — quota com liquidez imediata + pagas pelo sócio − extras.
    *  Exclui cauções pendentes e exclui a parcela do resultado sem liquidez imediata. */
   operationalSettlement: number;
+  /** (g4 adenda) Repasse facturado com IVA 23% (campo do participante). */
+  transferWithVat: boolean;
+  /** Base a transferir = parte do resultado + pagas pelo sócio − extras/adiantamentos. */
+  transferBase: number;
+  transferVat: number;
+  transferTotal: number;
   /** Saldo total incluindo o resultado ainda sem liquidez imediata e as cauções pendentes.
    *  positive = empresa paga sócio, negative = sócio paga empresa */
   settlement: number;
@@ -883,6 +889,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       transitoryOffset: 0,
       equityContribution: 0,
       operationalSettlement: 0, // calculado abaixo
+      transferWithVat: (p as any).transfer_with_vat === true,
+      transferBase: 0,      // calculado abaixo
+      transferVat: 0,
+      transferTotal: 0,
       settlement: 0,        // recalculado abaixo
     };
   });
@@ -919,6 +929,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
     s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
+    // (g4 adenda) Base a transferir ao sócio e IVA do repasse quando facturado.
+    s.transferBase = roundCents(s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras);
+    s.transferVat =
+      s.transferWithVat && s.transferBase > 0 ? calcIvaAmount(s.transferBase, TRANSFER_IVA_RATE) : 0;
+    s.transferTotal = roundCents(s.transferBase + s.transferVat);
   });
 
   // ---- Reconciliação interna da posição real da Mundo Propício ----
