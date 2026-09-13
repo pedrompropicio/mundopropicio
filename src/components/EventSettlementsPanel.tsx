@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import type { EngineCheck, SettlementNodeResult } from "@/lib/event-settlement-engine";
 import { EventThirdPartyOperationsPanel } from "@/components/EventThirdPartyOperationsPanel";
+import { SettlementSealControl } from "@/components/SettlementSealControl";
 
 interface Props {
   eventId: string;
@@ -69,7 +70,13 @@ export function EventSettlementsPanel({ eventId }: Props) {
             {n.parentQuota != null && ` = ${formatCurrency(n.parentQuota)}`}
           </Badge>
         )}
-        {n.isSealed && <Badge className="text-xs">Selado</Badge>}
+        <SettlementSealControl
+          eventId={eventId}
+          settlement={(settlements ?? []).find((s: any) => s.id === n.id) ?? ({ id: n.id, name: n.name, parent_id: n.parentId, is_sealed: n.isSealed } as any)}
+          allSettlements={(settlements ?? []) as any}
+          result={result}
+          basis={{ expenseSource: basis.expenseSource, includeOverhead: basis.includeOverhead }}
+        />
         <Badge variant="secondary" className="text-[10px]">
           Perímetro: {n.perimeter.isRoot ? "resto do evento · " : ""}
           {n.perimeter.bpLines} linha(s) de BP · {n.perimeter.txLines} transação(ões)

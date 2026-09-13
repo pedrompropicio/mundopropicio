@@ -6983,9 +6983,14 @@ export type Database = {
           parent_share_basis: string | null
           parent_share_pct: number | null
           position: number
+          seal_note: string | null
           sealed_at: string | null
           sealed_bp_version_id: string | null
           sealed_by: string | null
+          sealed_snapshot: Json | null
+          unseal_reason: string | null
+          unsealed_at: string | null
+          unsealed_by: string | null
           updated_at: string
         }
         Insert: {
@@ -7000,9 +7005,14 @@ export type Database = {
           parent_share_basis?: string | null
           parent_share_pct?: number | null
           position?: number
+          seal_note?: string | null
           sealed_at?: string | null
           sealed_bp_version_id?: string | null
           sealed_by?: string | null
+          sealed_snapshot?: Json | null
+          unseal_reason?: string | null
+          unsealed_at?: string | null
+          unsealed_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -7017,9 +7027,14 @@ export type Database = {
           parent_share_basis?: string | null
           parent_share_pct?: number | null
           position?: number
+          seal_note?: string | null
           sealed_at?: string | null
           sealed_bp_version_id?: string | null
           sealed_by?: string | null
+          sealed_snapshot?: Json | null
+          unseal_reason?: string | null
+          unsealed_at?: string | null
+          unsealed_by?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -16155,6 +16170,15 @@ export type Database = {
       }
       run_rls_legacy_audit_cron: { Args: never; Returns: Json }
       run_vip_coupon_reminder: { Args: never; Returns: Json }
+      seal_event_settlement: {
+        Args: {
+          _bp_version_id?: string
+          _note?: string
+          _settlement_id: string
+          _snapshot: Json
+        }
+        Returns: Json
+      }
       seed_operacao_frentes_default: {
         Args: { p_event_id: string }
         Returns: number
@@ -16175,6 +16199,10 @@ export type Database = {
       settlement_local_partners_pct: {
         Args: { _settlement_id: string }
         Returns: number
+      }
+      settlement_partner_quota_context: {
+        Args: { _settlement_id: string; _supplier_id: string }
+        Returns: Json
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -16227,6 +16255,10 @@ export type Database = {
           name: string
           portal_visible: boolean
         }[]
+      }
+      unseal_event_settlement: {
+        Args: { _reason: string; _settlement_id: string }
+        Returns: Json
       }
       update_vault_secret: {
         Args: { _id: string; _value: string }
