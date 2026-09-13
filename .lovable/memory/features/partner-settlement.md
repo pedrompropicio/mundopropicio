@@ -189,3 +189,27 @@ parte · + desembolso · ± ajustes ao desembolso · − receitas em poder do s�
 
 SSoT do cálculo: `src/lib/partner-disbursement.ts`. Painel de capital tem
 "Posição de caixa por sócio" (aportes − devoluções + despesas pagas por ele).
+
+## (g7) "Recebido por" nas receitas por encontro de contas
+
+Uma receita liquidada por compensação nunca tem conta (trigger
+`force_no_account_on_compensation`). Quando quem fez o encontro de contas com o
+terceiro foi um sócio, marca-se na própria transação:
+`transactions.held_by_supplier_id` (só em `type='income'` +
+`payment_method='compensation'`). No editor aparece o campo "Recebido por"
+(vazio = Mundo Propício; opções = sócios do evento). Ao marcar um sócio a
+receita fica paga na data da transação — nunca fica "a receber".
+
+Entra no (g5) como quarta fonte de receitas em poder do sócio
+(`RevenueHeldSource = "compensation"`, rótulo "Encontro de contas"): painel do
+acerto, export de conferência, prestação de contas (secção 5) e Portal (via
+`get_partner_settlement_summary`). Nunca duplica com as contas de acerto porque
+uma compensação não tem `account_id`.
+
+## Descrições são texto de negócio
+
+Descrições de transações e de linhas de BP escrevem-se como o sócio ou o
+contabilista as devem ler. Nunca levam notas de implementação, referências a
+fechamentos, "exclusivo", "planilha vNN" ou semelhantes — essa informação vive
+nos campos próprios (perímetro/fechamento, devolução, recebido por), visíveis no
+editor.
