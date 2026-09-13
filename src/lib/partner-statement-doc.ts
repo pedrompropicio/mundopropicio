@@ -64,6 +64,12 @@ export interface PartnerStatementDocInput {
   /** Base do FECHAMENTO: true = despesas c/IVA. */
   usesGrossExpenses: boolean;
   /**
+   * (g10) O fechamento devolve o IVA dedutível do fechamento acima. Nesse caso a
+   * base EFETIVA é s/IVA e o documento apresenta "Despesas s/IVA" e
+   * "Resultado s/IVA" directamente, sem falar do mecanismo do IVA.
+   */
+  returnsDeductibleVat?: boolean;
+  /**
    * Termos adicionais do acordo já calculados pelo motor (quota contratual do
    * apuramento de origem, IVA dedutível devolvido, activos adicionais…).
    * Entram no resultado depois das receitas e antes das despesas.
