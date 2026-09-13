@@ -419,7 +419,7 @@ Deno.serve(async (req) => {
                 break;
               }
             }
-            artistRowsWritten += toUpsert.length + metricRows.length;
+            artistRowsWritten += toInsert.length + toUpdate.length + metricRows.length;
           }
 
           topByPlatform[platform] = [...videos]
