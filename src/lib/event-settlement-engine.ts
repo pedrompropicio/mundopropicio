@@ -198,6 +198,12 @@ export interface SettlementNodeResult {
   vatReturnedIn: number;
   /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
   vatReturnedOut: number;
+  /**
+   * (g4) Base do FECHAMENTO: true = despesas c/IVA. Raiz →
+   * `events.partner_calc_basis`; filho → `parent_share_basis`. Todos os
+   * participantes do nó usam esta base.
+   */
+  nodeUsesGrossExpenses: boolean;
 }
 
 export interface HouseResidual {
@@ -440,6 +446,11 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       parentId: s.parent_id ?? null,
       depth: num((s as any).__depth),
       isSealed: !!s.is_sealed,
+      nodeUsesGrossExpenses: isRoot
+        ? eventUsesGross
+        : basis == null
+          ? eventUsesGross
+          : basis === "net_result_gross_expenses",
       parentQuota,
       parentQuotaBasis: isRoot ? null : basis,
       parentSharePct: isRoot ? null : (s.parent_share_pct == null ? null : num(s.parent_share_pct)),
