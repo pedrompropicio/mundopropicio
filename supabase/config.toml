@@ -152,6 +152,11 @@ verify_jwt = true
 [functions.song-soundcharts-sync]
 verify_jwt = true
 
+# Benchmark UGC — musicas recentes dos artistas de referencia (comparaveis).
+[functions.soundcharts-reference-songs]
+verify_jwt = true
+
+
 # Fase B — vídeos curtos (TikTok/YouTube/Instagram) via Soundcharts.
 [functions.artist-shorts-sync]
 verify_jwt = true
