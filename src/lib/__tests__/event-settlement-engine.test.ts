@@ -250,3 +250,146 @@ describe("operações de terceiros (d)", () => {
     expect(s2.additionalActiveTotal).toBe(7_000);
   });
 });
+
+// ── (g1) Anitta três níveis ───────────────────────────────────────────────────
+// Estado da planilha de 02/09/2026. Notas do fixture:
+//  • `eventTotals.revenueNet` = 2.527.352,94 (perímetro da raiz) + 72.250,52
+//    (receitas exclusivas marcadas no nível 3), porque o motor dá à raiz
+//    `total do evento − linhas marcadas`.
+//  • Os 35% dos bares (100.498,50) já estão dentro dos 2.527.352,94 como receita
+//    da raiz; o nível 3 só ganha o activo adicional (194.468,13 − 100.498,50).
+//  • Tolerância 0,01 porque os valores esperados vêm da soma das parcelas já
+//    arredondadas ao cêntimo.
+
+const near = (actual: number, expected: number, tol = 0.011) =>
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tol);
+
+const anittaThreeLevels = (over: Partial<EngineInput> = {}): EngineInput => ({
+  eventBasis: "net_result_gross_expenses",
+  eventTotals: {
+    revenueNet: 2_527_352.94 + 72_250.52,
+    expensesNet: 1_668_029.31,
+    expensesGross: 1_930_670.79,
+  },
+  settlements: [
+    { id: "root", name: "Fechamento do evento", parent_id: null, position: 0 },
+    {
+      id: "lob",
+      name: "Lobinho",
+      parent_id: "root",
+      position: 1,
+      parent_share_pct: 30,
+      parent_share_basis: "net_result_gross_expenses",
+    },
+    {
+      id: "n3",
+      name: "Nível 3",
+      parent_id: "root",
+      position: 2,
+      parent_share_pct: 20,
+      parent_share_basis: "net_result_gross_expenses",
+      returns_parent_deductible_vat: true,
+    },
+  ],
+  markedLines: [
+    { event_settlement_id: "n3", kind: "tx", type: "income", amount: 22_111.7 },
+    { event_settlement_id: "n3", kind: "tx", type: "income", amount: 138.82 },
+    { event_settlement_id: "n3", kind: "tx", type: "income", amount: 50_000 },
+  ],
+  participants: [
+    { id: "an", settlement_id: "root", participant_kind: "partner", supplier_id: "sup-anitta", name: "ANITTA", mode: "settles", profit_pct: 70, loss_pct: null },
+    { id: "cv-nom", settlement_id: "root", participant_kind: "partner", supplier_id: "sup-carv", name: "CARVALHEIRA", mode: "nominal", profit_pct: 10, loss_pct: null },
+    { id: "mp-root", settlement_id: "root", participant_kind: "house", name: "MUNDO PROPÍCIO", mode: "nominal", profit_pct: 20, loss_pct: null },
+    { id: "cv", settlement_id: "lob", participant_kind: "partner", supplier_id: "sup-carv", name: "CARVALHEIRA", mode: "settles", profit_pct: 20, loss_pct: null },
+    { id: "ein", settlement_id: "n3", participant_kind: "partner", supplier_id: "sup-ein", name: "EVERYTHINGISNEW", mode: "settles", profit_pct: 50, loss_pct: null },
+    { id: "mp-n3", settlement_id: "n3", participant_kind: "house", name: "MUNDO PROPÍCIO", mode: "settles", profit_pct: 50, loss_pct: null },
+  ],
+  operations: [
+    {
+      id: "bares",
+      kind: "ab_bebidas",
+      name: "Bares",
+      source: "ab_module",
+      grossAmount: 287_138.58,
+      operatorResult: 194_468.13,
+      attendance: 0,
+    },
+  ],
+  participations: [
+    { id: "pt-root", operation_id: "bares", settlement_id: "root", mode: "gross_pct", pct: 35 },
+    { id: "pt-n3", operation_id: "bares", settlement_id: "n3", mode: "result_share", pct: 100 },
+  ],
+  ...over,
+});
+
+describe("(g1) Anitta três níveis", () => {
+  it("resultado do evento e da raiz", () => {
+    const r = computeSettlementEngine(anittaThreeLevels());
+    const root = r.nodes.find((n) => n.id === "root")!;
+    near(root.perimeter.revenueNet, 2_527_352.94);
+    near(root.resultNet, 859_323.63);
+    near(root.resultGross, 596_682.15);
+    expect(r.errors).toEqual([]);
+  });
+
+  it("partes dos sócios", () => {
+    const r = computeSettlementEngine(anittaThreeLevels());
+    const part = (id: string) =>
+      r.nodes.flatMap((n) => n.participants).find((p) => p.id === id)!;
+    near(part("an").share, 417_677.51);
+    near(part("cv").share, 35_800.93);
+    near(part("ein").share, 274_099.03);
+    near(part("mp-n3").share, 274_099.03);
+    near(r.partnersPaidTotal, 727_577.47);
+  });
+
+  it("nível 3 recebe o IVA dedutível do fechamento acima", () => {
+    const r = computeSettlementEngine(anittaThreeLevels());
+    const root = r.nodes.find((n) => n.id === "root")!;
+    const n3 = r.nodes.find((n) => n.id === "n3")!;
+    near(root.vatReturnedOut, 262_641.48);
+    near(n3.vatReturnedIn, 262_641.48);
+    near(n3.perimeter.revenueNet, 72_250.52);
+    near(n3.additionalActiveTotal, 93_969.63);
+    near(n3.parentQuota!, 119_336.43);
+    near(n3.resultNet, 548_198.06);
+  });
+
+  it("residual da MP, C1 e C2", () => {
+    const r = computeSettlementEngine(anittaThreeLevels());
+    near(r.house.declared, 274_099.03);
+    near(r.house.nominalGap, 23_867.29);
+    near(r.house.ivaDeductible, 0);
+    near(r.house.residual, 297_966.32);
+    near(r.house.rest, 0);
+    near(r.eventNetResult, 859_323.63 + 72_250.52 + 93_969.63);
+    expect(r.c1.ok && r.c2.ok).toBe(true);
+  });
+
+  it("nominal sem settles em lado nenhum é erro de configuração", () => {
+    const input = anittaThreeLevels();
+    // Sem o participante `settles` da Carvalheira no Lobinho, o nominal da raiz
+    // fica órfão: era este o caso que dava C2 falhada sem explicação (Mágicos).
+    input.participants = input.participants.filter((p) => p.id !== "cv");
+    const r = computeSettlementEngine(input);
+    expect(r.errors.some((e) => e.includes("não acerta em nenhum fechamento"))).toBe(true);
+  });
+
+  it("dois filhos a devolver o IVA do mesmo pai é erro", () => {
+    const input = anittaThreeLevels();
+    input.settlements = input.settlements.map((s) =>
+      s.id === "lob" ? { ...s, returns_parent_deductible_vat: true } : s,
+    );
+    const r = computeSettlementEngine(input);
+    expect(r.errors.some((e) => e.includes("devolve o IVA dedutível"))).toBe(true);
+  });
+
+  it("a raiz não pode devolver o IVA de um fechamento acima", () => {
+    const input = anittaThreeLevels();
+    input.settlements = input.settlements.map((s) =>
+      s.id === "root" ? { ...s, returns_parent_deductible_vat: true } : s,
+    );
+    const r = computeSettlementEngine(input);
+    expect(r.errors.some((e) => e.includes("não pode devolver o IVA"))).toBe(true);
+  });
+});
