@@ -159,7 +159,7 @@ describe("(g15-b) totais do modelo, linhas como apresentação", () => {
 
 describe("(g15-c) resumo geral (Mundo Propício)", () => {
   const overview = {
-    resultReal: 1024985.46,
+    resultReal: 417293.42 + 35768.01 + 273953.35 + 297798.68,
     revenueNet: 0,
     expensesNet: 0,
     vatNonRecoverableCost: 0,
@@ -174,7 +174,7 @@ describe("(g15-c) resumo geral (Mundo Propício)", () => {
     distributedTotal: 417293.42 + 35768.01 + 273953.35,
     houseNet: 297798.68,
     houseParts: [
-      { label: "Parte declarada nos fechamentos", value: 273953.35 },
+      { label: "Parte declarada nos fechamentos", value: 273953.34 },
       { label: "Diferença de posições nominais", value: 23845.34 },
     ],
     nominalRows: [
