@@ -252,6 +252,11 @@ export interface SettlementNodeResult {
    * não recuperável — fica no residual da casa ("IVA não repassado").
    */
   vatNotReturned: number;
+  /**
+   * (g14) Quanto o resultado DESTE nó desceu por o IVA não recuperável não lhe ter
+   * sido devolvido — usado para explicar o residual da casa na C2.
+   */
+  vatReducedIn: number;
   /** (g6) Custos do evento devolvidos a ESTE fechamento (internos da sociedade). */
   addbackIn: number;
   /** (g6) Detalhe das linhas devolvidas a este fechamento. */
@@ -514,6 +519,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     // IVA das despesas do PERÍMETRO do pai. Só um filho por pai pode ter a regra
     // (o IVA não se devolve duas vezes) e a raiz nunca a pode ter.
     let vatReturnedIn = 0;
+    let vatReducedIn = 0;
     if (s.returns_parent_deductible_vat) {
       if (isRoot) {
         errors.push(
@@ -536,6 +542,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
             parent.vatReturnedOut = fullVat;
             parent.vatNotReturned = notReturned;
             parent.moneyNet -= fullVat;
+            vatReducedIn = notReturned;
           }
         }
       }
@@ -612,6 +619,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       vatNonRecoverable: vatExcludedByNode.get(s.id)?.vat ?? 0,
       vatNonRecoverableLines: vatExcludedByNode.get(s.id)?.lines ?? [],
       vatNotReturned: 0,
+      vatReducedIn: roundCents(vatReducedIn),
     };
     nodes.push(node);
     byId.set(node.id, node);
@@ -692,6 +700,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     if (isHouse && p.mode === "settles") {
       declared += share;
       ivaDeductible += shareNet - share;
+      // (g14) A parte que a casa deixou de receber neste nó por o IVA não
+      // recuperável não ter sido devolvido reaparece no seu residual.
+      houseAbsorbedVat += node.vatReducedIn * (effectivePct / 100);
     }
 
     computed.push({ p, key, isHouse, shareNet });
@@ -751,7 +762,8 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   const residual = eventNetResult - partnersPaidTotal;
   // (g14) O IVA não repassado é uma parcela EXPLÍCITA do residual da casa.
   const vatNotReturnedTotal = nodes.reduce((s, n) => s + n.vatNotReturned, 0);
-  const rest = residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal);
+  const rest =
+    residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal + houseAbsorbedVat);
 
   const c1Value = partnersPaidTotal + residual - eventNetResult;
   const c2Value = rest;
