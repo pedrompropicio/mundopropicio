@@ -31,15 +31,12 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
             <Settings2 className="h-3.5 w-3.5" /> Critério
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="text-xs">IVA nas despesas</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={basis.withVat ? "com" : "sem"}
-            onValueChange={(v) => basis.setWithVat(v === "com")}
-          >
-            <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
+          <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+            {basis.withVat ? "Com IVA (bruto)" : "Sem IVA (base líquida)"} — vem do critério
+            contratual do evento; altera-se na ficha do evento.
+          </div>
 
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs">Base da despesa</DropdownMenuLabel>
@@ -47,8 +44,14 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
             value={basis.expenseSource}
             onValueChange={(v) => basis.setExpenseSource(v as FechoExpenseSource)}
           >
-            <DropdownMenuRadioItem value="realized">Realizado (transações)</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="committed" title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica">
+            <DropdownMenuRadioItem value="realized" disabled={!basis.canEditBasis}>
+              Realizado (transações)
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="committed"
+              disabled={!basis.canEditBasis}
+              title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
+            >
               Previsto + excedido
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
@@ -57,11 +60,16 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
           <DropdownMenuLabel className="text-xs">Composição</DropdownMenuLabel>
           <DropdownMenuCheckboxItem
             checked={basis.includeOverhead}
+            disabled={!basis.canEditBasis}
             onCheckedChange={(v) => basis.setIncludeOverhead(!!v)}
             onSelect={(e) => e.preventDefault()}
           >
             Incluir overhead
           </DropdownMenuCheckboxItem>
+          <div className="px-2 pt-1 text-[11px] leading-snug text-muted-foreground">
+            O critério é gravado no evento — vale para todos e em qualquer computador.
+          </div>
+
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
