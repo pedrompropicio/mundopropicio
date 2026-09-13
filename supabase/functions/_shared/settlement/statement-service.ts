@@ -85,6 +85,17 @@ export interface StatementBundle {
 const EVENT_SETTLEMENTS_SELECT =
   "id, name, parent_id, position, notes, parent_share_pct, parent_share_basis, returns_parent_deductible_vat, is_sealed";
 
+/**
+ * Select tolerante: `suppliers.doc_locale` não tem GRANT de leitura a
+ * `authenticated` (só o servidor, com service_role, o lê). No browser a lista
+ * volta vazia e o documento assume pt-PT.
+ */
+async function softSelect(client: StatementDbClient, table: string, columns: string): Promise<any[]> {
+  const { data, error } = await client.from(table).select(columns);
+  if (error) return [];
+  return (data ?? []) as any[];
+}
+
 async function must<T>(p: any): Promise<T[]> {
   const { data, error } = await p;
   if (error) throw new Error(error.message ?? String(error));
@@ -118,7 +129,6 @@ export async function loadStatementBundle(
     manualExtras,
     operations,
     participations,
-    brSuppliers,
     suppliers,
   ] = await Promise.all([
     must<any>(
@@ -191,8 +201,7 @@ export async function loadStatementBundle(
         .select("id, operation_id, settlement_id, mode, pct, amount")
         .eq("event_id", eventId),
     ),
-    must<any>(client.from("suppliers").select("id").eq("doc_locale", "pt-BR")),
-    must<any>(client.from("suppliers").select("id, doc_locale")),
+    softSelect(client, "suppliers", "id, doc_locale"),
   ]);
 
   // Bilheteira — mesmas queries do Encontro de Contas.
@@ -353,7 +362,9 @@ export async function loadStatementBundle(
     paidExpenses,
     extras,
     revenuesHeldRaw,
-    grossDisbursementSupplierIds: brSuppliers.map((r: any) => r.id as string),
+    grossDisbursementSupplierIds: suppliers
+      .filter((r: any) => r.doc_locale === "pt-BR")
+      .map((r: any) => r.id as string),
     ticketSales,
     ticketBreakdown,
     operations,
