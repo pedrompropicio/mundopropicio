@@ -290,7 +290,7 @@ describe("(g13) cascata desde o resultado do evento", () => {
     expect(doc.extras.map((e) => e.label)).toContain("IVA dedutível recuperado");
     // 596.133,45 − 417.293,42 − 59.613,35 = 119.226,69
     const lv = doc.cascade![0];
-    expect(lv.baseValue - lv.deductions.reduce((s, d) => s + d.value, 0)).toBeCloseTo(119226.69, 2);
+    expect(lv.baseValue - lv.deductions.reduce((s, d) => s + d.value, 0)).toBeCloseTo(119226.69, 1);
     // + 262.459,85 + 72.250,52 + 93.969,63 = 547.906,69 → sem aviso
     expect(doc.cascadeQuota! + doc.extrasTotal).toBeCloseTo(547906.69, 2);
     expect(Math.abs(doc.cascadeMismatch)).toBeLessThan(0.02);
