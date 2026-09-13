@@ -267,3 +267,19 @@ Duas regras absolutas no gerador do documento (`buildSoloDocInput` em
    cascata e nada muda. Com cascata, a secção 2 mostra só as receitas do evento
    (os termos adicionais saem de lá) e `cascadeMismatch > 0,02` imprime aviso
    vermelho em vez de esconder.
+
+## g10 vs g13-b — base de apresentação no documento do sócio
+
+- **Sem cascata** (fechamento raiz) e no **rótulo de base efectiva no ecrã**:
+  vale a g10 — um nó que devolve o IVA dedutível apresenta-se "Despesas s/IVA" /
+  "Resultado s/IVA" e não fala do mecanismo do IVA.
+- **Com cascata** (g13-b): a conta parte do resultado do evento na base da RAIZ
+  (c/IVA na Anitta), deduz os sócios acima pelo nome, chega à parte da sociedade
+  e soma explicitamente "+ IVA dedutível recuperado" (só o recuperável, g14),
+  receitas exclusivas, operações de terceiros e devoluções. A linha do IVA
+  **nunca se esconde** — sem ela a conta não fecha.
+- Rótulos em cascata: secção 3 "As despesas do evento (despesas c/IVA)";
+  secção 4 "O resultado" sem base; linha inicial "Resultado do evento
+  (despesas c/IVA)".
+- O aviso vermelho "a conta não fecha" é mecanismo permanente: só desaparece
+  quando a conta fecha.
