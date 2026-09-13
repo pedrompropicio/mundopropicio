@@ -16,6 +16,7 @@ import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import type { EngineCheck, SettlementNodeResult } from "@/lib/event-settlement-engine";
 import { EventThirdPartyOperationsPanel } from "@/components/EventThirdPartyOperationsPanel";
 import { SettlementSealControl } from "@/components/SettlementSealControl";
+import { effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
 
 interface Props {
   eventId: string;
