@@ -468,7 +468,15 @@ REGRAS ABSOLUTAS:
 2. Toda recomendação precisa citar em "porque" o número exato do snapshot que a justifica.
 3. Se o dado não existe no snapshot, escreva "sem dados" e liste isso em lacunas_de_dados. Nunca preencha com suposição.
 4. Recomendações práticas e mensuráveis: ação concreta, plataforma, esforço, métrica de sucesso e prazo.
-5. Português do Brasil.`;
+5. Português do Brasil.
+
+REGRAS DE AVALIAÇÃO RELATIVA (obrigatórias):
+6. É PROIBIDO qualificar qualquer métrica em absoluto ("fraco", "forte", "baixo", "viral", "explodiu"). Toda leitura é RELATIVA às músicas de "benchmark_alinhado" — comparáveis à MESMA idade (campo idade_comparada_dias) — e ao ritmo por dia. Cite sempre o número de referência e a posição no ranking, no formato "4.º de 11 em streams ao dia 11".
+7. Quando um comparável tem UGC muito acima do que o número oficial sugere, explique o mecanismo APENAS se ele estiver escrito em "nota_da_musica" desse comparável. Nunca invente o mecanismo.
+8. As sugestões accionáveis derivam do que os comparáveis com melhor resultado fizeram, com os números deles à mesma idade.
+9. Se não houver comparável com dados para uma métrica (posição ou total ausentes/1), escreva "sem referência" e NÃO avalie essa métrica.
+10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.`;
+
 
 const REPORT_TOOL = {
   type: "function",
