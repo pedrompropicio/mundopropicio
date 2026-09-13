@@ -46,6 +46,16 @@ Novo `src/lib/export-partner-statement-doc.ts`:
 o export interno (sem sócio) mantém a peça de gestão actual. Portal do Sócio usa
 o mesmo construtor.
 
+## Passo 2b — UI da aba Sócios (acrescentos de 13/09)
+- Cabeçalho: "(NN% atribuído)" deixa de somar participantes de fechamentos
+  diferentes; passa a mostrar a percentagem POR fechamento
+  ("Fechamento Anitta 100% · Fechamento Rafael Lobo 20% · …").
+- Tabela de participantes: sai a coluna "Base IVA" e o "(herda)"; a base passa a
+  aparecer uma única vez, junto ao nome do fechamento.
+- Aviso "Fechamento X sem percentagem sobre o pai": confirmar no fim que
+  desaparece nos dois filhos da Anitta e que o motor continua a ler
+  `parent_share_pct` como antes (0 é válido, NULL só na raiz).
+
 ## Passo 3 — Prova
 - Anitta / ANITTA (raiz) e Anitta / EVERYTHINGISNEW (MP + EIN): XLSX e PDF gerados
   em `/tmp`, convertidos em imagem e inspeccionados, com grep aos termos proibidos.
