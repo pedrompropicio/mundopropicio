@@ -248,15 +248,24 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     report.cascade.length,
   );
   const cascadeBody: any[][] = [];
-  const cascadeStyle: Array<{ fill?: [number, number, number]; bold?: boolean } | null> = [];
+  const cascadeStyle: Array<
+    { fill?: [number, number, number]; bold?: boolean; italic?: boolean; textColor?: number } | null
+  > = [];
   for (const line of report.cascade) {
-    cascadeBody.push([line.label, line.pctLabel ?? "", money(line.value)]);
+    // (g15-c) A nota da posição nominal não tem valor: é leitura.
+    cascadeBody.push([
+      line.kind === "note" ? `      ${line.label}` : line.label,
+      line.pctLabel ?? "",
+      line.kind === "note" ? "" : money(line.value),
+    ]);
     cascadeStyle.push(
       line.kind === "total"
         ? { fill: [225, 235, 225], bold: true }
         : line.kind === "quota"
           ? { fill: GREY, bold: true }
-          : null,
+          : line.kind === "note"
+            ? { italic: true, textColor: 95 }
+            : null,
     );
     // (g15-b) Os itens do termo somam exactamente o valor do termo.
     const items = line.items ?? [];
