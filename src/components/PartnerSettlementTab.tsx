@@ -1878,6 +1878,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {(eventSettlements as any[]).length > 1 && (
+            <Select
+              value={activeSettlementId ?? ""}
+              onValueChange={(v) => setSelectedSettlementId(v)}
+            >
+              <SelectTrigger className="h-8 w-[260px] text-xs">
+                <SelectValue placeholder="Apuramento" />
+              </SelectTrigger>
+              <SelectContent>
+                {(eventSettlements as any[]).map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.parent_id ? `↳ ${s.name}` : s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground">
             <Switch checked={includeLiquidityAppendix} onCheckedChange={setIncludeLiquidityAppendix} />
             <span>Incluir análise final</span>
