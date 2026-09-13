@@ -28,7 +28,7 @@ import { roundCents } from "@/lib/iva";
 import { lineValue } from "@/lib/event-cost-basis";
 import {
   ignoresOperationalExpenses,
-  partnerUsesGrossExpenses,
+  usesGrossExpenseAmounts,
   type PartnerCalcBasis,
 } from "@/lib/partner-calc-basis";
 
