@@ -121,7 +121,11 @@ export function EventFinancialCard(props: Props) {
     includeOverhead,
   });
 
-  useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
+  // Nunca propagar números antes de o critério da BD chegar (evita Lucro com critério errado).
+  useEffect(() => {
+    if (shared.isLoading) return;
+    onValueChange?.(data.displayValue);
+  }, [shared.isLoading, data.displayValue, onValueChange]);
 
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
