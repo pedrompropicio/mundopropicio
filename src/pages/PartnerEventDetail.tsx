@@ -21,7 +21,9 @@ import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
-import { exportPartnerStatementExcel, exportPartnerStatementPdf, type PartnerStatementInput } from "@/lib/export-partner-statement";
+import { exportPartnerStatementDocExcel, exportPartnerStatementDocPdf } from "@/lib/export-partner-statement-doc";
+import { statementTerms, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
+import { usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { fetchExportBranding } from "@/lib/export-header";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
@@ -516,6 +518,31 @@ export default function PartnerEventDetail() {
     return m;
   }, [bpAttachmentsRaw]);
 
+  /**
+   * (g4) Destinatário do documento: o fornecedor ligado ao utilizador
+   * autenticado. `doc_locale` decide a língua (pt-PT / pt-BR).
+   */
+  const { data: viewerPartner } = useQuery({
+    queryKey: ["partner-doc-identity", user?.id],
+    enabled: !!user?.id,
+    queryFn: async (): Promise<{ name: string; locale: DocLocale } | null> => {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("linked_supplier_id")
+        .eq("id", user!.id)
+        .maybeSingle();
+      const sid = (prof as any)?.linked_supplier_id;
+      if (!sid) return null;
+      const { data: sup } = await supabase
+        .from("suppliers")
+        .select("name, doc_locale")
+        .eq("id", sid)
+        .maybeSingle();
+      if (!sup) return null;
+      return { name: (sup as any).name, locale: ((sup as any).doc_locale ?? "pt-PT") as DocLocale };
+    },
+  });
+
   // ── Quotas dos sócios (RPC SECURITY DEFINER — só nome + percentagem)
   const { data: partnerShares = [] } = useQuery({
     queryKey: ["partner_event_shares", activeEventId],
@@ -1001,9 +1028,9 @@ export default function PartnerEventDetail() {
   const handleExportBPExcel = async () => {
     if (canExportStatement) {
       try {
-        const input = buildStatementInput();
+        const input = buildStatementDocInput();
         if (!input) return;
-        await exportPartnerStatementExcel(input);
+        await exportPartnerStatementDocExcel(input);
       } catch (err: any) {
         toast.error("Erro ao exportar Excel", { description: err?.message });
       }
@@ -1040,9 +1067,9 @@ export default function PartnerEventDetail() {
     if (canExportStatement) {
       try {
         const branding = await fetchExportBranding();
-        const input = buildStatementInput(branding.logoDataUrl);
+        const input = buildStatementDocInput(branding.logoDataUrl);
         if (!input) return;
-        exportPartnerStatementPdf(input);
+        exportPartnerStatementDocPdf(input);
       } catch (err: any) {
         toast.error("Erro ao exportar PDF", { description: err?.message });
       }
