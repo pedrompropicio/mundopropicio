@@ -1218,7 +1218,7 @@ export default function EventDetail() {
                   Exclusivos de fechamentos
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
-                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento
+                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento (s/IVA)
                 </span>
               </span>
             </span>
