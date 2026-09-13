@@ -699,6 +699,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     eventNetResult: roundCents(eventNetResult),
     partnersPaidTotal: roundCents(partnersPaidTotal),
     additionalActivesTotal: roundCents(additionalActivesTotal),
+    addbacksTotal: roundCents(addbacksTotal),
     house: {
       residual: roundCents(residual),
       declared: roundCents(declared),
