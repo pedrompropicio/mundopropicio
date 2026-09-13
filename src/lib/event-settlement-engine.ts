@@ -38,6 +38,11 @@ export interface EngineSettlement {
   parent_share_pct?: number | string | null;
   parent_share_basis?: ParentShareBasis | null;
   is_sealed?: boolean | null;
+  /**
+   * (g1) Devolve a este fechamento o IVA dedutível das despesas do PERÍMETRO do
+   * fechamento acima. Só um filho por pai pode ter a regra e a raiz nunca.
+   */
+  returns_parent_deductible_vat?: boolean | null;
 }
 
 export interface EngineParticipant {
@@ -182,6 +187,10 @@ export interface SettlementNodeResult {
   operations: OperationNodeResult[];
   /** Σ activos adicionais que entram no resultado deste apuramento. */
   additionalActiveTotal: number;
+  /** (g1) IVA dedutível recebido do fechamento acima (0 se não tem a regra). */
+  vatReturnedIn: number;
+  /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
+  vatReturnedOut: number;
 }
 
 export interface HouseResidual {
