@@ -106,12 +106,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
 
   // ── BP forecasts (active version) — usados em committed e forecast ──
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecastsAll = [] } = useQuery({
     queryKey: ["efc-forecasts", idsKey, kind],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
@@ -121,6 +121,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     enabled: ids.length > 0,
   });
+  const forecasts = useMemo(() => keepRootPerimeter(forecastsAll, rootIds), [forecastsAll, rootIds]);
 
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
