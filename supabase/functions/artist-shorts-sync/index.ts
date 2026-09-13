@@ -310,10 +310,11 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            if (!byExternal.has(v.external_id)) {
+            const isNew = !byExternal.has(v.external_id);
+            if (isNew) {
               newByPlatform[platform] = (newByPlatform[platform] ?? 0) + 1;
             }
-            toUpsert.push({
+            const base: Record<string, unknown> = {
               company_id: artist.company_id,
               artist_id: artist.id,
               platform,
@@ -326,12 +327,26 @@ Deno.serve(async (req) => {
               published_at: v.published_at,
               duration_seconds: v.duration_seconds,
               author_handle: v.author_handle,
-              song_id: song?.id ?? null,
               sound_name: v.sound_name,
               sound_external_id: v.sound_external_id,
               source: SOURCE,
               updated_at: new Date().toISOString(),
-            });
+            };
+            if (isNew) {
+              // Só em linhas novas se escreve a ligação à obra.
+              toInsert.push(
+                song
+                  ? {
+                    ...base,
+                    song_id: song.id,
+                    song_link_status: "estimated",
+                    song_link_reason: "som identificado pela Soundcharts",
+                  }
+                  : base,
+              );
+            } else {
+              toUpdate.push(base);
+            }
             if (Object.keys(v.metrics).length) {
               // A data é a que a API diz (latestAudience.date); só na ausência
               // dela se usa a de hoje — nunca se atribui hoje a um valor antigo.
@@ -344,17 +359,20 @@ Deno.serve(async (req) => {
           }
 
           if (!dryRun) {
-            for (let i = 0; i < toUpsert.length; i += 300) {
-              const { error } = await admin
-                .from("artist_content")
-                .upsert(toUpsert.slice(i, i + 300), {
-                  onConflict: "artist_id,platform,external_id",
-                });
-              if (error) {
-                errors.push({ artist_id: artist.id, platform, error: error.message });
-                break;
+            for (const batch of [toInsert, toUpdate]) {
+              for (let i = 0; i < batch.length; i += 300) {
+                const { error } = await admin
+                  .from("artist_content")
+                  .upsert(batch.slice(i, i + 300), {
+                    onConflict: "artist_id,platform,external_id",
+                  });
+                if (error) {
+                  errors.push({ artist_id: artist.id, platform, error: error.message });
+                  break;
+                }
               }
             }
+
             for (const e of enrichOnly) {
               const { error } = await admin
                 .from("artist_content")
