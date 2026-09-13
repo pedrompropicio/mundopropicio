@@ -82,3 +82,25 @@ describe("(g5) receitas em poder do sócio e financiamento a devolver", () => {
 function roundish(v: number) {
   return Math.round(v * 100) / 100;
 }
+
+describe("(g7) receitas recebidas por encontro de contas", () => {
+  const held = [
+    { id: "c1", partnerId: EIN, source: "compensation" as const, accountName: "A&B Food — quota 30%", description: "A&B Food — quota 30%", amount: 29613.5, date: "2026-08-31", eventId: "e1" },
+    { id: "c2", partnerId: "outro-socio", source: "compensation" as const, accountName: "Bengaleiro", description: "Bengaleiro", amount: 138.82, date: "2026-08-31", eventId: "e1" },
+  ];
+
+  it("conta a receita de compensação em poder do sócio", () => {
+    const rows = collectRevenuesHeld(held, EIN);
+    expect(rows).toHaveLength(1);
+    expect(sumLineAmounts(rows)).toBe(29613.5);
+  });
+
+  it("não conta a receita de compensação em poder de outro sócio", () => {
+    expect(collectRevenuesHeld(held, "terceiro")).toHaveLength(0);
+  });
+
+  it("abate ao financiamento a devolver", () => {
+    const revenues = sumLineAmounts(collectRevenuesHeld(held, EIN));
+    expect(partnerFinancingToReturn(100000, 0, revenues)).toBe(70386.5);
+  });
+});

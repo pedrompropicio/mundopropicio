@@ -101,6 +101,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     reimbursement_note_id: "",
     ordering_partner_id: transaction.ordering_partner_id ?? "",
     paying_partner_id: (transaction as any).paying_partner_id ?? "",
+    /**
+     * (g7) "Recebido por" — receita recebida por encontro de contas em nome de um
+     * sócio. Vazio = Mundo Propício. Só existe em receitas por compensação.
+     */
+    held_by_supplier_id: ((transaction as any).held_by_supplier_id ?? "") as string,
+
   });
   const queryClient = useQueryClient();
   const { user, isManager, hasPermission } = useAuth();
@@ -384,7 +390,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       if (!form.event_id) return [];
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, percentage, can_order, can_pay, suppliers(name)")
+        .select("id, percentage, can_order, can_pay, supplier_id, suppliers(name)")
         .eq("event_id", form.event_id);
       if (error) throw error;
       return data ?? [];
@@ -487,12 +493,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         ordering_partner_id: "Ordenador da despesa",
         paying_partner_id: "Pagador da despesa",
         event_settlement_id: "Fechamento",
+        held_by_supplier_id: "Recebido por",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id", "held_by_supplier_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
+
 
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
@@ -519,6 +527,32 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       // grava-se sempre, fora de `paymentFields`, para nunca ser limpa (D-ERP45).
       const operationKeyField = { operation_key: form.operation_key.trim() || null };
 
+      /**
+       * (g7) "Recebido por" — só se aplica a receitas por encontro de contas e só
+       * vai no payload quando muda, para não depender do campo em transações que
+       * nunca o usam. Ao marcar um sócio, a receita fica paga (a base reforça isto
+       * com trigger próprio): nunca pode ficar "a receber".
+       */
+      const heldByValue =
+        transaction.type === "income" && form.payment_method === "compensation"
+          ? (form.held_by_supplier_id || null)
+          : null;
+      const heldByDirty = heldByValue !== (((transaction as any).held_by_supplier_id ?? null) as string | null);
+      const heldByFields: Record<string, unknown> = heldByDirty
+        ? {
+            held_by_supplier_id: heldByValue,
+            ...(heldByValue
+              ? {
+                  status: "paid",
+                  payment_date: form.payment_date || form.date,
+                  paid_amount: parseFloat(form.amount) || Number(transaction.amount) || 0,
+                }
+              : {}),
+          }
+        : {};
+
+
+
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
         specification: form.specification || null,
@@ -534,7 +568,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
+        ...heldByFields,
       } : {
+
         description: form.description,
         amount: parseFloat(form.amount),
         iva_rate: form.iva_rate,
@@ -569,7 +605,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           is_reimbursement: form.is_reimbursement,
           reimbursement_to: form.is_reimbursement ? (form.reimbursement_to.trim() || null) : null,
         } : {}),
+        ...heldByFields,
       };
+
 
       // TX parcelada (grupo "(n/N)"): valores só via editor de parcelas.
       if (isInstallmentGroup) {
@@ -2160,6 +2198,39 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               </div>
             );
           })()}
+
+          {/* (g7) Recebido por — receita recebida por encontro de contas. Vazio = casa.
+              Ao escolher um sócio, a receita fica paga na data da transação. */}
+          {!isExpense && form.payment_method === "compensation" && eventPartnersForExtra.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Recebido por
+                <HelpTooltip text="Quem ficou com o dinheiro deste encontro de contas. Abate ao acerto do sócio." />
+              </label>
+              <select
+                value={form.held_by_supplier_id}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    held_by_supplier_id: e.target.value,
+                    payment_date: e.target.value ? (form.payment_date || form.date) : form.payment_date,
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">— {houseLabel}</option>
+                {eventPartnersForExtra
+                  .filter((p: any) => p.supplier_id)
+                  .map((p: any) => (
+                    <option key={p.supplier_id} value={p.supplier_id}>
+                      {(p.suppliers as any)?.name ?? "Sócio"}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+
 
           {/* Chave de operação — sempre visível, independente do método (D-ERP45).
               Escolha a partir das que já existem; chave nova só se cumprir o padrão. */}

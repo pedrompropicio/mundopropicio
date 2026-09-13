@@ -1729,3 +1729,18 @@ Prova ao vivo (Anitta EDA 2026 · EVERYTHINGISNEW): desembolso de BP 124 linhas 
 **base 674.910,86 · IVA 155.229,50 · total 830.140,36**. C1/C2 a 0,00.
 
 Fecha a issue #133 e cobre a #126 no âmbito do evento.
+
+### Adenda (g7) — receitas recebidas por encontro de contas em nome de um sócio (13/09/2026)
+
+Compensação não pode ter conta (D-ERP43), por isso o (g5) não conseguia ver o
+dinheiro que ficou com um sócio quando foi ele a fazer o encontro de contas com
+o terceiro. Marca-se na transação: `transactions.held_by_supplier_id`, válido só
+em receitas com `payment_method = 'compensation'`, com o mesmo conceito que já
+existia em `event_third_party_operations.held_by_supplier_id`. Ao marcar, a
+transação fica paga na data da transação — receita em poder de um sócio nunca
+fica em "A receber". `get_partner_settlement_summary` soma-a no bloco (C); não
+há dupla contagem com as contas de acerto porque a compensação não tem conta.
+
+Regra de escrita registada aqui: descrições de transações e de linhas de BP são
+texto de negócio (o que o sócio ou o contabilista devem ler) e nunca levam notas
+de implementação, referências a fechamentos, "exclusivo" ou "planilha vNN".

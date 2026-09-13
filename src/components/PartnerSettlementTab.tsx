@@ -321,21 +321,31 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // (g5) Receitas em poder do sócio — 3 fontes: contas de acerto do sócio, receitas
-  // do evento em contas com partner_id, e operações de terceiros retidas por ele.
+  // (g5) Receitas em poder do sócio — contas de acerto do sócio, receitas do evento
+  // em contas com partner_id, operações de terceiros retidas por ele e (g7) receitas
+  // recebidas por encontro de contas marcadas com "Recebido por".
   const { data: revenuesHeldRaw = [] } = useQuery({
     queryKey: ["partner-revenues-held", allEventIdsKey],
     queryFn: async (): Promise<RevenueHeldRow[]> => {
-      const [accRes, opsRes] = await Promise.all([
+      const [accRes, opsRes, compRes] = await Promise.all([
         supabase.from("financial_accounts").select("id, name, partner_id, account_type").not("partner_id", "is", null),
         supabase
           .from("event_third_party_operations")
           .select("id, name, operator_result, held_by_supplier_id, event_id")
           .in("event_id", allEventIds)
           .not("held_by_supplier_id", "is", null),
+        supabase
+          .from("transactions")
+          .select("id, description, amount, date, event_id, status, reversed_at, held_by_supplier_id" as any)
+          .in("event_id", allEventIds)
+          .eq("type", "income")
+          .not("held_by_supplier_id" as any, "is", null),
       ]);
+
       if (accRes.error) throw accRes.error;
       if (opsRes.error) throw opsRes.error;
+      if (compRes.error) throw compRes.error;
+
 
       const accounts = accRes.data ?? [];
       const rows: RevenueHeldRow[] = [];
@@ -378,8 +388,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           eventId: op.event_id ?? null,
         });
       }
+
+      // (g7) Receitas recebidas por encontro de contas em nome de um sócio.
+      // Nunca têm conta, logo não há interseção com as contas de acerto acima.
+      for (const t of (compRes.data ?? []) as any[]) {
+        if (t.reversed_at || !(t.status === "paid" || t.status === "approved")) continue;
+        rows.push({
+          id: t.id,
+          partnerId: `supplier:${t.held_by_supplier_id}`,
+          source: "compensation",
+          accountName: t.description || "Encontro de contas",
+          description: t.description || "—",
+          amount: Number(t.amount) || 0,
+          date: t.date || "",
+          eventId: t.event_id ?? null,
+        });
+      }
       return rows;
     },
+
   });
 
   // (g5) Sócios que não deduzem IVA em PT (doc_locale pt-BR) — desembolso valorizado c/IVA.
