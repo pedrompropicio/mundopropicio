@@ -1188,6 +1188,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const housePositionReal = resultRealNet - externalShares;
   const houseNominalShare = settlements.find((s) => s.isHouse)?.partnerShare ?? 0;
   const houseIvaGain = housePositionReal - houseNominalShare;
+  // (g14) IVA que a sociedade NÃO recupera: fica na casa e não é devolvido.
+  const vatNotReturnedTotal = engine.result?.house.vatNotReturned ?? 0;
+  const vatNotReturnedLines = (engine.result?.nodes ?? [])
+    .filter((n) => n.vatNotReturned !== 0)
+    .flatMap((n) => n.vatNonRecoverableLines);
 
   const hasHouse = settlements.some((s) => s.isHouse);
   const showHouseInternalPosition = hasHouse && !ignoresOperationalExpenses(calcBasis);
