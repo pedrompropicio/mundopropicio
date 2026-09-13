@@ -423,3 +423,18 @@ O Portal **não calcula nada do fecho**. O cálculo vive num só sítio:
   valores gravados; o servidor não recalcula o cenário A&B ao vivo.
 - Nota: `suppliers.doc_locale` não tem GRANT de leitura a `authenticated` — no
   browser o locale cai para pt-PT; no servidor (service_role) é lido.
+
+## g17-d — Regra única de arredondamento ao cêntimo (2026-09-13)
+
+`roundCents` em `supabase/functions/_shared/settlement/iva.ts` (reexportado por
+`src/lib/iva.ts`) é a ÚNICA função de arredondamento do fecho: motor, ERP, edge
+function `partner-statement` e Portal. `Math.round(x*100)/100` está proibido no
+fecho — falhava em `596.133,45 × 70% = 417293.4149999999`, devolvendo
+417.293,41 em vez de 417.293,42. Implementação: normaliza a 15 dígitos
+significativos (`toPrecision(15)`), reescala em notação exponencial e arredonda
+half-away-from-zero, simétrico para negativos. Nunca `toFixed` nem truncatura
+na apresentação de valores (só em percentagens).
+
+Números confirmados após a correcção: ANITTA 417.293,42 · RAFAEL LOBO 35.768,01
+· EIN 273.953,35 (+ MP 273.953,34 = 547.906,69) · base a transferir da EIN
+230.990,35. `calcWithIva` em `src/lib/utils.ts` delega em `calcTotalWithIva`.

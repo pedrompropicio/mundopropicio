@@ -2028,3 +2028,14 @@ que valida o utilizador, resolve o sócio por `user_supplier_id`, exige acesso a
 evento e participação `mode = 'settles'`, e devolve o input do documento, o bloco
 "O seu fechamento" e os números do fecho para os cards. Nada de sócio ou de
 fechamento vem do cliente. Acesso registado em `system_audit_log`.
+
+### D25 — adenda g17-d (2026-09-13): regra única de arredondamento ao cêntimo
+
+`roundCents` (pacote partilhado `_shared/settlement/iva.ts`) passa a normalizar o
+ruído binário antes de arredondar (`toPrecision(15)` + notação exponencial,
+half-away-from-zero, simétrico). Motivo: a parte da ANITTA aparecia no Portal e
+no Encontro de Contas da raiz como 417.293,41 quando o motor e o relatório
+interno davam 417.293,42 (596.133,45 × 70% = 417293.4149999999 em binário).
+Corrigido na origem, não na apresentação. `Math.round(x*100)/100`, `toFixed` e
+truncatura ficam proibidos em valores do fecho. Números de referência
+mantidos: RAFAEL LOBO 35.768,01 · EIN 273.953,35 · base a transferir 230.990,35.
