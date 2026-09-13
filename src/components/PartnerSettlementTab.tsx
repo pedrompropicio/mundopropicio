@@ -929,7 +929,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
     y += 5;
-    doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
+    const activeSettlementName =
+      (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
+    doc.text(`Apuramento: ${activeSettlementName}`, margin, y);
+    y += 5;
+    doc.text(`Regra: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     if (solo) {
       y += 5;
       doc.text(
