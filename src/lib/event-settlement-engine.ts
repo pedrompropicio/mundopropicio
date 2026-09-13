@@ -781,6 +781,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       declared: roundCents(declared),
       ivaDeductible: roundCents(ivaDeductible),
       nominalGap: roundCents(nominalGap),
+      vatNotReturned: roundCents(vatNotReturnedTotal),
       rest: roundCents(rest),
     },
     c1: {
