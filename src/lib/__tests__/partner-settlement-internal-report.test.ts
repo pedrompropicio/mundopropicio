@@ -105,8 +105,8 @@ describe("linha g5 do sócio", () => {
     expect(labels).toEqual([
       "Parte no fechamento",
       "(+) Desembolso do sócio",
-      "(±) Ajustes ao desembolso",
-      "(−) Receitas em poder do sócio",
+      "(+/-) Ajustes ao desembolso",
+      "(-) Receitas em poder do sócio",
       "= Base a transferir",
       "(+) IVA 23% do repasse",
       "= Total",

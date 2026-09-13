@@ -343,7 +343,7 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     const h = input.house;
     nextSection("Posição da Mundo Propício (interno)", 4 + h.deductions.length);
     const body: any[][] = [["Resultado do evento (s/IVA)", money(h.resultRealNet)]];
-    for (const d of h.deductions) body.push([`(−) ${d.name} · ${d.basisLabel}`, money(-Math.abs(d.value))]);
+    for (const d of h.deductions) body.push([`(-) ${d.name} · ${d.basisLabel}`, money(-Math.abs(d.value))]);
     body.push(["Posição real", money(h.positionReal)]);
     body.push(["Quota nominal", money(h.nominalShare)]);
     body.push(["IVA dedutível retido", money(h.ivaDeductibleGain)]);

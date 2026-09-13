@@ -204,7 +204,7 @@ export function buildInternalSettlementReport(input: InternalReportInput): Inter
     for (const d of step.deductions) {
       lines.push({
         kind: "deduction",
-        label: `(−) ${d.name}${d.mode === "nominal" ? " (nominal)" : ""}`,
+        label: `(-) ${d.name}${d.mode === "nominal" ? " (nominal)" : ""}`,
         pctLabel: pct(d.percentage),
         value: -Math.abs(roundCents(d.value)),
       });
@@ -233,7 +233,7 @@ export function buildInternalSettlementReport(input: InternalReportInput): Inter
   if (hasCascade && Math.abs(input.exclusiveExpensesTotal ?? 0) > 0.004) {
     adds.push({
       kind: "add",
-      label: "(−) Despesas exclusivas deste fechamento",
+      label: "(-) Despesas exclusivas deste fechamento",
       value: -Math.abs(roundCents(input.exclusiveExpensesTotal ?? 0)),
     });
   }
@@ -278,13 +278,13 @@ export function partnerAccountLines(p: InternalPartnerBlock): Array<{ label: str
     { label: "(+) Desembolso do sócio", value: roundCents(p.disbursement) },
   ];
   if (Math.abs(p.adjustmentsTotal) > 0.004) {
-    rows.push({ label: "(±) Ajustes ao desembolso", value: roundCents(p.adjustmentsTotal) });
+    rows.push({ label: "(+/-) Ajustes ao desembolso", value: roundCents(p.adjustmentsTotal) });
   }
   if (Math.abs(p.revenuesHeldTotal) > 0.004) {
-    rows.push({ label: "(−) Receitas em poder do sócio", value: -Math.abs(roundCents(p.revenuesHeldTotal)) });
+    rows.push({ label: "(-) Receitas em poder do sócio", value: -Math.abs(roundCents(p.revenuesHeldTotal)) });
   }
   if (Math.abs(p.extrasTotal) > 0.004) {
-    rows.push({ label: "(−) Extras / adiantamentos", value: -Math.abs(roundCents(p.extrasTotal)) });
+    rows.push({ label: "(-) Extras / adiantamentos", value: -Math.abs(roundCents(p.extrasTotal)) });
   }
   rows.push({ label: "= Base a transferir", value: roundCents(p.transferBase), bold: true });
   if (p.transferWithVat && p.transferVat) {
