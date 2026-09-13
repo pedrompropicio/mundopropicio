@@ -3693,6 +3693,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     Devolvida a {addbackSettlementName}
                   </span>
                 )}
+                {item.vat_non_recoverable && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-muted text-muted-foreground px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title="O IVA desta linha não é recuperado pela sociedade: não entra no IVA dedutível devolvido."
+                  >
+                    IVA não recuperável
+                  </span>
+                )}
                 {item._overhead_via_master && (
                   <span
                     className="ml-2 inline-flex items-center rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
