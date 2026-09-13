@@ -1465,3 +1465,41 @@ substituído por `src/lib/settlement-participants.ts`
 (gated por `manage_bp`; casa read-only, recalculada). O Encontro de Contas ganhou
 **selector de apuramento** (só com 2+ apuramentos) e o PDF de fecho imprime o
 apuramento em uso. Paridade ao cêntimo mantida; 34 testes verdes; sem Publish.
+
+**Adenda a DR-2026-09-09-D25 — (e2) construída em 2026-09-13:** o Encontro de
+Contas passou a **calcular pelo apuramento seleccionado** (raiz = evento menos
+linhas marcadas com outros apuramentos; filho = linhas marcadas + quota do pai +
+activos adicionais), o filho mostra a origem da quota e nunca os participantes do
+pai, e o PDF leva o nome do apuramento no ficheiro e no cabeçalho. A aba Sócios
+ganhou `EventSettlementsManager` (criar, renomear, reordenar, apagar filhos,
+gated por `manage_bp`; a casa só existe na raiz). A quota da casa passou a
+descontar **todos** os sócios da raiz, `settles` e `nominal` — se absorvesse a
+parte nominal, o motor contava-a duas vezes (declarada + `nominalGap`) e a
+conferência C2 deixava de fechar. Documentos estanques com `partnerDocRows` e
+`visibleSettlementIdsForParticipant`. Paridade repetida: 0,00 € em 13
+participantes / 6 eventos.
+
+## DR-2026-09-13-D57 — O critério de custo é do evento, gravado em `events`
+
+**Decisão.** O critério de custo deixa de ser preferência de ecrã: vive em
+`events.cost_expense_source` ('realized' | 'committed', **default 'committed'**)
+e `events.cost_include_overhead` (boolean, **default true**). É lido pelo card da
+capa, pelo Fecho, pelo Encontro de Contas, pelo painel Apuramentos, pelos PDFs e
+pelo Portal do Sócio — o mesmo número em qualquer computador e para qualquer
+pessoa. Escrita gated por `manage_bp` (ou admin/manager), com erro em toast.
+
+**Porquê.** O critério vivia no `localStorage` de cada browser: duas pessoas (ou
+a mesma pessoa noutro computador) viam custos diferentes para o mesmo evento, e
+um PDF de fecho podia sair com um critério que ninguém mais reproduzia. Um total
+que depende de um clique local produz erro de fecho por esquecimento.
+
+**`withVat` é derivado, não é escolha.** Vem de `events.partner_calc_basis` (o
+critério contratual gravado). Deixou de haver toggle de IVA no card de custos e
+no selector do Fecho — muda-se na ficha do evento. O card de **receitas** mantém
+a sua preferência local de IVA (não é matéria de fecho).
+
+**Backfill.** Todos os eventos existentes ficaram em `committed` + `true` pelo
+DEFAULT, **incluindo a Anitta**: é exactamente o critério da planilha v23/v4
+(previsto + excedido, com overhead, despesa c/IVA). Nenhum caso especial. O
+resultado 597.183,45 dessa planilha não se reproduz hoje por faltarem os níveis
+2/3, os activos exclusivos e ajustes de IVA — peça posterior, com autorização.
