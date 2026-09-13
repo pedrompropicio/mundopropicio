@@ -709,11 +709,8 @@ export default function EventDetail() {
     const rows = pickOutsideRootPerimeter(eventTransactions as any[], rootSettlementIds).filter(
       (t: any) => t.is_hidden !== true && t.reversed_at == null,
     );
-    const value = rows.reduce(
-      (s: number, t: any) =>
-        s + (costBasis.withVat ? calcTotalWithIva(Number(t.amount ?? 0), Number(t.iva_rate ?? 0)) : Number(t.amount ?? 0)),
-      0,
-    );
+    // Sempre em base s/IVA: é assim que o motor dos fechamentos lê estas linhas.
+    const value = rows.reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
     const names = Array.from(
       new Set(rows.map((t: any) => settlementNameById?.[t.event_settlement_id] ?? "outro fechamento")),
     );
