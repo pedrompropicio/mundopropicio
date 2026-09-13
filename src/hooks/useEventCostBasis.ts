@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 
 /**
- * CRITÉRIO DE CUSTO ÚNICO POR EVENTO.
+ * CRITÉRIO DE CUSTO ÚNICO POR EVENTO — GRAVADO NA BASE DE DADOS.
  *
- * Antes existiam dois seletores independentes (card da capa e Fecho) com
- * defaults diferentes — o mesmo evento mostrava dois custos. Este store é a
- * única fonte de verdade: card, Encontro de Contas e Geral do evento leem e
- * escrevem aqui, e mexer num reflete-se no outro em tempo real.
+ * D25 (e2): o critério deixou de viver no localStorage de cada browser. Vive em
+ * `events.cost_expense_source` ('realized' | 'committed', default 'committed')
+ * e `events.cost_include_overhead' (boolean, default true). Assim o card da
+ * capa, o Fecho, o Encontro de Contas, o painel Apuramentos, os PDFs e o Portal
+ * do Sócio mostram o MESMO número em qualquer computador.
  *
- * Defaults: overhead LIGADO (é custo real imputado ao evento) e IVA a partir
- * de `events.partner_calc_basis` (critério contratual gravado). O toggle NUNCA
- * escreve em `partner_calc_basis`.
+ * `withVat` continua a vir de `events.partner_calc_basis` (critério contratual)
+ * — é derivado, não é preferência de ecrã, e o toggle NUNCA o reescreve.
  *
- * Persistência: localStorage por user+evento (uma chave por campo, não por ecrã).
+ * Escrita gated por `manage_bp` (ou admin/manager); erro aparece em toast.
  */
 
 export type CostExpenseSource = "realized" | "committed";
@@ -26,96 +29,94 @@ export interface EventCostBasisState {
 }
 
 export interface EventCostBasis extends EventCostBasisState {
+  /** Derivado de `partner_calc_basis` — sem efeito, mantido para compatibilidade dos consumidores. */
   setWithVat: (v: boolean) => void;
   setIncludeOverhead: (v: boolean) => void;
   setExpenseSource: (v: CostExpenseSource) => void;
+  /** false ⇒ os seletores devem ficar desativados. */
+  canEditBasis: boolean;
+  isSaving: boolean;
 }
 
-type Field = "vat" | "overhead" | "expsource";
-
-const storageKey = (scope: string, field: Field) => `event-cost-basis-${scope}-${field}`;
-
-const cache = new Map<string, EventCostBasisState>();
-const seeded = new Set<string>();
-const listeners = new Map<string, Set<() => void>>();
-
-function readRaw(scope: string, field: Field): string | null {
-  try { return localStorage.getItem(storageKey(scope, field)); } catch { return null; }
-}
-function writeRaw(scope: string, field: Field, value: string) {
-  try { localStorage.setItem(storageKey(scope, field), value); } catch { /* noop */ }
+interface CostBasisRow {
+  cost_expense_source: CostExpenseSource;
+  cost_include_overhead: boolean;
+  partner_calc_basis: string | null;
 }
 
-function initState(scope: string, seedVat: boolean): EventCostBasisState {
-  const vat = readRaw(scope, "vat");
-  const oh = readRaw(scope, "overhead");
-  const src = readRaw(scope, "expsource");
-  return {
-    withVat: vat === "1" ? true : vat === "0" ? false : seedVat,
-    includeOverhead: oh === "0" ? false : true, // default ON
-    expenseSource: src === "committed" ? "committed" : "realized",
-  };
-}
-
-function getState(scope: string, seedVat: boolean): EventCostBasisState {
-  let s = cache.get(scope);
-  if (!s) {
-    s = initState(scope, seedVat);
-    cache.set(scope, s);
-  }
-  return s;
-}
-
-function emit(scope: string) {
-  listeners.get(scope)?.forEach((l) => l());
-}
-
-function patchState(scope: string, patch: Partial<EventCostBasisState>) {
-  const cur = cache.get(scope);
-  if (!cur) return;
-  const next = { ...cur, ...patch };
-  cache.set(scope, next);
-  if (patch.withVat !== undefined) writeRaw(scope, "vat", next.withVat ? "1" : "0");
-  if (patch.includeOverhead !== undefined) writeRaw(scope, "overhead", next.includeOverhead ? "1" : "0");
-  if (patch.expenseSource !== undefined) writeRaw(scope, "expsource", next.expenseSource);
-  emit(scope);
-}
+export const eventCostBasisQueryKey = (eventId: string) => ["event-cost-basis", eventId];
 
 /**
  * @param eventId    Evento (ou master, no caso do Fecho da turnê).
- * @param partnerCalcBasis `events.partner_calc_basis` — semente do toggle de IVA.
+ * @param partnerCalcBasis `events.partner_calc_basis`, quando o consumidor já o tem
+ *                         em mão (evita esperar pela query).
  */
 export function useEventCostBasis(eventId: string, partnerCalcBasis?: string | null): EventCostBasis {
-  const { user } = useAuth();
-  const scope = `${user?.id ?? "anon"}-${eventId}`;
-  const seedVat = usesGrossExpenseAmounts(normalizePartnerCalcBasis(partnerCalcBasis));
+  const { isAdmin, isManager, hasPermission } = useAuth();
+  const canEditBasis = !!(isAdmin || isManager || hasPermission("manage_bp"));
+  const queryClient = useQueryClient();
 
-  const [state, setLocal] = useState<EventCostBasisState>(() => getState(scope, seedVat));
+  const { data } = useQuery({
+    queryKey: eventCostBasisQueryKey(eventId),
+    enabled: !!eventId,
+    queryFn: async (): Promise<CostBasisRow | null> => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("cost_expense_source, cost_include_overhead, partner_calc_basis")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as unknown as CostBasisRow | null;
+    },
+  });
 
-  useEffect(() => {
-    setLocal(getState(scope, seedVat));
-    const set = listeners.get(scope) ?? new Set<() => void>();
-    listeners.set(scope, set);
-    const cb = () => setLocal(cache.get(scope)!);
-    set.add(cb);
-    return () => { set.delete(cb); };
-    // seedVat é só semente inicial — não re-subscrever quando muda
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope]);
+  const save = useMutation({
+    mutationFn: async (patch: Partial<Pick<CostBasisRow, "cost_expense_source" | "cost_include_overhead">>) => {
+      const { error } = await supabase.from("events").update(patch as any).eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eventCostBasisQueryKey(eventId) });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Não foi possível guardar o critério",
+        description: err?.message ?? "Erro",
+        variant: "destructive",
+      }),
+  });
 
-  // `partner_calc_basis` chega por query. Se o utilizador ainda não escolheu
-  // IVA para este evento, aplica a semente contratual (uma única vez).
-  useEffect(() => {
-    if (partnerCalcBasis === undefined) return;
-    if (seeded.has(scope)) return;
-    seeded.add(scope);
-    if (readRaw(scope, "vat") === null) patchState(scope, { withVat: seedVat });
-  }, [scope, partnerCalcBasis, seedVat]);
+  const guardedSave = useCallback(
+    (patch: Partial<Pick<CostBasisRow, "cost_expense_source" | "cost_include_overhead">>) => {
+      if (!canEditBasis) {
+        toast({
+          title: "Sem permissão",
+          description: "Só quem edita o Business Plan pode mudar o critério de custo do evento.",
+          variant: "destructive",
+        });
+        return;
+      }
+      save.mutate(patch);
+    },
+    [canEditBasis, save],
+  );
+
+  const basisSource = partnerCalcBasis !== undefined ? partnerCalcBasis : data?.partner_calc_basis;
+  const withVat = usesGrossExpenseAmounts(normalizePartnerCalcBasis(basisSource));
 
   return {
-    ...state,
-    setWithVat: useCallback((v: boolean) => patchState(scope, { withVat: v }), [scope]),
-    setIncludeOverhead: useCallback((v: boolean) => patchState(scope, { includeOverhead: v }), [scope]),
-    setExpenseSource: useCallback((v: CostExpenseSource) => patchState(scope, { expenseSource: v }), [scope]),
+    withVat,
+    includeOverhead: data?.cost_include_overhead ?? true,
+    expenseSource: (data?.cost_expense_source ?? "committed") as CostExpenseSource,
+    setWithVat: () => {
+      /* derivado de partner_calc_basis — não é editável aqui */
+    },
+    setIncludeOverhead: useCallback((v: boolean) => guardedSave({ cost_include_overhead: v }), [guardedSave]),
+    setExpenseSource: useCallback(
+      (v: CostExpenseSource) => guardedSave({ cost_expense_source: v }),
+      [guardedSave],
+    ),
+    canEditBasis,
+    isSaving: save.isPending,
   };
 }
