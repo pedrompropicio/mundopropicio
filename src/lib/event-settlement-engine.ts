@@ -219,6 +219,10 @@ export interface SettlementNodeResult {
   vatReturnedIn: number;
   /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
   vatReturnedOut: number;
+  /** (g6) Custos do evento devolvidos a ESTE fechamento (internos da sociedade). */
+  addbackIn: number;
+  /** (g6) Detalhe das linhas devolvidas a este fechamento. */
+  addbacks: AddbackNodeResult[];
   /**
    * (g4) Base do FECHAMENTO: true = despesas c/IVA. Raiz →
    * `events.partner_calc_basis`; filho → `parent_share_basis`. Todos os
