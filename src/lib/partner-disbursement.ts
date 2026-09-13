@@ -37,6 +37,7 @@ export interface BpPaidForecastRow {
   paying_partner_id?: string | null;
   transaction_id?: string | null;
   event_id?: string | null;
+  category_id?: string | null;
   account_categories?: { name?: string | null; code?: string | null } | null;
 }
 
