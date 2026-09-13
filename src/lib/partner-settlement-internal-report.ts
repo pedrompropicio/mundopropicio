@@ -208,7 +208,7 @@ export interface InternalReportInput {
   expenseCategoryLevel?: "l2" | "l3";
 }
 
-export type InternalCascadeLineKind = "start" | "deduction" | "quota" | "add" | "total";
+export type InternalCascadeLineKind = "start" | "deduction" | "quota" | "add" | "total" | "note";
 
 export interface InternalCascadeLine {
   kind: InternalCascadeLineKind;
