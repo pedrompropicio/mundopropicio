@@ -26,16 +26,23 @@ export interface PartnerFinancialCardsProps {
    * uma nota discreta no card Despesas.
    */
   adjustedRubricsCount?: number;
+  /**
+   * (g17) Números do FECHO vindos do servidor (perímetro da raiz). Quando dados,
+   * mandam sobre o cálculo local — o Portal nunca mostra um "Resultado" que não
+   * seja o do fecho.
+   */
+  fecho?: { revenueNet: number; expenses: number; result: number; expensesWithVat: boolean } | null;
 }
 
 export function PartnerFinancialCards({
   ticketsNet, sponsorshipNet, barsNet, otherNet = 0, bpExpenseGross,
   bpExpenseRealized = 0, showRealized = false, realizedError = false,
-  adjustedRubricsCount = 0,
+  adjustedRubricsCount = 0, fecho = null,
 }: PartnerFinancialCardsProps) {
-  const incomeNet = ticketsNet + sponsorshipNet + barsNet + otherNet;
-  const result = incomeNet - bpExpenseGross;
-  const pct = showRealized && bpExpenseGross > 0
+  const incomeNet = fecho ? fecho.revenueNet : ticketsNet + sponsorshipNet + barsNet + otherNet;
+  const expenseTotal = fecho ? fecho.expenses : bpExpenseGross;
+  const result = fecho ? fecho.result : incomeNet - expenseTotal;
+  const pct = !fecho && showRealized && bpExpenseGross > 0
     ? (bpExpenseRealized ?? 0) / bpExpenseGross * 100
     : 0;
   const pctColor = pct <= 100 ? "text-emerald-500" : pct <= 110 ? "text-amber-500" : "text-red-500";
