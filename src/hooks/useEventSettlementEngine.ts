@@ -11,7 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcTotalWithIva } from "@/lib/iva";
 import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { normalizePartnerCalcBasis } from "@/lib/partner-calc-basis";
-import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import {
+  HOUSE_PARTNER_NAME,
+  fetchSettlementParticipants,
+  type SettlementParticipant,
+} from "@/lib/settlement-participants";
+
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
 import {
   computeSettlementEngine,
@@ -134,19 +139,14 @@ export function useEventSettlementEngine(eventId: string) {
     },
   });
 
+  // Participantes pela fonte de verdade única (#146 (e)) — resolve já o nome do
+  // fornecedor. Antes o embed `supplier:suppliers(name)` vinha vazio e o painel
+  // mostrava "—" (caso SUPERSOUNDS na Ivete).
   const { data: participants = [] } = useQuery({
-    queryKey: ["event-settlement-participants", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_settlement_participants")
-        .select(
-          "id, settlement_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, can_order, can_pay, visible_in_docs, supplier_id, event_partner_id, supplier:suppliers(name)",
-        )
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryKey: ["event-settlement-participants-engine", eventId],
+    queryFn: () => fetchSettlementParticipants([eventId]),
   });
+
 
   const { data: paidExpenses = [] } = useQuery({
     queryKey: ["event-settlement-engine-paid", idsKey],
@@ -301,18 +301,19 @@ export function useEventSettlementEngine(eventId: string) {
       m.extrasGross! += ex.origem === "transacao" ? calcTotalWithIva(net, Number(ex.iva_rate || 0)) : net;
     });
 
-    const engineParticipants: EngineParticipant[] = (participants as any[]).map((p) => ({
-      id: p.id,
+    const engineParticipants: EngineParticipant[] = (participants as SettlementParticipant[]).map((p) => ({
+      id: p.participantId,
       settlement_id: p.settlement_id,
-      participant_kind: p.participant_kind,
-      name: p.participant_kind === "house" ? HOUSE_PARTNER_NAME : (p.supplier?.name ?? "—"),
+      participant_kind: p.isHouse ? "house" : "partner",
+      name: p.isHouse ? HOUSE_PARTNER_NAME : (p.suppliers?.name || "—"),
       supplier_id: p.supplier_id ?? null,
       event_partner_id: p.event_partner_id ?? null,
-      mode: p.mode,
-      profit_pct: p.profit_pct,
-      loss_pct: p.loss_pct,
+      mode: p.mode as "settles" | "nominal",
+      profit_pct: p.percentage,
+      loss_pct: p.loss_percentage,
       expense_includes_iva: p.expense_includes_iva,
     }));
+
 
     return computeSettlementEngine({
       eventBasis: normalizePartnerCalcBasis(event?.partner_calc_basis),

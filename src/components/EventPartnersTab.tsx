@@ -28,6 +28,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
 import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import { EventSettlementsManager } from "@/components/EventSettlementsManager";
+
 
 interface Props {
   eventId: string;
@@ -127,9 +129,12 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const settlementName = (id: string) =>
     (settlements as any[]).find((s) => s.id === id)?.name ?? "—";
 
-  const totalPercentage = partnerRows
-    .filter((p) => p.mode === "settles")
-    .reduce((sum: number, p: any) => sum + Number(p.profit_pct || 0), 0);
+  // Inclui os `nominal`: também eles reduzem a quota da casa (#146 (e2) ponto 3).
+  const totalPercentage = partnerRows.reduce(
+    (sum: number, p: any) => sum + Number(p.profit_pct || 0),
+    0,
+  );
+
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["event-settlement-participants", eventId] });
@@ -180,15 +185,18 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
-  /** Recalcula a quota da casa (100 − Σ sócios que acertam no raiz). */
+  /**
+   * Recalcula a quota da casa: 100 − Σ de TODOS os participantes `partner` da
+   * raiz, incluindo os `nominal`. Se a casa absorvesse a quota nominal, o motor
+   * contava-a duas vezes (declarada + nominalGap) e a C2 deixava de fechar.
+   */
   const syncHouse = async () => {
     if (!houseRow || !rootSettlement) return;
     const { data: rows } = await supabase
       .from("event_settlement_participants")
       .select("profit_pct, loss_pct, mode, participant_kind")
       .eq("event_id", eventId)
-      .eq("participant_kind", "partner")
-      .eq("mode", "settles");
+      .eq("participant_kind", "partner");
     const sumProfit = (rows ?? []).reduce((s: number, r: any) => s + Number(r.profit_pct || 0), 0);
     const sumLoss = (rows ?? []).reduce(
       (s: number, r: any) => s + Number(r.loss_pct ?? r.profit_pct ?? 0),
@@ -199,6 +207,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       .update({ profit_pct: 100 - sumProfit, loss_pct: 100 - sumLoss })
       .eq("id", houseRow.id);
   };
+
 
   const addParticipant = useMutation({
     mutationFn: async () => {
@@ -348,7 +357,10 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         </RadioGroup>
       </div>
 
+      <EventSettlementsManager eventId={eventId} canEdit={canEdit} />
+
       {/* Participants list */}
+
       <div className="glass rounded-xl p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -30,6 +30,8 @@ import {
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
+import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
+
 
 import {
   fetchEventSettlements,
@@ -178,6 +180,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Critério de fecho (IVA · base · overhead). Valor inicial do
   // IVA vem de partner_calc_basis; o toggle nunca escreve nesse campo.
   const basis = useFechoBasis(eventId, event?.partner_calc_basis);
+
+  // Motor dos apuramentos — dá o perímetro e a quota do pai do nó activo (#146 (e2)).
+  const engine = useEventSettlementEngine(eventId);
+
 
 
 
@@ -435,10 +441,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
     : incomeTransactions;
 
-  const totalRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
+  const eventRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
     + revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
+  const eventRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
     + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+
 
   // ---- Despesa segundo o critério selecionado no seletor ----------------
   // Base "realizado" = transações; base "previsto + excedido" = linhas aprovadas do BP.
@@ -459,8 +466,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const outsideBpGross = basis.expenseSource === "committed"
     ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, true) : 0;
 
-  const totalExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
-  const totalExpensesGross = sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross;
+  const eventExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
+  const eventExpensesGross = sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross;
+
+  // ── O Encontro de Contas calcula o APURAMENTO ACTIVO, não o evento (#146 (e2)) ──
+  // Raiz = totais do evento menos as linhas marcadas com outros apuramentos.
+  // Filho = só as suas linhas marcadas + quota do pai + activos adicionais das
+  // operações de terceiros. Evento com um único apuramento e sem linhas marcadas
+  // → totais do evento, exactamente como antes (paridade obrigatória).
+  const activeNode = engine.result?.nodes.find((n) => n.id === activeSettlementId) ?? null;
+  const useNodeTotals = !!activeNode && (eventSettlements as any[]).length > 1;
+  const parentNode = activeNode?.parentId
+    ? engine.result?.nodes.find((n) => n.id === activeNode.parentId) ?? null
+    : null;
+
+  const totalRevenueNet = useNodeTotals
+    ? activeNode!.perimeter.revenueNet + activeNode!.additionalActiveTotal + (activeNode!.parentQuota ?? 0)
+    : eventRevenueNet;
+  // A receita é sempre s/IVA (D24): num nó, bruto = líquido.
+  const totalRevenueGross = useNodeTotals ? totalRevenueNet : eventRevenueGross;
+  const totalExpensesNet = useNodeTotals ? activeNode!.perimeter.expensesNet : eventExpensesNet;
+  const totalExpensesGross = useNodeTotals ? activeNode!.perimeter.expensesGross : eventExpensesGross;
+
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
@@ -655,7 +682,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allPartners = (partners as any[]).filter(
     (p) => !p.isHouse || Number(p.percentage || 0) > 0.0001,
   );
-  const housePct = (partners as any[]).find((p) => p.isHouse)?.percentage ?? null;
+  
 
   if (allPartners.length === 0) {
     return (
@@ -933,6 +960,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
     doc.text(`Apuramento: ${activeSettlementName}`, margin, y);
     y += 5;
+    // Origem da quota num apuramento filho — o documento é estanque: nunca leva
+    // os participantes do pai, só de onde vem o dinheiro (#146 (e2)).
+    if (activeNode?.parentId && parentNode) {
+      doc.text(
+        `Quota do apuramento acima: ${parentNode.name} · ${activeNode.parentSharePct ?? 0}% de ${formatCurrency(
+          activeNode.parentQuotaBasis === "net_result_gross_expenses" ? parentNode.resultGross : parentNode.resultNet,
+        )} (${activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) = ${formatCurrency(activeNode.parentQuota ?? 0)}`,
+        margin,
+        y,
+      );
+      y += 5;
+    }
+
     doc.text(`Regra: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     if (solo) {
       y += 5;
@@ -1871,7 +1911,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
 
     const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");
-    doc.save(solo ? `Fecho_${safe(eventName)}_${safe(solo.partnerName)}.pdf` : `Fecho_${safe(eventName)}.pdf`);
+    // O nome do ficheiro identifica o apuramento quando o evento tem mais do que um.
+    const settlementSuffix =
+      (eventSettlements as any[]).length > 1 ? `_${safe(activeSettlementName)}` : "";
+    doc.save(
+      solo
+        ? `Fecho_${safe(eventName)}${settlementSuffix}_${safe(solo.partnerName)}.pdf`
+        : `Fecho_${safe(eventName)}${settlementSuffix}.pdf`,
+    );
+
   }
 
   return (
@@ -1953,7 +2001,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         </div>
       </div>
 
+      {/* Origem da quota num apuramento filho — estanque: nunca os participantes do pai */}
+      {activeNode?.parentId && parentNode && (
+        <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
+          <p className="font-semibold">{activeNode.name}</p>
+          <p className="text-muted-foreground">
+            Quota do apuramento acima <strong>{parentNode.name}</strong>:{" "}
+            {activeNode.parentSharePct ?? 0}% de{" "}
+            {formatCurrency(
+              activeNode.parentQuotaBasis === "net_result_gross_expenses"
+                ? parentNode.resultGross
+                : parentNode.resultNet,
+            )}{" "}
+            ({activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) ={" "}
+            <strong>{formatCurrency(activeNode.parentQuota ?? 0)}</strong>
+            {activeNode.additionalActiveTotal !== 0 && (
+              <> · activos adicionais {formatCurrency(activeNode.additionalActiveTotal)}</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Global summary — critério conforme seletor */}
+
       <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
