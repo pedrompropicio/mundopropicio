@@ -25,7 +25,7 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
       if (error) throw error;
       if (!roles?.length) return [];
       const userIds = roles.map((r) => r.user_id);
-      const { data: profiles, error: pErr } = await supabase.from("profiles").select("id, full_name, email").in("id", userIds);
+      const { data: profiles, error: pErr } = await supabase.from("profiles").select("id, full_name, email, linked_supplier_id").in("id", userIds);
       if (pErr) throw pErr;
       return profiles ?? [];
     },
@@ -254,6 +254,13 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
           {Object.entries(accessByUser).map(([userId, records]) => (
             <div key={userId} className="glass rounded-xl p-4">
               <p className="text-sm font-semibold mb-2">{getUserName(userId)}</p>
+              {/* (g9c · P2-12) Sem sócio ligado, o Portal não resolve a identidade do sócio. */}
+              {!(partnerUsers.find((u: any) => u.id === userId) as any)?.linked_supplier_id && (
+                <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
+                  Sem sócio ligado — o Portal não mostra fechamento. Ligue o utilizador na ficha do sócio
+                  (Fornecedores → editar → «Utilizador do Portal»).
+                </p>
+              )}
               <div className="space-y-1.5">
                 {records.map((r: any) => (
                   <div key={r.id} className="flex items-center justify-between text-xs">
