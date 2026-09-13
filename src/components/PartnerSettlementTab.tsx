@@ -329,7 +329,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryKey: ["partner-revenues-held", allEventIdsKey],
     queryFn: async (): Promise<RevenueHeldRow[]> => {
       const [accRes, opsRes, compRes] = await Promise.all([
-        supabase.from("financial_accounts").select("id, name, partner_id, account_type").not("partner_id", "is", null),
+        supabase.from("financial_accounts").select("id, name, partner_id, type").not("partner_id", "is", null),
         supabase
           .from("event_third_party_operations")
           .select("id, name, operator_result, held_by_supplier_id, event_id")
@@ -366,7 +366,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           rows.push({
             id: t.id,
             partnerId: acc?.partner_id as string,
-            source: acc?.account_type === "settlement" ? "settlement_account" : "partner_account",
+            // Não existe tipo próprio de conta de acerto: qualquer conta com
+            // partner_id é conta de acerto do sócio.
+            source: acc?.partner_id ? "settlement_account" : "partner_account",
             accountName: acc?.name || "—",
             description: t.description || "—",
             amount: Number(t.amount) || 0,
