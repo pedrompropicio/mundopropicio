@@ -6613,6 +6613,7 @@ export type Database = {
           description: string
           event_id: string
           id: string
+          kind: string
           notes: string | null
           partner_id: string
           updated_at: string
@@ -6624,6 +6625,7 @@ export type Database = {
           description: string
           event_id: string
           id?: string
+          kind?: string
           notes?: string | null
           partner_id: string
           updated_at?: string
@@ -6635,6 +6637,7 @@ export type Database = {
           description?: string
           event_id?: string
           id?: string
+          kind?: string
           notes?: string | null
           partner_id?: string
           updated_at?: string
@@ -7670,6 +7673,7 @@ export type Database = {
           document_ref: string | null
           event_id: string
           gross_amount: number | null
+          held_by_supplier_id: string | null
           id: string
           kind: string
           name: string
@@ -7685,6 +7689,7 @@ export type Database = {
           document_ref?: string | null
           event_id: string
           gross_amount?: number | null
+          held_by_supplier_id?: string | null
           id?: string
           kind: string
           name: string
@@ -7700,6 +7705,7 @@ export type Database = {
           document_ref?: string | null
           event_id?: string
           gross_amount?: number | null
+          held_by_supplier_id?: string | null
           id?: string
           kind?: string
           name?: string
@@ -7715,6 +7721,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_third_party_operations_held_by_supplier_id_fkey"
+            columns: ["held_by_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {
@@ -15728,6 +15741,24 @@ export type Database = {
           iva_rate: number
           tx_count: number
           tx_type: string
+        }[]
+      }
+      get_partner_settlement_summary: {
+        Args: {
+          _event_id: string
+          _partner_share?: number
+          _settlement_id: string
+          _transfer_with_vat?: boolean
+        }
+        Returns: {
+          adjustments: number
+          disbursement: number
+          extras: number
+          partner_share: number
+          revenues_held: number
+          transfer_base: number
+          transfer_total: number
+          transfer_vat: number
         }[]
       }
       get_sales_last_sync: { Args: never; Returns: string }
