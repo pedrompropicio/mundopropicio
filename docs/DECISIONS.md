@@ -1594,3 +1594,15 @@ e não propaga valor ao card Lucro.
 Prova em Live: só a Anitta EDA 2026 tem linhas fora do perímetro (3 TX de receita,
 72.250,52 s/IVA, "Fechamento MP + EIN"); 0 linhas de BP em toda a base. Os
 restantes 55 eventos dão receita/custo/lucro idênticos antes e depois.
+
+**Adenda (g3+) — o Lucro nunca usa receita prevista.** O card Lucro e a margem
+usam sempre a RECEITA REAL do perímetro da raiz (`realValue` em
+`useEventFinancialCardData`), mesmo quando o card de receitas está em "Previsto +
+excedido"; o card de receitas continua a mostrar o valor do critério, com nota
+discreta "real: X" quando os dois divergem. Assim o Lucro do evento é igual ao
+resultado do fechamento raiz no Encontro de Contas. Prova Live (13/09/2026):
+Anitta 2.527.352,94 − 1.931.219,49 = 596.133,45 no card e no Encontro de Contas;
+Plenitude −21.124,92; FestVybbe −47.186,80; H&K Madrid −525.628,84; Ivete
+−308.812,62; Mágicos H&K −30.233,91 — todos iguais a receita real − despesas
+c/IVA do motor. Coala Festival PT 2026 pertence a outro tenant e não é visível na
+sessão MP (não verificado por ecrã).
