@@ -144,7 +144,7 @@ export default function PartnerEventDetail() {
   };
 
   const { data: allCategories = [] } = useQuery({
-    queryKey: ["all_categories"],
+    queryKey: ["all_categories", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("account_categories").select("id, code, name, parent_id, type, is_active");
       if (error) throw error;
@@ -155,7 +155,7 @@ export default function PartnerEventDetail() {
 
   // Fetch event + sub-events in one query to eliminate waterfall
   const { data: eventBundle, isLoading } = useQuery({
-    queryKey: ["partner_event_bundle", id],
+    queryKey: ["partner_event_bundle", user?.id, id],
     queryFn: async () => {
       const [eventRes, subRes] = await Promise.all([
         supabase.from("events").select("*").eq("id", id!).single(),
@@ -186,7 +186,7 @@ export default function PartnerEventDetail() {
     && hasPermission("edit_approved_bp");
 
   const { data: bpActiveVersionId } = useQuery({
-    queryKey: ["bp_active_version_id_partner", activeEventId],
+    queryKey: ["bp_active_version_id_partner", user?.id, activeEventId],
     queryFn: async () => {
       const { data } = await supabase
         .from("bp_versions")
@@ -200,7 +200,7 @@ export default function PartnerEventDetail() {
   });
 
   const { data: bpGridForecasts = [] } = useQuery({
-    queryKey: ["event_forecasts", "partner_grid", activeEventId, bpActiveVersionId ?? null],
+    queryKey: ["event_forecasts", user?.id, "partner_grid", activeEventId, bpActiveVersionId ?? null],
     queryFn: async () => {
       const q = supabase
         .from("event_forecasts")
@@ -227,7 +227,7 @@ export default function PartnerEventDetail() {
     : id ?? null;
 
   const { data: eventData } = useQuery({
-    queryKey: ["partner_event_data", activeEventId, parentEventId, isMasterView, subEvents.map((s:any)=>s.id).join(",")],
+    queryKey: ["partner_event_data", user?.id, activeEventId, parentEventId, isMasterView, subEvents.map((s:any)=>s.id).join(",")],
     queryFn: async () => {
       // Em modo Master: agrega Master + todos sub-eventos visíveis
       // Em modo cidade: ativo + Master (rateado ÷N)
@@ -414,7 +414,7 @@ export default function PartnerEventDetail() {
     [eventData?.ticketZones],
   );
   const { data: lastSaleAt } = useQuery({
-    queryKey: ["partner_last_sale_created_at", zoneIdsForSales.join(",")],
+    queryKey: ["partner_last_sale_created_at", user?.id, zoneIdsForSales.join(",")],
     queryFn: async () => {
       if (zoneIdsForSales.length === 0) return null;
       const { data, error } = await supabase
@@ -449,7 +449,7 @@ export default function PartnerEventDetail() {
   // Sem acesso a `transactions`: os adiantamentos/despesas pagas pelo sócio
   // vêm por RPC SECURITY DEFINER, restrita aos registos destes eventos.
   const { data: partnerExpenseRows = [] } = useQuery({
-    queryKey: ["partner_event_partner_expenses", partnerEventIdsKey],
+    queryKey: ["partner_event_partner_expenses", user?.id, partnerEventIdsKey],
     queryFn: async () => {
       if (partnerEventIds.length === 0) return [];
       const { data, error } = await supabase.rpc("get_partner_event_partner_expenses" as any, {
@@ -493,7 +493,7 @@ export default function PartnerEventDetail() {
 
   // ── Anexos do BP agregados por categoria L3 (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
   const { data: bpAttachmentsRaw = [] } = useQuery({
-    queryKey: ["bp_l3_attachments_partner", partnerEventIdsKey],
+    queryKey: ["bp_l3_attachments_partner", user?.id, partnerEventIdsKey],
     queryFn: async () => {
       if (partnerEventIds.length === 0) return [];
       const { data, error } = await supabase.rpc("get_bp_l3_attachments" as any, {
@@ -545,7 +545,7 @@ export default function PartnerEventDetail() {
 
   // ── Quotas dos sócios (RPC SECURITY DEFINER — só nome + percentagem)
   const { data: partnerShares = [] } = useQuery({
-    queryKey: ["partner_event_shares", activeEventId],
+    queryKey: ["partner_event_shares", user?.id, activeEventId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_partner_event_shares" as any, {
         p_event_id: activeEventId!,
@@ -565,7 +565,7 @@ export default function PartnerEventDetail() {
    * `partner_share` fica a 0 — a quota é calculada no documento.
    */
   const { data: portalSettlementId } = useQuery({
-    queryKey: ["partner-visible-settlement", activeEventId],
+    queryKey: ["partner-visible-settlement", user?.id, activeEventId],
     queryFn: async () => {
       // (g9b) O fechamento visível é aquele onde o sócio ACERTA CONTAS (mode='settles').
       // A presença nominal num nó acima é contabilística e não é uma vista.
@@ -580,7 +580,7 @@ export default function PartnerEventDetail() {
   });
 
   const { data: portalSummary } = useQuery({
-    queryKey: ["partner-settlement-summary", activeEventId, portalSettlementId],
+    queryKey: ["partner-settlement-summary", user?.id, activeEventId, portalSettlementId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_partner_settlement_summary" as any, {
         _event_id: activeEventId!,
@@ -828,7 +828,7 @@ export default function PartnerEventDetail() {
   const canSeeAdjusted = !!activeEventId;
   const canSeeComparative = hasPermission("view_partner_realized");
   const { data: realizedRows = [], isError: realizedIsError } = useQuery({
-    queryKey: ["partner_bp_realized", activeEventId],
+    queryKey: ["partner_bp_realized", user?.id, activeEventId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_partner_bp_realized", { p_event_id: activeEventId! });
       if (error) throw error;

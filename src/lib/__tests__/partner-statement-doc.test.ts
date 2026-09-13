@@ -68,7 +68,7 @@ describe("(g4) planilha do documento", () => {
   it("tem 2 folhas, sem fórmulas e sem protecção de livro", async () => {
     const doc = buildPartnerStatementDoc(base);
     const wb = await buildStatementWorkbook(doc);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(["Resumo do Fecho", "Detalhamento"]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Resumo", "Detalhamento"]);
     expect((wb as any).workbookProtection).toBeFalsy();
     wb.worksheets.forEach((ws) =>
       ws.eachRow((row) =>
@@ -122,4 +122,53 @@ describe("(g4 adenda) base a transferir", () => {
     expect(doc.transferBase).toBeCloseTo(-1500, 2);
     expect(doc.transferVat).toBe(0);
   });
+});
+
+/**
+ * (g9c · #166) Vocabulário do documento — gerado para os 3 sócios da Anitta,
+ * nas duas línguas e nas duas bases, nenhum termo proibido pode aparecer
+ * (nem "fechamento"/"fecho", nem os extras de devolução).
+ */
+describe("(g9c) vocabulário do documento", () => {
+  const participants = [
+    { name: "ANITTA", percentage: 70 },
+    { name: "RAFAEL LOBO", percentage: 10 },
+    { name: "MUNDO PROPÍCIO", percentage: 20, isHouse: true },
+  ];
+  const extras = [
+    { label: "Quota contratual do acordo", value: 1000 },
+    { label: "IVA dedutível recuperado", value: 250 },
+    { label: "Custos internos da sociedade", value: 500 },
+    { label: "Activos adicionais", value: 100 },
+  ];
+
+  for (const recipient of ["ANITTA", "RAFAEL LOBO", "MUNDO PROPÍCIO"]) {
+    for (const locale of ["pt-PT", "pt-BR"] as const) {
+      for (const usesGrossExpenses of [true, false]) {
+        it(`${recipient} · ${locale} · ${usesGrossExpenses ? "c/IVA" : "s/IVA"} sem termos proibidos`, async () => {
+          const doc = buildPartnerStatementDoc({
+            ...base,
+            locale,
+            usesGrossExpenses,
+            recipientName: recipient,
+            participants,
+            extras,
+            paidByPartner: 5000,
+            partnerAdvances: 1200,
+            revenuesHeld: [{ label: "Bares (operação de terceiros)", value: 3000 }],
+          });
+          const text = JSON.stringify(doc).toLowerCase();
+          for (const term of FORBIDDEN_DOC_TERMS) expect(text).not.toContain(term.toLowerCase());
+          const wb = await buildStatementWorkbook(doc);
+          expect(wb.worksheets.map((w) => w.name)).toEqual(["Resumo", "Detalhamento"]);
+          const cells: string[] = [];
+          wb.worksheets.forEach((ws) =>
+            ws.eachRow((row) => row.eachCell((cell) => cells.push(String(cell.value ?? "")))),
+          );
+          const sheetText = cells.join(" | ").toLowerCase();
+          for (const term of FORBIDDEN_DOC_TERMS) expect(sheetText).not.toContain(term.toLowerCase());
+        });
+      }
+    }
+  }
 });

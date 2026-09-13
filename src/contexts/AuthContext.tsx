@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -120,6 +121,7 @@ export const ALL_PERMISSIONS = [
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
@@ -127,6 +129,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
+  /**
+   * (g9c · #167) Estanqueidade da cache entre utilizadores: qualquer troca de
+   * identidade no mesmo separador limpa TODA a cache do react-query. As chaves
+   * do Portal são ainda prefixadas pelo id do utilizador (defesa em profundidade).
+   */
+  const cacheIdentityRef = useRef<string | null>(null);
+  useEffect(() => {
+    const uid = user?.id ?? null;
+    if (cacheIdentityRef.current !== null && cacheIdentityRef.current !== uid) {
+      queryClient.clear();
+    }
+    cacheIdentityRef.current = uid;
+  }, [user?.id, queryClient]);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
     const { data: roleRows, error: rolesError } = await supabase
@@ -244,6 +259,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setRole(null);
     setPermissions([]);
+    // (g9c · #167) nada do utilizador anterior fica em cache.
+    cacheIdentityRef.current = null;
+    queryClient.clear();
   };
 
   return (
