@@ -12082,6 +12082,7 @@ export type Database = {
           company_id: string
           contact_name: string | null
           created_at: string
+          doc_locale: string
           email: string | null
           iban: string | null
           iban_2: string | null
@@ -12106,6 +12107,7 @@ export type Database = {
           company_id?: string
           contact_name?: string | null
           created_at?: string
+          doc_locale?: string
           email?: string | null
           iban?: string | null
           iban_2?: string | null
@@ -12130,6 +12132,7 @@ export type Database = {
           company_id?: string
           contact_name?: string | null
           created_at?: string
+          doc_locale?: string
           email?: string | null
           iban?: string | null
           iban_2?: string | null
