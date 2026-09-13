@@ -1981,3 +1981,39 @@ Quando o pedido diz "apresenta DDL e pára", o entregável é o **ficheiro de
 migração pendente** em `supabase/migrations/`, mais a explicação. Não se usa a
 ferramenta de migração nem se corre DDL/DML em Test ou Live sem autorização
 explícita nesse pedido. O Publish é sempre decisão do Pedro.
+
+## D-ERP59 — Benchmark alinhado por idade e avaliação relativa no relatório LLM (13/09/2026)
+
+**Contexto.** O relatório de lançamento (D-ERP54) classificava métricas em
+absoluto: o UGC TikTok da "Roupa de Solteira" (Litto Lins) aparecia como fraco
+com 3.700 publicações, quando à mesma idade — 11 dias, 336/dia — é o melhor
+ritmo do grupo (Henry Freitas 18.300 em 108 dias = 169/dia, Jonas 458/107d,
+Eric Land 208/86d, Léo Foguete 204/31d, Nuzio 35/30d).
+
+**Decisão.** Comparar sempre à MESMA IDADE. A vista
+`public.v_song_benchmark_aligned` (security_invoker, RLS filtra por empresa)
+cruza cada música do elenco (`is_launch`) com as músicas de referência
+(`is_reference`, D-ERP58) dos artistas em `artist_comparables` e devolve, para
+N = dias desde o lançamento da música do elenco: `spotify_streams_dia_n`
+(último ponto com `metric_date <= release_date + N - 1`, `source <> 'manual'`),
+`spotify_streams_por_dia_n`, `spotify_streams_hoje`, `tiktok_ugc_latest` com
+data e fonte, `tiktok_ugc_por_dia` e `instagram_reels_latest`. A própria música
+entra como linha com `is_self = true`. A função
+`song_benchmark_aligned(p_song_id uuid)` (SQL, STABLE, SECURITY INVOKER,
+EXECUTE só a `authenticated` e `service_role`) acrescenta posição e total por
+métrica, contando apenas linhas com dados.
+
+**Regras no prompt do `artist-song-report`.** (a) É proibido qualificar uma
+métrica em absoluto — só relativamente aos comparáveis à mesma idade e ao ritmo
+por dia, citando o número de referência e a posição ("4.º de 11 em streams ao
+dia 11"); (b) o mecanismo de um comparável com UGC acima do som oficial só se
+refere se estiver escrito em `artist_songs.notes` dessa música — o caso do Henry
+Freitas ("som original" com 18.300 vs som oficial ~580) ficou gravado ali, nunca
+no prompt; (c) sugestões derivam do que os comparáveis melhores fizeram, com os
+números deles; (d) sem comparável com dados, a resposta é "sem referência" e não
+se avalia. A saída estruturada ganhou `benchmark` (array artista/música/idade/
+valor/posição) e `avaliacao_relativa` por métrica (spotify, tiktok_ugc,
+videos_artista, playlists) com posição, total e frase curta.
+
+**Prova.** Relatório da "Roupa de Solteira" regenerado: spotify 4.º de 11,
+tiktok_ugc 1.º de 6, videos_artista e playlists "sem referência".
