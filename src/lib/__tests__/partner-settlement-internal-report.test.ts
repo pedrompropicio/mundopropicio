@@ -34,11 +34,11 @@ const baseInput = (over: Partial<InternalReportInput> = {}): InternalReportInput
 describe("buildInternalSettlementReport", () => {
   it("na raiz reduz-se a resultado + operações + devoluções e fecha", () => {
     const r = buildInternalSettlementReport(
-      baseInput({ thirdPartyTotal: 50, addbackTotal: 10, nodeResult: 670 }),
+      baseInput({ thirdPartyTotal: 50, addbackTotal: 10, nodeResult: 660 }),
     );
     expect(r.rootResult).toBe(600);
     expect(r.hasCascade).toBe(false);
-    expect(r.cascadeTotal).toBe(670);
+    expect(r.cascadeTotal).toBe(660);
     expect(internalReportCloses(r.cascadeMismatch)).toBe(true);
   });
 
