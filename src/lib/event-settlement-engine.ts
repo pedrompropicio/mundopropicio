@@ -75,6 +75,47 @@ export interface EngineParticipantMoney {
   extrasGross?: number;
 }
 
+/**
+ * Operação explorada por terceiro (bares, alimentos, bengaleiro, merchandising…).
+ * `ab_module`: bruto/resultado do operador vêm do módulo A&B ao vivo (o hook
+ * resolve-os com `computeTotals`); `manual`: vêm da tabela.
+ */
+export interface EngineOperation {
+  id: string;
+  kind: string;
+  name: string;
+  source: "ab_module" | "manual";
+  /** Facturação bruta s/IVA da operação. */
+  grossAmount: number;
+  /** Resultado do operador s/IVA. */
+  operatorResult: number;
+  /** Público usado no modo `per_capita` (o mesmo que o A&B usa). */
+  attendance?: number;
+}
+
+/** Participação de um apuramento numa operação. */
+export interface EngineParticipation {
+  id: string;
+  operation_id: string;
+  settlement_id: string;
+  mode: "gross_pct" | "result_share" | "per_capita" | "fee";
+  pct?: number | string | null;
+  amount?: number | string | null;
+}
+
+export interface OperationNodeResult {
+  operationId: string;
+  name: string;
+  kind: string;
+  mode: EngineParticipation["mode"];
+  /** Valor da participação deste apuramento na operação. */
+  value: number;
+  /** Valor já lançado nos apuramentos ascendentes (cascata + terceiros). */
+  alreadyUpstream: number;
+  /** Receita exclusiva deste apuramento: `value − alreadyUpstream` (0 na raiz). */
+  additionalActive: number;
+}
+
 export interface EngineInput {
   /** `events.partner_calc_basis` normalizado. */
   eventBasis: PartnerCalcBasis | string | null | undefined;
@@ -85,6 +126,9 @@ export interface EngineInput {
   markedLines?: EngineMarkedLine[];
   /** Por `event_partner_id` (ou `supplier_id` em fallback). */
   moneyByPartner?: Record<string, EngineParticipantMoney>;
+  /** Operações de terceiros do evento (peça (d)). */
+  operations?: EngineOperation[];
+  participations?: EngineParticipation[];
 }
 
 export interface ParticipantResult {
@@ -134,6 +178,10 @@ export interface SettlementNodeResult {
   moneyNet: number;
   childQuotasNet: number;
   participants: ParticipantResult[];
+  /** Operações de terceiros com participação neste apuramento (peça (d)). */
+  operations: OperationNodeResult[];
+  /** Σ activos adicionais que entram no resultado deste apuramento. */
+  additionalActiveTotal: number;
 }
 
 export interface HouseResidual {
@@ -161,6 +209,8 @@ export interface EngineResult {
   eventNetResult: number;
   /** Σ partes `settles` dos sócios, cada uma na sua base. */
   partnersPaidTotal: number;
+  /** Σ activos adicionais das operações de terceiros (peça (d)). */
+  additionalActivesTotal: number;
   house: HouseResidual;
   c1: EngineCheck;
   c2: EngineCheck;
@@ -203,6 +253,34 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   const errors: string[] = [];
   const ignoresExpenses = ignoresOperationalExpenses(input.eventBasis as any);
   const marked = input.markedLines ?? [];
+
+  // ── Operações de terceiros (d): valor da participação por apuramento ─
+  const operations = input.operations ?? [];
+  const opById = new Map(operations.map((o) => [o.id, o]));
+  /** operationId → (settlementId → valor da participação) */
+  const opValues = new Map<string, Map<string, EngineParticipation>>();
+  for (const pt of input.participations ?? []) {
+    if (!opById.has(pt.operation_id)) {
+      errors.push("Participação numa operação de terceiros inexistente.");
+      continue;
+    }
+    if (!opValues.has(pt.operation_id)) opValues.set(pt.operation_id, new Map());
+    opValues.get(pt.operation_id)!.set(pt.settlement_id, pt);
+  }
+  const participationValue = (op: EngineOperation, pt: EngineParticipation): number => {
+    switch (pt.mode) {
+      case "gross_pct":
+        return num(op.grossAmount) * (num(pt.pct) / 100);
+      case "result_share":
+        return num(op.operatorResult) * (num(pt.pct) / 100);
+      case "per_capita":
+        return num(pt.amount) * num(op.attendance);
+      case "fee":
+        return num(pt.amount);
+      default:
+        return 0;
+    }
+  };
 
   // ── Perímetros marcados ────────────────────────────────────────────
   const perim = new Map<
@@ -276,9 +354,44 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       }
     }
 
+    // Operações de terceiros: a raiz NÃO ganha valor novo (a sua participação
+    // já está na receita do perímetro). O filho ganha só o activo adicional =
+    // participação dele − o que já foi lançado nos apuramentos ascendentes.
+    const ancestors: string[] = [];
+    for (let p = s.parent_id ?? null; p; ) {
+      ancestors.push(p);
+      p = byId.get(p)?.parentId ?? null;
+    }
+    const nodeOperations: OperationNodeResult[] = [];
+    for (const op of operations) {
+      const bySettlement = opValues.get(op.id);
+      const pt = bySettlement?.get(s.id);
+      if (!pt) continue;
+      const value = participationValue(op, pt);
+      const alreadyUpstream = ancestors.reduce((acc, a) => {
+        const up = bySettlement?.get(a);
+        return acc + (up ? participationValue(op, up) : 0);
+      }, 0);
+      nodeOperations.push({
+        operationId: op.id,
+        name: op.name,
+        kind: op.kind,
+        mode: pt.mode,
+        value: roundCents(value),
+        alreadyUpstream: roundCents(alreadyUpstream),
+        additionalActive: roundCents(isRoot ? 0 : value - alreadyUpstream),
+      });
+    }
+    const additionalActiveTotal = isRoot
+      ? 0
+      : nodeOperations.reduce((acc, o) => acc + o.additionalActive, 0);
+
     const quota = parentQuota ?? 0;
-    const resultNet = ignoresExpenses ? quota + revenueNet : quota + revenueNet - expensesNet;
-    const resultGross = ignoresExpenses ? quota + revenueNet : quota + revenueNet - expensesGross;
+    const revenueWithOps = revenueNet + additionalActiveTotal;
+    const resultNet = ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet;
+    const resultGross = ignoresExpenses
+      ? quota + revenueWithOps
+      : quota + revenueWithOps - expensesGross;
 
     const node: SettlementNodeResult = {
       id: s.id,
@@ -295,6 +408,8 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       moneyNet: resultNet,
       childQuotasNet: 0,
       participants: [],
+      operations: nodeOperations,
+      additionalActiveTotal: roundCents(additionalActiveTotal),
     };
     nodes.push(node);
     byId.set(node.id, node);
@@ -379,7 +494,14 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   }
 
   // ── MP residual e conferências ─────────────────────────────────────
-  const eventNetResult = nodes.reduce((s, n) => s + n.perimeter.revenueNet - (ignoresExpenses ? 0 : n.perimeter.expensesNet), 0);
+  // Os activos adicionais são receita que NÃO está no perímetro da raiz — entram
+  // no lado do dinheiro da C1 (peça (d)).
+  const additionalActivesTotal = nodes.reduce((s, n) => s + n.additionalActiveTotal, 0);
+  const eventNetResult =
+    nodes.reduce(
+      (s, n) => s + n.perimeter.revenueNet - (ignoresExpenses ? 0 : n.perimeter.expensesNet),
+      0,
+    ) + additionalActivesTotal;
   const residual = eventNetResult - partnersPaidTotal;
   const rest = residual - (declared + ivaDeductible + nominalGap);
 
@@ -403,6 +525,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     })),
     eventNetResult: roundCents(eventNetResult),
     partnersPaidTotal: roundCents(partnersPaidTotal),
+    additionalActivesTotal: roundCents(additionalActivesTotal),
     house: {
       residual: roundCents(residual),
       declared: roundCents(declared),

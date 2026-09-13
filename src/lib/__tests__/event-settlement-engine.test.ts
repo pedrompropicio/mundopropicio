@@ -138,3 +138,96 @@ describe("computeSettlementEngine", () => {
     expect(r.errors.some((e) => e.includes("acerta em mais"))).toBe(true);
   });
 });
+
+// ── (d) Operações de terceiros ────────────────────────────────────────────────
+
+describe("operações de terceiros (d)", () => {
+  const anitta = () =>
+    computeSettlementEngine(
+      base({
+        settlements: [
+          { id: "root", name: "Raiz", parent_id: null, position: 0 },
+          { id: "n2", name: "Nível 2", parent_id: "root", position: 1, parent_share_pct: 0, parent_share_basis: "net_result" },
+          { id: "n3", name: "Nível 3", parent_id: "n2", position: 2, parent_share_pct: 0, parent_share_basis: "net_result" },
+        ],
+        participants: [
+          { id: "a", settlement_id: "root", participant_kind: "partner", name: "A", mode: "settles", profit_pct: 100, loss_pct: null },
+          { id: "b", settlement_id: "n3", participant_kind: "partner", supplier_id: "sup-b", name: "B", mode: "settles", profit_pct: 100, loss_pct: null },
+        ],
+        operations: [
+          {
+            id: "bares",
+            kind: "ab_bebidas",
+            name: "Bares",
+            source: "ab_module",
+            grossAmount: 287_138.58,
+            operatorResult: 194_468.13,
+            attendance: 10_000,
+          },
+        ],
+        participations: [
+          { id: "p-root", operation_id: "bares", settlement_id: "root", mode: "gross_pct", pct: 35 },
+          { id: "p-n3", operation_id: "bares", settlement_id: "n3", mode: "result_share", pct: 100 },
+        ],
+      }),
+    );
+
+  it("raiz não ganha valor novo; nível 3 ganha o activo adicional 93.969,63", () => {
+    const r = anitta();
+    const root = r.nodes.find((n) => n.id === "root")!;
+    const n3 = r.nodes.find((n) => n.id === "n3")!;
+    expect(root.operations[0].value).toBe(100_498.5);
+    expect(root.additionalActiveTotal).toBe(0);
+    expect(n3.operations[0].value).toBe(194_468.13);
+    expect(n3.operations[0].alreadyUpstream).toBe(100_498.5);
+    expect(n3.additionalActiveTotal).toBe(93_969.63);
+    expect(r.additionalActivesTotal).toBe(93_969.63);
+  });
+
+  it("C1 e C2 conferem com activos adicionais", () => {
+    const r = anitta();
+    expect(r.c1.value).toBe(0);
+    expect(r.c2.value).toBe(0);
+    expect(r.c1.ok && r.c2.ok).toBe(true);
+  });
+
+  it("modo per_capita usa o público da operação", () => {
+    const r = computeSettlementEngine(
+      base({
+        settlements: [
+          { id: "root", name: "Raiz", parent_id: null, position: 0 },
+          { id: "s2", name: "N2", parent_id: "root", position: 1, parent_share_pct: 0, parent_share_basis: "net_result" },
+        ],
+        operations: [
+          { id: "beng", kind: "bengaleiro", name: "Bengaleiro", source: "manual", grossAmount: 0, operatorResult: 0, attendance: 4_000 },
+        ],
+        participations: [{ id: "x", operation_id: "beng", settlement_id: "s2", mode: "per_capita", amount: 1.5 }],
+      }),
+    );
+    const s2 = r.nodes.find((n) => n.id === "s2")!;
+    expect(s2.operations[0].value).toBe(6_000);
+    expect(s2.additionalActiveTotal).toBe(6_000);
+    expect(s2.resultNet).toBe(6_000);
+  });
+
+  it("modo fee é um valor fixo e desconta o já lançado no pai", () => {
+    const r = computeSettlementEngine(
+      base({
+        settlements: [
+          { id: "root", name: "Raiz", parent_id: null, position: 0 },
+          { id: "s2", name: "N2", parent_id: "root", position: 1, parent_share_pct: 0, parent_share_basis: "net_result" },
+        ],
+        operations: [
+          { id: "merch", kind: "merchandising", name: "Merch", source: "manual", grossAmount: 50_000, operatorResult: 20_000 },
+        ],
+        participations: [
+          { id: "r1", operation_id: "merch", settlement_id: "root", mode: "fee", amount: 5_000 },
+          { id: "r2", operation_id: "merch", settlement_id: "s2", mode: "fee", amount: 12_000 },
+        ],
+      }),
+    );
+    const s2 = r.nodes.find((n) => n.id === "s2")!;
+    expect(s2.operations[0].value).toBe(12_000);
+    expect(s2.additionalActiveTotal).toBe(7_000);
+  });
+});

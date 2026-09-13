@@ -1413,3 +1413,23 @@ RLS esconde-a — correcto). Anitta nível 1, quota de 70%: referência da v4
 418.028,42 € vs BP vivo 417.293,42 € na base "previsto + excedido · despesas c/IVA"
 (desvio 735,00 €) e 1.357.819,77 € na base "realizado" — o painel mostra o critério
 em uso. Nenhum ecrã existente mudou; o Encontro de Contas continua a ser a fonte.
+
+**Adenda a DR-2026-09-09-D25 — (d) operações de terceiros construídas em
+2026-09-13:** tabelas novas `event_third_party_operations` (kind ab_bebidas ·
+ab_alimentos · bengaleiro · merchandising · estacionamento · outro; `source`
+`ab_module` ou `manual`) e `event_operation_participations` (participação de um
+apuramento numa operação, nos modos `gross_pct`, `result_share`, `per_capita`,
+`fee`), ambas **vazias** na aplicação. O módulo **A&B é lido, nunca duplicado**:
+nas operações `ab_module` o bruto e o resultado do operador vêm ao vivo de
+`computeTotals` (cenário real) e os campos de montante são obrigatoriamente NULL
+por CHECK. Regra do **activo adicional**: a raiz não ganha valor novo (a sua
+participação já está representada na receita do perímetro); o filho ganha
+`participação do filho − participação já lançada nos apuramentos ascendentes`,
+que entra como receita exclusiva do nó. Caso de referência (Anitta): raiz
+`gross_pct` 35 % sobre bruto 287.138,58 € = 100.498,50 €; nível 3 `result_share`
+100 % sobre resultado do operador 194.468,13 € ⇒ activo adicional **93.969,63 €**.
+**C1** passa a incluir os activos adicionais no lado do dinheiro; **C2** mantém-se.
+Edição mínima no painel gated por `manage_bp` (criar operação manual, "Ligar ao
+A&B", definir participação). Paridade da (c) repetida: **0,00 €** de diferença em
+13 participantes / 6 eventos legíveis; `max(updated_at)` das cinco tabelas
+anteriores inalterado. Nenhum ecrã existente mudou.

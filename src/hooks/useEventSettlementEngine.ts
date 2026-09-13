@@ -16,10 +16,15 @@ import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
 import {
   computeSettlementEngine,
   type EngineMarkedLine,
+  type EngineOperation,
   type EngineParticipant,
   type EngineParticipantMoney,
+  type EngineParticipation,
   type EngineResult,
 } from "@/lib/event-settlement-engine";
+import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
+
+const EMPTY_AB_PARTICIPANTS: ABScenarioParticipants = { real: {}, breakeven: {}, forecast: {} };
 import { fetchPartnerExtras } from "@/lib/partner-extras";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
 
@@ -163,6 +168,77 @@ export function useEventSettlementEngine(eventId: string) {
     enabled: allEventIds.length > 0,
   });
 
+  // ── Operações de terceiros (d) ──────────────────────────────────────
+  const { data: rawOperations = [] } = useQuery({
+    queryKey: ["event-third-party-operations", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_third_party_operations")
+        .select("id, kind, name, source, gross_amount, operator_result, document_ref, operator_supplier_id, supplier:suppliers(name)")
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: rawParticipations = [] } = useQuery({
+    queryKey: ["event-operation-participations", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_operation_participations")
+        .select("id, operation_id, settlement_id, mode, pct, amount, notes")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // A&B é LIDO, nunca duplicado: o bruto e o resultado do operador vêm ao vivo
+  // do cenário real do módulo A&B (`computeTotals` via useEventABScenarios).
+  const ab = useEventABScenarios(eventId, EMPTY_AB_PARTICIPANTS);
+  const abReal = ab.totals?.real ?? null;
+
+  const operations: EngineOperation[] = useMemo(() => {
+    const attendance = abReal ? abReal.zones.reduce((s, z) => s + Number(z.participants || 0), 0) : 0;
+    return (rawOperations as any[]).map((o) => {
+      if (o.source === "ab_module" && abReal) {
+        const isBebidas = o.kind === "ab_bebidas";
+        return {
+          id: o.id,
+          kind: o.kind,
+          name: o.name,
+          source: "ab_module" as const,
+          grossAmount: isBebidas ? abReal.faturacaoBebidas : abReal.faturacaoAlimentos,
+          operatorResult: isBebidas ? abReal.parteGeradorBebidas : abReal.parteGeradorAlimentos,
+          attendance: isBebidas ? attendance : abReal.participantesElegiveisAlimentos,
+        };
+      }
+      return {
+        id: o.id,
+        kind: o.kind,
+        name: o.name,
+        source: o.source as "ab_module" | "manual",
+        grossAmount: Number(o.gross_amount || 0),
+        operatorResult: Number(o.operator_result || 0),
+        attendance,
+      };
+    });
+  }, [rawOperations, abReal]);
+
+  const participations: EngineParticipation[] = useMemo(
+    () =>
+      (rawParticipations as any[]).map((p) => ({
+        id: p.id,
+        operation_id: p.operation_id,
+        settlement_id: p.settlement_id,
+        mode: p.mode,
+        pct: p.pct,
+        amount: p.amount,
+      })),
+    [rawParticipations],
+  );
+
   const result: EngineResult | null = useMemo(() => {
     if (!settlements.length) return null;
 
@@ -249,6 +325,8 @@ export function useEventSettlementEngine(eventId: string) {
       participants: engineParticipants,
       markedLines,
       moneyByPartner,
+      operations,
+      participations,
     });
   }, [
     settlements,
@@ -262,8 +340,21 @@ export function useEventSettlementEngine(eventId: string) {
     extras,
     basis.includeOverhead,
     basis.expenseSource,
+    operations,
+    participations,
     event?.partner_calc_basis,
   ]);
 
-  return { result, isLoading, basis, participants, settlements };
+  return {
+    result,
+    isLoading,
+    basis,
+    participants,
+    settlements,
+    /** Linhas cruas das operações (para a edição mínima na UI). */
+    rawOperations,
+    rawParticipations,
+    /** true quando o evento tem módulo A&B configurado (permite "Ligar ao A&B"). */
+    hasAbModule: ab.hasConfig,
+  };
 }
