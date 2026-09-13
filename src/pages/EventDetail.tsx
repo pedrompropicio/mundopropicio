@@ -1206,7 +1206,32 @@ export default function EventDetail() {
             </span>
           </button>
         )}
+
+        {/* Exclusivos de fechamentos (D25 g3): linhas marcadas com um fechamento
+            filho pertencem a esse fechamento e nunca entram no resultado do evento. */}
+        {settlementExclusives.count > 0 && (
+          <div
+            title="Movimentos atribuídos a um fechamento próprio. Não entram em receita, custo, lucro, DRE nem no Portal do Sócio deste evento."
+            className="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Exclusivos de fechamentos
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">
+              {formatCurrency(settlementExclusives.value)}
+            </span>
+          </div>
+        )}
       </div>
+
 
       {/* Locked banner for completed events */}
       {isCompleted && (
