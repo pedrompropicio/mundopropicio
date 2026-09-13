@@ -317,7 +317,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
 
   const ordered = orderTopologically(input.settlements);
   const rootIds = ordered.filter((s) => !s.parent_id).map((s) => s.id);
-  if (rootIds.length > 1) errors.push("Mais do que um apuramento raiz neste evento.");
+  if (rootIds.length > 1) errors.push("Mais do que um fechamento raiz neste evento.");
 
   const nodes: SettlementNodeResult[] = [];
   const byId = new Map<string, SettlementNodeResult>();
@@ -345,9 +345,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     if (!isRoot) {
       const parent = byId.get(s.parent_id!);
       if (!parent) {
-        errors.push(`Apuramento "${s.name}" aponta para um pai que não existe.`);
+        errors.push(`Fechamento "${s.name}" aponta para um pai que não existe.`);
       } else if (s.parent_share_pct == null) {
-        errors.push(`Apuramento "${s.name}" sem percentagem sobre o pai.`);
+        errors.push(`Fechamento "${s.name}" sem percentagem sobre o pai.`);
       } else {
         const base = basis === "net_result_gross_expenses" ? parent.resultGross : parent.resultNet;
         parentQuota = base * (num(s.parent_share_pct) / 100);
@@ -436,7 +436,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   for (const p of input.participants) {
     const node = byId.get(p.settlement_id);
     if (!node) {
-      errors.push(`Participante "${p.name}" aponta para um apuramento inexistente.`);
+      errors.push(`Participante "${p.name}" aponta para um fechamento inexistente.`);
       continue;
     }
     const isHouse = p.participant_kind === "house";
@@ -465,7 +465,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     if (!isHouse && p.mode === "settles") {
       const key = p.supplier_id ?? p.event_partner_id ?? p.id;
       if (seenSettles.has(key)) {
-        errors.push(`O sócio "${p.name}" acerta em mais do que um apuramento.`);
+        errors.push(`O sócio "${p.name}" acerta em mais do que um fechamento.`);
       }
       seenSettles.set(key, node.id);
       partnersPaidTotal += share;
