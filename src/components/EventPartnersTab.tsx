@@ -24,13 +24,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { partnerUsesGrossExpenses, describePartnerExpenseBasis } from "@/lib/partner-calc-basis";
+import { usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { Trash2, Plus, Users, Info, Pencil, Check, X, Layers } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
-import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import { HOUSE_PARTNER_NAME, EVENT_SETTLEMENTS_SELECT } from "@/lib/settlement-participants";
 import { EventSettlementsManager } from "@/components/EventSettlementsManager";
 
 
@@ -84,7 +84,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_settlements")
-        .select("id, name, parent_id, position, is_sealed")
+        .select(EVENT_SETTLEMENTS_SELECT)
         .eq("event_id", eventId)
         .order("position", { ascending: true });
       if (error) throw error;
@@ -139,11 +139,46 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const settlementName = (id: string) =>
     (settlements as any[]).find((s) => s.id === id)?.name ?? "—";
 
-  // Inclui os `nominal`: também eles reduzem a quota da casa (#146 (e2) ponto 3).
-  const totalPercentage = partnerRows.reduce(
-    (sum: number, p: any) => sum + Number(p.profit_pct || 0),
-    0,
+  /**
+   * (g4) A BASE É DO FECHAMENTO: raiz → base contratual do evento; filho →
+   * `parent_share_basis`. Mostra-se junto ao nome do fechamento e já não por
+   * participante (`expense_includes_iva` deixou de ser lido pelo motor).
+   */
+  const settlementBasisLabel = (id: string): string => {
+    const s = (settlements as any[]).find((x) => x.id === id);
+    if (!s) return "—";
+    if (!s.parent_id) return usesGrossExpenseAmounts(event?.partner_calc_basis) ? "c/IVA" : "s/IVA";
+    if (s.parent_share_basis == null) {
+      return usesGrossExpenseAmounts(event?.partner_calc_basis) ? "c/IVA" : "s/IVA";
+    }
+    return s.parent_share_basis === "net_result_gross_expenses" ? "c/IVA" : "s/IVA";
+  };
+
+  /**
+   * (g4) Percentagem atribuída POR FECHAMENTO — nunca uma soma cruzada entre
+   * fechamentos (somar participantes de fechamentos diferentes dava 150% na
+   * Anitta). Inclui os `nominal`: também eles reduzem a quota da casa
+   * (#146 (e2) ponto 3).
+   */
+  const pctBySettlement = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of partnerRows as any[]) {
+      map.set(p.settlement_id, (map.get(p.settlement_id) ?? 0) + Number(p.profit_pct || 0));
+    }
+    return map;
+  }, [partnerRows]);
+
+  const assignedPctText = useMemo(
+    () =>
+      (settlements as any[])
+        .filter((s) => pctBySettlement.has(s.id))
+        .map((s) => `${s.name} ${Number(pctBySettlement.get(s.id) ?? 0).toFixed(1).replace(".0", "")}%`)
+        .join(" · "),
+    [settlements, pctBySettlement],
   );
+
+  /** Percentagem já atribuída DENTRO do fechamento escolhido no formulário. */
+  const totalPercentage = Number(pctBySettlement.get(newSettlementId) ?? 0);
 
 
   const invalidate = () => {
@@ -357,7 +392,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     );
   };
 
-  const colCount = canEdit ? 9 : 8;
+  const colCount = canEdit ? 8 : 7;
 
   return (
     <div className="space-y-6">
@@ -403,7 +438,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
             <p className="text-sm font-medium">Sócios / Participações por fechamento</p>
-            <span className="text-xs text-muted-foreground">({totalPercentage}% atribuído)</span>
+            {assignedPctText && (
+              <span className="text-xs text-muted-foreground" title="Percentagem atribuída dentro de cada fechamento.">
+                ({assignedPctText})
+              </span>
+            )}
           </div>
           {canEdit && !showForm && rootSettlement && (
             <Button
@@ -442,7 +481,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <TableHead>Modo</TableHead>
                 <TableHead className="text-right">% Lucro</TableHead>
                 <TableHead className="text-right">% Prejuízo</TableHead>
-                <TableHead>Base IVA</TableHead>
+                
                 <TableHead>BP</TableHead>
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-20" />}
@@ -496,6 +535,13 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           <span className="inline-flex items-center gap-1">
                             <Layers className="h-3 w-3 text-muted-foreground" />
                             {settlementName(p.settlement_id)}
+                            <Badge
+                              variant="outline"
+                              className="ml-1 text-[10px]"
+                              title="Base de cálculo do fechamento — igual para todos os seus participantes, casa incluída."
+                            >
+                              {settlementBasisLabel(p.settlement_id)}
+                            </Badge>
                           </span>
                         )}
                       </TableCell>
@@ -541,33 +587,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           <>{Number(p.loss_pct).toFixed(1)}%</>
                         ) : (
                           <span className="text-muted-foreground text-xs">Igual</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {isEditing ? (
-                          <div className="space-y-1">
-                            <Select value={editIvaBasis} onValueChange={(v) => setEditIvaBasis(v as IvaBasis)}>
-                              <SelectTrigger className="h-7 w-[190px] text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="inherit">Herda do evento</SelectItem>
-                                <SelectItem value="gross">Apura c/IVA</SelectItem>
-                                <SelectItem value="net">Apura s/IVA</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-[10px] leading-tight text-muted-foreground">
-                              Um sócio com sede fora de Portugal não recupera o IVA: o custo dele é o valor c/IVA. Esta regra é contratual e não muda com o seletor de vista do Fecho.
-                            </p>
-                          </div>
-                        ) : (
-                          <span
-                            className="text-xs"
-                            title={describePartnerExpenseBasis(event?.partner_calc_basis, p.expense_includes_iva)}
-                          >
-                            {partnerUsesGrossExpenses(event?.partner_calc_basis, p.expense_includes_iva) ? "c/IVA" : "s/IVA"}
-                            {(p.expense_includes_iva === null || p.expense_includes_iva === undefined) && (
-                              <span className="ml-1 text-[10px] text-muted-foreground">(herda)</span>
-                            )}
-                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
@@ -666,7 +685,16 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                       {HOUSE_PARTNER_NAME}
                       <Badge variant="outline" className="ml-2 text-[10px]">casa</Badge>
                     </TableCell>
-                    <TableCell className="text-xs">{settlementName(h.settlement_id)}</TableCell>
+                    <TableCell className="text-xs">
+                      {settlementName(h.settlement_id)}
+                      <Badge
+                        variant="outline"
+                        className="ml-1 text-[10px]"
+                        title="Base de cálculo do fechamento — igual para todos os seus participantes, casa incluída."
+                      >
+                        {settlementBasisLabel(h.settlement_id)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-xs">
                       {isEditing ? (
                         <Select value={editMode} onValueChange={(v) => setEditMode(v as any)}>
@@ -711,7 +739,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                         <span className="text-muted-foreground text-xs">Igual</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">s/IVA</TableCell>
+                    
                     <TableCell className="text-xs text-muted-foreground">—</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {isRootHouse

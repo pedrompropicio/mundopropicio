@@ -164,3 +164,12 @@ Superfícies alinhadas: `PartnerSettlementTab`, `EventFecho`, `ReportDRE`,
 (tri-estado Herda / c/IVA / s/IVA) em `EventPartnersTab`. Quando as bases divergem no
 mesmo evento não existe resultado único e a soma das quotas não fecha — nota visível no
 ecrã e no PDF.
+
+## (g4) Documento do sócio — estanque e igual em todo o lado
+
+O PDF/XLSX de um sócio (Portal e export da equipa) é a prestação de contas:
+só o destinatário pelo nome; os restantes colapsam em "Sócios locais — NN%"
+(ou "Mundo Propício — NN%" em acordo bilateral com a casa). Sem "nível",
+"fechamento acima/abaixo" ou "bases diferentes". Língua por
+`suppliers.doc_locale`. Base de cálculo é do fechamento (ver event-settlements
+(g4)); `expense_includes_iva` por participante já não é usado.

@@ -21,7 +21,9 @@ import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPLToExcel, exportPLToPDF } from "@/lib/export-pl";
-import { exportPartnerStatementExcel, exportPartnerStatementPdf, type PartnerStatementInput } from "@/lib/export-partner-statement";
+import { exportPartnerStatementDocExcel, exportPartnerStatementDocPdf } from "@/lib/export-partner-statement-doc";
+import { statementTerms, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
+import { usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { fetchExportBranding } from "@/lib/export-header";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
@@ -516,6 +518,31 @@ export default function PartnerEventDetail() {
     return m;
   }, [bpAttachmentsRaw]);
 
+  /**
+   * (g4) Destinatário do documento: o fornecedor ligado ao utilizador
+   * autenticado. `doc_locale` decide a língua (pt-PT / pt-BR).
+   */
+  const { data: viewerPartner } = useQuery({
+    queryKey: ["partner-doc-identity", user?.id],
+    enabled: !!user?.id,
+    queryFn: async (): Promise<{ name: string; locale: DocLocale } | null> => {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("linked_supplier_id")
+        .eq("id", user!.id)
+        .maybeSingle();
+      const sid = (prof as any)?.linked_supplier_id;
+      if (!sid) return null;
+      const { data: sup } = await supabase
+        .from("suppliers")
+        .select("name, doc_locale")
+        .eq("id", sid)
+        .maybeSingle();
+      if (!sup) return null;
+      return { name: (sup as any).name, locale: ((sup as any).doc_locale ?? "pt-PT") as DocLocale };
+    },
+  });
+
   // ── Quotas dos sócios (RPC SECURITY DEFINER — só nome + percentagem)
   const { data: partnerShares = [] } = useQuery({
     queryKey: ["partner_event_shares", activeEventId],
@@ -947,7 +974,11 @@ export default function PartnerEventDetail() {
   // Gate: mesma condição do PartnerFinancialCards no separador BP (view_bp).
   const canExportStatement = hasPermission("view_bp");
 
-  const buildStatementInput = (logoDataUrl?: string | null): PartnerStatementInput | null => {
+  /**
+   * (g4) Documento do sócio no padrão da prestação de contas — estanque: só o
+   * destinatário aparece pelo nome; os restantes colapsam numa linha.
+   */
+  const buildStatementDocInput = (logoDataUrl?: string | null): PartnerStatementDocInput | null => {
     if (!event) return null;
     // R2 — filtro canónico das despesas (overhead ENTRA).
     const canonical = (bpExpenses ?? []).filter(
@@ -956,42 +987,50 @@ export default function PartnerEventDetail() {
         !f.is_transitory &&
         (!f.exclude_from_result || f.is_overhead),
     );
-    const documentsByCategoryId: Record<string, number> = {};
-    Object.entries(bpAttachmentsByCategory).forEach(([catId, list]) => {
-      documentsByCategoryId[catId] = list.length;
-    });
+    const participants = (partnerShares ?? []).map((s) => ({
+      name: s.partner_name,
+      percentage: Number(s.percentage) || 0,
+      isHouse: s.partner_name?.toUpperCase().includes("MUNDO PROPÍCIO"),
+    }));
+    const recipientName =
+      participants.find((p) => p.name === viewerPartner?.name)?.name ??
+      viewerPartner?.name ??
+      participants.find((p) => !p.isHouse)?.name ??
+      "Sócio";
+    const t = statementTerms(viewerPartner?.locale);
     return {
+      locale: viewerPartner?.locale ?? "pt-PT",
       eventName: event.name,
       eventDate: event.date ?? null,
       eventLocation: (event as any).location ?? null,
       companyName: companyDisplayName,
       logoDataUrl: logoDataUrl ?? null,
-      forecasts: canonical.map((f: any) => ({
-        category_id: f.category_id ?? null,
-        amount: f.amount,
-        iva_rate: f.iva_rate,
-      })),
+      recipientName,
+      participants,
       categories: allCategories as any[],
-      revenues: [
-        { label: "Bilheteira", net: ticketRevenueNet },
-        { label: "Bares (A&B)", net: barsRealNet },
-        { label: "Patrocínios", net: sponsorshipRealNet },
-        { label: "Outras receitas", net: otherIncomeRealNet },
-      ],
-      documentsByCategoryId,
-      shares: (partnerShares ?? []).map((s) => ({
-        name: s.partner_name,
-        percentage: Number(s.percentage) || 0,
+      usesGrossExpenses: usesGrossExpenseAmounts((event as any).partner_calc_basis),
+      expenseLines: canonical.map((f: any) => ({
+        categoryId: f.category_id ?? null,
+        description: f.description || f.account_categories?.name || "—",
+        base: Number(f.amount) || 0,
+        ivaRate: Number(f.iva_rate) || 0,
+        attachments: f.category_id ? (bpAttachmentsByCategory[f.category_id]?.length ?? 0) : 0,
       })),
+      revenues: [
+        { origin: t.ticketing, net: ticketRevenueNet },
+        { origin: "Bares (A&B)", net: barsRealNet },
+        { origin: "Patrocínios", net: sponsorshipRealNet },
+        { origin: "Outras receitas", net: otherIncomeRealNet },
+      ],
     };
   };
 
   const handleExportBPExcel = async () => {
     if (canExportStatement) {
       try {
-        const input = buildStatementInput();
+        const input = buildStatementDocInput();
         if (!input) return;
-        await exportPartnerStatementExcel(input);
+        await exportPartnerStatementDocExcel(input);
       } catch (err: any) {
         toast.error("Erro ao exportar Excel", { description: err?.message });
       }
@@ -1028,9 +1067,9 @@ export default function PartnerEventDetail() {
     if (canExportStatement) {
       try {
         const branding = await fetchExportBranding();
-        const input = buildStatementInput(branding.logoDataUrl);
+        const input = buildStatementDocInput(branding.logoDataUrl);
         if (!input) return;
-        exportPartnerStatementPdf(input);
+        exportPartnerStatementDocPdf(input);
       } catch (err: any) {
         toast.error("Erro ao exportar PDF", { description: err?.message });
       }

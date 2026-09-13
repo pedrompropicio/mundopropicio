@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,12 @@ import {
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
+import {
+  exportPartnerStatementDocExcel,
+  exportPartnerStatementDocPdf,
+} from "@/lib/export-partner-statement-doc";
+import { statementTerms, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
+import { fetchExportBranding } from "@/lib/export-header";
 
 
 
@@ -174,6 +180,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // selector serve só para a peça interna (#146 (f) ponto 1). Quando o
   // fechamento inferido não é o activo, troca-se primeiro e o export corre no
   // efeito abaixo, já com os totais desse nó.
+  const [pendingSoloKind, setPendingSoloKind] = useState<"pdf" | "xlsx">("pdf");
   const [pendingSoloPartnerId, setPendingSoloPartnerId] = useState<string | null>(null);
 
 
@@ -1946,13 +1953,102 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   }
 
-  /** Pede o PDF de um sócio no fechamento onde ele acerta. */
-  function requestSoloPdf(row: PartnerSettlement) {
+  /**
+   * (g4) DOCUMENTO DO SÓCIO — padrão da prestação de contas, estanque.
+   * Só o destinatário aparece pelo nome; os restantes participantes colapsam
+   * numa linha ("Sócios locais" ou "Mundo Propício" quando é o único outro).
+   */
+  async function buildSoloDocInput(
+    row: PartnerSettlement,
+    logoDataUrl?: string | null,
+  ): Promise<PartnerStatementDocInput> {
+    let locale: DocLocale = "pt-PT";
+    if (row.supplierId) {
+      const { data } = await supabase
+        .from("suppliers")
+        .select("doc_locale")
+        .eq("id", row.supplierId)
+        .maybeSingle();
+      locale = (((data as any)?.doc_locale as DocLocale) ?? "pt-PT") as DocLocale;
+    }
+    const t = statementTerms(locale);
+
+    const expenseLines = [
+      ...expenseTransactions.map((tx: any) => ({
+        categoryId: tx.category_id ?? null,
+        description: tx.description || tx.account_categories?.name || "—",
+        base: Number(tx.amount) || 0,
+        ivaRate: Number(tx.iva_rate) || 0,
+      })),
+      ...overheads.map((o: any) => ({
+        categoryId: o.category_id ?? null,
+        description: o.description || o.account_categories?.name || "—",
+        base: Number(o.amount) || 0,
+        ivaRate: Number(o.iva_rate) || 0,
+      })),
+    ];
+
+    // Receitas: bilheteira agregada por sessão/zona + restantes receitas linha a linha.
+    const revenues = [
+      ...(ticketBreakdown as TicketBreakdownRow[]).map((r) => ({
+        origin: t.ticketing,
+        description: [r.cityName, r.sessionLabel, r.zoneName, r.lotName].filter(Boolean).join(" · "),
+        net: r.totalNet,
+      })),
+      ...revenueTxForTotals.map((tx: any) => ({
+        origin: tx.account_categories?.name || "Outras receitas",
+        description: tx.description || "—",
+        net: Number(tx.amount) || 0,
+      })),
+    ];
+
+    const extras: Array<{ label: string; value: number }> = [];
+    if (activeNode?.parentQuota) extras.push({ label: "Quota contratual do acordo", value: activeNode.parentQuota });
+    if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível devolvido", value: activeNode.vatReturnedIn });
+    if (activeNode?.additionalActiveTotal)
+      extras.push({ label: "Activos adicionais", value: activeNode.additionalActiveTotal });
+
+    return {
+      locale,
+      eventName,
+      eventDate: (subEvents as any[]).find((se) => se.id === eventId)?.date ?? null,
+      eventLocation: ((event as any)?.cities as any)?.name ?? null,
+      logoDataUrl: logoDataUrl ?? null,
+      recipientName: row.partnerName,
+      participants: settlements.map((s) => ({
+        name: s.partnerName,
+        percentage: s.effectivePercentage,
+        isHouse: s.isHouse,
+      })),
+      categories: allCategories as any[],
+      usesGrossExpenses: activeNode?.nodeUsesGrossExpenses ?? row.usesGrossExpenses,
+      expenseLines,
+      revenues,
+      extras,
+      resultOverride: row.result,
+      recipientShareOverride: row.partnerShare,
+    };
+  }
+
+  async function exportSoloDoc(row: PartnerSettlement, kind: "pdf" | "xlsx") {
+    try {
+      const branding = kind === "pdf" ? await fetchExportBranding() : null;
+      const input = await buildSoloDocInput(row, branding?.logoDataUrl ?? null);
+      if (kind === "pdf") exportPartnerStatementDocPdf(input);
+      else await exportPartnerStatementDocExcel(input);
+    } catch (err: any) {
+      console.error(err);
+    }
+  }
+
+  /** Pede o documento de um sócio no fechamento onde ele acerta. */
+  function requestSoloPdf(row: PartnerSettlement, kind: "pdf" | "xlsx" = "pdf") {
     const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
     if (!inferred || inferred === activeSettlementId) {
-      exportPdf(row);
+      void exportSoloDoc(row, kind);
       return;
     }
+    setPendingSoloKind(kind);
     setSelectedSettlementId(inferred);
     // Guarda-se o fornecedor, não a linha: ao mudar de fechamento a linha é
     // outra (mesmo sócio, participação diferente).
@@ -1970,7 +2066,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
     const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
     if (inferred && inferred !== activeSettlementId) return;
-    exportPdf(row);
+    void exportSoloDoc(row, pendingSoloKind);
     setPendingSoloPartnerId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSoloPartnerId, activeSettlementId, settlements]);
@@ -2050,12 +2146,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo (gestão)</DropdownMenuItem>
               {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
               {settlements.filter((s) => !s.isHouse).map((s) => (
-                <DropdownMenuItem key={s.partnerId} onClick={() => requestSoloPdf(s)}>
-                  Para {s.partnerName}
-                </DropdownMenuItem>
+                <React.Fragment key={s.partnerId}>
+                  <DropdownMenuItem onClick={() => requestSoloPdf(s, "pdf")}>
+                    Prestação de contas · {s.partnerName} (PDF)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => requestSoloPdf(s, "xlsx")}>
+                    Prestação de contas · {s.partnerName} (Excel)
+                  </DropdownMenuItem>
+                </React.Fragment>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>

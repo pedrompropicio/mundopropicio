@@ -333,3 +333,21 @@ Enquanto o critério não carrega, o card mostra "—".
 Prova Live: só a Anitta tem exclusivos (3 TX income, 72.250,52 s/IVA, "Fechamento
 MP + EIN"); 0 linhas de BP marcadas em toda a base; os outros 55 eventos com
 receita/custo/lucro idênticos antes e depois.
+
+## (g4) Base por fechamento + documento do sócio
+
+- Base de cálculo é do NÓ: raiz `events.partner_calc_basis`, filho
+  `parent_share_basis`. Todos os participantes do nó (casa incluída) usam essa
+  base — `nodeUsesGrossExpenses` em `event-settlement-engine.ts`.
+- `expense_includes_iva` já NÃO é lido pelo motor e saiu da UI (coluna mantida
+  na BD por histórico). "Casa sempre s/IVA" deixou de existir.
+- Aba Sócios: "(NN% atribuído)" passou a ser por fechamento
+  ("Fechamento A 100% · Fechamento B 20%") — nunca soma cruzada; coluna
+  "Base IVA"/"(herda)" removida, base mostrada junto ao nome do fechamento.
+- `EVENT_SETTLEMENTS_SELECT` (`settlement-participants.ts`) é obrigatório em
+  todos os consumidores da chave `["event-settlements", eventId]`: selects
+  diferentes na mesma chave tiravam `parent_share_pct` ao motor e davam o falso
+  aviso "sem percentagem sobre o pai".
+- Documento do sócio: `partner-statement-doc.ts` (construtor puro) +
+  `export-partner-statement-doc.ts` (XLSX 2 folhas sem fórmulas / PDF).
+  Estanque no Portal e no export da equipa. Export interno de gestão intacto.

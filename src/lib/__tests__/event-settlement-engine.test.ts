@@ -27,7 +27,32 @@ describe("computeSettlementEngine", () => {
     expect(r.c2.ok).toBe(true);
   });
 
-  it("base própria do sócio (c/IVA) gera IVA dedutível para a MP", () => {
+  // (g4) A base é DO FECHAMENTO: todos os participantes do nó, casa incluída,
+  // são calculados nela; a diferença de bases vai para o residual da MP.
+  it("base do fechamento c/IVA aplica-se também à casa", () => {
+    const r = computeSettlementEngine(
+      base({
+        eventBasis: "net_result_gross_expenses",
+        participants: [
+          { id: "p1", settlement_id: "root", participant_kind: "partner", name: "BR", mode: "settles", profit_pct: 50, loss_pct: null },
+          { id: "h", settlement_id: "root", participant_kind: "house", name: "MP", mode: "settles", profit_pct: 50, loss_pct: null },
+        ],
+      }),
+    );
+    // R_c = 1.000.000 − 460.000 = 540.000 → cada parte = 270.000
+    expect(r.nodes[0].nodeUsesGrossExpenses).toBe(true);
+    expect(r.nodes[0].participants[0].share).toBe(270_000);
+    expect(r.nodes[0].participants[1].share).toBe(270_000);
+    expect(r.house.declared).toBe(270_000);
+    expect(r.house.ivaDeductible).toBe(60_000);
+    // Total da MP (parte declarada + IVA que fica na sociedade) = 330.000,
+    // exactamente o de antes da (g4).
+    expect(r.house.residual).toBe(330_000);
+    expect(r.house.rest).toBe(0);
+    expect(r.c1.ok && r.c2.ok).toBe(true);
+  });
+
+  it("(g4) expense_includes_iva do participante é ignorado pelo motor", () => {
     const r = computeSettlementEngine(
       base({
         participants: [
@@ -36,13 +61,40 @@ describe("computeSettlementEngine", () => {
         ],
       }),
     );
-    // R_c = 1.000.000 − 460.000 = 540.000 → parte = 270.000
-    expect(r.nodes[0].participants[0].share).toBe(270_000);
-    expect(r.house.declared).toBe(300_000);
-    expect(r.house.ivaDeductible).toBe(30_000);
-    expect(r.house.residual).toBe(330_000);
-    expect(r.house.rest).toBe(0);
+    // base do evento é s/IVA → R_s = 600.000 e ninguém apura c/IVA
+    expect(r.nodes[0].nodeUsesGrossExpenses).toBe(false);
+    expect(r.nodes[0].participants[0].usesGrossExpenses).toBe(false);
+    expect(r.nodes[0].participants[0].share).toBe(300_000);
+    expect(r.house.ivaDeductible).toBe(0);
     expect(r.c1.ok && r.c2.ok).toBe(true);
+  });
+
+  it("(g4) num filho a base é o parent_share_basis", () => {
+    const r = computeSettlementEngine(
+      base({
+        eventBasis: "net_result",
+        settlements: [
+          { id: "root", name: "Raiz", parent_id: null, position: 0 },
+          {
+            id: "child",
+            name: "Filho",
+            parent_id: "root",
+            position: 1,
+            parent_share_pct: 0,
+            parent_share_basis: "net_result_gross_expenses",
+          },
+        ],
+        participants: [
+          { id: "h", settlement_id: "root", participant_kind: "house", name: "MP", mode: "settles", profit_pct: 100, loss_pct: null },
+        ],
+      }),
+    );
+    // parent_share_pct = 0 é válido (só a raiz tem NULL) e não gera erro
+    expect(r.errors).toEqual([]);
+    expect(r.nodes[1].parentSharePct).toBe(0);
+    expect(r.nodes[1].parentQuota).toBe(0);
+    expect(r.nodes[1].nodeUsesGrossExpenses).toBe(true);
+    expect(r.nodes[0].nodeUsesGrossExpenses).toBe(false);
   });
 
   // (e2) ponto 3: a casa fica com 100 − Σ(TODOS os sócios, settles e nominais).

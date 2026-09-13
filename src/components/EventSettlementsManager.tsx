@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, Plus, Trash2, Pencil, Check, X, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { EVENT_SETTLEMENTS_SELECT } from "@/lib/settlement-participants";
 
 type ParentShareBasis = "net_result" | "net_result_gross_expenses";
 
@@ -81,7 +82,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_settlements")
-        .select("id, name, parent_id, position, is_sealed, parent_share_pct, parent_share_basis, returns_parent_deductible_vat, notes")
+        .select(EVENT_SETTLEMENTS_SELECT)
         .eq("event_id", eventId)
         .order("position", { ascending: true });
       if (error) throw error;

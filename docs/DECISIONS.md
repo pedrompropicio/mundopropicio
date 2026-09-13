@@ -1606,3 +1606,23 @@ Plenitude −21.124,92; FestVybbe −47.186,80; H&K Madrid −525.628,84; Ivete
 −308.812,62; Mágicos H&K −30.233,91 — todos iguais a receita real − despesas
 c/IVA do motor. Coala Festival PT 2026 pertence a outro tenant e não é visível na
 sessão MP (não verificado por ecrã).
+
+**Adenda (g4) — base por fechamento e documento do sócio.** A base de cálculo é
+do FECHAMENTO, não do participante: raiz = `events.partner_calc_basis`, filho =
+`parent_share_basis`; todos os participantes do nó, casa incluída, usam essa
+base. Cai a regra "casa sempre s/IVA" (D-ERP10 deixa de se aplicar a
+fechamentos) e o `expense_includes_iva` por participante (coluna mantida, já não
+lida pelo motor e escondida na UI). O residual da MP absorve a diferença de IVA
+("IVA dedutível não devolvido"); C1 e C2 continuam a fechar.
+
+O documento de sócio (PDF+XLSX) passa a ser a PRESTAÇÃO DE CONTAS: "Resumo do
+Fecho" (1 O ACORDO · 2 AS RECEITAS DO EVENTO s/IVA · 3 AS DESPESAS DO EVENTO
+c/IVA · 4 O RESULTADO · 5 A PARTE DE <SÓCIO>) + "Detalhamento" (A receitas linha
+a linha, B despesas família → rubrica → linhas com IVA e nº de anexos, nota do
+art. 18.º CIVA). É ESTANQUE também no export da equipa: só o destinatário
+aparece pelo nome, os restantes colapsam em "Sócios locais — NN%" (ou "Mundo
+Propício — NN%" quando é o único outro participante); nunca "nível",
+"fechamento acima/abaixo" nem "bases diferentes". Língua por
+`suppliers.doc_locale` ('pt-PT' | 'pt-BR'). Ficheiros
+`Prestacao_de_Contas_<evento>_<sócio>.pdf/.xlsx`. O relatório completo interno de
+gestão (sem sócio) fica exactamente como estava.

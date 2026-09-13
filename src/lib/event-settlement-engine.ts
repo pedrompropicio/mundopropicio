@@ -17,14 +17,18 @@
  * Convenções:
  *  • Receita sempre s/IVA (D24). Despesa em duas leituras, s/IVA e c/IVA, com
  *    IVA linha a linha via `@/lib/iva` (Art.º 18 CIVA).
- *  • A casa (`house`) apura s/IVA — convenção da empresa gestora (D-ERP10).
+ *  • (g4) A BASE É DO FECHAMENTO, não do participante: raiz →
+ *    `events.partner_calc_basis`; filho → `parent_share_basis`. TODOS os
+ *    participantes do nó (a casa incluída) são calculados nessa base. A regra
+ *    "a casa apura sempre s/IVA" (D-ERP10) deixou de se aplicar a fechamentos e
+ *    `expense_includes_iva` já não é lido pelo motor.
  *  • Arredondamento ao cêntimo só na saída, nunca por bloco intermédio.
  */
 import { roundCents } from "@/lib/iva";
 import { lineValue } from "@/lib/event-cost-basis";
 import {
   ignoresOperationalExpenses,
-  partnerUsesGrossExpenses,
+  usesGrossExpenseAmounts,
   type PartnerCalcBasis,
 } from "@/lib/partner-calc-basis";
 
@@ -56,7 +60,10 @@ export interface EngineParticipant {
   mode: "settles" | "nominal";
   profit_pct: number | string | null;
   loss_pct?: number | string | null;
-  /** null = herda a base contratual do evento. */
+  /**
+   * (g4) IGNORADO pelo motor: a base é do fechamento. A coluna fica na BD por
+   * compatibilidade histórica e está escondida na UI.
+   */
   expense_includes_iva?: boolean | null;
 }
 
@@ -191,6 +198,12 @@ export interface SettlementNodeResult {
   vatReturnedIn: number;
   /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
   vatReturnedOut: number;
+  /**
+   * (g4) Base do FECHAMENTO: true = despesas c/IVA. Raiz →
+   * `events.partner_calc_basis`; filho → `parent_share_basis`. Todos os
+   * participantes do nó usam esta base.
+   */
+  nodeUsesGrossExpenses: boolean;
 }
 
 export interface HouseResidual {
@@ -261,6 +274,8 @@ function orderTopologically(settlements: EngineSettlement[]): EngineSettlement[]
 export function computeSettlementEngine(input: EngineInput): EngineResult {
   const errors: string[] = [];
   const ignoresExpenses = ignoresOperationalExpenses(input.eventBasis as any);
+  /** (g4) Base contratual do evento — base do fechamento raiz. */
+  const eventUsesGross = usesGrossExpenseAmounts(input.eventBasis as any);
   const marked = input.markedLines ?? [];
 
   // ── Operações de terceiros (d): valor da participação por apuramento ─
@@ -433,6 +448,11 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       parentId: s.parent_id ?? null,
       depth: num((s as any).__depth),
       isSealed: !!s.is_sealed,
+      nodeUsesGrossExpenses: isRoot
+        ? eventUsesGross
+        : basis == null
+          ? eventUsesGross
+          : basis === "net_result_gross_expenses",
       parentQuota,
       parentQuotaBasis: isRoot ? null : basis,
       parentSharePct: isRoot ? null : (s.parent_share_pct == null ? null : num(s.parent_share_pct)),
@@ -483,9 +503,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       continue;
     }
     const isHouse = p.participant_kind === "house";
-    // A casa apura sempre s/IVA (convenção da empresa gestora, D-ERP10).
-    const override = isHouse ? false : (p.expense_includes_iva ?? null);
-    const usesGross = partnerUsesGrossExpenses(input.eventBasis as any, override);
+    // (g4) A base é do FECHAMENTO — igual para todos os participantes do nó,
+    // casa incluída. `expense_includes_iva` já não é lido.
+    const usesGross = ignoresExpenses ? false : node.nodeUsesGrossExpenses;
 
     // (g1) O IVA entregue a um filho já não pertence aos participantes deste nó:
     // a base s/IVA do nó desce exactamente esse valor (com a regra activa a base
@@ -520,7 +540,13 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     }
     // (g1) A casa só é "declarada" quando acerta: uma casa `nominal` é o pool
     // que desce para os fechamentos abaixo, não uma quota da MP neste nó.
-    if (isHouse && p.mode === "settles") declared += shareNet;
+    // (g4) A casa é calculada na base do fechamento: a parte declarada é `share`
+    // e a diferença de bases vai para o termo "IVA dedutível não devolvido" —
+    // o total da MP (parte + residual) fica igual ao de antes e a C2 fecha.
+    if (isHouse && p.mode === "settles") {
+      declared += share;
+      ivaDeductible += shareNet - share;
+    }
 
     computed.push({ p, key, isHouse, shareNet });
 
