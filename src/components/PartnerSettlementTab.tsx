@@ -1273,13 +1273,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           };
         }),
     );
-    const nominalNoteOf = (name: string, nodeId: string, pctValue: number) => {
+    const nominalNoteOf = (name: string, nodeId: string) => {
       const real = realByName.get(name);
       if (!real) return undefined;
       const nominal = nodeById.get(nodeId)?.participants.find((p) => p.name === name)?.shareNet ?? 0;
       return `acerta ${real.pctLabel} = ${formatCurrency(real.share)} no ${real.settlesAt} · diferença ${formatCurrency(roundCents(nominal - real.share))} fica com a Mundo Propício`;
     };
-    void pctValueUnused;
+
 
     // Cadeia de nós acima do activo (igual à cascata do documento do sócio, g13),
     // aqui com os nomes visíveis porque é peça interna.
