@@ -364,6 +364,24 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     }
   }
 
+  // ── (g6) Linhas devolvidas a fechamentos abaixo ─────────────────────
+  // Não saem do perímetro de cima: a raiz fica exactamente igual. Guardam-se
+  // nas duas leituras e a valorização escolhe-se no nó que as recebe.
+  const addbackByNode = new Map<
+    string,
+    { net: number; gross: number; lines: Array<{ label: string; net: number; gross: number }> }
+  >();
+  for (const l of input.addbackLines ?? []) {
+    if (!l.addback_settlement_id) continue;
+    const net = lineValue(l.amount, l.iva_rate, false);
+    const gross = lineValue(l.amount, l.iva_rate, true);
+    const cur = addbackByNode.get(l.addback_settlement_id) ?? { net: 0, gross: 0, lines: [] };
+    cur.net += net;
+    cur.gross += gross;
+    cur.lines.push({ label: l.label, net, gross });
+    addbackByNode.set(l.addback_settlement_id, cur);
+  }
+
   const ordered = orderTopologically(input.settlements);
   const rootIds = ordered.filter((s) => !s.parent_id).map((s) => s.id);
   if (rootIds.length > 1) errors.push("Mais do que um fechamento raiz neste evento.");
