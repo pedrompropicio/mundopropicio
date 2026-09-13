@@ -176,6 +176,8 @@ export interface ParticipantResult {
   /** % aplicada (lucro, ou perda quando o resultado da base do participante < 0). */
   effectivePct: number;
   usesGrossExpenses: boolean;
+  /** (g10) Base EFETIVA para apresentação (c/IVA só se o nó não devolver o IVA). */
+  effectiveUsesGrossExpenses: boolean;
   /** Parte na base do participante. */
   share: number;
   /** Parte na base s/IVA (referência para a decomposição da MP). */
