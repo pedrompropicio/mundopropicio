@@ -66,6 +66,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
+import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -275,6 +277,12 @@ export default function EventDetail() {
     : selectedSubEvent
       ? [selectedSubEvent]
       : [id!];
+
+  // Perímetro do fechamento raiz (D25 g3).
+  const { data: rootSettlementInfo } = useEventRootSettlements(transactionEventIds);
+  const rootSettlementIds = rootSettlementInfo?.rootIds;
+  const settlementNameById = rootSettlementInfo?.nameById;
+
 
   // Data EFETIVA do evento (não a data genérica/criação de events.date):
   // max(events.date, event_dates, sub-eventos). Usada na detecção de fase dos cards.
@@ -690,9 +698,24 @@ export default function EventDetail() {
 
 
   // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
-  const realizedTransactions = eventTransactions.filter(
+  // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
+  // exclusivas desse fechamento e não entram no resultado do evento.
+  const realizedTransactions = keepRootPerimeter(eventTransactions as any[], rootSettlementIds).filter(
     (t) => t.status === "paid" || t.status === "approved" || t.status === "partially_paid"
   );
+
+  // Bloco informativo "Exclusivos de fechamentos".
+  const settlementExclusives = (() => {
+    const rows = pickOutsideRootPerimeter(eventTransactions as any[], rootSettlementIds).filter(
+      (t: any) => t.is_hidden !== true && t.reversed_at == null,
+    );
+    // Sempre em base s/IVA: é assim que o motor dos fechamentos lê estas linhas.
+    const value = rows.reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);
+    const names = Array.from(
+      new Set(rows.map((t: any) => settlementNameById?.[t.event_settlement_id] ?? "outro fechamento")),
+    );
+    return { count: rows.length, value, names };
+  })();
 
   // Simetria income/expense: movimentos transitórios (ramo 10.1 Capital — aportes, devoluções,
   // distribuições — e cauções) NUNCA entram nos cards de resultado, em nenhum dos lados.
@@ -816,7 +839,7 @@ export default function EventDetail() {
     acc[catName].value += Number(t.amount);
     return acc;
   }, {});
-  const pieData = Object.values(expenseByCategory);
+  const pieData: { name: string; value: number }[] = Object.values(expenseByCategory);
 
   // Cartão "Fora do resultado" — SÓ LEITURA. Isola exactamente `exclude_from_result`,
   // ao contrário do contador da aba BP (que mistura os 4 flags bloqueadores).
@@ -1180,7 +1203,32 @@ export default function EventDetail() {
             </span>
           </button>
         )}
+
+        {/* Exclusivos de fechamentos (D25 g3): linhas marcadas com um fechamento
+            filho pertencem a esse fechamento e nunca entram no resultado do evento. */}
+        {settlementExclusives.count > 0 && (
+          <div
+            title="Movimentos atribuídos a um fechamento próprio. Não entram em receita, custo, lucro, DRE nem no Portal do Sócio deste evento."
+            className="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Exclusivos de fechamentos
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento (s/IVA)
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">
+              {formatCurrency(settlementExclusives.value)}
+            </span>
+          </div>
+        )}
       </div>
+
 
       {/* Locked banner for completed events */}
       {isCompleted && (
@@ -1339,6 +1387,11 @@ export default function EventDetail() {
                               {isSharedCost && (
                                 <span className="inline-flex items-center rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium mt-0.5">
                                   Custo partilhado ({subEventCount} datas)
+                                </span>
+                              )}
+                              {isOutsideRootPerimeter(t as any, rootSettlementIds) && (
+                                <span className="ml-1 inline-flex items-center rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-medium mt-0.5">
+                                  Exclusivo · {settlementNameById?.[(t as any).event_settlement_id] ?? "outro fechamento"}
                                 </span>
                               )}
                             </td>

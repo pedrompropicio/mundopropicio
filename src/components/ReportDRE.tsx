@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
@@ -275,7 +276,7 @@ export default function ReportDRE() {
     },
   });
 
-  const { data: transactions = [] } = useQuery({
+  const { data: transactionsAll = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
       const { data, error } = await supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false });
@@ -283,6 +284,19 @@ export default function ReportDRE() {
       return data;
     },
   });
+
+  // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
+  // exclusivas desse fechamento e não entram no resultado do evento.
+  const { data: rootSettlementIds } = useQuery({
+    queryKey: ["dre-root-settlements"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_settlements").select("id, parent_id");
+      if (error) throw error;
+      return new Set(((data ?? []) as any[]).filter((s) => !s.parent_id).map((s) => s.id as string));
+    },
+  });
+
+  const transactions = keepRootPerimeter(transactionsAll as any[], rootSettlementIds);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],

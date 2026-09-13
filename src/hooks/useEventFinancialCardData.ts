@@ -9,6 +9,8 @@ import {
 import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
+import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
 
@@ -83,12 +85,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   // NOTA: o Card mostra "Pago vs Comprometido" usando paid_amount, por isso inclui "partially_paid".
   // O Fecho (isValidFechoTransaction) só aceita approved/paid. A diferença de status é intencional;
   // o que se alinha entre vistas são os flags bloqueadores, via hasResultBlockingFlags.
-  const { data: txs = [] } = useQuery({
+  const { data: txsAll = [] } = useQuery({
     queryKey: ["efc-tx", idsKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -96,14 +98,20 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: ids.length > 0,
   });
 
+  // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
+  // exclusivas desse fechamento e nunca entram no resultado do evento.
+  const { data: rootInfo } = useEventRootSettlements(ids);
+  const rootIds = rootInfo?.rootIds;
+  const txs = useMemo(() => keepRootPerimeter(txsAll, rootIds), [txsAll, rootIds]);
+
 
   // ── BP forecasts (active version) — usados em committed e forecast ──
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecastsAll = [] } = useQuery({
     queryKey: ["efc-forecasts", idsKey, kind],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
@@ -113,6 +121,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
     enabled: ids.length > 0,
   });
+  const forecasts = useMemo(() => keepRootPerimeter(forecastsAll, rootIds), [forecastsAll, rootIds]);
 
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
