@@ -177,6 +177,8 @@ export interface EngineInput {
   markedLines?: EngineMarkedLine[];
   /** (g6) Linhas devolvidas a fechamentos abaixo. */
   addbackLines?: EngineAddbackLine[];
+  /** (g14) Linhas cujo IVA a sociedade não recupera. */
+  vatExclusionLines?: EngineVatExclusionLine[];
   /** Por `event_partner_id` (ou `supplier_id` em fallback). */
   moneyByPartner?: Record<string, EngineParticipantMoney>;
   /** Operações de terceiros do evento (peça (d)). */
