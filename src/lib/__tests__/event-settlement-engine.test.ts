@@ -506,40 +506,62 @@ describe("(g6) linhas devolvidas a um fechamento abaixo", () => {
   });
 });
 
-// ── (g14) IVA não recuperável pela sociedade ─────────────────────────────────
-describe("(g14) IVA não recuperável fica fora da devolução", () => {
-  const withExclusion = () =>
+// ── (g14) IVA não recuperável (pago e legalmente não dedutível) ─────────────
+// Caso sintético (não Anitta): o IVA marcado é CUSTO REAL — sai da devolução e
+// abate ao resultado s/IVA que serve de âncora à C1.
+describe("(g14) IVA não recuperável é custo real fora da devolução", () => {
+  const scenario = (marked: boolean) =>
     computeSettlementEngine(
-      anittaThreeLevels({
-        vatExclusionLines: [
-          { event_settlement_id: null, label: "Open bar", amount: 64_029.83, iva_rate: 23 },
+      base({
+        eventTotals: { revenueNet: 500_000, expensesNet: 100_000, expensesGross: 123_000 },
+        settlements: [
+          { id: "root", name: "Raiz", parent_id: null, position: 0 },
+          {
+            id: "soc",
+            name: "Sociedade",
+            parent_id: "root",
+            position: 1,
+            parent_share_pct: 0,
+            returns_parent_deductible_vat: true,
+          },
         ],
+        participants: [
+          { id: "ext", settlement_id: "root", participant_kind: "partner", name: "EXTERNO", mode: "settles", profit_pct: 50, loss_pct: null },
+          { id: "hr", settlement_id: "root", participant_kind: "house", name: "MP", mode: "settles", profit_pct: 50, loss_pct: null },
+          { id: "hs", settlement_id: "soc", participant_kind: "house", name: "MP", mode: "settles", profit_pct: 100, loss_pct: null },
+        ],
+        ...(marked
+          ? {
+              vatExclusionLines: [
+                { event_settlement_id: null, label: "Refeições", amount: 10_000, iva_rate: 23 },
+              ],
+            }
+          : {}),
       }),
     );
 
-  it("o IVA devolvido desce e o resto fica na casa", () => {
-    const r = withExclusion();
-    const root = r.nodes.find((n) => n.id === "root")!;
-    const n3 = r.nodes.find((n) => n.id === "n3")!;
-    near(root.vatNonRecoverable, 14_726.86);
-    near(root.vatNotReturned, 14_726.86);
-    near(n3.vatReturnedIn, 262_641.48 - 14_726.86);
-    near(n3.resultNet, 548_198.06 - 14_726.86);
-    near(r.house.vatNotReturned, 14_726.86);
+  it("o IVA marcado sai do IVA devolvido e do resultado real", () => {
+    const a = scenario(false);
+    const b = scenario(true);
+    const nodeSoc = (r: typeof a) => r.nodes.find((n) => n.id === "soc")!;
+    near(nodeSoc(b).vatReturnedIn, nodeSoc(a).vatReturnedIn - 2_300);
+    near(b.nodes.find((n) => n.id === "root")!.vatNotReturned, 2_300);
+    near(b.eventNetResult, a.eventNetResult - 2_300);
+    near(b.house.vatNonRecoverableCost, 2_300);
   });
 
-  it("sócios de cima iguais, sociedade desce, C1 e C2 fecham", () => {
-    const r = withExclusion();
-    const part = (id: string) =>
+  it("sócios apurados c/IVA inalterados, casa desce, C1 e C2 fecham", () => {
+    const a = scenario(false);
+    const b = scenario(true);
+    const part = (r: typeof a, id: string) =>
       r.nodes.flatMap((n) => n.participants).find((p) => p.id === id)!;
-    near(part("an").share, 417_677.51);
-    near(part("cv").share, 35_800.93);
-    near(part("ein").share, (548_198.06 - 14_726.86) / 2);
-    near(part("mp-n3").share, (548_198.06 - 14_726.86) / 2);
-    expect(r.errors).toEqual([]);
-    near(r.c1.value, 0);
-    near(r.c2.value, 0);
-    expect(r.c1.ok && r.c2.ok).toBe(true);
+    near(part(b, "ext").share, part(a, "ext").share);
+    near(part(b, "hs").share, part(a, "hs").share - 2_300);
+    near(b.house.residual, a.house.residual - 2_300);
+    expect(b.errors).toEqual([]);
+    near(b.c1.value, 0);
+    near(b.c2.value, 0);
+    expect(b.c1.ok && b.c2.ok).toBe(true);
   });
 });
 

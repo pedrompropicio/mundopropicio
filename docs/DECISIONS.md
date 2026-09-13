@@ -1884,8 +1884,14 @@ proibição das palavras que descrevem a estrutura dos acordos.
 
 ## D25 adenda (g14, 13/09/2026) — IVA não recuperável fica fora da devolução
 
-Há linhas de BP cujo IVA é custo para os sócios apurados c/IVA mas que a
-sociedade não recupera. Marcadas com `event_forecasts.vat_non_recoverable`,
-esse IVA sai da base dos sócios de cima (como sempre) mas NÃO é devolvido à
-sociedade: fica no residual da casa, exposto como "IVA não repassado"
-(`house.vatNotReturned`) e conferido na C2. Nunca aparece em documento de sócio.
+Semântica corrigida em 13/09/2026: a flag `event_forecasts.vat_non_recoverable`
+marca IVA **realmente pago** e **legalmente não dedutível** em PT (viaturas,
+refeições, entretenimento). Esse IVA sai da base dos sócios de cima (como
+sempre), **não é devolvido a ninguém** e é **custo real**: abate ao resultado
+s/IVA que serve de âncora à C1. NÃO fica no residual da casa como valor retido.
+Na "Posição da Mundo Propício" é linha informativa de custo. Nunca aparece em
+documento de sócio (lá só existe "IVA dedutível recuperado", já líquido).
+
+**IVA negocial sem fatura NÃO se marca — é ativo da sociedade** e divide-se pela
+regra normal de devolução do IVA (caso das linhas de open bar da Anitta, que
+ficam sem marcação).

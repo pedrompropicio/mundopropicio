@@ -1188,8 +1188,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const housePositionReal = resultRealNet - externalShares;
   const houseNominalShare = settlements.find((s) => s.isHouse)?.partnerShare ?? 0;
   const houseIvaGain = housePositionReal - houseNominalShare;
-  // (g14) IVA que a sociedade NÃO recupera: fica na casa e não é devolvido.
-  const vatNotReturnedTotal = engine.result?.house.vatNotReturned ?? 0;
+  // (g14) IVA pago e legalmente não dedutível: CUSTO real, informativo aqui.
+  const vatNotReturnedTotal = engine.result?.house.vatNonRecoverableCost ?? 0;
   const vatNotReturnedLines = (engine.result?.nodes ?? [])
     .filter((n) => n.vatNotReturned !== 0)
     .flatMap((n) => n.vatNonRecoverableLines);
@@ -2970,7 +2970,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <TableRow>
                   <TableCell className="text-xs text-muted-foreground py-2">
                     <details>
-                      <summary className="cursor-pointer">IVA não repassado</summary>
+                      <summary className="cursor-pointer">IVA não recuperável (custo, fora da devolução)</summary>
                       <div className="mt-1 space-y-0.5">
                         {vatNotReturnedLines.map((l, i) => (
                           <div key={`${l.label}-${i}`} className="flex justify-between gap-4">
@@ -2982,7 +2982,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     </details>
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs text-muted-foreground py-2 align-top">
-                    {formatCurrency(vatNotReturnedTotal)}
+                    −{formatCurrency(vatNotReturnedTotal)}
                   </TableCell>
                 </TableRow>
               )}

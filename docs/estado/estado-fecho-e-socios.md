@@ -71,10 +71,13 @@ Live por leitura e por prova em transação; o Publish é decisão do Pedro.
 ## (g14) IVA não recuperável pela sociedade — feito
 
 - Coluna `event_forecasts.vat_non_recoverable` aplicada (sem Publish).
-- Motor: devolução do IVA só das linhas não marcadas; `vatNotReturned` no nó de
-  cima e `house.vatNotReturned` na C2.
-- UI: checkbox no editor da linha do BP + badge; "IVA não repassado" com detalhe
-  na Posição da Mundo Propício; documento do sócio com o valor líquido.
+- Semântica (13/09): marca IVA pago e legalmente não dedutível (viaturas,
+  refeições, entretenimento). IVA negocial sem fatura NÃO se marca.
+- Motor: sai da devolução e abate ao resultado real (âncora C1); não é valor
+  retido pela casa. C2 sem parcela nova.
+- UI: checkbox no editor da linha do BP + badge; "IVA não recuperável (custo,
+  fora da devolução)" na Posição da MP; documento do sócio com o valor líquido.
+- Anitta: nenhuma linha marcada — referências intactas.
 - Testes: 27 no motor, 66 no conjunto fecho/sócios; `tsgo` limpo.
 - Marcação das linhas fica para o Pedro no BP (sem DML).
 

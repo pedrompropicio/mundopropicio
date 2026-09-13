@@ -386,24 +386,27 @@ sócio (`financial_accounts.partner_id`), filtradas pelo evento. Helpers puros e
 - **Portal**: RPC SECURITY DEFINER `get_partner_settlement_summary` (estanque).
 - **Export de conferência**: `src/lib/export-partner-disbursement.ts`.
 
-## (g14) IVA não recuperável pela sociedade
+## (g14) IVA não recuperável (semântica corrigida 13/09/2026)
 
-- `event_forecasts.vat_non_recoverable` (boolean, default false) marca linhas do
-  BP cujo IVA é custo para os sócios apurados c/IVA mas que a sociedade NÃO
-  recupera (ex.: open bar acertado com o operador, sem fatura com IVA).
-- Motor (`event-settlement-engine.ts`): a regra `returns_parent_deductible_vat`
-  continua a retirar da base dos sócios do nó de cima o IVA TODO
-  (`vatReturnedOut` = IVA integral), mas o nó abaixo só recebe
-  `vatReturnedIn = IVA integral − IVA marcado`. A diferença fica no nó de cima
-  como `vatNotReturned` (+ `vatNonRecoverable`/`vatNonRecoverableLines`) e é uma
-  parcela EXPLÍCITA do residual da casa: `house.vatNotReturned`. C2 passa a
-  `residual = declarada + IVA dedutível + nominal−real + IVA não repassado`.
-  C1 inalterada.
-- Sócios do nó de cima ficam iguais ao cêntimo; o resultado da sociedade e as
-  partes dos seus sócios descem exactamente o IVA marcado.
+- `event_forecasts.vat_non_recoverable` (boolean, default false) marca linhas
+  cujo IVA foi **realmente pago ao fornecedor** e é **legalmente não dedutível**
+  em PT (viaturas, refeições, entretenimento). É CUSTO REAL de todos.
+- **IVA negocial sem fatura NÃO se marca** — nesses casos (ex.: open bar acertado
+  com o operador) o "IVA" é condição negocial, fica no pool e é ativo da
+  sociedade, dividido pela regra normal de devolução do IVA.
+- Motor: `returns_parent_deductible_vat` continua a retirar da base dos sócios do
+  nó de cima o IVA TODO (`vatReturnedOut` = IVA integral), mas o nó abaixo só
+  recebe `vatReturnedIn = IVA integral − IVA marcado`. O IVA marcado
+  (`vatNonRecoverable`/`vatNonRecoverableLines`, `vatNotReturned` no nó de cima)
+  **abate ao `eventNetResult`** que serve de âncora à C1 — não é valor retido
+  pela casa. C2 mantém-se `residual = declarada + IVA dedutível + nominal−real`.
+- Sócios apurados c/IVA ficam inalterados; o resultado da sociedade, as partes
+  dos seus sócios e o residual da casa descem exactamente o IVA marcado.
 - UI: checkbox "IVA não recuperável pela sociedade" no editor da linha do BP
-  (admin/manager, só com IVA > 0) + badge na linha; badge da quota mostra já o
-  IVA líquido; "Posição da Mundo Propício" tem "IVA não repassado" com detalhe
-  das linhas ("IVA dedutível retido" é a linha antiga, diferença de bases).
-- Documento do sócio: "IVA dedutível recuperado" já com o valor líquido; nada
-  mais muda e a cascata continua a fechar. Portal usa o mesmo motor.
+  (admin/manager, só com IVA > 0) + badge na linha; "Posição da Mundo Propício"
+  mostra linha informativa de custo "IVA não recuperável (custo, fora da
+  devolução)" com detalhe ("IVA dedutível retido" é outra coisa: diferença de
+  bases).
+- Documento do sócio: só "IVA dedutível recuperado" já líquido. Portal idem.
+- Anitta EDA 2026: **nenhuma linha marcada** — referências mantêm-se
+  (IVA devolvido 262.459,85 / nível 3 547.906,69 / EIN 273.953,35).

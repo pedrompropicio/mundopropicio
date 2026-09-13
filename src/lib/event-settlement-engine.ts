@@ -249,7 +249,7 @@ export interface SettlementNodeResult {
   vatNonRecoverableLines: VatExclusionNodeLine[];
   /**
    * (g14) IVA deste perímetro que NÃO foi devolvido ao fechamento abaixo por ser
-   * não recuperável — fica no residual da casa ("IVA não repassado").
+   * legalmente não dedutível — custo real, não valor retido pela casa.
    */
   vatNotReturned: number;
   /**
@@ -285,8 +285,12 @@ export interface HouseResidual {
   ivaDeductible: number;
   /** (ii) quotas nominais que não são pagas neste evento. */
   nominalGap: number;
-  /** (g14) (iii) IVA não repassado: dedutível que a sociedade não recupera. */
-  vatNotReturned: number;
+  /**
+   * (g14) IVA REALMENTE PAGO e legalmente não dedutível (viaturas, refeições,
+   * entretenimento): custo real que abate à âncora e fica fora da devolução.
+   * NÃO é valor retido pela casa.
+   */
+  vatNonRecoverableCost: number;
   /** (iv) resto — tem de ser 0; ≠ 0 é erro de configuração das percentagens. */
   rest: number;
 }
@@ -534,8 +538,8 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
             );
           } else {
             // (g14) Sai da base dos sócios do pai o IVA TODO (para eles é custo),
-            // mas só é devolvido o que a sociedade recupera: o IVA das linhas
-            // marcadas como não recuperável fica no residual da casa.
+            // mas só é devolvido o IVA que é legalmente dedutível: o IVA das
+            // linhas marcadas é custo real e não se devolve a ninguém.
             const fullVat = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
             const notReturned = Math.min(Math.max(parent.vatNonRecoverable, 0), Math.max(fullVat, 0));
             vatReturnedIn = fullVat - notReturned;
@@ -751,15 +755,19 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   // C1: a despesa foi suportada uma vez no perímetro de cima (e os sócios de cima
   // suportaram a sua parte) e é devolvida por inteiro ao fechamento abaixo.
   const addbacksTotal = nodes.reduce((s, n) => s + n.addbackIn, 0);
+  const vatNonRecoverableCost = nodes.reduce((s, n) => s + n.vatNotReturned, 0);
   const eventNetResult =
     nodes.reduce(
       (s, n) => s + n.perimeter.revenueNet - (ignoresExpenses ? 0 : n.perimeter.expensesNet),
       0,
-    ) + additionalActivesTotal + addbacksTotal;
+    ) +
+    additionalActivesTotal +
+    addbacksTotal -
+    // (g14) O IVA legalmente não dedutível é CUSTO REAL: abate ao resultado
+    // s/IVA que serve de âncora à C1. Não é ativo retido pela casa.
+    vatNonRecoverableCost;
   const residual = eventNetResult - partnersPaidTotal;
-  // (g14) O IVA não repassado é uma parcela EXPLÍCITA do residual da casa.
-  const vatNotReturnedTotal = nodes.reduce((s, n) => s + n.vatNotReturned, 0);
-  const rest = residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal);
+  const rest = residual - (declared + ivaDeductible + nominalGap);
 
   const c1Value = partnersPaidTotal + residual - eventNetResult;
   const c2Value = rest;
@@ -791,7 +799,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       declared: roundCents(declared),
       ivaDeductible: roundCents(ivaDeductible),
       nominalGap: roundCents(nominalGap),
-      vatNotReturned: roundCents(vatNotReturnedTotal),
+      vatNonRecoverableCost: roundCents(vatNonRecoverableCost),
       rest: roundCents(rest),
     },
     c1: {
@@ -800,7 +808,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       ok: Math.abs(c1Value) <= TOL,
     },
     c2: {
-      label: "C2 — residual = declarada + IVA dedutível + nominal−real + IVA não repassado",
+      label: "C2 — residual = declarada + IVA dedutível + nominal−real",
       value: roundCents(c2Value),
       ok: Math.abs(c2Value) <= TOL,
     },
