@@ -1,6 +1,6 @@
 # Estado — Fecho, Fechamentos e Sócios (#146)
 
-Actualizado em 2026-09-13 (g7). **Nada publicado** — tudo construído e provado em
+Actualizado em 2026-09-13 (g9a). **Nada publicado** — tudo construído e provado em
 Live por leitura; o Publish é decisão do Pedro.
 
 ## Construído
@@ -25,17 +25,26 @@ Live por leitura; o Publish é decisão do Pedro.
 - **(g6)** devolução de linhas de BP a um fechamento abaixo (custos internos da
   sociedade) — motor e testes; raiz imutável.
 - **(g7)** "Recebido por" nas receitas por encontro de contas: campo no editor,
-  quarta fonte de receitas em poder do sócio, testes; DDL aplicada (coluna +
-  índice, CHECK, bloco (C) da RPC, trigger `trg_enforce_held_revenue_is_paid` e
-  isenção da compensação em `enforce_tx_paid_requires_account`).
+  quarta fonte de receitas em poder do sócio, testes; DDL aplicada.
+- **(g8)** auditoria de estanqueidade entre sócios (só leitura):
+  `docs/auditorias/AUD-estanqueidade-socios-2026-09-13.md` — P0 5 · P1 5 · P2 3,
+  issues #158 a #167.
+- **(g9a)** #158 fechada: as 51 políticas RLS abertas
+  (`auth.uid() IS NOT NULL`) foram substituídas por
+  `<tabela>_select_privileged_roles` com `has_staff_role`, mais políticas
+  estanques de sócio em `account_categories` e `role_permissions`. Prova
+  antes/depois na mesma transação; sócio passa de 45 tabelas visíveis a 0.
 
 ## Falta
 
+- **Auditoria (g8)** — correcções #159 a #167, uma a uma, por gravidade.
 - **(g6)** UI restante (badge e linha no painel do filho, documento do sócio).
 - **(g7)** marcar a transação do A&B Food no ecrã depois do Publish (sem DML).
 - **Prova formal contra a planilha v23** (02/09): EDA 417.677,51 · MP+EIN
   597.502,78 · EIN 298.751,39.
 - **Selar** o fechamento da Anitta depois dessa prova.
+- **Papel de staff** para `producaotec@mundopropicio.com` na empresa Coala
+  Festival Portugal — decisão do Pedro, é DML.
 - **Publish** — não feito, por decisão explícita.
 
 ## Notas
@@ -43,5 +52,7 @@ Live por leitura; o Publish é decisão do Pedro.
 - DRE Empresarial e DRE Brasil são vistas de EMPRESA e mantêm os exclusivos.
 - Descrições de transações e de linhas de BP são texto de negócio: sem notas de
   implementação, referências a fechamentos ou "planilha vNN".
+- Políticas PERMISSIVE abertas são proibidas: padrão `privileged_roles` (staff)
+  + política estanque de sócio.
 - 1 cêntimo de diferença de apresentação no Encontro de Contas da raiz
   (417.293,41 no ecrã vs 417.293,42 no motor) — truncatura, não cálculo.

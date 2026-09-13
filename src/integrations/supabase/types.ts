@@ -15885,6 +15885,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_staff_role: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_public_portal_company: {
         Args: { _company_id: string }
