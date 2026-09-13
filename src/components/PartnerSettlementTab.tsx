@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -1944,6 +1944,31 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   }
 
+  /** Pede o PDF de um sócio no fechamento onde ele acerta. */
+  function requestSoloPdf(row: PartnerSettlement) {
+    const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
+    if (!inferred || inferred === activeSettlementId) {
+      exportPdf(row);
+      return;
+    }
+    setSelectedSettlementId(inferred);
+    setPendingSoloPartnerId(row.partnerId);
+  }
+
+  useEffect(() => {
+    if (!pendingSoloPartnerId) return;
+    const row = settlements.find((r) => r.partnerId === pendingSoloPartnerId);
+    if (!row) {
+      setPendingSoloPartnerId(null);
+      return;
+    }
+    const inferred = inferSettlesSettlementId(allParticipants as any[], row.supplierId);
+    if (inferred && inferred !== activeSettlementId) return;
+    exportPdf(row);
+    setPendingSoloPartnerId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSoloPartnerId, activeSettlementId, settlements]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -2014,7 +2039,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo</DropdownMenuItem>
               {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
               {settlements.filter((s) => !s.isHouse).map((s) => (
-                <DropdownMenuItem key={s.partnerId} onClick={() => exportPdf(s)}>
+                <DropdownMenuItem key={s.partnerId} onClick={() => requestSoloPdf(s)}>
                   Para {s.partnerName}
                 </DropdownMenuItem>
               ))}
