@@ -36,6 +36,8 @@ import {
   computeSponsorshipSynthetic,
   type SponsorshipSyntheticResult,
 } from "@/lib/bp-sponsorship-synthetic";
+import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 
 export type RevenueBucket = "bilheteira" | "ab" | "patrocinio" | "outros";
 
