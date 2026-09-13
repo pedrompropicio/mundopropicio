@@ -568,7 +568,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
+        ...heldByFields,
       } : {
+
         description: form.description,
         amount: parseFloat(form.amount),
         iva_rate: form.iva_rate,
