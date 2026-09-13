@@ -2961,11 +2961,31 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="text-xs text-muted-foreground py-2">IVA não repassado</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-2">IVA dedutível retido</TableCell>
                 <TableCell className="text-right font-mono text-xs text-muted-foreground py-2">
                   {formatCurrency(houseIvaGain)}
                 </TableCell>
               </TableRow>
+              {vatNotReturnedTotal !== 0 && (
+                <TableRow>
+                  <TableCell className="text-xs text-muted-foreground py-2">
+                    <details>
+                      <summary className="cursor-pointer">IVA não repassado</summary>
+                      <div className="mt-1 space-y-0.5">
+                        {vatNotReturnedLines.map((l, i) => (
+                          <div key={`${l.label}-${i}`} className="flex justify-between gap-4">
+                            <span className="truncate">{l.label}</span>
+                            <span className="font-mono">{formatCurrency(l.vat)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs text-muted-foreground py-2 align-top">
+                    {formatCurrency(vatNotReturnedTotal)}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
