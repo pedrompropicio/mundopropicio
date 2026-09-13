@@ -179,6 +179,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // IVA vem de partner_calc_basis; o toggle nunca escreve nesse campo.
   const basis = useFechoBasis(eventId, event?.partner_calc_basis);
 
+  // Motor dos apuramentos — dá o perímetro e a quota do pai do nó activo (#146 (e2)).
+  const engine = useEventSettlementEngine(eventId);
+
+
 
 
   // Sub-events with city info (for breakdown)
