@@ -280,7 +280,9 @@ export interface HouseResidual {
   ivaDeductible: number;
   /** (ii) quotas nominais que não são pagas neste evento. */
   nominalGap: number;
-  /** (iii) resto — tem de ser 0; ≠ 0 é erro de configuração das percentagens. */
+  /** (g14) (iii) IVA não repassado: dedutível que a sociedade não recupera. */
+  vatNotReturned: number;
+  /** (iv) resto — tem de ser 0; ≠ 0 é erro de configuração das percentagens. */
   rest: number;
 }
 
