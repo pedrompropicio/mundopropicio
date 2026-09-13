@@ -25,6 +25,7 @@
  *  • Arredondamento ao cêntimo só na saída, nunca por bloco intermédio.
  */
 import { roundCents } from "@/lib/iva";
+import { effectiveUsesGrossExpenses } from "@/lib/settlement-basis";
 import { lineValue } from "@/lib/event-cost-basis";
 import {
   ignoresOperationalExpenses,
