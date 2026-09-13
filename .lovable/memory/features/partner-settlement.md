@@ -283,3 +283,25 @@ Duas regras absolutas no gerador do documento (`buildSoloDocInput` em
   (despesas c/IVA)".
 - O aviso vermelho "a conta não fecha" é mecanismo permanente: só desaparece
   quando a conta fecha.
+
+## (g11) Receitas em poder do sócio — coluna `type`
+
+O bloco de contas de acerto lê `financial_accounts.type` (nunca `account_type`,
+que não existe). Bug de 13/09: as receitas em poder do sócio carregavam 0 sem
+erro visível.
+
+## (g12) Detalhe do desembolso por sócio — só apresentação
+
+`src/components/PartnerDisbursementDetail.tsx`, aberto pelo botão "Ver detalhe"
+no bloco de cada sócio externo do Encontro de Contas. Mostra exactamente os dados
+do export de conferência (linhas do BP agrupadas por rubrica de Nível 2,
+transacções pagas pelo sócio, ajustes com sinal, receitas em poder, extras) e a
+conta por extenso: parte + desembolso ± ajustes − receitas em poder − extras =
+base a transferir (+ IVA 23% quando `transfer_with_vat`). Se o detalhe não bate
+com o resumo, aviso vermelho com a diferença — nunca se ajusta para fechar.
+
+## Estado publicado (13/09/2026)
+
+g7, g9c, g10, g11, g12, g13, g13-b e g14 estão em produção. Referências da Anitta
+EDA 2026: ANITTA 417.293,42 · RAFAEL LOBO 178.840,04 · nível 3 547.906,69 · EIN
+273.953,35 · IVA devolvido 262.459,85 · base a transferir da EIN 230.990,35.
