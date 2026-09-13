@@ -68,6 +68,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [editCanOrder, setEditCanOrder] = useState(false);
   const [editCanPay, setEditCanPay] = useState(false);
   const [editVisibleInDocs, setEditVisibleInDocs] = useState(true);
+  // (g4 adenda) Repasse ao sócio facturado com IVA 23%.
+  const [editTransferWithVat, setEditTransferWithVat] = useState(false);
   const [editIvaBasis, setEditIvaBasis] = useState<IvaBasis>("inherit");
 
   const { data: event } = useQuery({
@@ -103,7 +105,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       const { data, error } = await supabase
         .from("event_settlement_participants")
         .select(
-          "id, settlement_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, can_order, can_pay, visible_in_docs, notes, supplier_id, event_partner_id, created_at, suppliers(name)",
+          "id, settlement_id, participant_kind, mode, profit_pct, loss_pct, expense_includes_iva, transfer_with_vat, can_order, can_pay, visible_in_docs, notes, supplier_id, event_partner_id, created_at, suppliers(name)",
         )
         .eq("event_id", eventId)
         .order("created_at", { ascending: true });
@@ -344,6 +346,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           can_order: editCanOrder,
           can_pay: editCanPay,
           visible_in_docs: editVisibleInDocs,
+          transfer_with_vat: editTransferWithVat,
           expense_includes_iva: editIvaBasis === "inherit" ? null : editIvaBasis === "gross",
         })
         .eq("id", row.id);
@@ -383,6 +386,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     setEditCanOrder(!!p.can_order);
     setEditCanPay(!!p.can_pay);
     setEditVisibleInDocs(p.visible_in_docs !== false);
+    setEditTransferWithVat(p.transfer_with_vat === true);
     setEditIvaBasis(
       p.expense_includes_iva === null || p.expense_includes_iva === undefined
         ? "inherit"
@@ -604,6 +608,10 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                               <Switch checked={editVisibleInDocs} onCheckedChange={setEditVisibleInDocs} />
                               Visível nos documentos deste fechamento
                             </label>
+                            <label className="flex items-center gap-2 text-xs text-foreground">
+                              <Switch checked={editTransferWithVat} onCheckedChange={setEditTransferWithVat} />
+                              Repasse facturado com IVA (23%)
+                            </label>
                             <p className="text-[10px] leading-tight text-muted-foreground">
                               Não confundir com "Pago pelo Sócio" nas transações: esse é o registo pontual de um desembolso e continua disponível para qualquer sócio, mesmo sem esta opção ligada.
                             </p>
@@ -613,7 +621,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                             {p.can_order && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Ordenador</span>}
                             {p.can_pay && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Pagador</span>}
                             {p.visible_in_docs === false && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Oculto nos docs</span>}
-                            {!p.can_order && !p.can_pay && p.visible_in_docs !== false && <span className="text-xs text-muted-foreground">—</span>}
+                            {p.transfer_with_vat === true && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Repasse c/IVA 23%</span>}
+                            {!p.can_order && !p.can_pay && p.visible_in_docs !== false && p.transfer_with_vat !== true && <span className="text-xs text-muted-foreground">—</span>}
                           </div>
                         )}
                       </TableCell>
