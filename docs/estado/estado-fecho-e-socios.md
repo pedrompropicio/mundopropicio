@@ -116,3 +116,17 @@ A seguir ao acompanhamento da conferência dos sócios: arrancar a épica **#146
 - `.lovable/memory/features/fecho-filter-parity.md`, `partner-settlement.md`, `partner-advance-expenses.md`, `event-cost-basis.md`
 - `docs/DECISIONS.md` — D-ERP26 (três fronteiras do Extra do Sócio e do rateio), D-ERP3, D-ERP4, D-ERP9, D-ERP10, D-ERP21–D-ERP24, e a nomenclatura das versões de BP
 - Issues #82, #65, #85, #68, #133, #146, #147, #148, #150 — #150: mães de rateio divergentes da soma das filhas, sem validação
+
+## 2026-09-13 — a fonte de verdade dos sócios mudou (D25 (e))
+
+`event_settlement_participants` é a fonte de verdade das partes; `event_partners`
+é derivada por trigger e só serve pagador/ordenador. Não editar `event_partners`
+à mão: a edição vive na aba **Sócios** do evento (com apuramento, modo
+"acerta aqui / nominal", % de lucro e de perda, base de IVA, visibilidade em
+documentos). A casa (MUNDO PROPÍCIO) nunca é injectada em código — é um
+participante `house` cuja quota é o residual (100 − Σ sócios que acertam ali).
+
+Estanquidade: cada sócio só vê o seu apuramento e os ascendentes; nos documentos
+e no Portal do Sócio as outras partes aparecem agregadas como **"Sócios locais"**
+(100 − a sua %). O Encontro de Contas tem selector de apuramento quando o evento
+tem mais do que um, e o PDF identifica o apuramento em uso.
