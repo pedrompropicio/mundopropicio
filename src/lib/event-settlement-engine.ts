@@ -395,12 +395,37 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       ? 0
       : nodeOperations.reduce((acc, o) => acc + o.additionalActive, 0);
 
+    // (g1) Regra "devolve o IVA dedutível do fechamento acima": este nó recebe o
+    // IVA das despesas do PERÍMETRO do pai. Só um filho por pai pode ter a regra
+    // (o IVA não se devolve duas vezes) e a raiz nunca a pode ter.
+    let vatReturnedIn = 0;
+    if (s.returns_parent_deductible_vat) {
+      if (isRoot) {
+        errors.push(
+          `O fechamento raiz "${s.name}" não pode devolver o IVA de um fechamento acima.`,
+        );
+      } else {
+        const parent = byId.get(s.parent_id!);
+        if (parent) {
+          if (parent.vatReturnedOut !== 0) {
+            errors.push(
+              `Mais do que um fechamento devolve o IVA dedutível de "${parent.name}" — só um pode.`,
+            );
+          } else {
+            vatReturnedIn = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
+            parent.vatReturnedOut = vatReturnedIn;
+            parent.moneyNet -= vatReturnedIn;
+          }
+        }
+      }
+    }
+
     const quota = parentQuota ?? 0;
     const revenueWithOps = revenueNet + additionalActiveTotal;
-    const resultNet = ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet;
-    const resultGross = ignoresExpenses
+    const resultNet = vatReturnedIn + (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet);
+    const resultGross = vatReturnedIn + (ignoresExpenses
       ? quota + revenueWithOps
-      : quota + revenueWithOps - expensesGross;
+      : quota + revenueWithOps - expensesGross);
 
     const node: SettlementNodeResult = {
       id: s.id,
@@ -419,6 +444,8 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       participants: [],
       operations: nodeOperations,
       additionalActiveTotal: roundCents(additionalActiveTotal),
+      vatReturnedIn: roundCents(vatReturnedIn),
+      vatReturnedOut: 0,
     };
     nodes.push(node);
     byId.set(node.id, node);
