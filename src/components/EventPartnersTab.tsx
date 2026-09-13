@@ -685,7 +685,16 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                       {HOUSE_PARTNER_NAME}
                       <Badge variant="outline" className="ml-2 text-[10px]">casa</Badge>
                     </TableCell>
-                    <TableCell className="text-xs">{settlementName(h.settlement_id)}</TableCell>
+                    <TableCell className="text-xs">
+                      {settlementName(h.settlement_id)}
+                      <Badge
+                        variant="outline"
+                        className="ml-1 text-[10px]"
+                        title="Base de cálculo do fechamento — igual para todos os seus participantes, casa incluída."
+                      >
+                        {settlementBasisLabel(h.settlement_id)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-xs">
                       {isEditing ? (
                         <Select value={editMode} onValueChange={(v) => setEditMode(v as any)}>
@@ -730,7 +739,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                         <span className="text-muted-foreground text-xs">Igual</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">s/IVA</TableCell>
+                    
                     <TableCell className="text-xs text-muted-foreground">—</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {isRootHouse
