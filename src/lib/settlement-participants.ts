@@ -12,6 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const HOUSE_PARTNER_NAME = "MUNDO PROPÍCIO";
 
+/**
+ * (g4) Colunas de `event_settlements` para a query de chave
+ * `["event-settlements", eventId]`. TEM de ser a MESMA em todos os
+ * consumidores: três selects diferentes na mesma chave de react-query faziam
+ * com que quem lesse primeiro definisse o conteúdo da cache — e o motor ficava
+ * sem `parent_share_pct`, dando o falso aviso "sem percentagem sobre o pai".
+ */
+export const EVENT_SETTLEMENTS_SELECT =
+  "id, name, parent_id, position, notes, parent_share_pct, parent_share_basis, returns_parent_deductible_vat, is_sealed, sealed_at, sealed_by, sealed_snapshot, seal_note, sealed_bp_version_id";
+
 export interface SettlementParticipant {
   /** id legacy: aponta para event_partners quando existe (chave dos extras/despesas pagas). */
   id: string;
