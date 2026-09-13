@@ -3676,6 +3676,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     Overhead
                   </span>
                 )}
+                {item.addback_settlement_id && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-accent/20 text-accent-foreground px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title={`Custo interno da sociedade: conta no fechamento de cima e é devolvido por inteiro a "${addbackSettlementName}".${item.addback_reason ? ` Motivo: ${item.addback_reason}` : ""}`}
+                  >
+                    Devolvida a {addbackSettlementName}
+                  </span>
+                )}
                 {item._overhead_via_master && (
                   <span
                     className="ml-2 inline-flex items-center rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
