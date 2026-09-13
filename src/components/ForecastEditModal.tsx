@@ -51,6 +51,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
     forecast.addback_settlement_id ?? null
   );
   const [addbackReason, setAddbackReason] = useState<string>(forecast.addback_reason ?? "");
+  // (g14) IVA que a sociedade não recupera: fica fora do IVA devolvido.
+  const [vatNonRecoverable, setVatNonRecoverable] = useState<boolean>(
+    !!(forecast as any).vat_non_recoverable
+  );
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
@@ -180,6 +184,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
 
+      const newVatNonRecoverable = isExpenseType && newIvaRate > 0 ? vatNonRecoverable : false;
+      if (newVatNonRecoverable !== !!(forecast as any).vat_non_recoverable) {
+        changes.push({
+          field_name: "IVA não recuperável pela sociedade",
+          old_value: (forecast as any).vat_non_recoverable ? "sim" : "não",
+          new_value: newVatNonRecoverable ? "sim" : "não",
+        });
+      }
+
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
@@ -214,6 +227,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         event_settlement_id: newSettlementId,
         addback_settlement_id: newAddbackId,
         addback_reason: newAddbackId ? newAddbackReason : null,
+        vat_non_recoverable: newVatNonRecoverable,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
@@ -351,6 +365,25 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
             disabledByPerimeter={!!eventSettlementId}
           />
         ) : null}
+
+        {/* (g14) IVA não recuperável pela sociedade — só despesas com IVA. */}
+        {isExpenseType && canSeeOverhead && Number(ivaRate) > 0 && (
+          <label className="flex items-start gap-2 cursor-pointer rounded-lg border border-border/60 bg-muted/20 p-3">
+            <input
+              type="checkbox"
+              checked={vatNonRecoverable}
+              onChange={(e) => setVatNonRecoverable(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+            />
+            <div className="flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider">IVA não recuperável pela sociedade</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                O IVA desta linha continua a ser custo para os sócios apurados c/IVA, mas não é
+                recuperado pela sociedade — por isso não entra no IVA dedutível devolvido.
+              </p>
+            </div>
+          </label>
+        )}
 
         {/* Amount (multi-currency) + IVA */}
         <div className="space-y-3">
