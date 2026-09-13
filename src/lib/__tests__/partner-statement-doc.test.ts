@@ -172,3 +172,45 @@ describe("(g9c) vocabulário do documento", () => {
     }
   }
 });
+
+/**
+ * (g10) Base efetiva num fechamento que devolve o IVA dedutível do fechamento
+ * acima: o documento diz "Despesas s/IVA"/"Resultado s/IVA" e nunca fala do
+ * mecanismo do IVA. Sem devolução, nada muda.
+ */
+describe("(g10) base efetiva no documento", () => {
+  const input: PartnerStatementDocInput = {
+    eventName: "Evento Y",
+    eventDate: "2026-08-31",
+    recipientName: "SÓCIO A",
+    participants: [
+      { name: "SÓCIO A", percentage: 50 },
+      { name: "MUNDO PROPÍCIO", percentage: 50, isHouse: true },
+    ],
+    revenues: [{ origin: "Bilheteira", net: 1000 }],
+    expenseLines: [{ categoryId: null, description: "Som", base: 100, ivaRate: 23 }],
+    categories: [],
+    usesGrossExpenses: true,
+    extras: [{ label: "IVA dedutível recuperado", value: 23 }],
+  };
+
+  it("com devolução apresenta s/IVA e não fala de IVA dedutível", () => {
+    const doc = buildPartnerStatementDoc({ ...input, returnsDeductibleVat: true });
+    expect(doc.expenseBasisLabel).toBe("Despesas s/IVA");
+    expect(doc.resultBasisLabel).toBe("Resultado s/IVA");
+    expect(doc.usesGrossExpenses).toBe(false);
+    expect(doc.expenseForResult).toBe(100);
+    expect(JSON.stringify(doc).toLowerCase()).not.toContain("iva dedut");
+    // O resultado é o mesmo: perde-se o extra do IVA e ganha-se a base s/IVA.
+    expect(doc.result).toBeCloseTo(900, 2);
+  });
+
+  it("sem devolução mantém c/IVA e o extra", () => {
+    const doc = buildPartnerStatementDoc(input);
+    expect(doc.expenseBasisLabel).toBe("Despesas c/IVA");
+    expect(doc.resultBasisLabel).toBe("Resultado c/IVA");
+    expect(doc.expenseForResult).toBe(123);
+    expect(doc.extras).toHaveLength(1);
+    expect(doc.result).toBeCloseTo(900, 2);
+  });
+});

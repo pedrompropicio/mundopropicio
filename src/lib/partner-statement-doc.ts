@@ -16,6 +16,11 @@ import { calcIvaAmount, roundCents, type IvaRate } from "@/lib/iva";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import {
+  effectiveExpenseBasisLabel,
+  effectiveResultBasisLabel,
+  effectiveUsesGrossExpenses,
+} from "@/lib/settlement-basis";
 
 export type DocLocale = "pt-PT" | "pt-BR";
 
@@ -63,6 +68,12 @@ export interface PartnerStatementDocInput {
   categories: any[];
   /** Base do FECHAMENTO: true = despesas c/IVA. */
   usesGrossExpenses: boolean;
+  /**
+   * (g10) O fechamento devolve o IVA dedutível do fechamento acima. Nesse caso a
+   * base EFETIVA é s/IVA e o documento apresenta "Despesas s/IVA" e
+   * "Resultado s/IVA" directamente, sem falar do mecanismo do IVA.
+   */
+  returnsDeductibleVat?: boolean;
   /**
    * Termos adicionais do acordo já calculados pelo motor (quota contratual do
    * apuramento de origem, IVA dedutível devolvido, activos adicionais…).
@@ -136,7 +147,12 @@ export interface PartnerStatementDoc {
   expenseTotal: number;
   /** Valor de despesa que entra no resultado (c/IVA ou s/IVA conforme o fechamento). */
   expenseForResult: number;
+  /** Base EFETIVA do fechamento (já com a regra g10 aplicada). */
   usesGrossExpenses: boolean;
+  /** (g10) "Despesas c/IVA" | "Despesas s/IVA" — rótulo da secção 3/4. */
+  expenseBasisLabel: string;
+  /** (g10) "Resultado c/IVA" | "Resultado s/IVA". */
+  resultBasisLabel: string;
   result: number;
   recipientShare: number;
   othersShare: number;
@@ -209,7 +225,7 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     detailSheet: "Detalhamento",
     section1: "1. O ACORDO",
     section2: "2. AS RECEITAS DO EVENTO (s/IVA)",
-    section3: "3. AS DESPESAS DO EVENTO (c/IVA)",
+    section3: "3. AS DESPESAS DO EVENTO",
     section4: "4. O RESULTADO",
     section5: (p) => `5. A PARTE DE ${p.toUpperCase()}`,
     partner: "Sócio",
@@ -257,7 +273,7 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     detailSheet: "Detalhamento",
     section1: "1. O ACORDO",
     section2: "2. AS RECEITAS DO EVENTO (s/IVA)",
-    section3: "3. AS DESPESAS DO EVENTO (c/IVA)",
+    section3: "3. AS DESPESAS DO EVENTO",
     section4: "4. O RESULTADO",
     section5: (p) => `5. A PARTE DE ${p.toUpperCase()}`,
     partner: "Sócio",
@@ -402,7 +418,13 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
   const expenseTotal = roundCents(expenseBase + expenseIva);
-  const expenseForResult = input.usesGrossExpenses ? expenseTotal : expenseBase;
+  // (g10) Base EFETIVA: quando o fechamento devolve o IVA dedutível do
+  // fechamento acima, o documento apura sobre despesas s/IVA.
+  const usesGrossEffective = effectiveUsesGrossExpenses({
+    usesGrossExpenses: input.usesGrossExpenses,
+    returnsParentDeductibleVat: input.returnsDeductibleVat,
+  });
+  const expenseForResult = usesGrossEffective ? expenseTotal : expenseBase;
 
   // ---- Receitas ----
   const revenues = input.revenues
@@ -412,7 +434,10 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
 
   const extras = (input.extras ?? [])
     .map((e) => ({ label: e.label, value: roundCents(e.value) }))
-    .filter((e) => Math.abs(e.value) > 0.004);
+    .filter((e) => Math.abs(e.value) > 0.004)
+    // (g10) Com base efetiva s/IVA não se descreve o mecanismo do IVA dedutível:
+    // as despesas já aparecem s/IVA e o resultado é o mesmo.
+    .filter((e) => usesGrossEffective || !/iva\s*dedut/i.test(e.label));
   const extrasTotal = roundCents(extras.reduce((s, e) => s + e.value, 0));
 
   const result =
@@ -493,7 +518,15 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     expenseIva,
     expenseTotal,
     expenseForResult,
-    usesGrossExpenses: input.usesGrossExpenses,
+    usesGrossExpenses: usesGrossEffective,
+    expenseBasisLabel: effectiveExpenseBasisLabel({
+      usesGrossExpenses: input.usesGrossExpenses,
+      returnsParentDeductibleVat: input.returnsDeductibleVat,
+    }),
+    resultBasisLabel: effectiveResultBasisLabel({
+      usesGrossExpenses: input.usesGrossExpenses,
+      returnsParentDeductibleVat: input.returnsDeductibleVat,
+    }),
     result,
     recipientShare,
     othersShare,

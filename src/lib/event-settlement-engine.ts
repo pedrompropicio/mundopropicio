@@ -25,6 +25,7 @@
  *  • Arredondamento ao cêntimo só na saída, nunca por bloco intermédio.
  */
 import { roundCents } from "@/lib/iva";
+import { effectiveUsesGrossExpenses } from "@/lib/settlement-basis";
 import { lineValue } from "@/lib/event-cost-basis";
 import {
   ignoresOperationalExpenses,
@@ -175,6 +176,8 @@ export interface ParticipantResult {
   /** % aplicada (lucro, ou perda quando o resultado da base do participante < 0). */
   effectivePct: number;
   usesGrossExpenses: boolean;
+  /** (g10) Base EFETIVA para apresentação (c/IVA só se o nó não devolver o IVA). */
+  effectiveUsesGrossExpenses: boolean;
   /** Parte na base do participante. */
   share: number;
   /** Parte na base s/IVA (referência para a decomposição da MP). */
@@ -229,6 +232,13 @@ export interface SettlementNodeResult {
    * participantes do nó usam esta base.
    */
   nodeUsesGrossExpenses: boolean;
+  /** (g10) O nó recebe o IVA dedutível do fechamento acima. */
+  returnsParentDeductibleVat: boolean;
+  /**
+   * (g10) Base EFETIVA de apresentação do nó: c/IVA só quando calcula em bruto
+   * E não devolve o IVA dedutível do fechamento acima.
+   */
+  effectiveUsesGrossExpenses: boolean;
 }
 
 export interface HouseResidual {
@@ -524,6 +534,12 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       parentId: s.parent_id ?? null,
       depth: num((s as any).__depth),
       isSealed: !!s.is_sealed,
+      // (g10) Só apresentação: a base efetiva deriva dos parâmetros do nó.
+      returnsParentDeductibleVat: !isRoot && !!s.returns_parent_deductible_vat,
+      effectiveUsesGrossExpenses: effectiveUsesGrossExpenses({
+        usesGrossExpenses: nodeUsesGross,
+        returnsParentDeductibleVat: !isRoot && !!s.returns_parent_deductible_vat,
+      }),
       nodeUsesGrossExpenses: isRoot
         ? eventUsesGross
         : basis == null
@@ -636,6 +652,10 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       lossPct,
       effectivePct,
       usesGrossExpenses: usesGross,
+      effectiveUsesGrossExpenses: effectiveUsesGrossExpenses({
+        usesGrossExpenses: usesGross,
+        returnsParentDeductibleVat: node.returnsParentDeductibleVat,
+      }),
       share: roundCents(share),
       shareNet: roundCents(shareNet),
       paidByPartner: roundCents(paidByPartner),

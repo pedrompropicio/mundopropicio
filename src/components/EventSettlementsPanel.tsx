@@ -16,6 +16,7 @@ import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import type { EngineCheck, SettlementNodeResult } from "@/lib/event-settlement-engine";
 import { EventThirdPartyOperationsPanel } from "@/components/EventThirdPartyOperationsPanel";
 import { SettlementSealControl } from "@/components/SettlementSealControl";
+import { effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
 
 interface Props {
   eventId: string;
@@ -68,6 +69,8 @@ export function EventSettlementsPanel({ eventId }: Props) {
             {fmtPct(n.parentSharePct)} do fechamento acima
             {n.parentQuotaBasis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA"}
             {n.parentQuota != null && ` = ${formatCurrency(n.parentQuota)}`}
+            {/* (g10) A fórmula da quota mantém-se; a devolução do IVA entra aqui. */}
+            {n.vatReturnedIn !== 0 && ` · IVA dedutível devolvido ${formatCurrency(n.vatReturnedIn)}`}
           </Badge>
         )}
         <SettlementSealControl
@@ -104,11 +107,9 @@ export function EventSettlementsPanel({ eventId }: Props) {
         </div>
       </div>
 
-      {(n.vatReturnedIn !== 0 || n.vatReturnedOut !== 0) && (
+      {/* (g10) A devolução recebida já vai no badge da quota — aqui só a entregue. */}
+      {n.vatReturnedOut !== 0 && (
         <p className="mb-3 text-xs text-muted-foreground">
-          {n.vatReturnedIn !== 0 && (
-            <>IVA dedutível devolvido pelo fechamento acima: {formatCurrency(n.vatReturnedIn)}. </>
-          )}
           {n.vatReturnedOut !== 0 && (
             <>IVA dedutível entregue a um fechamento abaixo: {formatCurrency(n.vatReturnedOut)}.</>
           )}
@@ -172,7 +173,10 @@ export function EventSettlementsPanel({ eventId }: Props) {
                     )}
                   </TableCell>
                   <TableCell className="text-xs">
-                    {p.usesGrossExpenses ? "Despesas c/IVA" : "Despesas s/IVA"}
+                    {effectiveExpenseBasisLabel({
+                      usesGrossExpenses: p.usesGrossExpenses,
+                      returnsParentDeductibleVat: n.returnsParentDeductibleVat,
+                    })}
                   </TableCell>
                   <TableCell className="text-right font-semibold">{formatCurrency(p.share)}</TableCell>
                   <TableCell className="text-xs">

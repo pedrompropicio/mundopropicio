@@ -219,3 +219,26 @@ contabilista as devem ler. Nunca levam notas de implementação, referências a
 fechamentos, "exclusivo", "planilha vNN" ou semelhantes — essa informação vive
 nos campos próprios (perímetro/fechamento, devolução, recebido por), visíveis no
 editor.
+
+## (g10) Base EFETIVA de despesa de um fechamento — só rótulo
+
+Num fechamento com `returns_parent_deductible_vat = true` a quota vem do
+resultado c/IVA do fechamento acima E o IVA dedutível desse perímetro é devolvido
+por inteiro — equivale a apurar sobre despesas s/IVA. Logo a base EFETIVA do nó e
+de todos os seus participantes apresenta-se como **"Despesas s/IVA"**, mesmo que
+a base de cálculo do nó seja c/IVA. Sem devolução, a base efetiva é a do próprio
+nó (`parent_share_basis` / `partner_calc_basis`). **O cálculo não muda** — só
+rótulos e apresentação.
+
+Fonte única: `src/lib/settlement-basis.ts`
+(`effectiveUsesGrossExpenses`, `effectiveExpenseBasisLabel`,
+`effectiveBasisShortLabel`, `effectiveResultBasisLabel`). O motor expõe
+`returnsParentDeductibleVat` e `effectiveUsesGrossExpenses` no nó e no
+participante. Usado no painel de fechamentos, PartnerSettlementTab (ecrã + PDFs),
+prestação de contas e Portal do Sócio. Nunca textos específicos de um sócio.
+
+No documento do sócio: com devolução, secção 3/4 dizem "Despesas s/IVA" e
+"Resultado s/IVA" e a linha "IVA dedutível recuperado" desaparece (regra de
+02/09: descrever o que cada número é, nunca o mecanismo da negociação). O
+resultado e as partes ficam iguais ao cêntimo. No painel, o badge da quota passa
+a incluir "· IVA dedutível devolvido X" e a linha solta correspondente saiu.

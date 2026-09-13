@@ -579,6 +579,24 @@ export default function PartnerEventDetail() {
     enabled: !!activeEventId && hasPermission("view_bp"),
   });
 
+  /**
+   * (g10) Base efetiva: se o fechamento do sócio devolve o IVA dedutível do
+   * fechamento acima, o documento apresenta-se em despesas s/IVA. Leitura
+   * tolerante — sem acesso, mantém-se a base do próprio nó.
+   */
+  const { data: portalReturnsVat = false } = useQuery({
+    queryKey: ["partner-settlement-returns-vat", portalSettlementId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("event_settlements")
+        .select("returns_parent_deductible_vat")
+        .eq("id", portalSettlementId!)
+        .maybeSingle();
+      return (data as any)?.returns_parent_deductible_vat === true;
+    },
+    enabled: !!portalSettlementId && hasPermission("view_bp"),
+  });
+
   const { data: portalSummary } = useQuery({
     queryKey: ["partner-settlement-summary", user?.id, activeEventId, portalSettlementId],
     queryFn: async () => {
@@ -1057,6 +1075,7 @@ export default function PartnerEventDetail() {
       transferWithVat: (partnerShares as any[]).find((s: any) => s.partner_name === recipientName)?.transfer_with_vat === true,
       categories: allCategories as any[],
       usesGrossExpenses: usesGrossExpenseAmounts((event as any).partner_calc_basis),
+      returnsDeductibleVat: portalReturnsVat === true,
       expenseLines: canonical.map((f: any) => ({
         categoryId: f.category_id ?? null,
         description: f.description || f.account_categories?.name || "—",
