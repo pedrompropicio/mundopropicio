@@ -24,6 +24,7 @@ import {
   resolveStatus,
   startSyncRun,
 } from "../_shared/sync-run.ts";
+import { authorize as sharedAuthorize } from "../_shared/soundcharts.ts";
 
 const FUNCTION_NAME = "soundcharts-sync";
 
