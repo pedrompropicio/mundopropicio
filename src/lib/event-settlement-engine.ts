@@ -17,7 +17,11 @@
  * Convenções:
  *  • Receita sempre s/IVA (D24). Despesa em duas leituras, s/IVA e c/IVA, com
  *    IVA linha a linha via `@/lib/iva` (Art.º 18 CIVA).
- *  • A casa (`house`) apura s/IVA — convenção da empresa gestora (D-ERP10).
+ *  • (g4) A BASE É DO FECHAMENTO, não do participante: raiz →
+ *    `events.partner_calc_basis`; filho → `parent_share_basis`. TODOS os
+ *    participantes do nó (a casa incluída) são calculados nessa base. A regra
+ *    "a casa apura sempre s/IVA" (D-ERP10) deixou de se aplicar a fechamentos e
+ *    `expense_includes_iva` já não é lido pelo motor.
  *  • Arredondamento ao cêntimo só na saída, nunca por bloco intermédio.
  */
 import { roundCents } from "@/lib/iva";
@@ -56,7 +60,10 @@ export interface EngineParticipant {
   mode: "settles" | "nominal";
   profit_pct: number | string | null;
   loss_pct?: number | string | null;
-  /** null = herda a base contratual do evento. */
+  /**
+   * (g4) IGNORADO pelo motor: a base é do fechamento. A coluna fica na BD por
+   * compatibilidade histórica e está escondida na UI.
+   */
   expense_includes_iva?: boolean | null;
 }
 
