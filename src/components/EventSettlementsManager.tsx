@@ -413,7 +413,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
             <Button
               size="sm"
               onClick={() => createChild.mutate()}
-              disabled={!name.trim() || !parentId || !pct || createChild.isPending}
+              disabled={!name.trim() || !parentId || createChild.isPending}
             >
               Criar fechamento
             </Button>
