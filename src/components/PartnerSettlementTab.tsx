@@ -960,6 +960,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
     doc.text(`Apuramento: ${activeSettlementName}`, margin, y);
     y += 5;
+    // Origem da quota num apuramento filho — o documento é estanque: nunca leva
+    // os participantes do pai, só de onde vem o dinheiro (#146 (e2)).
+    if (activeNode?.parentId && parentNode) {
+      doc.text(
+        `Quota do apuramento acima: ${parentNode.name} · ${activeNode.parentSharePct ?? 0}% de ${formatCurrency(
+          activeNode.parentQuotaBasis === "net_result_gross_expenses" ? parentNode.resultGross : parentNode.resultNet,
+        )} (${activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) = ${formatCurrency(activeNode.parentQuota ?? 0)}`,
+        margin,
+        y,
+      );
+      y += 5;
+    }
+
     doc.text(`Regra: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     if (solo) {
       y += 5;
