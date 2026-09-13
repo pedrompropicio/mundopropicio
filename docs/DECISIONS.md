@@ -1512,3 +1512,15 @@ Decisão: os campos do selo em `event_settlements` só mudam pelas RPCs
 recusado por trigger. Selar exige as duas conferências a 0,00 €; reabrir exige motivo
 e fica registado em `system_audit_log`. O desvio entre valor selado e valor ao vivo é
 informação interna — nunca aparece em documentos de sócio.
+
+**Adenda (f) — espelho de sócios e quota opcional.**
+1. O espelho `event_partners` passa a derivar de **qualquer** fechamento do evento: há
+   linha para cada sócio participante em qualquer nível, com os valores do participante
+   que **liquida** (`settles`) e, se não existir, os do **nominal** (fechamento raiz
+   primeiro, depois o mais antigo). O sócio só sai do espelho quando deixa de constar de
+   todos os fechamentos; se houver lançamentos a referenciá-lo, a remoção é recusada com
+   mensagem legível. Motivo: a regra antiga (só `settles`) apagava sócios legítimos e
+   rebentava as chaves `paying_partner_id`/`ordering_partner_id` — caso Anitta.
+2. A **quota do fechamento acima é opcional**: vazio grava 0% e o fechamento vive só das
+   suas próprias receitas e despesas marcadas. A **base** da quota continua obrigatória,
+   com default «resultado com despesas c/IVA».
