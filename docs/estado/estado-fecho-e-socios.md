@@ -30,3 +30,16 @@ Live por leitura; o Publish é decisão do Pedro.
 - DRE Empresarial e DRE Brasil são vistas de EMPRESA e mantêm os exclusivos.
 - 1 cêntimo de diferença de apresentação no Encontro de Contas da raiz
   (417.293,41 no ecrã vs 417.293,42 no motor) — truncatura, não cálculo.
+
+## (g4) — base por fechamento + prestação de contas (13/09/2026)
+
+- Motor: a base (c/IVA ou s/IVA) é do fechamento; todos os participantes do nó,
+  casa incluída, calculam nessa base. `expense_includes_iva` deixou de ser lido.
+- Aba Sócios: percentagem atribuída por fechamento; coluna "Base IVA" removida.
+- Documento do sócio (Portal e export da equipa): prestação de contas em PDF e
+  Excel, estanque — "Sócios locais — NN%" ou "Mundo Propício — NN%".
+- Ficheiros de prova: `Prestacao_de_Contas_Anitta_EDA_2026_ANITTA` (resultado
+  596.133,45 · parte 417.293,42) e `..._EVERYTHINGISNEW` (resultado 547.906,69 ·
+  parte 273.953,35).
+- Testes: motor 21 · perímetro 6 · documento 6; `tsgo --noEmit` limpo.
+- Sem Publish. Sem DML.
