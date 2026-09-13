@@ -76,9 +76,13 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   section(t.section2);
   arial(ws.addRow([t.origin, t.netValue]), { bold: true });
   doc.revenues.forEach((r) => moneyCells(arial(ws.addRow([r.origin, r.net])), [2]));
-  doc.extras.forEach((e) => moneyCells(arial(ws.addRow([e.label, e.value])), [2]));
+  // (g13) Com cascata os termos adicionais pertencem à secção 4, não às receitas.
+  if (!doc.cascade) doc.extras.forEach((e) => moneyCells(arial(ws.addRow([e.label, e.value])), [2]));
   moneyCells(
-    arial(ws.addRow([t.totalRevenues, doc.revenueNet + doc.extrasTotal]), { bold: true }),
+    arial(
+      ws.addRow([t.totalRevenues, doc.cascade ? doc.revenueNet : doc.revenueNet + doc.extrasTotal]),
+      { bold: true },
+    ),
     [2],
   );
 
@@ -93,9 +97,40 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
     [2, 3, 4],
   );
 
-  // 4. O RESULTADO
+  // 4. O RESULTADO (com cascata quando o acordo apura sobre parte do resultado)
   section(`${t.section4} · ${doc.resultBasisLabel}`);
-  moneyCells(arial(ws.addRow([doc.resultBasisLabel, doc.result]), { bold: true, size: 12 }), [2]);
+  if (doc.cascade) {
+    doc.cascade.forEach((lv, i) => {
+      moneyCells(
+        arial(ws.addRow([i === 0 ? t.eventResultLine : t.carriedResultLine, lv.baseValue]), {
+          bold: true,
+        }),
+        [2],
+      );
+      lv.deductions.forEach((d) =>
+        moneyCells(arial(ws.addRow([`  - ${d.name} ${pct(d.percentage, doc.locale)}`, -d.value])), [2]),
+      );
+      moneyCells(
+        arial(ws.addRow([`= ${t.societyShareLine} ${pct(lv.quotaPct, doc.locale)}`, lv.quota]), {
+          bold: true,
+        }),
+        [2],
+      );
+    });
+    doc.extras.forEach((e) => {
+      moneyCells(arial(ws.addRow([`+ ${e.label}`, e.value])), [2]);
+      (e.items ?? []).forEach((it) => moneyCells(arial(ws.addRow([`     ${it.label}`, it.value])), [2]));
+    });
+  }
+  moneyCells(
+    arial(ws.addRow([doc.cascade ? t.societyResultLine : doc.resultBasisLabel, doc.result]), {
+      bold: true,
+      size: 12,
+    }),
+    [2],
+  );
+  if (Math.abs(doc.cascadeMismatch) > 0.02)
+    arial(ws.addRow([t.cascadeMismatchLine(money(doc.cascadeMismatch, doc.locale))]), { bold: true });
 
   // 5. A PARTE DE <SÓCIO>
   section(t.section5(doc.recipientName));
@@ -316,10 +351,13 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     head: [[t.origin, t.netValue]],
     body: [
       ...doc.revenues.map((r) => [r.origin, money(r.net, loc)]),
-      ...doc.extras.map((e) => [e.label, money(e.value, loc)]),
+      ...(doc.cascade ? [] : doc.extras.map((e) => [e.label, money(e.value, loc)])),
       [
         { content: t.totalRevenues, styles: { fontStyle: "bold" } },
-        { content: money(doc.revenueNet + doc.extrasTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
+        {
+          content: money(doc.cascade ? doc.revenueNet : doc.revenueNet + doc.extrasTotal, loc),
+          styles: { fontStyle: "bold", halign: "right" },
+        },
       ],
     ],
     columnStyles: { 1: { halign: "right", cellWidth: 40 } },
@@ -346,8 +384,51 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     },
   });
 
-  // 4. O RESULTADO
+  // 4. O RESULTADO — cascata desde o resultado do evento (g13)
   let ry = nextY();
+  if (doc.cascade) {
+    const cy = sectionTitle(`${t.section4} · ${doc.resultBasisLabel}`, ry);
+    const rows: any[] = [];
+    doc.cascade.forEach((lv, i) => {
+      rows.push([
+        { content: i === 0 ? t.eventResultLine : t.carriedResultLine, styles: { fontStyle: "bold" } },
+        { content: money(lv.baseValue, loc), styles: { fontStyle: "bold", halign: "right" } },
+      ]);
+      lv.deductions.forEach((d) =>
+        rows.push([
+          `   - ${d.name} ${pct(d.percentage, loc)}`,
+          { content: money(-d.value, loc), styles: { halign: "right" } },
+        ]),
+      );
+      rows.push([
+        { content: `= ${t.societyShareLine} ${pct(lv.quotaPct, loc)}`, styles: { fontStyle: "bold" } },
+        { content: money(lv.quota, loc), styles: { fontStyle: "bold", halign: "right" } },
+      ]);
+    });
+    doc.extras.forEach((e) => {
+      rows.push([`+ ${e.label}`, { content: money(e.value, loc), styles: { halign: "right" } }]);
+      (e.items ?? []).forEach((it) =>
+        rows.push([
+          `        ${it.label}`,
+          { content: money(it.value, loc), styles: { halign: "right", textColor: 90 } },
+        ]),
+      );
+    });
+    rows.push([
+      { content: t.societyResultLine, styles: { fontStyle: "bold", fillColor: [235, 235, 235] } },
+      {
+        content: money(doc.result, loc),
+        styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] },
+      },
+    ]);
+    if (Math.abs(doc.cascadeMismatch) > 0.02)
+      rows.push([
+        { content: t.cascadeMismatchLine(money(doc.cascadeMismatch, loc)), styles: { textColor: [190, 30, 30] } },
+        "",
+      ]);
+    table({ startY: cy, head: [[t.resultLine, t.value]], body: rows, columnStyles: { 1: { halign: "right", cellWidth: 40 } } });
+    ry = nextY();
+  }
   if (ry > pageH - 40) {
     pdf.addPage();
     ry = margin;
