@@ -472,12 +472,18 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
   const expenseTotal = roundCents(expenseBase + expenseIva);
+  const hasCascade = !!input.cascade && input.cascade.levels.length > 0;
   // (g10) Base EFETIVA: quando o fechamento devolve o IVA dedutível do
   // fechamento acima, o documento apura sobre despesas s/IVA.
-  const usesGrossEffective = effectiveUsesGrossExpenses({
-    usesGrossExpenses: input.usesGrossExpenses,
-    returnsParentDeductibleVat: input.returnsDeductibleVat,
-  });
+  // (g13-b) EXCEPÇÃO: num documento EM CASCATA a conta parte do resultado do
+  // evento na base da raiz (c/IVA) e o IVA recuperado soma-se explicitamente
+  // mais abaixo — esconder a base c/IVA faria a conta não fechar.
+  const usesGrossEffective = hasCascade
+    ? input.usesGrossExpenses === true
+    : effectiveUsesGrossExpenses({
+        usesGrossExpenses: input.usesGrossExpenses,
+        returnsParentDeductibleVat: input.returnsDeductibleVat,
+      });
   const expenseForResult = usesGrossEffective ? expenseTotal : expenseBase;
 
   // ---- Receitas ----
