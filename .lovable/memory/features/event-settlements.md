@@ -185,3 +185,46 @@ Apuramentos — lista operações e, por apuramento, modo · valor · já lança
 activo adicional. Edição mínima gated por `manage_bp`: criar operação manual,
 "Ligar ao A&B" (só cria a linha de ligação, sem montantes) e definir participação.
 Paridade da (c) repetida a 13/09: 0,00 € em 13 participantes / 6 eventos.
+
+## (e2) — completar a (e): cálculo por apuramento e critério de custo na BD (13/09/2026)
+
+1. **Encontro de Contas calcula pelo nó seleccionado**, com o motor do painel
+   Apuramentos: raiz = totais do evento **menos** linhas marcadas com outros
+   apuramentos; filho = linhas marcadas + quota do pai + activos adicionais.
+   No filho, ecrã e PDF mostram a **origem da quota** e nunca os participantes
+   do pai. Sem selecção (ou com um só apuramento) a paridade é obrigatória.
+2. **Aba Sócios cria e edita apuramentos filhos** —
+   `src/components/EventSettlementsManager.tsx` (gated por `manage_bp`):
+   criar, renomear, reordenar (troca de `position` par-a-par), apagar. A UI
+   recusa apagar com participantes; a BD recusa com linhas marcadas
+   (`prevent_delete_event_settlement_with_lines`) e por RESTRICT nas
+   participações de operações. A casa continua só na raiz.
+3. **Casa com nominais** — `residualHousePct` e `syncHouse` descontam
+   **todos** os sócios `partner` da raiz (`settles` E `nominal`). Se a casa
+   absorvesse a parte nominal, o motor contava-a duas vezes (declarada +
+   `nominalGap`) e a C2 deixava de fechar. Teste: 70 settles + 15 nominal +
+   casa 15 ⇒ `rest = 0`.
+4. **Nome do participante** resolve-se de `suppliers.name` via
+   `src/lib/settlement-participants.ts` em todos os consumidores (painel,
+   Encontro de Contas, PDF, portal).
+5. **Documentos estanques** — `partnerDocRows` (destinatário + "Sócios locais"
+   = 100 − a sua %) e `visibleSettlementIdsForParticipant` (um participante só
+   de um filho **não** obtém a raiz).
+6. **CRITÉRIO DE CUSTO É DO EVENTO, NA BASE DE DADOS** —
+   `events.cost_expense_source` ('realized' | 'committed', default
+   **'committed'**) e `events.cost_include_overhead` (boolean, default **true**).
+   `useEventCostBasis` lê e escreve estes campos por react-query (escrita gated
+   por `manage_bp`/admin/manager, erro em toast) e `useFechoBasis` é alias.
+   `withVat` é **derivado** de `events.partner_calc_basis` — deixou de ser
+   toggle e já não vive no localStorage. O card da capa, o Fecho, o Encontro de
+   Contas, o painel Apuramentos, os PDFs e o Portal mostram o mesmo número em
+   qualquer computador.
+   Anitta: **sem caso especial** — fica no default (previsto + excedido, com
+   overhead, c/IVA por `partner_calc_basis`), que é o critério da planilha v23/v4.
+   O 597.183,45 dessa planilha não se reproduz hoje (faltam os níveis 2/3, os
+   activos exclusivos e ajustes de IVA) — peça posterior, com OK do Pedro.
+
+**Prova 13/09 (critério de cada evento lido da BD):** 0,00 € de diferença em
+13 participantes / 6 eventos visíveis (`scripts/prove-settlement-engine.ts`, que
+deixou de importar o `house-partner.ts` apagado). Anitta: EVERYTHINGISNEW
+128.789,00 · ANITTA 417.293,42 · MUNDO PROPÍCIO 128.789,00.

@@ -23,7 +23,7 @@ import {
   partnerUsesGrossExpenses,
   ignoresOperationalExpenses,
 } from "../src/lib/partner-calc-basis";
-import { computeHousePercentage, HOUSE_PARTNER_NAME } from "../src/lib/house-partner";
+import { HOUSE_PARTNER_NAME, residualHousePct } from "../src/lib/settlement-participants";
 import { isValidFechoTransaction } from "../src/lib/fecho-filters";
 
 const URL = "https://sfohvvlqccmmebvjgibx.supabase.co";
@@ -39,7 +39,8 @@ const supabase = createClient(URL, ANON, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const BASIS = { includeOverhead: true, expenseSource: "realized" as const };
+/** (e2): o critério passou a ser do evento — lido de events. */
+type Basis = { includeOverhead: boolean; expenseSource: "realized" | "committed" };
 const EUR = (v: number) =>
   new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
@@ -91,11 +92,15 @@ async function main() {
 
     const { data: events } = await supabase
       .from("events")
-      .select("id, name, date, parent_event_id, partner_calc_basis")
+      .select("id, name, date, parent_event_id, partner_calc_basis, cost_expense_source, cost_include_overhead")
       .or(`id.eq.${eventId},parent_event_id.eq.${eventId}`);
     const allIds = (events ?? []).map((e: any) => e.id);
     const self = (events ?? []).find((e: any) => e.id === eventId);
     const calcBasis = normalizePartnerCalcBasis((self as any)?.partner_calc_basis);
+    const BASIS: Basis = {
+      includeOverhead: (self as any)?.cost_include_overhead !== false,
+      expenseSource: ((self as any)?.cost_expense_source ?? "committed") as Basis["expenseSource"],
+    };
 
     const { data: transactions } = await supabase
       .from("transactions")
@@ -185,7 +190,7 @@ async function main() {
       .select("id, percentage, loss_percentage, expense_includes_iva, suppliers(name)")
       .eq("event_id", eventId)
       .order("created_at");
-    const housePct = computeHousePercentage((partners ?? []).map((p: any) => ({ percentage: p.percentage })));
+    const housePct = residualHousePct((partners ?? []).map((p: any) => ({ percentage: p.percentage })));
     const screenList = [
       ...(partners ?? []).map((p: any) => ({
         id: p.id,
@@ -286,7 +291,7 @@ async function main() {
   console.log("\n== max(updated_at) ANTES ==");
   console.log(JSON.stringify(before, null, 2));
 
-  console.log("\n== PARIDADE (modo por contrato de cada sócio) ==");
+  console.log("\n== PARIDADE (modo por contrato de cada sócio; critério de cada evento na BD) ==");
   console.log(
     ["EVENTO", "PARTICIPANTE", "ECRÃ parte", "MOTOR parte", "ECRÃ final", "MOTOR final", "DIF"].join(" | "),
   );

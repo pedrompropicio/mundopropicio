@@ -194,10 +194,13 @@ export function EventFinancialCard(props: Props) {
                 >
                   Automático (pela fase do evento)
                 </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="realized" disabled={isExpense && !shared.canEditBasis}>
+                  Realizado
+                </DropdownMenuRadioItem>
 
                 <DropdownMenuRadioItem
                   value="committed"
+                  disabled={isExpense && !shared.canEditBasis}
                   title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
                 >
                   Previsto + excedido
@@ -207,23 +210,34 @@ export function EventFinancialCard(props: Props) {
 
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs">IVA</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
-                <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
+              {isExpense ? (
+                <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+                  {withVat ? "Com IVA (bruto)" : "Sem IVA (base líquida)"} — critério contratual do evento.
+                </div>
+              ) : (
+                <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
+                  <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              )}
               {kind === "expense" && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="text-xs">Composição do custo</DropdownMenuLabel>
                   <DropdownMenuCheckboxItem
                     checked={includeOverhead}
+                    disabled={!shared.canEditBasis}
                     onCheckedChange={(v) => setIncludeOverhead(!!v)}
                     onSelect={(e) => e.preventDefault()}
                   >
                     Incluir overhead
                   </DropdownMenuCheckboxItem>
+                  <div className="px-2 pt-1 text-[11px] leading-snug text-muted-foreground">
+                    Gravado no evento — igual para todos.
+                  </div>
                 </>
               )}
+
 
               {showScenarioToggle && (
                 <>

@@ -4,6 +4,8 @@ import {
   localPartnersPct,
   residualHousePct,
   toSettlementParticipant,
+  partnerDocRows,
+  visibleSettlementIdsForParticipant,
 } from "@/lib/settlement-participants";
 
 const base = {
@@ -77,5 +79,35 @@ describe("quotas", () => {
 
   it("residual zero quando os sócios cobrem 100%", () => {
     expect(residualHousePct([{ percentage: 35, mode: "settles" }, { percentage: 65, mode: "settles" }])).toBe(0);
+  });
+});
+
+// (e2) ponto 8 — documentos estanques por apuramento.
+describe("visibilidade estanque", () => {
+  const rows = [
+    { participantId: "root-a", settlement_id: "root", supplier_id: "sup-a", percentage: 55, suppliers: { name: "SÓCIO A" } },
+    { participantId: "root-h", settlement_id: "root", supplier_id: null, percentage: 45, suppliers: { name: HOUSE_PARTNER_NAME } },
+    { participantId: "child-b", settlement_id: "child", supplier_id: "sup-b", percentage: 40, suppliers: { name: "SÓCIO B" } },
+  ];
+
+  it("participante só de um filho não obtém a raiz", () => {
+    expect(visibleSettlementIdsForParticipant(rows, "sup-b")).toEqual(["child"]);
+    expect(visibleSettlementIdsForParticipant(rows, "sup-a")).toEqual(["root"]);
+  });
+
+  it("documento do filho não mostra nomes nem % do pai", () => {
+    const doc = partnerDocRows(rows, "child-b");
+    expect(doc).toEqual([
+      { label: "SÓCIO B", pct: 40, isRecipient: true },
+      { label: "Sócios locais", pct: 60, isRecipient: false },
+    ]);
+    const labels = doc.map((r) => r.label);
+    expect(labels).not.toContain("SÓCIO A");
+    expect(labels).not.toContain(HOUSE_PARTNER_NAME);
+  });
+
+  it("sócio com 100% não gera linha de sócios locais", () => {
+    const solo = [{ participantId: "x", settlement_id: "child", supplier_id: "s", percentage: 100, suppliers: { name: "X" } }];
+    expect(partnerDocRows(solo, "x")).toHaveLength(1);
   });
 });
