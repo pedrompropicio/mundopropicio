@@ -232,6 +232,13 @@ export interface SettlementNodeResult {
    * participantes do nó usam esta base.
    */
   nodeUsesGrossExpenses: boolean;
+  /** (g10) O nó recebe o IVA dedutível do fechamento acima. */
+  returnsParentDeductibleVat: boolean;
+  /**
+   * (g10) Base EFETIVA de apresentação do nó: c/IVA só quando calcula em bruto
+   * E não devolve o IVA dedutível do fechamento acima.
+   */
+  effectiveUsesGrossExpenses: boolean;
 }
 
 export interface HouseResidual {
