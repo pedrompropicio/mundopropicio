@@ -247,7 +247,26 @@ Separação de acessos obrigatória (D-ERP39): a **captação de dados dos artis
 Meta dedicada à carreira (`INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`), scopes só de leitura e
 a tabela `artist_channel_connections`. A **gestão de tráfego (Ads)** continua em
 `ad_platform_connections` com `META_APP_ID` / `META_APP_SECRET` e nas funções `crm-*`. Nenhuma
-função `artist-*` lê `ad_platform_connections`; nenhuma `crm-*` lê `artist_channel_connections`.
+função `artist-*` lê `artist_channel_connections` para tráfego; nenhuma `crm-*` lê
+`artist_channel_connections`.
+
+Excepção deliberada (D-ERP57): as funções `artist-ads-*` são de **tráfego**, não de captação
+— escrevem em `crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`,
+usando o app de Ads (`META_APP_ID` / `META_APP_SECRET`) e os mesmos scopes das ligações do
+CRM. A linha pertence sempre à empresa gestora (`company_id`), que é a fronteira de acesso.
+
+| Função | JWT | Papel |
+| --- | --- | --- |
+| `artist-ads-meta-oauth-start` | sim | admin, platform_admin, manager, marketing_manager |
+| `artist-ads-meta-oauth-callback` | **não** | autorizado pelo `state` (TTL 24h, uso único) |
+| `artist-ads-select-account` | sim | admin, platform_admin, manager, marketing_manager |
+| `artist-ads-disconnect` | sim | admin, platform_admin, manager, marketing_manager |
+
+Google/TikTok do artista entram sem OAuth pela RPC `artist_ads_register_external`
+(`status = 'pending_link'`); o Google fica `active` quando `crm-google-sync-campaigns`
+alcança a conta sob o MCC.
+
+
 
 | Função | JWT | Papel |
 | --- | --- | --- |
