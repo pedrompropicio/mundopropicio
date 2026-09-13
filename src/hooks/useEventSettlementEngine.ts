@@ -89,7 +89,7 @@ export function useEventSettlementEngine(eventId: string) {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
