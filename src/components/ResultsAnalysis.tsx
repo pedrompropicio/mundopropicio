@@ -99,12 +99,25 @@ export function ResultsAnalysis() {
     },
   });
 
-  const { data: transactions = [] } = useQuery({
+  // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
+  // exclusivas desse fechamento e não entram no resultado do evento.
+  const { data: rootSettlementIds } = useQuery({
+    queryKey: ["ra_root_settlements"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_settlements")
+        .select("id, parent_id");
+      if (error) throw error;
+      return new Set(((data ?? []) as any[]).filter((s) => !s.parent_id).map((s) => s.id as string));
+    },
+  });
+
+  const { data: transactionsAll = [] } = useQuery({
     queryKey: ["ra_transactions_v5_no_transitory"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, category_id, iva_rate, is_transitory")
+        .select("id, event_id, type, amount, status, category_id, iva_rate, is_transitory, event_settlement_id")
         .eq("is_hidden", false)
         .eq("is_transitory", false)
         .in("status", ["paid", "approved"]);
@@ -113,16 +126,19 @@ export function ResultsAnalysis() {
     },
   });
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecastsAll = [] } = useQuery({
     queryKey: ["ra_forecasts_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, category_id").is("version_id", null);
+        .select("id, event_id, type, amount, category_id, event_settlement_id").is("version_id", null);
       if (error) throw error;
       return data;
     },
   });
+
+  const transactions = keepRootPerimeter(transactionsAll as any[], rootSettlementIds);
+  const forecasts = keepRootPerimeter(forecastsAll as any[], rootSettlementIds);
 
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["ra_ticket_sales_v2"],
