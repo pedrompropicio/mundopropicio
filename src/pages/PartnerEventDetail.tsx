@@ -947,7 +947,11 @@ export default function PartnerEventDetail() {
   // Gate: mesma condição do PartnerFinancialCards no separador BP (view_bp).
   const canExportStatement = hasPermission("view_bp");
 
-  const buildStatementInput = (logoDataUrl?: string | null): PartnerStatementInput | null => {
+  /**
+   * (g4) Documento do sócio no padrão da prestação de contas — estanque: só o
+   * destinatário aparece pelo nome; os restantes colapsam numa linha.
+   */
+  const buildStatementDocInput = (logoDataUrl?: string | null): PartnerStatementDocInput | null => {
     if (!event) return null;
     // R2 — filtro canónico das despesas (overhead ENTRA).
     const canonical = (bpExpenses ?? []).filter(
@@ -956,33 +960,41 @@ export default function PartnerEventDetail() {
         !f.is_transitory &&
         (!f.exclude_from_result || f.is_overhead),
     );
-    const documentsByCategoryId: Record<string, number> = {};
-    Object.entries(bpAttachmentsByCategory).forEach(([catId, list]) => {
-      documentsByCategoryId[catId] = list.length;
-    });
+    const participants = (partnerShares ?? []).map((s) => ({
+      name: s.partner_name,
+      percentage: Number(s.percentage) || 0,
+      isHouse: s.partner_name?.toUpperCase().includes("MUNDO PROPÍCIO"),
+    }));
+    const recipientName =
+      participants.find((p) => p.name === viewerPartner?.name)?.name ??
+      viewerPartner?.name ??
+      participants.find((p) => !p.isHouse)?.name ??
+      "Sócio";
+    const t = statementTerms(viewerPartner?.locale);
     return {
+      locale: viewerPartner?.locale ?? "pt-PT",
       eventName: event.name,
       eventDate: event.date ?? null,
       eventLocation: (event as any).location ?? null,
       companyName: companyDisplayName,
       logoDataUrl: logoDataUrl ?? null,
-      forecasts: canonical.map((f: any) => ({
-        category_id: f.category_id ?? null,
-        amount: f.amount,
-        iva_rate: f.iva_rate,
-      })),
+      recipientName,
+      participants,
       categories: allCategories as any[],
-      revenues: [
-        { label: "Bilheteira", net: ticketRevenueNet },
-        { label: "Bares (A&B)", net: barsRealNet },
-        { label: "Patrocínios", net: sponsorshipRealNet },
-        { label: "Outras receitas", net: otherIncomeRealNet },
-      ],
-      documentsByCategoryId,
-      shares: (partnerShares ?? []).map((s) => ({
-        name: s.partner_name,
-        percentage: Number(s.percentage) || 0,
+      usesGrossExpenses: usesGrossExpenseAmounts((event as any).partner_calc_basis),
+      expenseLines: canonical.map((f: any) => ({
+        categoryId: f.category_id ?? null,
+        description: f.description || f.account_categories?.name || "—",
+        base: Number(f.amount) || 0,
+        ivaRate: Number(f.iva_rate) || 0,
+        attachments: f.category_id ? (bpAttachmentsByCategory[f.category_id]?.length ?? 0) : 0,
       })),
+      revenues: [
+        { origin: t.ticketing, net: ticketRevenueNet },
+        { origin: "Bares (A&B)", net: barsRealNet },
+        { origin: "Patrocínios", net: sponsorshipRealNet },
+        { origin: "Outras receitas", net: otherIncomeRealNet },
+      ],
     };
   };
 
