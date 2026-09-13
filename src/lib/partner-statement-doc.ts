@@ -515,7 +515,15 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     expenseIva,
     expenseTotal,
     expenseForResult,
-    usesGrossExpenses: input.usesGrossExpenses,
+    usesGrossExpenses: usesGrossEffective,
+    expenseBasisLabel: effectiveExpenseBasisLabel({
+      usesGrossExpenses: input.usesGrossExpenses,
+      returnsParentDeductibleVat: input.returnsDeductibleVat,
+    }),
+    resultBasisLabel: effectiveResultBasisLabel({
+      usesGrossExpenses: input.usesGrossExpenses,
+      returnsParentDeductibleVat: input.returnsDeductibleVat,
+    }),
     result,
     recipientShare,
     othersShare,
