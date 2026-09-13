@@ -31,7 +31,7 @@ export interface PartnerDisbursementDetailProps {
   revenuesHeld: RevenueHeldRow[];
   totalRevenuesHeld: number;
   financingToReturn: number;
-  extras: Array<{ date: string; originLabel: string; description: string; amount: number }>;
+  extras: Array<{ date: string; originLabel?: string; description: string; amount: number }>;
   totalAdvanced: number;
   partnerShare: number;
   transferBase: number;
@@ -274,7 +274,7 @@ export default function PartnerDisbursementDetail(props: PartnerDisbursementDeta
                 {props.extras.map((e, i) => (
                   <TableRow key={i}>
                     <TableCell className="font-mono text-xs">{fmtDate(e.date)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{e.originLabel}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{e.originLabel || "—"}</TableCell>
                     <TableCell className="text-sm">{e.description}</TableCell>
                     <TableCell className="text-right font-mono text-xs">{formatCurrency(e.amount)}</TableCell>
                   </TableRow>
