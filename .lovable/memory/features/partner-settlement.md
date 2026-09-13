@@ -242,3 +242,28 @@ No documento do sócio: com devolução, secção 3/4 dizem "Despesas s/IVA" e
 02/09: descrever o que cada número é, nunca o mecanismo da negociação). O
 resultado e as partes ficam iguais ao cêntimo. No painel, o badge da quota passa
 a incluir "· IVA dedutível devolvido X" e a linha solta correspondente saiu.
+
+## (g13) Documento do sócio em acordo derivado — cascata desde o evento
+
+Duas regras absolutas no gerador do documento (`buildSoloDocInput` em
+`PartnerSettlementTab` → `buildPartnerStatementDoc`):
+
+1. **Despesas e receitas do documento são SEMPRE o perímetro da raiz**, pela
+   fonte única `collectSettlementExpenseDocLines` (`src/lib/event-settlement-inputs.ts`)
+   filtrada com `keepRootPerimeter`. É a MESMA aritmética dos totais do evento
+   (critério do Fecho: realizado ou previsto + excedido, overhead pelo toggle,
+   excedido por rubrica itemizado por `computeOutsideBpExcessLines`). Nunca as
+   linhas do apuramento do sócio — o bug de 13/09 mostrava 587.610,42 c/IVA em
+   vez de 1.931.219,49.
+2. **Cascata (`cascade` no input do documento).** Quando o acordo apura sobre
+   parte do resultado do evento, a secção 4 desce: resultado do evento − partes
+   dos sócios de cada acordo acima (PELO NOME, com a percentagem: nominal se o
+   participante é nominal, real se acerta) = parte da sociedade (%) + IVA
+   dedutível recuperado + receitas exclusivas da sociedade (itemizadas) +
+   operações de terceiros (itemizadas) + custos internos = resultado da
+   sociedade. A casa nominal do acordo acima nunca é linha: é a própria parte da
+   sociedade. Ficam invisíveis: sócios do MESMO acordo (colapsam em "Sócios
+   locais" / "Mundo Propício") e acordos ao lado ou abaixo. Na raiz não há
+   cascata e nada muda. Com cascata, a secção 2 mostra só as receitas do evento
+   (os termos adicionais saem de lá) e `cascadeMismatch > 0,02` imprime aviso
+   vermelho em vez de esconder.

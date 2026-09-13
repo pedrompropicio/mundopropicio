@@ -1870,3 +1870,14 @@ Regras:
 6. **MP Audience lista as duas.** O ecrã de conexões mostra as ligações da
    empresa e as dos artistas geridos, estas com a etiqueta "Artista: <nome>". O
    comportamento das ligações `company` não muda.
+
+## D25 adenda (g13, 13/09/2026) — cascata no documento do sócio
+
+O documento de um sócio cujo acordo apura sobre parte do resultado do evento
+mostra a conta **desde o evento inteiro**: receitas e despesas são sempre as do
+perímetro da raiz (a mesma fonte do card do evento e do Encontro de Contas), e o
+resultado desce em cascata deduzindo as partes dos sócios dos acordos ACIMA,
+identificados pelo nome e pela percentagem (nominal quando o participante é
+nominal, real quando acerta). Regra de visibilidade: **acima pelo nome; ao lado e
+abaixo nunca**; os sócios do mesmo acordo continuam colapsados. Mantém-se a
+proibição das palavras que descrevem a estrutura dos acordos.
