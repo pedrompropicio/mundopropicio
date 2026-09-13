@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import { effectiveBasisShortLabel, effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -259,13 +260,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Apuramentos do evento (separador do Encontro de Contas)
-  const { data: eventSettlements = [] } = useQuery({
+  const { data: eventSettlements = [], error: settlementsError } = useQuery({
     queryKey: ["event-settlements-fecho", eventId],
     queryFn: () => fetchEventSettlements([eventId]),
   });
 
   // Participantes — fonte de verdade (inclui a casa como linha real)
-  const { data: allParticipants = [] } = useQuery({
+  const { data: allParticipants = [], error: participantsError } = useQuery({
     queryKey: ["event-settlement-participants-fecho", eventId],
     queryFn: () => fetchSettlementParticipants([eventId]),
   });
@@ -283,7 +284,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   );
 
   // Event transactions (with category)
-  const { data: transactions = [] } = useQuery({
+  const { data: transactions = [], error: transactionsError } = useQuery({
     queryKey: ["event-transactions-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -308,7 +309,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Partner paid expenses
-  const { data: paidExpenses = [] } = useQuery({
+  const { data: paidExpenses = [], error: paidExpensesError } = useQuery({
     queryKey: ["partner-paid-expenses", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -325,11 +326,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // (g5) Receitas em poder do sócio — contas de acerto do sócio, receitas do evento
   // em contas com partner_id, operações de terceiros retidas por ele e (g7) receitas
   // recebidas por encontro de contas marcadas com "Recebido por".
-  const { data: revenuesHeldRaw = [] } = useQuery({
+  const { data: revenuesHeldRaw = [], error: revenuesHeldError } = useQuery({
     queryKey: ["partner-revenues-held", allEventIdsKey],
     queryFn: async (): Promise<RevenueHeldRow[]> => {
       const [accRes, opsRes, compRes] = await Promise.all([
-        supabase.from("financial_accounts").select("id, name, partner_id, account_type").not("partner_id", "is", null),
+        supabase.from("financial_accounts").select("id, name, partner_id, type").not("partner_id", "is", null),
         supabase
           .from("event_third_party_operations")
           .select("id, name, operator_result, held_by_supplier_id, event_id")
@@ -366,7 +367,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           rows.push({
             id: t.id,
             partnerId: acc?.partner_id as string,
-            source: acc?.account_type === "settlement" ? "settlement_account" : "partner_account",
+            // Não existe tipo próprio de conta de acerto: qualquer conta com
+            // partner_id é conta de acerto do sócio.
+            source: acc?.partner_id ? "settlement_account" : "partner_account",
             accountName: acc?.name || "—",
             description: t.description || "—",
             amount: Number(t.amount) || 0,
@@ -422,13 +425,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   // Extras do Sócio — união das duas naturezas (despesa paga pela empresa + registo manual).
   // Ambas abatem ao acerto do sócio e nenhuma é custo do evento.
-  const { data: partnerAdvances = [] } = useQuery({
+  const { data: partnerAdvances = [], error: partnerAdvancesError } = useQuery({
     queryKey: ["partner-advance-expenses", allEventIdsKey],
     queryFn: () => fetchPartnerExtras(allEventIds),
   });
 
   // BP (forecast) for BP × Real reconciliation
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecasts = [], error: forecastsError } = useQuery({
     queryKey: ["event-forecasts-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -472,7 +475,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Ticket sales detalhadas (zone+lot) com sessão, dia, cidade e sub-evento
-  const { data: ticketBreakdown = [] } = useQuery({
+  const { data: ticketBreakdown = [], error: ticketBreakdownError } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
       const [zonesRes, sessionsRes, eventsRes] = await Promise.all([
@@ -546,7 +549,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // Ticket sales (consolidado para receita global — mantém lógica existente)
-  const { data: ticketSales = [] } = useQuery({
+  const { data: ticketSales = [], error: ticketSalesError } = useQuery({
     queryKey: ["event-ticket-sales-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data: zones } = await supabase
@@ -574,6 +577,36 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       });
     },
   });
+
+  // (g11) Nenhuma falha de leitura do Encontro de Contas pode ficar silenciosa:
+  // um erro aqui significa números errados no ecrã, não apenas dados em falta.
+  const settlementQueryErrors: Array<[unknown, string]> = [
+    [settlementsError, "Não foi possível carregar os apuramentos do evento"],
+    [participantsError, "Não foi possível carregar os sócios do apuramento"],
+    [transactionsError, "Não foi possível carregar as transações do evento"],
+    [paidExpensesError, "Não foi possível carregar as despesas pagas pelo sócio"],
+    [revenuesHeldError, "Não foi possível carregar receitas em poder do sócio"],
+    [partnerAdvancesError, "Não foi possível carregar os extras do sócio"],
+    [forecastsError, "Não foi possível carregar o Business Plan"],
+    [ticketBreakdownError, "Não foi possível carregar o detalhe de bilheteira"],
+    [ticketSalesError, "Não foi possível carregar as vendas de bilheteira"],
+  ];
+  const settlementErrorKey = settlementQueryErrors
+    .filter(([err]) => !!err)
+    .map(([err, label]) => `${label}: ${(err as any)?.message ?? ""}`)
+    .join(" | ");
+
+  useEffect(() => {
+    if (!settlementErrorKey) return;
+    for (const msg of settlementErrorKey.split(" | ")) {
+      const [label, detail] = msg.split(/: (.*)/s);
+      toast({
+        variant: "destructive",
+        title: label,
+        description: detail || "Os valores apresentados podem estar incompletos.",
+      });
+    }
+  }, [settlementErrorKey]);
 
   // Calculate financials
   const hasTicketSales = ticketSales.length > 0;
