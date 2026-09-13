@@ -1626,3 +1626,26 @@ Propício — NN%" quando é o único outro participante); nunca "nível",
 `suppliers.doc_locale` ('pt-PT' | 'pt-BR'). Ficheiros
 `Prestacao_de_Contas_<evento>_<sócio>.pdf/.xlsx`. O relatório completo interno de
 gestão (sem sócio) fica exactamente como estava.
+
+**Adenda (g4) 13/09 — secção 5 e linha final do Encontro de Contas.** A secção
+"5 A PARTE DE <SÓCIO>" tem estrutura obrigatória:
+
+1. `<sócio> — NN% do resultado` = parte no fechamento
+2. `Sócios locais — MM%` (ou `Mundo Propício — MM%`) por subtracção
+3. `+ Despesas do evento pagas por <sócio>` — o "Pagas (+)" do Encontro de
+   Contas, financiamento a devolver ao sócio
+4. `- Extras` e `- Já adiantado a <sócio>` (extras + adiantamentos da conta de
+   acerto, como hoje)
+5. `= BASE A TRANSFERIR A <sócio>` (ou "A RECEBER DE", se negativa)
+6. `+ IVA 23% sobre o repasse` — SÓ quando
+   `event_settlement_participants.transfer_with_vat = true` (boolean NOT NULL
+   default false, editável na aba Sócios com o rótulo "Repasse facturado com IVA
+   (23%)"); o IVA incide sobre a base apenas quando positiva
+7. `= TOTAL A TRANSFERIR A <sócio>`
+
+A taxa é a constante normal de IVA PT (`TRANSFER_IVA_RATE = 23` em
+`partner-statement-doc.ts`, via `calcIvaAmount`). O mesmo cálculo aparece na
+linha final de cada sócio no Encontro de Contas (base · IVA · total). Prova:
+EVERYTHINGISNEW com `transfer_with_vat` ligado — base 264.273,90 (273.953,35 +
+18.420,55 − 3.100,00 − 25.000,00), IVA 60.783,00, total 325.056,90 (sem escrita
+na BD).
