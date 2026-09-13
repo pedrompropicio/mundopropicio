@@ -663,11 +663,15 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   // Os activos adicionais são receita que NÃO está no perímetro da raiz — entram
   // no lado do dinheiro da C1 (peça (d)).
   const additionalActivesTotal = nodes.reduce((s, n) => s + n.additionalActiveTotal, 0);
+  // (g6) Os custos devolvidos aos fechamentos abaixo entram TAMBÉM na âncora da
+  // C1: a despesa foi suportada uma vez no perímetro de cima (e os sócios de cima
+  // suportaram a sua parte) e é devolvida por inteiro ao fechamento abaixo.
+  const addbacksTotal = nodes.reduce((s, n) => s + n.addbackIn, 0);
   const eventNetResult =
     nodes.reduce(
       (s, n) => s + n.perimeter.revenueNet - (ignoresExpenses ? 0 : n.perimeter.expensesNet),
       0,
-    ) + additionalActivesTotal;
+    ) + additionalActivesTotal + addbacksTotal;
   const residual = eventNetResult - partnersPaidTotal;
   const rest = residual - (declared + ivaDeductible + nominalGap);
 
