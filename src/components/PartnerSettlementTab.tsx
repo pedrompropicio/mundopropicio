@@ -460,8 +460,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const outsideBpGross = basis.expenseSource === "committed"
     ? computeOutsideBpExcess(operationalForecasts, expenseTransactions, true) : 0;
 
-  const totalExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
-  const totalExpensesGross = sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross;
+  const eventExpensesNet = sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet;
+  const eventExpensesGross = sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross;
+
+  // ── O Encontro de Contas calcula o APURAMENTO ACTIVO, não o evento (#146 (e2)) ──
+  // Raiz = totais do evento menos as linhas marcadas com outros apuramentos.
+  // Filho = só as suas linhas marcadas + quota do pai + activos adicionais das
+  // operações de terceiros. Evento com um único apuramento e sem linhas marcadas
+  // → totais do evento, exactamente como antes (paridade obrigatória).
+  const activeNode = engine.result?.nodes.find((n) => n.id === activeSettlementId) ?? null;
+  const useNodeTotals = !!activeNode && (eventSettlements as any[]).length > 1;
+  const parentNode = activeNode?.parentId
+    ? engine.result?.nodes.find((n) => n.id === activeNode.parentId) ?? null
+    : null;
+
+  const totalRevenueNet = useNodeTotals
+    ? activeNode!.perimeter.revenueNet + activeNode!.additionalActiveTotal + (activeNode!.parentQuota ?? 0)
+    : eventRevenueNet;
+  // A receita é sempre s/IVA (D24): num nó, bruto = líquido.
+  const totalRevenueGross = useNodeTotals ? totalRevenueNet : eventRevenueGross;
+  const totalExpensesNet = useNodeTotals ? activeNode!.perimeter.expensesNet : eventExpensesNet;
+  const totalExpensesGross = useNodeTotals ? activeNode!.perimeter.expensesGross : eventExpensesGross;
+
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
