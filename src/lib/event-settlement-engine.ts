@@ -97,6 +97,25 @@ export interface AddbackNodeResult {
 }
 
 /**
+ * (g14) Linha do BP cujo IVA é custo para os sócios apurados c/IVA mas que a
+ * sociedade NÃO recupera (`event_forecasts.vat_non_recoverable`). O IVA desta
+ * linha fica FORA do IVA dedutível devolvido a um fechamento abaixo e mantém-se
+ * no residual da casa ("IVA não repassado"). `event_settlement_id` nulo = linha
+ * do perímetro da raiz.
+ */
+export interface EngineVatExclusionLine {
+  event_settlement_id?: string | null;
+  label: string;
+  amount: number | string | null;
+  iva_rate?: number | string | null;
+}
+
+export interface VatExclusionNodeLine {
+  label: string;
+  vat: number;
+}
+
+/**
  * Extras do sócio e despesas por ele pagas — nas duas bases, porque o Encontro
  * de Contas aplica-lhes a mesma base do apuramento do sócio (informativo).
  */
@@ -158,6 +177,8 @@ export interface EngineInput {
   markedLines?: EngineMarkedLine[];
   /** (g6) Linhas devolvidas a fechamentos abaixo. */
   addbackLines?: EngineAddbackLine[];
+  /** (g14) Linhas cujo IVA a sociedade não recupera. */
+  vatExclusionLines?: EngineVatExclusionLine[];
   /** Por `event_partner_id` (ou `supplier_id` em fallback). */
   moneyByPartner?: Record<string, EngineParticipantMoney>;
   /** Operações de terceiros do evento (peça (d)). */
@@ -222,6 +243,20 @@ export interface SettlementNodeResult {
   vatReturnedIn: number;
   /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
   vatReturnedOut: number;
+  /** (g14) IVA das linhas do perímetro deste nó que a sociedade não recupera. */
+  vatNonRecoverable: number;
+  /** (g14) Detalhe dessas linhas (label + IVA). */
+  vatNonRecoverableLines: VatExclusionNodeLine[];
+  /**
+   * (g14) IVA deste perímetro que NÃO foi devolvido ao fechamento abaixo por ser
+   * não recuperável — fica no residual da casa ("IVA não repassado").
+   */
+  vatNotReturned: number;
+  /**
+   * (g14) Quanto o resultado DESTE nó desceu por o IVA não recuperável não lhe ter
+   * sido devolvido — usado para explicar o residual da casa na C2.
+   */
+  vatReducedIn: number;
   /** (g6) Custos do evento devolvidos a ESTE fechamento (internos da sociedade). */
   addbackIn: number;
   /** (g6) Detalhe das linhas devolvidas a este fechamento. */
@@ -250,7 +285,9 @@ export interface HouseResidual {
   ivaDeductible: number;
   /** (ii) quotas nominais que não são pagas neste evento. */
   nominalGap: number;
-  /** (iii) resto — tem de ser 0; ≠ 0 é erro de configuração das percentagens. */
+  /** (g14) (iii) IVA não repassado: dedutível que a sociedade não recupera. */
+  vatNotReturned: number;
+  /** (iv) resto — tem de ser 0; ≠ 0 é erro de configuração das percentagens. */
   rest: number;
 }
 
@@ -398,6 +435,19 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   const rootIds = ordered.filter((s) => !s.parent_id).map((s) => s.id);
   if (rootIds.length > 1) errors.push("Mais do que um fechamento raiz neste evento.");
 
+  // ── (g14) IVA não recuperável pela sociedade, por perímetro ─────────
+  const vatExcludedByNode = new Map<string, { vat: number; lines: VatExclusionNodeLine[] }>();
+  for (const l of input.vatExclusionLines ?? []) {
+    const nodeId = l.event_settlement_id ?? rootIds[0] ?? null;
+    if (!nodeId) continue;
+    const vat = lineValue(l.amount, l.iva_rate, true) - lineValue(l.amount, l.iva_rate, false);
+    if (vat === 0) continue;
+    const cur = vatExcludedByNode.get(nodeId) ?? { vat: 0, lines: [] };
+    cur.vat += vat;
+    cur.lines.push({ label: l.label, vat: roundCents(vat) });
+    vatExcludedByNode.set(nodeId, cur);
+  }
+
   const nodes: SettlementNodeResult[] = [];
   const byId = new Map<string, SettlementNodeResult>();
 
@@ -469,6 +519,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     // IVA das despesas do PERÍMETRO do pai. Só um filho por pai pode ter a regra
     // (o IVA não se devolve duas vezes) e a raiz nunca a pode ter.
     let vatReturnedIn = 0;
+    let vatReducedIn = 0;
     if (s.returns_parent_deductible_vat) {
       if (isRoot) {
         errors.push(
@@ -482,9 +533,16 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
               `Mais do que um fechamento devolve o IVA dedutível de "${parent.name}" — só um pode.`,
             );
           } else {
-            vatReturnedIn = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
-            parent.vatReturnedOut = vatReturnedIn;
-            parent.moneyNet -= vatReturnedIn;
+            // (g14) Sai da base dos sócios do pai o IVA TODO (para eles é custo),
+            // mas só é devolvido o que a sociedade recupera: o IVA das linhas
+            // marcadas como não recuperável fica no residual da casa.
+            const fullVat = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
+            const notReturned = Math.min(Math.max(parent.vatNonRecoverable, 0), Math.max(fullVat, 0));
+            vatReturnedIn = fullVat - notReturned;
+            parent.vatReturnedOut = fullVat;
+            parent.vatNotReturned = notReturned;
+            parent.moneyNet -= fullVat;
+            vatReducedIn = notReturned;
           }
         }
       }
@@ -558,6 +616,10 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       additionalActiveTotal: roundCents(additionalActiveTotal),
       vatReturnedIn: roundCents(vatReturnedIn),
       vatReturnedOut: 0,
+      vatNonRecoverable: vatExcludedByNode.get(s.id)?.vat ?? 0,
+      vatNonRecoverableLines: vatExcludedByNode.get(s.id)?.lines ?? [],
+      vatNotReturned: 0,
+      vatReducedIn: roundCents(vatReducedIn),
     };
     nodes.push(node);
     byId.set(node.id, node);
@@ -695,7 +757,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       0,
     ) + additionalActivesTotal + addbacksTotal;
   const residual = eventNetResult - partnersPaidTotal;
-  const rest = residual - (declared + ivaDeductible + nominalGap);
+  // (g14) O IVA não repassado é uma parcela EXPLÍCITA do residual da casa.
+  const vatNotReturnedTotal = nodes.reduce((s, n) => s + n.vatNotReturned, 0);
+  const rest = residual - (declared + ivaDeductible + nominalGap + vatNotReturnedTotal);
 
   const c1Value = partnersPaidTotal + residual - eventNetResult;
   const c2Value = rest;
@@ -715,6 +779,8 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       moneyNet: roundCents(n.moneyNet),
       childQuotasNet: roundCents(n.childQuotasNet),
       vatReturnedOut: roundCents(n.vatReturnedOut),
+      vatNonRecoverable: roundCents(n.vatNonRecoverable),
+      vatNotReturned: roundCents(n.vatNotReturned),
     })),
     eventNetResult: roundCents(eventNetResult),
     partnersPaidTotal: roundCents(partnersPaidTotal),
@@ -725,6 +791,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       declared: roundCents(declared),
       ivaDeductible: roundCents(ivaDeductible),
       nominalGap: roundCents(nominalGap),
+      vatNotReturned: roundCents(vatNotReturnedTotal),
       rest: roundCents(rest),
     },
     c1: {
@@ -733,7 +800,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       ok: Math.abs(c1Value) <= TOL,
     },
     c2: {
-      label: "C2 — residual = declarada + IVA dedutível + nominal−real",
+      label: "C2 — residual = declarada + IVA dedutível + nominal−real + IVA não repassado",
       value: roundCents(c2Value),
       ok: Math.abs(c2Value) <= TOL,
     },

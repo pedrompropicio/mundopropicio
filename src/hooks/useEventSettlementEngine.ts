@@ -89,7 +89,7 @@ export function useEventSettlementEngine(eventId: string) {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -288,6 +288,24 @@ export function useEventSettlementEngine(eventId: string) {
         iva_rate: f.iva_rate,
       }));
 
+    // (g14) IVA não recuperável pela sociedade: sai do IVA devolvido a um
+    // fechamento abaixo e fica no residual da casa.
+    const vatExclusionLines = (forecasts as any[])
+      .filter(
+        (f) =>
+          f.vat_non_recoverable &&
+          f.type === "expense" &&
+          !f.exclude_from_result &&
+          !f.is_transitory &&
+          Number(f.iva_rate || 0) > 0,
+      )
+      .map((f) => ({
+        event_settlement_id: (f.event_settlement_id ?? null) as string | null,
+        label: String(f.description || "Linha do BP"),
+        amount: f.amount,
+        iva_rate: f.iva_rate,
+      }));
+
     const moneyByPartner: Record<string, EngineParticipantMoney> = {};
     const bumpMoney = (key: string) => {
       moneyByPartner[key] = moneyByPartner[key] ?? {
@@ -338,6 +356,7 @@ export function useEventSettlementEngine(eventId: string) {
       participants: engineParticipants,
       markedLines,
       addbackLines,
+      vatExclusionLines,
       moneyByPartner,
       operations,
       participations,

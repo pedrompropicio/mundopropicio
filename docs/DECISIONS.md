@@ -1881,3 +1881,11 @@ identificados pelo nome e pela percentagem (nominal quando o participante é
 nominal, real quando acerta). Regra de visibilidade: **acima pelo nome; ao lado e
 abaixo nunca**; os sócios do mesmo acordo continuam colapsados. Mantém-se a
 proibição das palavras que descrevem a estrutura dos acordos.
+
+## D25 adenda (g14, 13/09/2026) — IVA não recuperável fica fora da devolução
+
+Há linhas de BP cujo IVA é custo para os sócios apurados c/IVA mas que a
+sociedade não recupera. Marcadas com `event_forecasts.vat_non_recoverable`,
+esse IVA sai da base dos sócios de cima (como sempre) mas NÃO é devolvido à
+sociedade: fica no residual da casa, exposto como "IVA não repassado"
+(`house.vatNotReturned`) e conferido na C2. Nunca aparece em documento de sócio.

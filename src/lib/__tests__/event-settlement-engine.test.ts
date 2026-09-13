@@ -505,3 +505,41 @@ describe("(g6) linhas devolvidas a um fechamento abaixo", () => {
     expect(r.errors.some((e) => e.includes("custos devolvidos"))).toBe(true);
   });
 });
+
+// ── (g14) IVA não recuperável pela sociedade ─────────────────────────────────
+describe("(g14) IVA não recuperável fica fora da devolução", () => {
+  const withExclusion = () =>
+    computeSettlementEngine(
+      anittaThreeLevels({
+        vatExclusionLines: [
+          { event_settlement_id: null, label: "Open bar", amount: 64_029.83, iva_rate: 23 },
+        ],
+      }),
+    );
+
+  it("o IVA devolvido desce e o resto fica na casa", () => {
+    const r = withExclusion();
+    const root = r.nodes.find((n) => n.id === "root")!;
+    const n3 = r.nodes.find((n) => n.id === "n3")!;
+    near(root.vatNonRecoverable, 14_726.86);
+    near(root.vatNotReturned, 14_726.86);
+    near(n3.vatReturnedIn, 262_641.48 - 14_726.86);
+    near(n3.resultNet, 548_198.06 - 14_726.86);
+    near(r.house.vatNotReturned, 14_726.86);
+  });
+
+  it("sócios de cima iguais, sociedade desce, C1 e C2 fecham", () => {
+    const r = withExclusion();
+    const part = (id: string) =>
+      r.nodes.flatMap((n) => n.participants).find((p) => p.id === id)!;
+    near(part("an").share, 417_677.51);
+    near(part("cv").share, 35_800.93);
+    near(part("ein").share, (548_198.06 - 14_726.86) / 2);
+    near(part("mp-n3").share, (548_198.06 - 14_726.86) / 2);
+    expect(r.errors).toEqual([]);
+    near(r.c1.value, 0);
+    near(r.c2.value, 0);
+    expect(r.c1.ok && r.c2.ok).toBe(true);
+  });
+});
+

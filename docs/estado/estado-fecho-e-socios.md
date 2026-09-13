@@ -68,6 +68,16 @@ Live por leitura e por prova em transação; o Publish é decisão do Pedro.
   faz-se no ecrã (ficha do fornecedor), sem SQL.
 - **Publish** — não feito, por decisão explícita. g7–g9c estão prontos.
 
+## (g14) IVA não recuperável pela sociedade — feito
+
+- Coluna `event_forecasts.vat_non_recoverable` aplicada (sem Publish).
+- Motor: devolução do IVA só das linhas não marcadas; `vatNotReturned` no nó de
+  cima e `house.vatNotReturned` na C2.
+- UI: checkbox no editor da linha do BP + badge; "IVA não repassado" com detalhe
+  na Posição da Mundo Propício; documento do sócio com o valor líquido.
+- Testes: 27 no motor, 66 no conjunto fecho/sócios; `tsgo` limpo.
+- Marcação das linhas fica para o Pedro no BP (sem DML).
+
 ## Notas
 
 - DRE Empresarial e DRE Brasil são vistas de EMPRESA e mantêm os exclusivos.
