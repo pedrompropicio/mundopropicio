@@ -400,6 +400,39 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
   }));
   if (comparaveis.length === 0) lacunas.push("sem artistas comparáveis definidos");
 
+  // ---- benchmark alinhado por idade (D-ERP59)
+  const { data: benchRows, error: bErr } = await admin.rpc("song_benchmark_aligned", {
+    p_song_id: songId,
+  });
+  if (bErr) lacunas.push(`benchmark alinhado indisponível: ${bErr.message}`);
+  const benchmarkAlinhado = (benchRows ?? []).map((r: Row) => ({
+    artista: r.artist_name,
+    musica: r.title,
+    e_a_propria: r.is_self,
+    release_date: r.release_date,
+    idade_hoje_dias: r.dias_desde_lancamento,
+    idade_comparada_dias: r.idade_alinhada_dias,
+    nota_da_musica: r.song_notes ?? null,
+    spotify_streams_a_esta_idade: r.spotify_streams_dia_n,
+    spotify_streams_a_esta_idade_data: r.spotify_streams_dia_n_date,
+    spotify_streams_por_dia_a_esta_idade: r.spotify_streams_por_dia_n,
+    spotify_streams_hoje: r.spotify_streams_hoje,
+    spotify_posicao_a_esta_idade: r.rank_spotify_dia_n,
+    spotify_total_com_dados: r.total_spotify_dia_n,
+    tiktok_ugc_publicacoes: r.tiktok_ugc_latest,
+    tiktok_ugc_data: r.tiktok_ugc_date,
+    tiktok_ugc_fonte: r.tiktok_ugc_source,
+    tiktok_ugc_por_dia: r.tiktok_ugc_por_dia,
+    tiktok_ugc_posicao_por_dia: r.rank_tiktok_ugc_por_dia,
+    tiktok_ugc_total_com_dados: r.total_tiktok_ugc_por_dia,
+    instagram_reels: r.instagram_reels_latest,
+    instagram_reels_posicao: r.rank_instagram_reels,
+    instagram_reels_total_com_dados: r.total_instagram_reels,
+  }));
+  if (benchmarkAlinhado.length <= 1) {
+    lacunas.push("sem músicas de referência dos comparáveis para comparar à mesma idade");
+  }
+
   return {
     notFound: false as const,
     song,
@@ -418,9 +451,11 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
         demografia,
       },
       comparaveis,
+      benchmark_alinhado: benchmarkAlinhado,
       lacunas,
     },
   };
+
 }
 
 // ---------------------------------------------------------------- LLM
@@ -433,7 +468,15 @@ REGRAS ABSOLUTAS:
 2. Toda recomendação precisa citar em "porque" o número exato do snapshot que a justifica.
 3. Se o dado não existe no snapshot, escreva "sem dados" e liste isso em lacunas_de_dados. Nunca preencha com suposição.
 4. Recomendações práticas e mensuráveis: ação concreta, plataforma, esforço, métrica de sucesso e prazo.
-5. Português do Brasil.`;
+5. Português do Brasil.
+
+REGRAS DE AVALIAÇÃO RELATIVA (obrigatórias):
+6. É PROIBIDO qualificar qualquer métrica em absoluto ("fraco", "forte", "baixo", "viral", "explodiu"). Toda leitura é RELATIVA às músicas de "benchmark_alinhado" — comparáveis à MESMA idade (campo idade_comparada_dias) — e ao ritmo por dia. Cite sempre o número de referência e a posição no ranking, no formato "4.º de 11 em streams ao dia 11".
+7. Quando um comparável tem UGC muito acima do que o número oficial sugere, explique o mecanismo APENAS se ele estiver escrito em "nota_da_musica" desse comparável. Nunca invente o mecanismo.
+8. As sugestões accionáveis derivam do que os comparáveis com melhor resultado fizeram, com os números deles à mesma idade.
+9. Se não houver comparável com dados para uma métrica (posição ou total ausentes/1), escreva "sem referência" e NÃO avalie essa métrica.
+10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.`;
+
 
 const REPORT_TOOL = {
   type: "function",
@@ -490,6 +533,42 @@ const REPORT_TOOL = {
             required: ["dia", "acao"],
           },
         },
+        benchmark: {
+          type: "array",
+          description: "Linhas do benchmark alinhado por idade usadas na análise.",
+          items: {
+            type: "object",
+            properties: {
+              artista: { type: "string" },
+              musica: { type: "string" },
+              idade_dias: { type: "integer" },
+              metrica: { type: "string" },
+              valor: { type: "number" },
+              posicao: { type: "integer" },
+            },
+            required: ["artista", "musica", "idade_dias", "metrica", "valor", "posicao"],
+          },
+        },
+        avaliacao_relativa: {
+          type: "array",
+          description: "Uma entrada por métrica: spotify, tiktok_ugc, videos_artista, playlists.",
+          items: {
+            type: "object",
+            properties: {
+              metrica: {
+                type: "string",
+                enum: ["spotify", "tiktok_ugc", "videos_artista", "playlists"],
+              },
+              posicao: { type: "integer", description: "0 quando não há referência." },
+              total: { type: "integer", description: "0 quando não há referência." },
+              frase: {
+                type: "string",
+                description: "Uma frase curta, sempre relativa; 'sem referência' se não houver dados.",
+              },
+            },
+            required: ["metrica", "posicao", "total", "frase"],
+          },
+        },
         lacunas_de_dados: { type: "array", items: { type: "string" } },
       },
       required: [
@@ -499,8 +578,11 @@ const REPORT_TOOL = {
         "sinais_de_alerta",
         "recomendacoes",
         "plano_7_dias",
+        "benchmark",
+        "avaliacao_relativa",
         "lacunas_de_dados",
       ],
+
       additionalProperties: false,
     },
   },
