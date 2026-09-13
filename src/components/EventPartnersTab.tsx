@@ -84,7 +84,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_settlements")
-        .select("id, name, parent_id, position, is_sealed")
+        .select("id, name, parent_id, position, is_sealed, parent_share_pct, parent_share_basis")
         .eq("event_id", eventId)
         .order("position", { ascending: true });
       if (error) throw error;
@@ -139,11 +139,46 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const settlementName = (id: string) =>
     (settlements as any[]).find((s) => s.id === id)?.name ?? "—";
 
-  // Inclui os `nominal`: também eles reduzem a quota da casa (#146 (e2) ponto 3).
-  const totalPercentage = partnerRows.reduce(
-    (sum: number, p: any) => sum + Number(p.profit_pct || 0),
-    0,
+  /**
+   * (g4) A BASE É DO FECHAMENTO: raiz → base contratual do evento; filho →
+   * `parent_share_basis`. Mostra-se junto ao nome do fechamento e já não por
+   * participante (`expense_includes_iva` deixou de ser lido pelo motor).
+   */
+  const settlementBasisLabel = (id: string): string => {
+    const s = (settlements as any[]).find((x) => x.id === id);
+    if (!s) return "—";
+    if (!s.parent_id) return usesGrossExpenseAmounts(event?.partner_calc_basis) ? "c/IVA" : "s/IVA";
+    if (s.parent_share_basis == null) {
+      return usesGrossExpenseAmounts(event?.partner_calc_basis) ? "c/IVA" : "s/IVA";
+    }
+    return s.parent_share_basis === "net_result_gross_expenses" ? "c/IVA" : "s/IVA";
+  };
+
+  /**
+   * (g4) Percentagem atribuída POR FECHAMENTO — nunca uma soma cruzada entre
+   * fechamentos (somar participantes de fechamentos diferentes dava 150% na
+   * Anitta). Inclui os `nominal`: também eles reduzem a quota da casa
+   * (#146 (e2) ponto 3).
+   */
+  const pctBySettlement = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of partnerRows as any[]) {
+      map.set(p.settlement_id, (map.get(p.settlement_id) ?? 0) + Number(p.profit_pct || 0));
+    }
+    return map;
+  }, [partnerRows]);
+
+  const assignedPctText = useMemo(
+    () =>
+      (settlements as any[])
+        .filter((s) => pctBySettlement.has(s.id))
+        .map((s) => `${s.name} ${Number(pctBySettlement.get(s.id) ?? 0).toFixed(1).replace(".0", "")}%`)
+        .join(" · "),
+    [settlements, pctBySettlement],
   );
+
+  /** Percentagem já atribuída DENTRO do fechamento escolhido no formulário. */
+  const totalPercentage = Number(pctBySettlement.get(newSettlementId) ?? 0);
 
 
   const invalidate = () => {
