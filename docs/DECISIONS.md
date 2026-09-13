@@ -1744,3 +1744,14 @@ há dupla contagem com as contas de acerto porque a compensação não tem conta
 Regra de escrita registada aqui: descrições de transações e de linhas de BP são
 texto de negócio (o que o sócio ou o contabilista devem ler) e nunca levam notas
 de implementação, referências a fechamentos, "exclusivo" ou "planilha vNN".
+
+DDL aplicada em 13/09/2026 (5 blocos): coluna `held_by_supplier_id` + índice
+parcial; CHECK `transactions_held_by_only_compensation_income`; bloco (C) da
+`get_partner_settlement_summary`; trigger `trg_enforce_held_revenue_is_paid`
+(BEFORE INSERT OR UPDATE OF `held_by_supplier_id`, `status`); e bloco 5 —
+`enforce_tx_paid_requires_account` passa a isentar `payment_method =
+'compensation'`, porque a compensação nunca tem conta por desenho
+(`force_no_account_on_compensation`) e a receita com "Recebido por" nasce paga.
+Sem essa isenção, criar a receita já marcada falharia no INSERT.
+
+Sem DML: a marcação do caso real (A&B Food, Anitta EDA 2026) é feita no ecrã.
