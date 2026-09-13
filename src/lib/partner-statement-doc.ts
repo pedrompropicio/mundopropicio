@@ -234,6 +234,11 @@ export interface StatementTerms {
   subtotal: string;
   total: string;
   resultLine: string;
+  eventResultLine: string;
+  carriedResultLine: string;
+  societyShareLine: string;
+  societyResultLine: string;
+  cascadeMismatchLine: (v: string) => string;
   ticketing: string;
   localPartners: string;
   dataAt: (d: string) => string;
@@ -283,6 +288,16 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     subtotal: "Subtotal",
     total: "TOTAL",
     resultLine: "Resultado",
+    eventResultLine: "Resultado do evento",
+    carriedResultLine: "Resultado a repartir",
+    societyShareLine: "Parte da sociedade",
+    societyResultLine: "Resultado da sociedade",
+    cascadeMismatchLine: (v) => `Aviso: a conta nao fecha (diferenca ${v})`,
+    eventResultLine: "Resultado do evento",
+    carriedResultLine: "Resultado a repartir",
+    societyShareLine: "Parte da sociedade",
+    societyResultLine: "Resultado da sociedade",
+    cascadeMismatchLine: (v) => `Aviso: a conta nao fecha (diferenca ${v})`,
     ticketing: "Bilheteira",
     localPartners: "Sócios locais",
     dataAt: (d) => `Dados do sistema em ${d} · valores em euros`,
