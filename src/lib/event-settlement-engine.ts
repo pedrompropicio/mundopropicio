@@ -77,6 +77,25 @@ export interface EngineMarkedLine {
 }
 
 /**
+ * (g6) Linha de BP DEVOLVIDA a um fechamento abaixo ("custos internos da
+ * sociedade"): continua a contar no perímetro de cima (a raiz é imutável) e é
+ * somada ao resultado do fechamento indicado. Valorização: s/IVA quando o
+ * fechamento tem `returns_parent_deductible_vat` (o IVA já lhe foi devolvido),
+ * senão na base do próprio fechamento.
+ */
+export interface EngineAddbackLine {
+  addback_settlement_id: string;
+  label: string;
+  amount: number | string | null;
+  iva_rate?: number | string | null;
+}
+
+export interface AddbackNodeResult {
+  label: string;
+  value: number;
+}
+
+/**
  * Extras do sócio e despesas por ele pagas — nas duas bases, porque o Encontro
  * de Contas aplica-lhes a mesma base do apuramento do sócio (informativo).
  */
@@ -136,6 +155,8 @@ export interface EngineInput {
   settlements: EngineSettlement[];
   participants: EngineParticipant[];
   markedLines?: EngineMarkedLine[];
+  /** (g6) Linhas devolvidas a fechamentos abaixo. */
+  addbackLines?: EngineAddbackLine[];
   /** Por `event_partner_id` (ou `supplier_id` em fallback). */
   moneyByPartner?: Record<string, EngineParticipantMoney>;
   /** Operações de terceiros do evento (peça (d)). */
@@ -198,6 +219,10 @@ export interface SettlementNodeResult {
   vatReturnedIn: number;
   /** (g1) IVA dedutível deste perímetro entregue a um filho (0 se nenhum). */
   vatReturnedOut: number;
+  /** (g6) Custos do evento devolvidos a ESTE fechamento (internos da sociedade). */
+  addbackIn: number;
+  /** (g6) Detalhe das linhas devolvidas a este fechamento. */
+  addbacks: AddbackNodeResult[];
   /**
    * (g4) Base do FECHAMENTO: true = despesas c/IVA. Raiz →
    * `events.partner_calc_basis`; filho → `parent_share_basis`. Todos os
@@ -233,6 +258,8 @@ export interface EngineResult {
   partnersPaidTotal: number;
   /** Σ activos adicionais das operações de terceiros (peça (d)). */
   additionalActivesTotal: number;
+  /** (g6) Σ custos do evento devolvidos a fechamentos abaixo. */
+  addbacksTotal: number;
   house: HouseResidual;
   c1: EngineCheck;
   c2: EngineCheck;
@@ -339,6 +366,24 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     }
   }
 
+  // ── (g6) Linhas devolvidas a fechamentos abaixo ─────────────────────
+  // Não saem do perímetro de cima: a raiz fica exactamente igual. Guardam-se
+  // nas duas leituras e a valorização escolhe-se no nó que as recebe.
+  const addbackByNode = new Map<
+    string,
+    { net: number; gross: number; lines: Array<{ label: string; net: number; gross: number }> }
+  >();
+  for (const l of input.addbackLines ?? []) {
+    if (!l.addback_settlement_id) continue;
+    const net = lineValue(l.amount, l.iva_rate, false);
+    const gross = lineValue(l.amount, l.iva_rate, true);
+    const cur = addbackByNode.get(l.addback_settlement_id) ?? { net: 0, gross: 0, lines: [] };
+    cur.net += net;
+    cur.gross += gross;
+    cur.lines.push({ label: l.label, net, gross });
+    addbackByNode.set(l.addback_settlement_id, cur);
+  }
+
   const ordered = orderTopologically(input.settlements);
   const rootIds = ordered.filter((s) => !s.parent_id).map((s) => s.id);
   if (rootIds.length > 1) errors.push("Mais do que um fechamento raiz neste evento.");
@@ -435,14 +480,45 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       }
     }
 
+    // (g6) Devolução de custos internos: entra pelo valor s/IVA quando este
+    // fechamento já recebeu o IVA dedutível de cima, senão na base do nó.
+    const nodeUsesGross = isRoot
+      ? eventUsesGross
+      : basis == null
+        ? eventUsesGross
+        : basis === "net_result_gross_expenses";
+    const addback = addbackByNode.get(s.id);
+    let addbackIn = 0;
+    let addbacks: AddbackNodeResult[] = [];
+    if (addback) {
+      if (isRoot) {
+        errors.push(
+          `O fechamento raiz "${s.name}" não pode receber custos devolvidos de si próprio.`,
+        );
+      } else {
+        const useGrossForAddback = !s.returns_parent_deductible_vat && nodeUsesGross;
+        addbackIn = useGrossForAddback ? addback.gross : addback.net;
+        addbacks = addback.lines.map((l) => ({
+          label: l.label,
+          value: roundCents(useGrossForAddback ? l.gross : l.net),
+        }));
+      }
+    }
+
     const quota = parentQuota ?? 0;
     const revenueWithOps = revenueNet + additionalActiveTotal;
-    const resultNet = vatReturnedIn + (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet);
-    const resultGross = vatReturnedIn + (ignoresExpenses
-      ? quota + revenueWithOps
-      : quota + revenueWithOps - expensesGross);
+    const resultNet =
+      vatReturnedIn +
+      addbackIn +
+      (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesNet);
+    const resultGross =
+      vatReturnedIn +
+      addbackIn +
+      (ignoresExpenses ? quota + revenueWithOps : quota + revenueWithOps - expensesGross);
 
     const node: SettlementNodeResult = {
+      addbackIn: roundCents(addbackIn),
+      addbacks,
       id: s.id,
       name: s.name,
       parentId: s.parent_id ?? null,
@@ -589,11 +665,15 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   // Os activos adicionais são receita que NÃO está no perímetro da raiz — entram
   // no lado do dinheiro da C1 (peça (d)).
   const additionalActivesTotal = nodes.reduce((s, n) => s + n.additionalActiveTotal, 0);
+  // (g6) Os custos devolvidos aos fechamentos abaixo entram TAMBÉM na âncora da
+  // C1: a despesa foi suportada uma vez no perímetro de cima (e os sócios de cima
+  // suportaram a sua parte) e é devolvida por inteiro ao fechamento abaixo.
+  const addbacksTotal = nodes.reduce((s, n) => s + n.addbackIn, 0);
   const eventNetResult =
     nodes.reduce(
       (s, n) => s + n.perimeter.revenueNet - (ignoresExpenses ? 0 : n.perimeter.expensesNet),
       0,
-    ) + additionalActivesTotal;
+    ) + additionalActivesTotal + addbacksTotal;
   const residual = eventNetResult - partnersPaidTotal;
   const rest = residual - (declared + ivaDeductible + nominalGap);
 
@@ -619,6 +699,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     eventNetResult: roundCents(eventNetResult),
     partnersPaidTotal: roundCents(partnersPaidTotal),
     additionalActivesTotal: roundCents(additionalActivesTotal),
+    addbacksTotal: roundCents(addbacksTotal),
     house: {
       residual: roundCents(residual),
       declared: roundCents(declared),

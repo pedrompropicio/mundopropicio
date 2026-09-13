@@ -2170,6 +2170,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const extras: Array<{ label: string; value: number }> = [];
     if (activeNode?.parentQuota) extras.push({ label: "Quota contratual do acordo", value: activeNode.parentQuota });
     if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível devolvido", value: activeNode.vatReturnedIn });
+    // (g6) Custos do evento devolvidos a este fechamento (internos da sociedade).
+    if (activeNode?.addbackIn)
+      extras.push({
+        label: "Custos do evento devolvidos a este fechamento (internos da sociedade)",
+        value: activeNode.addbackIn,
+      });
     if (activeNode?.additionalActiveTotal)
       extras.push({ label: "Activos adicionais", value: activeNode.additionalActiveTotal });
 
@@ -2386,6 +2392,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <p className="mt-1 text-muted-foreground">
               IVA dedutível devolvido: {formatCurrency(activeNode.vatReturnedIn)} — o IVA que{" "}
               {parentNode.name} suportou como custo é recuperado por este fechamento.
+            </p>
+          )}
+          {/* (g6) Custos internos da sociedade devolvidos a este fechamento. */}
+          {activeNode.addbackIn !== 0 && (
+            <p className="mt-1 text-muted-foreground">
+              Custos do evento devolvidos a este fechamento (internos da sociedade): +
+              {formatCurrency(activeNode.addbackIn)} — contam no fechamento de cima e voltam por
+              inteiro a este.
             </p>
           )}
         </div>

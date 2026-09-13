@@ -89,7 +89,7 @@ export function useEventSettlementEngine(eventId: string) {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -277,6 +277,17 @@ export function useEventSettlementEngine(eventId: string) {
         })),
     ];
 
+    // (g6) Linhas do BP devolvidas a um fechamento abaixo: continuam no
+    // perímetro de cima (a raiz é imutável) e somam ao resultado do filho.
+    const addbackLines = (forecasts as any[])
+      .filter((f) => f.addback_settlement_id && f.type === "expense" && !f.exclude_from_result && !f.is_transitory)
+      .map((f) => ({
+        addback_settlement_id: f.addback_settlement_id as string,
+        label: String(f.description || "Linha do BP"),
+        amount: f.amount,
+        iva_rate: f.iva_rate,
+      }));
+
     const moneyByPartner: Record<string, EngineParticipantMoney> = {};
     const bumpMoney = (key: string) => {
       moneyByPartner[key] = moneyByPartner[key] ?? {
@@ -326,6 +337,7 @@ export function useEventSettlementEngine(eventId: string) {
       settlements: settlements as any,
       participants: engineParticipants,
       markedLines,
+      addbackLines,
       moneyByPartner,
       operations,
       participations,

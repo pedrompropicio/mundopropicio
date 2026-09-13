@@ -115,6 +115,24 @@ export function EventSettlementsPanel({ eventId }: Props) {
         </p>
       )}
 
+      {n.addbackIn !== 0 && (
+        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 p-2 text-xs">
+          <p className="text-muted-foreground">
+            Custos do evento devolvidos a este fechamento (internos da sociedade):{" "}
+            <span className="font-semibold text-foreground">+{formatCurrency(n.addbackIn)}</span>
+          </p>
+          {n.addbacks.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              {n.addbacks.map((a, i) => (
+                <li key={`${a.label}-${i}`}>
+                  · {a.label}: {formatCurrency(a.value)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {n.childQuotasNet !== 0 && (
         <p className="mb-3 text-xs text-muted-foreground">
           Quotas levadas por fechamentos abaixo: {formatCurrency(n.childQuotasNet)} · fica neste

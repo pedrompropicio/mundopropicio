@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
-import { EventSettlementSelect } from "@/components/EventSettlementSelect";
+import { EventSettlementSelect, EventAddbackSelect } from "@/components/EventSettlementSelect";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
@@ -46,6 +46,11 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [eventSettlementId, setEventSettlementId] = useState<string | null>(
     forecast.event_settlement_id ?? null
   );
+  // (g6) Devolução de custos internos da sociedade a um fechamento abaixo.
+  const [addbackSettlementId, setAddbackSettlementId] = useState<string | null>(
+    forecast.addback_settlement_id ?? null
+  );
+  const [addbackReason, setAddbackReason] = useState<string>(forecast.addback_reason ?? "");
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
@@ -155,6 +160,26 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
 
+      // (g6) Devolução: só despesas, e nunca em conjunto com o perímetro.
+      const newAddbackId = isExpenseType && !newSettlementId ? addbackSettlementId || null : null;
+      const newAddbackReason = newAddbackId ? addbackReason.trim() : "";
+      if (newAddbackId && !newAddbackReason) {
+        throw new Error("Indique o motivo da devolução da linha ao fechamento.");
+      }
+      if (newAddbackId !== (forecast.addback_settlement_id ?? null)) {
+        changes.push({
+          field_name: "Devolvida a fechamento",
+          old_value: forecast.addback_settlement_id ?? "—",
+          new_value: newAddbackId ?? "—",
+        });
+      } else if (newAddbackId && newAddbackReason !== (forecast.addback_reason ?? "")) {
+        changes.push({
+          field_name: "Motivo da devolução",
+          old_value: forecast.addback_reason ?? "—",
+          new_value: newAddbackReason,
+        });
+      }
+
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
@@ -187,6 +212,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         is_overhead: newOverhead,
         exclude_from_result: newOverhead,
         event_settlement_id: newSettlementId,
+        addback_settlement_id: newAddbackId,
+        addback_reason: newAddbackId ? newAddbackReason : null,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
@@ -312,6 +339,18 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           value={eventSettlementId}
           onChange={setEventSettlementId}
         />
+
+        {/* (g6) Devolução de custos internos da sociedade — só despesas. */}
+        {isExpenseType ? (
+          <EventAddbackSelect
+            eventId={forecast.event_id}
+            value={addbackSettlementId}
+            reason={addbackReason}
+            onChange={setAddbackSettlementId}
+            onReasonChange={setAddbackReason}
+            disabledByPerimeter={!!eventSettlementId}
+          />
+        ) : null}
 
         {/* Amount (multi-currency) + IVA */}
         <div className="space-y-3">

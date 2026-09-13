@@ -6073,6 +6073,8 @@ export type Database = {
       }
       event_forecasts: {
         Row: {
+          addback_reason: string | null
+          addback_settlement_id: string | null
           amount: number
           approved_at: string | null
           approved_by: string | null
@@ -6114,6 +6116,8 @@ export type Database = {
           version_id: string | null
         }
         Insert: {
+          addback_reason?: string | null
+          addback_settlement_id?: string | null
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
@@ -6155,6 +6159,8 @@ export type Database = {
           version_id?: string | null
         }
         Update: {
+          addback_reason?: string | null
+          addback_settlement_id?: string | null
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
@@ -6196,6 +6202,13 @@ export type Database = {
           version_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_forecasts_addback_settlement_id_fkey"
+            columns: ["addback_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_forecasts_cache_config_id_fkey"
             columns: ["cache_config_id"]
@@ -16011,6 +16024,8 @@ export type Database = {
           _observation: string
         }
         Returns: {
+          addback_reason: string | null
+          addback_settlement_id: string | null
           amount: number
           approved_at: string | null
           approved_by: string | null

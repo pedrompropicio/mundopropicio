@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus, Wallet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
+import { useEventSettlementOptions } from "@/components/EventSettlementSelect";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
 import BPGridEditor from "@/components/BPGridEditor";
 // Lazy: a Planilha (Handsontable) só carrega quando o utilizador escolhe a vista.
@@ -3437,6 +3438,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     staleTime: 60_000,
   });
 
+  // (g6) Nome do fechamento a que a linha é devolvida (custos internos da sociedade).
+  const { data: addbackSettlements = [] } = useEventSettlementOptions(
+    item.addback_settlement_id ? item.event_id ?? eventId ?? null : null
+  );
+  const addbackSettlementName =
+    (addbackSettlements as any[]).find((s) => s.id === item.addback_settlement_id)?.name ??
+    "fechamento";
+
   const refLinkCount = Array.isArray(item.attachment_refs)
     ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
     : 0;
@@ -3674,6 +3683,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     title="Rateio de Overhead — não impacta resultado da empresa, mas entra no acerto com sócios. Visível apenas para admin/manager."
                   >
                     Overhead
+                  </span>
+                )}
+                {item.addback_settlement_id && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-accent/20 text-accent-foreground px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title={`Custo interno da sociedade: conta no fechamento de cima e é devolvido por inteiro a "${addbackSettlementName}".${item.addback_reason ? ` Motivo: ${item.addback_reason}` : ""}`}
+                  >
+                    Devolvida a {addbackSettlementName}
                   </span>
                 )}
                 {item._overhead_via_master && (
