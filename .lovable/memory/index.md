@@ -14,3 +14,4 @@
 - [Faturas Ads (Meta e Google)](mem://features/ads-invoices) — PDF é a fonte de verdade (parse_meta/parse_google, espelho da API é legado), importação em 3 fases com dry_run, ajustes rateados pelas filhas (cêntimo na maior)
 - [Travas de saldo pelo servidor](mem://security/account-balance-server-side-guard) — account_has_balance_for (boolean) decide pagamentos/transferências; account_true_balance devolve NULL a quem não pode ver o saldo
 - [Transferência do fecho de bilheteira](mem://features/settlement-transfer-pair) — par expense+income na rubrica 10.3 via create_settlement_transfer, operation_key TRF-FECHO-; nunca type 'transfer'
+- [Participantes de apuramento = fonte de verdade](mem://features/settlement-participants-source-of-truth) — event_partners derivada por trigger; casa nunca injectada; estanquidade "Sócios locais" e get_partner_event_shares por sócio
