@@ -1,13 +1,13 @@
 /**
- * Painel "Apuramentos" — SÓ LEITURA (épica #146, sub-tarefas (a)→(c)).
+ * Painel "Apuramentos" (épica #146).
  *
- * (a) espelho de `event_partners` em `event_settlements` + participantes.
- * (b) perímetro: linhas de BP/transações marcadas com `event_settlement_id`.
- * (c) motor: resultado por base, quota do pai, partes, residual da MP e conferências.
+ * (a) participantes por apuramento · (b) perímetro por `event_settlement_id`
+ * (c) motor: resultado por base, quota do pai, partes, residual da MP e conferências
+ * (d) operações de terceiros · (e) fonte de verdade dos sócios do evento.
  *
- * NENHUM cálculo do sistema consome isto: o Fecho, o card e o Encontro de Contas
- * continuam a ler `event_partners`. Sem edição nesta peça.
+ * A edição dos participantes vive na aba "Sócios"; aqui é vista de cálculo.
  */
+
 import { Layers, Info, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -223,10 +223,6 @@ export function EventSettlementsPanel({ eventId }: Props) {
         <CheckSeal check={result.c1} />
         <CheckSeal check={result.c2} />
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Dados ao vivo — não substitui o Encontro de Contas até à peça (e).
-      </p>
     </div>
   );
 }
