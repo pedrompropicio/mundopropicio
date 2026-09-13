@@ -652,6 +652,10 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       lossPct,
       effectivePct,
       usesGrossExpenses: usesGross,
+      effectiveUsesGrossExpenses: effectiveUsesGrossExpenses({
+        usesGrossExpenses: usesGross,
+        returnsParentDeductibleVat: node.returnsParentDeductibleVat,
+      }),
       share: roundCents(share),
       shareNet: roundCents(shareNet),
       paidByPartner: roundCents(paidByPartner),
