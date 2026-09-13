@@ -1232,53 +1232,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           usesGrossExpenses: partnerUsesGrossExpenses(calcBasis, null),
         };
 
-    // (g15-c) Partes REAIS por sócio e posições nominais — tudo do motor.
-    const nodeById = new Map(nodes.map((n) => [n.id, n]));
-    const fmtPct = (v: number) =>
-      `${Number(v || 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`;
-    const pctChain = (nodeId: string, ownPct: number) => {
-      const parts = [fmtPct(ownPct)];
-      for (let cur = nodeById.get(nodeId); cur?.parentId; cur = nodeById.get(cur.parentId)) {
-        if (cur.parentSharePct != null) parts.push(fmtPct(Number(cur.parentSharePct)));
-      }
-      return parts.join(" de ");
-    };
-    const realByName = new Map<
-      string,
-      { name: string; share: number; settlesAt: string; pctLabel: string }
-    >();
-    for (const n of nodes)
-      for (const p of n.participants) {
-        if (p.kind === "house" || p.mode !== "settles") continue;
-        realByName.set(p.name, {
-          name: p.name,
-          share: p.share,
-          settlesAt: n.name,
-          pctLabel: pctChain(n.id, p.effectivePct),
-        });
-      }
-    const nominalRows = nodes.flatMap((n) =>
-      n.participants
-        .filter((p) => p.kind !== "house" && p.mode === "nominal")
-        .map((p) => {
-          const real = realByName.get(p.name);
-          return {
-            name: p.name,
-            nominalPctLabel: pctChain(n.id, p.effectivePct),
-            nominalValue: p.shareNet,
-            realPctLabel: real?.pctLabel ?? "—",
-            realValue: real?.share ?? 0,
-            realSettlesAt: real?.settlesAt ?? "—",
-            diff: roundCents(p.shareNet - (real?.share ?? 0)),
-          };
-        }),
-    );
-    const nominalNoteOf = (name: string, nodeId: string) => {
-      const real = realByName.get(name);
-      if (!real) return undefined;
-      const nominal = nodeById.get(nodeId)?.participants.find((p) => p.name === name)?.shareNet ?? 0;
-      return `acerta ${real.pctLabel} = ${formatCurrency(real.share)} no ${real.settlesAt} · diferença ${formatCurrency(roundCents(nominal - real.share))} fica com a Mundo Propício`;
-    };
 
 
     // Cadeia de nós acima do activo (igual à cascata do documento do sócio, g13),
