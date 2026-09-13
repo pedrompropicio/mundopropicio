@@ -1949,12 +1949,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       return;
     }
     setSelectedSettlementId(inferred);
-    setPendingSoloPartnerId(row.partnerId);
+    // Guarda-se o fornecedor, não a linha: ao mudar de fechamento a linha é
+    // outra (mesmo sócio, participação diferente).
+    setPendingSoloPartnerId(row.supplierId ?? row.partnerId);
   }
 
   useEffect(() => {
     if (!pendingSoloPartnerId) return;
-    const row = settlements.find((r) => r.partnerId === pendingSoloPartnerId);
+    const row =
+      settlements.find((r) => r.supplierId === pendingSoloPartnerId) ??
+      settlements.find((r) => r.partnerId === pendingSoloPartnerId);
     if (!row) {
       setPendingSoloPartnerId(null);
       return;
