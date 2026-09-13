@@ -2279,7 +2279,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             levels: chain.map((node) => {
               const parent = nodes.find((n) => n.id === node.parentId) ?? null;
               const baseValue =
-                node.parentQuotaBasis === "gross" ? parent?.resultGross ?? 0 : parent?.resultNet ?? 0;
+                node.parentQuotaBasis === "net_result_gross_expenses"
+                  ? parent?.resultGross ?? 0
+                  : parent?.resultNet ?? 0;
               return {
                 baseValue,
                 quotaPct: Number(node.parentSharePct ?? 0),
