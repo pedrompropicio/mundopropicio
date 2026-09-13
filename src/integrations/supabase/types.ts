@@ -412,6 +412,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_aliases_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_aliases_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -470,6 +477,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_audience_demographics_company_id_fkey"
@@ -572,6 +586,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_channel_connections_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_channel_connections_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -635,6 +656,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_channels_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_channels_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -683,6 +711,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_comparables_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_comparables_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -695,6 +730,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_comparables_comparable_artist_id_fkey"
+            columns: ["comparable_artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
         ]
       }
@@ -777,6 +819,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_content_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_content_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -795,6 +844,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -846,6 +902,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_content_metrics_daily_company_id_fkey"
@@ -927,6 +990,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_metrics_daily_channel_id_fkey"
@@ -1044,6 +1114,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_release_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_release_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -1120,6 +1197,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_releases_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_releases_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -1138,6 +1222,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_releases_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -1180,6 +1271,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_identifiers_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -1233,6 +1331,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_song_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_song_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -1251,6 +1356,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -1329,6 +1441,13 @@ export type Database = {
             referencedRelation: "v_song_content"
             referencedColumns: ["song_id"]
           },
+          {
+            foreignKeyName: "artist_song_playlists_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
         ]
       }
       artist_song_reports: {
@@ -1395,6 +1514,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_song_reports_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_song_reports_song_id_fkey"
             columns: ["song_id"]
             isOneToOne: false
@@ -1408,6 +1534,13 @@ export type Database = {
             referencedRelation: "v_song_content"
             referencedColumns: ["song_id"]
           },
+          {
+            foreignKeyName: "artist_song_reports_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
         ]
       }
       artist_songs: {
@@ -1419,6 +1552,7 @@ export type Database = {
           featuring: string[]
           id: string
           is_launch: boolean
+          is_reference: boolean
           isrc: string | null
           launch_started_at: string | null
           notes: string | null
@@ -1436,6 +1570,7 @@ export type Database = {
           featuring?: string[]
           id?: string
           is_launch?: boolean
+          is_reference?: boolean
           isrc?: string | null
           launch_started_at?: string | null
           notes?: string | null
@@ -1453,6 +1588,7 @@ export type Database = {
           featuring?: string[]
           id?: string
           is_launch?: boolean
+          is_reference?: boolean
           isrc?: string | null
           launch_started_at?: string | null
           notes?: string | null
@@ -1469,6 +1605,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_songs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_songs_company_id_fkey"
@@ -12306,6 +12449,13 @@ export type Database = {
             referencedRelation: "artists"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sync_runs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
         ]
       }
       system_audit_log: {
@@ -14327,6 +14477,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_comparables_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_comparables_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14339,6 +14496,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_comparables_comparable_artist_id_fkey"
+            columns: ["comparable_artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
         ]
       }
@@ -14373,6 +14537,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_content_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_content_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14391,6 +14562,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -14428,6 +14606,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14456,6 +14641,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14482,6 +14674,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_metrics_daily_company_id_fkey"
@@ -14514,6 +14713,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_metrics_daily_company_id_fkey"
@@ -14553,6 +14759,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_release_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_release_metrics_daily_company_id_fkey"
@@ -14599,6 +14812,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_release_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_release_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14634,6 +14854,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_content_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_content_metrics_daily_company_id_fkey"
@@ -14699,6 +14926,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_content_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_content_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14717,6 +14951,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_content_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -14747,6 +14988,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_songs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
           {
             foreignKeyName: "artist_songs_company_id_fkey"
@@ -14789,6 +15037,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_song_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_song_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14807,6 +15062,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -14832,6 +15094,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_song_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_song_metrics_daily_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -14850,6 +15119,13 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
             referencedColumns: ["song_id"]
           },
         ]
@@ -14894,11 +15170,25 @@ export type Database = {
             referencedColumns: ["song_id"]
           },
           {
+            foreignKeyName: "artist_song_playlists_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+          {
             foreignKeyName: "artist_songs_artist_id_fkey"
             columns: ["artist_id"]
             isOneToOne: false
             referencedRelation: "artists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_songs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
           },
         ]
       }
@@ -14966,6 +15256,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "artist_song_reports_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
             foreignKeyName: "artist_song_reports_song_id_fkey"
             columns: ["song_id"]
             isOneToOne: false
@@ -14978,6 +15275,44 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_song_content"
             referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_reports_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
+      v_song_ugc_benchmark: {
+        Row: {
+          artist_id: string | null
+          artist_name: string | null
+          company_id: string | null
+          dias_desde_lancamento: number | null
+          instagram_reels_date: string | null
+          instagram_reels_latest: number | null
+          is_reference: boolean | null
+          release_date: string | null
+          roster_type: string | null
+          song_id: string | null
+          spotify_streams_date: string | null
+          spotify_streams_latest: number | null
+          spotify_streams_por_dia: number | null
+          tiktok_videos_date: string | null
+          tiktok_videos_latest: number | null
+          tiktok_videos_por_dia: number | null
+          tiktok_videos_source: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_songs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
           },
         ]
       }
