@@ -59,6 +59,8 @@ interface Props {
 interface PartnerSettlement {
   partnerId: string;
   partnerName: string;
+  /** supplier_id do participante — usado para inferir o fechamento onde acerta. */
+  supplierId: string | null;
   isHouse: boolean;
   percentage: number;
   lossPercentage: number | null;
@@ -167,6 +169,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   // Apuramento activo do Encontro de Contas (null = raiz).
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
+
+  // Export do PDF de um sócio: o fechamento é INFERIDO (onde ele acerta) — o
+  // selector serve só para a peça interna (#146 (f) ponto 1). Quando o
+  // fechamento inferido não é o activo, troca-se primeiro e o export corre no
+  // efeito abaixo, já com os totais desse nó.
+  const [pendingSoloPartnerId, setPendingSoloPartnerId] = useState<string | null>(null);
 
 
   // Event info (master + cities)
@@ -842,6 +850,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     return {
       partnerId: p.id,
       partnerName: p.suppliers?.name || "—",
+      supplierId: p.supplier_id ?? null,
       isHouse,
       percentage: Number(p.percentage),
       lossPercentage: p.loss_percentage != null ? Number(p.loss_percentage) : null,
