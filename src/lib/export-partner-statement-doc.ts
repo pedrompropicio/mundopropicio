@@ -83,7 +83,7 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   );
 
   // 3. AS DESPESAS DO EVENTO
-  section(t.section3);
+  section(`${t.section3} · ${doc.expenseBasisLabel}`);
   arial(ws.addRow([t.family, t.value, t.iva, t.totalWithIva]), { bold: true });
   doc.families.forEach((f) =>
     moneyCells(arial(ws.addRow([`${f.code} · ${f.name}`, f.base, f.iva, f.total])), [2, 3, 4]),
@@ -94,8 +94,8 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   );
 
   // 4. O RESULTADO
-  section(t.section4);
-  moneyCells(arial(ws.addRow([t.resultLine, doc.result]), { bold: true, size: 12 }), [2]);
+  section(`${t.section4} · ${doc.resultBasisLabel}`);
+  moneyCells(arial(ws.addRow([doc.resultBasisLabel, doc.result]), { bold: true, size: 12 }), [2]);
 
   // 5. A PARTE DE <SÓCIO>
   section(t.section5(doc.recipientName));
@@ -326,7 +326,7 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
   });
 
   // 3. AS DESPESAS
-  y = sectionTitle(t.section3, nextY());
+  y = sectionTitle(`${t.section3} · ${doc.expenseBasisLabel}`, nextY());
   table({
     startY: y,
     head: [[t.family, t.value, t.iva, t.totalWithIva]],
@@ -357,7 +357,7 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(11);
   pdf.rect(margin, ry, pageW - margin * 2, 9, "F");
-  pdf.text(t.section4, margin + 3, ry + 6);
+  pdf.text(`${t.section4} · ${doc.resultBasisLabel}`, margin + 3, ry + 6);
   pdf.text(money(doc.result, loc), pageW - margin - 3, ry + 6, { align: "right" });
   pdf.setTextColor(0);
 
