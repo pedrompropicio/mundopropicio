@@ -445,3 +445,63 @@ describe("(g1) Anitta três níveis", () => {
     expect(r.errors.some((e) => e.includes("não pode devolver o IVA"))).toBe(true);
   });
 });
+
+// ── (g6) Devolução de custos internos da sociedade ────────────────────────────
+// "Advogado" (3.000, IVA 23) e "Equipe de Produção - EIN" (15.000, IVA 0) contam
+// no perímetro da raiz — ANITTA e CARVALHEIRA suportam a sua parte — e são
+// devolvidas por inteiro ao nível 3. O nível 3 tem `returns_parent_deductible_vat`,
+// logo a devolução entra s/IVA: +18.000,00, metade para cada participante.
+const addbackLines = [
+  { addback_settlement_id: "n3", label: "Advogado", amount: 3_000, iva_rate: 23 },
+  { addback_settlement_id: "n3", label: "Equipe de Produção - EIN", amount: 15_000, iva_rate: 0 },
+];
+
+describe("(g6) linhas devolvidas a um fechamento abaixo", () => {
+  it("a raiz fica inalterada e o nível 3 sobe 18.000,00", () => {
+    const base = computeSettlementEngine(anittaThreeLevels());
+    const r = computeSettlementEngine(anittaThreeLevels({ addbackLines }));
+
+    const root = (x: typeof r) => x.nodes.find((n) => n.id === "root")!;
+    expect(root(r).perimeter.expensesNet).toBe(root(base).perimeter.expensesNet);
+    expect(root(r).perimeter.expensesGross).toBe(root(base).perimeter.expensesGross);
+    expect(root(r).resultNet).toBe(root(base).resultNet);
+    expect(root(r).resultGross).toBe(root(base).resultGross);
+    expect(root(r).addbackIn).toBe(0);
+
+    const n3 = (x: typeof r) => x.nodes.find((n) => n.id === "n3")!;
+    expect(n3(r).addbackIn).toBe(18_000);
+    expect(n3(r).addbacks.map((a) => a.value)).toEqual([3_000, 15_000]);
+    near(n3(r).resultNet - n3(base).resultNet, 18_000);
+    expect(r.addbacksTotal).toBe(18_000);
+  });
+
+  it("EIN e a casa sobem 9.000,00 cada; ANITTA e CARVALHEIRA ficam iguais", () => {
+    const base = computeSettlementEngine(anittaThreeLevels());
+    const r = computeSettlementEngine(anittaThreeLevels({ addbackLines }));
+    const part = (x: typeof r, id: string) =>
+      x.nodes.flatMap((n) => n.participants).find((p) => p.id === id)!;
+
+    near(part(r, "ein").share - part(base, "ein").share, 9_000);
+    near(part(r, "mp-n3").share - part(base, "mp-n3").share, 9_000);
+    expect(part(r, "an").share).toBe(part(base, "an").share);
+    expect(part(r, "cv").share).toBe(part(base, "cv").share);
+  });
+
+  it("C1 e C2 continuam a zero", () => {
+    const r = computeSettlementEngine(anittaThreeLevels({ addbackLines }));
+    near(r.c1.value, 0);
+    near(r.c2.value, 0);
+    expect(r.c1.ok && r.c2.ok).toBe(true);
+    expect(r.errors).toEqual([]);
+    near(r.eventNetResult, 859_323.63 + 72_250.52 + 93_969.63 + 18_000);
+  });
+
+  it("devolver à raiz é erro de configuração", () => {
+    const r = computeSettlementEngine(
+      anittaThreeLevels({
+        addbackLines: [{ addback_settlement_id: "root", label: "Advogado", amount: 3_000, iva_rate: 23 }],
+      }),
+    );
+    expect(r.errors.some((e) => e.includes("custos devolvidos"))).toBe(true);
+  });
+});
