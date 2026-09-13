@@ -430,6 +430,19 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   const rootIds = ordered.filter((s) => !s.parent_id).map((s) => s.id);
   if (rootIds.length > 1) errors.push("Mais do que um fechamento raiz neste evento.");
 
+  // ── (g14) IVA não recuperável pela sociedade, por perímetro ─────────
+  const vatExcludedByNode = new Map<string, { vat: number; lines: VatExclusionNodeLine[] }>();
+  for (const l of input.vatExclusionLines ?? []) {
+    const nodeId = l.event_settlement_id ?? rootIds[0] ?? null;
+    if (!nodeId) continue;
+    const vat = lineValue(l.amount, l.iva_rate, true) - lineValue(l.amount, l.iva_rate, false);
+    if (vat === 0) continue;
+    const cur = vatExcludedByNode.get(nodeId) ?? { vat: 0, lines: [] };
+    cur.vat += vat;
+    cur.lines.push({ label: l.label, vat: roundCents(vat) });
+    vatExcludedByNode.set(nodeId, cur);
+  }
+
   const nodes: SettlementNodeResult[] = [];
   const byId = new Map<string, SettlementNodeResult>();
 
