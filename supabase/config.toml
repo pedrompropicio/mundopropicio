@@ -100,6 +100,19 @@ verify_jwt = true
 [functions.artist-instagram-oauth-callback]
 verify_jwt = false
 
+[functions.artist-ads-meta-oauth-start]
+verify_jwt = true
+
+[functions.artist-ads-meta-oauth-callback]
+verify_jwt = false
+
+[functions.artist-ads-select-account]
+verify_jwt = true
+
+[functions.artist-ads-disconnect]
+verify_jwt = true
+
+
 # Ligação OFICIAL do TikTok (Display API + Login Kit), app própria
 # "Social Music Carreira" (TIKTOK_CLIENT_KEY/SECRET). Mesmo padrão do Instagram:
 # start/sync exigem JWT; o callback é chamado pelo browser via redirect do
