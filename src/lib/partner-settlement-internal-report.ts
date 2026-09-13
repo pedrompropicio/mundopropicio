@@ -58,6 +58,10 @@ export interface InternalDistributionRow {
 
 export interface InternalPartnerBlock {
   name: string;
+  /** "nominal" ⇒ a conta liquida-se noutro fechamento. */
+  mode?: "settles" | "nominal";
+  /** Nome do fechamento onde o participante acerta. */
+  settlesAt?: string;
   profitPct: number;
   lossPct: number | null;
   partnerShare: number;

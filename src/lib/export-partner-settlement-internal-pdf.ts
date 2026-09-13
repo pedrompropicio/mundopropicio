@@ -224,9 +224,17 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
 
   // ===== 4. POR SÓCIO EXTERNO =====
   for (const p of input.partners) {
-    nextSection(`Acerto com ${p.name}`, 6);
+    // Quem não acerta aqui aparece como posição nominal: a conta liquida-se
+    // onde o participante está marcado como quem acerta.
+    const nominal = p.mode === "nominal";
+    nextSection(nominal ? `Posição nominal de ${p.name}` : `Acerto com ${p.name}`, 6);
     const pctLabel = p.lossPct != null ? `${p.profitPct}% lucro / ${p.lossPct}% prejuízo` : `${p.profitPct}%`;
-    note(`Participação: ${pctLabel}`, 8);
+    note(
+      nominal && p.settlesAt
+        ? `Participação: ${pctLabel} · acerta em ${p.settlesAt}`
+        : `Participação: ${pctLabel}`,
+      8,
+    );
 
     const account = partnerAccountLines(p);
     smallTable({
