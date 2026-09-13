@@ -32,10 +32,9 @@ import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 
 import {
-  HOUSE_PARTNER_ID,
-  HOUSE_PARTNER_NAME,
-  computeHousePercentage,
-} from "@/lib/house-partner";
+  fetchEventSettlements,
+  fetchSettlementParticipants,
+} from "@/lib/settlement-participants";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
@@ -158,6 +157,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   type CalcMode = "contract" | "event";
   const [calcMode, setCalcMode] = useState<CalcMode>("contract");
 
+  // Apuramento activo do Encontro de Contas (null = raiz).
+  const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
+
 
   // Event info (master + cities)
   const { data: event } = useQuery({
@@ -193,19 +195,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Partners (external — Mundo Propício é injetada depois)
-  const { data: partners = [] } = useQuery({
-    queryKey: ["event-partners", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partners")
-        .select("*, suppliers(name)")
-        .eq("event_id", eventId)
-        .order("created_at");
-      if (error) throw error;
-      return data;
-    },
+  // Apuramentos do evento (separador do Encontro de Contas)
+  const { data: eventSettlements = [] } = useQuery({
+    queryKey: ["event-settlements-fecho", eventId],
+    queryFn: () => fetchEventSettlements([eventId]),
   });
+
+  // Participantes — fonte de verdade (inclui a casa como linha real)
+  const { data: allParticipants = [] } = useQuery({
+    queryKey: ["event-settlement-participants-fecho", eventId],
+    queryFn: () => fetchSettlementParticipants([eventId]),
+  });
+
+  const rootSettlementId = useMemo(() => {
+    const root = (eventSettlements as any[]).find((s) => !s.parent_id) ?? (eventSettlements as any[])[0];
+    return root?.id ?? null;
+  }, [eventSettlements]);
+
+  const activeSettlementId = selectedSettlementId ?? rootSettlementId;
+
+  const partners = useMemo(
+    () => (allParticipants as any[]).filter((p) => !activeSettlementId || p.settlement_id === activeSettlementId),
+    [allParticipants, activeSettlementId],
+  );
 
   // Event transactions (with category)
   const { data: transactions = [] } = useQuery({
@@ -638,22 +650,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     status: s.status || "—",
   }));
 
-  // ---- Build partners list with HOUSE injection ----
-  const housePct = computeHousePercentage(partners.map((p: any) => ({ percentage: p.percentage })));
-  const allPartners = [
-    ...partners,
-    ...(housePct != null
-      ? [{
-          id: HOUSE_PARTNER_ID,
-          isHouse: true,
-          suppliers: { name: HOUSE_PARTNER_NAME },
-          percentage: housePct,
-          loss_percentage: null,
-          // A casa segue sempre a base contratual do evento (sem regra própria).
-          expense_includes_iva: null,
-        } as any]
-      : []),
-  ];
+  // ---- Partes do apuramento (a casa já vem como linha real; sem injeção) ----
+  // A casa só entra quando tem quota residual (>0), como acontecia antes.
+  const allPartners = (partners as any[]).filter(
+    (p) => !p.isHouse || Number(p.percentage || 0) > 0.0001,
+  );
+  const housePct = (partners as any[]).find((p) => p.isHouse)?.percentage ?? null;
 
   if (allPartners.length === 0) {
     return (
@@ -927,7 +929,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     doc.text(`Criterio: ${describeFechoBasis(basis)}`, margin, y);
     y += 5;
-    doc.text(`Apuramento: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
+    const activeSettlementName =
+      (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
+    doc.text(`Apuramento: ${activeSettlementName}`, margin, y);
+    y += 5;
+    doc.text(`Regra: ${calcMode === "contract" ? "por contrato de cada socio" : "pela regra geral do evento"}`, margin, y);
     if (solo) {
       y += 5;
       doc.text(
@@ -1876,6 +1882,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {(eventSettlements as any[]).length > 1 && (
+            <Select
+              value={activeSettlementId ?? ""}
+              onValueChange={(v) => setSelectedSettlementId(v)}
+            >
+              <SelectTrigger className="h-8 w-[260px] text-xs">
+                <SelectValue placeholder="Apuramento" />
+              </SelectTrigger>
+              <SelectContent>
+                {(eventSettlements as any[]).map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.parent_id ? `↳ ${s.name}` : s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground">
             <Switch checked={includeLiquidityAppendix} onCheckedChange={setIncludeLiquidityAppendix} />
             <span>Incluir análise final</span>

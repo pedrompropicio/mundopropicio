@@ -14,7 +14,7 @@ import autoTable from "jspdf-autotable";
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes, formatDatePT } from "@/lib/utils";
-import { HOUSE_PARTNER_NAME } from "@/lib/house-partner";
+import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
 
 export interface PartnerShareInput {
   name: string;

@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcTotalWithIva } from "@/lib/iva";
 import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { normalizePartnerCalcBasis } from "@/lib/partner-calc-basis";
-import { HOUSE_PARTNER_NAME } from "@/lib/house-partner";
+import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
 import {
   computeSettlementEngine,

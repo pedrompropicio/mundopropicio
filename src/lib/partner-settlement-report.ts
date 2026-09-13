@@ -7,11 +7,6 @@ import {
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import {
-  HOUSE_PARTNER_ID,
-  HOUSE_PARTNER_NAME,
-  computeHousePercentage,
-} from "@/lib/house-partner";
 
 type NamedSupplier = { name?: string | null } | null | undefined;
 
@@ -30,6 +25,8 @@ export interface SettlementReportPartner {
   loss_percentage?: number | string | null;
   expense_includes_iva?: boolean | null;
   suppliers?: NamedSupplier;
+  /** Linha da casa (Mundo Propício) vinda de event_settlement_participants. */
+  isHouse?: boolean;
 }
 
 export interface SettlementReportTransaction {
@@ -174,25 +171,11 @@ export function buildPartnerSettlementReportData(input: {
     );
     const resultBase = revenueBase - expenseBase;
 
-    const housePct = computeHousePercentage(
-      familyPartners.map((partner) => ({ percentage: partner.percentage })),
+    // A casa já vem nos participantes do apuramento (linha real); só entra
+    // quando tem quota residual, como acontecia com a injeção antiga.
+    const allPartners = familyPartners.filter(
+      (partner: any) => !partner.isHouse || Number(partner.percentage || 0) > 0.0001,
     );
-
-    const allPartners = [
-      ...familyPartners,
-      ...(housePct != null
-        ? [{
-            id: `${HOUSE_PARTNER_ID}-${rootEvent.id}`,
-            event_id: rootEvent.id,
-            percentage: housePct,
-            loss_percentage: null,
-            // A casa segue sempre a base contratual do evento.
-            expense_includes_iva: null,
-            suppliers: { name: HOUSE_PARTNER_NAME },
-            isHouse: true,
-          }]
-        : []),
-    ];
 
     const familyPaidExpenses = paidExpenses.filter((expense) => familyEventIds.has(expense.event_id));
     const familyPartnerAdvances = partnerAdvances.filter((advance) => familyEventIds.has(advance.event_id));

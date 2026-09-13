@@ -17,17 +17,19 @@
       casa read-only recalculada (100 − Σ sócios).
 - [x] Fase 2 (G) — rodapé provisório retirado do painel Apuramentos.
 
+- [x] Fase 2 (B) — selector de apuramento no Encontro de Contas.
+- [x] Fase 2 (C) — documentos estanques: "Sócios locais" (100 − % do sócio).
+- [x] Fase 2 (D) — PDF de fecho identifica o apuramento em uso.
+- [x] Fase 2 (E) — Portal do Sócio via `get_partner_event_shares` reescrita
+      sobre `event_settlement_participants` (staff vê tudo; sócio vê a sua parte
+      + "Sócios locais").
+- [x] Fase 2 (F) — `src/lib/house-partner.ts` apagado; substituído por
+      `src/lib/settlement-participants.ts` (7 consumidores migrados).
+- [x] Fase 3 — prova por parte nos eventos legíveis: 0 linhas de diferença
+      antigo vs novo; 34 testes vitest verdes; typecheck limpo.
+- [x] Fase 4 — DECISIONS adenda (e) e estado-fecho-e-socios actualizados.
+
 ## Em aberto
-- [ ] Fase 2 (B) — separador por apuramento no Encontro de Contas
-      (`PartnerSettlementTab.tsx`, 2253 linhas).
-- [ ] Fase 2 (C) — documentos estanques com bloco "Sócios locais"
-      (`settlement_local_partners_pct`).
-- [ ] Fase 2 (D) — PDF por apuramento (`export-partner-statement.ts`,
-      `bp-closing-data.ts`).
-- [ ] Fase 2 (E) — Portal do Sócio a ler `event_settlement_participants`.
-- [ ] Fase 2 (F) — retirar `src/lib/house-partner.ts` (5 consumidores de cálculo).
-- [ ] Fase 3 — `scripts/prove-settlement-engine.ts` com partes antes/depois +
-      testes vitest de visibilidade, documento de filho e sync de `event_partners`.
-- [ ] Fase 4 — documentação (D-ERP56 adenda (e)) e comentário na #146.
+- [x] Comentário e checkboxes (a)–(e) na épica #146 (issuecomment-5649753808).
 
 Nota: nenhum Publish feito.

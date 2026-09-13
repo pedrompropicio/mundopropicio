@@ -1433,3 +1433,35 @@ Edição mínima no painel gated por `manage_bp` (criar operação manual, "Liga
 A&B", definir participação). Paridade da (c) repetida: **0,00 €** de diferença em
 13 participantes / 6 eventos legíveis; `max(updated_at)` das cinco tabelas
 anteriores inalterado. Nenhum ecrã existente mudou.
+
+**Adenda a DR-2026-09-09-D25 — (e) construída em 2026-09-13:** `event_partners`
+passou a **derivada**: a verdade dos sócios é `event_settlement_participants`
+(trigger `trg_esp_sync_event_partners` → `event_partners_sync_from_settlements(uuid)`,
+SECURITY DEFINER com EXECUTE só a `service_role`; espelho antigo
+`trg_event_partners_mirror_*` e `event_settlement_sync_root` removidos; FK
+`event_partner_id` → `ON DELETE SET NULL`). `event_partners` continua a existir
+só para pagador/ordenador (`paying_partner_id`, `ordering_partner_id`,
+`check_partner_total_percentage`, `prevent_event_partner_role_disable_if_used`).
+Prova: 9 linhas antes / 9 depois, diferença simétrica 0
+(`event_partners_mirror_inversion_proof`), e prova por parte nos eventos legíveis
+com **0 linhas de diferença** entre o modelo antigo (event_partners + casa
+injectada) e o novo (participantes `settles`).
+
+RLS estanque: `is_settlement_staff`, `user_settlement_ids`,
+`user_settlement_visible_ids` (CTE recursiva de ascendentes) e
+`settlement_local_partners_pct` (100 − Σ `profit_pct` dos que acertam ali);
+EXECUTE revogado a `anon`. `get_partner_event_shares` reescrita: staff vê todas
+as partes do evento a partir dos participantes; o sócio vê **apenas a sua** e o
+resto colapsa em **"Sócios locais"** (100 − a sua %), sem revelar quem são.
+
+Casa injectada **eliminada do código**: `src/lib/house-partner.ts` apagado e
+substituído por `src/lib/settlement-participants.ts`
+(`fetchSettlementParticipants`, `fetchAllSettlementParticipants`,
+`fetchEventSettlements`, `toSettlementParticipant`, `localPartnersPct`,
+`residualHousePct`, `HOUSE_PARTNER_NAME`). Consumidores migrados:
+`PartnerSettlementTab`, `partner-settlement-report`, `ReportPartnerSettlement`,
+`PartnerCapitalPanel`, `useEventSettlementEngine`, `EventPartnersTab`,
+`export-partner-statement`. A aba Sócios passou a **editar apuramentos**
+(gated por `manage_bp`; casa read-only, recalculada). O Encontro de Contas ganhou
+**selector de apuramento** (só com 2+ apuramentos) e o PDF de fecho imprime o
+apuramento em uso. Paridade ao cêntimo mantida; 34 testes verdes; sem Publish.

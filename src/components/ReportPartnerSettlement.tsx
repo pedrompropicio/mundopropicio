@@ -5,18 +5,13 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { buildPartnerSettlementReportData } from "@/lib/partner-settlement-report";
+import { fetchAllSettlementParticipants } from "@/lib/settlement-participants";
 
 export default function ReportPartnerSettlement() {
+  // Partes vindas dos apuramentos (event_settlement_participants), incluindo a casa.
   const { data: partners = [], isLoading: isLoadingPartners } = useQuery({
-    queryKey: ["settlement-partners"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_partners")
-        .select("id, event_id, percentage, supplier_id, suppliers(name), events(id, name, status)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryKey: ["settlement-participants-report"],
+    queryFn: fetchAllSettlementParticipants,
   });
 
   // IMPORTANTE: trazer is_transitory para conseguir calcular o crédito transitório
