@@ -25,6 +25,8 @@ export interface SettlementReportPartner {
   loss_percentage?: number | string | null;
   expense_includes_iva?: boolean | null;
   suppliers?: NamedSupplier;
+  /** Linha da casa (Mundo Propício) vinda de event_settlement_participants. */
+  isHouse?: boolean;
 }
 
 export interface SettlementReportTransaction {
