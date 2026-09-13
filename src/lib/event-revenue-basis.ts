@@ -197,14 +197,14 @@ export async function computeEventRevenueBasis(
   // representadas por linhas sintéticas (bilheteira / A&B / patrocínios).
   const { data: fcs } = await supabase
     .from("event_forecasts")
-    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, account_categories(code)")
+    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
     .in("event_id", ids)
     .is("version_id", null)
     .eq("type", "income");
 
   const excludedIds = new Set(sponsorship.excludedForecastIds);
   let othersForecast: number | null = null;
-  for (const f of ((fcs ?? []) as any[])) {
+  for (const f of keepRootPerimeter((fcs ?? []) as any[], roots.rootIds)) {
     if (f.status !== "approved") continue;
     if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
     if (excludedIds.has(f.id)) continue;
