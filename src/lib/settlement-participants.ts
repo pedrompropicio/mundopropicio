@@ -10,7 +10,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-export const HOUSE_PARTNER_NAME = "MUNDO PROPÍCIO";
+// Constante partilhada com a edge function `partner-statement`.
+export { HOUSE_PARTNER_NAME } from "@shared/settlement/house.ts";
+import { HOUSE_PARTNER_NAME } from "@shared/settlement/house.ts";
 
 /**
  * (g4) Colunas de `event_settlements` para a query de chave
