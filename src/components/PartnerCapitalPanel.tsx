@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { isCapitalCategoryCode, capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
-import { computeHousePercentage, HOUSE_PARTNER_ID, HOUSE_PARTNER_NAME } from "@/lib/house-partner";
+import { fetchSettlementParticipants } from "@/lib/settlement-participants";
 
 type CapitalFlow = "event_cash" | "partner_settlement";
 
