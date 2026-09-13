@@ -160,6 +160,26 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
 
+      // (g6) Devolução: só despesas, e nunca em conjunto com o perímetro.
+      const newAddbackId = isExpenseType && !newSettlementId ? addbackSettlementId || null : null;
+      const newAddbackReason = newAddbackId ? addbackReason.trim() : "";
+      if (newAddbackId && !newAddbackReason) {
+        throw new Error("Indique o motivo da devolução da linha ao fechamento.");
+      }
+      if (newAddbackId !== (forecast.addback_settlement_id ?? null)) {
+        changes.push({
+          field_name: "Devolvida a fechamento",
+          old_value: forecast.addback_settlement_id ?? "—",
+          new_value: newAddbackId ?? "—",
+        });
+      } else if (newAddbackId && newAddbackReason !== (forecast.addback_reason ?? "")) {
+        changes.push({
+          field_name: "Motivo da devolução",
+          old_value: forecast.addback_reason ?? "—",
+          new_value: newAddbackReason,
+        });
+      }
+
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
