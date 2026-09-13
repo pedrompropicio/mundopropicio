@@ -577,6 +577,36 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
+  // (g11) Nenhuma falha de leitura do Encontro de Contas pode ficar silenciosa:
+  // um erro aqui significa números errados no ecrã, não apenas dados em falta.
+  const settlementQueryErrors: Array<[unknown, string]> = [
+    [settlementsError, "Não foi possível carregar os apuramentos do evento"],
+    [participantsError, "Não foi possível carregar os sócios do apuramento"],
+    [transactionsError, "Não foi possível carregar as transações do evento"],
+    [paidExpensesError, "Não foi possível carregar as despesas pagas pelo sócio"],
+    [revenuesHeldError, "Não foi possível carregar receitas em poder do sócio"],
+    [partnerAdvancesError, "Não foi possível carregar os extras do sócio"],
+    [forecastsError, "Não foi possível carregar o Business Plan"],
+    [ticketBreakdownError, "Não foi possível carregar o detalhe de bilheteira"],
+    [ticketSalesError, "Não foi possível carregar as vendas de bilheteira"],
+  ];
+  const settlementErrorKey = settlementQueryErrors
+    .filter(([err]) => !!err)
+    .map(([err, label]) => `${label}: ${(err as any)?.message ?? ""}`)
+    .join(" | ");
+
+  useEffect(() => {
+    if (!settlementErrorKey) return;
+    for (const msg of settlementErrorKey.split(" | ")) {
+      const [label, detail] = msg.split(/: (.*)/s);
+      toast({
+        variant: "destructive",
+        title: label,
+        description: detail || "Os valores apresentados podem estar incompletos.",
+      });
+    }
+  }, [settlementErrorKey]);
+
   // Calculate financials
   const hasTicketSales = ticketSales.length > 0;
   const ticketRevenueGross = ticketSales.reduce((s: number, t: any) => s + t.gross, 0);
