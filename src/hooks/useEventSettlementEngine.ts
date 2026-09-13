@@ -337,6 +337,7 @@ export function useEventSettlementEngine(eventId: string) {
       settlements: settlements as any,
       participants: engineParticipants,
       markedLines,
+      addbackLines,
       moneyByPartner,
       operations,
       participations,
