@@ -1408,6 +1408,16 @@ export default function PartnerEventDetail() {
         if (hasPermission("view_bp")) return "bp";
         return "ticketing";
       })()} className="space-y-4">
+        {/* (g17) "O seu fechamento" — números vindos do gerador único no servidor. */}
+        {serverStatement?.block && (
+          <PartnerSettlementBlock
+            data={serverStatement.block}
+            busy={statementBusy}
+            onExportPdf={handleExportBPPdf}
+            onExportExcel={handleExportBPExcel}
+          />
+        )}
+
         <TabsList className="w-full">
           {hasPermission("view_bp") && (
             <TabsTrigger value="bp" className="gap-1.5 flex-1"><ClipboardList className="h-3.5 w-3.5" /> BP</TabsTrigger>
