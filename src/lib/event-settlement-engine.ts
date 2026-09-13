@@ -463,11 +463,18 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   }
 
   // ── Participantes ──────────────────────────────────────────────────
-  const seenSettles = new Map<string, string>();
+  /** Parte REAL (base do sócio) do participante `settles` de cada sócio. */
+  const settlesShareByKey = new Map<string, number>();
   let partnersPaidTotal = 0;
   let declared = 0;
   let ivaDeductible = 0;
   let nominalGap = 0;
+  const computed: Array<{
+    p: EngineParticipant;
+    key: string;
+    isHouse: boolean;
+    shareNet: number;
+  }> = [];
 
   for (const p of input.participants) {
     const node = byId.get(p.settlement_id);
@@ -480,14 +487,18 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     const override = isHouse ? false : (p.expense_includes_iva ?? null);
     const usesGross = partnerUsesGrossExpenses(input.eventBasis as any, override);
 
-    const rOwn = usesGross ? node.resultGross : node.resultNet;
+    // (g1) O IVA entregue a um filho já não pertence aos participantes deste nó:
+    // a base s/IVA do nó desce exactamente esse valor (com a regra activa a base
+    // s/IVA coincide com a base c/IVA e o termo "IVA dedutível" fica a 0).
+    const resultNetForShares = node.resultNet - node.vatReturnedOut;
+    const rOwn = usesGross ? node.resultGross : resultNetForShares;
     const profitPct = num(p.profit_pct);
     const lossPct = p.loss_pct == null ? null : num(p.loss_pct);
     const effectivePct = rOwn < 0 && lossPct != null ? lossPct : profitPct;
     const share = rOwn * (effectivePct / 100);
     const effectiveNetPct =
-      node.resultNet < 0 && lossPct != null ? lossPct : profitPct;
-    const shareNet = node.resultNet * (effectiveNetPct / 100);
+      resultNetForShares < 0 && lossPct != null ? lossPct : profitPct;
+    const shareNet = resultNetForShares * (effectiveNetPct / 100);
 
     const moneyKey = p.event_partner_id ?? p.supplier_id ?? "";
     const money = (moneyKey && input.moneyByPartner?.[moneyKey]) || {};
@@ -498,18 +509,20 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       ? 0
       : num(usesGross && money.extrasGross != null ? money.extrasGross : money.extras);
 
+    const key = p.supplier_id ?? p.event_partner_id ?? p.id;
     if (!isHouse && p.mode === "settles") {
-      const key = p.supplier_id ?? p.event_partner_id ?? p.id;
-      if (seenSettles.has(key)) {
+      if (settlesShareByKey.has(key)) {
         errors.push(`O sócio "${p.name}" acerta em mais do que um fechamento.`);
       }
-      seenSettles.set(key, node.id);
+      settlesShareByKey.set(key, (settlesShareByKey.get(key) ?? 0) + share);
       partnersPaidTotal += share;
       ivaDeductible += shareNet - share;
-    } else if (!isHouse && p.mode === "nominal") {
-      nominalGap += shareNet;
     }
-    if (isHouse) declared += shareNet;
+    // (g1) A casa só é "declarada" quando acerta: uma casa `nominal` é o pool
+    // que desce para os fechamentos abaixo, não uma quota da MP neste nó.
+    if (isHouse && p.mode === "settles") declared += shareNet;
+
+    computed.push({ p, key, isHouse, shareNet });
 
     node.participants.push({
       id: p.id,
@@ -527,6 +540,23 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       extras: roundCents(extras),
       settlementAmount: roundCents(share + paidByPartner - extras),
     });
+  }
+
+  // (g1) Nominal gap = Σ (parte nominal − parte real) dos sócios que acertam
+  // NOUTRO fechamento do mesmo evento. Só se calcula depois de todas as partes
+  // reais serem conhecidas. Um nominal sem `settles` em lado nenhum é erro de
+  // configuração — e não uma C2 falhada sem explicação.
+  for (const c of computed) {
+    if (c.isHouse || c.p.mode !== "nominal") continue;
+    const real = settlesShareByKey.get(c.key);
+    if (real === undefined) {
+      errors.push(
+        `O sócio "${c.p.name}" está como nominal mas não acerta em nenhum fechamento deste evento.`,
+      );
+      nominalGap += c.shareNet;
+      continue;
+    }
+    nominalGap += c.shareNet - real;
   }
 
   // ── MP residual e conferências ─────────────────────────────────────
