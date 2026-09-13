@@ -172,7 +172,10 @@ export function EventSettlementsPanel({ eventId }: Props) {
                     )}
                   </TableCell>
                   <TableCell className="text-xs">
-                    {p.usesGrossExpenses ? "Despesas c/IVA" : "Despesas s/IVA"}
+                    {effectiveExpenseBasisLabel({
+                      usesGrossExpenses: p.usesGrossExpenses,
+                      returnsParentDeductibleVat: n.returnsParentDeductibleVat,
+                    })}
                   </TableCell>
                   <TableCell className="text-right font-semibold">{formatCurrency(p.share)}</TableCell>
                   <TableCell className="text-xs">
