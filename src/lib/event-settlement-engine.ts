@@ -503,9 +503,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       continue;
     }
     const isHouse = p.participant_kind === "house";
-    // A casa apura sempre s/IVA (convenção da empresa gestora, D-ERP10).
-    const override = isHouse ? false : (p.expense_includes_iva ?? null);
-    const usesGross = partnerUsesGrossExpenses(input.eventBasis as any, override);
+    // (g4) A base é do FECHAMENTO — igual para todos os participantes do nó,
+    // casa incluída. `expense_includes_iva` já não é lido.
+    const usesGross = ignoresExpenses ? false : node.nodeUsesGrossExpenses;
 
     // (g1) O IVA entregue a um filho já não pertence aos participantes deste nó:
     // a base s/IVA do nó desce exactamente esse valor (com a regra activa a base
