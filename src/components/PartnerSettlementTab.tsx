@@ -435,10 +435,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
     : incomeTransactions;
 
-  const totalRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
+  const eventRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
     + revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
+  const eventRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
     + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+
 
   // ---- Despesa segundo o critério selecionado no seletor ----------------
   // Base "realizado" = transações; base "previsto + excedido" = linhas aprovadas do BP.
