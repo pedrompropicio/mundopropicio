@@ -230,3 +230,10 @@ Paridade da (c) repetida a 13/09: 0,00 € em 13 participantes / 6 eventos.
 13 participantes / 6 eventos visíveis (`scripts/prove-settlement-engine.ts`, que
 deixou de importar o `house-partner.ts` apagado). Anitta: EVERYTHINGISNEW
 128.789,00 · ANITTA 417.293,42 · MUNDO PROPÍCIO 128.789,00.
+
+## Selo do fechamento
+Selar congela o fechamento: snapshot do resultado + subárvore em `sealed_snapshot`,
+versão de BP opcional (`sealed_bp_version_id`, validada contra o próprio evento).
+Só se sela com C1 e C2 a 0,00 €. Reabrir exige motivo. Campos do selo são intocáveis
+fora das RPCs (trigger + `app.settlement_seal_op`). Selado ⇒ sem editar/mover/remover
+e fora do selector de fechamento acima. Desvio selado↔ao vivo é vista interna.

@@ -115,3 +115,23 @@ entra na prova.
   autorização do Pedro.
 - Publish: as alíneas (a)–(e) foram publicadas a 13/09/2026; a (e2) e esta mudança de
   terminologia ainda não foram publicadas.
+
+## Selo do fechamento (épica #146, ponto f) — 2026-09-13
+
+- `event_settlements` ganhou `is_sealed`, `sealed_at`, `sealed_by`, `sealed_snapshot`,
+  `seal_note`, `sealed_bp_version_id`.
+- RPCs `seal_event_settlement` / `unseal_event_settlement` (SECURITY DEFINER):
+  - selar exige as duas conferências (C1 e C2) a 0,00 € (tolerância 0,005);
+  - `_bp_version_id`, quando indicado, tem de pertencer ao mesmo evento
+    ("A versão de BP não pertence a este evento");
+  - reabrir exige motivo; ambas as operações escrevem em `system_audit_log`
+    (`settlement_sealed` / `settlement_unsealed`).
+- Guarda: os campos do selo só mudam por estas RPCs. UPDATE directo é recusado
+  com "O selo só se altera por selar/reabrir" (trigger + `app.settlement_seal_op`).
+- UI: `SettlementSealControl` (selar/reabrir, nota, motivo, marca "Selado em … por …",
+  valor selado / ao vivo / desvio — desvio só em vista interna). Fechamento selado
+  bloqueia editar/mover/remover e sai do selector de fechamento acima.
+- Em turnê, `create_bp_snapshot` recusa Splits: nesse caso sela-se sem versão de BP
+  e a UI explica que a versão vive no evento principal.
+- Demonstração em Live (Mágicos Henry&Klaus `e8c7594d-…`): selado 9.681,77 € · ao vivo
+  9.681,77 € · desvio 0,00 €; versão de BP `b0038ec3-…`; reaberto com motivo "teste (f)".

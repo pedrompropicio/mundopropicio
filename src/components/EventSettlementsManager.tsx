@@ -46,6 +46,9 @@ const BASIS_LABEL: Record<ParentShareBasis, string> = {
   net_result_gross_expenses: "resultado com despesas c/IVA",
 };
 
+/** Tooltip único para tudo o que o selo bloqueia. */
+const SEALED_HINT = "Fechamento selado: reabra-o para poder alterar.";
+
 export function EventSettlementsManager({ eventId, canEdit }: Props) {
   const queryClient = useQueryClient();
 
@@ -299,19 +302,22 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
                     {(participantCounts as Record<string, number>)[s.id] ?? 0} participante(s)
                   </span>
                   {s.notes && <span className="text-xs text-muted-foreground">· {s.notes}</span>}
-                  {canEdit && !s.is_sealed && (
-                    <span className="ml-auto flex items-center gap-1">
+                  {canEdit && (
+                    <span
+                      className="ml-auto flex items-center gap-1"
+                      title={s.is_sealed ? SEALED_HINT : undefined}
+                    >
                       {!isRoot && (
                         <>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => move.mutate({ row: s, dir: -1 })}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={s.is_sealed} onClick={() => move.mutate({ row: s, dir: -1 })}>
                             <ArrowUp className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => move.mutate({ row: s, dir: 1 })}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={s.is_sealed} onClick={() => move.mutate({ row: s, dir: 1 })}>
                             <ArrowDown className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       )}
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(s)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" disabled={s.is_sealed} onClick={() => startEdit(s)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       {!isRoot && (
@@ -320,7 +326,7 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
                           variant="ghost"
                           className="h-7 w-7 text-destructive"
                           onClick={() => removeChild.mutate(s)}
-                          disabled={removeChild.isPending}
+                          disabled={s.is_sealed || removeChild.isPending}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -348,11 +354,13 @@ export function EventSettlementsManager({ eventId, canEdit }: Props) {
                   <SelectValue placeholder="Selecionar…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {settlements.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  {settlements
+                    .filter((s) => !s.is_sealed)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

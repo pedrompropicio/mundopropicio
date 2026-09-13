@@ -696,15 +696,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allPartners = (partners as any[]).filter(
     (p) => !p.isHouse || Number(p.percentage || 0) > 0.0001,
   );
-  
 
-  if (allPartners.length === 0) {
-    return (
-      <div className="text-center py-8 text-sm text-muted-foreground">
-        Sem sócios cadastrados neste evento.
-      </div>
-    );
-  }
+  // Sem sócios: a mensagem sai no fim (a seguir a TODOS os hooks). Um `return`
+  // aqui saltava o `useEffect` da exportação por sócio e rebentava a vista
+  // ("Rendered more hooks than during the previous render").
+  const hasNoPartners = allPartners.length === 0;
+
 
   // ---- Helper: caminho hierárquico completo da categoria (L1 > L2 > L3) ----
   // Usado nos detalhes de cauções/transitórias para dar contexto contabilístico real
@@ -1952,12 +1949,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       return;
     }
     setSelectedSettlementId(inferred);
-    setPendingSoloPartnerId(row.partnerId);
+    // Guarda-se o fornecedor, não a linha: ao mudar de fechamento a linha é
+    // outra (mesmo sócio, participação diferente).
+    setPendingSoloPartnerId(row.supplierId ?? row.partnerId);
   }
 
   useEffect(() => {
     if (!pendingSoloPartnerId) return;
-    const row = settlements.find((r) => r.partnerId === pendingSoloPartnerId);
+    const row =
+      settlements.find((r) => r.supplierId === pendingSoloPartnerId) ??
+      settlements.find((r) => r.partnerId === pendingSoloPartnerId);
     if (!row) {
       setPendingSoloPartnerId(null);
       return;
@@ -1968,6 +1969,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     setPendingSoloPartnerId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSoloPartnerId, activeSettlementId, settlements]);
+
+  if (hasNoPartners) {
+    return (
+      <div className="text-center py-8 text-sm text-muted-foreground">
+        Sem sócios cadastrados neste evento.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
