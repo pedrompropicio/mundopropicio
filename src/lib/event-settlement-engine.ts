@@ -792,7 +792,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       ok: Math.abs(c1Value) <= TOL,
     },
     c2: {
-      label: "C2 — residual = declarada + IVA dedutível + nominal−real",
+      label: "C2 — residual = declarada + IVA dedutível + nominal−real + IVA não repassado",
       value: roundCents(c2Value),
       ok: Math.abs(c2Value) <= TOL,
     },
