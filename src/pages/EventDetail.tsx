@@ -1392,6 +1392,11 @@ export default function EventDetail() {
                                   Custo partilhado ({subEventCount} datas)
                                 </span>
                               )}
+                              {isOutsideRootPerimeter(t as any, rootSettlementIds) && (
+                                <span className="ml-1 inline-flex items-center rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-medium mt-0.5">
+                                  Exclusivo · {settlementNameById?.[(t as any).event_settlement_id] ?? "outro fechamento"}
+                                </span>
+                              )}
                             </td>
                             <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">
                               {t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "—"}
