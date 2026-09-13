@@ -1808,3 +1808,49 @@ de dar acesso a dados: quem é staff tem de ter papel de staff.
    `FORBIDDEN_DOC_TERMS` é a fonte de verdade e está coberta por teste.
 4. **Cache por identidade.** Trocar de utilizador ou sair limpa a cache de
    queries; toda a chave do Portal é prefixada pelo `user.id`.
+
+## D-ERP57 — Contas de tráfego por artista: autorizadas pelo artista, geridas pela empresa (13/09/2026)
+
+A Social Music gere campanhas EM NOME do artista, nas contas de anúncios DELE
+(Meta Ads do Business Manager do artista, Google Ads e TikTok Ads do artista).
+A ligação passa a poder ser POR ARTISTA: `crm.ad_platform_connections` ganhou
+`artist_id` e `connection_scope IN ('company','artist')`. A linha continua a
+pertencer à empresa gestora — as policies por `company_id` mantêm-se e são a
+única fronteira de acesso.
+
+Regras:
+
+1. **Quem autoriza é o artista, quem gere é a empresa.** Mesmo padrão do
+   Instagram directo: `artist-ads-meta-oauth-start` (papéis admin,
+   platform_admin, manager, marketing_manager) devolve o `authorize_url`, que é
+   aberto pelo próprio artista; `crm.oauth_states` ganhou `artist_id` +
+   `return_url` (TTL 24h) e o `return_url` só passa pela allowlist de
+   `isAllowedReturnUrl`. O callback é público e devolve
+   `?connection=ok|error&scope=ads&platform=meta`.
+2. **Mesmo app, mesmos scopes, mesmo cofre.** Nada de app Meta nova: os scopes
+   são os da ligação Meta do CRM (`ads_read`, `ads_management`,
+   `business_management`, `pages_show_list`, `pages_read_engagement`,
+   `public_profile`) e o token é cifrado pelo mesmo mecanismo
+   (`crm.upsert_artist_meta_connection`, `pgp_sym_encrypt` com
+   `ENCRYPTION_MASTER_KEY`). Isto não se confunde com a captação de dados dos
+   artistas (`artist_channel_connections`, só leitura, D-ERP39).
+3. **Uma conta = uma escolha explícita.** Se `/me/adaccounts` devolve mais que
+   uma conta, a ligação nasce `pending_selection` e só fica `active` depois de
+   `artist-ads-select-account`; com uma só conta nasce `active` já com
+   `selected_ad_account_*`. `artist-ads-disconnect` marca `revoked` +
+   `disconnected_at` e apaga o token.
+4. **Google e TikTok entram sem OAuth.** A RPC
+   `artist_ads_register_external(p_artist_id, p_platform, p_external_id, p_name)`
+   grava a linha com `status = 'pending_link'` e sem token: Google com o Customer
+   ID, TikTok com o Advertiser ID. O Google passa a `active` quando
+   `crm-google-sync-campaigns` (que agora também lê `pending_link`) alcança a
+   conta com o `login_customer_id` do MCC; o TikTok fica `pending_link` até a
+   Marketing API ser aprovada. Primeiro caso: Litto Lins, Google `8841388615`,
+   empresa Social Artists.
+5. **Unicidade dupla.** Caiu a `UNIQUE (company_id, platform)`: agora há um
+   índice único parcial para as ligações de empresa (`artist_id IS NULL`) e outro
+   para as de artista (`company_id, artist_id, platform`). Quem fizer `ON
+   CONFLICT` nesta tabela tem de indicar o predicado do índice.
+6. **MP Audience lista as duas.** O ecrã de conexões mostra as ligações da
+   empresa e as dos artistas geridos, estas com a etiqueta "Artista: <nome>". O
+   comportamento das ligações `company` não muda.
