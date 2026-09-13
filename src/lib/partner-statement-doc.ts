@@ -609,14 +609,19 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     expenseTotal,
     expenseForResult,
     usesGrossExpenses: usesGrossEffective,
-    expenseBasisLabel: effectiveExpenseBasisLabel({
-      usesGrossExpenses: input.usesGrossExpenses,
-      returnsParentDeductibleVat: input.returnsDeductibleVat,
-    }),
-    resultBasisLabel: effectiveResultBasisLabel({
-      usesGrossExpenses: input.usesGrossExpenses,
-      returnsParentDeductibleVat: input.returnsDeductibleVat,
-    }),
+    // (g13-b) Em cascata o rótulo é o da base da conta apresentada (a da raiz).
+    expenseBasisLabel: hasCascade
+      ? effectiveExpenseBasisLabel({ usesGrossExpenses: usesGrossEffective })
+      : effectiveExpenseBasisLabel({
+          usesGrossExpenses: input.usesGrossExpenses,
+          returnsParentDeductibleVat: input.returnsDeductibleVat,
+        }),
+    resultBasisLabel: hasCascade
+      ? effectiveResultBasisLabel({ usesGrossExpenses: usesGrossEffective })
+      : effectiveResultBasisLabel({
+          usesGrossExpenses: input.usesGrossExpenses,
+          returnsParentDeductibleVat: input.returnsDeductibleVat,
+        }),
     result,
     recipientShare,
     othersShare,
