@@ -205,7 +205,7 @@ export interface StatementTerms {
 const TERMS: Record<DocLocale, StatementTerms> = {
   "pt-PT": {
     statement: "Prestação de contas",
-    summarySheet: "Resumo do Fecho",
+    summarySheet: "Resumo",
     detailSheet: "Detalhamento",
     section1: "1. O ACORDO",
     section2: "2. AS RECEITAS DO EVENTO (s/IVA)",
@@ -253,7 +253,7 @@ const TERMS: Record<DocLocale, StatementTerms> = {
   },
   "pt-BR": {
     statement: "Prestação de contas",
-    summarySheet: "Resumo do Fechamento",
+    summarySheet: "Resumo",
     detailSheet: "Detalhamento",
     section1: "1. O ACORDO",
     section2: "2. AS RECEITAS DO EVENTO (s/IVA)",
@@ -312,6 +312,9 @@ export const FORBIDDEN_DOC_TERMS = [
   "fechamento acima",
   "fechamento abaixo",
   "bases diferentes",
+  // (g9c · #166) o documento do sócio nunca revela a estrutura de fechos.
+  "fechamento",
+  "fecho",
 ];
 
 /** Taxa normal de IVA PT aplicada ao repasse facturado. */
