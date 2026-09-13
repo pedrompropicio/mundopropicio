@@ -121,6 +121,8 @@ export interface InternalReportInput {
   vatReturnedIn: number;
   exclusiveRevenues: Array<{ label: string; value: number }>;
   exclusiveRevenuesTotal: number;
+  /** Despesas exclusivas do perímetro deste fechamento (na base do nó). */
+  exclusiveExpensesTotal?: number;
   thirdPartyOperations: Array<{ label: string; value: number }>;
   thirdPartyTotal: number;
   addbacks: Array<{ label: string; value: number }>;
