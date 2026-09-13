@@ -9,7 +9,7 @@
  * definir a participação de um apuramento. Nada mais muda no sistema.
  */
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Store, Link2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +35,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/mock-data";
 import type { EngineResult, EngineSettlement } from "@/lib/event-settlement-engine";
+import { fetchSettlementParticipants } from "@/lib/settlement-participants";
 
 const KIND_LABEL: Record<string, string> = {
   ab_bebidas: "A&B — Bebidas",
@@ -80,6 +81,32 @@ export function EventThirdPartyOperationsPanel({
 
   const [form, setForm] = useState({ kind: "bengaleiro", name: "", gross: "", operator: "", doc: "" });
   const [pt, setPt] = useState({ operation_id: "", settlement_id: "", mode: "gross_pct", value: "" });
+
+  /** (g5·C) Sócios do evento — quem pode ter ficado com o resultado da operação. */
+  const { data: participants = [] } = useQuery({
+    queryKey: ["event-settlement-participants-thirdparty", eventId],
+    queryFn: () => fetchSettlementParticipants([eventId]),
+  });
+  const holderOptions = Array.from(
+    new Map(
+      (participants as any[])
+        .filter((p) => p.supplier_id)
+        .map((p) => [p.supplier_id as string, (p.suppliers?.name as string) || "Sócio"]),
+    ).entries(),
+  );
+
+  /** (g5·C) Marca o sócio que ficou com o resultado do operador. */
+  const setHolder = async (operationId: string, supplierId: string | null) => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("event_third_party_operations")
+      .update({ held_by_supplier_id: supplierId } as any)
+      .eq("id", operationId);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(supplierId ? "Resultado atribuído ao sócio." : "Resultado devolvido à sociedade.");
+    refresh();
+  };
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["event-third-party-operations", eventId] });
@@ -190,6 +217,7 @@ export function EventThirdPartyOperationsPanel({
                 <TableHead>Fonte</TableHead>
                 <TableHead className="text-right">Bruto s/IVA</TableHead>
                 <TableHead className="text-right">Resultado do operador</TableHead>
+                <TableHead>Resultado ficou com</TableHead>
                 <TableHead>Participações</TableHead>
               </TableRow>
             </TableHeader>
@@ -219,6 +247,31 @@ export function EventThirdPartyOperationsPanel({
                       {o.source === "ab_module"
                         ? "ao vivo"
                         : formatCurrency(Number(o.operator_result || 0))}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {canEdit ? (
+                        <Select
+                          value={(o as any).held_by_supplier_id ?? "__none__"}
+                          onValueChange={(v) => void setHolder(o.id, v === "__none__" ? null : v)}
+                          disabled={saving}
+                        >
+                          <SelectTrigger className="h-7 w-[190px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Sociedade (Mundo Propício)</SelectItem>
+                            {holderOptions.map(([id, name]) => (
+                              <SelectItem key={id} value={id}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {holderOptions.find(([id]) => id === (o as any).held_by_supplier_id)?.[1] ?? "Sociedade"}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs">
                       {rows.length === 0 ? (
