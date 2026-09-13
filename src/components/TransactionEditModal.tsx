@@ -2167,6 +2167,39 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             );
           })()}
 
+          {/* (g7) Recebido por — receita recebida por encontro de contas. Vazio = casa.
+              Ao escolher um sócio, a receita fica paga na data da transação. */}
+          {!isExpense && form.payment_method === "compensation" && eventPartnersForExtra.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Recebido por
+                <HelpTooltip text="Quem ficou com o dinheiro deste encontro de contas. Abate ao acerto do sócio." />
+              </label>
+              <select
+                value={form.held_by_supplier_id}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    held_by_supplier_id: e.target.value,
+                    payment_date: e.target.value ? (form.payment_date || form.date) : form.payment_date,
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">— {houseLabel}</option>
+                {eventPartnersForExtra
+                  .filter((p: any) => p.supplier_id)
+                  .map((p: any) => (
+                    <option key={p.supplier_id} value={p.supplier_id}>
+                      {(p.suppliers as any)?.name ?? "Sócio"}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+
+
           {/* Chave de operação — sempre visível, independente do método (D-ERP45).
               Escolha a partir das que já existem; chave nova só se cumprir o padrão. */}
           <OperationKeySelector
