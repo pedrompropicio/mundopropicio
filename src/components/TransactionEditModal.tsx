@@ -605,7 +605,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           is_reimbursement: form.is_reimbursement,
           reimbursement_to: form.is_reimbursement ? (form.reimbursement_to.trim() || null) : null,
         } : {}),
+        ...heldByFields,
       };
+
 
       // TX parcelada (grupo "(n/N)"): valores só via editor de parcelas.
       if (isInstallmentGroup) {
