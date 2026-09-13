@@ -34,10 +34,17 @@ Live por leitura; o Publish é decisão do Pedro.
   `<tabela>_select_privileged_roles` com `has_staff_role`, mais políticas
   estanques de sócio em `account_categories` e `role_permissions`. Prova
   antes/depois na mesma transação; sócio passa de 45 tabelas visíveis a 0.
+- **(g9b)** #159 #160 #161 #163 #164 #165 fechadas: identidade canónica do sócio
+  (`user_supplier_id` + `user_event_partner_ids`), `is_settlement_staff` =
+  `has_staff_role`, visibilidade que nunca sobe, despesas e percentagens só do
+  próprio nó, `get_partner_event_tx_aggregates` com permissão + participação +
+  perímetro da raiz + confidencialidade, e novo
+  `get_partner_visible_settlements` onde **fechamento visível = onde o sócio
+  acerta contas** (`mode='settles'`). Fuga fechada: 34 linhas / 749.207,58 € → 0.
 
 ## Falta
 
-- **Auditoria (g8)** — correcções #159 a #167, uma a uma, por gravidade.
+- **Auditoria (g8)** — correcções #162, #166 e #167.
 - **(g6)** UI restante (badge e linha no painel do filho, documento do sócio).
 - **(g7)** marcar a transação do A&B Food no ecrã depois do Publish (sem DML).
 - **Prova formal contra a planilha v23** (02/09): EDA 417.677,51 · MP+EIN
@@ -45,7 +52,10 @@ Live por leitura; o Publish é decisão do Pedro.
 - **Selar** o fechamento da Anitta depois dessa prova.
 - **Papel de staff** para `producaotec@mundopropicio.com` na empresa Coala
   Festival Portugal — decisão do Pedro, é DML.
+- **Ligar os utilizadores dos sócios ao respectivo fornecedor**
+  (`profiles.linked_supplier_id`) — nenhum dos 3 suppliers o tem hoje; é DML.
 - **Publish** — não feito, por decisão explícita.
+
 
 ## Notas
 
