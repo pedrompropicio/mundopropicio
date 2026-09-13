@@ -1,14 +1,16 @@
 # Estado — Fecho, Fechamentos e Sócios (#146)
 
-Actualizado em 2026-09-13 (fim da sessão g7→g14). **Publicado hoje pelo Pedro em
-dois Publish: g7, g9c, g10, g11, g12, g13, g13-b, g14.**
+Actualizado em 2026-09-13 (fim da sessão g7→g15-c). **Publicado hoje pelo Pedro:**
+g7, g9c, g10, g11, g12, g13, g13-b, g14 e, num Publish posterior, g15, g15-b e
+g15-c.
 
 ## Em que pé está
 
-O motor dos fechamentos, o Encontro de Contas, o documento do sócio e o Portal
-estão em produção. A Anitta EDA 2026 corre a três níveis (raiz ANITTA →
-Fechamento Rafael Lobo → Fechamento MP + EIN) com C1 e C2 a 0,00. Falta a prova
-formal contra a planilha v23, as devoluções ao Fechamento MP + EIN e selar.
+O motor dos fechamentos, o Encontro de Contas, o documento do sócio, o relatório
+interno e o Portal estão em produção. A Anitta EDA 2026 corre a três níveis
+(raiz ANITTA → Fechamento Rafael Lobo → Fechamento MP + EIN) com C1 e C2 a 0,00.
+Falta a prova formal contra a planilha v23, as devoluções ao Fechamento MP + EIN
+e selar.
 
 ### Publicado hoje
 
@@ -31,6 +33,27 @@ formal contra a planilha v23, as devoluções ao Fechamento MP + EIN e selar.
   guarda.
 - **(g14)** `event_forecasts.vat_non_recoverable` com semântica de **custo real**:
   IVA pago e legalmente não dedutível sai da devolução e abate ao resultado real.
+- **(g15)** **relatório interno do Encontro de Contas reformulado**: modelo puro
+  `src/lib/partner-settlement-internal-report.ts` + gerador
+  `src/lib/export-partner-settlement-internal-pdf.ts` (A4 retrato, cabeçalho e
+  rodapé em todas as páginas, sem quebras forçadas, tabelas pequenas inteiras).
+  Contém cascata até ao fechamento, distribuição, a linha g5 por sócio com os
+  quadros de detalhe da g12, Posição da Mundo Propício e anexos (bilheteira e
+  **anexo B na base do critério: 1.931.219,49**). Ficheiro
+  `Fecho_<evento>_<fechamento>.pdf`.
+- **(g15-b)** **nenhum cêntimo de diferença entre PDF e ecrã**: todos os totais
+  vêm do SSoT (`partner-disbursement.ts`); as linhas itemizadas são só
+  apresentação, reconciliadas em round-half-even. Teste falha se qualquer total
+  do PDF divergir do modelo em ≥ 0,01. Base a transferir da EIN: **230.990,35**
+  no PDF e no ecrã.
+- **(g15-c)** **resumo geral da Mundo Propício** como primeira secção, com
+  logótipo MP na 1.ª página e nome da empresa no cabeçalho corrente: resultado
+  real do evento, "O que cada sócio leva de facto" (partes reais) e **líquido
+  final da MP 297.798,68** decomposto (parte declarada 273.953,35 + diferença de
+  posição nominal 23.845,34), com a prova C1 = 0 impressa. Na cascata, o
+  participante nominal mostra o nominal (RAFAEL LOBO 10% · 59.613,35) e, em
+  itálico, o real do fecho dele (20% de 30% = 35.768,01) e para onde vai a
+  diferença — a mesma nota aparece no ecrã.
 
 ### Dados da Anitta já tratados (SQL autorizado)
 
@@ -52,7 +75,7 @@ formal contra a planilha v23, as devoluções ao Fechamento MP + EIN e selar.
    15.000 e ~3 linhas a identificar pelo Pedro.
 2. Prova formal contra a planilha v23 — o Pedro fornece os 6 números.
 3. Repetir a auditoria de estanqueidade agora que os utilizadores estão ligados
-   (P2-13).
+   (P2-13, issue #168).
 4. Selar os 3 fechamentos e fechar a #146.
 
 ## Bloqueios
@@ -71,7 +94,10 @@ formal contra a planilha v23, as devoluções ao Fechamento MP + EIN e selar.
   10%) = 119.226,69 + 262.459,85 (IVA dedutível recuperado) + 72.250,52
   (exclusivas) + 93.969,63 (operações de terceiros) = 547.906,69. RAFAEL LOBO
   178.840,04. ANITTA 417.293,42.
-- IVA devolvido 262.459,85; nível 3 547.906,69; EIN 273.953,35.
+- Partes **reais**: ANITTA 417.293,42 · RAFAEL LOBO 35.768,01 (20% de 30%) ·
+  EVERYTHINGISNEW 273.953,35; líquido final da MP **297.798,68**.
+- IVA devolvido 262.459,85; nível 3 547.906,69; EIN 273.953,35; base de custo do
+  critério 1.931.219,49.
 - 1 cêntimo de diferença só de apresentação no Encontro de Contas da raiz
   (417.293,41 no ecrã vs 417.293,42 no motor) — truncatura.
 - Políticas PERMISSIVE abertas são proibidas: padrão `privileged_roles` (staff)
@@ -89,8 +115,8 @@ Para o chat **plataforma-e-infra**: a "email-sending update" do Lovable de 13/09
 
 ## Onde ler mais
 
-- `docs/handoffs/2026-09-13-fecho-e-socios-g7-g14.md` (arquivo da sessão)
+- `docs/handoffs/2026-09-13-fecho-e-socios-g7-g15.md` (arquivo da sessão)
 - `docs/auditorias/AUD-estanqueidade-socios-2026-09-13.md`
 - `.lovable/memory/features/partner-settlement.md`
 - `.lovable/memory/features/event-settlements.md`
-- `docs/DECISIONS.md` (adendas g4·2 → g14)
+- `docs/DECISIONS.md` (adendas g4·2 → g15-c)
