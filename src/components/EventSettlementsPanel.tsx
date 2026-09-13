@@ -68,6 +68,8 @@ export function EventSettlementsPanel({ eventId }: Props) {
             {fmtPct(n.parentSharePct)} do fechamento acima
             {n.parentQuotaBasis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA"}
             {n.parentQuota != null && ` = ${formatCurrency(n.parentQuota)}`}
+            {/* (g10) A fórmula da quota mantém-se; a devolução do IVA entra aqui. */}
+            {n.vatReturnedIn !== 0 && ` · IVA dedutível devolvido ${formatCurrency(n.vatReturnedIn)}`}
           </Badge>
         )}
         <SettlementSealControl
