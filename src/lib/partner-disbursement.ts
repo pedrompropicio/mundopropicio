@@ -145,6 +145,7 @@ export function collectBpPaidLines(
         base,
         ivaRate,
         category: f.account_categories?.name || "—",
+        categoryId: f.category_id ?? null,
         cityLabel: (f.event_id && cityLabelByEvent[f.event_id]) || "—",
         hasTransaction: !!f.transaction_id,
         status: f.status || "—",
