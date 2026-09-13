@@ -6541,6 +6541,70 @@ export type Database = {
           },
         ]
       }
+      event_operation_participations: {
+        Row: {
+          amount: number | null
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          mode: string
+          notes: string | null
+          operation_id: string
+          pct: number | null
+          settlement_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          company_id?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          mode: string
+          notes?: string | null
+          operation_id: string
+          pct?: number | null
+          settlement_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          mode?: string
+          notes?: string | null
+          operation_id?: string
+          pct?: number | null
+          settlement_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_operation_participations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_operation_participations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "event_third_party_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_operation_participations_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_partner_extras: {
         Row: {
           amount: number
@@ -7535,6 +7599,69 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_third_party_operations: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_ref: string | null
+          event_id: string
+          gross_amount: number | null
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          operator_result: number | null
+          operator_supplier_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          document_ref?: string | null
+          event_id: string
+          gross_amount?: number | null
+          id?: string
+          kind: string
+          name: string
+          notes?: string | null
+          operator_result?: number | null
+          operator_supplier_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_ref?: string | null
+          event_id?: string
+          gross_amount?: number | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          operator_result?: number | null
+          operator_supplier_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_third_party_operations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_third_party_operations_operator_supplier_id_fkey"
+            columns: ["operator_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
