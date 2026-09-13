@@ -1302,6 +1302,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             mode: p.mode,
             percentage: p.effectivePct,
             value: p.share,
+            realNote: p.mode === "nominal" ? nominalNoteOf(p.name, p.settlementId) : undefined,
           })),
       };
     });
