@@ -161,7 +161,25 @@ group by 1 order by 1;
 
 Se houve movimento depois da última planilha, **regerar antes de mostrar a alguém**.
 
-## Passo 10 — Fecho
+## Passo 10 — Selar o fechamento
+
+Depois de as duas conferências (C1 receitas, C2 sócios) fecharem a **0,00 €** e
+antes de mostrar qualquer documento ao sócio:
+
+- [ ] Abrir a aba **Sócios → fechamento** e confirmar C1 = C2 = 0,00 €
+- [ ] Premir **Selar fechamento** (nota opcional: planilha/versão que serviu de base)
+- [ ] Confirmar a marca «Selado em … por …» e o **valor selado**
+- [ ] Se houver **desvio** entre valor selado e valor ao vivo, perceber a causa
+      (o desvio é informação interna, nunca sai em documento de sócio)
+- [ ] Exportar os PDFs **depois** de selar
+
+Selado, o fechamento fica read-only: participantes, quotas e filhos não se alteram.
+Para corrigir, **Reabrir** com motivo obrigatório (fica em `system_audit_log`),
+corrigir, e **selar outra vez**. Fechamentos selados não podem ser escolhidos como
+pai de um fechamento novo. O selo só se altera por selar/reabrir — UPDATE directo
+aos campos do selo é recusado pela base de dados.
+
+## Passo 11 — Fecho
 
 - [ ] Receitas conferidas
 - [ ] Custo = BP + excedido
@@ -171,6 +189,7 @@ Se houve movimento depois da última planilha, **regerar antes de mostrar a algu
 - [ ] Financiamento dos sócios pagadores quantificado
 - [ ] Base de IVA correta por sócio
 - [ ] Sem movimento posterior à planilha
+- [ ] Fechamento **selado**
 - [ ] `estado-fecho-e-socios.md` atualizado
 - [ ] Issues abertas/fechadas/comentadas
 
