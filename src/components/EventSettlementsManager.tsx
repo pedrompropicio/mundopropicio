@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, Plus, Trash2, Pencil, Check, X, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { EVENT_SETTLEMENTS_SELECT } from "@/lib/settlement-participants";
 
 type ParentShareBasis = "net_result" | "net_result_gross_expenses";
 
