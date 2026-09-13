@@ -273,6 +273,14 @@ export function EventFinancialCard(props: Props) {
         {showScenarioToggle && !data.unavailable && (
           <p className="mt-1 text-[10px] text-muted-foreground">Cenário: {SCENARIO_LABEL[scenario]}</p>
         )}
+        {!shared.isLoading && realHint != null && (
+          <p
+            className="mt-1 text-[10px] text-muted-foreground"
+            title="O Lucro e a margem usam sempre a receita real (o fecho não usa receita prevista)."
+          >
+            real: {formatCurrency(realHint)}
+          </p>
+        )}
       </div>
 
       {/* Sub-totais ou mini-barra */}
