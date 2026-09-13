@@ -6,7 +6,7 @@
  * Nada é recalculado — só se somam as linhas recebidas para provar que o detalhe
  * fecha com o resumo; se não fechar, mostra aviso vermelho.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -110,7 +110,7 @@ export default function PartnerDisbursementDetail(props: PartnerDisbursementDeta
                   </TableRow>
                 )}
                 {Array.from(groups.entries()).map(([group, lines]) => (
-                  <>
+                  <Fragment key={group}>
                     {lines.map((l) => (
                       <TableRow key={l.id}>
                         <TableCell className="text-xs text-muted-foreground">{l.category}</TableCell>
@@ -126,14 +126,14 @@ export default function PartnerDisbursementDetail(props: PartnerDisbursementDeta
                         <TableCell className="text-xs text-muted-foreground">{l.status}</TableCell>
                       </TableRow>
                     ))}
-                    <TableRow key={`${group}-sub`} className="bg-muted/30">
+                    <TableRow className="bg-muted/30">
                       <TableCell colSpan={4} className="text-xs font-semibold">Subtotal · {group}</TableCell>
                       <TableCell className="text-right font-mono text-xs font-bold">
                         {formatCurrency(sumLineAmounts(lines))}
                       </TableCell>
                       <TableCell colSpan={2} />
                     </TableRow>
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
