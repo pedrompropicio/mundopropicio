@@ -1911,7 +1911,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
 
     const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");
-    doc.save(solo ? `Fecho_${safe(eventName)}_${safe(solo.partnerName)}.pdf` : `Fecho_${safe(eventName)}.pdf`);
+    // O nome do ficheiro identifica o apuramento quando o evento tem mais do que um.
+    const settlementSuffix =
+      (eventSettlements as any[]).length > 1 ? `_${safe(activeSettlementName)}` : "";
+    doc.save(
+      solo
+        ? `Fecho_${safe(eventName)}${settlementSuffix}_${safe(solo.partnerName)}.pdf`
+        : `Fecho_${safe(eventName)}${settlementSuffix}.pdf`,
+    );
+
   }
 
   return (
