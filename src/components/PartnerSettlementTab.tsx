@@ -46,6 +46,7 @@ import {
   settlementDocTitle,
 } from "@/lib/settlement-doc-text";
 import { PartnerCapitalPanel } from "@/components/PartnerCapitalPanel";
+import PartnerDisbursementDetail from "@/components/PartnerDisbursementDetail";
 import { PartnerPaidExpensesBPView } from "@/components/PartnerPaidExpensesBPView";
 import { fetchPartnerExtras, ORIGIN_LABEL } from "@/lib/partner-extras";
 import {
@@ -901,6 +902,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       cur = parent;
     }
     return chain.length ? chain.join(" > ") : (fallback || "—");
+  };
+  // (g12) Rubrica de Nível 2 da categoria — usada só para agrupar o detalhe do desembolso.
+  const categoryL2Label = (catId?: string | null): string => {
+    if (!catId) return "Sem rubrica";
+    const chain: Array<{ code: string; name: string }> = [];
+    let cur = catByIdAll[catId];
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      chain.unshift({ code: cur.code, name: cur.name });
+      if (!cur.parent_id) break;
+      const parent = catByIdAll[cur.parent_id];
+      if (!parent) break;
+      cur = parent;
+    }
+    const node = chain[1] ?? chain[chain.length - 1];
+    if (!node) return "Sem rubrica";
+    return node.code ? `${node.code} ${node.name}` : node.name;
   };
 
   // ---- Crédito transitório (cauções pagas e ainda não devolvidas) ----
