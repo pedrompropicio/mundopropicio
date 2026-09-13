@@ -609,6 +609,9 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       additionalActiveTotal: roundCents(additionalActiveTotal),
       vatReturnedIn: roundCents(vatReturnedIn),
       vatReturnedOut: 0,
+      vatNonRecoverable: vatExcludedByNode.get(s.id)?.vat ?? 0,
+      vatNonRecoverableLines: vatExcludedByNode.get(s.id)?.lines ?? [],
+      vatNotReturned: 0,
     };
     nodes.push(node);
     byId.set(node.id, node);
