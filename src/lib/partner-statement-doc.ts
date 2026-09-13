@@ -16,6 +16,11 @@ import { calcIvaAmount, roundCents, type IvaRate } from "@/lib/iva";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import {
+  effectiveExpenseBasisLabel,
+  effectiveResultBasisLabel,
+  effectiveUsesGrossExpenses,
+} from "@/lib/settlement-basis";
 
 export type DocLocale = "pt-PT" | "pt-BR";
 
