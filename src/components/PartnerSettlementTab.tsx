@@ -35,6 +35,7 @@ import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { collectSettlementExpenseDocLines } from "@/lib/event-settlement-inputs";
+import { exportPartnerSettlementInternalPdf } from "@/lib/export-partner-settlement-internal-pdf";
 
 
 import {
@@ -1741,7 +1742,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportPdf()}>Relatório completo (gestão)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportInternalReport()}>Relatório completo (gestão)</DropdownMenuItem>
               {settlements.some((s) => !s.isHouse) && <DropdownMenuSeparator />}
               {settlements.filter((s) => !s.isHouse).map((s) => (
                 <React.Fragment key={s.partnerId}>
