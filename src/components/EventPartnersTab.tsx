@@ -28,6 +28,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
 import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import { EventSettlementsManager } from "@/components/EventSettlementsManager";
+
 
 interface Props {
   eventId: string;
