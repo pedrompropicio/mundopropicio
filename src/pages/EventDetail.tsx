@@ -1166,7 +1166,7 @@ export default function EventDetail() {
           icon={Wallet}
           variant="primary"
           subtitle={cardIncomeValue > 0 ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}%` : undefined}
-          tooltip="Receitas − Custos (reflete o modo escolhido em cada card). Margem = Lucro ÷ Receitas."
+          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos no critério gravado no evento. É igual ao resultado do fechamento raiz no Encontro de Contas. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
         />
 
         <StatCard
