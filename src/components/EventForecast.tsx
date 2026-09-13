@@ -3437,6 +3437,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     staleTime: 60_000,
   });
 
+  // (g6) Nome do fechamento a que a linha é devolvida (custos internos da sociedade).
+  const { data: addbackSettlements = [] } = useEventSettlementOptions(
+    item.addback_settlement_id ? item.event_id ?? eventId ?? null : null
+  );
+  const addbackSettlementName =
+    (addbackSettlements as any[]).find((s) => s.id === item.addback_settlement_id)?.name ??
+    "fechamento";
+
   const refLinkCount = Array.isArray(item.attachment_refs)
     ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
     : 0;
