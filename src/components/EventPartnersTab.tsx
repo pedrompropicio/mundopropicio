@@ -180,15 +180,18 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
-  /** Recalcula a quota da casa (100 − Σ sócios que acertam no raiz). */
+  /**
+   * Recalcula a quota da casa: 100 − Σ de TODOS os participantes `partner` da
+   * raiz, incluindo os `nominal`. Se a casa absorvesse a quota nominal, o motor
+   * contava-a duas vezes (declarada + nominalGap) e a C2 deixava de fechar.
+   */
   const syncHouse = async () => {
     if (!houseRow || !rootSettlement) return;
     const { data: rows } = await supabase
       .from("event_settlement_participants")
       .select("profit_pct, loss_pct, mode, participant_kind")
       .eq("event_id", eventId)
-      .eq("participant_kind", "partner")
-      .eq("mode", "settles");
+      .eq("participant_kind", "partner");
     const sumProfit = (rows ?? []).reduce((s: number, r: any) => s + Number(r.profit_pct || 0), 0);
     const sumLoss = (rows ?? []).reduce(
       (s: number, r: any) => s + Number(r.loss_pct ?? r.profit_pct ?? 0),
@@ -199,6 +202,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       .update({ profit_pct: 100 - sumProfit, loss_pct: 100 - sumLoss })
       .eq("id", houseRow.id);
   };
+
 
   const addParticipant = useMutation({
     mutationFn: async () => {
