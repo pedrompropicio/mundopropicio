@@ -122,10 +122,19 @@ export function EventFinancialCard(props: Props) {
   });
 
   // Nunca propagar números antes de o critério da BD chegar (evita Lucro com critério errado).
+  // Receita: o Lucro usa SEMPRE a receita REAL (D24 + adenda g3 da D25) — o toggle
+  // "previsto + excedido" é vista do card de Receitas e não alimenta Lucro nem margem.
+  const profitValue = kind === "income" ? (data.realValue ?? data.displayValue) : data.displayValue;
   useEffect(() => {
     if (shared.isLoading) return;
-    onValueChange?.(data.displayValue);
-  }, [shared.isLoading, data.displayValue, onValueChange]);
+    onValueChange?.(profitValue);
+  }, [shared.isLoading, profitValue, onValueChange]);
+
+  // Nota discreta quando a vista escolhida difere da receita real.
+  const realHint = kind === "income" && data.realValue != null
+    && Math.abs(data.displayValue - data.realValue) > 0.005
+    ? data.realValue
+    : null;
 
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
