@@ -1473,6 +1473,7 @@ export default function PartnerEventDetail() {
               showRealized={canSeeComparative}
               realizedError={canSeeComparative && realizedIsError}
               adjustedRubricsCount={bpAdjustedCount}
+              fecho={serverStatement?.cards ?? null}
             />
           </div>
 
@@ -1977,6 +1978,7 @@ export default function PartnerEventDetail() {
                 bpExpenseGross={bpTotalExpenseAdjusted}
                 showRealized={canSeeComparative}
                 adjustedRubricsCount={bpAdjustedCount}
+                fecho={serverStatement?.cards ?? null}
               />
 
 
