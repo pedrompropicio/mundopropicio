@@ -527,9 +527,15 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
               `Mais do que um fechamento devolve o IVA dedutível de "${parent.name}" — só um pode.`,
             );
           } else {
-            vatReturnedIn = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
-            parent.vatReturnedOut = vatReturnedIn;
-            parent.moneyNet -= vatReturnedIn;
+            // (g14) Sai da base dos sócios do pai o IVA TODO (para eles é custo),
+            // mas só é devolvido o que a sociedade recupera: o IVA das linhas
+            // marcadas como não recuperável fica no residual da casa.
+            const fullVat = parent.perimeter.expensesGross - parent.perimeter.expensesNet;
+            const notReturned = Math.min(Math.max(parent.vatNonRecoverable, 0), Math.max(fullVat, 0));
+            vatReturnedIn = fullVat - notReturned;
+            parent.vatReturnedOut = fullVat;
+            parent.vatNotReturned = notReturned;
+            parent.moneyNet -= fullVat;
           }
         }
       }
