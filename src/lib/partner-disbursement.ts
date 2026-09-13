@@ -54,8 +54,18 @@ export interface BpPaidLine {
   status: string;
 }
 
-/** (g5) Linha de receita em poder do sócio, qualquer das três fontes. */
-export type RevenueHeldSource = "settlement_account" | "partner_account" | "third_party";
+/**
+ * (g5/g7) Linha de receita em poder do sócio.
+ * (g7) `compensation`: receita recebida por encontro de contas com um terceiro,
+ * feito pelo sócio. Nunca tem conta (trigger `force_no_account_on_compensation`),
+ * por isso é marcada na própria transação em `held_by_supplier_id`.
+ */
+export type RevenueHeldSource =
+  | "settlement_account"
+  | "partner_account"
+  | "third_party"
+  | "compensation";
+
 
 export interface RevenueHeldRow {
   id: string;
@@ -95,7 +105,9 @@ export const REVENUE_HELD_SOURCE_LABEL: Record<RevenueHeldSource, string> = {
   settlement_account: "Conta de acerto",
   partner_account: "Receita na conta do sócio",
   third_party: "Operação de terceiros",
+  compensation: "Encontro de contas",
 };
+
 
 /**
  * (A·b) Linhas de BP pagas pelo sócio.
