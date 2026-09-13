@@ -1,23 +1,9 @@
-// TEMPORÁRIO — diagnóstico do formato da service role key no runtime.
-// NUNCA devolve a chave; só a forma (nº de segmentos, prefixo genérico, role do JWT).
-Deno.serve(() => {
-  const k = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const segs = k.split(".").length;
-  let role: string | null = null;
-  try {
-    role = JSON.parse(atob(k.split(".")[1] ?? "")).role ?? null;
-  } catch {
-    role = null;
-  }
-  return new Response(
-    JSON.stringify({
-      present: Boolean(k),
-      length: k.length,
-      segments: segs,
-      looks_like_jwt: segs === 3,
-      starts_with_sb_secret: k.startsWith("sb_secret_"),
-      jwt_role: role,
-    }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+// TEMPORÁRIO — arnês de teste das chamadas internas (service role do runtime).
+// POST { fn, body } → reencaminha via invokeInternal. Removida após o teste.
+import { invokeInternal } from "../_shared/internal-call.ts";
+
+Deno.serve(async (req) => {
+  const p = await req.json().catch(() => ({}));
+  const r = await invokeInternal(String(p.fn ?? ""), p.body ?? {}, { timeoutMs: 240_000 });
+  return new Response(JSON.stringify(r), { headers: { "Content-Type": "application/json" } });
 });
