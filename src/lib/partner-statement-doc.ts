@@ -177,7 +177,7 @@ export interface StatementTerms {
   ivaNote: string;
   detailARevenues: string;
   detailBExpenses: string;
-  shareOfResult: (partner: string) => string;
+  ofResult: string;
   paidByPartnerLine: (partner: string) => string;
   extrasLine: string;
   advancesLine: (partner: string) => string;
@@ -224,7 +224,7 @@ const TERMS: Record<DocLocale, StatementTerms> = {
       "O IVA é calculado linha a linha sobre o valor da despesa (artigo 18.º do CIVA) e só depois somado.",
     detailARevenues: "A. Receitas linha a linha (s/IVA)",
     detailBExpenses: "B. Despesas por família e rubrica (c/IVA)",
-    shareOfResult: (p) => `${p} — parte do resultado`,
+    ofResult: "do resultado",
     paidByPartnerLine: (p) => `+ Despesas do evento pagas por ${p}`,
     extrasLine: "− Extras",
     advancesLine: (p) => `− Já adiantado a ${p}`,
@@ -269,7 +269,7 @@ const TERMS: Record<DocLocale, StatementTerms> = {
       "O IVA é calculado linha a linha sobre o valor da despesa (artigo 18.º do CIVA) e só depois somado.",
     detailARevenues: "A. Receitas linha a linha (s/IVA)",
     detailBExpenses: "B. Despesas por família e rubrica (c/IVA)",
-    shareOfResult: (p) => `${p} — parte do resultado`,
+    ofResult: "do resultado",
     paidByPartnerLine: (p) => `+ Despesas do evento pagas por ${p}`,
     extrasLine: "− Extras",
     advancesLine: (p) => `− Já adiantado a ${p}`,

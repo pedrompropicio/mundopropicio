@@ -103,7 +103,7 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   doc.agreement.forEach((s) => {
     const r = arial(
       ws.addRow([
-        s.isRecipient ? `${s.name} — ${t.shareOfResult(s.name)}` : s.name,
+        s.isRecipient ? `${s.name} — ${s.percentage.toFixed(2).replace(".", ",")}% ${t.ofResult}` : s.name,
         s.percentage / 100,
         s.value,
       ]),
@@ -364,7 +364,7 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     body: [
       ...doc.agreement.map((s) => [
         {
-          content: s.isRecipient ? `${s.name} — ${t.shareOfResult(s.name)}` : s.name,
+          content: s.isRecipient ? `${s.name} — ${pct(s.percentage, loc)} ${t.ofResult}` : s.name,
           styles: { fontStyle: s.isRecipient ? "bold" : "normal" },
         },
         { content: pct(s.percentage, loc), styles: { halign: "right" } },
