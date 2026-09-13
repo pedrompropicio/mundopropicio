@@ -647,22 +647,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     status: s.status || "—",
   }));
 
-  // ---- Build partners list with HOUSE injection ----
-  const housePct = computeHousePercentage(partners.map((p: any) => ({ percentage: p.percentage })));
-  const allPartners = [
-    ...partners,
-    ...(housePct != null
-      ? [{
-          id: HOUSE_PARTNER_ID,
-          isHouse: true,
-          suppliers: { name: HOUSE_PARTNER_NAME },
-          percentage: housePct,
-          loss_percentage: null,
-          // A casa segue sempre a base contratual do evento (sem regra própria).
-          expense_includes_iva: null,
-        } as any]
-      : []),
-  ];
+  // ---- Partes do apuramento (a casa já vem como linha real; sem injeção) ----
+  // A casa só entra quando tem quota residual (>0), como acontecia antes.
+  const allPartners = (partners as any[]).filter(
+    (p) => !p.isHouse || Number(p.percentage || 0) > 0.0001,
+  );
+  const housePct = (partners as any[]).find((p) => p.isHouse)?.percentage ?? null;
 
   if (allPartners.length === 0) {
     return (
