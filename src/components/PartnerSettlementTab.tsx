@@ -1966,6 +1966,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSoloPartnerId, activeSettlementId, settlements]);
 
+  if (hasNoPartners) {
+    return (
+      <div className="text-center py-8 text-sm text-muted-foreground">
+        Sem sócios cadastrados neste evento.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
