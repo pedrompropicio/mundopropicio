@@ -93,9 +93,14 @@ export const IVA_TOLERANCE = 0.01;
 export function roundCents(value: number): number {
   const n = Number(value) || 0;
   if (!Number.isFinite(n)) return 0;
-  const scaled = Number(`${n}e2`);
-  if (!Number.isFinite(scaled)) return Math.round(n * 100) / 100;
-  return Number(`${Math.round(scaled)}e-2`);
+  const sign = n < 0 ? -1 : 1;
+  const abs = Math.abs(n);
+  // Reescala em notação exponencial (sem erro binário extra) e arredonda
+  // simetricamente (half away from zero, como o Art.º 18.º CIVA exige).
+  const scaled = Number(`${abs}e2`);
+  const rounded = Number.isFinite(scaled) ? Math.round(scaled) : Math.round(abs * 100);
+  const out = Number(`${rounded}e-2`);
+  return sign * (Number.isFinite(out) ? out : rounded / 100);
 }
 
 /** Calcula o montante de IVA sobre uma base sem IVA. */
