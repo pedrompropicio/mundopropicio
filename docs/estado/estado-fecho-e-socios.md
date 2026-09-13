@@ -1,16 +1,20 @@
 # Estado — Fecho, Fechamentos e Sócios (#146)
 
-Actualizado em 2026-09-13 (fim da sessão g7→g15-c). **Publicado hoje pelo Pedro:**
-g7, g9c, g10, g11, g12, g13, g13-b, g14 e, num Publish posterior, g15, g15-b e
-g15-c.
+Actualizado em 2026-09-13 (fim da sessão g7→g17-d). **Publicado hoje pelo Pedro:**
+g7, g9c, g10, g11, g12, g13, g13-b, g14; depois g15, g15-b, g15-c; e por fim g16
+(seletor "Sócio" nos acessos de parceiros + lista na ficha do fornecedor) e
+g17 / g17-b / g17-c / g17-d (edge function `partner-statement` com o gerador
+único, bloco "O seu fechamento" no Portal, cards do evento, arredondamento único
+`roundCents`).
 
 ## Em que pé está
 
 O motor dos fechamentos, o Encontro de Contas, o documento do sócio, o relatório
-interno e o Portal estão em produção. A Anitta EDA 2026 corre a três níveis
-(raiz ANITTA → Fechamento Rafael Lobo → Fechamento MP + EIN) com C1 e C2 a 0,00.
-Falta a prova formal contra a planilha v23, as devoluções ao Fechamento MP + EIN
-e selar.
+interno e o Portal do Sócio estão em produção e todos dão os mesmos números. A
+Anitta EDA 2026 corre a três níveis (raiz ANITTA → Fechamento Rafael Lobo →
+Fechamento MP + EIN) com C1 e C2 a 0,00. A estanqueidade entre sócios está
+provada no site publicado com utilizadores reais ligados. Falta a prova formal
+contra a planilha v23, as devoluções ao Fechamento MP + EIN e selar.
 
 ### Publicado hoje
 
@@ -54,6 +58,40 @@ e selar.
   participante nominal mostra o nominal (RAFAEL LOBO 10% · 59.613,35) e, em
   itálico, o real do fecho dele (20% de 30% = 35.768,01) e para onde vai a
   diferença — a mesma nota aparece no ecrã.
+- **(g16)** ligação utilizador ↔ sócio deixou de ser SQL: seletor "Sócio" no
+  cartão de acesso de parceiro e lista dos utilizadores ligados na ficha do
+  fornecedor.
+- **(g17 / g17-b / g17-c)** o Portal **não calcula** o fecho: pacote partilhado
+  `supabase/functions/_shared/settlement/` + edge function `partner-statement`
+  (`verify_jwt`, service_role) que valida utilizador, resolve o sócio por
+  `user_supplier_id`, exige acesso ao evento e `mode='settles'` e devolve
+  `{ doc, block, cards }`. Bloco "O seu fechamento" no topo e cards do evento com
+  os números do fecho.
+- **(g17-d)** **regra única de arredondamento**: `roundCents`
+  (`_shared/settlement/iva.ts`) é a única função de arredondamento do fecho;
+  `Math.round(x*100)/100`, `toFixed` e truncatura ficam proibidos em valores do
+  fecho. A parte da ANITTA passa a **417.293,42** em motor, Encontro de Contas,
+  relatório interno, documento e Portal.
+
+### Prova real no Portal (site publicado, 13/09)
+
+Login com o utilizador de teste `pedroneto@socialmusic.com.br`, ligado
+sucessivamente a RAFAEL LOBO, EVERYTHINGISNEW e ANITTA:
+
+- Cada sócio vê **só o seu fechamento**; nenhuma referência a outros sócios nem
+  a outros fechamentos; troca de identidade sem cache suja.
+- RAFAEL LOBO: 596.133,45 − ANITTA 70% = 178.840,04 → 20% = **35.768,01**.
+- EVERYTHINGISNEW: cascata completa (119.226,69 + 262.459,85 + 72.250,52 +
+  93.969,63 = 547.906,69), parte **273.953,34**, base a transferir
+  **230.990,35**, receitas em poder itemizadas.
+- ANITTA: "ANITTA 70% · Sócios locais 30%" → **417.293,42** (após g17-d).
+- PDFs gerados do Portal para os três. O utilizador de teste foi devolvido a
+  "sem sócio".
+- Ligações reais: `lobo@vybbe.com.br` → RAFAEL LOBO,
+  `taniatadeu@everythingisnew.pt` → EVERYTHINGISNEW, `marianna…` → ANITTA.
+
+**P2-13 (re-auditoria de estanqueidade com utilizadores ligados) está FEITA** —
+issue #168 a fechar com este resumo.
 
 ### Dados da Anitta já tratados (SQL autorizado)
 
@@ -62,8 +100,7 @@ e selar.
 - A&B Food com "Recebido por: EIN"; bares com "Resultado ficou com: EIN".
 - Ajuste da SPA −34.304,72 (`disbursement_adjustment`, "diferença entre 5%
   orçamentado e 3,5% pago").
-- `profiles.linked_supplier_id`: lobo@vybbe.com.br → RAFAEL LOBO;
-  taniatadeu@everythingisnew.pt → EVERYTHINGISNEW.
+- `profiles.linked_supplier_id` ligado nos 3 sócios com utilizador.
 - producaotec@mundopropicio.com com papel `producer` na Coala e na MP.
 - Descrições do RS 1% Ticketline e do repasse de 905.000 limpas.
 - **Nenhuma** linha com `vat_non_recoverable` (confirmado: 0) — o open bar NÃO se
@@ -73,15 +110,18 @@ e selar.
 
 1. Devoluções ao Fechamento MP + EIN: Advogado 3.000, Equipa de Produção EIN
    15.000 e ~3 linhas a identificar pelo Pedro.
-2. Prova formal contra a planilha v23 — o Pedro fornece os 6 números.
-3. Repetir a auditoria de estanqueidade agora que os utilizadores estão ligados
-   (P2-13, issue #168).
-4. Selar os 3 fechamentos e fechar a #146.
+2. Seis números da planilha v23 (prova formal) — o Pedro fornece.
+3. Selar os 3 fechamentos.
+4. Fechar a #146.
+
+## Pendentes menores
+
+- `suppliers.doc_locale` da ANITTA para `pt-BR` (DML do Pedro).
+- ANITTA duplicada na empresa Coala (`d24f8f88…`) sem uso — decidir apagar.
+- Descrições de linhas de BP com "· EIN" visíveis ao sócio (P2, a limpar).
 
 ## Bloqueios
 
-- Utilizador da **ANITTA** no Portal não existe — sem ele não há prova de
-  estanqueidade do topo da cascata.
 - Prova v23 depende dos números do Pedro.
 
 ## Factos que não se reinvestigam
@@ -98,14 +138,14 @@ e selar.
   EVERYTHINGISNEW 273.953,35; líquido final da MP **297.798,68**.
 - IVA devolvido 262.459,85; nível 3 547.906,69; EIN 273.953,35; base de custo do
   critério 1.931.219,49.
-- 1 cêntimo de diferença só de apresentação no Encontro de Contas da raiz
-  (417.293,41 no ecrã vs 417.293,42 no motor) — truncatura.
+- O cêntimo de diferença na raiz **deixou de existir** (g17-d): 417.293,42 em
+  todo o lado.
 - Políticas PERMISSIVE abertas são proibidas: padrão `privileged_roles` (staff)
   + política estanque de sócio.
 - DRE Empresarial e DRE Brasil são vistas de EMPRESA e mantêm os exclusivos.
 - Descrições de transações e de linhas de BP são texto de negócio.
-- Testes: 7 falhas pré-existentes e alheias a esta frente
-  (`storage-multi-tenant`, `forecast-boost`, `EventABTab`).
+- Testes: falhas pré-existentes e alheias a esta frente (`storage-multi-tenant`,
+  `forecast-boost`, `EventABTab`).
 
 ## Fora desta frente
 
@@ -115,8 +155,8 @@ Para o chat **plataforma-e-infra**: a "email-sending update" do Lovable de 13/09
 
 ## Onde ler mais
 
-- `docs/handoffs/2026-09-13-fecho-e-socios-g7-g15.md` (arquivo da sessão)
+- `docs/handoffs/2026-09-13-fecho-e-socios-g7-g17.md` (arquivo da sessão)
 - `docs/auditorias/AUD-estanqueidade-socios-2026-09-13.md`
 - `.lovable/memory/features/partner-settlement.md`
 - `.lovable/memory/features/event-settlements.md`
-- `docs/DECISIONS.md` (adendas g4·2 → g15-c)
+- `docs/DECISIONS.md` (adendas g4·2 → g17-d)
