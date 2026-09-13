@@ -17,6 +17,7 @@ import {
   json,
   ScClient,
 } from "../_shared/soundcharts.ts";
+import { invokeInternal } from "../_shared/internal-call.ts";
 import {
   deduceTriggerSource,
   finishSyncRun,
@@ -210,39 +211,29 @@ Deno.serve(async (req) => {
     }
 
     // ---- métricas: reutiliza o song-soundcharts-sync (todas as plataformas)
+    // Sempre com service role (nunca o Authorization do caller, que pode ser
+    // um utilizador sem permissão na função interna).
     const syncResults: Array<Record<string, unknown>> = [];
     if (!dryRun && syncTargets.length) {
-      const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/song-soundcharts-sync`;
-      // Reencaminha o Authorization de quem chamou (cron usa service_role); o
-      // env SUPABASE_SERVICE_ROLE_KEY é só recurso de reserva.
-      const auth = req.headers.get("Authorization") ??
-        `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`;
       for (const t of syncTargets) {
-        try {
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: auth },
-
-            body: JSON.stringify({
-              song_id: t.song_id,
-              start_date: t.start_date ?? undefined,
-              dry_run: false,
-            }),
-            signal: AbortSignal.timeout(240_000),
-          });
-          const body = await res.json().catch(() => ({}));
-          calls += Number(body?.soundcharts_calls ?? 0);
-          syncResults.push({
-            song_id: t.song_id,
-            title: t.title,
-            http: res.status,
-            rows_written: body?.rows_written ?? null,
-            soundcharts_calls: body?.soundcharts_calls ?? null,
-            notes: body?.notes ?? null,
-          });
-        } catch (e) {
-          errors.push({ artist_id: "-", error: `sync ${t.title}: ${(e as Error)?.message ?? String(e)}` });
+        const call = await invokeInternal(
+          "song-soundcharts-sync",
+          { song_id: t.song_id, start_date: t.start_date ?? undefined, dry_run: false },
+          { timeoutMs: 240_000 },
+        );
+        const body = (call.body ?? {}) as Record<string, unknown>;
+        calls += Number(body?.soundcharts_calls ?? 0);
+        if (!call.ok) {
+          errors.push({ artist_id: "-", error: `sync ${t.title}: ${call.error ?? "erro"}` });
         }
+        syncResults.push({
+          song_id: t.song_id,
+          title: t.title,
+          http: call.status,
+          rows_written: body?.rows_written ?? null,
+          soundcharts_calls: body?.soundcharts_calls ?? null,
+          notes: body?.notes ?? null,
+        });
       }
     }
 

@@ -1895,3 +1895,34 @@ documento de sócio (lá só existe "IVA dedutível recuperado", já líquido).
 **IVA negocial sem fatura NÃO se marca — é ativo da sociedade** e divide-se pela
 regra normal de devolução do IVA (caso das linhas de open bar da Anitta, que
 ficam sem marcação).
+
+## D-ERP50/D-ERP58 adenda (13/09/2026) — chamadas internas entre edge functions
+
+Causa real do 403 `{"error":"Forbidden"}` nas chamadas internas
+(`artist-comparable-manage add` → `soundcharts-sync`, `artist-song-manage add` →
+`song-soundcharts-sync`): a `SUPABASE_SERVICE_ROLE_KEY` do runtime **já não é um
+JWT** — é uma secret key nova (`sb_secret_…`, 41 chars, 1 segmento). As funções
+`authorize()` só aceitavam service_role lendo o claim `role` de um JWT, logo
+caíam em `auth.getUser()` → "invalid token" → 403. O gateway nunca foi o
+problema (os crons via `net.http_post` continuam a funcionar porque usam o JWT
+legacy do Vault).
+
+Correcções:
+- `_shared/soundcharts.ts` → `authorize()` compara o Bearer com a service key do
+  runtime (comparação de tempo constante) **antes** de tentar ler o JWT; mantém
+  o caminho JWT service_role e o caminho utilizador.
+- `soundcharts-sync` e `suamusica-sync` tinham `authorize()` local duplicada;
+  passam a delegar na partilhada (papéis admin/platform_admin).
+- Novo `_shared/internal-call.ts` → `invokeInternal(fn, body, {timeoutMs})`:
+  `Authorization` + `apikey` com a service key do runtime, timeout, corpo do erro
+  preservado. Usado em `artist-comparable-manage`, `artist-song-manage` e
+  `soundcharts-reference-songs`.
+- Regra: uma função **nunca** reencaminha o `Authorization` do caller para
+  chamadas internas (o `soundcharts-reference-songs` fazia-o e podia passar um
+  JWT de utilizador ao `song-soundcharts-sync`).
+
+Teste real (13/09/2026, service role, Litto Lins): `remove` + `add` de Nuzio
+Medeiros (reutilizou o artista de referência existente, `created_reference_artist:false`),
+`history_sync.ok = true`, 1.317 linhas escritas, **20 chamadas Soundcharts**.
+Posições repostas: 1 Léo Foguete, 2 Jonas Esticado, 3 Eric Land, 4 Henry Freitas,
+5 Nuzio Medeiros.

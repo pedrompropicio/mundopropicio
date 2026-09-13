@@ -28,6 +28,7 @@ import {
   mapScArtist,
   ScClient,
 } from "../_shared/soundcharts.ts";
+import { invokeInternal } from "../_shared/internal-call.ts";
 
 const FUNCTION_NAME = "artist-comparable-manage";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];
@@ -304,51 +305,16 @@ Deno.serve(async (req) => {
     // histórico de 12 meses do comparável (chamada interna, service role)
     const startDate = daysAgo(365);
     const estimatedCalls = BLOCKS_PER_PLATFORM * PLATFORMS.length; // ≈20
-    let sync: { ok: boolean; status: number; body: unknown } = {
-      ok: false,
-      status: 0,
-      body: null,
+    const call = await invokeInternal("soundcharts-sync", {
+      artist_id: comparableId,
+      start_date: startDate,
+      dry_run: false,
+    });
+    const sync = {
+      ok: call.ok,
+      status: call.status,
+      body: call.ok ? call.body : { error: call.error, response: call.body },
     };
-    try {
-      // Mesmo padrão do artist-song-manage: sem o header `apikey` o gateway
-      // responde 403 {"error":"Forbidden"} antes de chegar à função. O corpo do
-      // erro é devolvido tal e qual em history_sync.result.
-      const res = await fetch(
-        `${Deno.env.get("SUPABASE_URL")}/functions/v1/soundcharts-sync`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-          },
-          body: JSON.stringify({
-            artist_id: comparableId,
-            start_date: startDate,
-            dry_run: false,
-          }),
-          signal: AbortSignal.timeout(120_000),
-        },
-      );
-      const text = await res.text();
-      let body: unknown = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch {
-        body = text.slice(0, 600);
-      }
-      if (!res.ok) {
-        sync = {
-          ok: false,
-          status: res.status,
-          body: { error: `HTTP ${res.status} — ${text.slice(0, 600)}`, response: body },
-        };
-      } else {
-        sync = { ok: true, status: res.status, body };
-      }
-    } catch (e) {
-      sync = { ok: false, status: 0, body: { error: (e as Error)?.message ?? String(e) } };
-    }
 
     return json({
       action,
