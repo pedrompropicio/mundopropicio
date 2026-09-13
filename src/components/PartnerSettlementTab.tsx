@@ -33,6 +33,8 @@ import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
 import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { collectSettlementExpenseDocLines } from "@/lib/event-settlement-inputs";
 
 
 import {
@@ -2290,11 +2292,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }
         : null;
 
-    const exclusiveRevenues = keepRootPerimeter
-      ? (incomeTransactions as any[])
-          .filter((tx: any) => tx.event_settlement_id && tx.event_settlement_id === activeSettlementId)
-          .map((tx: any) => ({ label: tx.description || tx.account_categories?.name || "—", value: Number(tx.amount) || 0 }))
-      : [];
+    const exclusiveRevenues = (incomeTransactions as any[])
+      .filter((tx: any) => tx.event_settlement_id && tx.event_settlement_id === activeSettlementId)
+      .map((tx: any) => ({
+        label: tx.description || tx.account_categories?.name || "—",
+        value: Number(tx.amount) || 0,
+      }));
 
     const extras: Array<{ label: string; value: number; items?: Array<{ label: string; value: number }> }> = [];
     if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível recuperado", value: activeNode.vatReturnedIn });
