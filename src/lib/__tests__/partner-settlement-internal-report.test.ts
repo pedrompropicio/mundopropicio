@@ -126,7 +126,7 @@ describe("(g15-b) totais do modelo, linhas como apresentação", () => {
     const raw = [33.333, 33.333, 33.334];
     const out = reconcileDisplayValues(raw, 100);
     expect(out.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 10);
-    out.forEach((v) => expect(Math.round(v * 100)).toBe(v * 100));
+    out.forEach((v) => expect(Math.abs(v * 100 - Math.round(v * 100))).toBeLessThan(1e-6));
   });
 
   it("reconcileDisplayField ajusta a lista de objectos sem alterar o total", () => {
