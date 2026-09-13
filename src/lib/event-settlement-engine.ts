@@ -258,6 +258,8 @@ export interface EngineResult {
   partnersPaidTotal: number;
   /** Σ activos adicionais das operações de terceiros (peça (d)). */
   additionalActivesTotal: number;
+  /** (g6) Σ custos do evento devolvidos a fechamentos abaixo. */
+  addbacksTotal: number;
   house: HouseResidual;
   c1: EngineCheck;
   c2: EngineCheck;
