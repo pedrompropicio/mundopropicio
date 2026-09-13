@@ -311,7 +311,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   // Sócios com bases diferentes: não existe resultado único (informativo).
   const hasMixedExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses)).size > 1;
   const mixedBasesNote =
-    "Sócios com bases de apuramento diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
+    "Sócios com bases de cálculo diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
   // ============= Export PDF =============
   function exportPdf() {

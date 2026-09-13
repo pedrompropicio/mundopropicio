@@ -123,7 +123,7 @@ export function EventThirdPartyOperationsPanel({
   };
 
   const saveParticipation = async () => {
-    if (!pt.operation_id || !pt.settlement_id) return toast.error("Escolhe a operação e o apuramento.");
+    if (!pt.operation_id || !pt.settlement_id) return toast.error("Escolhe a operação e o fechamento.");
     if (pt.value === "") return toast.error("Indica a percentagem ou o valor.");
     const isPct = pt.mode === "gross_pct" || pt.mode === "result_share";
     setSaving(true);
@@ -259,7 +259,7 @@ export function EventThirdPartyOperationsPanel({
       {result.additionalActivesTotal !== 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
           Activos adicionais no evento: {formatCurrency(result.additionalActivesTotal)} — receita
-          exclusiva dos apuramentos abaixo da raiz.
+          exclusiva dos fechamentos abaixo da raiz.
         </p>
       )}
 
@@ -311,7 +311,7 @@ export function EventThirdPartyOperationsPanel({
       <Dialog open={ptOpen} onOpenChange={setPtOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Participação de um apuramento</DialogTitle>
+            <DialogTitle>Participação de um fechamento</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -326,7 +326,7 @@ export function EventThirdPartyOperationsPanel({
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Apuramento</Label>
+              <Label className="text-xs">Fechamento</Label>
               <Select value={pt.settlement_id} onValueChange={(v) => setPt({ ...pt, settlement_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Escolher" /></SelectTrigger>
                 <SelectContent>

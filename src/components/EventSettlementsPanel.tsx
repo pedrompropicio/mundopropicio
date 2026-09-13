@@ -53,9 +53,9 @@ export function EventSettlementsPanel({ eventId }: Props) {
     hasAbModule,
   } = useEventSettlementEngine(eventId);
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">A carregar apuramentos…</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">A carregar fechamentos…</p>;
   if (!result || result.nodes.length === 0)
-    return <p className="text-sm text-muted-foreground">Este evento ainda não tem apuramentos.</p>;
+    return <p className="text-sm text-muted-foreground">Este evento ainda não tem fechamentos.</p>;
 
   const renderNode = (n: SettlementNodeResult) => (
     <div key={n.id} className={n.depth > 0 ? "ml-4 border-l border-border/60 pl-4" : ""}>
@@ -64,7 +64,7 @@ export function EventSettlementsPanel({ eventId }: Props) {
         <span className="text-sm font-semibold">{n.name}</span>
         {n.parentId && (
           <Badge variant="outline" className="text-xs">
-            {fmtPct(n.parentSharePct)} do apuramento acima
+            {fmtPct(n.parentSharePct)} do fechamento acima
             {n.parentQuotaBasis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA"}
             {n.parentQuota != null && ` = ${formatCurrency(n.parentQuota)}`}
           </Badge>
@@ -99,8 +99,8 @@ export function EventSettlementsPanel({ eventId }: Props) {
 
       {n.childQuotasNet !== 0 && (
         <p className="mb-3 text-xs text-muted-foreground">
-          Quotas levadas por apuramentos abaixo: {formatCurrency(n.childQuotasNet)} · fica neste
-          apuramento {formatCurrency(n.moneyNet)}.
+          Quotas levadas por fechamentos abaixo: {formatCurrency(n.childQuotasNet)} · fica neste
+          fechamento {formatCurrency(n.moneyNet)}.
         </p>
       )}
 
@@ -144,7 +144,7 @@ export function EventSettlementsPanel({ eventId }: Props) {
                       ? "—"
                       : p.mode === "settles"
                         ? "Pago aqui"
-                        : "Nominal (acerta noutro apuramento)"}
+                        : "Nominal (acerta noutro fechamento)"}
                   </TableCell>
                 </TableRow>
               ))}

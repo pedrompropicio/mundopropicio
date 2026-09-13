@@ -917,7 +917,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const distinctExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses));
   const hasMixedExpenseBases = distinctExpenseBases.size > 1;
   const mixedBasesNote =
-    "Sócios com bases de apuramento diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
+    "Sócios com bases de cálculo diferentes neste evento: a quota de cada um é calculada na base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
   /**
    * `recipient` ausente/null → relatório completo (inalterado).
@@ -958,13 +958,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     const activeSettlementName =
       (eventSettlements as any[]).find((s) => s.id === activeSettlementId)?.name ?? "Fecho do evento";
-    doc.text(`Apuramento: ${activeSettlementName}`, margin, y);
+    doc.text(`Fechamento: ${activeSettlementName}`, margin, y);
     y += 5;
     // Origem da quota num apuramento filho — o documento é estanque: nunca leva
     // os participantes do pai, só de onde vem o dinheiro (#146 (e2)).
     if (activeNode?.parentId && parentNode) {
       doc.text(
-        `Quota do apuramento acima: ${parentNode.name} · ${activeNode.parentSharePct ?? 0}% de ${formatCurrency(
+        `Quota do fechamento acima: ${parentNode.name} · ${activeNode.parentSharePct ?? 0}% de ${formatCurrency(
           activeNode.parentQuotaBasis === "net_result_gross_expenses" ? parentNode.resultGross : parentNode.resultNet,
         )} (${activeNode.parentQuotaBasis === "net_result_gross_expenses" ? "despesas c/IVA" : "despesas s/IVA"}) = ${formatCurrency(activeNode.parentQuota ?? 0)}`,
         margin,
@@ -1059,7 +1059,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "normal");
       const noteText = solo
-        ? `Os socios deste evento tem bases de apuramento diferentes conforme contrato. Este relatorio esta integralmente na base aplicavel a ${solo.partnerName}. A soma das quotas dos socios nao corresponde ao resultado de nenhuma das bases isoladamente.`
+        ? `Os socios deste evento tem bases de calculo diferentes conforme contrato. Este relatorio esta integralmente na base aplicavel a ${solo.partnerName}. A soma das quotas dos socios nao corresponde ao resultado de nenhuma das bases isoladamente.`
         : mixedBasesNote;
       const lines = doc.splitTextToSize(noteText, pageW - margin * 2);
       doc.text(lines, margin, y);
@@ -1936,7 +1936,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               onValueChange={(v) => setSelectedSettlementId(v)}
             >
               <SelectTrigger className="h-8 w-[260px] text-xs">
-                <SelectValue placeholder="Apuramento" />
+                <SelectValue placeholder="Fechamento" />
               </SelectTrigger>
               <SelectContent>
                 {(eventSettlements as any[]).map((s) => (
@@ -1974,11 +1974,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </Select>
           <Select value={calcMode} onValueChange={(v) => setCalcMode(v as CalcMode)}>
             <SelectTrigger className="h-8 w-[300px] text-xs">
-              <SelectValue placeholder="Apuramento" />
+              <SelectValue placeholder="Fechamento" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="contract">Apuramento: por contrato de cada sócio</SelectItem>
-              <SelectItem value="event">Apuramento: pela regra geral do evento</SelectItem>
+              <SelectItem value="contract">Cálculo: por contrato de cada sócio</SelectItem>
+              <SelectItem value="event">Cálculo: pela regra geral do evento</SelectItem>
             </SelectContent>
           </Select>
           <FechoBasisSelector basis={basis} />
@@ -2006,7 +2006,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
           <p className="font-semibold">{activeNode.name}</p>
           <p className="text-muted-foreground">
-            Quota do apuramento acima <strong>{parentNode.name}</strong>:{" "}
+            Quota do fechamento acima <strong>{parentNode.name}</strong>:{" "}
             {activeNode.parentSharePct ?? 0}% de{" "}
             {formatCurrency(
               activeNode.parentQuotaBasis === "net_result_gross_expenses"

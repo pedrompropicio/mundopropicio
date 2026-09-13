@@ -1,10 +1,12 @@
 ---
-name: Event settlements (Apuramentos)
+name: Event settlements (Fechamentos)
 description: Fundação dos Apuramentos por evento — event_settlements + event_settlement_participants, modos settles/nominal, casa implícita e espelho temporário de event_partners
 type: feature
 ---
 
-# Apuramentos por evento (épica #146, sub-tarefa (a) — 12/09/2026)
+# Fechamentos por evento (épica #146, sub-tarefa (a) — 12/09/2026)
+
+> **Terminologia (13/09/2026).** O termo visível ao utilizador é **Fechamento**. Este documento usa "apuramento" como sinónimo histórico; o modelo técnico é `settlement` e não muda.
 
 ## Modelo
 

@@ -4,6 +4,8 @@ description: Regras de Despesas Pagas por Sócios e Fecho com Parceiros — vín
 type: feature
 ---
 
+> **Terminologia (13/09/2026).** O termo visível ao utilizador para um nó de `event_settlements` é **Fechamento** (raiz: "Fechamento do evento"). "Apuramento" fica como sinónimo histórico; nomes técnicos `settlement` não mudam.
+
 # Despesas Pagas por Sócios
 
 **Conceito**: rótulo que indica que uma despesa do evento foi adiantada do bolso de um sócio. NÃO é categoria especial, NÃO consome BP, NÃO cria nova despesa — apenas marca quem desembolsou. No Fecho com Parceiros, o valor vira crédito a favor do sócio.
