@@ -2196,11 +2196,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     const extras: Array<{ label: string; value: number }> = [];
     if (activeNode?.parentQuota) extras.push({ label: "Quota contratual do acordo", value: activeNode.parentQuota });
-    if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível devolvido", value: activeNode.vatReturnedIn });
+    if (activeNode?.vatReturnedIn) extras.push({ label: "IVA dedutível recuperado", value: activeNode.vatReturnedIn });
     // (g6) Custos do evento devolvidos a este fechamento (internos da sociedade).
     if (activeNode?.addbackIn)
       extras.push({
-        label: "Custos do evento devolvidos a este fechamento (internos da sociedade)",
+        label: "Custos internos da sociedade",
         value: activeNode.addbackIn,
       });
     if (activeNode?.additionalActiveTotal)
