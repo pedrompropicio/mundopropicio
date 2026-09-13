@@ -79,6 +79,10 @@ export interface PartnerStatementDocInput {
    */
   /** Despesas do evento pagas pelo próprio sócio (financiamento a devolver-lhe). */
   paidByPartner?: number;
+  /** (g5) Ajustes manuais ao desembolso (valor com sinal). */
+  disbursementAdjustments?: number;
+  /** (g5) Receitas do evento já em poder do sócio, itemizadas. */
+  revenuesHeld?: Array<{ label: string; value: number }>;
   /** Extras do sócio a abater. */
   partnerExtras?: number;
   /** Já adiantado ao sócio. */
@@ -138,6 +142,10 @@ export interface PartnerStatementDoc {
   othersShare: number;
   /** (g4 adenda) Acerto do sócio — base a transferir, IVA do repasse e total. */
   paidByPartner: number;
+  disbursementAdjustments: number;
+  revenuesHeld: Array<{ label: string; value: number }>;
+  totalRevenuesHeld: number;
+  financingToReturn: number;
   partnerExtras: number;
   partnerAdvances: number;
   transferBase: number;
@@ -179,6 +187,9 @@ export interface StatementTerms {
   detailBExpenses: string;
   ofResult: string;
   paidByPartnerLine: (partner: string) => string;
+  adjustmentsLine: string;
+  revenuesHeldLine: (partner: string) => string;
+  financingLine: string;
   extrasLine: string;
   advancesLine: (partner: string) => string;
   transferBaseLine: (partner: string) => string;
@@ -226,6 +237,9 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     detailBExpenses: "B. Despesas por família e rubrica (c/IVA)",
     ofResult: "do resultado",
     paidByPartnerLine: (p) => `+ Despesas do evento pagas por ${p}`,
+    adjustmentsLine: "+/- Ajustes ao desembolso",
+    revenuesHeldLine: (p) => `- Receitas do evento em poder de ${p}`,
+    financingLine: "= Financiamento a devolver",
     extrasLine: "- Extras",
     advancesLine: (p) => `- Já adiantado a ${p}`,
     transferBaseLine: (p) => `= BASE A TRANSFERIR A ${p.toUpperCase()}`,
@@ -271,6 +285,9 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     detailBExpenses: "B. Despesas por família e rubrica (c/IVA)",
     ofResult: "do resultado",
     paidByPartnerLine: (p) => `+ Despesas do evento pagas por ${p}`,
+    adjustmentsLine: "+/- Ajustes ao desembolso",
+    revenuesHeldLine: (p) => `- Receitas do evento em poder de ${p}`,
+    financingLine: "= Financiamento a devolver",
     extrasLine: "- Extras",
     advancesLine: (p) => `- Já adiantado a ${p}`,
     transferBaseLine: (p) => `= BASE A TRANSFERIR A ${p.toUpperCase()}`,
@@ -430,7 +447,16 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
   const paidByPartner = roundCents(input.paidByPartner ?? 0);
   const partnerExtras = roundCents(input.partnerExtras ?? 0);
   const partnerAdvances = roundCents(input.partnerAdvances ?? 0);
-  const transferBase = roundCents(recipientShare + paidByPartner - partnerExtras - partnerAdvances);
+  const disbursementAdjustments = roundCents(input.disbursementAdjustments ?? 0);
+  const revenuesHeld = (input.revenuesHeld ?? []).map((r) => ({
+    label: r.label,
+    value: roundCents(Number(r.value) || 0),
+  }));
+  const totalRevenuesHeld = roundCents(revenuesHeld.reduce((a, r) => a + r.value, 0));
+  const financingToReturn = roundCents(paidByPartner + disbursementAdjustments - totalRevenuesHeld);
+  const transferBase = roundCents(
+    recipientShare + financingToReturn - partnerExtras - partnerAdvances,
+  );
   const transferWithVat = input.transferWithVat === true;
   // O IVA do repasse só incide quando há valor a transferir ao sócio.
   const transferVat =
@@ -469,6 +495,10 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     recipientShare,
     othersShare,
     paidByPartner,
+    disbursementAdjustments,
+    revenuesHeld,
+    totalRevenuesHeld,
+    financingToReturn,
     partnerExtras,
     partnerAdvances,
     transferBase,
