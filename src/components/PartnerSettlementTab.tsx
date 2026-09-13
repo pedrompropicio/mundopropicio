@@ -2081,6 +2081,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <> · activos adicionais {formatCurrency(activeNode.additionalActiveTotal)}</>
             )}
           </p>
+          {/* (g1) Regra "devolve o IVA dedutível do fechamento acima". */}
+          {activeNode.vatReturnedIn !== 0 && (
+            <p className="mt-1 text-muted-foreground">
+              IVA dedutível devolvido: {formatCurrency(activeNode.vatReturnedIn)} — o IVA que{" "}
+              {parentNode.name} suportou como custo é recuperado por este fechamento.
+            </p>
+          )}
         </div>
       )}
 
