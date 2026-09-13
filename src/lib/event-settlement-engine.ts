@@ -97,6 +97,25 @@ export interface AddbackNodeResult {
 }
 
 /**
+ * (g14) Linha do BP cujo IVA é custo para os sócios apurados c/IVA mas que a
+ * sociedade NÃO recupera (`event_forecasts.vat_non_recoverable`). O IVA desta
+ * linha fica FORA do IVA dedutível devolvido a um fechamento abaixo e mantém-se
+ * no residual da casa ("IVA não repassado"). `event_settlement_id` nulo = linha
+ * do perímetro da raiz.
+ */
+export interface EngineVatExclusionLine {
+  event_settlement_id?: string | null;
+  label: string;
+  amount: number | string | null;
+  iva_rate?: number | string | null;
+}
+
+export interface VatExclusionNodeLine {
+  label: string;
+  vat: number;
+}
+
+/**
  * Extras do sócio e despesas por ele pagas — nas duas bases, porque o Encontro
  * de Contas aplica-lhes a mesma base do apuramento do sócio (informativo).
  */
