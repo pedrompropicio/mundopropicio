@@ -77,6 +77,10 @@ interface ConnectionRow {
   available_ad_accounts: AdAccountOption[] | null;
   selected_page_id?: string | null;
   selected_instagram_id?: string | null;
+  // D-ERP57 — contas de tráfego do próprio artista: a linha pertence à empresa
+  // gestora, mas a conta de anúncios é do artista.
+  artist_id?: string | null;
+  connection_scope?: "company" | "artist" | null;
 }
 
 const PLATFORMS: Array<{
