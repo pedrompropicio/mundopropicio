@@ -15,6 +15,7 @@ import {
   HOUSE_PARTNER_NAME,
   fetchSettlementParticipants,
   type SettlementParticipant,
+  EVENT_SETTLEMENTS_SELECT,
 } from "@/lib/settlement-participants";
 
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";

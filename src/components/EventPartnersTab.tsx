@@ -30,7 +30,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
-import { HOUSE_PARTNER_NAME } from "@/lib/settlement-participants";
+import { HOUSE_PARTNER_NAME, EVENT_SETTLEMENTS_SELECT } from "@/lib/settlement-participants";
 import { EventSettlementsManager } from "@/components/EventSettlementsManager";
 
 
