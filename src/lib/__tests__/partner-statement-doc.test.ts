@@ -222,7 +222,7 @@ describe("(g10) base efetiva no documento", () => {
  */
 describe("(g13) cascata desde o resultado do evento", () => {
   const eventRevenues = [{ origin: "Bilheteira", net: 2527352.94 }];
-  const eventExpenses = [{ categoryId: null, description: "Despesas do evento", base: 1668759.64, ivaRate: 15.727 }];
+  const eventExpenses = [{ categoryId: null, description: "Despesas do evento", base: 1668759.64, ivaRate: (262459.85 / 1668759.64) * 100 }];
 
   const societyDoc = (locale: "pt-PT" | "pt-BR") =>
     buildPartnerStatementDoc({
