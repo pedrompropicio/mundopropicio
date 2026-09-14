@@ -37,6 +37,15 @@ export function PartnerNoSupplierNotice({
             fazer a ligação no evento, em <span className="font-medium">Acesso de Parceiros</span>.
           </p>
         </>
+      ) : reason === "not_partner" ? (
+        <>
+          <p className="font-semibold">O sócio que esta conta representa não participa neste evento.</p>
+          <p className="text-sm text-muted-foreground">
+            Por isso não se mostra nenhuma informação deste evento — nem Business Plan, nem receitas,
+            despesas ou resultado. Se isto for engano, o administrador deve corrigir a ligação ao sócio
+            ou retirar o acesso, em <span className="font-medium">Acesso de Parceiros</span>.
+          </p>
+        </>
       ) : reason === "no_statement" ? (
         <>
           <p className="font-semibold">Este evento ainda não tem prestação de contas para o seu sócio.</p>
