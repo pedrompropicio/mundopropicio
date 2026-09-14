@@ -971,12 +971,6 @@ export default function PartnerEventDetail() {
     return m;
   }, [bpGroupedHier, bpL3Overrun]);
 
-  // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
-  const bpTotalIncome = useMemo(
-    () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
-    [bpIncomes],
-  );
-  const bpTotalResult = bpTotalIncome - bpTotalExpenseAdjusted;
 
 
   // ─── Exportações do BP do sócio (Excel + PDF) ───
