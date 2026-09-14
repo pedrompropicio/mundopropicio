@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, ToggleLeft, ToggleRight, Handshake, Pencil, PencilOff } from "lucide-react";
+import { Loader2, Plus, Trash2, ToggleLeft, ToggleRight, Handshake, Pencil, PencilOff, Eye } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface PartnerAccessManagerProps {
@@ -26,6 +26,7 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showVerComo, setShowVerComo] = useState(false);
 
   const allEventIds = [eventId, ...subEvents.map((s) => s.id)];
 
@@ -151,22 +152,41 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  const invalidateLinks = () => {
+    queryClient.invalidateQueries({ queryKey: ["partner-portal-links"] });
+    queryClient.invalidateQueries({ queryKey: ["portal-partner-profiles"] });
+    queryClient.invalidateQueries({ queryKey: ["partner_users"] });
+  };
+
+  // Um sócio é uma empresa e pode ter N representantes: ligar uma pessoa não
+  // desliga ninguém. Desligar tem caminho próprio (unset_partner_portal_user).
   const setPortalUserMutation = useMutation({
-    mutationFn: async ({ supplierId, profileId }: { supplierId: string; profileId: string | null }) => {
+    mutationFn: async ({ supplierId, profileId }: { supplierId: string; profileId: string }) => {
       const { error } = await supabase.rpc("set_partner_portal_user", {
         _supplier_id: supplierId,
-        _profile_id: profileId as any,
+        _profile_id: profileId,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-portal-links"] });
-      queryClient.invalidateQueries({ queryKey: ["portal-partner-profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["partner_users"] });
+      invalidateLinks();
       toast({ title: "Sócio ligado ao utilizador." });
     },
     onError: (e: any) =>
       toast({ title: "Não foi possível ligar o sócio", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
+  const unsetPortalUserMutation = useMutation({
+    mutationFn: async (profileId: string) => {
+      const { error } = await supabase.rpc("unset_partner_portal_user", { _profile_id: profileId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateLinks();
+      toast({ title: "Ligação ao sócio removida." });
+    },
+    onError: (e: any) =>
+      toast({ title: "Não foi possível remover a ligação", description: e?.message ?? String(e), variant: "destructive" }),
   });
 
   const addAccessMutation = useMutation({
@@ -270,13 +290,39 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           <Handshake className="h-4 w-4" /> Acesso de Parceiros
         </h3>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" /> Conceder Acesso
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowVerComo((v) => !v)}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5" /> Ver como sócio
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Conceder Acesso
+          </button>
+        </div>
       </div>
+
+      {showVerComo && (
+        <div className="glass space-y-2 rounded-xl p-4">
+          <label className="block text-[11px] font-medium text-muted-foreground">
+            Abrir o Portal deste evento na vista de um sócio (só leitura)
+          </label>
+          <SearchableSelect
+            options={eventPartnerOptions}
+            value=""
+            onValueChange={(v) => {
+              if (!v) return;
+              window.open(`/parceiro/evento/${eventId}?ver_como=${v}`, "_blank", "noopener");
+              setShowVerComo(false);
+            }}
+            placeholder="Selecione o sócio..."
+          />
+        </div>
+      )}
 
       {showAddForm && (
         <div className="glass rounded-xl p-4 space-y-3">
@@ -367,18 +413,10 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
             const link = linkByUser[userId];
             const linkedSupplierId = link?.supplier_id ?? null;
             // `partner_portal_links` devolve também ligações resolvidas por
-            // COINCIDÊNCIA DE EMAIL (user_supplier_id tem esse recurso). Duas
-            // pessoas podem por isso aparecer com o MESMO sócio: uma por link
-            // explícito, outra por email. Como set_partner_portal_user é
-            // indexada pelo SÓCIO — limpa todos os perfis ligados a ele e liga o
-            // que recebe — agir sobre a linha resolvida por email mexia na
-            // ligação REAL de outra pessoa. Por isso o seletor só representa
-            // ligações explícitas; a de email fica como texto, não como seleção.
+            // COINCIDÊNCIA DE EMAIL (user_supplier_id tem esse recurso). Essa
+            // resolução não é uma ligação registada, por isso não se representa
+            // no seletor — fica como texto. O seletor mostra só o link explícito.
             const explicitSupplierId = link?.link_source === "link" ? linkedSupplierId : null;
-            // Sócio já explicitamente ligado a OUTRA pessoa: escolher aqui rouba
-            // a ligação. Avisa-se antes, com o nome de quem a perde.
-            const ownerOf = (sid: string) =>
-              portalLinks.find((l) => l.supplier_id === sid && l.link_source === "link" && l.profile_id !== userId);
             return (
             <div key={userId} className="glass rounded-xl p-4">
               <p className="text-sm font-semibold mb-2">{getUserName(userId)}</p>
@@ -390,19 +428,9 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                   value={explicitSupplierId ?? ""}
                   onValueChange={(v) => {
                     if (!v) {
-                      // Desligar é set_partner_portal_user(sócio_actual, NULL) —
-                      // só quando ESTA pessoa tem a ligação explícita.
-                      if (explicitSupplierId) {
-                        setPortalUserMutation.mutate({ supplierId: explicitSupplierId, profileId: null });
-                      }
+                      // Desligar age sobre ESTA pessoa, não sobre o sócio.
+                      if (explicitSupplierId) unsetPortalUserMutation.mutate(userId);
                       return;
-                    }
-                    const owner = ownerOf(v);
-                    if (owner) {
-                      const who = owner.full_name || owner.email || "outro utilizador";
-                      if (!window.confirm(
-                        `Este sócio está ligado a ${who}. Ao continuar, essa ligação passa para ${getUserName(userId)}.`,
-                      )) return;
                     }
                     setPortalUserMutation.mutate({ supplierId: v, profileId: userId });
                   }}
@@ -411,7 +439,7 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 {!explicitSupplierId && (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
                     Sem sócio ligado — o Portal não mostra fechamento. Escolha aqui o sócio, ou ligue na ficha do sócio
-                    (Entidades → editar → «Utilizador do Portal»).
+                    (Entidades → editar → «Representantes no Portal»).
                   </p>
                 )}
                 {linkedSupplierId && link?.link_source === "email" && (

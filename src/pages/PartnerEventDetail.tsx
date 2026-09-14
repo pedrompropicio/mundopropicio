@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -106,7 +106,19 @@ const statusLabels: Record<string, string> = {
 
 export default function PartnerEventDetail() {
   const { id } = useParams();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isAdmin } = useAuth();
+  // ── "Ver como sócio" (vista de administrador, só leitura) ──
+  // O parâmetro `ver_como` traz o id do sócio a inspeccionar. Só vale para
+  // admin/platform_admin; para qualquer outro utilizador é como se não viesse.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const verComoParam = searchParams.get("ver_como");
+  const adminViewSupplierId = isAdmin && verComoParam ? verComoParam : null;
+  const isAdminView = !!adminViewSupplierId;
+  const exitAdminView = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("ver_como");
+    setSearchParams(next, { replace: true });
+  };
   const { displayName: companyDisplayName } = useCompanyBranding();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
@@ -175,7 +187,7 @@ export default function PartnerEventDetail() {
   const subEvents = eventType === "multi_day" ? (eventBundle?.subEvents ?? []) : [];
 
   const authorizedSubEvents = subEvents.filter((s: any) => accessList.includes(s.id));
-  const hasParentAccess = accessList.includes(id!);
+  const hasParentAccess = isAdminView || accessList.includes(id!);
   const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
 
   // Para turnê: default = Master (mostra agregado de todas as cidades).
@@ -187,7 +199,7 @@ export default function PartnerEventDetail() {
   // A base NUNCA é fixa: o override do sócio (event_partners.expense_includes_iva)
   // manda e, na sua ausência, vale events.partner_calc_basis. É a mesma regra do
   // motor de acerto — usamos o módulo partilhado, nunca cálculo próprio aqui.
-  const { data: viewerSupplierId, isLoading: isLoadingViewerSupplier } = useQuery({
+  const { data: ownSupplierId, isLoading: isLoadingViewerSupplier } = useQuery({
     queryKey: ["partner-viewer-supplier-id", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
@@ -196,6 +208,12 @@ export default function PartnerEventDetail() {
       return ((data as string | null) ?? null);
     },
   });
+
+  // Vista de administrador ("ver como sócio"): o sócio inspeccionado substitui o
+  // sócio do utilizador. Só é honrado com papel admin/platform_admin — de outro
+  // modo o parâmetro é ignorado por completo. A decisão real de acesso é do
+  // servidor (`partner-statement`); aqui só se escolhe a identidade a mostrar.
+  const viewerSupplierId = adminViewSupplierId ?? ownSupplierId ?? null;
 
   const { data: viewerPartnerRow } = useQuery({
     queryKey: ["partner-basis-row", user?.id, viewerSupplierId, activeEventId, id],
@@ -210,6 +228,20 @@ export default function PartnerEventDetail() {
       if (error) throw error;
       const rows = (data ?? []) as { event_id: string; expense_includes_iva: boolean | null }[];
       return rows.find((r) => r.event_id === activeEventId) ?? rows[0] ?? null;
+    },
+  });
+
+  const { data: adminViewSupplierName } = useQuery({
+    queryKey: ["admin-view-supplier-name", adminViewSupplierId],
+    enabled: !!adminViewSupplierId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("name")
+        .eq("id", adminViewSupplierId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.name as string | undefined) ?? null;
     },
   });
 
@@ -229,7 +261,8 @@ export default function PartnerEventDetail() {
       : Number(base || 0);
 
   // ── Fase 2b: edição do BP em grelha (estilo planilha) ──
-  const canEditBpHere = !!activeEventId && !isMasterView
+  // Na vista de administrador nada se escreve: é inspecção, só leitura.
+  const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView
     && canEditBpForActive(activeEventId)
     && hasPermission("edit_approved_bp");
 
@@ -1033,10 +1066,12 @@ export default function PartnerEventDetail() {
    * fechamento: tudo é derivado do utilizador autenticado.
    */
   const { data: serverStatement, isFetching: statementBusy } = useQuery({
-    queryKey: ["partner-statement", user?.id, activeEventId],
+    queryKey: ["partner-statement", user?.id, activeEventId, adminViewSupplierId],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("partner-statement", {
-        body: { event_id: activeEventId },
+        body: adminViewSupplierId
+          ? { event_id: activeEventId, supplier_id: adminViewSupplierId }
+          : { event_id: activeEventId },
       });
       if (error) return null;
       return (data ?? null) as
@@ -1162,7 +1197,9 @@ export default function PartnerEventDetail() {
     return <div className="p-8 text-center text-muted-foreground">Evento não encontrado.</div>;
   }
 
-  const hasAccess = hasParentAccess || visibleSubEvents.length > 0;
+  // O admin em "ver como sócio" não tem linha em partner_event_access — a trava
+  // de parceiro não se aplica; a autorização é feita no servidor.
+  const hasAccess = isAdminView || hasParentAccess || visibleSubEvents.length > 0;
   if (!hasAccess) {
     return (
       <div className="p-8 text-center space-y-2">
@@ -1258,6 +1295,22 @@ export default function PartnerEventDetail() {
 
   return (
     <div className="space-y-6">
+      {isAdminView && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-500 bg-amber-500/15 px-4 py-3"
+        >
+          <p className="text-sm font-semibold text-amber-600">
+            A ver como {adminViewSupplierName || "sócio"} — vista de administrador (só leitura)
+          </p>
+          <button
+            onClick={exitAdminView}
+            className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400 transition-colors"
+          >
+            Sair da vista de sócio
+          </button>
+        </div>
+      )}
       <div>
         <Link to="/parceiro" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
           <ArrowLeft className="h-4 w-4" /> Voltar ao portal
