@@ -2170,19 +2170,24 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {/* Cards Receitas / Despesas / Resultado — base de apuramento do sócio */}
-              <PartnerFinancialCards
-                ticketsNet={ticketRevenueNet}
-                sponsorshipNet={sponsorshipRealNet}
-                barsNet={barsRealNet}
-                otherNet={otherIncomeRealNet}
-                bpExpenseGross={bpTotalExpenseAdjusted}
-                showRealized={canSeeComparative}
-                adjustedRubricsCount={bpAdjustedCount}
-                fecho={serverStatement?.cards ?? null}
-                expensesWithVat={usesGross}
-                expenseBasisNote={expenseBasisNote}
-              />
+              {/* Cards Receitas / Despesas / Resultado — só com o fecho do servidor */}
+              {serverStatement ? (
+                <PartnerFinancialCards
+                  ticketsNet={ticketRevenueNet}
+                  sponsorshipNet={sponsorshipRealNet}
+                  barsNet={barsRealNet}
+                  otherNet={otherIncomeRealNet}
+                  bpExpenseGross={bpTotalExpenseAdjusted}
+                  showRealized={canSeeComparative}
+                  adjustedRubricsCount={bpAdjustedCount}
+                  fecho={serverStatement.cards}
+                  expensesWithVat={usesGross}
+                  expenseBasisNote={expenseBasisNote}
+                />
+              ) : (
+                <PartnerNoSupplierNotice isLoading={statementLoading} reason={statementNoticeReason} />
+              )}
+
 
 
               {(["income", "expense"] as const).map((kind) => {
