@@ -134,8 +134,8 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
           </DialogTitle>
           <DialogDescription>
             {canRaise
-              ? "Aprovar estas despesas faz o realizado ultrapassar a verba da linha. A linha é elevada no mesmo acto — o BP é o norte e nunca fica abaixo do realizado."
-              : "Aprovar estas despesas faz o realizado ultrapassar a verba da linha do BP."}
+              ? "Aprovar estas despesas faz o realizado ultrapassar a verba da linha. A linha é elevada no mesmo acto — o BP é o norte e nunca fica abaixo do realizado. A verba do BP é sempre sem IVA; o total com IVA é o que sai da conta."
+              : "Aprovar estas despesas faz o realizado ultrapassar a verba da linha do BP. A verba do BP é sempre sem IVA; o total com IVA é o que sai da conta."}
           </DialogDescription>
         </DialogHeader>
 
@@ -159,6 +159,10 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
                     Verba {formatCurrency(l.line_amount)} · Realizado {formatCurrency(l.realized)} ·
                     A aprovar {formatCurrency(l.to_approve)} ·{" "}
                     <span className="text-warning">Excesso {formatCurrency(l.excess)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    IVA {formatCurrency(l.to_approve_iva)} · Total c/IVA a pagar{" "}
+                    {formatCurrency(l.to_approve_gross)}
                   </p>
                 </div>
               ))}
@@ -198,12 +202,20 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
                         Realizado: <strong className="text-foreground tabular-nums">{formatCurrency(l.realized)}</strong>
                       </span>
                       <span className="text-muted-foreground">
-                        A aprovar: <strong className="text-foreground tabular-nums">{formatCurrency(l.to_approve)}</strong>
+                        A aprovar (sem IVA): <strong className="text-foreground tabular-nums">{formatCurrency(l.to_approve)}</strong>
                       </span>
                       <span className="text-muted-foreground">
                         Excesso: <strong className="tabular-nums text-warning">{formatCurrency(l.excess)}</strong>
                       </span>
+                      <span className="text-muted-foreground">
+                        IVA a aprovar: <strong className="text-foreground tabular-nums">{formatCurrency(l.to_approve_iva)}</strong>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Total c/IVA (sai da conta):{" "}
+                        <strong className="text-foreground tabular-nums">{formatCurrency(l.to_approve_gross)}</strong>
+                      </span>
                     </div>
+
 
                     {rounding && (
                       <p className="text-[11px] text-muted-foreground">
@@ -213,7 +225,7 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
 
                     <div className="space-y-1.5">
                       <Label htmlFor={`raise-amount-${l.forecast_id}`} className="text-xs">
-                        Nova verba
+                        Nova verba (sem IVA)
                       </Label>
                       <Input
                         id={`raise-amount-${l.forecast_id}`}
@@ -225,7 +237,7 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
                         }
                       />
                       <p className="text-[11px] text-muted-foreground">
-                        Mínimo {formatCurrency(l.suggested_amount)} — a linha nunca fica abaixo do realizado.
+                        Mínimo {formatCurrency(l.suggested_amount)} (sem IVA) — a linha nunca fica abaixo do realizado.
                       </p>
                     </div>
 

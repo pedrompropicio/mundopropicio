@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount, company_id, forecast_id, parent_transaction_id")
+      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id")
       .in("id", expandedIds);
 
     if (fetchError) {
@@ -245,8 +245,13 @@ Deno.serve(async (req) => {
           realizedByLine.set(r.forecast_id, (realizedByLine.get(r.forecast_id) ?? 0) + Number(r.amount ?? 0));
         }
         const toApproveByLine = new Map<string, number>();
+        // INFORMATIVO (D11): bruto transação a transação, pela taxa de CADA uma.
+        const grossByLine = new Map<string, number>();
         for (const t of entries as any[]) {
-          toApproveByLine.set(t.forecast_id, (toApproveByLine.get(t.forecast_id) ?? 0) + Number(t.amount ?? 0));
+          const base = Number(t.amount ?? 0);
+          toApproveByLine.set(t.forecast_id, (toApproveByLine.get(t.forecast_id) ?? 0) + base);
+          const gross = round2(base + round2(base * (Number(t.iva_rate ?? 0) / 100)));
+          grossByLine.set(t.forecast_id, (grossByLine.get(t.forecast_id) ?? 0) + gross);
         }
 
         const excess: any[] = [];
@@ -267,6 +272,8 @@ Deno.serve(async (req) => {
             to_approve: toApprove,
             excess: over,
             suggested_amount: round2(realized + toApprove),
+            to_approve_gross: round2(grossByLine.get(l.id) ?? 0),
+            to_approve_iva: round2((grossByLine.get(l.id) ?? 0) - toApprove),
           });
         }
 

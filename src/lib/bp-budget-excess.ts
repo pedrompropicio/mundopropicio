@@ -15,12 +15,18 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { calcWithIva } from "@/lib/utils";
 
 /** Uma despesa a aprovar (ou a inserir) já vinculada a uma linha de BP. */
 export type BudgetExcessEntry = {
   forecast_id: string;
   /** Valor LÍQUIDO (sem IVA) — o mesmo domínio de `event_forecasts.amount`. */
   amount: number;
+  /**
+   * Taxa de IVA DESTA transação (%), só para informação no diálogo: o total com
+   * IVA é o que sai da conta. Nunca entra no confronto com o BP (D11).
+   */
+  iva_rate?: number | null;
   /**
    * Id da transação, quando já existe. Serve para não contar duas vezes uma
    * transação que já esteja em `approved`/`paid` no realizado da linha.
@@ -37,6 +43,13 @@ export type BudgetExcessLine = {
   to_approve: number;
   excess: number;
   suggested_amount: number;
+  /**
+   * INFORMATIVOS (não entram no confronto com o BP — D11): IVA e total com IVA
+   * do que está a ser aprovado nesta linha, somados transação a transação pela
+   * taxa de cada uma (uma linha pode agregar taxas diferentes).
+   */
+  to_approve_iva: number;
+  to_approve_gross: number;
 };
 
 export type BudgetRaise = {
@@ -85,9 +98,15 @@ export async function computeBudgetExcess(
   }
 
   const toApproveByLine = new Map<string, number>();
+  // Bruto por linha: transação a transação, pela taxa de CADA uma (nunca uma
+  // taxa única sobre o total).
+  const grossByLine = new Map<string, number>();
   for (const e of valid) {
     toApproveByLine.set(e.forecast_id, (toApproveByLine.get(e.forecast_id) ?? 0) + Number(e.amount));
+    const gross = calcWithIva(Number(e.amount), Number(e.iva_rate ?? 0));
+    grossByLine.set(e.forecast_id, (grossByLine.get(e.forecast_id) ?? 0) + gross);
   }
+
 
   const out: BudgetExcessLine[] = [];
   for (const f of (forecasts ?? []) as any[]) {
@@ -105,6 +124,8 @@ export async function computeBudgetExcess(
       to_approve: toApprove,
       excess,
       suggested_amount: round2(realized + toApprove),
+      to_approve_gross: round2(grossByLine.get(f.id) ?? 0),
+      to_approve_iva: round2((grossByLine.get(f.id) ?? 0) - toApprove),
     });
   }
   return out;
