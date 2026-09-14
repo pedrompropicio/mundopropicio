@@ -12,8 +12,10 @@ import { Card } from "@/components/ui/card";
  * - `no_statement` — há sócio, mas o evento ainda não tem fechamento com ele
  *                    (ou o sócio não tem acesso concedido a este evento).
  * - `error`        — falha técnica ao obter a prestação de contas.
+ * - `not_partner`  — a conta está ligada a um sócio, mas esse sócio não
+ *                    participa neste evento (acesso desalinhado da ligação).
  */
-export type PartnerNoticeReason = "no_supplier" | "no_statement" | "error";
+export type PartnerNoticeReason = "no_supplier" | "no_statement" | "error" | "not_partner";
 
 export function PartnerNoSupplierNotice({
   isLoading = false,
@@ -33,6 +35,15 @@ export function PartnerNoSupplierNotice({
             Sem essa ligação não é possível apresentar valores deste evento, porque a base de
             apuramento das despesas depende do contrato do sócio. Pede ao administrador para
             fazer a ligação no evento, em <span className="font-medium">Acesso de Parceiros</span>.
+          </p>
+        </>
+      ) : reason === "not_partner" ? (
+        <>
+          <p className="font-semibold">O sócio que esta conta representa não participa neste evento.</p>
+          <p className="text-sm text-muted-foreground">
+            Por isso não se mostra nenhuma informação deste evento — nem Business Plan, nem receitas,
+            despesas ou resultado. Se isto for engano, o administrador deve corrigir a ligação ao sócio
+            ou retirar o acesso, em <span className="font-medium">Acesso de Parceiros</span>.
           </p>
         </>
       ) : reason === "no_statement" ? (

@@ -231,6 +231,25 @@ export default function PartnerEventDetail() {
     },
   });
 
+  // O sócio em vista participa neste evento? Linha em `event_partners` do evento
+  // activo ou do evento-pai. O acesso (`partner_event_access`) não garante isto:
+  // religar a pessoa a outro sócio deixa acessos antigos para trás.
+  const { data: viewerParticipates, isLoading: isLoadingParticipation } = useQuery({
+    queryKey: ["partner-participates", viewerSupplierId, activeEventId, id],
+    enabled: !!viewerSupplierId && !!activeEventId,
+    queryFn: async () => {
+      const ids = Array.from(new Set([activeEventId!, id!].filter(Boolean))) as string[];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id")
+        .in("event_id", ids)
+        .eq("supplier_id", viewerSupplierId!)
+        .limit(1);
+      if (error) throw error;
+      return (data ?? []).length > 0;
+    },
+  });
+
   const { data: adminViewSupplierName } = useQuery({
     queryKey: ["admin-view-supplier-name", adminViewSupplierId],
     enabled: !!adminViewSupplierId,
@@ -1258,6 +1277,33 @@ export default function PartnerEventDetail() {
         <Link to="/parceiro" className="text-sm text-primary hover:underline">Voltar ao portal</Link>
       </div>
     );
+  }
+
+  // Trava de sócio: o acesso ao evento não basta — o sócio que a conta representa
+  // tem de participar neste evento. Sem isso não se mostra NADA do evento (nem o
+  // BP): decisão do CEO. Na vista de administrador (`ver_como`) o sócio
+  // inspeccionado participa por construção e nunca é bloqueado.
+  if (!isAdminView && hasViewerSupplier) {
+    if (isLoadingParticipation) {
+      return (
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    if (viewerParticipates === false) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <Link to="/parceiro" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
+              <ArrowLeft className="h-4 w-4" /> Voltar ao portal
+            </Link>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{event.name}</h1>
+          </div>
+          <PartnerNoSupplierNotice reason="not_partner" />
+        </div>
+      );
+    }
   }
 
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
