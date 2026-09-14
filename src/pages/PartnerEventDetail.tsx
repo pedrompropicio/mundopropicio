@@ -1295,6 +1295,22 @@ export default function PartnerEventDetail() {
 
   return (
     <div className="space-y-6">
+      {isAdminView && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-500 bg-amber-500/15 px-4 py-3"
+        >
+          <p className="text-sm font-semibold text-amber-600">
+            A ver como {adminViewSupplierName || "sócio"} — vista de administrador (só leitura)
+          </p>
+          <button
+            onClick={exitAdminView}
+            className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400 transition-colors"
+          >
+            Sair da vista de sócio
+          </button>
+        </div>
+      )}
       <div>
         <Link to="/parceiro" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
           <ArrowLeft className="h-4 w-4" /> Voltar ao portal
