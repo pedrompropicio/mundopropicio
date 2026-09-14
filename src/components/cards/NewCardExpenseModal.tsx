@@ -350,6 +350,9 @@ export function NewCardExpenseModal({
 
       // ---- Caminho legado: editar transação directa antiga ----
       if (expense) {
+        if (completedEventBlocked) {
+          throw new Error("Evento concluído. Reabre o evento para editar.");
+        }
         const patch = {
           description: description.trim(),
           amount: base,
