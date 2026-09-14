@@ -662,8 +662,8 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
             {/* Child split transactions: only docs + audit */}
             {isChildSplit ? (
               <>
-                {/* Payment on child: opens parent for full settlement */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.parent_transaction_id && !t.is_reimbursement && (
+                {/* Payment on child: opens parent for full settlement — permitido em evento concluído */}
+                {balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.parent_transaction_id && !t.is_reimbursement && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button onClick={() => onPayment(t.parent_transaction_id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Liquidar via transação master">
