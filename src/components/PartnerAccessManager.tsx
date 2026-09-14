@@ -386,18 +386,10 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
             const link = linkByUser[userId];
             const linkedSupplierId = link?.supplier_id ?? null;
             // `partner_portal_links` devolve também ligações resolvidas por
-            // COINCIDÊNCIA DE EMAIL (user_supplier_id tem esse recurso). Duas
-            // pessoas podem por isso aparecer com o MESMO sócio: uma por link
-            // explícito, outra por email. Como set_partner_portal_user é
-            // indexada pelo SÓCIO — limpa todos os perfis ligados a ele e liga o
-            // que recebe — agir sobre a linha resolvida por email mexia na
-            // ligação REAL de outra pessoa. Por isso o seletor só representa
-            // ligações explícitas; a de email fica como texto, não como seleção.
+            // COINCIDÊNCIA DE EMAIL (user_supplier_id tem esse recurso). Essa
+            // resolução não é uma ligação registada, por isso não se representa
+            // no seletor — fica como texto. O seletor mostra só o link explícito.
             const explicitSupplierId = link?.link_source === "link" ? linkedSupplierId : null;
-            // Sócio já explicitamente ligado a OUTRA pessoa: escolher aqui rouba
-            // a ligação. Avisa-se antes, com o nome de quem a perde.
-            const ownerOf = (sid: string) =>
-              portalLinks.find((l) => l.supplier_id === sid && l.link_source === "link" && l.profile_id !== userId);
             return (
             <div key={userId} className="glass rounded-xl p-4">
               <p className="text-sm font-semibold mb-2">{getUserName(userId)}</p>
@@ -409,19 +401,9 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                   value={explicitSupplierId ?? ""}
                   onValueChange={(v) => {
                     if (!v) {
-                      // Desligar é set_partner_portal_user(sócio_actual, NULL) —
-                      // só quando ESTA pessoa tem a ligação explícita.
-                      if (explicitSupplierId) {
-                        setPortalUserMutation.mutate({ supplierId: explicitSupplierId, profileId: null });
-                      }
+                      // Desligar age sobre ESTA pessoa, não sobre o sócio.
+                      if (explicitSupplierId) unsetPortalUserMutation.mutate(userId);
                       return;
-                    }
-                    const owner = ownerOf(v);
-                    if (owner) {
-                      const who = owner.full_name || owner.email || "outro utilizador";
-                      if (!window.confirm(
-                        `Este sócio está ligado a ${who}. Ao continuar, essa ligação passa para ${getUserName(userId)}.`,
-                      )) return;
                     }
                     setPortalUserMutation.mutate({ supplierId: v, profileId: userId });
                   }}
@@ -430,7 +412,7 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 {!explicitSupplierId && (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
                     Sem sócio ligado — o Portal não mostra fechamento. Escolha aqui o sócio, ou ligue na ficha do sócio
-                    (Entidades → editar → «Utilizador do Portal»).
+                    (Entidades → editar → «Representantes no Portal»).
                   </p>
                 )}
                 {linkedSupplierId && link?.link_source === "email" && (
