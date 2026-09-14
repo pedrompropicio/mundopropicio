@@ -43,6 +43,13 @@ export type BudgetExcessLine = {
   to_approve: number;
   excess: number;
   suggested_amount: number;
+  /**
+   * INFORMATIVOS (não entram no confronto com o BP — D11): IVA e total com IVA
+   * do que está a ser aprovado nesta linha, somados transação a transação pela
+   * taxa de cada uma (uma linha pode agregar taxas diferentes).
+   */
+  to_approve_iva: number;
+  to_approve_gross: number;
 };
 
 export type BudgetRaise = {
@@ -91,9 +98,15 @@ export async function computeBudgetExcess(
   }
 
   const toApproveByLine = new Map<string, number>();
+  // Bruto por linha: transação a transação, pela taxa de CADA uma (nunca uma
+  // taxa única sobre o total).
+  const grossByLine = new Map<string, number>();
   for (const e of valid) {
     toApproveByLine.set(e.forecast_id, (toApproveByLine.get(e.forecast_id) ?? 0) + Number(e.amount));
+    const gross = calcWithIva(Number(e.amount), Number(e.iva_rate ?? 0));
+    grossByLine.set(e.forecast_id, (grossByLine.get(e.forecast_id) ?? 0) + gross);
   }
+
 
   const out: BudgetExcessLine[] = [];
   for (const f of (forecasts ?? []) as any[]) {
