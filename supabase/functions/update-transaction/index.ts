@@ -156,10 +156,16 @@ Deno.serve(async (req) => {
 
 
 
-    // RULE: Paid transactions — only specification and supplier_id can be edited (unless admin)
+    // RULE: Paid transactions — só um subconjunto de campos é editável (excepto admin).
+    // ESPELHO da lista `allowedFields` do ramo `paidLocked` em
+    // `src/components/TransactionEditModal.tsx` (~linha 506). As duas listas foram
+    // desenhadas para ser espelho e desalinharam-se: o modal enviava sempre
+    // is_confidential / event_settlement_id / ordering_partner_id / paying_partner_id
+    // e o servidor devolvia 422, bloqueando a edição de QUALQUER transação paga.
+    // Se acrescentares um campo aqui, acrescenta-o lá — e vice-versa.
     const isPaid = transaction.status === "paid";
     if (isPaid && !isAdmin) {
-      const paidAllowedFields = ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "declared_withholding_rate", "declared_withholding_amount"];
+      const paidAllowedFields = ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "declared_withholding_rate", "declared_withholding_amount", "is_confidential", "event_settlement_id", "ordering_partner_id", "paying_partner_id", "held_by_supplier_id", "category_id", "account_id", "payment_date", "status", "paid_amount"];
       const blockedFields = Object.keys(updates).filter((f) => !paidAllowedFields.includes(f));
       if (blockedFields.length > 0) {
         return new Response(
