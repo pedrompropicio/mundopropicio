@@ -243,13 +243,13 @@ export default function CampoView() {
       const assigneesP = supabase
         .from("operacao_etapa_assignees")
         .select(
-          "etapa_id, etapa:operacao_etapas!inner(id,name,status,planned_start,planned_end,frente_id,frente:operacao_frentes!inner(id,name,color,event_id))",
+          "etapa_id, etapa:operacao_etapas!inner(id,name,status,planned_start,planned_end,frente_id,frente:operacao_frentes!operacao_etapas_frente_id_fkey!inner(id,name,color,event_id))",
         )
         .eq("profile_id", user!.id);
       const respP = supabase
         .from("operacao_etapas")
         .select(
-          "id,name,status,planned_start,planned_end,frente_id,frente:operacao_frentes!inner(id,name,color,event_id)",
+          "id,name,status,planned_start,planned_end,frente_id,frente:operacao_frentes!operacao_etapas_frente_id_fkey!inner(id,name,color,event_id)",
         )
         .eq("responsible_profile_id", user!.id);
 

@@ -51,14 +51,14 @@ export default function MinhasTarefas() {
       orFilter.push(`responsible_profile_id.eq.${user!.id}`);
       const { data: d1 } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color), supplier:suppliers(name)")
+        .select("*, frente:operacao_frentes!operacao_etapas_frente_id_fkey(id,name,color), supplier:suppliers(name)")
         .or(orFilter.join(","));
       results.push(...(d1 ?? []));
       // b) etapas das frentes onde sou lead
       if ((leadFrenteIds ?? []).length > 0) {
         const { data: d2 } = await supabase
           .from("operacao_etapas")
-          .select("*, frente:operacao_frentes(id,name,color), supplier:suppliers(name)")
+          .select("*, frente:operacao_frentes!operacao_etapas_frente_id_fkey(id,name,color), supplier:suppliers(name)")
           .in("frente_id", leadFrenteIds!);
         results.push(...(d2 ?? []));
       }

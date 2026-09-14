@@ -474,7 +474,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_office_settlements" as any)
-        .select("*, financial_accounts(name)")
+        .select("*, financial_accounts:financial_accounts!ticket_office_settlements_financial_account_id_fkey(name)")
         .in("event_id", allEventIds);
       if (error) {
         // Tabela pode não existir em todos os projetos — tolera ausência.

@@ -34,7 +34,7 @@ export function FieldStaffSection({ compact = false }: { compact?: boolean }) {
     queryFn: async () => {
       let q = supabase
         .from("profiles")
-        .select("id, full_name, email, phone, archived_at, created_at, operacao_staff_invites(id, status, sent_at, expires_at)")
+        .select("id, full_name, email, phone, archived_at, created_at, operacao_staff_invites:operacao_staff_invites!operacao_staff_invites_profile_id_fkey(id, status, sent_at, expires_at)")
         .eq("profile_type", "field_staff")
         .order("created_at", { ascending: false });
       if (filter === "archived") q = q.not("archived_at", "is", null);
