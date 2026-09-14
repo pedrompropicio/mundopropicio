@@ -18,7 +18,8 @@ export interface InvoiceGroupSuggestion {
   invoiceRef: string;
   total: number;
   /** Porque é que o sistema não agrupa sozinho. */
-  reason?: "conflict" | "no_documents";
+  reason?: "conflict" | "no_documents" | "shared";
+
 }
 
 interface Props {
