@@ -14,6 +14,8 @@ import { logAudit, getAuditUser } from "@/lib/audit";
 import { formatDatePT } from "@/lib/utils";
 import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
 import { useBackdropClose } from "@/lib/backdropClose";
+import { revalidateInvoiceGroupAfterDocument, type InvoiceGroupRevalidation } from "@/lib/invoice-group";
+import InvoiceGroupRevalidateDialog from "@/components/InvoiceGroupRevalidateDialog";
 
 /** Detect if a ref:// entry actually contains an http(s) URL (clickable external link). */
 function isExternalLinkRef(fileUrl: string): boolean {
@@ -74,6 +76,7 @@ function extractStoragePath(fileUrl: string): string {
 export function TransactionDocumentsModal({ transactionId, transactionDescription, onClose }: Props) {
   const [uploading, setUploading] = useState(false);
   const [isAccounting, setIsAccounting] = useState(true);
+  const [revalidation, setRevalidation] = useState<InvoiceGroupRevalidation | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -191,6 +194,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
       queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
       toast({ title: "Documento anexado com sucesso!" });
+
+      // Papel novo obriga a revalidar o grupo de fatura: se as irmãs têm
+      // documentos diferentes, avisa e oferece desagrupar (2026-09-14).
+      const check = await revalidateInvoiceGroupAfterDocument(transactionId);
+      if (check?.kind === "conflict") setRevalidation(check);
     } catch (err: any) {
       toast({ title: "Erro ao enviar ficheiro", description: err.message, variant: "destructive" });
     } finally {
@@ -449,6 +457,15 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           </div>
         )}
       </div>
+
+      <InvoiceGroupRevalidateDialog
+        transactionId={transactionId}
+        revalidation={revalidation}
+        onClose={() => setRevalidation(null)}
+        onUngrouped={() => {
+          queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        }}
+      />
     </div>,
     document.body
   );

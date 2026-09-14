@@ -376,15 +376,19 @@ Deno.serve(async (req) => {
     // Propagate shared fields to invoice-group siblings (fatura com várias taxas de IVA).
     // Apenas campos que fazem sentido replicar — base/IVA/descrição/valor ficam INDIVIDUAIS por irmã.
     if (transaction.invoice_group_id) {
+      // O que as linhas da MESMA fatura têm em comum: fornecedor, datas, meio de
+      // pagamento. O que as DISTINGUE nunca viaja: valor, taxa de IVA, descrição
+      // e ESPECIFICAÇÃO (2026-09-14: a especificação propagava-se e reescrevia a
+      // frase das irmãs — incidente R-030/2026). O `invoice_ref` também saiu: se
+      // são a mesma fatura o número já é igual, e propagá-lo só serve para o
+      // trocar por engano.
       const invoiceSharedFields = [
         "event_id",
         "category_id",
         "supplier_id",
         "account_id",
-        "specification",
         "date",
         "due_date",
-        "invoice_ref",
         "payment_method",
         "payment_entity",
         "payment_reference",

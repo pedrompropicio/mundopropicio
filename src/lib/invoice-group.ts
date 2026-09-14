@@ -143,8 +143,11 @@ export type InvoiceDocCheck =
 
 /**
  * Compara os documentos anexos das linhas candidatas. Só é seguro agrupar
- * automaticamente quando partilham pelo menos um ficheiro, ou quando nenhuma
- * tem documento. Documentos diferentes = provável talão diferente.
+ * automaticamente quando partilham pelo menos um ficheiro (`shared`).
+ *
+ * 2026-09-14: `no_documents` DEIXOU de autorizar agrupamento automático — não
+ * ter papel não é prova de que é a mesma fatura, é ausência de prova (incidente
+ * das portagens Via Verde na nota R-030/2026).
  */
 export async function checkInvoiceDocumentsConsistency(
   transactionIds: string[],
@@ -167,17 +170,20 @@ export interface EnsureInvoiceGroupResult {
   groupId: string | null;
   total: number;
   updated: number;
-  /** true quando existem linhas com documentos DIFERENTES → precisa de confirmação humana. */
+  /** true quando o agrupamento precisa de confirmação humana explícita. */
   needsConfirm?: boolean;
+  /** Porque é que precisa de confirmação. */
+  reason?: "conflict" | "no_documents";
 }
 
 /**
  * Cria (ou reutiliza) o grupo de fatura para todas as transações do mesmo
  * fornecedor + mesmo nº de fatura/ATCUD. Nunca agrupa fornecedores diferentes.
  *
- * CONSERVADOR (2026-09): antes de escrever compara os documentos anexos. Se as
- * linhas tiverem documentos diferentes, NÃO agrupa e devolve `needsConfirm`.
- * Passar `{ force: true }` só depois de a editora confirmar no diálogo.
+ * EXPLÍCITO (2026-09-14): sem `force`, só agrupa quando as linhas PARTILHAM o
+ * mesmo documento — a única prova inequívoca de que é a mesma fatura. Documentos
+ * diferentes ou ausência de documento devolvem `needsConfirm` + `reason` e nada
+ * é escrito. `{ force: true }` só depois de confirmação humana no diálogo.
  */
 export async function ensureInvoiceGroup(
   supplierId: string,
@@ -194,8 +200,14 @@ export async function ensureInvoiceGroup(
 
   if (!opts.force) {
     const check = await checkInvoiceDocumentsConsistency(siblings.map((s) => s.id));
-    if (check.kind === "conflict") {
-      return { groupId: null, total: siblings.length, updated: 0, needsConfirm: true };
+    if (check.kind !== "shared") {
+      return {
+        groupId: null,
+        total: siblings.length,
+        updated: 0,
+        needsConfirm: true,
+        reason: check.kind === "conflict" ? "conflict" : "no_documents",
+      };
     }
   }
 
@@ -218,12 +230,15 @@ export interface AutoGroupOutcome {
   supplierId: string;
   /** Quando true nada foi escrito: é apenas uma SUGESTÃO a confirmar pela editora. */
   suggestion?: boolean;
+  /** Porque é que é só sugestão: documentos diferentes ou nenhum documento. */
+  reason?: "conflict" | "no_documents";
 }
 
 /**
- * Auto-agrupamento conservador após criar/editar uma transação. Devolve:
- *  - `{ updated > 0 }` quando agrupou (documentos partilhados ou inexistentes);
- *  - `{ suggestion: true }` quando há irmãs mas com documentos diferentes;
+ * Auto-agrupamento após criar/editar uma transação. Devolve:
+ *  - `{ updated > 0 }` só quando as linhas partilham o MESMO documento;
+ *  - `{ suggestion: true, reason }` quando há irmãs mas sem prova documental
+ *    (documentos diferentes ou nenhum) → exige confirmação humana;
  *  - `null` quando não há nada a fazer.
  */
 export async function autoGroupInvoiceForTransaction(
@@ -241,7 +256,7 @@ export async function autoGroupInvoiceForTransaction(
     if (!supplierId || !isGroupableInvoiceRef(invoiceRef)) return null;
     const res = await ensureInvoiceGroup(supplierId, invoiceRef, opts);
     if (res.needsConfirm) {
-      return { invoiceRef, total: res.total, updated: 0, supplierId, suggestion: true };
+      return { invoiceRef, total: res.total, updated: 0, supplierId, suggestion: true, reason: res.reason };
     }
     if (!res.groupId || res.updated === 0) return null;
     return { invoiceRef, total: res.total, updated: res.updated, supplierId };
@@ -314,3 +329,66 @@ export async function fetchInvoiceGroupSiblingDetails(
   return (data ?? []) as InvoiceGroupSiblingDetail[];
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Revalidação do grupo quando aparece papel novo (2026-09-14)
+ * ------------------------------------------------------------------ */
+
+export interface InvoiceGroupRevalidation {
+  groupId: string;
+  siblingIds: string[];
+  /** "conflict" = documentos diferentes entre irmãs; "ok" = partilham documento. */
+  kind: "ok" | "conflict";
+  /** Veredicto do OCR da edge function `audit-invoice-groups`, quando disponível. */
+  auditVeredicto?: "ok" | "desagrupar" | "rever" | null;
+  runAt?: string | null;
+}
+
+/**
+ * Chamada depois de anexar um documento a uma transação. Se a transação
+ * pertencer a um grupo de fatura e as irmãs tiverem documentos DIFERENTES, o
+ * grupo passa a ser suspeito: devolve `kind: "conflict"` para a UI avisar e
+ * oferecer desagrupar.
+ *
+ * O veredicto do OCR vem da edge function `audit-invoice-groups` (âmbito de um
+ * único grupo, via `group_id`) — não se duplica lógica de leitura aqui.
+ */
+export async function revalidateInvoiceGroupAfterDocument(
+  transactionId: string,
+): Promise<InvoiceGroupRevalidation | null> {
+  try {
+    const { data: tx } = await (supabase as any)
+      .from("transactions")
+      .select("invoice_group_id")
+      .eq("id", transactionId)
+      .maybeSingle();
+    const groupId: string | null = tx?.invoice_group_id ?? null;
+    if (!groupId) return null;
+
+    const { data: rows } = await (supabase as any)
+      .from("transactions")
+      .select("id")
+      .eq("invoice_group_id", groupId);
+    const siblingIds = (rows ?? []).map((r: any) => r.id as string);
+    if (siblingIds.length < 2) return null;
+
+    const check = await checkInvoiceDocumentsConsistency(siblingIds);
+    if (check.kind === "shared") return { groupId, siblingIds, kind: "ok" };
+
+    // Documentos diferentes (ou só algumas linhas com papel) → pede o veredicto do OCR.
+    let auditVeredicto: InvoiceGroupRevalidation["auditVeredicto"] = null;
+    let runAt: string | null = null;
+    try {
+      const { data } = await supabase.functions.invoke("audit-invoice-groups", {
+        body: { action: "dry-run", group_id: groupId },
+      });
+      auditVeredicto = (data as any)?.group_veredicto ?? null;
+      runAt = (data as any)?.run_at ?? null;
+    } catch {
+      // Sem OCR o aviso mantém-se: os documentos são diferentes.
+    }
+    return { groupId, siblingIds, kind: "conflict", auditVeredicto, runAt };
+  } catch {
+    return null; // nunca quebrar o fluxo de anexar documento
+  }
+}
