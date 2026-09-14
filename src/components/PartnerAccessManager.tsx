@@ -189,6 +189,53 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
       toast({ title: "Não foi possível remover a ligação", description: e?.message ?? String(e), variant: "destructive" }),
   });
 
+  const supplierLabelOf = (sid: string) =>
+    eventPartnerOptions.find((o) => o.value === sid)?.label ?? "sócio";
+
+  // Religar uma pessoa a OUTRO sócio deixa os acessos antigos desalinhados: os
+  // eventos onde o novo sócio não participa deixam de estar visíveis para ela.
+  // Avisa-se antes de gravar; nunca se retiram acessos automaticamente — a
+  // decisão é de quem está a operar.
+  const requestRelink = async (userId: string, supplierId: string, currentSupplierId: string | null) => {
+    if (!currentSupplierId || currentSupplierId === supplierId) {
+      setPortalUserMutation.mutate({ supplierId, profileId: userId });
+      return;
+    }
+    try {
+      const [accessRes, partnerRes] = await Promise.all([
+        supabase
+          .from("partner_event_access")
+          .select("event_id, events(id, name, parent_event_id)")
+          .eq("user_id", userId)
+          .eq("is_active", true),
+        supabase.from("event_partners").select("event_id").eq("supplier_id", supplierId),
+      ]);
+      if (accessRes.error) throw accessRes.error;
+      if (partnerRes.error) throw partnerRes.error;
+      const partnerEventIds = new Set((partnerRes.data ?? []).map((r: any) => r.event_id));
+      const losing = (accessRes.data ?? [])
+        .map((a: any) => a.events)
+        .filter(
+          (ev: any) =>
+            ev &&
+            !partnerEventIds.has(ev.id) &&
+            !(ev.parent_event_id && partnerEventIds.has(ev.parent_event_id)),
+        )
+        .map((ev: any) => String(ev.name ?? "—"));
+      if (losing.length === 0) {
+        setPortalUserMutation.mutate({ supplierId, profileId: userId });
+        return;
+      }
+      setRelinkPrompt({ userId, supplierId, supplierLabel: supplierLabelOf(supplierId), events: losing });
+    } catch (e: any) {
+      toast({
+        title: "Não foi possível verificar os acessos deste utilizador",
+        description: e?.message ?? String(e),
+        variant: "destructive",
+      });
+    }
+  };
+
   const addAccessMutation = useMutation({
     mutationFn: async () => {
       const idsToGrant = selectedEventIds.length > 0 ? selectedEventIds : [eventId];
