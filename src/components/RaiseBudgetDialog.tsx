@@ -134,8 +134,8 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
           </DialogTitle>
           <DialogDescription>
             {canRaise
-              ? "Aprovar estas despesas faz o realizado ultrapassar a verba da linha. A linha é elevada no mesmo acto — o BP é o norte e nunca fica abaixo do realizado."
-              : "Aprovar estas despesas faz o realizado ultrapassar a verba da linha do BP."}
+              ? "Aprovar estas despesas faz o realizado ultrapassar a verba da linha. A linha é elevada no mesmo acto — o BP é o norte e nunca fica abaixo do realizado. A verba do BP é sempre sem IVA; o total com IVA é o que sai da conta."
+              : "Aprovar estas despesas faz o realizado ultrapassar a verba da linha do BP. A verba do BP é sempre sem IVA; o total com IVA é o que sai da conta."}
           </DialogDescription>
         </DialogHeader>
 
@@ -237,7 +237,7 @@ export default function RaiseBudgetDialog({ lines, onClose, onConfirm, applyViaR
                         }
                       />
                       <p className="text-[11px] text-muted-foreground">
-                        Mínimo {formatCurrency(l.suggested_amount)} — a linha nunca fica abaixo do realizado.
+                        Mínimo {formatCurrency(l.suggested_amount)} (sem IVA) — a linha nunca fica abaixo do realizado.
                       </p>
                     </div>
 
