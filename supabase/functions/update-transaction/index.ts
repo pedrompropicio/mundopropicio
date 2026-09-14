@@ -232,65 +232,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Write audit log (server-side, tamper-proof)
     const callerName = caller.user_metadata?.full_name ?? caller.email ?? "sistema";
-    const auditEntries = (changes && Array.isArray(changes) ? changes : []).map((c: any) => ({
-      transaction_id,
-      company_id: transaction.company_id,
-      changed_by: callerName,
-      field_name: String(c.field_name ?? ""),
-      old_value: String(c.old_value ?? ""),
-      new_value: String(c.new_value ?? ""),
-    }));
-
-    // AUDITORIA OBRIGATÓRIA (derivada no servidor, não depende do cliente):
-    // mudança de EVENTO e de DESCRIÇÃO. O incidente do vínculo cruzado BP↔TX
-    // (Anitta → Ivete) não deixou rasto porque estes dois campos podiam ser
-    // alterados sem qualquer entrada no transaction_audit_log.
-    {
-      const alreadyAudited = new Set(auditEntries.map((e) => e.field_name));
-
-      if ("description" in updates && !alreadyAudited.has("Descrição")) {
-        const oldVal = String(transaction.description ?? "");
-        const newVal = String(updates.description ?? "");
-        if (oldVal !== newVal) {
-          auditEntries.push({ transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
-        }
-      }
-
-      if ("event_id" in updates && !alreadyAudited.has("Evento")) {
-        const oldId = transaction.event_id ?? null;
-        const newId = updates.event_id ?? null;
-        if (String(oldId ?? "") !== String(newId ?? "")) {
-          const ids = [oldId, newId].filter(Boolean) as string[];
-          const nameById = new Map<string, string>();
-          if (ids.length > 0) {
-            const { data: evRows } = await adminClient.from("events").select("id, name").in("id", ids);
-            for (const ev of evRows ?? []) nameById.set(ev.id, ev.name);
-          }
-          const label = (id: string | null) => (id ? `${nameById.get(id) ?? id}` : "(sem evento)");
-          auditEntries.push({
-            transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Evento",
-            old_value: label(oldId), new_value: label(newId),
-          });
-        }
-      }
-    }
-
-    if (auditEntries.length > 0) {
-      const { error: auditError } = await adminClient
-        .from("transaction_audit_log")
-        .insert(auditEntries);
-
-      if (auditError) {
-        console.error("Audit log error:", auditError);
-      }
-    }
-
 
     // Build sanitized update object (only allowed fields)
-    // SECURITY: `status` removed — status transitions must go through the
-    // dedicated approve-transaction / liquidate flows (which enforce admin/manager).
+    // SECURITY: `status` e `paid_amount` ficam FORA por desenho — as transições de
+    // estado passam pelos fluxos approve-transaction / liquidação, e no "Recebido
+    // por" é o trigger trg_enforce_held_revenue_is_paid que os põe.
+    // ESPELHO do `fieldLabels` de `src/components/TransactionEditModal.tsx`: o que
+    // o formulário envia e não estiver aqui é descartado em silêncio.
     const allowedFields = [
       "description", "amount", "iva_rate", "event_id", "category_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
@@ -299,6 +248,9 @@ Deno.serve(async (req) => {
       "operation_key",
       "declared_withholding_rate", "declared_withholding_amount",
       "is_reimbursement", "reimbursement_to",
+      "held_by_supplier_id", "event_settlement_id", "is_confidential",
+      "ordering_partner_id", "paying_partner_id",
+      "currency", "original_amount", "fx_rate", "fx_rate_source",
     ];
     const sanitizedUpdates: Record<string, any> = {};
     for (const field of allowedFields) {
@@ -329,6 +281,90 @@ Deno.serve(async (req) => {
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // AUDITORIA — escrita DEPOIS do update ter tido sucesso (2026-09-14).
+    // Antes corria primeiro: registava alterações de campos descartados pela
+    // sanitização e, se o update falhasse, ficava rasto de uma alteração que não
+    // houve. A trava de evento concluído continua ANTES de tudo isto.
+    // ESPELHO dos rótulos de `fieldLabels` no TransactionEditModal — serve para
+    // filtrar as entradas do cliente pelos campos que sobreviveram.
+    const FIELD_BY_LABEL: Record<string, string> = {
+      "Descrição": "description", "Valor": "amount", "Taxa IVA": "iva_rate",
+      "Evento": "event_id", "Categoria": "category_id", "Fornecedor": "supplier_id",
+      "Conta": "account_id", "Especificação": "specification", "Data": "date",
+      "Data Vencimento": "due_date", "Data Pagamento": "payment_date",
+      "Transitória": "is_transitory", "Fora do Resultado": "exclude_from_result",
+      "Nº Fatura": "invoice_ref", "Método Pagamento": "payment_method",
+      "Entidade Pagamento": "payment_entity", "Referência Pagamento": "payment_reference",
+      "Chave de operação": "operation_key",
+      "Retenção IRS declarada (%)": "declared_withholding_rate",
+      "Retenção IRS declarada (€)": "declared_withholding_amount",
+      "Confidencial": "is_confidential", "Reembolso": "is_reimbursement",
+      "Colaborador (reembolso)": "reimbursement_to",
+      "Ordenador da despesa": "ordering_partner_id",
+      "Pagador da despesa": "paying_partner_id",
+      "Fechamento": "event_settlement_id",
+      "Recebido por": "held_by_supplier_id",
+    };
+    const auditEntries = (changes && Array.isArray(changes) ? changes : [])
+      .filter((c: any) => {
+        const label = String(c?.field_name ?? "");
+        const field = FIELD_BY_LABEL[label];
+        // Rótulo desconhecido: mantém-se (não inventamos censura sobre o que não mapeamos).
+        return field ? field in sanitizedUpdates : true;
+      })
+      .map((c: any) => ({
+        transaction_id,
+        company_id: transaction.company_id,
+        changed_by: callerName,
+        field_name: String(c.field_name ?? ""),
+        old_value: String(c.old_value ?? ""),
+        new_value: String(c.new_value ?? ""),
+      }));
+
+    // AUDITORIA OBRIGATÓRIA (derivada no servidor, não depende do cliente):
+    // mudança de EVENTO e de DESCRIÇÃO. O incidente do vínculo cruzado BP↔TX
+    // (Anitta → Ivete) não deixou rasto porque estes dois campos podiam ser
+    // alterados sem qualquer entrada no transaction_audit_log.
+    {
+      const alreadyAudited = new Set(auditEntries.map((e) => e.field_name));
+
+      if ("description" in sanitizedUpdates && !alreadyAudited.has("Descrição")) {
+        const oldVal = String(transaction.description ?? "");
+        const newVal = String(sanitizedUpdates.description ?? "");
+        if (oldVal !== newVal) {
+          auditEntries.push({ transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Descrição", old_value: oldVal, new_value: newVal });
+        }
+      }
+
+      if ("event_id" in sanitizedUpdates && !alreadyAudited.has("Evento")) {
+        const oldId = transaction.event_id ?? null;
+        const newId = sanitizedUpdates.event_id ?? null;
+        if (String(oldId ?? "") !== String(newId ?? "")) {
+          const ids = [oldId, newId].filter(Boolean) as string[];
+          const nameById = new Map<string, string>();
+          if (ids.length > 0) {
+            const { data: evNameRows } = await adminClient.from("events").select("id, name").in("id", ids);
+            for (const ev of evNameRows ?? []) nameById.set(ev.id, ev.name);
+          }
+          const label = (id: string | null) => (id ? `${nameById.get(id) ?? id}` : "(sem evento)");
+          auditEntries.push({
+            transaction_id, company_id: transaction.company_id, changed_by: callerName, field_name: "Evento",
+            old_value: label(oldId), new_value: label(newId),
+          });
+        }
+      }
+    }
+
+    if (auditEntries.length > 0) {
+      const { error: auditError } = await adminClient
+        .from("transaction_audit_log")
+        .insert(auditEntries);
+
+      if (auditError) {
+        console.error("Audit log error:", auditError);
+      }
     }
 
     // Propagate changes to child transactions (splits or installments)
