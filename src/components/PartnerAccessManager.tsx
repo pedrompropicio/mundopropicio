@@ -366,6 +366,19 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
           {Object.entries(accessByUser).map(([userId, records]) => {
             const link = linkByUser[userId];
             const linkedSupplierId = link?.supplier_id ?? null;
+            // `partner_portal_links` devolve também ligações resolvidas por
+            // COINCIDÊNCIA DE EMAIL (user_supplier_id tem esse recurso). Duas
+            // pessoas podem por isso aparecer com o MESMO sócio: uma por link
+            // explícito, outra por email. Como set_partner_portal_user é
+            // indexada pelo SÓCIO — limpa todos os perfis ligados a ele e liga o
+            // que recebe — agir sobre a linha resolvida por email mexia na
+            // ligação REAL de outra pessoa. Por isso o seletor só representa
+            // ligações explícitas; a de email fica como texto, não como seleção.
+            const explicitSupplierId = link?.link_source === "link" ? linkedSupplierId : null;
+            // Sócio já explicitamente ligado a OUTRA pessoa: escolher aqui rouba
+            // a ligação. Avisa-se antes, com o nome de quem a perde.
+            const ownerOf = (sid: string) =>
+              portalLinks.find((l) => l.supplier_id === sid && l.link_source === "link" && l.profile_id !== userId);
             return (
             <div key={userId} className="glass rounded-xl p-4">
               <p className="text-sm font-semibold mb-2">{getUserName(userId)}</p>
@@ -374,20 +387,28 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 <label className="text-[11px] font-medium text-muted-foreground block">Sócio que representa</label>
                 <SearchableSelect
                   options={eventPartnerOptions}
-                  value={linkedSupplierId ?? ""}
+                  value={explicitSupplierId ?? ""}
                   onValueChange={(v) => {
                     if (!v) {
-                      // Desligar é set_partner_portal_user(sócio_actual, NULL).
-                      if (linkedSupplierId) {
-                        setPortalUserMutation.mutate({ supplierId: linkedSupplierId, profileId: null });
+                      // Desligar é set_partner_portal_user(sócio_actual, NULL) —
+                      // só quando ESTA pessoa tem a ligação explícita.
+                      if (explicitSupplierId) {
+                        setPortalUserMutation.mutate({ supplierId: explicitSupplierId, profileId: null });
                       }
                       return;
+                    }
+                    const owner = ownerOf(v);
+                    if (owner) {
+                      const who = owner.full_name || owner.email || "outro utilizador";
+                      if (!window.confirm(
+                        `Este sócio está ligado a ${who}. Ao continuar, essa ligação passa para ${getUserName(userId)}.`,
+                      )) return;
                     }
                     setPortalUserMutation.mutate({ supplierId: v, profileId: userId });
                   }}
                   placeholder="Selecione o sócio..."
                 />
-                {!linkedSupplierId && (
+                {!explicitSupplierId && (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
                     Sem sócio ligado — o Portal não mostra fechamento. Escolha aqui o sócio, ou ligue na ficha do sócio
                     (Entidades → editar → «Utilizador do Portal»).
@@ -395,7 +416,8 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 )}
                 {linkedSupplierId && link?.link_source === "email" && (
                   <p className="text-[11px] text-muted-foreground">
-                    Ligado por coincidência de email ({link.supplier_name || "sócio"}). Escolha o sócio acima para fixar a ligação.
+                    O Portal resolve por coincidência de email ({link.supplier_name || "sócio"}), sem ligação registada.
+                    Escolha o sócio acima para fixar a ligação a esta pessoa.
                   </p>
                 )}
               </div>
