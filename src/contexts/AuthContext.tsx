@@ -91,6 +91,7 @@ export const ALL_PERMISSIONS = [
   { key: "manage_iva", label: "Gerir IVA", group: "Operacional" },
   { key: "manage_categories", label: "Gerir Plano de Contas", group: "Operacional" },
   { key: "manage_calendar", label: "Gerir Calendário", group: "Operacional" },
+  { key: "reopen_event", label: "Reabrir evento concluído", group: "Operacional" },
   { key: "view_report_dre", label: "Relatório DRE", group: "Relatórios" },
   { key: "view_report_dre_brasil", label: "Relatório DRE Brasil", group: "Relatórios" },
   { key: "view_report_pl", label: "Relatório Business Plan", group: "Relatórios" },

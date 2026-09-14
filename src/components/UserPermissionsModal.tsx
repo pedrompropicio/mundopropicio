@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type AppRole, ALL_PERMISSIONS } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "@/hooks/use-toast";
 import { X, Loader2 } from "lucide-react";
 import {
@@ -21,6 +22,7 @@ interface Props {
 
 export default function UserPermissionsModal({ open, onOpenChange, userId, userName, userRole }: Props) {
   const queryClient = useQueryClient();
+  const { companyId } = useCompany();
 
   // Get role-level defaults
   const { data: rolePerms = [] } = useQuery({
@@ -37,15 +39,16 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
 
   // Get user-level overrides
   const { data: userOverrides = [], isLoading } = useQuery({
-    queryKey: ["user-permissions", userId],
+    queryKey: ["user-permissions", userId, companyId],
     queryFn: async () => {
       const { data } = await supabase
         .from("user_permissions")
         .select("permission, granted")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("company_id", companyId!);
       return data ?? [];
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Local state for toggle changes
@@ -85,14 +88,23 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Delete all existing overrides for this user
-      await supabase.from("user_permissions").delete().eq("user_id", userId);
+      if (!companyId) throw new Error("Empresa ativa não resolvida");
+
+      // Delete existing overrides for this user IN THE ACTIVE COMPANY ONLY.
+      // platform_admin is not limited by RLS here, so the company filter is mandatory.
+      const { error: delError } = await supabase
+        .from("user_permissions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("company_id", companyId);
+      if (delError) throw delError;
 
       // Insert new overrides
       const inserts = Object.entries(localOverrides)
         .filter(([_, v]) => v !== undefined)
         .map(([permission, granted]) => ({
           user_id: userId,
+          company_id: companyId,
           permission,
           granted: granted!,
         }));
@@ -103,7 +115,7 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-permissions", userId] });
+      queryClient.invalidateQueries({ queryKey: ["user-permissions", userId, companyId] });
       toast({ title: "Permissões guardadas!" });
       onOpenChange(false);
     },
