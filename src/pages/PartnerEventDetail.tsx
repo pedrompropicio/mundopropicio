@@ -30,6 +30,7 @@ import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
+import { PartnerNoSupplierNotice } from "@/components/partner/PartnerNoSupplierNotice";
 import { PartnerSettlementBlock, type PartnerSettlementBlockData } from "@/components/partner/PartnerSettlementBlock";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
@@ -970,12 +971,6 @@ export default function PartnerEventDetail() {
     return m;
   }, [bpGroupedHier, bpL3Overrun]);
 
-  // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
-  const bpTotalIncome = useMemo(
-    () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
-    [bpIncomes],
-  );
-  const bpTotalResult = bpTotalIncome - bpTotalExpenseAdjusted;
 
 
   // ─── Exportações do BP do sócio (Excel + PDF) ───
@@ -1067,7 +1062,12 @@ export default function PartnerEventDetail() {
     if (canExportStatement) {
       try {
         const input = buildStatementDocInput();
-        if (!input) return;
+        if (!input) {
+          toast.error("Prestação de contas indisponível", {
+            description: "Ainda não há prestação de contas disponível para este evento.",
+          });
+          return;
+        }
         await exportPartnerStatementDocExcel(input);
       } catch (err: any) {
         toast.error("Erro ao exportar Excel", { description: err?.message });
@@ -1106,7 +1106,12 @@ export default function PartnerEventDetail() {
       try {
         const branding = await fetchExportBranding();
         const input = buildStatementDocInput(branding.logoDataUrl);
-        if (!input) return;
+        if (!input) {
+          toast.error("Prestação de contas indisponível", {
+            description: "Ainda não há prestação de contas disponível para este evento.",
+          });
+          return;
+        }
         exportPartnerStatementDocPdf(input);
       } catch (err: any) {
         toast.error("Erro ao exportar PDF", { description: err?.message });
@@ -1414,20 +1419,7 @@ export default function PartnerEventDetail() {
               resolvida não se mostra nem um valor, nem cards, e nunca se assume
               uma base de apuramento por defeito (decisão do CEO). */}
           {!hasViewerSupplier ? (
-            <Card className="p-8 text-center max-w-2xl mx-auto space-y-2">
-              {isLoadingViewerSupplier ? (
-                <p className="text-muted-foreground">A identificar o sócio…</p>
-              ) : (
-                <>
-                  <p className="font-semibold">Esta conta não está ligada a nenhum sócio.</p>
-                  <p className="text-sm text-muted-foreground">
-                    Sem essa ligação não é possível apresentar valores deste evento, porque a base de
-                    apuramento das despesas depende do contrato do sócio. Pede ao administrador para
-                    fazer a ligação no evento, em <span className="font-medium">Acesso de Parceiros</span>.
-                  </p>
-                </>
-              )}
-            </Card>
+            <PartnerNoSupplierNotice isLoading={isLoadingViewerSupplier} />
           ) : (
           <>
           {/* Cabeçalho aba BP: versão + botão Exportar PDF */}
@@ -2059,7 +2051,9 @@ export default function PartnerEventDetail() {
         {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
         {hasPermission("view_partner_transactions") && (
         <TabsContent value="transactions">
-          {transactions.length === 0 && overheads.length === 0 ? (
+          {!hasViewerSupplier ? (
+            <PartnerNoSupplierNotice isLoading={isLoadingViewerSupplier} />
+          ) : transactions.length === 0 && overheads.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem transações registadas.</p>
             </Card>
