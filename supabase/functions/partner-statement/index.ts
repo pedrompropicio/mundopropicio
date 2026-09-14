@@ -58,34 +58,100 @@ Deno.serve(async (req) => {
     }
     const eventId = String(body?.event_id ?? "");
     if (!UUID.test(eventId)) return json({ error: "Evento inválido." }, 400);
+    const requestedSupplierId = body?.supplier_id ? String(body.supplier_id) : null;
+    if (requestedSupplierId && !UUID.test(requestedSupplierId)) {
+      return json({ error: "Sócio inválido." }, 400);
+    }
 
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-    // Sócio do utilizador (identidade canónica).
-    // Assinatura real na BD: public.user_supplier_id(p_user_id uuid).
-    const { data: supplierId, error: supplierErr } = await admin.rpc("user_supplier_id", {
-      p_user_id: user.id,
-    });
-    // Erro de RPC nunca é 403 — é falha nossa.
-    if (supplierErr) {
-      console.error("partner-statement user_supplier_id", supplierErr);
-      return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
-    }
-    if (!supplierId) return json({ error: "Sem acesso a esta informação." }, 403);
+    let supplierId: string | null = null;
+    let companyId: string | null = null;
+    const viewedAsAdmin = !!requestedSupplierId;
 
-    // Acesso activo ao evento.
-    const { data: access, error: accessErr } = await admin
-      .from("partner_event_access")
-      .select("id, company_id")
-      .eq("user_id", user.id)
-      .eq("event_id", eventId)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (accessErr) {
-      console.error("partner-statement partner_event_access", accessErr);
-      return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+    if (requestedSupplierId) {
+      // ── "Ver como sócio": inspecção por administrador ──
+      const { data: eventRow, error: eventErr } = await admin
+        .from("events")
+        .select("id, company_id")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (eventErr) {
+        console.error("partner-statement events", eventErr);
+        return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+      }
+      if (!eventRow) return json({ error: "Sem acesso a esta informação." }, 403);
+
+      const { data: isPlatformAdmin, error: paErr } = await admin.rpc("is_platform_admin", {
+        _user_id: user.id,
+      });
+      if (paErr) {
+        console.error("partner-statement is_platform_admin", paErr);
+        return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+      }
+
+      let allowed = isPlatformAdmin === true;
+      if (!allowed) {
+        const { data: adminRole, error: roleErr } = await admin
+          .from("user_roles")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .eq("company_id", eventRow.company_id)
+          .maybeSingle();
+        if (roleErr) {
+          console.error("partner-statement user_roles", roleErr);
+          return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+        }
+        allowed = !!adminRole;
+      }
+      if (!allowed) return json({ error: "Sem acesso a esta informação." }, 403);
+
+      // O sócio pedido tem de ser, de facto, sócio deste evento.
+      const { data: partnerRow, error: partnerErr } = await admin
+        .from("event_partners")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("supplier_id", requestedSupplierId)
+        .maybeSingle();
+      if (partnerErr) {
+        console.error("partner-statement event_partners", partnerErr);
+        return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+      }
+      if (!partnerRow) return json({ error: "Sem acesso a esta informação." }, 403);
+
+      supplierId = requestedSupplierId;
+      companyId = eventRow.company_id as string;
+    } else {
+      // Sócio do utilizador (identidade canónica).
+      // Assinatura real na BD: public.user_supplier_id(p_user_id uuid).
+      const { data: ownSupplierId, error: supplierErr } = await admin.rpc("user_supplier_id", {
+        p_user_id: user.id,
+      });
+      // Erro de RPC nunca é 403 — é falha nossa.
+      if (supplierErr) {
+        console.error("partner-statement user_supplier_id", supplierErr);
+        return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+      }
+      if (!ownSupplierId) return json({ error: "Sem acesso a esta informação." }, 403);
+
+      // Acesso activo ao evento.
+      const { data: access, error: accessErr } = await admin
+        .from("partner_event_access")
+        .select("id, company_id")
+        .eq("user_id", user.id)
+        .eq("event_id", eventId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (accessErr) {
+        console.error("partner-statement partner_event_access", accessErr);
+        return json({ error: "Não foi possível preparar a prestação de contas." }, 500);
+      }
+      if (!access) return json({ error: "Sem acesso a esta informação." }, 403);
+
+      supplierId = String(ownSupplierId);
+      companyId = access.company_id as string;
     }
-    if (!access) return json({ error: "Sem acesso a esta informação." }, 403);
 
     const bundle = await loadStatementBundle(admin as any, eventId);
 
@@ -94,7 +160,7 @@ Deno.serve(async (req) => {
     const { data: company } = await admin
       .from("companies")
       .select("logo_url, display_name")
-      .eq("id", access.company_id)
+      .eq("id", companyId)
       .maybeSingle();
 
     const result = buildPartnerStatement(bundle, String(supplierId), { logoDataUrl });
@@ -105,8 +171,8 @@ Deno.serve(async (req) => {
       entity_id: eventId,
       action: "read",
       changed_by: user.email ?? user.id,
-      company_id: access.company_id,
-      metadata: { supplier_id: supplierId, event_id: eventId },
+      company_id: companyId,
+      metadata: { supplier_id: supplierId, event_id: eventId, viewed_as_admin: viewedAsAdmin },
     });
 
     return json({
