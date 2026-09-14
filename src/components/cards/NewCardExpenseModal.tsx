@@ -650,7 +650,7 @@ export function NewCardExpenseModal({
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={mut.isPending || ocrLoading} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={mut.isPending || ocrLoading || (isLegacyEdit && completedEventBlocked)} title={isLegacyEdit && completedEventBlocked ? "Evento concluído. Reabre o evento para editar." : undefined} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
               {mut.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
             </button>
           </div>
