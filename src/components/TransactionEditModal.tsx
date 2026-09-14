@@ -1144,6 +1144,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
           <TabsContent value="details" className="pt-3">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {eventCompleted && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground">
+              <span className="font-semibold">Evento concluído.</span> Reabre o evento para editar.
+              Podes consultar os dados e continuar a registar ou estornar pagamentos no separador Pagamento.
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
