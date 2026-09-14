@@ -30,8 +30,11 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const { user, role } = useAuth();
   // O editor pode corrigir a DATA e APAGAR um pagamento; valor/conta/método
   // continuam reservados a admin/manager.
+  // Evento concluído: EDITAR dados do pagamento fica bloqueado; REVERTER é permitido.
   const canFull = canApprove && !eventCompleted;
-  const canLimited = (canApprove || role === "editor") && !eventCompleted;
+  const canEdit = (canApprove || role === "editor") && !eventCompleted;
+  const canRevert = canApprove || role === "editor";
+  const canLimited = canEdit;
   const queryClient = useQueryClient();
   // "Pag. Estado" segue a mesma regra condicional dos outros modais
   // (categorias 10.4/10.5); mantém-se visível se a parcela já o tiver.
