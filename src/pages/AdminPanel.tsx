@@ -92,16 +92,10 @@ const adminCards = [
     description: "Auditoria retroativa: IBANs partilhados por mais de um fornecedor na empresa ativa",
   },
   {
-    to: "/admin/invariantes-diarias",
-    icon: ShieldCheck,
-    title: "Invariantes Diárias",
-    description: "Doze contagens contra valor de referência, execução diária, histórico e aceitação de nova referência",
-  },
-  {
     to: "/admin/invariantes",
     icon: ShieldCheck,
     title: "Verificador de Invariantes",
-    description: "Diagnóstico das regras estruturais do sistema e smoke test das consultas usadas pela app",
+    description: "Dezoito contagens contra valor de referência (fronteira entre empresas + regras de negócio), amostra das linhas, execução diária, histórico e aceitação de nova referência",
   },
   {
     to: "/admin/audit-downloads",
