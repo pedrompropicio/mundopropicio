@@ -27,20 +27,24 @@ import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank } from "
 type ViewMode = "grid" | "list";
 type SortField = "name" | "trade_name";
 type SortDir = "asc" | "desc";
+type StatusFilter = "active" | "inactive" | "all";
 
 export default function Suppliers() {
   const [tab, setTab] = useState<"suppliers" | "credits">("suppliers");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<any>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [creditsExpandedId, setCreditsExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [hidePartners, setHidePartners] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const queryClient = useQueryClient();
+  const { user, role } = useAuth() as any;
+  const canManage = role === "admin" || role === "platform_admin" || role === "manager";
 
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["suppliers"],
@@ -52,20 +56,67 @@ export default function Suppliers() {
     },
   });
 
+  // Utilização real do fornecedor a eliminar, lida na hora.
+  const { data: usage, isLoading: usageLoading } = useQuery<SupplierUsage>({
+    queryKey: ["supplier-usage", deleting?.id],
+    enabled: !!deleting?.id,
+    queryFn: () => fetchSupplierUsage(deleting.id),
+  });
+
+  const invalidateSuppliers = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
+      queryClient.invalidateQueries({ queryKey: ["suppliers-active"] }),
+    ]);
+
+  const deactivateMutation = useMutation({
+    mutationFn: (s: any) =>
+      deactivateSupplier({ id: s.id, notes: s.notes, who: user?.email || "sistema" }),
+    onSuccess: async () => {
+      await invalidateSuppliers();
+      setDeleting(null);
+      toast.success("Fornecedor desativado", {
+        description: "Deixa de aparecer nos seletores; o histórico fica intacto.",
+      });
+    },
+    onError: (err: any) => toast.error("Erro ao desativar", { description: err.message }),
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => reactivateSupplier(id),
+    onSuccess: async () => {
+      await invalidateSuppliers();
+      toast.success("Fornecedor reativado");
+    },
+    onError: (err: any) => toast.error("Erro ao reativar", { description: err.message }),
+  });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").delete().eq("id", id);
+    mutationFn: async (s: any) => {
+      // Nunca tentar apagar um fornecedor com movimento — o erro de chave
+      // estrangeira sairia ilegível. Reconfirma-se aqui, não só na UI.
+      const u = await fetchSupplierUsage(s.id);
+      if (!u.canDelete) throw new Error(`O fornecedor tem ${describeUsage(u.blocking)}. Desative-o em vez de eliminar.`);
+      const related = await fetchSupplierCascadeRows(s.id);
+      const ok = await moveToTrash({
+        entity_type: "supplier",
+        entity_id: s.id,
+        entity_data: s,
+        related_data: Object.keys(related).length > 0 ? related : null,
+        deleted_by: user?.email || "sistema",
+      });
+      if (!ok) throw new Error("Não foi possível guardar o fornecedor no Lixo — nada foi eliminado.");
+      const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      setDeletingId(null);
-      toast.success("Fornecedor eliminado");
+    onSuccess: async () => {
+      await invalidateSuppliers();
+      queryClient.invalidateQueries({ queryKey: ["trash"] });
+      setDeleting(null);
+      toast.success("Fornecedor movido para o Lixo", { description: "Pode ser restaurado durante 30 dias." });
     },
     onError: (err: any) => {
       toast.error("Erro ao eliminar", { description: err.message });
-      setDeletingId(null);
     },
   });
 
@@ -77,6 +128,8 @@ export default function Suppliers() {
       (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
     );
     if (hidePartners) list = list.filter((s) => !s.is_partner);
+    if (statusFilter === "active") list = list.filter((s) => s.is_active !== false);
+    else if (statusFilter === "inactive") list = list.filter((s) => s.is_active === false);
     list.sort((a, b) => {
       const valA = (sortField === "trade_name" ? (a.trade_name || a.name) : a.name).toLowerCase();
       const valB = (sortField === "trade_name" ? (b.trade_name || b.name) : b.name).toLowerCase();
