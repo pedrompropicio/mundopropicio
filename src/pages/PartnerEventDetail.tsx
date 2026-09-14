@@ -187,7 +187,7 @@ export default function PartnerEventDetail() {
   // A base NUNCA é fixa: o override do sócio (event_partners.expense_includes_iva)
   // manda e, na sua ausência, vale events.partner_calc_basis. É a mesma regra do
   // motor de acerto — usamos o módulo partilhado, nunca cálculo próprio aqui.
-  const { data: viewerSupplierId, isLoading: isLoadingViewerSupplier } = useQuery({
+  const { data: ownSupplierId, isLoading: isLoadingViewerSupplier } = useQuery({
     queryKey: ["partner-viewer-supplier-id", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
@@ -196,6 +196,12 @@ export default function PartnerEventDetail() {
       return ((data as string | null) ?? null);
     },
   });
+
+  // Vista de administrador ("ver como sócio"): o sócio inspeccionado substitui o
+  // sócio do utilizador. Só é honrado com papel admin/platform_admin — de outro
+  // modo o parâmetro é ignorado por completo. A decisão real de acesso é do
+  // servidor (`partner-statement`); aqui só se escolhe a identidade a mostrar.
+  const viewerSupplierId = adminViewSupplierId ?? ownSupplierId ?? null;
 
   const { data: viewerPartnerRow } = useQuery({
     queryKey: ["partner-basis-row", user?.id, viewerSupplierId, activeEventId, id],
@@ -210,6 +216,20 @@ export default function PartnerEventDetail() {
       if (error) throw error;
       const rows = (data ?? []) as { event_id: string; expense_includes_iva: boolean | null }[];
       return rows.find((r) => r.event_id === activeEventId) ?? rows[0] ?? null;
+    },
+  });
+
+  const { data: adminViewSupplierName } = useQuery({
+    queryKey: ["admin-view-supplier-name", adminViewSupplierId],
+    enabled: !!adminViewSupplierId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("name")
+        .eq("id", adminViewSupplierId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.name as string | undefined) ?? null;
     },
   });
 
