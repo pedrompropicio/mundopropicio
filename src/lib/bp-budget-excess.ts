@@ -124,6 +124,8 @@ export async function computeBudgetExcess(
       to_approve: toApprove,
       excess,
       suggested_amount: round2(realized + toApprove),
+      to_approve_gross: round2(grossByLine.get(f.id) ?? 0),
+      to_approve_iva: round2((grossByLine.get(f.id) ?? 0) - toApprove),
     });
   }
   return out;
