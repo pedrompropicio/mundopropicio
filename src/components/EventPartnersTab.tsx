@@ -347,7 +347,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           can_pay: editCanPay,
           visible_in_docs: editVisibleInDocs,
           transfer_with_vat: editTransferWithVat,
-          expense_includes_iva: editIvaBasis === "inherit" ? null : editIvaBasis === "gross",
+          // (g4 + g10) `expense_includes_iva` já não é lido pelo motor nem pela
+          // prestação de contas: a base é do FECHAMENTO. O campo deixou de ser
+          // editável aqui e a coluna já não é escrita (a limpeza dos valores
+          // antigos é feita por SQL, fora deste ecrã).
+
         })
         .eq("id", row.id);
       if (error) throw error;
