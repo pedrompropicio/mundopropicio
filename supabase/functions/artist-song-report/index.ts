@@ -494,6 +494,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       musica,
       streams: streamsPorPlataforma,
       playlists,
+      spotify_for_artists: spotifyForArtists,
       videos: videosPorPlataforma,
       artista: {
         por_plataforma: artistaPorPlataforma,
@@ -503,6 +504,8 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       },
       comparaveis,
       benchmark_alinhado: benchmarkAlinhado,
+      benchmark_nota:
+        "Só as músicas do elenco têm dados do Spotify for Artists. As músicas de referência (comparáveis) só têm contagem pública da Soundcharts — não comparar streams do S4A com streams da Soundcharts.",
       lacunas,
     },
   };
