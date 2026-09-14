@@ -953,10 +953,15 @@ export default function Transactions() {
     });
   }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap, onlyExcludedFromResult, selectedOperationKeys]);
 
+  // Evento concluído: aprovar é uma decisão e fica travado (regra 14/09/2026).
+  const isCompletedEvent = (t: any) => (t.events as any)?.status === "completed";
+
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
+  // Só estas podem entrar no lote de aprovação.
+  const pendingApprovableInView = pendingInView.filter((t) => !isCompletedEvent(t));
   const selectedPendingCount = [...selectedIds].filter((id) =>
-    pendingInView.some((t) => t.id === id)
+    pendingApprovableInView.some((t) => t.id === id)
   ).length;
 
   // Approved (payable) transactions in current filtered view
@@ -965,7 +970,7 @@ export default function Transactions() {
     approvedInView.some((t) => t.id === id)
   ).length;
 
-  const selectableInView = [...pendingInView, ...approvedInView];
+  const selectableInView = [...pendingApprovableInView, ...approvedInView];
   const hasSelectableItems = canApprove && selectableInView.length > 0;
 
   const toggleSelect = (id: string) => {
@@ -978,18 +983,18 @@ export default function Transactions() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedPendingCount === pendingInView.length && pendingInView.length > 0) {
+    if (selectedPendingCount === pendingApprovableInView.length && pendingApprovableInView.length > 0) {
       // Deselect all pending
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        pendingInView.forEach((t) => next.delete(t.id));
+        pendingApprovableInView.forEach((t) => next.delete(t.id));
         return next;
       });
     } else {
       // Select all pending
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        pendingInView.forEach((t) => next.add(t.id));
+        pendingApprovableInView.forEach((t) => next.add(t.id));
         return next;
       });
     }
