@@ -27,6 +27,12 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showVerComo, setShowVerComo] = useState(false);
+  const [relinkPrompt, setRelinkPrompt] = useState<{
+    userId: string;
+    supplierId: string;
+    supplierLabel: string;
+    events: string[];
+  } | null>(null);
 
   const allEventIds = [eventId, ...subEvents.map((s) => s.id)];
 
