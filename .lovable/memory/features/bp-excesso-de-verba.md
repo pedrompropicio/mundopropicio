@@ -25,6 +25,18 @@ normalização posterior: a linha nunca fica abaixo do realizado. Quem não tem
 Análise por acto: reembolsos por **par evento × rubrica**, camarim por **sessão**,
 lote de transações **por linha**.
 
+## IVA no diálogo (informativo, 14/09/2026)
+
+`computeBudgetExcess` e o 409 da `approve-transaction` devolvem também
+`to_approve_iva` e `to_approve_gross`, somados **transação a transação** pela
+`iva_rate` de cada uma (uma linha pode agregar taxas diferentes — nunca uma taxa
+única sobre o total). São só leitura: a verba escrita em `event_forecasts.amount`
+continua LÍQUIDA (D11) e o input diz "Nova verba (sem IVA)".
+
+Reentrância: `requestApprove`/`handleBulkApprove` desistem se já houver aprovação
+em curso, o botão do lote desactiva com qualquer das duas mutações, e
+`approveMutation.onSuccess` limpa os ids aprovados de `selectedIds`.
+
 ## Peças
 
 | Peça | Papel |
