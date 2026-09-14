@@ -105,8 +105,6 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 ## Próximo passo concreto
 **Ação do Pedro:** desativar a edge function `generate-historical-transactions` no Lovable (#87 passo 2). Enquanto estiver deployed continua invocável por qualquer admin e escreve `amount` com o IVA embutido. Só depois se remove do repo.
 
-**Ação do Pedro:** confirmar o Publish das correções de IBAN (commits `3b5f702` e `c61a880`).
-
 ## Prazos e renovações
 - **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
 - Token Meta da conta da Ivete expira 08/10/2026. Fortal e Siriguella expirados desde 22/08 (#36).
