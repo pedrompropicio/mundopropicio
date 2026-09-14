@@ -731,7 +731,9 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 {/* Secondary actions menu */}
                 {(() => {
-                  const showDelete = !eventCompleted && (computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
+                  // Eliminar continua a aparecer em evento concluído, mas desactivado.
+                  const showDelete = computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid"));
+                  const deleteBlocked = !!eventCompleted;
                   const showViewPayments = onViewPayments && (paidAmount > 0 || !!hasInstallments);
                   const showHide = canApprove && onToggleHidden;
                   const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
