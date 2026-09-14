@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -81,11 +81,14 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
   });
 
   // Ao escolher o utilizador, pré-selecionar o sócio a que já está ligado.
+  // A ref evita que um refetch de 'partner-portal-links' volte a correr o efeito
+  // e apague a escolha que o operador acabou de fazer.
+  const linkByUserRef = useRef(linkByUser);
+  linkByUserRef.current = linkByUser;
   useEffect(() => {
     if (!selectedUserId) return;
-    const existing = linkByUser[selectedUserId]?.supplier_id ?? "";
-    setSelectedSupplierId(existing);
-  }, [selectedUserId, linkByUser]);
+    setSelectedSupplierId(linkByUserRef.current[selectedUserId]?.supplier_id ?? "");
+  }, [selectedUserId]);
 
   const existingSupplierForSelectedUser = selectedUserId ? linkByUser[selectedUserId]?.supplier_id ?? null : null;
   const changingGlobalLink =
@@ -174,14 +177,15 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
         event_id: eid,
         is_active: true,
       }));
-      const { error } = await supabase.from("partner_event_access").upsert(inserts, { onConflict: "user_id,event_id" });
-      if (error) throw error;
-      // A ligação utilizador ↔ sócio só se escreve pela RPC.
+      // Primeiro a ligação ao sócio (único caminho de escrita): se falhar, não
+      // fica acesso órfão. A falha possível passa a ser ligação sem acesso.
       const { error: rpcErr } = await supabase.rpc("set_partner_portal_user", {
         _supplier_id: selectedSupplierId,
         _profile_id: selectedUserId,
       });
       if (rpcErr) throw rpcErr;
+      const { error } = await supabase.from("partner_event_access").upsert(inserts, { onConflict: "user_id,event_id" });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["partner_event_access", eventId] });
@@ -371,7 +375,16 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 <SearchableSelect
                   options={eventPartnerOptions}
                   value={linkedSupplierId ?? ""}
-                  onValueChange={(v) => setPortalUserMutation.mutate({ supplierId: v, profileId: userId })}
+                  onValueChange={(v) => {
+                    if (!v) {
+                      // Desligar é set_partner_portal_user(sócio_actual, NULL).
+                      if (linkedSupplierId) {
+                        setPortalUserMutation.mutate({ supplierId: linkedSupplierId, profileId: null });
+                      }
+                      return;
+                    }
+                    setPortalUserMutation.mutate({ supplierId: v, profileId: userId });
+                  }}
                   placeholder="Selecione o sócio..."
                 />
                 {!linkedSupplierId && (
