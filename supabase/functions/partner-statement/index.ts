@@ -5,12 +5,22 @@
  * Encontro de Contas do ERP produz, com o MESMO código
  * (`_shared/settlement/statement-service.ts`).
  *
- * Segurança: nada vem do cliente a não ser o `event_id`.
+ * Segurança — caminho normal (o do sócio): do cliente só vem o `event_id`.
  *  • utilizador autenticado (JWT no Authorization)
  *  • sócio resolvido por `public.user_supplier_id(auth.uid())`
  *  • exige `partner_event_access` activo ao evento
  *  • exige participação com `mode = 'settles'` num fechamento do evento
- * O nó, o fechamento e as percentagens são derivados — nunca aceites por parâmetro.
+ *
+ * EXCEPÇÃO — "ver como sócio" (inspecção pelo administrador): o corpo pode trazer
+ * `supplier_id`. Nesse caso não se usa `user_supplier_id` e exige-se, em vez disso:
+ *  • quem chama é `platform_admin` OU tem papel `admin` na empresa do evento
+ *  • esse `supplier_id` é de facto sócio do evento (linha em `event_partners`)
+ * Não se exige `partner_event_access` — um administrador não é parceiro. Falhando
+ * qualquer uma das condições, 403 com a mesma mensagem genérica. A leitura fica em
+ * `system_audit_log` com `viewed_as_admin: true`.
+ *
+ * O nó, o fechamento e as percentagens continuam a ser derivados — nunca aceites
+ * por parâmetro.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
