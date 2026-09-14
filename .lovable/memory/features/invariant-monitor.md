@@ -18,8 +18,9 @@ Peças:
 - Cron `invariant-checks-daily` (`10 7 * * *`, jobid 131 em Live) a chamar `run_invariant_checks_and_log()`.
 - Ecrã ÚNICO `/admin/invariantes` (`src/pages/admin/InvariantMonitor.tsx`), admin/platform_admin, com as duas famílias separadas, amostra expansível, histórico, "Correr agora", "Aceitar N como referência" e o smoke test de consultas (`check_rpc_smoke`). `/admin/invariantes-diarias` redireciona para lá. `SystemInvariants.tsx` foi removido.
 
-Referências de 14/09/2026 (18/18 conformes):
-- global: nove a zero; `paid_amount_acima_do_bruto` 9; `tx_paga_sem_linha_de_pagamento` 1026 (issue #91); `pares_fk_duplicada` 35 (issue #169).
+Referências de 14/09/2026 (19 verificações: 13 global + 6 empresa):
+- global: nove a zero; `paid_amount_acima_do_bruto` 9; `tx_paga_sem_linha_de_pagamento` 1026 (issue #91); `pares_fk_duplicada` 35 (issue #169); `grupo_fatura_veredicto_desagrupar_por_aplicar` 0 (14/09/2026 — veredicto OCR 'desagrupar' por aplicar com transações ainda agrupadas).
 - empresa: `BP_DESPESA_EM_L2` 0, `VINCULO_CROSS_EVENTO` 0, `FORECAST_ID_ORFAO` 0, `TX_EVENTO_SEM_RUBRICA` 13, `VINCULO_DESSINCRONIZADO` 7, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4 (as três últimas como dívida herdada, com nota).
+
 
 Candidatas REJEITADAS por darem falsos positivos — não voltar a propor: "filha de rateio com conta" sem excluir parcelas (as parcelas têm conta legitimamente); "grupo de fatura com documentos diferentes" a comparar `file_url` (cada irmã recebe a sua cópia; quem responde é a auditoria por OCR já existente); `BP_LINHAS_DUPLICADAS` (removida em 28/08/2026: parcelamentos e mensalidades repetem-se legitimamente).
