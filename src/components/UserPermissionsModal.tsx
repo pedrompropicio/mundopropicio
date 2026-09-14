@@ -39,15 +39,16 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
 
   // Get user-level overrides
   const { data: userOverrides = [], isLoading } = useQuery({
-    queryKey: ["user-permissions", userId],
+    queryKey: ["user-permissions", userId, companyId],
     queryFn: async () => {
       const { data } = await supabase
         .from("user_permissions")
         .select("permission, granted")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("company_id", companyId!);
       return data ?? [];
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Local state for toggle changes
