@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, ToggleLeft, ToggleRight, Handshake, Pencil, PencilOff } from "lucide-react";
+import { Loader2, Plus, Trash2, ToggleLeft, ToggleRight, Handshake, Pencil, PencilOff, Eye } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface PartnerAccessManagerProps {
@@ -26,6 +26,7 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showVerComo, setShowVerComo] = useState(false);
 
   const allEventIds = [eventId, ...subEvents.map((s) => s.id)];
 
