@@ -27,9 +27,9 @@ const EXTS = [".ts", ".tsx"];
 
 /** "a>b" para cada par, em ambos os sentidos. */
 const AMBIGUOUS = new Set<string>();
-for (const p of pairs as Array<{ table: string; references: string }>) {
-  const a = p.table.replace(/^public\./, "");
-  const b = p.references.replace(/^public\./, "");
+for (const p of pairs as Array<{ from: string; to: string }>) {
+  const a = p.from.replace(/^public\./, "");
+  const b = p.to.replace(/^public\./, "");
   AMBIGUOUS.add(`${a}>${b}`);
   AMBIGUOUS.add(`${b}>${a}`);
 }
