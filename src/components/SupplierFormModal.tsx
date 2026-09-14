@@ -51,7 +51,7 @@ interface SupplierFormModalProps {
 
 export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner, overlayClassName, contentClassName }: SupplierFormModalProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, role } = useAuth() as any;
   const isEditing = !!editingSupplier;
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
@@ -159,6 +159,47 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // IBAN que já pertence a um fornecedor DESATIVADO da mesma empresa.
+  const [inactiveMatch, setInactiveMatch] = useState<
+    { id: string; name: string; nif: string | null; label: string } | null
+  >(null);
+  
+  const canManageSuppliers =
+    role === "admin" || role === "platform_admin" || role === "manager";
+
+  useEffect(() => {
+    if (!open) setInactiveMatch(null);
+  }, [open]);
+
+  const reactivateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("suppliers").update({ is_active: true }).eq("id", id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: async (id) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+        queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+      ]);
+      setInactiveMatch(null);
+      onOpenChange(false);
+      toast.success("Fornecedor reativado");
+      onCreated?.(id);
+    },
+    onError: (err: any) => {
+      const msg = String(err?.message ?? "");
+      const code = String(err?.code ?? "");
+      if (code === "42501" || /row-level security|permission denied/i.test(msg)) {
+        toast.error("Sem permissão para reativar fornecedores", {
+          description: "Pede a um admin/manager.",
+        });
+      } else {
+        toast.error("Erro ao reativar fornecedor", { description: msg || code || "Erro desconhecido" });
+      }
+    },
+  });
+
   // Normalização única em toda a app: normalizeIban de @/lib/iban (remove espaços, pontos, hífens, _ e /)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -189,6 +230,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       return;
     }
     setValidationErrors({});
+    setInactiveMatch(null);
 
     // Validação estrutural (checksum MOD-97) e duplicação cross-supplier
     const ibanFields: Array<{ key: "iban" | "iban_2" | "iban_3"; label: string; value: string | null }> = [
@@ -219,8 +261,21 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         toast.error("Erro ao validar IBAN", { description: error.message });
         return;
       }
-      const res = data as { exists?: boolean; supplier_name?: string; nif?: string | null } | null;
+      const res = data as
+        | { exists?: boolean; is_active?: boolean; supplier_id?: string; supplier_name?: string; nif?: string | null }
+        | null;
       if (res?.exists) {
+        // Fornecedor INATIVO: não é beco sem saída — propõe-se reativar o registo
+        // existente (os índices únicos de IBAN só valem para is_active = true).
+        if (res.is_active === false) {
+          setInactiveMatch({
+            id: res.supplier_id!,
+            name: res.supplier_name ?? "(sem nome)",
+            nif: res.nif ?? null,
+            label: f.label,
+          });
+          return;
+        }
         toast.error(`${f.label} duplicado`, {
           description: `Este IBAN já está registado no fornecedor «${res.supplier_name}» (NIF: ${res.nif ?? "—"}). Não é permitido o mesmo IBAN em fornecedores diferentes.`,
         });
@@ -345,6 +400,40 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
           </div>
           {/* (g9c · P2-12) Ligação ao utilizador do Portal — só na edição (precisa do id). */}
           {isEditing && s?.id && <SupplierPortalUserLink supplierId={s.id} />}
+          {inactiveMatch && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm space-y-2">
+              <p className="font-medium">
+                {inactiveMatch.label}: já existe um fornecedor desativado com este IBAN
+              </p>
+              <p className="text-muted-foreground">
+                «{inactiveMatch.name}» (NIF: {inactiveMatch.nif ?? "—"}) está desativado, por isso não
+                aparece nas listas. Não é permitido um segundo registo ativo com o mesmo IBAN.
+              </p>
+              {canManageSuppliers ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={reactivateMutation.isPending}
+                    onClick={() => reactivateMutation.mutate(inactiveMatch.id)}
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    {reactivateMutation.isPending ? "A reativar…" : `Reativar «${inactiveMatch.name}»`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInactiveMatch(null)}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+                  >
+                    Alterar o IBAN
+                  </button>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">
+                  Pede a um admin/manager para reativar o fornecedor «{inactiveMatch.name}».
+                </p>
+              )}
+            </div>
+          )}
           <button type="submit" disabled={isPending}
             className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
