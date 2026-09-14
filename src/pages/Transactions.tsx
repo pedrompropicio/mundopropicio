@@ -1044,7 +1044,20 @@ export default function Transactions() {
     if (approveMutation.isPending || bulkApproveMutation.isPending) return;
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
-    const txs = transactions.filter((t: any) => ids.includes(t.id));
+    const allSelected = transactions.filter((t: any) => ids.includes(t.id));
+    // Evento concluído: fora do lote, e dito em voz alta.
+    const completedBlocked = allSelected.filter((t: any) => isCompletedEvent(t));
+    setCompletedBlockedTxs(completedBlocked);
+    const txs = allSelected.filter((t: any) => !isCompletedEvent(t));
+    if (txs.length === 0) {
+      setBpBlockedTxs([]);
+      toast({
+        title: "Nenhuma transação aprovada",
+        description: `${completedBlocked.length} transação(ões) em evento(s) concluído(s) — reabre o evento para aprovar.`,
+        variant: "destructive",
+      });
+      return;
+    }
     let approvable = txs;
     let blocked: any[] = [];
     try {
