@@ -187,7 +187,7 @@ export default function PartnerEventDetail() {
   const subEvents = eventType === "multi_day" ? (eventBundle?.subEvents ?? []) : [];
 
   const authorizedSubEvents = subEvents.filter((s: any) => accessList.includes(s.id));
-  const hasParentAccess = accessList.includes(id!);
+  const hasParentAccess = isAdminView || accessList.includes(id!);
   const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
 
   // Para turnê: default = Master (mostra agregado de todas as cidades).
