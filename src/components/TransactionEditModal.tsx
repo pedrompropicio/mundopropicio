@@ -2441,9 +2441,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          <button type="submit" disabled={editMutation.isPending}
-            className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
-            {editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
+          <button type="submit" disabled={editMutation.isPending || eventCompleted}
+            title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : undefined}
+            className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+            {eventCompleted ? "Evento concluído — edição bloqueada" : editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
           </button>
         </form>
           </TabsContent>
