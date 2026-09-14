@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #87, #96, #61, #169 · ação do Pedro: #87 passo 2
+Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -25,7 +25,7 @@ Correção: o embed passou a nomear a FK explicitamente — `suppliers:suppliers
 
 ⚠️ **Regra que fica:** acrescentar uma FK entre um par de tabelas que já tem uma parte **silenciosamente todos os embeds desse par**. Hoje existem **35 pares de tabelas com FK duplicada** (apurado em Live a 14/09). Está sob vigilância pelo invariante `pares_fk_duplicada`, com referência 35 — qualquer FK nova faz o número subir e o verificador acusa.
 
-Fica em aberto: o ecrã de Transações continua a engolir o erro da query (issue nova aberta hoje).
+Resolvido a 14/09 (#174 fechada): `QueryErrorState.tsx` criado com estado de falha distinto; `Transactions.tsx` com três ramos (a carregar / falhou / vazio); 243 queries em 98 ficheiros passaram a ler `{ error }`; 6 embeds ambíguos adicionais corrigidos.
 
 ## Incidente — a fusão de fornecedores de 12/09 atravessou fronteiras de empresa, revertida a 14/09
 
@@ -43,6 +43,15 @@ Tropeção no caminho, que fica registado: a primeira tentativa de reativação 
 
 Nada na aplicação desativa um fornecedor: `is_active` só era mexido por SQL. E o botão de apagar em `Suppliers.tsx` fazia `.delete()` direto, sem passar pelo Lixo, apesar de `src/lib/trash.ts` já declarar `supplier: "Fornecedor"`. Passou a apagar para o Lixo, recuperável. **Desativado** passa a significar uma coisa só: registo fundido ou substituído, mantido para o histórico e com nota auditável.
 
+## Tratamento de erros e detetor de embeds ambíguos (14/09/2026)
+
+**#174 — Ecrãs engoliam erros de query PostgREST.** `src/components/QueryErrorState.tsx` criado com estado de falha visual distinto (código+mensagem+hint do PostgREST, botão "Tentar de novo", `console.error`). `src/pages/Transactions.tsx` e mais 97 ficheiros passaram a ler `{ error }` — 243 pontos de leitura. Estado vazio e estado de erro são agora inequívocos em toda a app.
+
+**#169 — Detetor de embeds PostgREST ambíguos.** `src/lib/postgrest-ambiguous-pairs.json` com os 35 pares de FK duplicada apurados em Live a 14/09. `src/lib/__tests__/postgrest-embeds.test.ts` faz scan de `src/**/*.ts(x)` e `supabase/functions/**/*.ts` — falha com guidance (ficheiro, linha, como qualificar) se encontrar embed sem `!<fk_name>`. Passou: 2/2, 91ms. 6 embeds adicionais corrigidos com FK nomeada.
+
+⚠️ **Regra que fica:** qualquer embed entre pares do JSON tem de usar o formato `alias:tabela!fk(col)`. O teste é a guarda permanente.
+
+
 ## Verificador de invariantes (consolidado a 14/09/2026)
 
 Já existia um `check_system_invariants()` com ecrã próprio — não se reinventou, consolidou-se.
@@ -54,7 +63,7 @@ Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `refer
 19 verificações a 14/09, todas conformes. Referências em Live a 14/09/2026:
 
 - severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `coala_map_outra_empresa`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
-- severidade `error`, referência **7**: `VINCULO_DESSINCRONIZADO` — **contradição assumida**, dívida herdada com severidade de erro. Ou desce a zero ou passa a `warn` com razão escrita. Issue aberta.
+- severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
 - severidade `warn`, dívida herdada: `paid_amount_acima_do_bruto` 9, `pares_fk_duplicada` 35, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13, `tx_paga_sem_linha_de_pagamento` 1026
 
 Cron em Live: `invariant-checks-daily`, jobid **131**, `10 7 * * *`. ⚠️ O Publish **não** propaga crons — este objeto vive só em Live e não está no repositório.
