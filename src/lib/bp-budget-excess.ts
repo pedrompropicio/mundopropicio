@@ -15,12 +15,18 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { calcWithIva } from "@/lib/utils";
 
 /** Uma despesa a aprovar (ou a inserir) já vinculada a uma linha de BP. */
 export type BudgetExcessEntry = {
   forecast_id: string;
   /** Valor LÍQUIDO (sem IVA) — o mesmo domínio de `event_forecasts.amount`. */
   amount: number;
+  /**
+   * Taxa de IVA DESTA transação (%), só para informação no diálogo: o total com
+   * IVA é o que sai da conta. Nunca entra no confronto com o BP (D11).
+   */
+  iva_rate?: number | null;
   /**
    * Id da transação, quando já existe. Serve para não contar duas vezes uma
    * transação que já esteja em `approved`/`paid` no realizado da linha.
