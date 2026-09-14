@@ -2048,3 +2048,46 @@ interno davam 417.293,42 (596.133,45 × 70% = 417293.4149999999 em binário).
 Corrigido na origem, não na apresentação. `Math.round(x*100)/100`, `toFixed` e
 truncatura ficam proibidos em valores do fecho. Números de referência
 mantidos: RAFAEL LOBO 35.768,01 · EIN 273.953,35 · base a transferir 230.990,35.
+
+## D-ERP60 — Numa linha de fatura, só o que é do documento se propaga às irmãs (14/09/2026)
+
+**Contexto.** Editar uma linha de uma nota de reembolso alterava todas as linhas do
+grupo-fatura. A edge function `update-transaction` propagava onze campos às irmãs.
+
+**Decisão.** Os campos de uma linha têm três naturezas — **documento** (fornecedor, data,
+vencimento), **linha** (valor, IVA, descrição, `specification`, rubrica, evento,
+`is_transitory`, `exclude_from_result`, `invoice_ref`) e **pagamento** (conta, método,
+entidade, referência). Só os do DOCUMENTO se propagam. Os do pagamento têm máquina própria
+e nunca entram na propagação.
+
+**Consequência.** `invoiceSharedFields = ["supplier_id","date","due_date"]`. Acrescentar um
+campo a esta lista é uma decisão, não uma conveniência: exige justificar que o campo
+pertence ao documento e não à linha.
+
+## D-ERP61 — Agrupar faturas é um ato explícito, nunca um efeito de gravar (14/09/2026)
+
+**Contexto.** A gravação de uma transação chamava o agrupamento automático e criava grupos
+que ninguém pediu, contornando a trava de documento partilhado da D-ERP17.
+
+**Decisão.** O agrupamento só acontece por clique do utilizador. A gravação nunca escreve
+`invoice_group_id`. A revalidação depois de anexar um documento pode REAGIR (propor
+desagrupar), nunca PREVENIR nem agrupar.
+
+**Consequência.** A comparação de `invoice_ref` é igualdade exata e não se torna mais
+tolerante — o caso das portagens (lançamentos distintos com valores e números quase iguais)
+é o que a fixa.
+
+## D-ERP62 — O verificador de invariantes alerta por desvio da referência, não por número diferente de zero (14/09/2026)
+
+**Contexto.** Verificações espalhadas e uma função `check_system_invariants()` que já
+existia. Dívida herdada com contagem conhecida (1.026 transações pagas sem linha de
+pagamento, 35 pares de FK duplicada) faria barulho todos os dias e ensinaria a ignorar o
+alerta.
+
+**Decisão.** Cada invariante tem uma REFERÊNCIA aceite explicitamente por
+`accept_invariant_reference(name, value, note)`, com autor e hora. O alerta dispara quando a
+contagem se AFASTA da referência. Zero é a referência da maioria, não a regra.
+
+**Consequência.** Aceitar uma referência acima de zero é assumir dívida por escrito, com
+nota. Uma verificação candidata que produza falsos positivos é eliminada antes de entrar,
+nunca aceite com referência alta para calar.
