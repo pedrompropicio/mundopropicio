@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { IbanWarning } from "@/components/IbanWarning";
 import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
 import { SupplierPortalUserLink } from "@/components/SupplierPortalUserLink";
+import { reactivateSupplier } from "@/lib/supplier-lifecycle";
 
 const supplierCategories = [
   "Som e Iluminação",
