@@ -1141,6 +1141,11 @@ export default function Transactions() {
 
   const toggleHiddenMutation = useMutation({
     mutationFn: async ({ id, currentlyHidden }: { id: string; currentlyHidden: boolean }) => {
+      // Regra (14/09/2026): ocultar altera todos os fechos do evento → é edição.
+      const target = transactions.find((t) => t.id === id);
+      if (target && isCompletedEvent(target)) {
+        throw new Error("Evento concluído. Reabre o evento para editar.");
+      }
       const { error } = await supabase
         .from("transactions")
         .update({ is_hidden: !currentlyHidden } as any)

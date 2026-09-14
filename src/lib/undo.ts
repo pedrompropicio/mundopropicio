@@ -219,11 +219,18 @@ async function revertEditTransaction(r: UndoActionRecord) {
   // continua permitido.
   const { data: tx } = await (supabase as any)
     .from("transactions")
-    .select("event_id, events!transactions_event_id_fkey(status)")
+    .select("event_id")
     .eq("id", r.entity_id)
     .maybeSingle();
-  if ((tx as any)?.events?.status === "completed") {
-    throw new Error("Evento concluído. Reabre o evento para editar.");
+  if (tx?.event_id) {
+    const { data: ev } = await (supabase as any)
+      .from("events")
+      .select("status")
+      .eq("id", tx.event_id)
+      .maybeSingle();
+    if (ev?.status === "completed") {
+      throw new Error("Evento concluído. Reabre o evento para editar.");
+    }
   }
   const { error } = await (supabase as any)
     .from("transactions")
