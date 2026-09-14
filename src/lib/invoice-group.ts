@@ -142,12 +142,17 @@ export type InvoiceDocCheck =
   | { kind: "conflict" };       // documentos diferentes → não agrupar sem confirmação
 
 /**
- * Compara os documentos anexos das linhas candidatas. Só é seguro agrupar
- * automaticamente quando partilham pelo menos um ficheiro (`shared`).
+ * Compara os documentos anexos das linhas candidatas.
  *
- * 2026-09-14: `no_documents` DEIXOU de autorizar agrupamento automático — não
- * ter papel não é prova de que é a mesma fatura, é ausência de prova (incidente
- * das portagens Via Verde na nota R-030/2026).
+ * 2026-09-14 (segunda correção): "shared" exige que TODAS as candidatas tenham
+ * documento E que a interseção dos ficheiros não seja vazia. A versão anterior
+ * fazia a interseção só sobre as linhas QUE TÊM documento — com uma única linha
+ * com papel, a interseção era o próprio conjunto dessa linha e devolvia
+ * "shared": uma linha a partilhar o ficheiro consigo própria.
+ *
+ * Faltando papel a alguma linha, devolve `no_documents` (nenhuma tem) ou
+ * `conflict` (só algumas têm, ou têm ficheiros diferentes) — e daí sai sempre
+ * sugestão com confirmação humana.
  */
 export async function checkInvoiceDocumentsConsistency(
   transactionIds: string[],
@@ -155,7 +160,9 @@ export async function checkInvoiceDocumentsConsistency(
   const docs = await fetchDocumentUrlsByTransaction(transactionIds);
   const withDocs = transactionIds.filter((id) => (docs[id]?.length ?? 0) > 0);
   if (withDocs.length === 0) return { kind: "no_documents" };
-  // Interseção dos conjuntos de file_url das linhas QUE TÊM documento
+  // Alguma linha sem papel → não há prova de ser a mesma fatura.
+  if (withDocs.length !== transactionIds.length) return { kind: "conflict" };
+  // Interseção dos conjuntos de file_url de TODAS as linhas
   let intersection: Set<string> | null = null;
   for (const id of withDocs) {
     const set = new Set(docs[id]);
@@ -165,6 +172,7 @@ export async function checkInvoiceDocumentsConsistency(
   if (intersection && intersection.size > 0) return { kind: "shared" };
   return { kind: "conflict" };
 }
+
 
 export interface EnsureInvoiceGroupResult {
   groupId: string | null;
