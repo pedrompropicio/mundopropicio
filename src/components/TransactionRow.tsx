@@ -824,11 +824,18 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => onDelete(t.id)}
+                              disabled={deleteBlocked}
+                              onClick={() => { if (!deleteBlocked) onDelete(t.id); }}
+                              title={deleteBlocked ? completedBlockTooltip("eliminar") : undefined}
                               className="text-destructive focus:text-destructive focus:bg-destructive/10"
                             >
                               <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar
                             </DropdownMenuItem>
+                            {deleteBlocked && (
+                              <div className="px-2 pb-1 text-[10px] text-muted-foreground">
+                                {completedBlockTooltip("eliminar")}
+                              </div>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>
