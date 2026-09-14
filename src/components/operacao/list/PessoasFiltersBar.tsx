@@ -54,11 +54,12 @@ export function PessoasFiltersBar() {
     queryKey: ["op-pessoas-filter-events", eventIds.join(",")],
     enabled: eventIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id,name,date,status")
         .in("id", eventIds)
         .order("date", { ascending: false });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

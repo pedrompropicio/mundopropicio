@@ -74,7 +74,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     queryKey: ["events-for-card-expense"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("id, name").order("date", { ascending: false });
+      const { data, error: qErr1 } = await supabase.from("events").select("id, name").order("date", { ascending: false });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -83,7 +84,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     queryKey: ["l3-categories"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase.from("account_categories").select("id, name, code, type, parent_id").eq("is_active", true);
+      const { data, error: qErr2 } = await supabase.from("account_categories").select("id, name, code, type, parent_id").eq("is_active", true);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -92,7 +94,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     queryKey: ["suppliers-active"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase.from("suppliers").select("id, name").order("name");
+      const { data, error: qErr3 } = await supabase.from("suppliers").select("id, name").order("name");
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });

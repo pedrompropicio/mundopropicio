@@ -128,10 +128,11 @@ export default function EntityDocumentsSection({ entityType = "event", entityId 
       const list = (data ?? []) as unknown as DocumentRow[];
       const ids = Array.from(new Set(list.map((r) => r.uploaded_by).filter(Boolean))) as string[];
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs, error: qErr1 } = await supabase
           .from("profiles")
           .select("id, full_name, email")
           .in("id", ids);
+        if (qErr1) throw qErr1;
         const map: Record<string, string> = {};
         (profs ?? []).forEach((p: any) => {
           map[p.id] = p.full_name || p.email || "—";

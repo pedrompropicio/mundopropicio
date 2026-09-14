@@ -45,15 +45,17 @@ export function NewFrenteDialog({
     queryKey: ["op-new-frente-events", defaultEventId ?? "all"],
     queryFn: async () => {
       if (defaultEventId) {
-        const { data } = await supabase.from("events")
+        const { data, error: qErr1 } = await supabase.from("events")
           .select("id,name,date,status,company_id")
           .eq("id", defaultEventId).limit(1);
+        if (qErr1) throw qErr1;
         return data ?? [];
       }
-      const { data } = await supabase.from("events")
+      const { data, error: qErr2 } = await supabase.from("events")
         .select("id,name,date,status,company_id")
         .in("status", ["planning", "active"])
         .order("date", { ascending: false }).limit(50);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -64,8 +66,9 @@ export function NewFrenteDialog({
     queryKey: ["op-new-frente-profiles", selectedEvent?.company_id],
     enabled: !!selectedEvent,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles")
+      const { data, error: qErr3 } = await supabase.from("profiles")
         .select("id,full_name").eq("company_id", selectedEvent!.company_id).order("full_name");
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });

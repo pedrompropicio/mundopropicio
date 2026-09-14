@@ -11,11 +11,12 @@ export function useOperacaoMode(eventId?: string | null) {
     enabled: !!eventId,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("operacao_mode")
         .eq("id", eventId!)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return (data?.operacao_mode as OperacaoMode | null) ?? "planning";
     },
   });
@@ -34,25 +35,28 @@ export function useCurrentOperacaoMode(): OperacaoMode {
     enabled: !!user,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data: team } = await supabase
+      const { data: team, error: qErr2 } = await supabase
         .from("operacao_frente_team")
         .select("frente_id")
         .eq("profile_id", user!.id)
         .eq("active", true);
+      if (qErr2) throw qErr2;
       const frenteIds = Array.from(new Set((team ?? []).map((t: any) => t.frente_id)));
       if (frenteIds.length === 0) return "planning" as OperacaoMode;
-      const { data: frentes } = await supabase
+      const { data: frentes, error: qErr3 } = await supabase
         .from("operacao_frentes")
         .select("event_id")
         .in("id", frenteIds);
+      if (qErr3) throw qErr3;
       const eventIds = Array.from(new Set((frentes ?? []).map((f: any) => f.event_id))).filter(Boolean);
       if (eventIds.length === 0) return "planning" as OperacaoMode;
-      const { data: events } = await supabase
+      const { data: events, error: qErr4 } = await supabase
         .from("events")
         .select("id, operacao_mode, date")
         .in("id", eventIds)
         .order("date", { ascending: false })
         .limit(1);
+      if (qErr4) throw qErr4;
       return ((events?.[0] as any)?.operacao_mode ?? "planning") as OperacaoMode;
     },
   });

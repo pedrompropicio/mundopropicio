@@ -376,10 +376,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       if (error) throw error;
       if (!siblings?.length) return null;
       const ids = siblings.map((s: any) => s.id);
-      const { data: links } = await supabase
+      const { data: links, error: qErr1 } = await supabase
         .from("partner_advance_expenses")
         .select("id, transaction_id, partner_id, event_partners(suppliers(name))")
         .in("transaction_id", ids);
+      if (qErr1) throw qErr1;
       if (!links?.length) return null;
       const link = links[0] as any;
       const sib = siblings.find((s: any) => s.id === link.transaction_id);

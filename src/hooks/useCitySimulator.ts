@@ -56,7 +56,8 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   const { data: event } = useQuery({
     queryKey: ["city-sim-event", eventId],
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      const { data, error: qErr1 } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
     enabled,
@@ -65,11 +66,12 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   const { data: cfg, isLoading: loadingCfg } = useQuery<any | null>({
     queryKey: ["city-sim-cfg", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("event_simulator_config")
         .select("*")
         .eq("event_id", eventId!)
         .maybeSingle();
+      if (qErr4) throw qErr4;
       return data ?? null;
     },
     enabled,
@@ -78,11 +80,12 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   const { data: rawSessions = [] } = useQuery<any[]>({
     queryKey: ["city-sim-inputs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr5 } = await supabase
         .from("event_simulator_inputs")
         .select("*")
         .eq("event_id", eventId!)
         .order("day_index").order("zone_label");
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
     enabled,
@@ -91,11 +94,12 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   const { data: rawCostLines = [] } = useQuery<any[]>({
     queryKey: ["city-sim-costs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr6 } = await supabase
         .from("event_simulator_cost_lines")
         .select("*")
         .eq("event_id", eventId!)
         .order("display_order");
+      if (qErr6) throw qErr6;
       return data ?? [];
     },
     enabled,
@@ -112,14 +116,16 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     queryKey: ["city-sim-lots-v2", eventId],
     queryFn: async () => {
       const currentLoadForSolver = await fetchCurrentLoadByZoneName(eventId!);
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr7 } = await supabase
         .from("event_ticket_zones")
         .select("id, name, total_capacity").eq("event_id", eventId!);
+      if (qErr7) throw qErr7;
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return {};
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr8 } = await supabase
         .from("event_ticket_lots")
         .select("id, zone_id, lot_number, price, quantity").in("zone_id", zoneIds);
+      if (qErr8) throw qErr8;
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length
         ? await supabase.from("ticket_sales")

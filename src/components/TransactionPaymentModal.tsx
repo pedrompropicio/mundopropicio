@@ -110,7 +110,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     queryKey: ["category-code", transaction.category_id],
     queryFn: async () => {
       if (!transaction.category_id) return null;
-      const { data } = await supabase.from("account_categories").select("code").eq("id", transaction.category_id).single();
+      const { data, error: qErr1 } = await supabase.from("account_categories").select("code").eq("id", transaction.category_id).single();
+      if (qErr1) throw qErr1;
       return data?.code ?? null;
     },
     enabled: !!transaction.category_id,

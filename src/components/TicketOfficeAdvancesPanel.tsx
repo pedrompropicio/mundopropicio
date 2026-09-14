@@ -57,10 +57,11 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
   const { data: assignedEvents = [] } = useQuery({
     queryKey: ["advance_eligible_events", officeId],
     queryFn: async () => {
-      const { data: assigns } = await supabase
+      const { data: assigns, error: qErr1 } = await supabase
         .from("event_ticket_office_assignments")
         .select("event_id, events(id, name, date, status)")
         .eq("financial_account_id", officeId);
+      if (qErr1) throw qErr1;
       const eventMap = new Map<string, any>();
       (assigns || []).forEach((a: any) => {
         if (a.events) eventMap.set(a.event_id, a.events);
@@ -72,12 +73,13 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
   const { data: bankAccounts = [] } = useQuery({
     queryKey: ["advance_target_accounts"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("financial_accounts")
         .select("id, name, type")
         .in("type", ["bank", "cash"])
         .eq("is_active", true)
         .order("name");
+      if (qErr2) throw qErr2;
       return data || [];
     },
   });
@@ -96,10 +98,11 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
         new Set(list.map((a: any) => a.target_account_id).filter(Boolean))
       ) as string[];
       if (targetIds.length === 0) return list;
-      const { data: targets } = await supabase
+      const { data: targets, error: qErr3 } = await supabase
         .from("financial_accounts")
         .select("id, name")
         .in("id", targetIds);
+      if (qErr3) throw qErr3;
       const tMap = new Map((targets || []).map((t: any) => [t.id, t]));
       return list.map((a: any) => ({ ...a, target_account: a.target_account_id ? tMap.get(a.target_account_id) : null }));
     },

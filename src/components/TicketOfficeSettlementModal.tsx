@@ -170,19 +170,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     queryKey: ["settlement_gross", officeId, eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr1 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .eq("event_id", eventId);
+      if (qErr1) throw qErr1;
       if (!zones || zones.length === 0) return 0;
       const zoneIds = zones.map((z: any) => z.id);
       // Receita = vendas registadas/importadas DESTA bilheteira para o evento.
       // Eventos com múltiplas bilheteiras geram fechos independentes por bilheteira.
-      const { data: sales } = await supabase
+      const { data: sales, error: qErr2 } = await supabase
         .from("ticket_sales")
         .select("quantity, unit_price, total_value")
         .in("zone_id", zoneIds)
         .eq("financial_account_id", officeId);
+      if (qErr2) throw qErr2;
       return sumTicketSalesRevenue(sales || []);
     },
   });
@@ -194,10 +196,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     queryKey: ["settlement_sales_count", officeId, eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr3 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .eq("event_id", eventId);
+      if (qErr3) throw qErr3;
       const zoneIds = (zones || []).map((z: any) => z.id);
       if (zoneIds.length === 0) return 0;
       const { count } = await (supabase as any)
@@ -304,12 +307,13 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     queryKey: ["settlement_bank_accounts"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("financial_accounts")
         .select("id, name, type, withholds_revenue")
         .in("type", ["bank", "cash", "venue"])
         .eq("is_active", true)
         .order("name");
+      if (qErr4) throw qErr4;
       return data || [];
     },
   });

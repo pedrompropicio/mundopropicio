@@ -28,10 +28,11 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
   const { data: rolePerms = [] } = useQuery({
     queryKey: ["role-permissions", userRole],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("role_permissions")
         .select("permission")
         .eq("role", userRole);
+      if (qErr1) throw qErr1;
       return data?.map((r) => r.permission) ?? [];
     },
     enabled: open,
@@ -41,11 +42,12 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
   const { data: userOverrides = [], isLoading } = useQuery({
     queryKey: ["user-permissions", userId, companyId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("user_permissions")
         .select("permission, granted")
         .eq("user_id", userId)
         .eq("company_id", companyId!);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
     enabled: open && !!companyId,

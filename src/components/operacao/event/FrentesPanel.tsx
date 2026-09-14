@@ -30,11 +30,12 @@ export function FrentesPanel({
   const { data: frentes } = useQuery({
     queryKey: ["op-hub-frentes", eventId, type],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,current_lead_id, lead:profiles!operacao_frentes_current_lead_id_fkey(full_name)")
         .eq("event_id", eventId).eq("type", type).neq("status", "cancelled")
         .order("display_order");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -44,7 +45,8 @@ export function FrentesPanel({
     queryKey: ["op-hub-frente-counts", ids.join(",")],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_etapas").select("frente_id").in("frente_id", ids);
+      const { data, error: qErr2 } = await supabase.from("operacao_etapas").select("frente_id").in("frente_id", ids);
+      if (qErr2) throw qErr2;
       const out: Record<string, number> = {};
       (data ?? []).forEach((r: any) => { out[r.frente_id] = (out[r.frente_id] ?? 0) + 1; });
       return out;

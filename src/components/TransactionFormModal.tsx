@@ -750,15 +750,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: ticketLots = [] } = useQuery({
     queryKey: ["ticket_lots_form", form.event_id, forecastEventIds],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr1 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .in("event_id", forecastEventIds);
+      if (qErr1) throw qErr1;
       if (!zones || zones.length === 0) return [];
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr2 } = await supabase
         .from("event_ticket_lots")
         .select("id, price, iva_rate, quantity")
         .in("zone_id", zones.map(z => z.id));
+      if (qErr2) throw qErr2;
       return lots || [];
     },
     enabled: !!effectiveEventId && hasPL && cacheConfigs.length > 0,

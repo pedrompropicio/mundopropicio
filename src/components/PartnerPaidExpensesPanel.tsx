@@ -113,10 +113,11 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
   const { data: availableTransactions = [] } = useQuery({
     queryKey: ["partner-paid-available-tx-tree", eventId, subEventIds.join(",")],
     queryFn: async () => {
-      const { data: linked } = await supabase
+      const { data: linked, error: qErr1 } = await supabase
         .from("partner_paid_expenses")
         .select("transaction_id")
         .in("event_id", allTreeIds);
+      if (qErr1) throw qErr1;
       const linkedIds = new Set((linked || []).map((l: any) => l.transaction_id));
 
       const { data, error } = await supabase

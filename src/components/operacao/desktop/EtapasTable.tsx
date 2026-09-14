@@ -37,10 +37,11 @@ function SuppliersCell({ etapaId, canEdit }: { etapaId: string; canEdit: boolean
   const { data } = useQuery({
     queryKey: ["op-etapa-suppliers-cell", etapaId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_etapa_suppliers")
         .select("id,role,supplier:suppliers(name)")
         .eq("etapa_id", etapaId);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -176,11 +177,12 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const { data: frente } = useQuery({
     queryKey: ["op-etapas-table-frente", frenteId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_frentes")
         .select("id,type,event_id")
         .eq("id", frenteId)
         .maybeSingle();
+      if (qErr2) throw qErr2;
       return data;
     },
   });
@@ -190,13 +192,14 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
     queryKey: ["op-etapas-table-zones", (frente as any)?.event_id],
     enabled: !!(frente as any)?.event_id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("operacao_frentes")
         .select("id,name")
         .eq("event_id", (frente as any).event_id)
         .eq("type", "zone")
         .neq("status", "cancelled")
         .order("name");
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });
@@ -204,11 +207,12 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const { data: etapas } = useQuery({
     queryKey: ["op-etapas-table", frenteId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("operacao_etapas")
         .select("id,name,status,supplier_id,responsible_profile_id,planned_start,planned_end,display_order,zone_id")
         .eq("frente_id", frenteId)
         .order("display_order");
+      if (qErr4) throw qErr4;
       return data ?? [];
     },
   });
@@ -216,7 +220,8 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const { data: suppliers } = useQuery({
     queryKey: ["op-suppliers-for-frente", companyId],
     queryFn: async () => {
-      const { data } = await supabase.from("suppliers").select("id,name").order("name").limit(500);
+      const { data, error: qErr5 } = await supabase.from("suppliers").select("id,name").order("name").limit(500);
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
   });
@@ -224,9 +229,10 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const { data: profiles } = useQuery({
     queryKey: ["op-profiles-for-frente", companyId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr6 } = await supabase
         .from("profiles").select("id,full_name")
         .eq("company_id", companyId).is("archived_at", null).order("full_name");
+      if (qErr6) throw qErr6;
       return data ?? [];
     },
   });

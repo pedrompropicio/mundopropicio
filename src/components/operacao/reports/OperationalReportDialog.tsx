@@ -57,12 +57,13 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
     queryKey: ["op-report-frentes", eventId],
     enabled: !!eventId && open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,type,color,display_order")
         .eq("event_id", eventId)
         .neq("status", "cancelled")
         .order("display_order");
+      if (qErr1) throw qErr1;
       return (data ?? []) as Array<{ id: string; name: string; type: string; color: string | null }>;
     },
   });

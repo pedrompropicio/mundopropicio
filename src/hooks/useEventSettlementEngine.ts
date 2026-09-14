@@ -103,20 +103,23 @@ export function useEventSettlementEngine(eventId: string) {
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["event-settlement-engine-tickets", idsKey],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr1 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .in("event_id", allEventIds);
+      if (qErr1) throw qErr1;
       if (!zones?.length) return [];
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr2 } = await supabase
         .from("event_ticket_lots")
         .select("id, iva_rate")
         .in("zone_id", zones.map((z: any) => z.id));
+      if (qErr2) throw qErr2;
       if (!lots?.length) return [];
-      const { data: sales } = await supabase
+      const { data: sales, error: qErr3 } = await supabase
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lots.map((l: any) => l.id));
+      if (qErr3) throw qErr3;
       return (sales ?? []).map((s: any) => {
         const lot = lots.find((l: any) => l.id === s.lot_id);
         const rate = Number(lot?.iva_rate || 0);

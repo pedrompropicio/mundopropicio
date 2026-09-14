@@ -66,11 +66,12 @@ export function GlobalSearch() {
   const { data: events = [] } = useQuery({
     queryKey: ["search-events"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id, name, date, status")
         .order("date", { ascending: false })
         .limit(50);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
     enabled: open,
@@ -80,11 +81,12 @@ export function GlobalSearch() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["search-transactions"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("transactions")
         .select("id, description, amount, type, status, date")
         .order("date", { ascending: false })
         .limit(50);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
     enabled: open,
@@ -94,12 +96,13 @@ export function GlobalSearch() {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["search-suppliers"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("suppliers")
         .select("id, name, nif, category")
         .eq("is_active", true)
         .order("name")
         .limit(50);
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
     enabled: open,

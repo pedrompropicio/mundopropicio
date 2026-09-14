@@ -37,10 +37,11 @@ export default function FrenteDetail() {
     queryKey: ["op-frente", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("*, lead:profiles!operacao_frentes_current_lead_id_fkey(id,full_name), events(name)")
         .eq("id", id!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
   });
@@ -49,11 +50,12 @@ export default function FrenteDetail() {
     queryKey: ["op-etapas", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_etapas")
         .select("*, supplier:suppliers(name)")
         .eq("frente_id", id!)
         .order("display_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -62,13 +64,14 @@ export default function FrenteDetail() {
     queryKey: ["op-chamados", id, chamadoStatus],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("operacao_registros")
         .select("*, author:profiles!operacao_registros_author_profile_id_fkey(full_name)")
         .eq("frente_id", id!)
         .eq("kind", "chamado")
         .eq("status", chamadoStatus)
         .order("created_at", { ascending: false });
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });
@@ -78,10 +81,11 @@ export default function FrenteDetail() {
     queryKey: ["op-etapa-assignees-list", id, etapaIds.join(",")],
     enabled: etapaIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("operacao_etapa_assignees")
         .select("etapa_id, profile_id, role, profiles:profile_id(full_name)")
         .in("etapa_id", etapaIds);
+      if (qErr4) throw qErr4;
       const map: Record<string, { profile_id: string; full_name: string | null; role: "owner" | "helper" }[]> = {};
       (data ?? []).forEach((a: any) => {
         if (!map[a.etapa_id]) map[a.etapa_id] = [];
@@ -99,11 +103,12 @@ export default function FrenteDetail() {
     queryKey: ["op-frente-team-summary", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr5 } = await supabase
         .from("operacao_frente_team")
         .select("profile_id, role_in_frente, profiles:profile_id(full_name)")
         .eq("frente_id", id!)
         .eq("active", true);
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
   });

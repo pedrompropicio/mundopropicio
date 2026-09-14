@@ -48,11 +48,12 @@ export default function EquipaView() {
     queryKey: ["equipa-event-options", scopedEventIds.join(",")],
     enabled: scopedEventIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id,name,date,status,company_id")
         .in("id", scopedEventIds)
         .order("date", { ascending: false });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

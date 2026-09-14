@@ -32,11 +32,12 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
   const { data: frente } = useQuery({
     queryKey: ["op-frente-team-editor-frente", frenteId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("current_lead_id")
         .eq("id", frenteId)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
   });
@@ -44,11 +45,12 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
   const { data: team } = useQuery({
     queryKey: ["op-frente-team-editor", frenteId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_frente_team")
         .select("id,profile_id,role_in_frente,is_permanent_lead,active, profiles:profile_id(id,full_name,profile_type)")
         .eq("frente_id", frenteId)
         .eq("active", true);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -58,12 +60,13 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
   const { data: allProfiles } = useQuery({
     queryKey: ["op-frente-team-candidates", companyId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("profiles")
         .select("id,full_name,profile_type")
         .eq("company_id", companyId)
         .is("archived_at", null)
         .order("full_name");
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });

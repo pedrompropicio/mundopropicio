@@ -16,12 +16,14 @@ export function FrentePickerDialog({ title = "Escolhe a Zona/Serviço", onPick, 
     queryKey: ["op-picker-frentes", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data: team } = await supabase.from("operacao_frente_team")
+      const { data: team, error: qErr1 } = await supabase.from("operacao_frente_team")
         .select("frente_id").eq("profile_id", user!.id).eq("active", true);
+      if (qErr1) throw qErr1;
       const ids = Array.from(new Set((team ?? []).map((t: any) => t.frente_id)));
       if (ids.length === 0) return [];
-      const { data } = await supabase.from("operacao_frentes")
+      const { data, error: qErr2 } = await supabase.from("operacao_frentes")
         .select("id,name,color,event_id, events(name)").in("id", ids).order("display_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

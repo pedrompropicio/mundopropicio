@@ -27,12 +27,13 @@ export default function CardSessions() {
   const { data: cards = [] } = useQuery({
     queryKey: ["prepaid-cards-list"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("financial_accounts")
         .select("id, name, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("type", "prepaid_card")
         .eq("is_active", true)
         .order("name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -70,10 +71,11 @@ export default function CardSessions() {
   const { data: sessions = [] } = useQuery({
     queryKey: ["card-sessions"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("card_sessions")
         .select("id, card_account_id, holder_name, primary_event_id, status, opening_balance, opened_at, events:primary_event_id(name)")
         .order("opened_at", { ascending: false });
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -85,11 +87,12 @@ export default function CardSessions() {
     queryKey: ["card-session-items", openSessionIds.join(",")],
     enabled: openSessionIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("card_session_items")
         .select("session_id, amount, iva_rate, status")
         .in("session_id", openSessionIds)
         .in("status", ["submitted", "approved"]);
+      if (qErr3) throw qErr3;
       const m = new Map<string, number>();
       for (const it of (data ?? []) as any[]) {
         m.set(it.session_id, (m.get(it.session_id) ?? 0) + cardItemGross(it));

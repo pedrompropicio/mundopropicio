@@ -21,11 +21,12 @@ export default function PostLoginRedirect() {
     enabled: !!user?.id,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("profiles")
         .select("profile_type")
         .eq("id", user!.id)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return ((data as any)?.profile_type ?? null) as string | null;
     },
   });

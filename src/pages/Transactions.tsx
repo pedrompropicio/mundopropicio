@@ -46,6 +46,7 @@ import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import { partitionByBpLineRequirement, needsBpLineBeforeApproval } from "@/lib/bp-line-required";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine, type BudgetRaise } from "@/lib/bp-budget-excess";
+import QueryErrorState from "@/components/QueryErrorState";
 
 const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
   const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
@@ -236,7 +237,13 @@ export default function Transactions() {
     else setSelectedEventIds(new Set(events.map((e: any) => e.id)));
   };
 
-  const { data: transactions = [], isLoading } = useQuery({
+  const {
+    data: transactions = [],
+    isLoading,
+    isError: txError,
+    error: txErrorObj,
+    refetch: refetchTx,
+  } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
       return await fetchAllPaged<any>((from, to) =>
@@ -1996,6 +2003,13 @@ export default function Transactions() {
       <div className="glass rounded-xl p-5">
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar transações…</p>
+        ) : txError ? (
+          <QueryErrorState
+            title="Não foi possível carregar as transações"
+            error={txErrorObj}
+            context="Transações — lista"
+            onRetry={() => refetchTx()}
+          />
         ) : viewMode === "open" ? (
           /* ===== OPEN TRANSACTIONS VIEW ===== */
           filtered.length === 0 ? (

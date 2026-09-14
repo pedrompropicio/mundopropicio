@@ -32,10 +32,11 @@ export default function ChamadoNovo() {
     queryKey: ["op-frentes-visible", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,event_id,company_id, events(name)")
         .order("display_order");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -44,8 +45,9 @@ export default function ChamadoNovo() {
     queryKey: ["op-etapas-for-frente", frenteId],
     enabled: !!frenteId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_etapas").select("id,name,status").eq("frente_id", frenteId).order("display_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

@@ -52,10 +52,11 @@ export function MontagemPhase({ eventId }: { eventId: string }) {
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery({
     queryKey: ["op-hub-montagem", eventId],
     queryFn: async () => {
-      const { data: frentes } = await supabase
+      const { data: frentes, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id")
         .eq("event_id", eventId);
+      if (qErr1) throw qErr1;
       const frenteIds = (frentes ?? []).map((f: any) => f.id);
       if (frenteIds.length === 0) return [] as Etapa[];
       const { data: etapas, error } = await supabase

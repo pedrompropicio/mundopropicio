@@ -53,8 +53,9 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     enabled: accessUserIds.length > 0,
     queryFn: async () => {
       const RELEVANT = ["view_bp", "view_partner_transactions"] as const;
-      const { data: roleRows } = await supabase
+      const { data: roleRows, error: qErr1 } = await supabase
         .from("user_roles").select("user_id, role").in("user_id", accessUserIds);
+      if (qErr1) throw qErr1;
       const rolesByUser: Record<string, string[]> = {};
       (roleRows ?? []).forEach((r: any) => {
         (rolesByUser[r.user_id] ||= []).push(r.role);
@@ -67,8 +68,9 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
       ((rolePermsRes.data as any[]) ?? []).forEach((r: any) => {
         (rolePermMap[r.role] ||= new Set()).add(r.permission);
       });
-      const { data: userPerms } = await supabase
+      const { data: userPerms, error: qErr2 } = await supabase
         .from("user_permissions").select("user_id, permission, granted").in("user_id", accessUserIds);
+      if (qErr2) throw qErr2;
       const out: Record<string, Set<string>> = {};
       for (const uid of accessUserIds) {
         const roles = rolesByUser[uid] || [];

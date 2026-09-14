@@ -17,11 +17,13 @@ export default function MeusChamados() {
     queryKey: ["op-meus-chamados", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data: team } = await supabase
+      const { data: team, error: qErr1 } = await supabase
         .from("operacao_frente_team").select("frente_id").eq("profile_id", user!.id).eq("active", true);
+      if (qErr1) throw qErr1;
       const teamFrenteIds = (team ?? []).map((t: any) => t.frente_id);
-      const { data: leadFrentes } = await supabase
+      const { data: leadFrentes, error: qErr2 } = await supabase
         .from("operacao_frentes").select("id").eq("current_lead_id", user!.id);
+      if (qErr2) throw qErr2;
       const leadIds = (leadFrentes ?? []).map((f: any) => f.id);
       const allFrenteIds = Array.from(new Set([...teamFrenteIds, ...leadIds]));
 
@@ -32,10 +34,11 @@ export default function MeusChamados() {
             .eq("kind", "chamado").in("frente_id", allFrenteIds)
             .order("sla_due_at", { ascending: true })
         : { data: [] };
-      const { data: authored } = await supabase
+      const { data: authored, error: qErr3 } = await supabase
         .from("operacao_registros")
         .select("*, frente:operacao_frentes(name,color)")
         .eq("kind", "chamado").eq("author_profile_id", user!.id);
+      if (qErr3) throw qErr3;
       const map = new Map<string, any>();
       [...(byFrente ?? []), ...(authored ?? [])].forEach((c: any) => map.set(c.id, c));
       return Array.from(map.values());

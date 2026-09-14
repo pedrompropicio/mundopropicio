@@ -46,11 +46,12 @@ export function EtapaAssigneeSheet({
     queryKey: ["op-frente-team-full", frenteId],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frente_team")
         .select("profile_id, role_in_frente, active, profiles:profile_id(id, full_name, profile_type)")
         .eq("frente_id", frenteId)
         .eq("active", true);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -59,10 +60,11 @@ export function EtapaAssigneeSheet({
     queryKey: ["op-etapa-assignees-edit", etapaId],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_etapa_assignees")
         .select("profile_id, role")
         .eq("etapa_id", etapaId);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

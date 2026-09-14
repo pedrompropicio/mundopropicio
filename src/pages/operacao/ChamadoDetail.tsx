@@ -29,10 +29,11 @@ export default function ChamadoDetail() {
     queryKey: ["op-chamado", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_registros")
         .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), etapa:operacao_etapas(id,name), author:profiles!operacao_registros_author_profile_id_fkey(full_name)")
         .eq("id", id!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
   });

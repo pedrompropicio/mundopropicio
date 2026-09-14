@@ -29,10 +29,11 @@ export default function MinhasTarefas() {
     queryKey: ["op-my-assignee-etapas", user?.id],
     enabled: !!user && canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_etapa_assignees")
         .select("etapa_id, role")
         .eq("profile_id", user!.id);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -49,17 +50,19 @@ export default function MinhasTarefas() {
       const orFilter: string[] = [];
       if (etapaIdsFromAssignee.length > 0) orFilter.push(`id.in.(${etapaIdsFromAssignee.join(",")})`);
       orFilter.push(`responsible_profile_id.eq.${user!.id}`);
-      const { data: d1 } = await supabase
+      const { data: d1, error: qErr2 } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color), supplier:suppliers(name)")
+        .select("*, frente:operacao_frentes!operacao_etapas_frente_id_fkey(id,name,color), supplier:suppliers(name)")
         .or(orFilter.join(","));
+      if (qErr2) throw qErr2;
       results.push(...(d1 ?? []));
       // b) etapas das frentes onde sou lead
       if ((leadFrenteIds ?? []).length > 0) {
-        const { data: d2 } = await supabase
+        const { data: d2, error: qErr3 } = await supabase
           .from("operacao_etapas")
-          .select("*, frente:operacao_frentes(id,name,color), supplier:suppliers(name)")
+          .select("*, frente:operacao_frentes!operacao_etapas_frente_id_fkey(id,name,color), supplier:suppliers(name)")
           .in("frente_id", leadFrenteIds!);
+        if (qErr3) throw qErr3;
         results.push(...(d2 ?? []));
       }
       const seen = new Set<string>();
@@ -77,10 +80,11 @@ export default function MinhasTarefas() {
     queryKey: ["op-etapas-com-assignees", allIds.join(",")],
     enabled: allIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("operacao_etapa_assignees")
         .select("etapa_id")
         .in("etapa_id", allIds);
+      if (qErr4) throw qErr4;
       return new Set((data ?? []).map((a: any) => a.etapa_id));
     },
   });

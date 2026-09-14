@@ -135,11 +135,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   const { data: simCfg } = useQuery({
     queryKey: ["efc-sim-cfg", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("event_simulator_config")
         .select("*")
         .eq("event_id", eventId)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return data as any | null;
     },
     enabled: simEnabled,
@@ -148,12 +149,13 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   const { data: simInputs = [] } = useQuery({
     queryKey: ["efc-sim-inputs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("event_simulator_inputs")
         .select("*")
         .eq("event_id", eventId)
         .order("day_index")
         .order("zone_label");
+      if (qErr2) throw qErr2;
       return (data ?? []) as any[];
     },
     enabled: simEnabled,

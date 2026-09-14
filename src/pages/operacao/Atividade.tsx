@@ -28,8 +28,9 @@ export default function Atividade() {
     queryKey: ["op-atividade-frentes", user?.id],
     enabled: !!user && canView,
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_frente_team")
+      const { data, error: qErr1 } = await supabase.from("operacao_frente_team")
         .select("frente_id").eq("profile_id", user!.id).eq("active", true);
+      if (qErr1) throw qErr1;
       return Array.from(new Set((data ?? []).map((t: any) => t.frente_id)));
     },
   });
@@ -62,9 +63,10 @@ export default function Atividade() {
     queryKey: ["op-atividade-media", ids],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_registro_media")
+      const { data, error: qErr2 } = await supabase.from("operacao_registro_media")
         .select("id,registro_id,file_url,thumbnail_url,file_type,sort_order")
         .in("registro_id", ids).order("sort_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

@@ -51,11 +51,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
   } = useQuery({
     queryKey: ["op-evento-frentes", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,type,current_lead_id")
         .eq("event_id", eventId)
         .neq("status", "cancelled");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -78,13 +79,14 @@ export function EventoPhase({ eventId, companyId }: Props) {
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_registros")
         .select("id,kind,status,text,priority,created_at,acked_at,etapa_id,frente_id,author_profile_id")
         .in("frente_id", frenteIds)
         .eq("kind", "chamado")
         .in("status", ["open", "in_progress"])
         .order("created_at", { ascending: false });
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -101,10 +103,11 @@ export function EventoPhase({ eventId, companyId }: Props) {
     queryKey: ["op-evento-profiles", profileIds],
     enabled: profileIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("profiles")
         .select("id,full_name,phone")
         .in("id", profileIds);
+      if (qErr3) throw qErr3;
       return Object.fromEntries((data ?? []).map((p: any) => [p.id, p]));
     },
   });
@@ -118,10 +121,11 @@ export function EventoPhase({ eventId, companyId }: Props) {
     queryKey: ["op-evento-etapas-chamados", etapaIds],
     enabled: etapaIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("operacao_etapas")
         .select("id,name")
         .in("id", etapaIds);
+      if (qErr4) throw qErr4;
       return Object.fromEntries((data ?? []).map((e: any) => [e.id, e]));
     },
   });
@@ -137,12 +141,13 @@ export function EventoPhase({ eventId, companyId }: Props) {
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr5 } = await supabase
         .from("operacao_etapas")
         .select("id,name,status,planned_start,planned_end,frente_id,responsible_profile_id,updated_at")
         .in("frente_id", frenteIds)
         .eq("status", "in_progress")
         .order("planned_start", { ascending: true });
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
   });

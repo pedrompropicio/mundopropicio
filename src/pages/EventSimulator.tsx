@@ -121,7 +121,8 @@ export default function EventSimulator() {
   const { data: event } = useQuery({
     queryKey: ["event", eventId],
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      const { data, error: qErr1 } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
     enabled: !!eventId,
@@ -131,11 +132,12 @@ export default function EventSimulator() {
   const { data: subEvents = [] } = useQuery({
     queryKey: ["sim-sub-events", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("events")
         .select("id, name, date")
         .eq("parent_event_id", eventId!)
         .order("date");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
     enabled: !!eventId,
@@ -147,11 +149,12 @@ export default function EventSimulator() {
   const { data: cfg, isLoading: loadingCfg } = useQuery<DbConfig | null>({
     queryKey: ["sim-coala-cfg", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr22 } = await supabase
         .from("event_simulator_config")
         .select("*")
         .eq("event_id", eventId!)
         .maybeSingle();
+      if (qErr22) throw qErr22;
       return (data as any) ?? null;
     },
     enabled: !!eventId,
@@ -160,11 +163,12 @@ export default function EventSimulator() {
   const { data: sessions = [] } = useQuery<DbInput[]>({
     queryKey: ["sim-coala-inputs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr23 } = await supabase
         .from("event_simulator_inputs")
         .select("*")
         .eq("event_id", eventId!)
         .order("day_index").order("zone_label");
+      if (qErr23) throw qErr23;
       return (data as any) ?? [];
     },
     enabled: !!eventId,
@@ -173,11 +177,12 @@ export default function EventSimulator() {
   const { data: costLines = [] } = useQuery<DbCostLine[]>({
     queryKey: ["sim-coala-costs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr24 } = await supabase
         .from("event_simulator_cost_lines")
         .select("*")
         .eq("event_id", eventId!)
         .order("display_order");
+      if (qErr24) throw qErr24;
       return (data as any) ?? [];
     },
     enabled: !!eventId,
@@ -187,12 +192,13 @@ export default function EventSimulator() {
     queryKey: ["account-categories-l3", companyId],
     enabled: !!eventId && !!companyId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr25 } = await supabase
         .from("account_categories")
         .select("id, code, name, company_id")
         .eq("is_active", true)
         .eq("company_id", companyId!)
         .order("code");
+      if (qErr25) throw qErr25;
       // L3 = code com 3 níveis (x.y.z)
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+\.\d+$/.test(c.code));
     },
@@ -203,12 +209,13 @@ export default function EventSimulator() {
     queryKey: ["account-categories-l2", companyId],
     enabled: !!eventId && !!companyId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr26 } = await supabase
         .from("account_categories")
         .select("id, code, name, company_id")
         .eq("is_active", true)
         .eq("company_id", companyId!)
         .order("code");
+      if (qErr26) throw qErr26;
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+$/.test(c.code));
     },
   });
@@ -225,23 +232,26 @@ export default function EventSimulator() {
     queryKey: ["sim-coala-lot-sales", eventId],
     queryFn: async () => {
       // 1) zonas do evento (com session_id → identifica dia do festival)
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr3 } = await supabase
         .from("event_ticket_zones")
         .select("id, name, session_id, total_capacity").eq("event_id", eventId!).is("version_id", null);
+      if (qErr3) throw qErr3;
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[], zoneRows: [] as any[], salesByZone: {} as Record<string, { qty: number; revenue: number }> };
 
       // 2) lotes dessas zonas
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr4 } = await supabase
         .from("event_ticket_lots")
         .select("id, name, zone_id, applies_to_days")
         .in("zone_id", zoneIds);
+      if (qErr4) throw qErr4;
 
       // 3) DIAS REAIS do festival = event_sessions (cada sessão = 1 dia)
       // event_dates pode ter só 1 entrada (último dia agregador); event_sessions é a fonte fiável.
-      const { data: sessionRows } = await supabase
+      const { data: sessionRows, error: qErr5 } = await supabase
         .from("event_sessions")
         .select("id, date").eq("event_id", eventId!).order("date");
+      if (qErr5) throw qErr5;
       const sessions = (sessionRows ?? []) as { id: string; date: string | null }[];
       const sessionIdToIdx = new Map<string, number>();
       sessions.forEach((s, i) => { if (s.id) sessionIdToIdx.set(s.id, i); });
@@ -336,16 +346,18 @@ export default function EventSimulator() {
     queryKey: ["sim-coala-be-lots-v3", eventId],
     queryFn: async () => {
       const currentLoadForSolver = await fetchCurrentLoadByZoneName(eventId!);
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr6 } = await supabase
         .from("event_ticket_zones")
         .select("id, name, total_capacity").eq("event_id", eventId!);
+      if (qErr6) throw qErr6;
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return {} as Record<string, import("@/lib/event-simulator-coala").SessionLotInfo>;
 
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr7 } = await supabase
         .from("event_ticket_lots")
         .select("id, zone_id, lot_number, price, quantity")
         .in("zone_id", zoneIds);
+      if (qErr7) throw qErr7;
 
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length

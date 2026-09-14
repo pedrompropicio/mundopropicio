@@ -1338,11 +1338,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
       let childEventMap: Record<string, string> = {};
       if (masterIds.length > 0) {
-        const { data: children } = await supabase
+        const { data: children, error: qErr1 } = await supabase
           .from("transactions")
           .select("parent_transaction_id, events(name)")
           .in("parent_transaction_id", masterIds)
           .not("event_id", "is", null);
+        if (qErr1) throw qErr1;
         if (children) {
           for (const child of children) {
             const pid = child.parent_transaction_id as string;
@@ -1366,10 +1367,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       // For reimbursement payment transactions, enrich with IBAN + employee name from the note
       const txIds = filtered.map((i: any) => i.transactions?.id).filter(Boolean);
       if (txIds.length > 0) {
-        const { data: notes } = await supabase
+        const { data: notes, error: qErr2 } = await supabase
           .from("reimbursement_notes")
           .select("payment_transaction_id, payment_iban, employee_name, code, supplier_id, suppliers:supplier_id(name, trade_name, email)")
           .in("payment_transaction_id", txIds);
+        if (qErr2) throw qErr2;
         const noteBank = await fetchSupplierBankMap(
           (notes ?? []).map((n: any) => n.supplier_id).filter(Boolean),
         );
@@ -2485,11 +2487,12 @@ function ApproveModal({
         .map((item: any) => item.transactions.id);
 
       if (masterIds.length > 0) {
-        const { data: children } = await supabase
+        const { data: children, error: qErr3 } = await supabase
           .from("transactions")
           .select("parent_transaction_id, events(name)")
           .in("parent_transaction_id", masterIds)
           .not("event_id", "is", null);
+        if (qErr3) throw qErr3;
         if (children) {
           const childEventMap: Record<string, string> = {};
           for (const child of children) {

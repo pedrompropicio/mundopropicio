@@ -40,7 +40,7 @@ export function QuickAdvanceModal({ open, onClose, officeId, officeName, eventId
   const { data: bankAccounts = [] } = useQuery({
     queryKey: ["advance_target_accounts", officeId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("financial_accounts")
         .select("id, name, type")
         .eq("type", "bank")
@@ -48,6 +48,7 @@ export function QuickAdvanceModal({ open, onClose, officeId, officeName, eventId
         .eq("is_hidden", false)
         .neq("id", officeId)
         .order("name");
+      if (qErr1) throw qErr1;
       return data || [];
     },
   });

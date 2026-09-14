@@ -36,18 +36,20 @@ export default function MyFrentes() {
     queryKey: ["op-my-frentes", user?.id],
     enabled: !!user && canView,
     queryFn: async () => {
-      const { data: team } = await supabase
+      const { data: team, error: qErr1 } = await supabase
         .from("operacao_frente_team")
         .select("frente_id")
         .eq("profile_id", user!.id)
         .eq("active", true);
+      if (qErr1) throw qErr1;
       const ids = Array.from(new Set((team ?? []).map((t: any) => t.frente_id)));
       if (ids.length === 0) return [];
-      const { data: fr } = await supabase
+      const { data: fr, error: qErr2 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,status,current_lead_id,event_id, events(name)")
         .in("id", ids)
         .order("display_order");
+      if (qErr2) throw qErr2;
       return fr ?? [];
     },
   });
@@ -82,13 +84,14 @@ export default function MyFrentes() {
     queryKey: ["op-frentes-last-activity", frenteIds],
     enabled: frenteIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("operacao_registros")
         .select("frente_id,kind,text,created_at,author:profiles!operacao_registros_author_profile_id_fkey(full_name)")
         .in("frente_id", frenteIds)
         .neq("kind", "chamado")
         .order("created_at", { ascending: false })
         .limit(100);
+      if (qErr3) throw qErr3;
       const out: Record<string, LastActivity> = {};
       for (const r of data ?? []) {
         if (!out[(r as any).frente_id]) {

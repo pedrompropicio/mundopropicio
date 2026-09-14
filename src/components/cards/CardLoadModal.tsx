@@ -29,12 +29,13 @@ export function CardLoadModal({ open, onOpenChange, sessionId, cardAccountId, ca
     queryKey: ["source-accounts-for-load"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("financial_accounts")
         .select("id, name")
         .in("type", ["bank", "cash"])
         .eq("is_active", true)
         .order("name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

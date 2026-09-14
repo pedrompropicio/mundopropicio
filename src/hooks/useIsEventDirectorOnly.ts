@@ -14,11 +14,12 @@ export function useIsEventDirectorOnly(eventId?: string | null) {
     queryKey: ["op-is-director-only", eventId, user?.id],
     enabled: !!eventId && !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("event_team_members")
         .select("role")
         .eq("event_id", eventId!)
         .eq("profile_id", user!.id);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
