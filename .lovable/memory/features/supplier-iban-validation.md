@@ -16,9 +16,13 @@ type: feature
 
 ## RPC
 `public.check_supplier_iban_duplicate(p_iban text, p_supplier_id uuid DEFAULT NULL) RETURNS jsonb`
-- SECURITY INVOKER, STABLE, `search_path = public`.
+- SECURITY DEFINER, STABLE, `search_path = public`, portão `can_view_supplier_bank_data()`.
 - Compara nos 3 slots (iban/iban_2/iban_3) dentro de `current_company_id()`.
-- Retorna `{exists:false}` ou `{exists:true, supplier_id, supplier_name, nif}`.
+- Três estados (2026-09-14): `{exists:false}` · `{exists:true, is_active:true, supplier_id, supplier_name, nif}` · `{exists:true, is_active:false, …}`. Ativo tem precedência.
+- Motivo do 3.º estado: os índices únicos só valem `WHERE is_active`, mas um fornecedor DESATIVADO bloqueava a criação e não aparecia em seletor nenhum (beco sem saída).
+
+## Fornecedor inativo no formulário
+`SupplierFormModal` mostra painel de aviso com o nome do fornecedor inativo e, para admin/platform_admin/manager, botão "Reativar «nome»" (update `is_active = true`, refetch das listas, `onCreated(id)`); quem não pode gerir vê a instrução para pedir a reativação, com o nome. Nunca se cria um segundo registo ativo com o mesmo IBAN na mesma empresa.
 
 ## Decisão de schema
 NÃO foi criado UNIQUE constraint na tabela `suppliers` porque já existem duplicados legados em Live (quebraria a migration). Bloqueio é garantido em runtime (RPC + UI). Auditoria retroativa expõe os legados para correção manual.
