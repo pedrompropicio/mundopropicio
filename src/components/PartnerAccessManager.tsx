@@ -177,14 +177,15 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
         event_id: eid,
         is_active: true,
       }));
-      const { error } = await supabase.from("partner_event_access").upsert(inserts, { onConflict: "user_id,event_id" });
-      if (error) throw error;
-      // A ligação utilizador ↔ sócio só se escreve pela RPC.
+      // Primeiro a ligação ao sócio (único caminho de escrita): se falhar, não
+      // fica acesso órfão. A falha possível passa a ser ligação sem acesso.
       const { error: rpcErr } = await supabase.rpc("set_partner_portal_user", {
         _supplier_id: selectedSupplierId,
         _profile_id: selectedUserId,
       });
       if (rpcErr) throw rpcErr;
+      const { error } = await supabase.from("partner_event_access").upsert(inserts, { onConflict: "user_id,event_id" });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["partner_event_access", eventId] });
