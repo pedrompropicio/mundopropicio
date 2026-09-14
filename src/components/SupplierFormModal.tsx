@@ -173,8 +173,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const reactivateMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").update({ is_active: true }).eq("id", id);
-      if (error) throw error;
+      await reactivateSupplier(id);
       return id;
     },
     onSuccess: async (id) => {
