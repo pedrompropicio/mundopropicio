@@ -88,14 +88,23 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Delete all existing overrides for this user
-      await supabase.from("user_permissions").delete().eq("user_id", userId);
+      if (!companyId) throw new Error("Empresa ativa não resolvida");
+
+      // Delete existing overrides for this user IN THE ACTIVE COMPANY ONLY.
+      // platform_admin is not limited by RLS here, so the company filter is mandatory.
+      const { error: delError } = await supabase
+        .from("user_permissions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("company_id", companyId);
+      if (delError) throw delError;
 
       // Insert new overrides
       const inserts = Object.entries(localOverrides)
         .filter(([_, v]) => v !== undefined)
         .map(([permission, granted]) => ({
           user_id: userId,
+          company_id: companyId,
           permission,
           granted: granted!,
         }));
@@ -106,7 +115,7 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-permissions", userId] });
+      queryClient.invalidateQueries({ queryKey: ["user-permissions", userId, companyId] });
       toast({ title: "Permissões guardadas!" });
       onOpenChange(false);
     },
