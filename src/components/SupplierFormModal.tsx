@@ -51,7 +51,7 @@ interface SupplierFormModalProps {
 
 export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner, overlayClassName, contentClassName }: SupplierFormModalProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, role } = useAuth() as any;
   const isEditing = !!editingSupplier;
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
@@ -163,7 +163,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const [inactiveMatch, setInactiveMatch] = useState<
     { id: string; name: string; nif: string | null; label: string } | null
   >(null);
-  const { role } = useAuth() as any;
+  
   const canManageSuppliers =
     role === "admin" || role === "platform_admin" || role === "manager";
 
@@ -230,6 +230,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       return;
     }
     setValidationErrors({});
+    setInactiveMatch(null);
 
     // Validação estrutural (checksum MOD-97) e duplicação cross-supplier
     const ibanFields: Array<{ key: "iban" | "iban_2" | "iban_3"; label: string; value: string | null }> = [
