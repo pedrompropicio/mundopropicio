@@ -16,6 +16,32 @@ import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
 
 import { toast } from "@/hooks/use-toast";
 
+/**
+ * Regra de negócio (Pedro, 14/09/2026) — evento `completed`:
+ *  PERMITIDO: liquidar e estornar pagamentos (execução de decisão já tomada).
+ *  BLOQUEADO: aprovar, editar, eliminar (são decisões — pertencem ao evento vivo).
+ * Nenhum bloqueio pode ser silencioso: o botão existe, desactivado, com tooltip.
+ */
+export const completedBlockTooltip = (act: "aprovar" | "editar" | "eliminar") =>
+  `Evento concluído. Reabre o evento para ${act}.`;
+
+function BlockedActionButton({ act, children }: { act: "aprovar" | "editar" | "eliminar"; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          aria-disabled="true"
+          className="inline-flex cursor-not-allowed rounded-lg p-1.5 text-muted-foreground/40"
+        >
+          {children}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">{completedBlockTooltip(act)}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 interface Props {
   transaction: any;
   canApprove: boolean;
@@ -636,8 +662,8 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
             {/* Child split transactions: only docs + audit */}
             {isChildSplit ? (
               <>
-                {/* Payment on child: opens parent for full settlement */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.parent_transaction_id && !t.is_reimbursement && (
+                {/* Payment on child: opens parent for full settlement — permitido em evento concluído */}
+                {balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.parent_transaction_id && !t.is_reimbursement && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button onClick={() => onPayment(t.parent_transaction_id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Liquidar via transação master">
@@ -656,31 +682,40 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
               </>
             ) : (
               <>
-                {/* Edit: blocked if event completed (admin bypass); paid = limited edit mode */}
-                {(!eventCompleted || canApprove) && computedStatus !== "paid" && (
-                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title={eventCompleted ? "Editar (evento fechado — ajuste admin/gestora)" : "Editar"}>
+                {/* Editar: bloqueado em evento concluído, sem excepção admin/gestora */}
+                {eventCompleted ? (
+                  <BlockedActionButton act="editar">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </BlockedActionButton>
+                ) : computedStatus !== "paid" ? (
+                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                )}
-                {(!eventCompleted || canApprove) && computedStatus === "paid" && (
+                ) : (
                   <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground/60 hover:bg-secondary hover:text-foreground transition-colors" title="Editar especificação / fornecedor">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {/* Approve: admin only, pending/overdue only, not completed */}
-                {!eventCompleted && canApprove && (computedStatus === "pending" || computedStatus === "overdue") && (
-                  <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                  </button>
+                {/* Aprovar: admin only, pending/overdue; bloqueado (visível) em evento concluído */}
+                {canApprove && (computedStatus === "pending" || computedStatus === "overdue") && (
+                  eventCompleted ? (
+                    <BlockedActionButton act="aprovar">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    </BlockedActionButton>
+                  ) : (
+                    <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    </button>
+                  )
                 )}
-                {/* Payment/Receipt: only after approved, not completed, not linked to reimbursement note, not paid by partner (settled via partner accounting) */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && !partnerPaidInfo && (
+                {/* Liquidar/Receber: permitido também em evento concluído */}
+                {balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && !partnerPaidInfo && (
                   <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                     <CreditCard className="h-3.5 w-3.5" />
                   </button>
                 )}
                 {/* Reimbursement transactions: show info that payment is via note */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.is_reimbursement && (
+                {balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.is_reimbursement && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="rounded-lg p-1.5 text-muted-foreground cursor-default">
@@ -696,7 +731,9 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 {/* Secondary actions menu */}
                 {(() => {
-                  const showDelete = !eventCompleted && (computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
+                  // Eliminar continua a aparecer em evento concluído, mas desactivado.
+                  const showDelete = computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid"));
+                  const deleteBlocked = !!eventCompleted;
                   const showViewPayments = onViewPayments && (paidAmount > 0 || !!hasInstallments);
                   const showHide = canApprove && onToggleHidden;
                   const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
@@ -787,11 +824,18 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => onDelete(t.id)}
+                              disabled={deleteBlocked}
+                              onClick={() => { if (!deleteBlocked) onDelete(t.id); }}
+                              title={deleteBlocked ? completedBlockTooltip("eliminar") : undefined}
                               className="text-destructive focus:text-destructive focus:bg-destructive/10"
                             >
                               <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar
                             </DropdownMenuItem>
+                            {deleteBlocked && (
+                              <div className="px-2 pb-1 text-[10px] text-muted-foreground">
+                                {completedBlockTooltip("eliminar")}
+                              </div>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>

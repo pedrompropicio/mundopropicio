@@ -105,6 +105,8 @@ export default function Transactions() {
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
   const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
   const [bpBlockedTxs, setBpBlockedTxs] = useState<any[]>([]);
+  // Seleccionadas que ficaram fora do lote por o evento estar concluído.
+  const [completedBlockedTxs, setCompletedBlockedTxs] = useState<any[]>([]);
   // DR-2026-09-02-D2 — excesso de verba: linhas a elevar + lote que ficou à espera.
   const [raiseState, setRaiseState] = useState<{ lines: BudgetExcessLine[]; ids: string[] } | null>(null);
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
@@ -953,10 +955,15 @@ export default function Transactions() {
     });
   }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap, onlyExcludedFromResult, selectedOperationKeys]);
 
+  // Evento concluído: aprovar é uma decisão e fica travado (regra 14/09/2026).
+  const isCompletedEvent = (t: any) => (t.events as any)?.status === "completed";
+
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
+  // Só estas podem entrar no lote de aprovação.
+  const pendingApprovableInView = pendingInView.filter((t) => !isCompletedEvent(t));
   const selectedPendingCount = [...selectedIds].filter((id) =>
-    pendingInView.some((t) => t.id === id)
+    pendingApprovableInView.some((t) => t.id === id)
   ).length;
 
   // Approved (payable) transactions in current filtered view
@@ -965,7 +972,7 @@ export default function Transactions() {
     approvedInView.some((t) => t.id === id)
   ).length;
 
-  const selectableInView = [...pendingInView, ...approvedInView];
+  const selectableInView = [...pendingApprovableInView, ...approvedInView];
   const hasSelectableItems = canApprove && selectableInView.length > 0;
 
   const toggleSelect = (id: string) => {
@@ -978,18 +985,18 @@ export default function Transactions() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedPendingCount === pendingInView.length && pendingInView.length > 0) {
+    if (selectedPendingCount === pendingApprovableInView.length && pendingApprovableInView.length > 0) {
       // Deselect all pending
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        pendingInView.forEach((t) => next.delete(t.id));
+        pendingApprovableInView.forEach((t) => next.delete(t.id));
         return next;
       });
     } else {
       // Select all pending
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        pendingInView.forEach((t) => next.add(t.id));
+        pendingApprovableInView.forEach((t) => next.add(t.id));
         return next;
       });
     }
@@ -1039,7 +1046,20 @@ export default function Transactions() {
     if (approveMutation.isPending || bulkApproveMutation.isPending) return;
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
-    const txs = transactions.filter((t: any) => ids.includes(t.id));
+    const allSelected = transactions.filter((t: any) => ids.includes(t.id));
+    // Evento concluído: fora do lote, e dito em voz alta.
+    const completedBlocked = allSelected.filter((t: any) => isCompletedEvent(t));
+    setCompletedBlockedTxs(completedBlocked);
+    const txs = allSelected.filter((t: any) => !isCompletedEvent(t));
+    if (txs.length === 0) {
+      setBpBlockedTxs([]);
+      toast({
+        title: "Nenhuma transação aprovada",
+        description: `${completedBlocked.length} transação(ões) em evento(s) concluído(s) — reabre o evento para aprovar.`,
+        variant: "destructive",
+      });
+      return;
+    }
     let approvable = txs;
     let blocked: any[] = [];
     try {
@@ -1177,7 +1197,7 @@ export default function Transactions() {
         key={t.id}
         transaction={t}
         canApprove={canApprove}
-        selectable={canApprove && (t.status === "pending" || t.status === "approved")}
+        selectable={canApprove && ((t.status === "pending" && !isCompletedEvent(t)) || t.status === "approved")}
         selected={selectedIds.has(t.id)}
         onToggleSelect={() => toggleSelect(t.id)}
         showSelectColumn={showSelectionColumn}
@@ -1417,6 +1437,30 @@ export default function Transactions() {
           }}
         />
       )}
+
+      {completedBlockedTxs.length > 0 && (
+        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <div className="mb-2 text-sm font-medium">
+            {completedBlockedTxs.length} transação(ões) não aprovada(s) porque o evento está concluído
+          </div>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Reabre o evento para aprovar. Liquidar e estornar continuam disponíveis.
+          </p>
+          <div className="space-y-2">
+            {completedBlockedTxs.map((t: any) => (
+              <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="truncate">
+                  {(t.events as any)?.name ?? "—"} · {t.description ?? "—"} · {formatCurrency(Number(t.amount ?? 0))}
+                </span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setCompletedBlockedTxs([])} className="mt-3 text-xs text-muted-foreground underline">
+            Dispensar
+          </button>
+        </div>
+      )}
+
 
       {bpBlockedTxs.length > 0 && (
         <div className="mb-4 rounded-lg border border-warning/40 bg-warning/5 p-4">

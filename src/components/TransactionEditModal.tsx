@@ -473,6 +473,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      // Regra 14/09/2026: em evento concluído, editar é uma decisão — bloqueado
+      // para todos, incluindo admin/gestora. O modal continua a servir para consultar.
+      if (eventCompleted) {
+        throw new Error("Evento concluído. Reabre o evento para editar.");
+      }
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
       const fieldLabels: Record<string, string> = {
         description: "Descrição", amount: "Valor", iva_rate: "Taxa IVA",
@@ -1139,6 +1144,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
           <TabsContent value="details" className="pt-3">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {eventCompleted && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground">
+              <span className="font-semibold">Evento concluído.</span> Reabre o evento para editar.
+              Podes consultar os dados e continuar a registar ou estornar pagamentos no separador Pagamento.
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -2430,9 +2441,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          <button type="submit" disabled={editMutation.isPending}
-            className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
-            {editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
+          <button type="submit" disabled={editMutation.isPending || eventCompleted}
+            title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : undefined}
+            className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+            {eventCompleted ? "Evento concluído — edição bloqueada" : editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
           </button>
         </form>
           </TabsContent>

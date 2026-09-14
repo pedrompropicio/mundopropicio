@@ -30,8 +30,11 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const { user, role } = useAuth();
   // O editor pode corrigir a DATA e APAGAR um pagamento; valor/conta/método
   // continuam reservados a admin/manager.
+  // Evento concluído: EDITAR dados do pagamento fica bloqueado; REVERTER é permitido.
   const canFull = canApprove && !eventCompleted;
-  const canLimited = (canApprove || role === "editor") && !eventCompleted;
+  const canEdit = (canApprove || role === "editor") && !eventCompleted;
+  const canRevert = canApprove || role === "editor";
+  const canLimited = canEdit;
   const queryClient = useQueryClient();
   // "Pag. Estado" segue a mesma regra condicional dos outros modais
   // (categorias 10.4/10.5); mantém-se visível se a parcela já o tiver.
@@ -229,7 +232,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
 
   const deleteMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      if (!canLimited) throw new Error("Sem permissão para reverter pagamentos");
+      if (!canRevert) throw new Error("Sem permissão para reverter pagamentos");
       const payment = payments.find((p: any) => p.id === paymentId);
       if (!payment) throw new Error("Pagamento não encontrado");
 
@@ -537,17 +540,22 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                         <span className="text-xs text-muted-foreground">
                           {formatDatePT(p.payment_date)}
                         </span>
-                        {canLimited && (
-                          <>
-                            <button onClick={() => startEdit(p)}
-                              className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Editar">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button onClick={() => { if (confirm("Reverter este pagamento?")) deleteMutation.mutate(p.id); }}
-                              className="rounded p-1 text-destructive/60 hover:bg-destructive/10 hover:text-destructive" title="Reverter">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </>
+                        {canEdit ? (
+                          <button onClick={() => startEdit(p)}
+                            className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Editar">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        ) : eventCompleted && canRevert ? (
+                          <span className="rounded p-1 text-muted-foreground/40 cursor-not-allowed"
+                            title="Evento concluído. Reabre o evento para editar.">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </span>
+                        ) : null}
+                        {canRevert && (
+                          <button onClick={() => { if (confirm("Reverter este pagamento?")) deleteMutation.mutate(p.id); }}
+                            className="rounded p-1 text-destructive/60 hover:bg-destructive/10 hover:text-destructive" title="Reverter">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
                     </div>
