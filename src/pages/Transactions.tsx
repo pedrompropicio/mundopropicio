@@ -1438,6 +1438,30 @@ export default function Transactions() {
         />
       )}
 
+      {completedBlockedTxs.length > 0 && (
+        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <div className="mb-2 text-sm font-medium">
+            {completedBlockedTxs.length} transação(ões) não aprovada(s) porque o evento está concluído
+          </div>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Reabre o evento para aprovar. Liquidar e estornar continuam disponíveis.
+          </p>
+          <div className="space-y-2">
+            {completedBlockedTxs.map((t: any) => (
+              <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="truncate">
+                  {(t.events as any)?.name ?? "—"} · {t.description ?? "—"} · {formatCurrency(Number(t.amount ?? 0))}
+                </span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setCompletedBlockedTxs([])} className="mt-3 text-xs text-muted-foreground underline">
+            Dispensar
+          </button>
+        </div>
+      )}
+
+
       {bpBlockedTxs.length > 0 && (
         <div className="mb-4 rounded-lg border border-warning/40 bg-warning/5 p-4">
           <div className="mb-2 text-sm font-medium">
