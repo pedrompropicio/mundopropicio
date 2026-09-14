@@ -22,6 +22,7 @@ interface Props {
 
 export default function UserPermissionsModal({ open, onOpenChange, userId, userName, userRole }: Props) {
   const queryClient = useQueryClient();
+  const { companyId } = useCompany();
 
   // Get role-level defaults
   const { data: rolePerms = [] } = useQuery({
