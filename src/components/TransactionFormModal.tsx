@@ -1817,29 +1817,24 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         setAttachAfterCreateFile(null);
         setPendingInvoiceFile(null);
       }
-      // Auto-agrupamento por Nº fatura/ATCUD: só agrupa quando as linhas partilham
-      // o documento anexo (ou nenhuma tem). Documentos diferentes → sugestão a confirmar.
+      // Deteção por Nº fatura/ATCUD: nunca agrupa sozinho (2026-09-14) —
+      // só propõe, e o grupo é escrito no diálogo, com confirmação humana.
       let holdOpenForSuggestion = false;
       if (newTxId) {
         const { autoGroupInvoiceForTransaction } = await import("@/lib/invoice-group");
         const auto = await autoGroupInvoiceForTransaction(newTxId);
-
-        if (auto?.suggestion) {
+        if (auto) {
           holdOpenForSuggestion = true;
           setInvoiceSuggestion({
             supplierId: auto.supplierId,
             supplierName: (suppliers as any[]).find((s) => s.id === auto.supplierId)?.name ?? null,
             invoiceRef: auto.invoiceRef,
             total: auto.total,
-          });
-        } else if (auto) {
-          queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
-          toast({
-            title: "Fatura agrupada",
-            description: `Agrupada à fatura ${auto.invoiceRef} (${auto.total} itens).`,
+            reason: auto.reason,
           });
         }
       }
+
       if (newTxId) onCreated?.(newTxId);
       if (!holdOpenForSuggestion) onClose();
       toast({
