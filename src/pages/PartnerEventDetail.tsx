@@ -17,6 +17,8 @@ import { Progress } from "@/components/ui/progress";
 import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
+import { partnerUsesGrossExpenses, describePartnerExpenseBasis } from "@/lib/partner-calc-basis";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
@@ -120,7 +122,7 @@ export default function PartnerEventDetail() {
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
-  // Cards do sócio: visão única e fixa (calculada mais abaixo).
+  // Cards do sócio: calculados mais abaixo, na base de apuramento do sócio (D-ERP9).
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessRows = [], isLoading: isLoadingAccess } = useQuery({
@@ -179,6 +181,51 @@ export default function PartnerEventDetail() {
   const defaultMultiDayId = id!;
   const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
   const isMasterView = eventType === "multi_day" && activeEventId === id;
+
+  // ── Identidade do sócio que está a ver + base de apuramento (D-ERP9) ──
+  // A base NUNCA é fixa: o override do sócio (event_partners.expense_includes_iva)
+  // manda e, na sua ausência, vale events.partner_calc_basis. É a mesma regra do
+  // motor de acerto — usamos o módulo partilhado, nunca cálculo próprio aqui.
+  const { data: viewerSupplierId, isLoading: isLoadingViewerSupplier } = useQuery({
+    queryKey: ["partner-viewer-supplier-id", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("user_supplier_id", { p_user_id: user!.id });
+      if (error) throw error;
+      return ((data as string | null) ?? null);
+    },
+  });
+
+  const { data: viewerPartnerRow } = useQuery({
+    queryKey: ["partner-basis-row", user?.id, viewerSupplierId, activeEventId, id],
+    enabled: !!viewerSupplierId && !!activeEventId,
+    queryFn: async () => {
+      const ids = Array.from(new Set([activeEventId!, id!].filter(Boolean))) as string[];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("event_id, expense_includes_iva")
+        .in("event_id", ids)
+        .eq("supplier_id", viewerSupplierId!);
+      if (error) throw error;
+      const rows = (data ?? []) as { event_id: string; expense_includes_iva: boolean | null }[];
+      return rows.find((r) => r.event_id === activeEventId) ?? rows[0] ?? null;
+    },
+  });
+
+  const hasViewerSupplier = !!viewerSupplierId;
+  const activeEventRow = activeEventId === id
+    ? event
+    : ((eventBundle?.subEvents ?? []).find((s: any) => s.id === activeEventId) ?? event);
+  const eventBasis = ((activeEventRow as any)?.partner_calc_basis
+    ?? (event as any)?.partner_calc_basis ?? null) as string | null;
+  const usesGross = partnerUsesGrossExpenses(eventBasis, viewerPartnerRow?.expense_includes_iva ?? null);
+  const basisShort = usesGross ? "c/IVA" : "s/IVA";
+  const expenseBasisNote = describePartnerExpenseBasis(eventBasis, viewerPartnerRow?.expense_includes_iva ?? null);
+  /** Despesa na base efectiva do sócio: bruto c/IVA ou base líquida. */
+  const expenseView = (base: number, ivaRate: number, gross?: number | null) =>
+    usesGross
+      ? Number(gross ?? calcTotalWithIva(Number(base || 0), Number(ivaRate || 0)))
+      : Number(base || 0);
 
   // ── Fase 2b: edição do BP em grelha (estilo planilha) ──
   const canEditBpHere = !!activeEventId && !isMasterView
@@ -308,7 +355,10 @@ export default function PartnerEventDetail() {
 
       const [salesRes] = await Promise.all([
         zoneIds.length > 0
-          ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, lot_id, financial_account_id").in("zone_id", zoneIds)
+          // `total_value` é o valor exacto preservado na importação; `unit_price` é
+          // derivado dele por divisão arredondada, logo multiplicar de volta perde
+          // cêntimos linha a linha. A receita soma sempre `total_value`.
+          ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, total_value, lot_id, financial_account_id").in("zone_id", zoneIds)
           : Promise.resolve({ data: [], error: null }),
       ]);
 
@@ -359,7 +409,7 @@ export default function PartnerEventDetail() {
             });
             const citySales = (salesRes.data ?? []).filter((s: any) => cityZoneIds.has(s.zone_id));
             const cityTicketNet = citySales.reduce((s: number, sale: any) => {
-              const gross = Number(sale.quantity) * Number(sale.unit_price);
+              const gross = ticketSaleRevenue(sale);
               const iva = cityLotIva[sale.lot_id] ?? 6;
               return s + gross / (1 + iva / 100);
             }, 0);
@@ -367,11 +417,18 @@ export default function PartnerEventDetail() {
               .filter((t: any) => t.type === "income")
               .reduce((s: number, t: any) => s + Number(t.amount), 0);
             const income = txIncome + cityTicketNet;
-            const expense = cityTx
-              .filter((t: any) => t.type === "expense")
-              .reduce((s: number, t: any) => s + Number(t.gross_amount ?? 0), 0)
-              + cityOverheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
-            return { id: sub.id, name: sub.name, income, expense, result: income - expense };
+            // As duas bases saem daqui em cru; a base efectiva do sócio é
+            // aplicada fora da query (`usesGross`), que não é estável aqui.
+            const cityExpenses = [
+              ...cityTx.filter((t: any) => t.type === "expense"),
+              ...cityOverheads,
+            ];
+            const expenseNet = cityExpenses.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+            const expenseGross = cityExpenses.reduce(
+              (s: number, t: any) => s + Number(t.gross_amount ?? calcTotalWithIva(Number(t.amount || 0), Number(t.iva_rate || 0))),
+              0,
+            );
+            return { id: sub.id, name: sub.name, income, expenseNet, expenseGross };
           })
         : [];
 
@@ -576,12 +633,12 @@ export default function PartnerEventDetail() {
   }, [event, visibleSubEvents, id]);
 
   const totalAdvances = useMemo(
-    () => (partnerAdvances as any[]).reduce((s, a) => s + calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
-    [partnerAdvances],
+    () => (partnerAdvances as any[]).reduce((s, a) => s + expenseView(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
+    [partnerAdvances, usesGross],
   );
   const totalPaidByPartner = useMemo(
-    () => (partnerPaidExpenses as any[]).reduce((s, a) => s + calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
-    [partnerPaidExpenses],
+    () => (partnerPaidExpenses as any[]).reduce((s, a) => s + expenseView(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
+    [partnerPaidExpenses, usesGross],
   );
 
   // Filter zones by selected session
@@ -664,11 +721,12 @@ export default function PartnerEventDetail() {
       transactions
         .filter((t: any) => t.type === type)
         .forEach((t: any) => {
-          // Vista do sócio (modo Brasil): despesas em BRUTO (com IVA);
-          // receitas em LÍQUIDO. Alinhado com buildPartnerSettlementReportData.
+          // Vista do sócio: despesas na base de apuramento DELE (D-ERP9) —
+          // c/IVA ou base líquida, conforme `usesGross`; receitas sempre em
+          // LÍQUIDO. Alinhado com buildPartnerSettlementReportData.
           const baseAmount = Number(t.amount);
           const displayAmount = type === "expense"
-            ? Number(t.gross_amount ?? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0)))
+            ? expenseView(baseAmount, Number(t.iva_rate || 0), t.gross_amount)
             : baseAmount;
 
           pushItem(l1Map, t.category_id, {
@@ -682,12 +740,12 @@ export default function PartnerEventDetail() {
           });
         });
 
-      // Overheads embutidos nas despesas (sem marcação) — também em BRUTO
+      // Overheads embutidos nas despesas (sem marcação) — na mesma base do sócio
       if (type === "expense") {
         overheads.forEach((o: any, idx: number) => {
           if (!o.category_id) return;
           const baseAmount = Number(o.amount || 0);
-          const grossAmount = calcTotalWithIva(baseAmount, Number(o.iva_rate || 0));
+          const grossAmount = expenseView(baseAmount, Number(o.iva_rate || 0));
           pushItem(l1Map, o.category_id, {
             id: `overhead-${o.id}-${idx}`,
             date: "",
@@ -715,7 +773,7 @@ export default function PartnerEventDetail() {
     };
 
     return { income: buildForType("income"), expense: buildForType("expense") };
-  }, [transactions, overheads, allCategories, docsByTx]);
+  }, [transactions, overheads, allCategories, docsByTx, usesGross]);
 
   // ─── BP de custos agrupado L1>L2>L3 (vista do parceiro) ───
   const bpGroupedHier = useMemo(() => {
@@ -749,7 +807,7 @@ export default function PartnerEventDetail() {
       const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? (f.description || "—");
       const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
       const l3Id = (chain.l3?.id ?? chain.l2?.id ?? chain.l1?.id ?? f.category_id ?? null) as string | null;
-      const grossAmount = calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0));
+      const grossAmount = expenseView(Number(f.amount || 0), Number(f.iva_rate || 0));
       if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
       let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
@@ -770,7 +828,7 @@ export default function PartnerEventDetail() {
           .sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
       }))
       .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
-  }, [bpExpenses, allCategories]);
+  }, [bpExpenses, allCategories, usesGross]);
 
   // ─── Realizados por rubrica (via RPC) ───
   // Decisão do Pedro: dois níveis de acesso distintos.
@@ -779,7 +837,7 @@ export default function PartnerEventDetail() {
   //    e Previsto original ao lado; propagação a subtotais/TOTAL/cards).
   //  • canSeeComparative (permissão view_partner_realized) → adiciona o
   //    seletor "BP | BP × Realizado", a vista de comparação L1/L2/L3 e
-  //    a linha "Previsto c/IVA · Realizado X (Y%)" no card Despesas.
+  //    a linha "Previsto · Realizado X (Y%)" no card Despesas.
   // A RPC já autoriza qualquer parceiro com partner_event_access — não
   // exige mais a permissão. Devolve apenas agregados por L3.
   const canSeeAdjusted = !!activeEventId;
@@ -802,18 +860,22 @@ export default function PartnerEventDetail() {
     retry: 1,
   });
 
+  // `total` é o realizado na base de apuramento do sócio: c/IVA quando
+  // `usesGross`, base líquida caso contrário. Assim o realizado, o previsto e
+  // os cards falam sempre a mesma língua.
   const realizedByL3Id = useMemo(() => {
     const m: Record<string, { base: number; iva: number; total: number }> = {};
     (realizedRows ?? []).forEach((r) => {
       if (!r.l3_category_id) return;
+      const base = Number(r.real_base) || 0;
       m[r.l3_category_id] = {
-        base: Number(r.real_base) || 0,
+        base,
         iva: Number(r.real_iva) || 0,
-        total: Number(r.real_total) || 0,
+        total: usesGross ? (Number(r.real_total) || 0) : base,
       };
     });
     return m;
-  }, [realizedRows]);
+  }, [realizedRows, usesGross]);
 
   // Propaga realizado para L1/L2/L3 (só usado quando true).
   const realizedTotals = useMemo(() => {
@@ -1107,7 +1169,10 @@ export default function PartnerEventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
-  // ─── Receita líquida de bilheteira (unit_price é c/IVA → extrair pela iva_rate do lote) ───
+  // ─── Receita de bilheteira: soma-se `total_value` (valor exacto da importação)
+  // e o líquido deriva dele pela iva_rate do lote. `unit_price` é derivado de
+  // `total_value` por divisão arredondada — multiplicar de volta reintroduz o
+  // erro linha a linha (dava 90.195,93 € onde o ERP diz 90.196,23 €).
   const lotIvaById: Record<string, number> = {};
   ticketZones.forEach((z: any) => {
     (z.event_ticket_lots || []).forEach((l: any) => {
@@ -1120,12 +1185,13 @@ export default function PartnerEventDetail() {
   const salesNetByZone: Record<string, number> = {};
   filteredSales.forEach((s: any) => {
     if (!salesByZone[s.zone_id]) salesByZone[s.zone_id] = { qty: 0, revenue: 0 };
+    const gross = ticketSaleRevenue(s);
     salesByZone[s.zone_id].qty += s.quantity;
-    salesByZone[s.zone_id].revenue += s.quantity * Number(s.unit_price);
+    salesByZone[s.zone_id].revenue += gross;
 
     const iva = lotIvaById[s.lot_id] ?? 6;
     if (!salesNetByZone[s.zone_id]) salesNetByZone[s.zone_id] = 0;
-    salesNetByZone[s.zone_id] += (s.quantity * Number(s.unit_price)) / (1 + iva / 100);
+    salesNetByZone[s.zone_id] += gross / (1 + iva / 100);
   });
 
   const totalCapacity = filteredZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
@@ -1136,7 +1202,7 @@ export default function PartnerEventDetail() {
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
 
   const ticketRevenueNet = filteredSales.reduce((s: number, sale: any) => {
-    const gross = sale.quantity * Number(sale.unit_price);
+    const gross = ticketSaleRevenue(sale);
     const iva = lotIvaById[sale.lot_id] ?? 6;
     return s + gross / (1 + iva / 100);
   }, 0);
@@ -1150,27 +1216,27 @@ export default function PartnerEventDetail() {
     ),
     0,
   );
-  // ─── Cards (vista do sócio / Brasil) — usados apenas no bloco Master ───
-  // Receitas: NET. Despesas: BRUTO c/IVA (alinhado com calcBasis Brasil).
+  // ─── Cards do bloco Master ───
+  // Receitas: NET (regra fixa). Despesas: na base de apuramento do sócio (D-ERP9).
   const transactionIncomeOnly = transactions
     .filter((t: any) => t.type === "income")
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
   const transactionIncome = transactionIncomeOnly + ticketRevenueNet;
   const transactionsExpenseGross = transactions
     .filter((t: any) => t.type === "expense")
-    .reduce((s: number, t: any) => s + Number(t.gross_amount ?? calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0))), 0);
+    .reduce((s: number, t: any) => s + expenseView(Number(t.amount), Number(t.iva_rate || 0), t.gross_amount), 0);
   const overheadExpenseGross = overheads
-    .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
+    .reduce((s: number, o: any) => s + expenseView(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
   const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
   const transactionResult = transactionIncome - transactionExpense;
 
-  // ─── Cards do sócio (visão única e fixa) ───
+  // ─── Cards do sócio ───
   // Receitas realizadas NET = bilhetes vendidos (ticket_sales) + TODAS as restantes
   // rubricas de receita. NUNCA por lista de prefixos incluídos: uma lista fechada
   // volta a esconder receita a cada rubrica nova (foi o que aconteceu com a 1.3.04
   // Revenue Share). Só se exclui, explicitamente, a bilheteira transaccional —
   // porque já vem substituída por ticketRevenueNet e duplicaria.
-  // Despesas = bpTotalExpense (BP aprovado c/IVA, já inclui overhead).
+  // Despesas = bpTotalExpense (BP aprovado na base do sócio, já inclui overhead).
   const categoryCodeById: Record<string, string> = {};
   allCategories.forEach((c: any) => { categoryCodeById[c.id] = c.code; });
   const EXCLUDED_INCOME_CODES = ["1.1.01"]; // bilheteira: substituída por ticket_sales
@@ -1281,7 +1347,10 @@ export default function PartnerEventDetail() {
           {perCityBreakdown.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Por Cidade</p>
-              {perCityBreakdown.map((c: any) => (
+              {perCityBreakdown.map((c: any) => {
+                const cityExpense = usesGross ? Number(c.expenseGross || 0) : Number(c.expenseNet || 0);
+                const cityResult = Number(c.income || 0) - cityExpense;
+                return (
                 <Card key={c.id}>
                   <CardContent className="p-3 sm:p-4">
                     <p className="text-xs font-semibold mb-2">{c.name}</p>
@@ -1292,18 +1361,19 @@ export default function PartnerEventDetail() {
                       </div>
                       <div>
                         <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                        <p className="text-[11px] sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(c.expense)}</p>
+                        <p className="text-[11px] sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(cityExpense)}</p>
                       </div>
                       <div>
                         <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                        <p className={`text-[11px] sm:text-base font-bold font-mono truncate ${c.result >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                          {formatCurrency(c.result)}
+                        <p className={`text-[11px] sm:text-base font-bold font-mono truncate ${cityResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(cityResult)}
                         </p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1340,6 +1410,26 @@ export default function PartnerEventDetail() {
         {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
         {hasPermission("view_bp") && (
         <TabsContent value="bp">
+          {/* Números de um sócio só existem quando há um sócio: sem identidade
+              resolvida não se mostra nem um valor, nem cards, e nunca se assume
+              uma base de apuramento por defeito (decisão do CEO). */}
+          {!hasViewerSupplier ? (
+            <Card className="p-8 text-center max-w-2xl mx-auto space-y-2">
+              {isLoadingViewerSupplier ? (
+                <p className="text-muted-foreground">A identificar o sócio…</p>
+              ) : (
+                <>
+                  <p className="font-semibold">Esta conta não está ligada a nenhum sócio.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Sem essa ligação não é possível apresentar valores deste evento, porque a base de
+                    apuramento das despesas depende do contrato do sócio. Pede ao administrador para
+                    fazer a ligação no evento, em <span className="font-medium">Acesso de Parceiros</span>.
+                  </p>
+                </>
+              )}
+            </Card>
+          ) : (
+          <>
           {/* Cabeçalho aba BP: versão + botão Exportar PDF */}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1463,7 +1553,7 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
-          {/* 3 cards de resumo — visão única e fixa (sem seletor de modos) */}
+          {/* 3 cards de resumo — despesas na base de apuramento do sócio (D-ERP9) */}
           <div className="mb-3">
             <PartnerFinancialCards
               ticketsNet={ticketRevenueNet}
@@ -1476,6 +1566,8 @@ export default function PartnerEventDetail() {
               realizedError={canSeeComparative && realizedIsError}
               adjustedRubricsCount={bpAdjustedCount}
               fecho={serverStatement?.cards ?? null}
+              expensesWithVat={usesGross}
+              expenseBasisNote={expenseBasisNote}
             />
           </div>
 
@@ -1647,7 +1739,7 @@ export default function PartnerEventDetail() {
                                             {overrun && (
                                               <span
                                                 className="inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wider text-amber-600 shrink-0"
-                                                title="Realizado c/IVA ultrapassou o previsto — linha ajustada à realidade"
+                                                title={`Realizado ${basisShort} ultrapassou o previsto — linha ajustada à realidade`}
                                               >
                                                 <TrendingUp className="h-2.5 w-2.5" />
                                                 acima BP
@@ -1694,7 +1786,7 @@ export default function PartnerEventDetail() {
                                           {true && (
                                             <span
                                               className="text-[10px] font-mono text-muted-foreground text-right tabular-nums"
-                                              title={overrun ? "Previsto original c/IVA" : undefined}
+                                              title={overrun ? `Previsto original ${basisShort}` : undefined}
                                             >
                                               {overrun ? formatCurrency(overrun.forecast) : ""}
                                             </span>
@@ -1721,7 +1813,7 @@ export default function PartnerEventDetail() {
                                             {true && (
                                               <span
                                                 className="text-[10px] font-mono text-muted-foreground text-right tabular-nums"
-                                                title={singleOverrun ? "Previsto original c/IVA" : undefined}
+                                                title={singleOverrun ? `Previsto original ${basisShort}` : undefined}
                                               >
                                                 {singleOverrun ? formatCurrency(it.amount) : ""}
                                               </span>
@@ -1762,6 +1854,8 @@ export default function PartnerEventDetail() {
 
               </Card>
             </div>
+          )}
+          </>
           )}
         </TabsContent>
         )}
@@ -1971,7 +2065,7 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {/* Cards Receitas / Despesas / Resultado — visão única e fixa */}
+              {/* Cards Receitas / Despesas / Resultado — base de apuramento do sócio */}
               <PartnerFinancialCards
                 ticketsNet={ticketRevenueNet}
                 sponsorshipNet={sponsorshipRealNet}
@@ -1981,6 +2075,8 @@ export default function PartnerEventDetail() {
                 showRealized={canSeeComparative}
                 adjustedRubricsCount={bpAdjustedCount}
                 fecho={serverStatement?.cards ?? null}
+                expensesWithVat={usesGross}
+                expenseBasisNote={expenseBasisNote}
               />
 
 
@@ -2113,7 +2209,7 @@ export default function PartnerEventDetail() {
                 </TableHeader>
                 <TableBody>
                   {(partnerAdvances as any[]).map((a) => {
-                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    const total = expenseView(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
                     return (
                       <TableRow key={a.id}>
                         <TableCell className="text-xs">{a.transactions?.date ? formatDate(a.transactions.date) : "—"}</TableCell>
@@ -2165,7 +2261,7 @@ export default function PartnerEventDetail() {
                 </TableHeader>
                 <TableBody>
                   {(partnerPaidExpenses as any[]).map((a) => {
-                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    const total = expenseView(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
                     const dateVal = a.paid_date || a.transactions?.date;
                     return (
                       <TableRow key={a.id}>

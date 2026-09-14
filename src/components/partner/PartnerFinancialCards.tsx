@@ -3,11 +3,12 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 
 /**
- * Cards financeiros do portal do sócio — visão ÚNICA e fixa (sem seletor de modos).
+ * Cards financeiros do portal do sócio.
  *
  * Receitas: REALIZADAS, SEM IVA (net) = bilhetes vendidos + patrocínios confirmados
  * (transações type=income cat. 1.2*) + bares/F&B (transações type=income cat. 1.1.03*).
- * Despesas: BP aprovado + overheads, COM IVA (bruto) — usa o mesmo `bpTotalExpense`
+ * Despesas: BP aprovado + overheads, na BASE DE APURAMENTO DO SÓCIO (D-ERP9) —
+ * c/IVA ou base líquida conforme `expensesWithVat`. Usa o mesmo `bpTotalExpense`
  * da vista Agrupada, garantindo que os valores batem exatamente.
  */
 export interface PartnerFinancialCardsProps {
@@ -32,16 +33,22 @@ export interface PartnerFinancialCardsProps {
    * seja o do fecho.
    */
   fecho?: { revenueNet: number; expenses: number; result: number; expensesWithVat: boolean } | null;
+  /** Base efectiva das despesas do sócio (D-ERP9): true = c/IVA, false = s/IVA. */
+  expensesWithVat?: boolean;
+  /** Rótulo da base e da sua origem (contrato do evento vs regra do sócio). */
+  expenseBasisNote?: string | null;
 }
 
 export function PartnerFinancialCards({
   ticketsNet, sponsorshipNet, barsNet, otherNet = 0, bpExpenseGross,
   bpExpenseRealized = 0, showRealized = false, realizedError = false,
   adjustedRubricsCount = 0, fecho = null,
+  expensesWithVat = true, expenseBasisNote = null,
 }: PartnerFinancialCardsProps) {
   const incomeNet = fecho ? fecho.revenueNet : ticketsNet + sponsorshipNet + barsNet + otherNet;
   const expenseTotal = fecho ? fecho.expenses : bpExpenseGross;
   const result = fecho ? fecho.result : incomeNet - expenseTotal;
+  const basisShort = expensesWithVat ? "c/IVA" : "s/IVA";
   const pct = !fecho && showRealized && bpExpenseGross > 0
     ? (bpExpenseRealized ?? 0) / bpExpenseGross * 100
     : 0;
@@ -94,13 +101,16 @@ export function PartnerFinancialCards({
             <p className="mt-2 text-[10px] text-red-400">Não foi possível carregar os realizados</p>
           ) : (
             <p className="mt-2 text-[10px] text-muted-foreground">
-              Previsto c/IVA · Realizado{" "}
+              Previsto {basisShort} · Realizado{" "}
               <span className="font-semibold text-foreground/80 font-mono">{formatCurrency(bpExpenseRealized ?? 0)}</span>{" "}
               <span className={`font-semibold ${pctColor}`}>({pct.toFixed(0)}%)</span>
             </p>
           )
         ) : (
-          <p className="mt-2 text-[10px] text-muted-foreground">Total previsto c/IVA</p>
+          <p className="mt-2 text-[10px] text-muted-foreground">Total previsto {basisShort}</p>
+        )}
+        {!fecho && expenseBasisNote && (
+          <p className="mt-1 text-[10px] text-muted-foreground/80 italic">{expenseBasisNote}</p>
         )}
         {adjustedRubricsCount > 0 && (
           <p className="mt-1 text-[10px] text-amber-500/80 italic">
