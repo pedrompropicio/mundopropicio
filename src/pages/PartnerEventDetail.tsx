@@ -2209,7 +2209,7 @@ export default function PartnerEventDetail() {
                 </TableHeader>
                 <TableBody>
                   {(partnerAdvances as any[]).map((a) => {
-                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    const total = expenseView(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
                     return (
                       <TableRow key={a.id}>
                         <TableCell className="text-xs">{a.transactions?.date ? formatDate(a.transactions.date) : "—"}</TableCell>
@@ -2261,7 +2261,7 @@ export default function PartnerEventDetail() {
                 </TableHeader>
                 <TableBody>
                   {(partnerPaidExpenses as any[]).map((a) => {
-                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    const total = expenseView(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
                     const dateVal = a.paid_date || a.transactions?.date;
                     return (
                       <TableRow key={a.id}>
