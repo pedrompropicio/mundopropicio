@@ -13,7 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle2, RefreshCw, XCircle, Play } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw,
+  XCircle,
+  Play,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -21,10 +29,12 @@ interface CheckRow {
   name: string;
   description: string;
   severity: "error" | "warn";
+  scope: "empresa" | "global";
   current_count: number;
   reference_count: number;
   conforme: boolean;
   notes: string | null;
+  sample: unknown;
 }
 
 interface RunRow {
@@ -32,6 +42,13 @@ interface RunRow {
   ran_at: string;
   drift_count: number;
   results: CheckRow[] | null;
+}
+
+interface SmokeRow {
+  code: string;
+  ok: boolean;
+  error: string | null;
+  checked_at: string;
 }
 
 const fmtDate = (iso: string) =>
@@ -43,6 +60,7 @@ export default function InvariantMonitor() {
   const qc = useQueryClient();
   const [accepting, setAccepting] = useState<CheckRow | null>(null);
   const [note, setNote] = useState("");
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   const checks = useQuery({
     queryKey: ["invariant-checks"],
@@ -65,6 +83,16 @@ export default function InvariantMonitor() {
         .limit(30);
       if (error) throw error;
       return (data ?? []) as RunRow[];
+    },
+  });
+
+  const smoke = useQuery({
+    queryKey: ["rpc-smoke"],
+    enabled: allowed,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("check_rpc_smoke");
+      if (error) throw error;
+      return (data ?? []) as SmokeRow[];
     },
   });
 
@@ -106,6 +134,71 @@ export default function InvariantMonitor() {
   const rows = checks.data ?? [];
   const drift = rows.filter((r) => !r.conforme);
   const lastRun = runs.data?.[0];
+  const failingSmoke = (smoke.data ?? []).filter((r) => !r.ok);
+
+  const renderRow = (row: CheckRow) => {
+    const hasSample = Array.isArray(row.sample) && (row.sample as unknown[]).length > 0;
+    const isOpen = !!open[row.name];
+    return (
+      <div key={row.name} className="rounded-lg border p-3">
+        <div className="flex items-start gap-3">
+          {row.conforme ? (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+          ) : row.severity === "error" ? (
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          ) : (
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">{row.name}</span>
+              <Badge variant={row.severity === "error" ? "destructive" : "secondary"}>
+                {row.severity === "error" ? "grave" : "aviso"}
+              </Badge>
+              <span className="text-sm font-semibold">
+                {row.current_count}
+                <span className="ml-1 font-normal text-muted-foreground">
+                  (referência {row.reference_count})
+                </span>
+              </span>
+            </div>
+            <p className="text-sm text-foreground/90">{row.description}</p>
+            {row.notes && (
+              <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">{row.notes}</p>
+            )}
+            {hasSample && (
+              <button
+                className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setOpen((o) => ({ ...o, [row.name]: !o[row.name] }))}
+              >
+                {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                Amostra ({(row.sample as unknown[]).length} de {row.current_count})
+              </button>
+            )}
+            {isOpen && hasSample && (
+              <pre className="mt-2 overflow-auto rounded bg-muted p-3 text-xs">
+                {JSON.stringify(row.sample, null, 2)}
+              </pre>
+            )}
+          </div>
+          {!row.conforme && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAccepting(row);
+                setNote("");
+              }}
+            >
+              Aceitar {row.current_count} como referência
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const familia = (scope: "empresa" | "global") => rows.filter((r) => r.scope === scope);
 
   return (
     <div className="space-y-6">
@@ -118,11 +211,7 @@ export default function InvariantMonitor() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => checks.refetch()}
-            disabled={checks.isFetching}
-          >
+          <Button variant="outline" onClick={() => checks.refetch()} disabled={checks.isFetching}>
             <RefreshCw className={`mr-2 h-4 w-4 ${checks.isFetching ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
@@ -151,63 +240,35 @@ export default function InvariantMonitor() {
         </CardContent>
       </Card>
 
+      {checks.isLoading && <p className="text-sm text-muted-foreground">A verificar…</p>}
+      {checks.error && <p className="text-sm text-destructive">{(checks.error as Error).message}</p>}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            Verificações {rows.length > 0 && `— ${drift.length} fora da referência em ${rows.length}`}
+            Fronteira entre empresas e integridade estrutural
+            {familia("global").length > 0 &&
+              ` — ${familia("global").filter((r) => !r.conforme).length} fora da referência em ${familia("global").length}`}
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            «O sistema deixou vazar entre empresas» — atravessa todas as empresas.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {checks.isLoading && <p className="text-sm text-muted-foreground">A verificar…</p>}
-          {checks.error && (
-            <p className="text-sm text-destructive">{(checks.error as Error).message}</p>
-          )}
-          {rows.map((row) => (
-            <div key={row.name} className="rounded-lg border p-3">
-              <div className="flex items-start gap-3">
-                {row.conforme ? (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
-                ) : row.severity === "error" ? (
-                  <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-                ) : (
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-muted-foreground">{row.name}</span>
-                    <Badge variant={row.severity === "error" ? "destructive" : "secondary"}>
-                      {row.severity === "error" ? "grave" : "aviso"}
-                    </Badge>
-                    <span className="text-sm font-semibold">
-                      {row.current_count}
-                      <span className="ml-1 font-normal text-muted-foreground">
-                        (referência {row.reference_count})
-                      </span>
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground/90">{row.description}</p>
-                  {row.notes && (
-                    <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
-                      {row.notes}
-                    </p>
-                  )}
-                </div>
-                {!row.conforme && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setAccepting(row);
-                      setNote("");
-                    }}
-                  >
-                    Aceitar {row.current_count} como referência
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </CardContent>
+        <CardContent className="space-y-2">{familia("global").map(renderRow)}</CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Regras de negócio dentro de cada empresa
+            {familia("empresa").length > 0 &&
+              ` — ${familia("empresa").filter((r) => !r.conforme).length} fora da referência em ${familia("empresa").length}`}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            «Há dados mal formados» — a amostra traz a empresa de cada linha infratora.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2">{familia("empresa").map(renderRow)}</CardContent>
       </Card>
 
       <Card>
@@ -229,6 +290,32 @@ export default function InvariantMonitor() {
           {!runs.isLoading && (runs.data ?? []).length === 0 && (
             <p className="text-sm text-muted-foreground">Sem execuções registadas.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Smoke test de consultas
+            {smoke.data ? ` — ${failingSmoke.length} falha(s) em ${smoke.data.length}` : ""}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {smoke.isLoading && <p className="text-sm text-muted-foreground">A chamar consultas…</p>}
+          {smoke.error && <p className="text-sm text-destructive">{(smoke.error as Error).message}</p>}
+          {(smoke.data ?? []).map((r) => (
+            <div key={r.code} className="flex items-start gap-3 rounded border p-2">
+              {r.ok ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              ) : (
+                <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+              )}
+              <div className="min-w-0">
+                <span className="font-mono text-xs">{r.code}</span>
+                {r.error && <p className="break-all text-xs text-destructive">{r.error}</p>}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

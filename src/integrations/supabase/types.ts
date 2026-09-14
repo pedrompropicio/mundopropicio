@@ -12649,6 +12649,7 @@ export type Database = {
           reference_count: number
           reference_updated_at: string | null
           reference_updated_by: string | null
+          scope: string
           severity: string
           updated_at: string
         }
@@ -12660,6 +12661,7 @@ export type Database = {
           reference_count?: number
           reference_updated_at?: string | null
           reference_updated_by?: string | null
+          scope?: string
           severity?: string
           updated_at?: string
         }
@@ -12671,6 +12673,7 @@ export type Database = {
           reference_count?: number
           reference_updated_at?: string | null
           reference_updated_by?: string | null
+          scope?: string
           severity?: string
           updated_at?: string
         }
@@ -15733,6 +15736,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      _run_invariant_checks_raw: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _test_tickets_v2_compute_function: {
         Args: never
         Returns: {
@@ -16935,6 +16952,8 @@ export type Database = {
           name: string
           notes: string
           reference_count: number
+          sample: Json
+          scope: string
           severity: string
         }[]
       }
