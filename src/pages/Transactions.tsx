@@ -452,8 +452,14 @@ export default function Transactions() {
       if (data?.error) throw new Error(data.error);
       return { data, prev, ids: [id] };
     },
-    onSuccess: async ({ data, prev }) => {
+    onSuccess: async ({ data, prev, ids }) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      // Tira da selecção o que acabou de ser aprovado (o lote já o fazia).
+      setSelectedIds((prevSel) => {
+        const next = new Set(prevSel);
+        for (const id of ids) next.delete(id);
+        return next;
+      });
       if (data?.approved_count > 0) {
         // Record undo
         if (prev && user) {
@@ -994,7 +1000,12 @@ export default function Transactions() {
   const excessLinesFor = async (txs: any[]): Promise<BudgetExcessLine[]> => {
     const entries = txs
       .filter((t) => t.type === "expense" && !!t.forecast_id && !t.parent_transaction_id)
-      .map((t) => ({ forecast_id: t.forecast_id as string, amount: Number(t.amount ?? 0), transaction_id: t.id }));
+      .map((t) => ({
+        forecast_id: t.forecast_id as string,
+        amount: Number(t.amount ?? 0),
+        iva_rate: Number(t.iva_rate ?? 0),
+        transaction_id: t.id,
+      }));
     if (entries.length === 0) return [];
     return await computeBudgetExcess(entries);
   };
@@ -1002,6 +1013,9 @@ export default function Transactions() {
   // D1 + D8: antes de aprovar, exigir linha de BP quando o evento é `with_bp`.
   // Se faltar, não chamamos o update — abrimos o diálogo "Vincular ao BP".
   const requestApprove = async (id: string) => {
+    // Não reentrar enquanto uma aprovação corre: relê a verba antes de a
+    // elevação estar gravada e reabria o diálogo com números velhos.
+    if (approveMutation.isPending || bulkApproveMutation.isPending) return;
     const tx = transactions.find((t: any) => t.id === id);
     if (!tx) return;
     try {
@@ -1022,6 +1036,7 @@ export default function Transactions() {
   };
 
   const handleBulkApprove = async () => {
+    if (approveMutation.isPending || bulkApproveMutation.isPending) return;
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
     const txs = transactions.filter((t: any) => ids.includes(t.id));
@@ -1748,7 +1763,7 @@ export default function Transactions() {
         {canApprove && selectedPendingCount > 0 && (
           <button
             onClick={handleBulkApprove}
-            disabled={bulkApproveMutation.isPending}
+            disabled={bulkApproveMutation.isPending || approveMutation.isPending}
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" />
