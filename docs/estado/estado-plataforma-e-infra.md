@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2
+Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #96, #61
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
