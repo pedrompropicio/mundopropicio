@@ -17113,6 +17113,10 @@ export type Database = {
         Args: { _reason: string; _settlement_id: string }
         Returns: Json
       }
+      unset_partner_portal_user: {
+        Args: { _profile_id: string }
+        Returns: string
+      }
       update_vault_secret: {
         Args: { _id: string; _value: string }
         Returns: boolean
