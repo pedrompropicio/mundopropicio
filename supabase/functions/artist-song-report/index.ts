@@ -529,7 +529,9 @@ REGRAS DE AVALIAÇÃO RELATIVA (obrigatórias):
 7. Quando um comparável tem UGC muito acima do que o número oficial sugere, explique o mecanismo APENAS se ele estiver escrito em "nota_da_musica" desse comparável. Nunca invente o mecanismo.
 8. As sugestões accionáveis derivam do que os comparáveis com melhor resultado fizeram, com os números deles à mesma idade.
 9. Se não houver comparável com dados para uma métrica (posição ou total ausentes/1), escreva "sem referência" e NÃO avalie essa métrica.
-10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.`;
+10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.
+11. "spotify_for_artists" (S4A) é a FONTE OFICIAL de streams da música e das playlists. A Soundcharts é contagem pública desfasada. Quando as duas existirem, avalie pelo S4A e mencione explicitamente a diferença entre as duas. Se "spotify_for_artists" for null, escreva "sem dados do Spotify for Artists".
+12. Só as músicas do elenco têm S4A; as de referência no benchmark não têm. É PROIBIDO comparar streams do S4A com streams da Soundcharts de comparáveis.`;
 
 
 const REPORT_TOOL = {
