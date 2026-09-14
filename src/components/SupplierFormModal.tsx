@@ -219,8 +219,21 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         toast.error("Erro ao validar IBAN", { description: error.message });
         return;
       }
-      const res = data as { exists?: boolean; supplier_name?: string; nif?: string | null } | null;
+      const res = data as
+        | { exists?: boolean; is_active?: boolean; supplier_id?: string; supplier_name?: string; nif?: string | null }
+        | null;
       if (res?.exists) {
+        // Fornecedor INATIVO: não é beco sem saída — propõe-se reativar o registo
+        // existente (os índices únicos de IBAN só valem para is_active = true).
+        if (res.is_active === false) {
+          setInactiveMatch({
+            id: res.supplier_id!,
+            name: res.supplier_name ?? "(sem nome)",
+            nif: res.nif ?? null,
+            label: f.label,
+          });
+          return;
+        }
         toast.error(`${f.label} duplicado`, {
           description: `Este IBAN já está registado no fornecedor «${res.supplier_name}» (NIF: ${res.nif ?? "—"}). Não é permitido o mesmo IBAN em fornecedores diferentes.`,
         });
