@@ -45,11 +45,18 @@ export function getPartnerExpenseBase(
 /**
  * BASE DE APURAMENTO DA DESPESA POR SÓCIO (D-ERP9).
  *
- * A MP produz em Portugal com artistas brasileiros: um sócio com sede no Brasil
- * não recupera IVA português (o custo dele é o valor c/IVA), um sócio português
- * recupera (o custo é a base líquida). O mesmo evento pode ter os dois.
+ * ATENÇÃO (g4 + g10): o parâmetro `partnerOverride`
+ * (`event_partners.expense_includes_iva`) JÁ NÃO É USADO pelo motor
+ * (`event-settlement-engine.ts`) nem pelo gerador da prestação de contas
+ * (`statement-service.ts`): a base é do FECHAMENTO (raiz → contrato do evento,
+ * filho → `parent_share_basis`) e a base de apresentação é a EFETIVA do nó
+ * (`effectiveUsesGrossExpenses`). A coluna e este parâmetro ficam por
+ * compatibilidade com ecrãs antigos — não voltar a ligá-los ao fecho.
  *
- * `partnerOverride` = `event_partners.expense_includes_iva`:
+ * Histórico da regra: a MP produz em Portugal com artistas brasileiros; um sócio
+ * com sede no Brasil não recupera IVA português, um sócio português recupera.
+ *
+ * `partnerOverride`:
  *   • null  → herda a base contratual do evento
  *   • true  → apura sempre c/IVA
  *   • false → apura sempre s/IVA
@@ -58,6 +65,7 @@ export function getPartnerExpenseBase(
  * nível do evento e PREVALECE — um sócio não passa a ter despesas num evento
  * que as ignora.
  */
+
 export function partnerUsesGrossExpenses(
   eventBasis: PartnerCalcBasisInput,
   partnerOverride?: boolean | null,
