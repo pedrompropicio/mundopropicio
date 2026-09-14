@@ -162,28 +162,82 @@ export default function Suppliers() {
         editingSupplier={editingSupplier}
       />
 
-      {deletingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingId(null)}>
-          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold">Eliminar Fornecedor?</h3>
-            <p className="text-sm text-muted-foreground">
-              Esta ação não pode ser desfeita. O fornecedor será removido permanentemente.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => deleteMutation.mutate(deletingId)}
-                disabled={deleteMutation.isPending}
-                className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-50"
-              >
-                {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
-              </button>
-              <button
-                onClick={() => setDeletingId(null)}
-                className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
-              >
-                Cancelar
-              </button>
-            </div>
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeleting(null)}>
+          <div className="glass w-full max-w-md rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Eliminar «{deleting.name}»?</h3>
+
+            {usageLoading || !usage ? (
+              <p className="text-sm text-muted-foreground">A verificar registos associados…</p>
+            ) : !usage.canDelete ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Este fornecedor não pode ser eliminado porque tem movimento registado:{" "}
+                  <span className="text-foreground">{describeUsage(usage.blocking)}</span>. Eliminá-lo
+                  apagaria histórico financeiro.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  O que se deve fazer é desativá-lo: deixa de aparecer nos seletores e o histórico fica intacto.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {canManage && deleting.is_active !== false && (
+                    <button
+                      onClick={() => deactivateMutation.mutate(deleting)}
+                      disabled={deactivateMutation.isPending}
+                      className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                    >
+                      {deactivateMutation.isPending ? "A desativar…" : "Desativar fornecedor"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setDeleting(null)}
+                    className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
+                  >
+                    Fechar
+                  </button>
+                </div>
+                {!canManage && (
+                  <p className="text-xs text-muted-foreground">
+                    Não tem permissão para desativar fornecedores — pede a um admin/manager.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  O fornecedor vai para o Lixo e pode ser restaurado durante 30 dias.
+                </p>
+                {usage.cascade.length > 0 ? (
+                  <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm space-y-1">
+                    <p className="font-medium">Serão também apagados:</p>
+                    <ul className="list-disc pl-5 text-muted-foreground">
+                      {usage.cascade.map((c) => (
+                        <li key={c.label}>
+                          {c.count} {c.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Não há registos associados a apagar.</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => deleteMutation.mutate(deleting)}
+                    disabled={deleteMutation.isPending}
+                    className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-50"
+                  >
+                    {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
+                  </button>
+                  <button
+                    onClick={() => setDeleting(null)}
+                    className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
