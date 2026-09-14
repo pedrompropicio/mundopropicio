@@ -106,7 +106,19 @@ const statusLabels: Record<string, string> = {
 
 export default function PartnerEventDetail() {
   const { id } = useParams();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isAdmin } = useAuth();
+  // ── "Ver como sócio" (vista de administrador, só leitura) ──
+  // O parâmetro `ver_como` traz o id do sócio a inspeccionar. Só vale para
+  // admin/platform_admin; para qualquer outro utilizador é como se não viesse.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const verComoParam = searchParams.get("ver_como");
+  const adminViewSupplierId = isAdmin && verComoParam ? verComoParam : null;
+  const isAdminView = !!adminViewSupplierId;
+  const exitAdminView = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("ver_como");
+    setSearchParams(next, { replace: true });
+  };
   const { displayName: companyDisplayName } = useCompanyBranding();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
