@@ -149,11 +149,12 @@ export default function EventSimulator() {
   const { data: cfg, isLoading: loadingCfg } = useQuery<DbConfig | null>({
     queryKey: ["sim-coala-cfg", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr22 } = await supabase
         .from("event_simulator_config")
         .select("*")
         .eq("event_id", eventId!)
         .maybeSingle();
+      if (qErr22) throw qErr22;
       return (data as any) ?? null;
     },
     enabled: !!eventId,
@@ -162,11 +163,12 @@ export default function EventSimulator() {
   const { data: sessions = [] } = useQuery<DbInput[]>({
     queryKey: ["sim-coala-inputs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr23 } = await supabase
         .from("event_simulator_inputs")
         .select("*")
         .eq("event_id", eventId!)
         .order("day_index").order("zone_label");
+      if (qErr23) throw qErr23;
       return (data as any) ?? [];
     },
     enabled: !!eventId,
@@ -175,11 +177,12 @@ export default function EventSimulator() {
   const { data: costLines = [] } = useQuery<DbCostLine[]>({
     queryKey: ["sim-coala-costs", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr24 } = await supabase
         .from("event_simulator_cost_lines")
         .select("*")
         .eq("event_id", eventId!)
         .order("display_order");
+      if (qErr24) throw qErr24;
       return (data as any) ?? [];
     },
     enabled: !!eventId,
@@ -189,12 +192,13 @@ export default function EventSimulator() {
     queryKey: ["account-categories-l3", companyId],
     enabled: !!eventId && !!companyId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr25 } = await supabase
         .from("account_categories")
         .select("id, code, name, company_id")
         .eq("is_active", true)
         .eq("company_id", companyId!)
         .order("code");
+      if (qErr25) throw qErr25;
       // L3 = code com 3 níveis (x.y.z)
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+\.\d+$/.test(c.code));
     },
@@ -205,12 +209,13 @@ export default function EventSimulator() {
     queryKey: ["account-categories-l2", companyId],
     enabled: !!eventId && !!companyId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr26 } = await supabase
         .from("account_categories")
         .select("id, code, name, company_id")
         .eq("is_active", true)
         .eq("company_id", companyId!)
         .order("code");
+      if (qErr26) throw qErr26;
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+$/.test(c.code));
     },
   });
