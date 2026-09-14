@@ -17,6 +17,8 @@ export interface InvoiceGroupSuggestion {
   supplierName?: string | null;
   invoiceRef: string;
   total: number;
+  /** Porque é que o sistema não agrupa sozinho. */
+  reason?: "conflict" | "no_documents";
 }
 
 interface Props {
@@ -27,9 +29,9 @@ interface Props {
 
 /**
  * Diálogo mostrado quando existem N transações do mesmo fornecedor com o mesmo
- * nº de fatura mas com DOCUMENTOS ANEXOS DIFERENTES. Nada é agrupado sem
- * resposta explícita (incidente 2026-09: três talões de combustível distintos
- * agrupados como uma fatura só).
+ * nº de fatura mas SEM prova documental de serem a mesma fatura: documentos
+ * anexos diferentes, ou nenhum documento (2026-09-14). Agrupar é sempre um ato
+ * explícito — nada é agrupado sem resposta humana.
  */
 export default function InvoiceGroupSuggestDialog({ suggestion, onClose, onGrouped }: Props) {
   const [saving, setSaving] = useState(false);
@@ -70,11 +72,15 @@ export default function InvoiceGroupSuggestDialog({ suggestion, onClose, onGroup
               <p>
                 Existem {suggestion?.total ?? 0} transações de{" "}
                 <strong>{suggestion?.supplierName ?? "este fornecedor"}</strong> com o nº{" "}
-                <strong>{suggestion?.invoiceRef}</strong> mas com documentos anexos diferentes. É mesmo a
-                mesma fatura?
+                <strong>{suggestion?.invoiceRef}</strong>{" "}
+                {suggestion?.reason === "no_documents"
+                  ? "mas nenhuma tem documento anexo, por isso não há prova de que seja a mesma fatura."
+                  : "mas com documentos anexos diferentes."}{" "}
+                É mesmo a mesma fatura?
               </p>
               <p className="text-xs text-muted-foreground">
-                Se forem talões/faturas diferentes, corrige o nº de fatura em cada linha — nada será agrupado.
+                Agrupar faz as linhas partilharem identidade, campos, eliminação e liquidação. Se forem
+                talões/faturas diferentes, corrige o nº de fatura em cada linha — nada será agrupado.
               </p>
             </div>
           </AlertDialogDescription>

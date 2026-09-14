@@ -671,6 +671,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             supplierName: null,
             invoiceRef: auto.invoiceRef,
             total: auto.total,
+            reason: auto.reason,
           });
         } else if (auto) {
           toast({

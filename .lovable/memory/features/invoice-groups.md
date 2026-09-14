@@ -19,17 +19,22 @@ recebe **uma única transferência** pelo total c/IVA da fatura.
    pela Lista de Pagamento, SEPA e pelas propagações multi-IVA
    (ver `mem://features/invoice-group-multi-iva.md`).
 
-## Regra de agrupamento (endurecida 2026-09, incidente BP Estoril)
+## Regra de agrupamento (endurecida 2026-09, incidente BP Estoril; apertada 2026-09-14)
 `src/lib/invoice-group.ts`
 - `normalizeInvoiceRef`, `isGroupableInvoiceRef` — ≥4 chars, ≥1 dígito, nunca proformas.
 - `fetchInvoiceSiblings(supplierId, invoiceRef)` — irmãs do MESMO fornecedor.
 - `checkInvoiceDocumentsConsistency(ids)` → `shared` | `no_documents` | `conflict`,
   comparando os `transaction_documents.file_url`.
-- `ensureInvoiceGroup(supplier, ref, { force? })` — **só agrupa automaticamente** quando
-  as linhas partilham ficheiro (`shared`) ou nenhuma tem documento (`no_documents`).
-  Com documentos diferentes devolve `needsConfirm: true` e **não escreve nada**.
+- `ensureInvoiceGroup(supplier, ref, { force? })` — **só agrupa automaticamente quando
+  as linhas PARTILHAM o mesmo ficheiro (`shared`)**. `no_documents` e `conflict` devolvem
+  `needsConfirm: true` + `reason` e **não escrevem nada** — ausência de papel não é prova
+  (incidente das portagens Via Verde na nota R-030/2026, 2026-09-14).
   `force: true` só depois de confirmação humana.
-- `autoGroupInvoiceForTransaction(txId)` — devolve `{ suggestion: true }` nesse caso.
+- `autoGroupInvoiceForTransaction(txId)` — devolve `{ suggestion: true, reason }` nesses casos.
+- `revalidateInvoiceGroupAfterDocument(txId)` — chamado depois de anexar documento a uma
+  linha de um grupo: se as irmãs têm documentos diferentes pede o veredicto do OCR à edge
+  function `audit-invoice-groups` em âmbito de um só grupo (`group_id`) e devolve
+  `kind: "conflict"`; `InvoiceGroupRevalidateDialog` avisa e oferece desagrupar.
 - `clearInvoiceGroupForTransaction(txId)` — **desagrupa** uma linha; se o grupo ficar com
   uma única linha, limpa também essa (grupo de 1 não faz sentido).
 - `fetchInvoiceGroupSiblingDetails(txId)` — descrição, data e valor das irmãs, para o
@@ -103,3 +108,20 @@ parcial / verde completo nos pickers e no detalhe da lista.
 (soma dos valores em aberto); IBAN divergente entre itens exclui a linha com motivo
 `iban_mismatch`. `SepaCandidate.groupTransactionIds` garante que o comprovativo é
 replicado a todas as transações do grupo. A liquidação continua transação a transação.
+
+## Propagação de campos partilhados (update-transaction)
+`invoiceSharedFields` em `supabase/functions/update-transaction/index.ts` propaga às irmãs
+do grupo: `event_id`, `category_id`, `supplier_id`, `account_id`, `date`, `due_date`,
+`payment_method`, `payment_entity`, `payment_reference`, `is_transitory`,
+`exclude_from_result` (datas saem quando existe `installment_group_id`).
+
+**NUNCA propagam** (2026-09-14): `specification` e `invoice_ref`. A especificação é o campo
+que DISTINGUE uma linha da outra — propagá-la reescrevia a frase das irmãs (incidente
+R-030/2026, 7 edições em 12 minutos). O `invoice_ref` é redundante (se é a mesma fatura o
+número já é igual) e propagá-lo trocava o número entre linhas.
+
+## Âmbito de um grupo na edge function de auditoria
+`audit-invoice-groups` aceita `group_id` no body: dry-run só desse grupo (devolve
+`group_veredicto`: `ok` | `desagrupar` | `rever`) e apply limitado a esse grupo. A auditoria
+global continua a exigir admin/platform_admin; o âmbito de um grupo abre a manager/editor,
+validando que todas as linhas do grupo são de uma empresa do próprio utilizador.

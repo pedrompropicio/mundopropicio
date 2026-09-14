@@ -37,12 +37,31 @@ Deno.serve(async (req) => {
     const { data: userRes } = await admin.auth.getUser(token);
     const userId = userRes?.user?.id;
     if (!userId) return json({ error: 'Não autenticado' }, 401);
-    const { data: roles } = await admin.from('user_roles').select('role').eq('user_id', userId);
-    const allowed = (roles ?? []).some((r: any) => r.role === 'admin' || r.role === 'platform_admin');
-    if (!allowed) return json({ error: 'Sem permissão' }, 403);
+    const { data: roles } = await admin.from('user_roles').select('role, company_id').eq('user_id', userId);
+    const roleRows = (roles ?? []) as any[];
+    const isAdmin = roleRows.some((r) => r.role === 'admin' || r.role === 'platform_admin');
 
     const body = await req.json().catch(() => ({}));
     const action: string = body?.action === 'apply' ? 'apply' : 'dry-run';
+    // Âmbito de UM grupo: usado pela revalidação ao anexar um documento novo.
+    const scopedGroupId: string | null =
+      typeof body?.group_id === 'string' && body.group_id ? body.group_id : null;
+
+    // Auditoria global continua reservada a admin/platform_admin. O âmbito de um
+    // único grupo abre a quem edita transações, limitado à(s) sua(s) empresa(s).
+    const scopedRoles = ['admin', 'platform_admin', 'manager', 'editor'];
+    if (!isAdmin) {
+      if (!scopedGroupId || !roleRows.some((r) => scopedRoles.includes(r.role))) {
+        return json({ error: 'Sem permissão' }, 403);
+      }
+      const myCompanies = new Set(roleRows.map((r) => r.company_id).filter(Boolean));
+      const { data: scopeTxs } = await admin
+        .from('transactions')
+        .select('company_id')
+        .eq('invoice_group_id', scopedGroupId);
+      const foreign = (scopeTxs ?? []).some((t: any) => !myCompanies.has(t.company_id));
+      if (!scopeTxs?.length || foreign) return json({ error: 'Sem permissão' }, 403);
+    }
 
     // ================= APPLY =================
     // Preso à corrida MOSTRADA no painel: sem run_at no body, recusa.
@@ -59,12 +78,15 @@ Deno.serve(async (req) => {
       if (!check?.length) return json({ error: 'Não existe auditoria com esse run_at.' }, 400);
 
 
-      const { data: rows } = await admin
+      let rowsQuery = admin
         .from('invoice_group_audit')
         .select('id, transaction_id, numero_lido')
         .eq('run_at', runAt)
         .eq('veredicto', 'desagrupar')
         .eq('aplicado', false);
+      // Revalidação de um grupo só: nunca toca noutros grupos da mesma corrida.
+      if (scopedGroupId) rowsQuery = rowsQuery.eq('invoice_group_id', scopedGroupId);
+      const { data: rows } = await rowsQuery;
 
       let applied = 0;
       for (const r of rows ?? []) {
@@ -84,10 +106,13 @@ Deno.serve(async (req) => {
     const maxGroups: number = Math.max(1, Math.min(Number(body?.max_groups ?? 3), 10));
     const runAt: string = typeof body?.run_at === 'string' && body.run_at ? body.run_at : new Date().toISOString();
 
-    const { data: txs } = await admin
+    let txsQuery = admin
       .from('transactions')
-      .select('id, invoice_group_id, invoice_ref, amount, date, due_date, supplier_id, description, company_id')
-      .not('invoice_group_id', 'is', null);
+      .select('id, invoice_group_id, invoice_ref, amount, date, due_date, supplier_id, description, company_id');
+    txsQuery = scopedGroupId
+      ? txsQuery.eq('invoice_group_id', scopedGroupId)
+      : txsQuery.not('invoice_group_id', 'is', null);
+    const { data: txs } = await txsQuery;
 
     const allGroups = new Map<string, any[]>();
     for (const t of txs ?? []) {
@@ -259,6 +284,14 @@ Deno.serve(async (req) => {
       linhas_desagrupar: auditRows.filter((r) => r.veredicto === 'desagrupar').length,
       linhas_rever: auditRows.filter((r) => r.veredicto === 'rever').length,
       ficheiros_lidos: ocrCache.size,
+      // Veredicto consolidado do grupo, para a revalidação de âmbito único.
+      group_veredicto: scopedGroupId
+        ? auditRows.some((r) => r.veredicto === 'desagrupar')
+          ? 'desagrupar'
+          : auditRows.some((r) => r.veredicto === 'rever')
+            ? 'rever'
+            : 'ok'
+        : undefined,
     };
     return json({ action, ...resumo });
   } catch (e) {
