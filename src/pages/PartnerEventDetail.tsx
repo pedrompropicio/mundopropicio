@@ -30,7 +30,7 @@ import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
-import { PartnerNoSupplierNotice } from "@/components/partner/PartnerNoSupplierNotice";
+import { PartnerNoSupplierNotice, type PartnerNoticeReason } from "@/components/partner/PartnerNoSupplierNotice";
 import { PartnerSettlementBlock, type PartnerSettlementBlockData } from "@/components/partner/PartnerSettlementBlock";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
@@ -1063,9 +1063,29 @@ export default function PartnerEventDetail() {
    * (g17) O Portal NÃO calcula o fecho. Pede ao servidor a prestação de contas
    * já feita pelo mesmo motor e gerador do Encontro de Contas
    * (edge function `partner-statement`). Sem parâmetros de sócio ou de
-   * fechamento: tudo é derivado do utilizador autenticado.
+   * fechamento: tudo é derivado do utilizador autenticado (excepto a vista de
+   * administrador `ver_como`).
+   *
+   * A query devolve SEMPRE um estado explícito — nunca `null` para tudo:
+   *  - `ok`          — prestação de contas disponível;
+   *  - `unavailable` — motivo legítimo (403: sem sócio ligado, sem acesso, ou
+   *                    sócio sem participação `settles` num fechamento);
+   *  - `error`       — falha técnica (500, rede, corpo inválido). Registada na
+   *                    consola com o prefixo [partner-statement].
+   * Sem estado `ok` o Portal não mostra cards nem "O seu fechamento": o ramo de
+   * cálculo local não bate com o fecho e mostrar-lo seria inventar números.
    */
-  const { data: serverStatement, isFetching: statementBusy } = useQuery({
+  type StatementPayload = {
+    doc: PartnerStatementDocInput;
+    block: PartnerSettlementBlockData;
+    cards: { revenueNet: number; expenses: number; result: number; expensesWithVat: boolean };
+  };
+  type StatementState =
+    | ({ status: "ok" } & StatementPayload)
+    | { status: "unavailable" }
+    | { status: "error" };
+
+  const { data: statementState, isFetching: statementBusy } = useQuery<StatementState>({
     queryKey: ["partner-statement", user?.id, activeEventId, adminViewSupplierId],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("partner-statement", {
@@ -1073,14 +1093,44 @@ export default function PartnerEventDetail() {
           ? { event_id: activeEventId, supplier_id: adminViewSupplierId }
           : { event_id: activeEventId },
       });
-      if (error) return null;
-      return (data ?? null) as
-        | { doc: PartnerStatementDocInput; block: PartnerSettlementBlockData; cards: { revenueNet: number; expenses: number; result: number; expensesWithVat: boolean } }
-        | null;
+      if (error) {
+        const ctx = (error as any)?.context;
+        const status = Number(ctx?.status ?? 0);
+        let body: string | null = null;
+        try {
+          body = typeof ctx?.clone === "function" ? await ctx.clone().text() : null;
+        } catch {
+          body = null;
+        }
+        if (status === 403) return { status: "unavailable" };
+        console.error("[partner-statement] falha ao obter a prestação de contas", {
+          status: status || "sem status (rede?)",
+          body,
+          message: (error as any)?.message ?? null,
+          event_id: activeEventId,
+        });
+        return { status: "error" };
+      }
+      const payload = data as StatementPayload | null;
+      if (!payload?.cards || !payload?.block) {
+        console.error("[partner-statement] resposta sem cards/block", {
+          status: 200,
+          body: data ?? null,
+          event_id: activeEventId,
+        });
+        return { status: "error" };
+      }
+      return { status: "ok", ...payload };
     },
     enabled: !!activeEventId && canExportStatement,
     staleTime: 5 * 60 * 1000,
   });
+
+  const serverStatement = statementState?.status === "ok" ? statementState : null;
+  /** Motivo a mostrar quando não há fecho — nunca se mostram cards nesse caso. */
+  const statementNoticeReason: PartnerNoticeReason =
+    statementState?.status === "error" ? "error" : !hasViewerSupplier ? "no_supplier" : "no_statement";
+  const statementLoading = !serverStatement && (statementBusy || !statementState) && canExportStatement;
 
   /**
    * (g4/g13/g15-b) Documento do sócio — o input vem inteiro do servidor; aqui só
@@ -1091,6 +1141,7 @@ export default function PartnerEventDetail() {
     if (!doc) return null;
     return { ...doc, logoDataUrl: logoDataUrl ?? doc.logoDataUrl ?? null };
   };
+
 
 
   const handleExportBPExcel = async () => {
@@ -1598,23 +1649,30 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
-          {/* 3 cards de resumo — despesas na base de apuramento do sócio (D-ERP9) */}
+          {/* 3 cards de resumo — só com o fecho do servidor. Sem fecho não se
+              mostram números (o ramo local não bate com o fecho); mostra-se o
+              motivo. O BP em si continua visível a seguir. */}
           <div className="mb-3">
-            <PartnerFinancialCards
-              ticketsNet={ticketRevenueNet}
-              sponsorshipNet={sponsorshipRealNet}
-              barsNet={barsRealNet}
-              otherNet={otherIncomeRealNet}
-              bpExpenseGross={bpTotalExpenseAdjusted}
-              bpExpenseRealized={bpTotalRealizedExpense}
-              showRealized={canSeeComparative}
-              realizedError={canSeeComparative && realizedIsError}
-              adjustedRubricsCount={bpAdjustedCount}
-              fecho={serverStatement?.cards ?? null}
-              expensesWithVat={usesGross}
-              expenseBasisNote={expenseBasisNote}
-            />
+            {serverStatement ? (
+              <PartnerFinancialCards
+                ticketsNet={ticketRevenueNet}
+                sponsorshipNet={sponsorshipRealNet}
+                barsNet={barsRealNet}
+                otherNet={otherIncomeRealNet}
+                bpExpenseGross={bpTotalExpenseAdjusted}
+                bpExpenseRealized={bpTotalRealizedExpense}
+                showRealized={canSeeComparative}
+                realizedError={canSeeComparative && realizedIsError}
+                adjustedRubricsCount={bpAdjustedCount}
+                fecho={serverStatement.cards}
+                expensesWithVat={usesGross}
+                expenseBasisNote={expenseBasisNote}
+              />
+            ) : (
+              <PartnerNoSupplierNotice isLoading={statementLoading} reason={statementNoticeReason} />
+            )}
           </div>
+
 
 
 
@@ -1718,6 +1776,13 @@ export default function PartnerEventDetail() {
                               </div>
                             );
                           })()}
+                          {bpExcessTotal > 0 && (
+                            <p className="px-4 py-1.5 text-[10px] italic text-muted-foreground">
+                              O total do BP conta apenas as rubricas previstas. Gasto realizado em rubricas
+                              sem linha no BP ({formatCurrency(bpExcessTotal)}) fica fora deste total, mas está
+                              incluído no cartão Despesas.
+                            </p>
+                          )}
                         </>
                       );
                     })()
@@ -2112,19 +2177,24 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {/* Cards Receitas / Despesas / Resultado — base de apuramento do sócio */}
-              <PartnerFinancialCards
-                ticketsNet={ticketRevenueNet}
-                sponsorshipNet={sponsorshipRealNet}
-                barsNet={barsRealNet}
-                otherNet={otherIncomeRealNet}
-                bpExpenseGross={bpTotalExpenseAdjusted}
-                showRealized={canSeeComparative}
-                adjustedRubricsCount={bpAdjustedCount}
-                fecho={serverStatement?.cards ?? null}
-                expensesWithVat={usesGross}
-                expenseBasisNote={expenseBasisNote}
-              />
+              {/* Cards Receitas / Despesas / Resultado — só com o fecho do servidor */}
+              {serverStatement ? (
+                <PartnerFinancialCards
+                  ticketsNet={ticketRevenueNet}
+                  sponsorshipNet={sponsorshipRealNet}
+                  barsNet={barsRealNet}
+                  otherNet={otherIncomeRealNet}
+                  bpExpenseGross={bpTotalExpenseAdjusted}
+                  showRealized={canSeeComparative}
+                  adjustedRubricsCount={bpAdjustedCount}
+                  fecho={serverStatement.cards}
+                  expensesWithVat={usesGross}
+                  expenseBasisNote={expenseBasisNote}
+                />
+              ) : (
+                <PartnerNoSupplierNotice isLoading={statementLoading} reason={statementNoticeReason} />
+              )}
+
 
 
               {(["income", "expense"] as const).map((kind) => {
