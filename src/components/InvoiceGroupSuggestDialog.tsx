@@ -76,7 +76,10 @@ export default function InvoiceGroupSuggestDialog({ suggestion, onClose, onGroup
                 <strong>{suggestion?.invoiceRef}</strong>{" "}
                 {suggestion?.reason === "no_documents"
                   ? "mas nenhuma tem documento anexo, por isso não há prova de que seja a mesma fatura."
-                  : "mas com documentos anexos diferentes."}{" "}
+                  : suggestion?.reason === "shared"
+                    ? "e todas partilham o mesmo documento anexo."
+                    : "mas sem documentos anexos iguais em todas as linhas."}{" "}
+
                 É mesmo a mesma fatura?
               </p>
               <p className="text-xs text-muted-foreground">
