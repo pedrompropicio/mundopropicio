@@ -30,7 +30,7 @@ import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCards } from "@/components/partner/PartnerFinancialCards";
-import { PartnerNoSupplierNotice } from "@/components/partner/PartnerNoSupplierNotice";
+import { PartnerNoSupplierNotice, type PartnerNoticeReason } from "@/components/partner/PartnerNoSupplierNotice";
 import { PartnerSettlementBlock, type PartnerSettlementBlockData } from "@/components/partner/PartnerSettlementBlock";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
