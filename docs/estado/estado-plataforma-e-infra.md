@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #87, #96, #61 · ação do Pedro: #87 passo 2
+Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #96, #61
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -105,14 +105,16 @@ A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.
 O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
 
 ## A trabalhar agora
-- **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 71 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. Continua aberta: falta o inventário completo das tabelas escritas sem contexto de utilizador, que é o critério de aceitação. #53 e #56 seguem como sub-tarefas; #96 saiu daqui.
+- **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 88 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. **A 14/09:** inventário completo gerado por análise estática de 191 edge functions — 1 RISCO REAL (`check-login-rate` → `system_audit_log`, sem company_id), riscos condicionais nos 4 restauros (só falham com backups pré-multi-tenant), todas as outras funções OK ou sem INSERTs nas 88 tabelas. Ficheiro: `docs/estado/inventario-86-service-role-inserts.md`. Próximo: corrigir o `check-login-rate`.
+
+- **Performance (3 fixes despachados a 14/09):** (A) `v_artist_growth_summary` convertida para MATERIALIZED VIEW com refresh diário via pg_cron — elimina 511s de tempo acumulado de BD; (B) query de listagem de transações com colunas explícitas em vez de `select('*')` — elimina 316s acumulados; (C) migração RLS: `auth.uid()` → `(SELECT auth.uid())` em todas as políticas do schema `public` — elimina 177M+ seq_scans por sessão em `user_roles`. Aguarda Publish.
+
+- **#87** — FECHADA a 14/09. `generate-historical-transactions` não responde em produção (função não existe no deploy atual), ficheiro removido do repo, sem referências órfãs. Critérios todos cumpridos.
 
 **Fechado hoje (12/09):** a consolidação do extrato da conta saiu desta secção — está entregue, testada e verificada em Live.
 
 **Entregue a 13/09 (D-ERP57):** contas de tráfego do próprio artista. `crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`; funções `artist-ads-meta-oauth-start|callback|select-account|disconnect` deployed; RPC `artist_ads_register_external` para Google/TikTok sem OAuth; `crm-google-sync-campaigns` promove `pending_link` → `active`; ecrã de Conexões etiqueta "Artista: <nome>". Registado o Google do Litto Lins (`8841388615`). **Pendente do Pedro:** abrir o link de autorização Meta do Litto (em baixo) e, no Google Ads, aceitar o convite do MCC para a conta ficar `active`.
 
-## Próximo passo concreto
-**Ação do Pedro:** desativar a edge function `generate-historical-transactions` no Lovable (#87 passo 2). Enquanto estiver deployed continua invocável por qualquer admin e escreve `amount` com o IVA embutido. Só depois se remove do repo.
 
 ## Prazos e renovações
 - **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
@@ -164,4 +166,4 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
 - `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado), D-ERP41 (o anexo do movimento do banco pertence ao movimento e nunca é visível ao sócio), D-ERP55 (o saldo do extrato calcula-se sobre a ordem que se vê)
-- Issues #86, #83, #87, #96, #61, #57
+- Issues #86, #83, #96, #61, #57
