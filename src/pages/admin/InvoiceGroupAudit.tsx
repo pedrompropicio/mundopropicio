@@ -74,7 +74,7 @@ export default function InvoiceGroupAudit() {
       for (let i = 0; i < ids.length; i += 200) {
         const { data } = await supabase
           .from("transactions")
-          .select("id, description, amount, date, due_date, supplier_id, suppliers(name)")
+          .select("id, description, amount, date, due_date, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
           .in("id", ids.slice(i, i + 200));
         for (const t of (data ?? []) as any[]) out[t.id] = t as TxInfo;
       }

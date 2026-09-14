@@ -551,7 +551,7 @@ function useEligibleTransactionsForList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, trade_name), account_categories(code, name)")
+        .select("*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
         // Reembolsos só podem ser liquidados via Nota de Reembolso — nunca em Lista de Pagamento
@@ -1308,7 +1308,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name, email), account_categories(code, name, parent_id))")
+        .select("*, transactions(*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name, email), account_categories(code, name, parent_id))")
         .eq("payment_list_id", listId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -2455,7 +2455,7 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name), account_categories(code, name))")
         .eq("payment_list_id", listId)
         // Itens já removidos (composição ou aprovação anterior) não voltam à aprovação
         .is("removed_at", null);

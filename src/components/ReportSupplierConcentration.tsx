@@ -13,7 +13,7 @@ export default function ReportSupplierConcentration() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("supplier_id, amount, type, status, suppliers(name)")
+        .select("supplier_id, amount, type, status, suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .eq("type", "expense")
         .in("status", ["approved", "paid"])
         .not("supplier_id", "is", null);

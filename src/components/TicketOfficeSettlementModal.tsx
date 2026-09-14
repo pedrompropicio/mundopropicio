@@ -217,7 +217,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     enabled: !!eventId,
     queryFn: async () => {
       const settlementFilter = `settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`;
-      const cols = "id, description, amount, iva_rate, paid_amount, status, account_id, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers(name), account_categories(name, code)";
+      const cols = "id, description, amount, iva_rate, paid_amount, status, account_id, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(name, code)";
 
       // 1) Direct expenses for this event (Splits also live here with parent_transaction_id set)
       const { data: direct } = await (supabase as any)
@@ -360,7 +360,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("transactions")
-        .select("id, description, amount, iva_rate, paid_amount, status, suppliers(name), account_categories(name, code)")
+        .select("id, description, amount, iva_rate, paid_amount, status, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(name, code)")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .in("status", ["pending", "approved", "paid"])

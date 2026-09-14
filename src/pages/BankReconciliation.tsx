@@ -165,7 +165,7 @@ export default function BankReconciliation() {
       const data = await fetchAllPages<any>((from, to) =>
         supabase
           .from("transactions")
-          .select("id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers(name)")
+          .select("id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
           .eq("account_id", accountId)
           .gt("paid_amount", 0)
           .order("id")

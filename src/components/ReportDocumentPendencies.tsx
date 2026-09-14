@@ -52,7 +52,7 @@ export default function ReportDocumentPendencies() {
     queryFn: async () => {
       let q = supabase
         .from("transactions")
-        .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, events(name), suppliers(name), financial_accounts:account_id(name)")
+        .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts:account_id(name)")
         .order("date", { ascending: true });
       if (dateFromStr) q = q.gte("date", dateFromStr);
       if (dateToStr) q = q.lte("date", dateToStr);

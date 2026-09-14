@@ -344,7 +344,7 @@ export default function EventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, account_categories(code, name), suppliers(name)")
+        .select("*, account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .in("event_id", transactionEventIds);
       if (error) throw error;
       let rows = data ?? [];
@@ -360,7 +360,7 @@ export default function EventDetail() {
         if (masterIds.length > 0) {
           const { data: masters } = await supabase
             .from("transactions")
-            .select("*, account_categories(code, name), suppliers(name)")
+            .select("*, account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
             .in("id", masterIds);
           const masterMap = new Map((masters ?? []).map((m: any) => [m.id, m]));
           const kept = rows.filter((r: any) => {
