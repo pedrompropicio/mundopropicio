@@ -187,6 +187,15 @@ export function NewCardExpenseModal({
     },
   });
 
+  // Regra (14/09/2026): em evento concluído a edição é proibida. O seletor
+  // inclui concluídos (há despesas antigas lá), por isso avisa-se no formulário
+  // e recusa-se a gravação — não basta o gate de card_sessions.status='open'.
+  const isEventCompleted = (id: string | null | undefined) =>
+    !!id && (events as any[]).some((e: any) => e.id === id && e.status === "completed");
+  const selectedEventCompleted = isEventCompleted(eventId);
+  const originEventCompleted = isEventCompleted(expense?.event_id ?? null);
+  const completedEventBlocked = selectedEventCompleted || originEventCompleted;
+
   const { data: categories = [] } = useQuery({
     queryKey: ["l3-categories"],
     enabled: open,
