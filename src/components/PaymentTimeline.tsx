@@ -56,7 +56,9 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
   const queryClient = useQueryClient();
   const { user, role } = useAuth();
   // Editor pode corrigir data / apagar um pagamento (via modal de parcelas).
-  const canEditPayments = (canApprove || role === "editor") && !eventCompleted;
+  // Evento concluído já NÃO fecha o acesso ao modal: registar e reverter pagamentos
+  // são permitidos; a edição dos dados da parcela fica travada dentro do modal.
+  const canEditPayments = canApprove || role === "editor";
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [editingDirect, setEditingDirect] = useState(false);
   const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
@@ -860,7 +862,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
       {showPaymentsModal && (
         <TransactionPaymentsListModal
           transaction={transaction}
-          canApprove={canApprove && !eventCompleted}
+          canApprove={canApprove}
           eventCompleted={eventCompleted}
           onClose={() => setShowPaymentsModal(false)}
         />
