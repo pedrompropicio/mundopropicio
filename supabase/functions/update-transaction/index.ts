@@ -156,28 +156,61 @@ Deno.serve(async (req) => {
 
 
 
-    // RULE: Paid transactions — só um subconjunto de campos é editável (excepto admin).
-    // ESPELHO da lista `allowedFields` do ramo `paidLocked` em
-    // `src/components/TransactionEditModal.tsx` (~linha 506). As duas listas foram
-    // desenhadas para ser espelho e desalinharam-se: o modal enviava sempre
-    // is_confidential / event_settlement_id / ordering_partner_id / paying_partner_id
-    // e o servidor devolvia 422, bloqueando a edição de QUALQUER transação paga.
-    // Se acrescentares um campo aqui, acrescenta-o lá — e vice-versa.
-    // Nota: esta lista só decide se o pedido é RECUSADO; não é lista de escrita.
+    // RULE: Paid transactions — só um subconjunto de campos é editável.
+    // CRITÉRIO (Pedro, 14/09/2026): tem de ser O MESMO do ecrã, que trava por
+    // `paidLocked = isPaid && !canApprove` (permissão `approve_transactions`).
+    // Antes o servidor travava por papel `admin`, pelo que o GESTOR (que tem a
+    // permissão) enviava o payload completo e levava 422 em qualquer TX paga.
+    // Agora: platform_admin OU has_permission_in(caller, 'approve_transactions',
+    // company da transação) passam sem lista restrita.
+    //
+    // A lista abaixo é ESPELHO EXACTO do payload do ramo `paidLocked` de
+    // `src/components/TransactionEditModal.tsx` (~linha 568). Não a alargues sem
+    // alargar o ramo lá — e vice-versa.
+    // Nota: só decide se o pedido é RECUSADO; não é lista de escrita.
     // `status` e `paid_amount` continuam fora da `allowedFields` mais abaixo (o
     // trigger trg_enforce_held_revenue_is_paid põe-nos sozinho), mas o ramo
-    // `paidLocked` do modal envia-os no "Recebido por" e não devem gerar 422.
+    // `paidLocked` envia-os no "Recebido por" e não devem gerar 422.
     const isPaid = transaction.status === "paid";
-    if (isPaid && !isAdmin) {
-      const paidAllowedFields = ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "declared_withholding_rate", "declared_withholding_amount", "is_confidential", "event_settlement_id", "ordering_partner_id", "paying_partner_id", "held_by_supplier_id", "category_id", "account_id", "payment_date", "status", "paid_amount"];
-      const blockedFields = Object.keys(updates).filter((f) => !paidAllowedFields.includes(f));
-      if (blockedFields.length > 0) {
-        return new Response(
-          JSON.stringify({ error: "Transações pagas só permitem alteração de especificação e fornecedor" }),
-          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (isPaid) {
+      let canApproveTx = false;
+      const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+      if (isPaRow) {
+        canApproveTx = true;
+      } else {
+        const { data: permOk } = await adminClient.rpc("has_permission_in", {
+          _user_id: caller.id,
+          _permission: "approve_transactions",
+          _company_id: transaction.company_id,
+        });
+        canApproveTx = Boolean(permOk);
+      }
+
+      if (!canApproveTx) {
+        const paidAllowedFields = [
+          "specification", "supplier_id", "is_transitory", "is_confidential",
+          "exclude_from_result", "invoice_ref", "payment_method", "payment_entity",
+          "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
+          "event_settlement_id", "held_by_supplier_id", "category_id",
+          "status", "paid_amount", "payment_date",
+        ];
+        const blockedFields = Object.keys(updates).filter((f) => {
+          if (paidAllowedFields.includes(f)) return false;
+          // `account_id` SÓ a null: é o caso da despesa paga por sócio (o ecrã
+          // limpa a conta). Deixá-lo passar com valor permitiria mudar a conta de
+          // onde saiu o dinheiro de uma TX paga — corrompe saldo e conciliação.
+          if (f === "account_id" && updates[f] === null) return false;
+          return true;
+        });
+        if (blockedFields.length > 0) {
+          return new Response(
+            JSON.stringify({ error: `Transações pagas: sem permissão para alterar ${blockedFields.join(", ")}.` }),
+            { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
+
 
     // Validate payment_method against the closed domain (CHECK na base espelha isto)
     if ("payment_method" in updates && updates.payment_method !== null) {
