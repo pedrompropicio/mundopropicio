@@ -101,13 +101,16 @@ export function PartnerFinancialCards({
             <p className="mt-2 text-[10px] text-red-400">Não foi possível carregar os realizados</p>
           ) : (
             <p className="mt-2 text-[10px] text-muted-foreground">
-              Previsto c/IVA · Realizado{" "}
+              Previsto {basisShort} · Realizado{" "}
               <span className="font-semibold text-foreground/80 font-mono">{formatCurrency(bpExpenseRealized ?? 0)}</span>{" "}
               <span className={`font-semibold ${pctColor}`}>({pct.toFixed(0)}%)</span>
             </p>
           )
         ) : (
-          <p className="mt-2 text-[10px] text-muted-foreground">Total previsto c/IVA</p>
+          <p className="mt-2 text-[10px] text-muted-foreground">Total previsto {basisShort}</p>
+        )}
+        {!fecho && expenseBasisNote && (
+          <p className="mt-1 text-[10px] text-muted-foreground/80 italic">{expenseBasisNote}</p>
         )}
         {adjustedRubricsCount > 0 && (
           <p className="mt-1 text-[10px] text-amber-500/80 italic">
