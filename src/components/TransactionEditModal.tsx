@@ -334,7 +334,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     enabled: !!form.event_id,
   });
   const eventCompleted = eventInfo?.status === "completed";
-  const canEditPartnerExtra = canApprove || (!eventCompleted && isManager);
+  // Regra (14/09/2026): em evento concluído ninguém executa as acções de Extra
+  // do Sócio (reverter parcial/total, remover, converter) — admin incluído.
+  const canEditPartnerExtra = (canApprove || isManager) && !eventCompleted;
 
   // Detecta se EXISTE irmã transitória vinculada à mesma fatura (split parcial criado na origem).
   // Quando existe, "Reverter" = eliminar irmã + apagar partner_advance_expenses dela; a principal

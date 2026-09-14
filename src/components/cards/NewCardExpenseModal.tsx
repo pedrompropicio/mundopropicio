@@ -187,6 +187,15 @@ export function NewCardExpenseModal({
     },
   });
 
+  // Regra (14/09/2026): em evento concluído a edição é proibida. O seletor
+  // inclui concluídos (há despesas antigas lá), por isso avisa-se no formulário
+  // e recusa-se a gravação — não basta o gate de card_sessions.status='open'.
+  const isEventCompleted = (id: string | null | undefined) =>
+    !!id && (events as any[]).some((e: any) => e.id === id && e.status === "completed");
+  const selectedEventCompleted = isEventCompleted(eventId);
+  const originEventCompleted = isEventCompleted(expense?.event_id ?? null);
+  const completedEventBlocked = selectedEventCompleted || originEventCompleted;
+
   const { data: categories = [] } = useQuery({
     queryKey: ["l3-categories"],
     enabled: open,
@@ -341,6 +350,9 @@ export function NewCardExpenseModal({
 
       // ---- Caminho legado: editar transação directa antiga ----
       if (expense) {
+        if (completedEventBlocked) {
+          throw new Error("Evento concluído. Reabre o evento para editar.");
+        }
         const patch = {
           description: description.trim(),
           amount: base,
@@ -469,6 +481,13 @@ export function NewCardExpenseModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {isLegacyEdit && completedEventBlocked && (
+          <p className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+            Evento concluído. Reabre o evento para editar.
+          </p>
+        )}
+
 
         {!isLegacyEdit && (
           <p className="mb-3 rounded-lg border border-border/60 bg-muted/30 p-2 text-[11px] text-muted-foreground">
@@ -631,7 +650,7 @@ export function NewCardExpenseModal({
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={mut.isPending || ocrLoading} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={mut.isPending || ocrLoading || (isLegacyEdit && completedEventBlocked)} title={isLegacyEdit && completedEventBlocked ? "Evento concluído. Reabre o evento para editar." : undefined} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
               {mut.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar despesa"}
             </button>
           </div>
