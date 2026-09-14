@@ -1960,11 +1960,33 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const { newInvoiceGroupId } = await import("@/lib/invoice-group");
       const sharedGroupId = newInvoiceGroupId();
       const createdIds: string[] = [];
+      // Retenção IRS declarada: reparte-se proporcionalmente à base de cada linha.
+      // A TAXA (%) é a mesma em todas; o VALOR (€) é da linha, e sem isto a
+      // retenção ficava copiada integral a cada irmã (triplicava numa fatura
+      // com três taxas de IVA). O resto do arredondamento cai na última linha
+      // para a soma bater ao cêntimo com o valor declarado original.
+      const declaredWithholdingTotal =
+        form.type === "expense" ? parseFloat(form.declared_withholding_amount) || 0 : 0;
+      const ivaBaseSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0);
+      const withholdingPerLine = pendingIvaSplit.map((l, idx) => {
+        if (declaredWithholdingTotal <= 0 || ivaBaseSum <= 0) return 0;
+        if (idx === pendingIvaSplit.length - 1) return 0; // preenchido abaixo
+        return roundCents((declaredWithholdingTotal * (Number(l.base) || 0)) / ivaBaseSum);
+      });
+      if (declaredWithholdingTotal > 0 && ivaBaseSum > 0) {
+        const allocated = withholdingPerLine
+          .slice(0, -1)
+          .reduce((s, v) => s + v, 0);
+        withholdingPerLine[withholdingPerLine.length - 1] = roundCents(
+          declaredWithholdingTotal - allocated,
+        );
+      }
       try {
-        for (const line of pendingIvaSplit) {
+        for (const [lineIdx, line] of pendingIvaSplit.entries()) {
           const desc = line.suffix
             ? `${form.description} (${line.suffix})`
             : form.description;
+          const lineWithholding = withholdingPerLine[lineIdx] ?? 0;
           const newId = await createMutation.mutateAsync({
             ...form,
             description: desc,
@@ -1972,6 +1994,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             iva_rate: line.iva_rate,
             invoice_ref: sharedInvoiceRef,
             invoice_group_id: sharedGroupId,
+            declared_withholding_amount: lineWithholding > 0 ? String(lineWithholding) : "",
           });
           if (newId) createdIds.push(newId);
         }

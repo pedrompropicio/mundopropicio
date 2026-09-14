@@ -376,24 +376,32 @@ Deno.serve(async (req) => {
     // Propagate shared fields to invoice-group siblings (fatura com várias taxas de IVA).
     // Apenas campos que fazem sentido replicar — base/IVA/descrição/valor ficam INDIVIDUAIS por irmã.
     if (transaction.invoice_group_id) {
-      // O que as linhas da MESMA fatura têm em comum: fornecedor, datas, meio de
-      // pagamento. O que as DISTINGUE nunca viaja: valor, taxa de IVA, descrição
-      // e ESPECIFICAÇÃO (2026-09-14: a especificação propagava-se e reescrevia a
-      // frase das irmãs — incidente R-030/2026). O `invoice_ref` também saiu: se
-      // são a mesma fatura o número já é igual, e propagá-lo só serve para o
-      // trocar por engano.
+      // Uma linha de fatura tem TRÊS naturezas de campo (2026-09-14):
+      //
+      //  1) O QUE É DO DOCUMENTO — fornecedor, data, vencimento. SÓ ISTO se propaga.
+      //
+      //  2) O QUE É DA LINHA — valor, taxa de IVA, descrição, specification,
+      //     category_id, event_id, is_transitory, exclude_from_result. É por
+      //     definição o que DISTINGUE uma linha da outra dentro da mesma fatura;
+      //     nunca se propaga. (A specification propagava-se e reescrevia a frase
+      //     das irmãs — incidente R-030/2026.) O `invoice_ref` também não viaja:
+      //     se é a mesma fatura o número já é igual, propagá-lo só o troca por engano.
+      //
+      //  3) O QUE É DO PAGAMENTO — account_id, payment_method, payment_entity,
+      //     payment_reference. Pagamento não é propriedade da fatura: é o que se
+      //     faz com ela depois, tem máquina própria em transaction_payments, e o
+      //     account_id é a conta de onde o dinheiro SAIU — reescrevê-lo numa irmã
+      //     já paga corrompe o saldo de uma conta bancária. Além disso a interface
+      //     limpa o payment_reference quando o método é transferência: propagar um
+      //     campo que a própria interface apaga é garantir confusão.
+      //
+      // Não há custo de preenchimento: o "Dividir por IVA" faz spread do
+      // formulário inteiro, logo cada irmã NASCE com rubrica, evento, conta,
+      // vencimento e método. A propagação na edição nunca serviu para preencher.
       const invoiceSharedFields = [
-        "event_id",
-        "category_id",
         "supplier_id",
-        "account_id",
         "date",
         "due_date",
-        "payment_method",
-        "payment_entity",
-        "payment_reference",
-        "is_transitory",
-        "exclude_from_result",
       ];
       // Quando o grupo-fatura e o grupo de parcelas se cruzam, a PARCELA manda.
       // Parcelas têm calendário próprio: não propagar datas para as irmãs.

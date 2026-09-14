@@ -109,16 +109,28 @@ parcial / verde completo nos pickers e no detalhe da lista.
 `iban_mismatch`. `SepaCandidate.groupTransactionIds` garante que o comprovativo é
 replicado a todas as transações do grupo. A liquidação continua transação a transação.
 
-## Propagação de campos partilhados (update-transaction)
-`invoiceSharedFields` em `supabase/functions/update-transaction/index.ts` propaga às irmãs
-do grupo: `event_id`, `category_id`, `supplier_id`, `account_id`, `date`, `due_date`,
-`payment_method`, `payment_entity`, `payment_reference`, `is_transitory`,
-`exclude_from_result` (datas saem quando existe `installment_group_id`).
+## Propagação de campos partilhados (update-transaction) — fechada em TRÊS (2026-09-14)
+`invoiceSharedFields` em `supabase/functions/update-transaction/index.ts` é exactamente:
+`supplier_id`, `date`, `due_date` (as datas saem quando existe `installment_group_id`).
 
-**NUNCA propagam** (2026-09-14): `specification` e `invoice_ref`. A especificação é o campo
-que DISTINGUE uma linha da outra — propagá-la reescrevia a frase das irmãs (incidente
-R-030/2026, 7 edições em 12 minutos). O `invoice_ref` é redundante (se é a mesma fatura o
-número já é igual) e propagá-lo trocava o número entre linhas.
+Critério — três naturezas de campo numa linha de fatura:
+1. **Do DOCUMENTO** — fornecedor, data, vencimento. Só isto propaga.
+2. **Da LINHA** — valor, `iva_rate`, descrição, `specification`, `category_id`, `event_id`,
+   `is_transitory`, `exclude_from_result`, `invoice_ref`. Distingue uma linha da outra;
+   nunca propaga (incidente R-030/2026: a especificação reescrevia as irmãs).
+3. **Do PAGAMENTO** — `account_id`, `payment_method`, `payment_entity`,
+   `payment_reference`. Pagamento tem máquina própria (`transaction_payments`) e o
+   `account_id` é a conta de onde o dinheiro saiu — reescrevê-lo numa irmã já paga
+   corrompe o saldo bancário. A UI limpa o `payment_reference` em transferência.
+
+Sem custo de preenchimento: o "Dividir por IVA" faz spread do formulário inteiro, logo
+cada irmã NASCE com rubrica, evento, conta, vencimento e método.
+
+### Retenção IRS declarada no split por IVA
+`TransactionFormModal.tsx` (caminho `pendingIvaSplit`) reparte
+`declared_withholding_amount` proporcionalmente à base de cada linha (`roundCents`), com o
+resto do arredondamento na última linha para somar exactamente o declarado.
+`declared_withholding_rate` fica igual em todas (é taxa).
 
 ## Âmbito de um grupo na edge function de auditoria
 `audit-invoice-groups` aceita `group_id` no body: dry-run só desse grupo (devolve
