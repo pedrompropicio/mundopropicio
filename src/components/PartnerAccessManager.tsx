@@ -81,11 +81,14 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
   });
 
   // Ao escolher o utilizador, pré-selecionar o sócio a que já está ligado.
+  // A ref evita que um refetch de 'partner-portal-links' volte a correr o efeito
+  // e apague a escolha que o operador acabou de fazer.
+  const linkByUserRef = useRef(linkByUser);
+  linkByUserRef.current = linkByUser;
   useEffect(() => {
     if (!selectedUserId) return;
-    const existing = linkByUser[selectedUserId]?.supplier_id ?? "";
-    setSelectedSupplierId(existing);
-  }, [selectedUserId, linkByUser]);
+    setSelectedSupplierId(linkByUserRef.current[selectedUserId]?.supplier_id ?? "");
+  }, [selectedUserId]);
 
   const existingSupplierForSelectedUser = selectedUserId ? linkByUser[selectedUserId]?.supplier_id ?? null : null;
   const changingGlobalLink =
