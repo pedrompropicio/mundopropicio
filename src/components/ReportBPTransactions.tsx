@@ -160,7 +160,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, suppliers(name)")
+        .select("*, suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .in("status", ["approved", "paid"])
         .order("date", { ascending: true });
       if (error) throw error;

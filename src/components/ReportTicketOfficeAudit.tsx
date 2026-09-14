@@ -183,7 +183,7 @@ export default function ReportTicketOfficeAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, category_id, suppliers(name), events(name)")
+        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, category_id, suppliers:suppliers!transactions_supplier_id_fkey(name), events(name)")
         .in("account_id", accountIds)
         .in("status", ["approved", "paid"])
         .order("date");

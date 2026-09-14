@@ -130,7 +130,7 @@ export function CacheTransactionModal({
     queryFn: async () => {
       let query = supabase
         .from("transactions")
-        .select("id, description, amount, paid_amount, status, date, due_date, specification, supplier_id, suppliers(name)")
+        .select("id, description, amount, paid_amount, status, date, due_date, specification, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .eq("category_id", cacheCategory!.id);

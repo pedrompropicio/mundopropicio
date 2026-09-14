@@ -65,7 +65,7 @@ export default function ReportBankStatement() {
       if (!selectedAccountId) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name)")
+        .select("*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .eq("account_id", selectedAccountId);
       if (error) throw error;
       return data;

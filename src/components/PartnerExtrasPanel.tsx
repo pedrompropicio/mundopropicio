@@ -133,7 +133,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
   async function openTransaction(transactionId: string) {
     const { data, error } = await supabase
       .from("transactions")
-      .select("*, suppliers(name), account_categories(id, name, code, parent_id), events(name)")
+      .select("*, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(id, name, code, parent_id), events(name)")
       .eq("id", transactionId)
       .maybeSingle();
     if (error || !data) {

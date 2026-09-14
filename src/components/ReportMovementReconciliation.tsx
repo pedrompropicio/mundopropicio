@@ -62,7 +62,7 @@ export default function ReportMovementReconciliation() {
     queryFn: async () => {
       let q = supabase
         .from("transactions")
-        .select("*, events(name, parent_event_id), suppliers(name), financial_accounts(name)")
+        .select("*, events(name, parent_event_id), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts(name)")
         .order("date", { ascending: true });
       if (!fullPeriod) {
         if (dateFromStr) q = q.gte("date", dateFromStr);
