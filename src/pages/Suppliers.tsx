@@ -441,8 +441,27 @@ export default function Suppliers() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
+                        {canManage && (s.is_active === false ? (
+                          <button
+                            onClick={() => reactivateMutation.mutate(s.id)}
+                            disabled={reactivateMutation.isPending}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-success/10 hover:text-success transition-colors disabled:opacity-50"
+                            title="Reativar"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => deactivateMutation.mutate(s)}
+                            disabled={deactivateMutation.isPending}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors disabled:opacity-50"
+                            title="Desativar (mantém o histórico)"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        ))}
                         <button
-                          onClick={() => setDeletingId(s.id)}
+                          onClick={() => setDeleting(s)}
                           className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                           title="Eliminar"
                         >
