@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type AppRole, ALL_PERMISSIONS } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "@/hooks/use-toast";
 import { X, Loader2 } from "lucide-react";
 import {
