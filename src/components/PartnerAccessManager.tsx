@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -11,11 +11,23 @@ interface PartnerAccessManagerProps {
   subEvents?: { id: string; name: string; date: string }[];
 }
 
+interface PortalLink {
+  profile_id: string;
+  full_name: string | null;
+  email: string | null;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  link_source: string | null;
+}
+
 export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: PartnerAccessManagerProps) {
   const queryClient = useQueryClient();
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  const allEventIds = [eventId, ...subEvents.map((s) => s.id)];
 
   // Get partner users
   const { data: partnerUsers = [] } = useQuery({
@@ -25,14 +37,61 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
       if (error) throw error;
       if (!roles?.length) return [];
       const userIds = roles.map((r) => r.user_id);
-      const { data: profiles, error: pErr } = await supabase.from("profiles").select("id, full_name, email, linked_supplier_id").in("id", userIds);
+      const { data: profiles, error: pErr } = await supabase.from("profiles").select("id, full_name, email").in("id", userIds);
       if (pErr) throw pErr;
       return profiles ?? [];
     },
   });
 
+  // Resolução REAL da ligação utilizador ↔ sócio (link explícito ou fallback por email).
+  const { data: portalLinks = [] } = useQuery({
+    queryKey: ["partner-portal-links"],
+    queryFn: async (): Promise<PortalLink[]> => {
+      const { data, error } = await supabase.rpc("partner_portal_links");
+      if (error) throw error;
+      return (data ?? []) as PortalLink[];
+    },
+  });
+
+  const linkByUser = useMemo(() => {
+    const m: Record<string, PortalLink> = {};
+    portalLinks.forEach((l) => { m[l.profile_id] = l; });
+    return m;
+  }, [portalLinks]);
+
+  // Sócios deste evento (e sub-eventos), sem duplicados.
+  const { data: eventPartnerOptions = [] } = useQuery({
+    queryKey: ["event-partner-suppliers", eventId, allEventIds.join(",")],
+    queryFn: async (): Promise<{ value: string; label: string }[]> => {
+      const { data: eps, error } = await supabase
+        .from("event_partners")
+        .select("supplier_id")
+        .in("event_id", allEventIds);
+      if (error) throw error;
+      const ids = Array.from(new Set((eps ?? []).map((e: any) => e.supplier_id).filter(Boolean)));
+      if (ids.length === 0) return [];
+      const { data: sups, error: sErr } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .in("id", ids)
+        .order("name", { ascending: true });
+      if (sErr) throw sErr;
+      return (sups ?? []).map((s: any) => ({ value: s.id, label: s.name }));
+    },
+  });
+
+  // Ao escolher o utilizador, pré-selecionar o sócio a que já está ligado.
+  useEffect(() => {
+    if (!selectedUserId) return;
+    const existing = linkByUser[selectedUserId]?.supplier_id ?? "";
+    setSelectedSupplierId(existing);
+  }, [selectedUserId, linkByUser]);
+
+  const existingSupplierForSelectedUser = selectedUserId ? linkByUser[selectedUserId]?.supplier_id ?? null : null;
+  const changingGlobalLink =
+    !!existingSupplierForSelectedUser && !!selectedSupplierId && existingSupplierForSelectedUser !== selectedSupplierId;
+
   // Get current access for this event and sub-events
-  const allEventIds = [eventId, ...subEvents.map((s) => s.id)];
   const { data: accessRecords = [], isLoading } = useQuery({
     queryKey: ["partner_event_access", eventId],
     queryFn: async () => {
@@ -89,6 +148,24 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  const setPortalUserMutation = useMutation({
+    mutationFn: async ({ supplierId, profileId }: { supplierId: string; profileId: string | null }) => {
+      const { error } = await supabase.rpc("set_partner_portal_user", {
+        _supplier_id: supplierId,
+        _profile_id: profileId as any,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner-portal-links"] });
+      queryClient.invalidateQueries({ queryKey: ["portal-partner-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["partner_users"] });
+      toast({ title: "Sócio ligado ao utilizador." });
+    },
+    onError: (e: any) =>
+      toast({ title: "Não foi possível ligar o sócio", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
   const addAccessMutation = useMutation({
     mutationFn: async () => {
       const idsToGrant = selectedEventIds.length > 0 ? selectedEventIds : [eventId];
@@ -99,10 +176,19 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
       }));
       const { error } = await supabase.from("partner_event_access").upsert(inserts, { onConflict: "user_id,event_id" });
       if (error) throw error;
+      // A ligação utilizador ↔ sócio só se escreve pela RPC.
+      const { error: rpcErr } = await supabase.rpc("set_partner_portal_user", {
+        _supplier_id: selectedSupplierId,
+        _profile_id: selectedUserId,
+      });
+      if (rpcErr) throw rpcErr;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["partner_event_access", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-portal-links"] });
+      queryClient.invalidateQueries({ queryKey: ["partner_users"] });
       setSelectedUserId("");
+      setSelectedSupplierId("");
       setSelectedEventIds([]);
       setShowAddForm(false);
       toast({ title: "Acesso concedido ao parceiro." });
@@ -203,6 +289,26 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
             )}
           </div>
 
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Sócio que representa *</label>
+            <SearchableSelect
+              options={eventPartnerOptions}
+              value={selectedSupplierId}
+              onValueChange={setSelectedSupplierId}
+              placeholder="Selecione o sócio..."
+            />
+            {eventPartnerOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Este evento não tem sócios registados. Adicione-os primeiro na aba de sócios do evento.
+              </p>
+            )}
+            {changingGlobalLink && (
+              <p className="mt-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
+                Este utilizador já está ligado a outro sócio. A ligação é global: muda em todos os eventos.
+              </p>
+            )}
+          </div>
+
           {subEvents.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Eventos / Cidades (deixe vazio para acesso total)</label>
@@ -233,14 +339,14 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
           <div className="flex gap-2">
             <button
               onClick={() => addAccessMutation.mutate()}
-              disabled={!selectedUserId || addAccessMutation.isPending}
+              disabled={!selectedUserId || !selectedSupplierId || addAccessMutation.isPending}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {addAccessMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               Conceder
             </button>
             <button
-              onClick={() => { setShowAddForm(false); setSelectedUserId(""); setSelectedEventIds([]); }}
+              onClick={() => { setShowAddForm(false); setSelectedUserId(""); setSelectedSupplierId(""); setSelectedEventIds([]); }}
               className="rounded-lg px-4 py-2 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancelar
@@ -253,16 +359,33 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
         <p className="text-sm text-muted-foreground py-4 text-center">Nenhum parceiro tem acesso a este evento.</p>
       ) : (
         <div className="space-y-3">
-          {Object.entries(accessByUser).map(([userId, records]) => (
+          {Object.entries(accessByUser).map(([userId, records]) => {
+            const link = linkByUser[userId];
+            const linkedSupplierId = link?.supplier_id ?? null;
+            return (
             <div key={userId} className="glass rounded-xl p-4">
               <p className="text-sm font-semibold mb-2">{getUserName(userId)}</p>
-              {/* (g9c · P2-12) Sem sócio ligado, o Portal não resolve a identidade do sócio. */}
-              {!(partnerUsers.find((u: any) => u.id === userId) as any)?.linked_supplier_id && (
-                <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
-                  Sem sócio ligado — o Portal não mostra fechamento. Ligue o utilizador na ficha do sócio
-                  (Fornecedores → editar → «Utilizador do Portal»).
-                </p>
-              )}
+              {/* (g9c · P2-12) A ligação ao sócio decide se o Portal resolve a identidade. */}
+              <div className="mb-3 space-y-1">
+                <label className="text-[11px] font-medium text-muted-foreground block">Sócio que representa</label>
+                <SearchableSelect
+                  options={eventPartnerOptions}
+                  value={linkedSupplierId ?? ""}
+                  onValueChange={(v) => setPortalUserMutation.mutate({ supplierId: v, profileId: userId })}
+                  placeholder="Selecione o sócio..."
+                />
+                {!linkedSupplierId && (
+                  <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
+                    Sem sócio ligado — o Portal não mostra fechamento. Escolha aqui o sócio, ou ligue na ficha do sócio
+                    (Entidades → editar → «Utilizador do Portal»).
+                  </p>
+                )}
+                {linkedSupplierId && link?.link_source === "email" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Ligado por coincidência de email ({link.supplier_name || "sócio"}). Escolha o sócio acima para fixar a ligação.
+                  </p>
+                )}
+              </div>
               <div className="space-y-1.5">
                 {records.map((r: any) => (
                   <div key={r.id} className="flex items-center justify-between text-xs">
@@ -330,7 +453,8 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
