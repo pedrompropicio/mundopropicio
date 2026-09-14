@@ -1649,23 +1649,30 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
-          {/* 3 cards de resumo — despesas na base de apuramento do sócio (D-ERP9) */}
+          {/* 3 cards de resumo — só com o fecho do servidor. Sem fecho não se
+              mostram números (o ramo local não bate com o fecho); mostra-se o
+              motivo. O BP em si continua visível a seguir. */}
           <div className="mb-3">
-            <PartnerFinancialCards
-              ticketsNet={ticketRevenueNet}
-              sponsorshipNet={sponsorshipRealNet}
-              barsNet={barsRealNet}
-              otherNet={otherIncomeRealNet}
-              bpExpenseGross={bpTotalExpenseAdjusted}
-              bpExpenseRealized={bpTotalRealizedExpense}
-              showRealized={canSeeComparative}
-              realizedError={canSeeComparative && realizedIsError}
-              adjustedRubricsCount={bpAdjustedCount}
-              fecho={serverStatement?.cards ?? null}
-              expensesWithVat={usesGross}
-              expenseBasisNote={expenseBasisNote}
-            />
+            {serverStatement ? (
+              <PartnerFinancialCards
+                ticketsNet={ticketRevenueNet}
+                sponsorshipNet={sponsorshipRealNet}
+                barsNet={barsRealNet}
+                otherNet={otherIncomeRealNet}
+                bpExpenseGross={bpTotalExpenseAdjusted}
+                bpExpenseRealized={bpTotalRealizedExpense}
+                showRealized={canSeeComparative}
+                realizedError={canSeeComparative && realizedIsError}
+                adjustedRubricsCount={bpAdjustedCount}
+                fecho={serverStatement.cards}
+                expensesWithVat={usesGross}
+                expenseBasisNote={expenseBasisNote}
+              />
+            ) : (
+              <PartnerNoSupplierNotice isLoading={statementLoading} reason={statementNoticeReason} />
+            )}
           </div>
+
 
 
 
