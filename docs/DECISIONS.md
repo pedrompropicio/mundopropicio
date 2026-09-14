@@ -2124,3 +2124,21 @@ esta regra; faltava a interface obedecer-lhe.
 A base do Portal segue `partnerUsesGrossExpenses` (D-ERP9): a regra própria do sócio manda e,
 na ausência dela, vale o contrato do evento. **Nunca modo fixo** — o portal estava em modo
 Brasil fixo em seis sítios.
+
+## D-ERP67 — Streams por playlist vêm do Spotify for Artists por recolha assistida (2026-09-14)
+
+O S4A não tem API. A tabela "Playlists" de cada música do elenco (top 100 por streams a 28 dias)
+é recolhida à mão na sessão do artista e gravada em `artist_song_playlist_streams`
+(`UNIQUE (song_id, snapshot_date, period_days, playlist_name)`, `source = 's4a_manual'`),
+sempre pela RPC `artist_song_playlist_streams_set` (SECURITY DEFINER, papel
+admin/platform_admin/manager/marketing_manager, empresa da música, auditoria).
+Os totais da música ficam como métricas manuais `s4a_*` em `artist_song_metrics_daily`.
+A vista `v_song_playlist_streams_latest` dá a última snapshot com totais (Spotify vs utilizador,
+top 10) e, quando o nome coincide, junta os dados públicos da Soundcharts por
+`lower(trim(playlist_name))` — não é chave, aceita-se sem match.
+
+**Regra de leitura:** o S4A é a fonte oficial de streams; a Soundcharts é a contagem pública
+desfasada. Quando ambas existirem, avalia-se pelo S4A e menciona-se a diferença. Só o elenco
+tem S4A — as músicas de referência não — logo é proibido comparar S4A com Soundcharts.
+
+Nota de numeração: o número D-ERP60 estava já usado (faturas), pelo que esta decisão ficou D-ERP67.

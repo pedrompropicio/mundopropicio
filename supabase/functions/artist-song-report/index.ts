@@ -183,6 +183,57 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
   };
   if (all.length === 0) lacunas.push("sem dados de playlists desta música");
 
+  // ---- Spotify for Artists: streams por playlist (recolha assistida, D-ERP67)
+  const { data: s4aRows, error: s4aErr } = await admin
+    .from("v_song_playlist_streams_latest")
+    .select(
+      "snapshot_date, period_days, rank, playlist_name, made_by, streams, date_added, playlists_na_snapshot, streams_total, streams_spotify_owned, streams_user_playlists, streams_top10, soundcharts_subscribers, soundcharts_playlist_type, soundcharts_position",
+    )
+    .eq("song_id", songId)
+    .order("streams", { ascending: false });
+  if (s4aErr) lacunas.push(`streams por playlist (S4A) indisponíveis: ${s4aErr.message}`);
+  const s4aAll = s4aRows ?? [];
+  const s4aMetrics = (smRows ?? []).filter((r: Row) =>
+    typeof r.metric === "string" && r.metric.startsWith("s4a_")
+  );
+  const s4aMetricLatest: Record<string, unknown> = {};
+  for (const r of s4aMetrics) {
+    const prev = s4aMetricLatest[r.metric as string] as Row | undefined;
+    if (!prev || String(r.metric_date) >= String(prev.data)) {
+      s4aMetricLatest[r.metric as string] = { valor: num(r.value), data: r.metric_date };
+    }
+  }
+  const spotifyForArtists = s4aAll.length === 0 && s4aMetrics.length === 0 ? null : {
+    fonte: "Spotify for Artists (recolha assistida na sessão do artista)",
+    snapshot: s4aAll[0]?.snapshot_date ?? null,
+    periodo_dias: s4aAll[0]?.period_days ?? null,
+    metricas_da_musica: s4aMetricLatest,
+    totais: s4aAll.length
+      ? {
+        playlists_na_snapshot: s4aAll[0].playlists_na_snapshot,
+        streams_total: s4aAll[0].streams_total,
+        streams_playlists_do_spotify: s4aAll[0].streams_spotify_owned,
+        streams_playlists_de_utilizadores: s4aAll[0].streams_user_playlists,
+        streams_top_10: s4aAll[0].streams_top10,
+      }
+      : null,
+    top_15: s4aAll.slice(0, 15).map((p: Row) => ({
+      posicao: p.rank,
+      nome: p.playlist_name,
+      feita_por: p.made_by,
+      streams: p.streams,
+      data_adicao: p.date_added,
+      soundcharts_seguidores: p.soundcharts_subscribers,
+      soundcharts_tipo: p.soundcharts_playlist_type,
+      soundcharts_posicao: p.soundcharts_position,
+    })),
+    nota:
+      "S4A é a fonte oficial de streams; a Soundcharts é a contagem pública desfasada. Quando ambas existirem, avaliar pelo S4A e mencionar a diferença.",
+  };
+  if (!spotifyForArtists) {
+    lacunas.push("sem recolha do Spotify for Artists (streams por playlist) desta música");
+  }
+
   // ---- vídeos ligados à música
   const { data: linked, error: lcErr } = await admin
     .from("artist_content")
@@ -443,6 +494,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       musica,
       streams: streamsPorPlataforma,
       playlists,
+      spotify_for_artists: spotifyForArtists,
       videos: videosPorPlataforma,
       artista: {
         por_plataforma: artistaPorPlataforma,
@@ -452,6 +504,8 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       },
       comparaveis,
       benchmark_alinhado: benchmarkAlinhado,
+      benchmark_nota:
+        "Só as músicas do elenco têm dados do Spotify for Artists. As músicas de referência (comparáveis) só têm contagem pública da Soundcharts — não comparar streams do S4A com streams da Soundcharts.",
       lacunas,
     },
   };
@@ -475,7 +529,9 @@ REGRAS DE AVALIAÇÃO RELATIVA (obrigatórias):
 7. Quando um comparável tem UGC muito acima do que o número oficial sugere, explique o mecanismo APENAS se ele estiver escrito em "nota_da_musica" desse comparável. Nunca invente o mecanismo.
 8. As sugestões accionáveis derivam do que os comparáveis com melhor resultado fizeram, com os números deles à mesma idade.
 9. Se não houver comparável com dados para uma métrica (posição ou total ausentes/1), escreva "sem referência" e NÃO avalie essa métrica.
-10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.`;
+10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.
+11. "spotify_for_artists" (S4A) é a FONTE OFICIAL de streams da música e das playlists. A Soundcharts é contagem pública desfasada. Quando as duas existirem, avalie pelo S4A e mencione explicitamente a diferença entre as duas. Se "spotify_for_artists" for null, escreva "sem dados do Spotify for Artists".
+12. Só as músicas do elenco têm S4A; as de referência no benchmark não têm. É PROIBIDO comparar streams do S4A com streams da Soundcharts de comparáveis.`;
 
 
 const REPORT_TOOL = {
