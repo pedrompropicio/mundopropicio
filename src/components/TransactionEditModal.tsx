@@ -473,6 +473,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      // Regra 14/09/2026: em evento concluído, editar é uma decisão — bloqueado
+      // para todos, incluindo admin/gestora. O modal continua a servir para consultar.
+      if (eventCompleted) {
+        throw new Error("Evento concluído. Reabre o evento para editar.");
+      }
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
       const fieldLabels: Record<string, string> = {
         description: "Descrição", amount: "Valor", iva_rate: "Taxa IVA",
