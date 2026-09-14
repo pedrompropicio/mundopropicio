@@ -616,10 +616,18 @@ export function buildPartnerStatement(
   const totalExpensesGross = useNodeTotals ? activeNode.perimeter.expensesGross : eventExpensesGross;
 
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
-  const usesGrossExpenses = partnerUsesGrossExpenses(
-    calcBasis as any,
-    me.expense_includes_iva == null ? null : !!me.expense_includes_iva,
-  );
+  /**
+   * (g4 + g10) UMA SÓ FONTE PARA A BASE: o FECHAMENTO onde o sócio acerta.
+   * O motor ignora `event_partners.expense_includes_iva` por decisão (g4: a base
+   * é do fechamento — raiz pelo contrato do evento, filho por
+   * `parent_share_basis`) e a base de apresentação é a EFETIVA do nó (g10: c/IVA
+   * só quando o nó calcula em bruto E não devolve o IVA dedutível do fechamento
+   * acima). Ler aqui o override do participante fazia a parte do sócio sair numa
+   * base diferente da cascata mostrada por cima dela, no mesmo documento.
+   * `ignoresOperationalExpenses` mantém-se: essa regra é do EVENTO.
+   */
+  const usesGrossExpenses = activeNode.effectiveUsesGrossExpenses === true;
+
   const expenses = ignoresOperationalExpenses(calcBasis as any)
     ? 0
     : usesGrossExpenses
