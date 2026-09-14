@@ -105,7 +105,11 @@ A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.
 O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
 
 ## A trabalhar agora
-- **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 71 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. Continua aberta: falta o inventário completo das tabelas escritas sem contexto de utilizador, que é o critério de aceitação. #53 e #56 seguem como sub-tarefas; #96 saiu daqui.
+- **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 88 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. **A 14/09:** inventário completo gerado por análise estática de 191 edge functions — 1 RISCO REAL (`check-login-rate` → `system_audit_log`, sem company_id), riscos condicionais nos 4 restauros (só falham com backups pré-multi-tenant), todas as outras funções OK ou sem INSERTs nas 88 tabelas. Ficheiro: `docs/estado/inventario-86-service-role-inserts.md`. Próximo: corrigir o `check-login-rate`.
+
+- **Performance (3 fixes despachados a 14/09):** (A) `v_artist_growth_summary` convertida para MATERIALIZED VIEW com refresh diário via pg_cron — elimina 511s de tempo acumulado de BD; (B) query de listagem de transações com colunas explícitas em vez de `select('*')` — elimina 316s acumulados; (C) migração RLS: `auth.uid()` → `(SELECT auth.uid())` em todas as políticas do schema `public` — elimina 177M+ seq_scans por sessão em `user_roles`. Aguarda Publish.
+
+- **#87** — FECHADA a 14/09. `generate-historical-transactions` não responde em produção (função não existe no deploy atual), ficheiro removido do repo, sem referências órfãs. Critérios todos cumpridos.
 
 **Fechado hoje (12/09):** a consolidação do extrato da conta saiu desta secção — está entregue, testada e verificada em Live.
 
