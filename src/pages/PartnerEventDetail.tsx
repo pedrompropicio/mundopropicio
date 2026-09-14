@@ -1106,7 +1106,12 @@ export default function PartnerEventDetail() {
       try {
         const branding = await fetchExportBranding();
         const input = buildStatementDocInput(branding.logoDataUrl);
-        if (!input) return;
+        if (!input) {
+          toast.error("Prestação de contas indisponível", {
+            description: "Ainda não há prestação de contas disponível para este evento.",
+          });
+          return;
+        }
         exportPartnerStatementDocPdf(input);
       } catch (err: any) {
         toast.error("Erro ao exportar PDF", { description: err?.message });
