@@ -485,7 +485,7 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                       if (explicitSupplierId) unsetPortalUserMutation.mutate(userId);
                       return;
                     }
-                    setPortalUserMutation.mutate({ supplierId: v, profileId: userId });
+                    void requestRelink(userId, v, explicitSupplierId);
                   }}
                   placeholder="Selecione o sócio..."
                 />
