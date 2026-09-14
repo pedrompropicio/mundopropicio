@@ -115,8 +115,6 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 
 **Entregue a 13/09 (D-ERP57):** contas de tráfego do próprio artista. `crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`; funções `artist-ads-meta-oauth-start|callback|select-account|disconnect` deployed; RPC `artist_ads_register_external` para Google/TikTok sem OAuth; `crm-google-sync-campaigns` promove `pending_link` → `active`; ecrã de Conexões etiqueta "Artista: <nome>". Registado o Google do Litto Lins (`8841388615`). **Pendente do Pedro:** abrir o link de autorização Meta do Litto (em baixo) e, no Google Ads, aceitar o convite do MCC para a conta ficar `active`.
 
-## Próximo passo concreto
-**Ação do Pedro:** desativar a edge function `generate-historical-transactions` no Lovable (#87 passo 2). Enquanto estiver deployed continua invocável por qualquer admin e escreve `amount` com o IVA embutido. Só depois se remove do repo.
 
 ## Prazos e renovações
 - **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
