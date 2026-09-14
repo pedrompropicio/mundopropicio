@@ -2091,3 +2091,7 @@ contagem se AFASTA da referência. Zero é a referência da maioria, não a regr
 **Consequência.** Aceitar uma referência acima de zero é assumir dívida por escrito, com
 nota. Uma verificação candidata que produza falsos positivos é eliminada antes de entrar,
 nunca aceite com referência alta para calar.
+
+## D-ERP56 — Fix C: RLS auth.uid() → (SELECT auth.uid()) (2026-09-14)
+
+`auth.uid()` dentro de políticas RLS é VOLATILE — o Postgres reavalia a função por cada linha verificada, causando 177M+ seq_scans em `user_roles` (53 linhas) por sessão. `(SELECT auth.uid())` é uma stable subquery: o Postgres avalia uma vez (InitPlan) e reutiliza. Conversão aplicada em 567 políticas do schema `public` via migration rastreada `20260914223900_rls_wrap_auth_uid_in_select.sql`. O Postgres normaliza o resultado para `( SELECT auth.uid() AS uid)` — queries de verificação devem usar `LIKE '%( SELECT auth.uid()%'`.
