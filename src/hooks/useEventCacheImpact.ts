@@ -79,10 +79,11 @@ export function useEventCacheImpact(params: {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories_impact"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("account_categories")
         .select("id, code, name, type, parent_id, is_active")
         .eq("is_active", true);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
     enabled: enabled && configIds.length > 0,

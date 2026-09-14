@@ -76,11 +76,12 @@ export function SettlementSealControl({ eventId, settlement, allSettlements, res
     queryKey: ["settlement-sealed-by", settlement.sealed_by],
     enabled: !!settlement.sealed_by && settlement.is_sealed,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("profiles")
         .select("full_name, email")
         .eq("id", settlement.sealed_by as string)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return (data as any)?.full_name || (data as any)?.email || null;
     },
   });

@@ -207,7 +207,8 @@ export default function CrmStrategyView() {
       if (!data) return null;
       let event: any = null;
       if (data.event_id) {
-        const { data: e } = await supabase.from("events").select("id, name, date").eq("id", data.event_id).maybeSingle();
+        const { data: e, error: qErr1 } = await supabase.from("events").select("id, name, date").eq("id", data.event_id).maybeSingle();
+        if (qErr1) throw qErr1;
         event = e ?? null;
       }
       let sourceCampaign: { external_campaign_id: string; name: string | null } | null = null;

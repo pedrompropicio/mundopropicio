@@ -26,11 +26,12 @@ export function CityCacheSettlementsPanel({
     queryKey: ["child-events-for-cache", eventId, childEventIds],
     queryFn: async () => {
       if (childEventIds.length === 0) return [];
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id, name, date, location, city_id, cities(name)")
         .in("id", childEventIds)
         .order("date");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
     enabled: childEventIds.length > 0,

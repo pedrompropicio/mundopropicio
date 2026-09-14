@@ -28,12 +28,13 @@ export default function EventListWithPhase() {
     queryKey: ["op-events-list"],
     enabled: canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id,name,date,location,operacao_mode,status,company_id")
         .not("status", "in", "(cancelled,completed)")
         .order("date", { ascending: false })
         .limit(200);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -44,10 +45,11 @@ export default function EventListWithPhase() {
     queryKey: ["op-events-stats", ids.join(",")],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const { data: frentes } = await supabase
+      const { data: frentes, error: qErr2 } = await supabase
         .from("operacao_frentes")
         .select("id,event_id")
         .in("event_id", ids);
+      if (qErr2) throw qErr2;
       const frenteIds = (frentes ?? []).map((f: any) => f.id);
       const frenteToEvent: Record<string, string> = {};
       (frentes ?? []).forEach((f: any) => { frenteToEvent[f.id] = f.event_id; });

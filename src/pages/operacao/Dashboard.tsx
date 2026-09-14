@@ -69,11 +69,12 @@ export default function Dashboard() {
     queryKey: ["dash-frentes", filters.event, filters.frentes.join(",")],
     enabled: !!filters.event && canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,status,current_lead_id")
         .eq("event_id", filters.event!)
         .neq("status", "cancelled");
+      if (qErr1) throw qErr1;
       let list = data ?? [];
       if (filters.frentes.length > 0) list = list.filter((f: any) => filters.frentes.includes(f.id));
       return list;
@@ -86,10 +87,11 @@ export default function Dashboard() {
     queryKey: ["dash-etapas", ids],
     enabled: ids.length > 0 && canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_etapas")
         .select("id,frente_id,status,responsible_profile_id,supplier_id,planned_start,planned_end,actual_end,updated_at")
         .in("frente_id", ids);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -100,10 +102,11 @@ export default function Dashboard() {
     queryKey: ["dash-assignees", etapaIds],
     enabled: etapaIds.length > 0 && canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("operacao_etapa_assignees")
         .select("etapa_id,profile_id,role")
         .in("etapa_id", etapaIds);
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });
@@ -112,10 +115,11 @@ export default function Dashboard() {
     queryKey: ["dash-etapa-suppliers", etapaIds],
     enabled: etapaIds.length > 0 && canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("operacao_etapa_suppliers")
         .select("etapa_id")
         .in("etapa_id", etapaIds);
+      if (qErr4) throw qErr4;
       return data ?? [];
     },
   });
@@ -124,10 +128,11 @@ export default function Dashboard() {
     queryKey: ["dash-chamados", ids, periodStart],
     enabled: ids.length > 0 && canView,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr5 } = await supabase
         .from("operacao_registros")
         .select("id,frente_id,status,priority,escalation_level,resolved_at,created_at,text,author:profiles!operacao_registros_author_profile_id_fkey(full_name)")
         .in("frente_id", ids).eq("kind", "chamado").order("created_at", { ascending: false }).limit(500);
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
   });
@@ -156,7 +161,8 @@ export default function Dashboard() {
       (frentes ?? []).forEach((f: any) => f.current_lead_id && ownerIds.add(f.current_lead_id));
       const arr = Array.from(ownerIds);
       if (arr.length === 0) return {} as Record<string, string>;
-      const { data } = await supabase.from("profiles").select("id,full_name").in("id", arr);
+      const { data, error: qErr6 } = await supabase.from("profiles").select("id,full_name").in("id", arr);
+      if (qErr6) throw qErr6;
       const map: Record<string, string> = {};
       (data ?? []).forEach((p: any) => { map[p.id] = p.full_name ?? p.id.slice(0, 8); });
       return map;
@@ -167,7 +173,8 @@ export default function Dashboard() {
     queryKey: ["dash-event-info", filters.event],
     enabled: !!filters.event && canView,
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("id,name,date").eq("id", filters.event!).maybeSingle();
+      const { data, error: qErr7 } = await supabase.from("events").select("id,name,date").eq("id", filters.event!).maybeSingle();
+      if (qErr7) throw qErr7;
       return data;
     },
   });

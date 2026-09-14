@@ -70,7 +70,8 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const { data: venuesMap = {} } = useQuery({
     queryKey: ["venues_map"],
     queryFn: async () => {
-      const { data } = await supabase.from("venues" as any).select("*");
+      const { data, error: qErr1 } = await supabase.from("venues" as any).select("*");
+      if (qErr1) throw qErr1;
       const map: Record<string, any> = {};
       (data ?? []).forEach((v: any) => { map[v.id] = v; });
       return map;
@@ -80,7 +81,8 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const { data: citiesMap = {} } = useQuery({
     queryKey: ["cities_map"],
     queryFn: async () => {
-      const { data } = await supabase.from("cities" as any).select("*");
+      const { data, error: qErr2 } = await supabase.from("cities" as any).select("*");
+      if (qErr2) throw qErr2;
       const map: Record<string, string> = {};
       (data ?? []).forEach((c: any) => { map[c.id] = formatCityLabel(c.name, c.state); });
       return map;

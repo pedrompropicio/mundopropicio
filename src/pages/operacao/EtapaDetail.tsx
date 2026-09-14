@@ -48,10 +48,11 @@ export default function EtapaDetail() {
     queryKey: ["op-etapa-assignees", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_etapa_assignees")
         .select("profile_id, role, profiles:profile_id(id, full_name)")
         .eq("etapa_id", id!);
+      if (qErr1) throw qErr1;
       return (data ?? []).map((a: any) => ({
         profile_id: a.profile_id,
         full_name: a.profiles?.full_name ?? null,
@@ -65,11 +66,12 @@ export default function EtapaDetail() {
     enabled: !!(etapa as any)?.frente?.current_lead_id,
     queryFn: async () => {
       const leadId = (etapa as any).frente.current_lead_id;
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("profiles")
         .select("id, full_name")
         .eq("id", leadId)
         .maybeSingle();
+      if (qErr2) throw qErr2;
       return data;
     },
   });

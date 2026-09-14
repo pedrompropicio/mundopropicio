@@ -123,9 +123,10 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryFn: async () => {
       if (!note?.employee_name) return [];
       // Get already-linked transaction IDs
-      const { data: allItems } = await supabase
+      const { data: allItems, error: qErr1 } = await supabase
         .from("reimbursement_note_items")
         .select("transaction_id");
+      if (qErr1) throw qErr1;
       const linkedIds = (allItems || []).map((i: any) => i.transaction_id);
 
       let query = supabase

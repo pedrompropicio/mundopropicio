@@ -60,8 +60,9 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
     queryKey: ["op-my-frentes-select", user?.id, eventFilterId],
     enabled: !!user && open && !initialFrenteId,
     queryFn: async () => {
-      const { data: team } = await supabase
+      const { data: team, error: qErr1 } = await supabase
         .from("operacao_frente_team").select("frente_id").eq("profile_id", user!.id).eq("active", true);
+      if (qErr1) throw qErr1;
       const ids = Array.from(new Set((team ?? []).map((t: any) => t.frente_id)));
       if (ids.length === 0) return [];
       let q = supabase
@@ -85,8 +86,9 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
     queryKey: ["op-etapas-sheet", frenteId],
     enabled: !!frenteId,
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_etapas")
+      const { data, error: qErr2 } = await supabase.from("operacao_etapas")
         .select("id,name").eq("frente_id", frenteId).order("display_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -95,8 +97,9 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
     queryKey: ["op-frente-ctx", frenteId],
     enabled: !!frenteId,
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_frentes")
+      const { data, error: qErr3 } = await supabase.from("operacao_frentes")
         .select("event_id,company_id").eq("id", frenteId).maybeSingle();
+      if (qErr3) throw qErr3;
       return data;
     },
   });

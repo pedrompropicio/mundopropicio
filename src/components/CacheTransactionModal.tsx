@@ -70,11 +70,12 @@ export function CacheTransactionModal({
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers_active"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("suppliers")
         .select("id, name")
         .eq("is_active", true)
         .order("name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -83,11 +84,12 @@ export function CacheTransactionModal({
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial_accounts_active"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("financial_accounts")
         .select("id, name, type")
         .eq("is_active", true)
         .order("name");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -96,13 +98,14 @@ export function CacheTransactionModal({
   const { data: expenseCategories = [] } = useQuery({
     queryKey: ["expense_categories_leaf"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("account_categories")
         .select("id, code, name, parent_id")
         .eq("is_active", true)
         .eq("type", "expense")
         .not("parent_id", "is", null)
         .order("code");
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });
@@ -111,7 +114,7 @@ export function CacheTransactionModal({
   const { data: cacheCategory } = useQuery({
     queryKey: ["cache_category_lookup"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("account_categories")
         .select("id, code, name, parent_id")
         .eq("is_active", true)
@@ -119,6 +122,7 @@ export function CacheTransactionModal({
         .ilike("name", "%cach%")
         .order("code")
         .limit(1);
+      if (qErr4) throw qErr4;
       return data?.[0] ?? null;
     },
   });

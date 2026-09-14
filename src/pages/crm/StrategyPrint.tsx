@@ -32,7 +32,8 @@ export default function CrmStrategyPrint() {
       if (!data) return null;
       let event: any = null;
       if (data.event_id) {
-        const { data: e } = await supabase.from("events").select("id, name, date, location, tickets_total").eq("id", data.event_id).maybeSingle();
+        const { data: e, error: qErr1 } = await supabase.from("events").select("id, name, date, location, tickets_total").eq("id", data.event_id).maybeSingle();
+        if (qErr1) throw qErr1;
         event = e ?? null;
       }
       return { ...data, event };

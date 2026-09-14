@@ -24,11 +24,12 @@ export default function UserSettings() {
     queryKey: ["my_notification_optin", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("notification_optin")
         .select("*")
         .eq("profile_id", user.id)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
     enabled: !!user?.id,

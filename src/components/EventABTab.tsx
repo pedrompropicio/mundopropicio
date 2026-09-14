@@ -161,10 +161,11 @@ export default function EventABTab({ eventId }: Props) {
     queryFn: async () => {
       const zoneIds = (ticketZones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return {};
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr1 } = await supabase
         .from("event_ticket_lots")
         .select("id, zone_id, is_combo, lot_kind, applies_to_days, consumes_zone_ids")
         .in("zone_id", zoneIds);
+      if (qErr1) throw qErr1;
       const lotById = new Map<string, any>();
       for (const l of (lots ?? []) as any[]) lotById.set(l.id, l);
 

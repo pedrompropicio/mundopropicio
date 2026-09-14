@@ -22,11 +22,12 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
     queryKey: ["op-frente-team-full", frenteId],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frente_team")
         .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id, full_name, profile_type)")
         .eq("frente_id", frenteId)
         .eq("active", true);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

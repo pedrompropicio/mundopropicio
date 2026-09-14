@@ -188,12 +188,13 @@ export default function PartnerEventDetail() {
   const { data: bpActiveVersionId } = useQuery({
     queryKey: ["bp_active_version_id_partner", user?.id, activeEventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("bp_versions")
         .select("id")
         .eq("event_id", activeEventId!)
         .eq("state", "active")
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return (data?.id as string | undefined) ?? null;
     },
     enabled: canEditBpHere,
@@ -526,18 +527,20 @@ export default function PartnerEventDetail() {
     queryKey: ["partner-doc-identity", user?.id],
     enabled: !!user?.id,
     queryFn: async (): Promise<{ name: string; locale: DocLocale } | null> => {
-      const { data: prof } = await supabase
+      const { data: prof, error: qErr2 } = await supabase
         .from("profiles")
         .select("linked_supplier_id")
         .eq("id", user!.id)
         .maybeSingle();
+      if (qErr2) throw qErr2;
       const sid = (prof as any)?.linked_supplier_id;
       if (!sid) return null;
-      const { data: sup } = await supabase
+      const { data: sup, error: qErr3 } = await supabase
         .from("suppliers")
         .select("name, doc_locale")
         .eq("id", sid)
         .maybeSingle();
+      if (qErr3) throw qErr3;
       if (!sup) return null;
       return { name: (sup as any).name, locale: ((sup as any).doc_locale ?? "pt-PT") as DocLocale };
     },

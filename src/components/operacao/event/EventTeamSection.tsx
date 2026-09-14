@@ -35,10 +35,11 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
   const { data: members } = useQuery({
     queryKey: ["event-team", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("event_team_members")
         .select("id, role, scope, profile_id, profiles:profile_id(id,full_name), zones:event_team_member_zones(zone_id, zone:operacao_frentes(id,name))")
         .eq("event_id", eventId);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -152,7 +153,8 @@ function AddMemberDialog({
   const { data: profiles } = useQuery({
     queryKey: ["event-team-profiles", companyId],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id,full_name").eq("company_id", companyId).is("archived_at", null).order("full_name");
+      const { data, error: qErr2 } = await supabase.from("profiles").select("id,full_name").eq("company_id", companyId).is("archived_at", null).order("full_name");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -164,7 +166,8 @@ function AddMemberDialog({
     queryKey: ["event-team-zones", eventId],
     enabled: role === "general_producer",
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_frentes").select("id,name").eq("event_id", eventId).eq("type", "zone").neq("status", "cancelled").order("name");
+      const { data, error: qErr3 } = await supabase.from("operacao_frentes").select("id,name").eq("event_id", eventId).eq("type", "zone").neq("status", "cancelled").order("name");
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });
@@ -311,7 +314,8 @@ function EditMemberSheet({
     queryKey: ["event-team-zones", eventId],
     enabled: member.role === "general_producer",
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_frentes").select("id,name").eq("event_id", eventId).eq("type", "zone").neq("status", "cancelled").order("name");
+      const { data, error: qErr4 } = await supabase.from("operacao_frentes").select("id,name").eq("event_id", eventId).eq("type", "zone").neq("status", "cancelled").order("name");
+      if (qErr4) throw qErr4;
       return data ?? [];
     },
   });

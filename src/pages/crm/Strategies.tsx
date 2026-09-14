@@ -58,10 +58,11 @@ export default function CrmStrategies() {
       const eventIds = Array.from(new Set(strategies.map((s) => s.event_id).filter(Boolean))) as string[];
       let eventsMap = new Map<string, { id: string; name: string; date: string | null }>();
       if (eventIds.length) {
-        const { data: events } = await supabase
+        const { data: events, error: qErr1 } = await supabase
           .from("events")
           .select("id, name, date")
           .in("id", eventIds);
+        if (qErr1) throw qErr1;
         for (const e of events ?? []) eventsMap.set(e.id, e as any);
       }
       return strategies.map((s) => ({ ...s, event: s.event_id ? eventsMap.get(s.event_id) ?? null : null }));

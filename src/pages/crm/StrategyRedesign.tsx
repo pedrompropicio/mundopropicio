@@ -216,8 +216,9 @@ export default function CrmStrategyRedesign() {
     queryKey: ["redesign-event-date", campaignSnap?.linked_event_id],
     enabled: !!campaignSnap?.linked_event_id,
     queryFn: async () => {
-      const { data } = await supabase.from("events")
+      const { data, error: qErr1 } = await supabase.from("events")
         .select("date").eq("id", campaignSnap!.linked_event_id!).maybeSingle();
+      if (qErr1) throw qErr1;
       return (data?.date as string | null) ?? null;
     },
   });

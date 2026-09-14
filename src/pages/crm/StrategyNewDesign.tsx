@@ -93,7 +93,8 @@ export default function CrmStrategyNewDesign() {
     queryKey: ["new-design-event", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("id, name, date").eq("id", eventId!).maybeSingle();
+      const { data, error: qErr1 } = await supabase.from("events").select("id, name, date").eq("id", eventId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data as { id: string; name: string; date: string | null } | null;
     },
   });

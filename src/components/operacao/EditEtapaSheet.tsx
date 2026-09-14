@@ -78,7 +78,7 @@ export function EditEtapaSheet({
     queryKey: ["op-frentes-for-event", frente?.event_id],
     enabled: !!frente?.event_id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,type,display_order")
         .eq("event_id", frente!.event_id)
@@ -86,6 +86,7 @@ export function EditEtapaSheet({
         .neq("status", "cancelled")
         .order("display_order", { ascending: true })
         .order("name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -94,13 +95,14 @@ export function EditEtapaSheet({
     queryKey: ["op-zones-for-event", frente?.event_id],
     enabled: isService && !!frente?.event_id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_frentes")
         .select("id,name")
         .eq("event_id", frente!.event_id)
         .eq("type", "zone")
         .neq("status", "cancelled")
         .order("name");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -109,20 +111,22 @@ export function EditEtapaSheet({
     queryKey: ["op-edit-etapa-profiles", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data: roleRows } = await supabase
+      const { data: roleRows, error: qErr3 } = await supabase
         .from("user_roles")
         .select("user_id, role")
         .eq("company_id", companyId!)
         .in("role", ELIGIBLE_LEAD_ROLES as any);
+      if (qErr3) throw qErr3;
       const eligibleIds = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
       if (eligibleIds.length === 0) return [];
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("profiles")
         .select("id,full_name")
         .eq("company_id", companyId!)
         .is("archived_at", null)
         .in("id", eligibleIds)
         .order("full_name");
+      if (qErr4) throw qErr4;
       return data ?? [];
     },
   });
@@ -131,13 +135,14 @@ export function EditEtapaSheet({
     queryKey: ["op-edit-etapa-suppliers", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr5 } = await supabase
         .from("suppliers")
         .select("id,name,email,phone")
         .eq("company_id", companyId!)
         .eq("is_active", true)
         .order("name")
         .limit(2000);
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
   });

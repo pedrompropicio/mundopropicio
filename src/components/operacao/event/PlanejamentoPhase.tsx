@@ -48,12 +48,13 @@ export function PlanejamentoPhase({
   const { data: frentes, isLoading } = useQuery({
     queryKey: ["op-hub-planning", "frentes", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,type,current_lead_id, lead:profiles!operacao_frentes_current_lead_id_fkey(full_name)")
         .eq("event_id", eventId).neq("status", "cancelled")
         .order("type", { ascending: false })
         .order("display_order");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -64,12 +65,13 @@ export function PlanejamentoPhase({
     queryKey: ["op-hub-planning", "etapas", frenteIds.join(",")],
     enabled: frenteIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_etapas")
         .select("id,name,status,frente_id,planned_start,planned_end,has_no_date,display_order")
         .in("frente_id", frenteIds)
         .order("display_order", { ascending: true })
         .order("planned_start", { ascending: true, nullsFirst: false });
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

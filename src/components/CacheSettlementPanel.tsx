@@ -66,7 +66,7 @@ export function CacheSettlementPanel({
     queryKey: ["cache-advances-paid", config.id, effectiveEventId, config.supplier_id],
     enabled: !!config.supplier_id,
     queryFn: async () => {
-      const { data: catRow } = await supabase
+      const { data: catRow, error: qErr1 } = await supabase
         .from("account_categories")
         .select("id")
         .eq("is_active", true)
@@ -74,16 +74,18 @@ export function CacheSettlementPanel({
         .ilike("name", "%cach%")
         .order("code")
         .limit(1);
+      if (qErr1) throw qErr1;
       const cacheCatId = catRow?.[0]?.id;
       if (!cacheCatId) return 0;
 
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("transactions")
         .select("amount, paid_amount, status")
         .eq("event_id", effectiveEventId)
         .eq("type", "expense")
         .eq("category_id", cacheCatId)
         .eq("supplier_id", config.supplier_id);
+      if (qErr2) throw qErr2;
 
       return (data ?? []).reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
     },

@@ -106,11 +106,12 @@ export function BpUnusedBudgetPanel({ eventId, operationalForecasts, expenseTx, 
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;
-      const { data: prof } = await supabase
+      const { data: prof, error: qErr1 } = await supabase
         .from("profiles")
         .select("full_name, email")
         .eq("id", data.acknowledged_by)
         .maybeSingle();
+      if (qErr1) throw qErr1;
       return { ...data, ackName: prof?.full_name || prof?.email || "—" };
     },
   });

@@ -36,10 +36,11 @@ export function EditFrenteSheet({
     queryKey: ["op-edit-frente", frenteId],
     enabled: !!frenteId && open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color,type,current_lead_id,event_id,company_id")
         .eq("id", frenteId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
   });
@@ -64,12 +65,13 @@ export function EditFrenteSheet({
     queryKey: ["op-edit-frente-leads", frenteId],
     enabled: !!frenteId && open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_frente_team")
         .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id,full_name)")
         .eq("frente_id", frenteId!)
         .eq("role_in_frente", "lead")
         .eq("active", true);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -79,21 +81,23 @@ export function EditFrenteSheet({
     queryKey: ["op-edit-frente-profiles", frente?.company_id],
     enabled: !!frente?.company_id,
     queryFn: async () => {
-      const { data: roleRows } = await supabase
+      const { data: roleRows, error: qErr3 } = await supabase
         .from("user_roles")
         .select("user_id, role")
         .eq("company_id", frente!.company_id)
         .in("role", ELIGIBLE_LEAD_ROLES as any);
+      if (qErr3) throw qErr3;
       const eligibleIds = new Set((roleRows ?? []).map((r: any) => r.user_id));
       const ids = Array.from(eligibleIds);
       if (ids.length === 0) return [];
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("profiles")
         .select("id,full_name")
         .eq("company_id", frente!.company_id)
         .is("archived_at", null)
         .in("id", ids)
         .order("full_name");
+      if (qErr4) throw qErr4;
       return data ?? [];
     },
   });

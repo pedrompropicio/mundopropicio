@@ -56,7 +56,8 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   const { data: event } = useQuery({
     queryKey: ["city-sim-event", eventId],
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      const { data, error: qErr1 } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
     enabled,

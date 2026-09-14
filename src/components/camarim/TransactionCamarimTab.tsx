@@ -44,11 +44,12 @@ export function TransactionCamarimTab({ transactionId }: Props) {
       if (!items || items.length === 0) return null;
 
       const sessionId = items[0].session_id as string;
-      const { data: session } = await supabase
+      const { data: session, error: qErr1 } = await supabase
         .from("camarim_sessions")
         .select("id, title, mode, status, opened_at, closed_at, integrated_at, master_event_id")
         .eq("id", sessionId)
         .single();
+      if (qErr1) throw qErr1;
 
       return { items, session };
     },

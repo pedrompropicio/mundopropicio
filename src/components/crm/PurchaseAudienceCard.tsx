@@ -110,7 +110,8 @@ export default function PurchaseAudienceCard({
     queryKey: ["purchase-audience-event-name", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("name").eq("id", eventId).maybeSingle();
+      const { data, error: qErr1 } = await supabase.from("events").select("name").eq("id", eventId).maybeSingle();
+      if (qErr1) throw qErr1;
       return (data?.name as string | null) ?? null;
     },
   });

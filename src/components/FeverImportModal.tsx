@@ -118,11 +118,12 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       const zones = zonesRes.data || [];
       let currentSales: any[] = [];
       if (zones.length > 0 && feverAccountId) {
-        const { data: salesData } = await supabase
+        const { data: salesData, error: qErr1 } = await supabase
           .from("ticket_sales")
           .select("id")
           .in("zone_id", zones.map((z: any) => z.id))
           .eq("financial_account_id", feverAccountId);
+        if (qErr1) throw qErr1;
         currentSales = salesData || [];
       }
       return { dates, sessions, zones, currentSales };

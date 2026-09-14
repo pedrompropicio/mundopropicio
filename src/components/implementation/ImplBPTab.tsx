@@ -277,12 +277,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       const allLogs: any[] = [];
       for (let i = 0; i < forecastIds.length; i += 100) {
         const chunk = forecastIds.slice(i, i + 100);
-        const { data: logs } = await supabase
+        const { data: logs, error: qErr1 } = await supabase
           .from("forecast_audit_log")
           .select("*")
           .in("forecast_id", chunk)
           .like("observation", "batch:bp-impl-%")
           .order("created_at", { ascending: false });
+        if (qErr1) throw qErr1;
         if (logs) allLogs.push(...logs);
       }
 

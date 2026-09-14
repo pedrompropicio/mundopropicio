@@ -93,7 +93,8 @@ export function OpenCardSessionModal({
     queryKey: ["profiles-for-card-holder"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
+      const { data, error: qErr1 } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -102,11 +103,12 @@ export function OpenCardSessionModal({
     queryKey: ["events-open-for-card"],
     enabled: open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("events")
         .select("id, name, date, status")
         .in("status", ["planning", "confirmed", "active"])
         .order("date", { ascending: false });
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

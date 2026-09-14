@@ -277,21 +277,23 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
     queryKey: ["local-reinforcement-check", t.id, parentTourEventId, t.category_id],
     queryFn: async () => {
       // Check if category exists in Master BP
-      const { data: masterFc } = await supabase
+      const { data: masterFc, error: qErr1 } = await supabase
         .from("event_forecasts")
         .select("id")
         .eq("event_id", parentTourEventId!)
         .eq("type", "expense")
         .eq("category_id", t.category_id!)
         .limit(1).is("version_id", null);
+      if (qErr1) throw qErr1;
       if (!masterFc?.length) return { isLocal: false };
       // Check if this transaction is linked to a master forecast
-      const { data: linkedFc } = await supabase
+      const { data: linkedFc, error: qErr2 } = await supabase
         .from("event_forecasts")
         .select("master_forecast_id")
         .eq("transaction_id", t.id)
         .not("master_forecast_id", "is", null)
         .limit(1).is("version_id", null);
+      if (qErr2) throw qErr2;
       return { isLocal: !linkedFc?.length };
     },
     enabled: isTourSubEvent && t.type === "expense" && !!t.category_id,

@@ -89,11 +89,12 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
     queryKey: ["op-registros-media", ids],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_registro_media")
         .select("*")
         .in("registro_id", ids)
         .order("sort_order");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

@@ -85,11 +85,12 @@ export default function CardSessionDetail() {
     queryKey: ["card-session-loads", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("card_session_loads")
         .select("*, source:source_account_id(name)")
         .eq("session_id", id!)
         .order("load_date", { ascending: false });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -98,12 +99,13 @@ export default function CardSessionDetail() {
     queryKey: ["card-session-expenses", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, paid_amount, date, payment_date, event_id, category_id, supplier_id, invoice_ref, company_id, events:event_id(name), account_categories:category_id(name, code)")
 
         .eq("card_session_id", id!)
         .order("date", { ascending: false });
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -112,11 +114,12 @@ export default function CardSessionDetail() {
     queryKey: ["card-session-items", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("card_session_items")
         .select("*, events:event_id(name)")
         .eq("session_id", id!)
         .order("item_date", { ascending: false });
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });

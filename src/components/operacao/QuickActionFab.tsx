@@ -46,20 +46,23 @@ export function QuickActionFab() {
       let frenteId = ctxFrenteId;
       let etapaFrenteId: string | null = null;
       if (ctxEtapaId) {
-        const { data } = await supabase.from("operacao_etapas").select("frente_id").eq("id", ctxEtapaId).maybeSingle();
+        const { data, error: qErr1 } = await supabase.from("operacao_etapas").select("frente_id").eq("id", ctxEtapaId).maybeSingle();
+        if (qErr1) throw qErr1;
         etapaFrenteId = data?.frente_id ?? null;
         frenteId = frenteId ?? etapaFrenteId;
       }
       let frenteEventId: string | null = null;
       let isCurrentLeadAny = false;
       if (frenteId) {
-        const { data: fr } = await supabase.from("operacao_frentes")
+        const { data: fr, error: qErr2 } = await supabase.from("operacao_frentes")
           .select("event_id,current_lead_id").eq("id", frenteId).maybeSingle();
+        if (qErr2) throw qErr2;
         frenteEventId = fr?.event_id ?? null;
       }
       // is user lead in qualquer frente? (permissão para criar etapas)
-      const { data: leadAny } = await supabase.from("operacao_frentes")
+      const { data: leadAny, error: qErr3 } = await supabase.from("operacao_frentes")
         .select("id").eq("current_lead_id", user!.id).limit(1);
+      if (qErr3) throw qErr3;
       isCurrentLeadAny = (leadAny ?? []).length > 0;
       return { frenteId, etapaId: ctxEtapaId, eventId: frenteEventId, isCurrentLeadAny };
     },
@@ -78,8 +81,9 @@ export function QuickActionFab() {
     queryKey: ["fab-picked-frente", pickedFrenteId],
     enabled: !!pickedFrenteId && !hideFab,
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_frentes")
+      const { data, error: qErr4 } = await supabase.from("operacao_frentes")
         .select("id,company_id").eq("id", pickedFrenteId!).maybeSingle();
+      if (qErr4) throw qErr4;
       return data;
     },
   });

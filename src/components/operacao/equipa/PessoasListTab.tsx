@@ -85,12 +85,13 @@ export function PessoasListTab({ eventId }: Props) {
       // Contagens — uma única query por todas as pessoas
       let teamRows: any[] = [];
       if (ids.length > 0) {
-        const { data: tRows } = await supabase
+        const { data: tRows, error: qErr1 } = await supabase
           .from("operacao_frente_team")
           .select("profile_id, role_in_frente, operacao_frentes!inner(type, status, name)")
           .in("profile_id", ids)
           .eq("role_in_frente", "lead")
           .eq("active", true);
+        if (qErr1) throw qErr1;
         teamRows = (tRows ?? []).filter(
           (r: any) => r.operacao_frentes?.status !== "cancelled",
         );

@@ -142,11 +142,12 @@ export default function CampoView() {
     queryKey: ["campo-scope-events", eventIds.join(",")],
     enabled: eventIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id,name,date,status,operacao_mode")
         .in("id", eventIds)
         .order("date", { ascending: true });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -182,11 +183,12 @@ export default function CampoView() {
     enabled: !!user?.id,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("profiles")
         .select("full_name,email")
         .eq("id", user!.id)
         .maybeSingle();
+      if (qErr2) throw qErr2;
       return data;
     },
   });
@@ -285,12 +287,13 @@ export default function CampoView() {
       // 3) Chamados abertos onde sou author OU pertenço à frente
       let chamados: ChamadoRow[] = [];
       if (frenteIds.length > 0) {
-        const { data: ch } = await supabase
+        const { data: ch, error: qErr3 } = await supabase
           .from("operacao_registros")
           .select("id,text,priority,status,sla_due_at,frente_id,author_profile_id,frente:operacao_frentes!inner(id,name,event_id)")
           .eq("kind", "chamado")
           .in("status", ["open", "in_progress"])
           .in("frente_id", frenteIds);
+        if (qErr3) throw qErr3;
         chamados = ((ch ?? []) as any[])
           .filter((c) => c.frente?.event_id === activeId)
           .map((c) => ({

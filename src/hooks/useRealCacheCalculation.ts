@@ -54,10 +54,11 @@ export function useRealCacheCalculation(
   const { data: salesData } = useQuery({
     queryKey: ["real-ticket-sales", allEventIds.join(",")],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr1 } = await supabase
         .from("event_ticket_zones")
         .select("id, event_id, total_capacity")
         .in("event_id", allEventIds);
+      if (qErr1) throw qErr1;
       const zoneIds = (zones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return { zones: zones ?? [], sales: [], lots: [] };
 

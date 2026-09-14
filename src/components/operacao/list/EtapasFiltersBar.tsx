@@ -52,12 +52,13 @@ export function EtapasFiltersBar() {
     queryKey: ["op-etapas-filter-frentes", filters.event],
     enabled: !!filters.event,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color")
         .eq("event_id", filters.event!)
         .neq("status", "cancelled")
         .order("display_order");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

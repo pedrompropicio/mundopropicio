@@ -358,10 +358,11 @@ export default function EventDetail() {
         const childRows = rows.filter((r: any) => r.parent_transaction_id);
         const masterIds = [...new Set(childRows.map((r: any) => r.parent_transaction_id))];
         if (masterIds.length > 0) {
-          const { data: masters } = await supabase
+          const { data: masters, error: qErr1 } = await supabase
             .from("transactions")
             .select("*, account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
             .in("id", masterIds);
+          if (qErr1) throw qErr1;
           const masterMap = new Map((masters ?? []).map((m: any) => [m.id, m]));
           const kept = rows.filter((r: any) => {
             if (!r.parent_transaction_id) return true;
@@ -486,26 +487,29 @@ export default function EventDetail() {
     queryKey: ["event_master_forecast_share", masterIdForShare, selectedSubEvent],
     queryFn: async () => {
       if (!masterIdForShare) return 0;
-      const { data: siblings } = await supabase
+      const { data: siblings, error: qErr2 } = await supabase
         .from("events")
         .select("id")
         .eq("parent_event_id", masterIdForShare);
+      if (qErr2) throw qErr2;
       const n = (siblings?.length ?? 0) || 1;
 
-      const { data: overheadFcs } = await supabase
+      const { data: overheadFcs, error: qErr3 } = await supabase
         .from("event_forecasts")
         .select("amount, category_id, status, is_transitory, exclude_from_result, is_overhead")
         .eq("event_id", masterIdForShare)
         .eq("type", "expense")
         .is("version_id", null)
         .eq("is_overhead", true);
+      if (qErr3) throw qErr3;
 
-      const { data: masterTxs } = await supabase
+      const { data: masterTxs, error: qErr4 } = await supabase
         .from("transactions")
         .select("amount, category_id, status, type, is_transitory")
         .eq("event_id", masterIdForShare)
         .eq("type", "expense")
         .in("status", ["paid", "approved"]);
+      if (qErr4) throw qErr4;
 
       const txCats = new Set<string>();
       (masterTxs ?? [])
@@ -541,20 +545,23 @@ export default function EventDetail() {
   const { data: ticketSalesQty = 0 } = useQuery({
     queryKey: ["event_ticket_qty", id, selectedSubEvent, transactionEventIds.join(",")],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr5 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .in("event_id", transactionEventIds);
+      if (qErr5) throw qErr5;
       if (!zones || zones.length === 0) return 0;
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr6 } = await supabase
         .from("event_ticket_lots")
         .select("id")
         .in("zone_id", zones.map((z: any) => z.id));
+      if (qErr6) throw qErr6;
       if (!lots || lots.length === 0) return 0;
-      const { data: sales } = await supabase
+      const { data: sales, error: qErr7 } = await supabase
         .from("ticket_sales")
         .select("quantity")
         .in("lot_id", lots.map((l: any) => l.id));
+      if (qErr7) throw qErr7;
       return (sales ?? []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
     },
     enabled: !!id,

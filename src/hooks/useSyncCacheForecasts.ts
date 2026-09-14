@@ -63,10 +63,11 @@ export function useSyncCacheForecasts({
   const { data: salesFingerprint } = useQuery({
     queryKey: ["cache-sync-sales-fingerprint", ...allRelevantIds],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr1 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .in("event_id", allRelevantIds);
+      if (qErr1) throw qErr1;
       const zoneIds = (zones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return "no-zones";
       const { count } = await supabase
@@ -74,10 +75,11 @@ export function useSyncCacheForecasts({
         .select("*", { count: "exact", head: true })
         .in("zone_id", zoneIds);
       // Also get a rough sum to detect price changes
-      const { data: agg } = await supabase
+      const { data: agg, error: qErr2 } = await supabase
         .from("ticket_sales")
         .select("quantity, unit_price")
         .in("zone_id", zoneIds);
+      if (qErr2) throw qErr2;
       const total = (agg ?? []).reduce((s: number, r: any) => s + Number(r.quantity) * Number(r.unit_price), 0);
       return `${count}:${Math.round(total * 100)}`;
     },
@@ -91,11 +93,12 @@ export function useSyncCacheForecasts({
     queryKey: ["cache-sync-city-settlements-fp", cacheConfigIdsKey, ...(childEventIds ?? [])],
     queryFn: async () => {
       if (!childEventIds || childEventIds.length === 0 || cacheConfigs.length === 0) return "no-cities";
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("event_cache_city_settlements")
         .select("event_id, cache_config_id, is_finalized, real_amount, adjusted_amount, updated_at")
         .in("event_id", childEventIds)
         .in("cache_config_id", cacheConfigs.map((c) => c.id));
+      if (qErr3) throw qErr3;
       return (data ?? [])
         .map((r: any) => `${r.event_id}:${r.cache_config_id}:${r.is_finalized}:${r.real_amount ?? ""}:${r.adjusted_amount ?? ""}:${r.updated_at}`)
         .sort()

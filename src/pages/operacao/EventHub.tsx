@@ -37,10 +37,11 @@ export default function EventHub() {
     queryKey: ["op-hub-event", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id,name,date,location,operacao_mode,company_id,status")
         .eq("id", eventId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
   });
@@ -216,9 +217,10 @@ function PlaceholderPhase({ title, text, eventId }: { title: string; text: strin
   const { data: zones } = useQuery({
     queryKey: ["op-hub-placeholder-zones", eventId],
     queryFn: async () => {
-      const { data } = await supabase.from("operacao_frentes")
+      const { data, error: qErr2 } = await supabase.from("operacao_frentes")
         .select("id,name,color,type")
         .eq("event_id", eventId).neq("status", "cancelled").order("display_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

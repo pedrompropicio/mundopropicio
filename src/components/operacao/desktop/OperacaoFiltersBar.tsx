@@ -31,11 +31,12 @@ export function OperacaoFiltersBar() {
     queryKey: ["op-filter-events", eventIds.join(",")],
     enabled: eventIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("events")
         .select("id,name,date,status")
         .in("id", eventIds)
         .order("date", { ascending: false });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -51,12 +52,13 @@ export function OperacaoFiltersBar() {
     queryKey: ["op-filter-frentes", filters.event],
     enabled: !!filters.event,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_frentes")
         .select("id,name,color")
         .eq("event_id", filters.event!)
         .neq("status", "cancelled")
         .order("display_order");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });

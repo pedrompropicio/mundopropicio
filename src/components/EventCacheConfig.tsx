@@ -91,11 +91,12 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers_active"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("suppliers")
         .select("id, name")
         .eq("is_active", true)
         .order("name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });

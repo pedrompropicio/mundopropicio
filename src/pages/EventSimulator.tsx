@@ -121,7 +121,8 @@ export default function EventSimulator() {
   const { data: event } = useQuery({
     queryKey: ["event", eventId],
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      const { data, error: qErr1 } = await supabase.from("events").select("*").eq("id", eventId!).maybeSingle();
+      if (qErr1) throw qErr1;
       return data;
     },
     enabled: !!eventId,
@@ -131,11 +132,12 @@ export default function EventSimulator() {
   const { data: subEvents = [] } = useQuery({
     queryKey: ["sim-sub-events", eventId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("events")
         .select("id, name, date")
         .eq("parent_event_id", eventId!)
         .order("date");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
     enabled: !!eventId,
@@ -225,23 +227,26 @@ export default function EventSimulator() {
     queryKey: ["sim-coala-lot-sales", eventId],
     queryFn: async () => {
       // 1) zonas do evento (com session_id → identifica dia do festival)
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr3 } = await supabase
         .from("event_ticket_zones")
         .select("id, name, session_id, total_capacity").eq("event_id", eventId!).is("version_id", null);
+      if (qErr3) throw qErr3;
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[], zoneRows: [] as any[], salesByZone: {} as Record<string, { qty: number; revenue: number }> };
 
       // 2) lotes dessas zonas
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr4 } = await supabase
         .from("event_ticket_lots")
         .select("id, name, zone_id, applies_to_days")
         .in("zone_id", zoneIds);
+      if (qErr4) throw qErr4;
 
       // 3) DIAS REAIS do festival = event_sessions (cada sessão = 1 dia)
       // event_dates pode ter só 1 entrada (último dia agregador); event_sessions é a fonte fiável.
-      const { data: sessionRows } = await supabase
+      const { data: sessionRows, error: qErr5 } = await supabase
         .from("event_sessions")
         .select("id, date").eq("event_id", eventId!).order("date");
+      if (qErr5) throw qErr5;
       const sessions = (sessionRows ?? []) as { id: string; date: string | null }[];
       const sessionIdToIdx = new Map<string, number>();
       sessions.forEach((s, i) => { if (s.id) sessionIdToIdx.set(s.id, i); });
@@ -336,16 +341,18 @@ export default function EventSimulator() {
     queryKey: ["sim-coala-be-lots-v3", eventId],
     queryFn: async () => {
       const currentLoadForSolver = await fetchCurrentLoadByZoneName(eventId!);
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr6 } = await supabase
         .from("event_ticket_zones")
         .select("id, name, total_capacity").eq("event_id", eventId!);
+      if (qErr6) throw qErr6;
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return {} as Record<string, import("@/lib/event-simulator-coala").SessionLotInfo>;
 
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr7 } = await supabase
         .from("event_ticket_lots")
         .select("id, zone_id, lot_number, price, quantity")
         .in("zone_id", zoneIds);
+      if (qErr7) throw qErr7;
 
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length

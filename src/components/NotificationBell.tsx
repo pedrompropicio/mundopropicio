@@ -36,11 +36,12 @@ export function NotificationBell() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["notif-transactions"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("transactions")
         .select("id, description, amount, type, status, due_date, event_id, paid_amount")
         .in("status", ["pending", "approved", "overdue"])
         .order("due_date", { ascending: true });
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
     staleTime: 60_000,
@@ -50,10 +51,11 @@ export function NotificationBell() {
   const { data: events = [] } = useQuery({
     queryKey: ["notif-events"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("events")
         .select("id, name, budget, status")
         .in("status", ["planning", "confirmed", "active"]);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
     staleTime: 60_000,
@@ -63,10 +65,11 @@ export function NotificationBell() {
   const { data: allTransactions = [] } = useQuery({
     queryKey: ["notif-all-tx"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("transactions")
         .select("event_id, amount, type")
         .in("status", ["approved", "paid"]);
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
     staleTime: 60_000,
@@ -76,10 +79,11 @@ export function NotificationBell() {
   const { data: pendingForecasts = [] } = useQuery({
     queryKey: ["notif-forecasts"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr4 } = await supabase
         .from("event_forecasts")
         .select("id, description, event_id, type, status")
         .eq("status", "draft").is("version_id", null);
+      if (qErr4) throw qErr4;
       return data ?? [];
     },
     staleTime: 60_000,
@@ -89,11 +93,12 @@ export function NotificationBell() {
   const { data: pendingPaymentLists = [] } = useQuery({
     queryKey: ["notif-payment-lists"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr5 } = await supabase
         .from("payment_lists")
         .select("id, title, payment_date, created_by, status")
         .eq("status", "pending_approval")
         .order("created_at", { ascending: false });
+      if (qErr5) throw qErr5;
       return data ?? [];
     },
     staleTime: 30_000,

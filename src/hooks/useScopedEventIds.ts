@@ -46,10 +46,11 @@ export function useScopedEventIds(): { eventIds: string[]; isLoading: boolean } 
         ]),
       );
       if (frenteIds.length === 0) return [];
-      const { data: fr } = await supabase
+      const { data: fr, error: qErr1 } = await supabase
         .from("operacao_frentes")
         .select("event_id")
         .in("id", frenteIds);
+      if (qErr1) throw qErr1;
       return Array.from(new Set((fr ?? []).map((f: any) => f.event_id as string)));
     },
   });

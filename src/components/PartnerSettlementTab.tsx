@@ -507,16 +507,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       const eventsList = eventsRes.data || [];
       if (zones.length === 0) return [];
       const zoneIds = zones.map((z: any) => z.id);
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr1 } = await supabase
         .from("event_ticket_lots")
         .select("id, name, price, iva_rate, zone_id")
         .in("zone_id", zoneIds);
+      if (qErr1) throw qErr1;
       if (!lots || lots.length === 0) return [];
       const lotIds = lots.map((l: any) => l.id);
-      const { data: sales } = await supabase
+      const { data: sales, error: qErr2 } = await supabase
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lotIds);
+      if (qErr2) throw qErr2;
       const byLot: Record<string, { quantity: number; gross: number }> = {};
       (sales || []).forEach((s: any) => {
         const key = s.lot_id;
@@ -562,22 +564,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const { data: ticketSales = [], error: ticketSalesError } = useQuery({
     queryKey: ["event-ticket-sales-settlement", allEventIdsKey],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      const { data: zones, error: qErr3 } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .in("event_id", allEventIds);
+      if (qErr3) throw qErr3;
       if (!zones || zones.length === 0) return [];
       const zoneIds = zones.map(z => z.id);
-      const { data: lots } = await supabase
+      const { data: lots, error: qErr4 } = await supabase
         .from("event_ticket_lots")
         .select("id, price, iva_rate, zone_id")
         .in("zone_id", zoneIds);
+      if (qErr4) throw qErr4;
       if (!lots || lots.length === 0) return [];
       const lotIds = lots.map(l => l.id);
-      const { data: sales } = await supabase
+      const { data: sales, error: qErr5 } = await supabase
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lotIds);
+      if (qErr5) throw qErr5;
       return (sales || []).map((s: any) => {
         const lot = lots.find((l: any) => l.id === s.lot_id);
         const ivaRate = lot?.iva_rate || 0;

@@ -34,7 +34,8 @@ export default function Notifications() {
   const templates = useQuery({
     queryKey: ["notification_templates"],
     queryFn: async () => {
-      const { data } = await supabase.from("notification_templates").select("*").order("template_name");
+      const { data, error: qErr1 } = await supabase.from("notification_templates").select("*").order("template_name");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -42,11 +43,12 @@ export default function Notifications() {
   const queue = useQuery({
     queryKey: ["notification_queue_recent"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("notification_queue")
         .select("id, status, attempts, recipient_phone, sent_at, read_at, created_at, params, template:notification_templates(template_name)")
         .order("created_at", { ascending: false })
         .limit(100);
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -54,10 +56,11 @@ export default function Notifications() {
   const optin = useQuery({
     queryKey: ["notification_optin_all"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr3 } = await supabase
         .from("notification_optin")
         .select("id, phone_number, opted_in_at, opted_out_at, source, profile:profiles(full_name, email)")
         .order("updated_at", { ascending: false });
+      if (qErr3) throw qErr3;
       return data ?? [];
     },
   });

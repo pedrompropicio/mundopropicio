@@ -35,12 +35,13 @@ export function AddSupplierToEtapaDialog({ etapaId, onClose }: Props) {
   const { data: suppliers } = useQuery({
     queryKey: ["op-etapa-add-suppliers"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("suppliers")
         .select("id,name")
         .eq("is_active", true)
         .order("name")
         .limit(2000);
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -48,10 +49,11 @@ export function AddSupplierToEtapaDialog({ etapaId, onClose }: Props) {
   const { data: existing } = useQuery({
     queryKey: ["op-etapa-suppliers-existing", etapaId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_etapa_suppliers")
         .select("supplier_id")
         .eq("etapa_id", etapaId);
+      if (qErr2) throw qErr2;
       return new Set((data ?? []).map((r: any) => r.supplier_id));
     },
   });

@@ -94,11 +94,12 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     queryKey: ["op-registro-detail-media", registroId],
     enabled: !!registroId && open,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr1 } = await supabase
         .from("operacao_registro_media")
         .select("*")
         .eq("registro_id", registroId!)
         .order("sort_order");
+      if (qErr1) throw qErr1;
       return data ?? [];
     },
   });
@@ -107,11 +108,12 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     queryKey: ["op-frentes-do-evento", eventId],
     enabled: !!eventId && open && (editing || moveOpen),
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr2 } = await supabase
         .from("operacao_frentes")
         .select("id,name,type,company_id")
         .eq("event_id", eventId!)
         .order("name");
+      if (qErr2) throw qErr2;
       return data ?? [];
     },
   });
@@ -151,28 +153,32 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
       const profIdSet = new Set<string>();
 
       // 1) Membros das frentes do evento
-      const { data: frentes } = await supabase
+      const { data: frentes, error: qErr3 } = await supabase
         .from("operacao_frentes").select("id").eq("event_id", eventId!);
+      if (qErr3) throw qErr3;
       const fIds = (frentes ?? []).map((f: any) => f.id);
       if (fIds.length) {
-        const { data: team } = await supabase
+        const { data: team, error: qErr4 } = await supabase
           .from("operacao_frente_team").select("profile_id").in("frente_id", fIds).eq("active", true);
+        if (qErr4) throw qErr4;
         (team ?? []).forEach((t: any) => t.profile_id && profIdSet.add(t.profile_id));
       }
 
       // 2) Membros do evento (event_team_members) — produtores gerais, diretores, etc.
-      const { data: evTeam } = await supabase
+      const { data: evTeam, error: qErr5 } = await supabase
         .from("event_team_members").select("profile_id").eq("event_id", eventId!);
+      if (qErr5) throw qErr5;
       (evTeam ?? []).forEach((t: any) => t.profile_id && profIdSet.add(t.profile_id));
 
       // 3) Perfis da empresa (admins/managers/editores que podem registar)
       if (registro?.company_id) {
-        const { data: companyProfs } = await supabase
+        const { data: companyProfs, error: qErr6 } = await supabase
           .from("profiles")
           .select("id")
           .eq("company_id", registro.company_id)
           .is("archived_at", null)
           .limit(500);
+        if (qErr6) throw qErr6;
         (companyProfs ?? []).forEach((p: any) => p.id && profIdSet.add(p.id));
       }
 
@@ -181,8 +187,9 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
 
       const profIds = Array.from(profIdSet);
       if (!profIds.length) return [];
-      const { data: profs } = await supabase
+      const { data: profs, error: qErr7 } = await supabase
         .from("profiles").select("id,full_name,email").in("id", profIds);
+      if (qErr7) throw qErr7;
       return (profs ?? []).sort((a: any, b: any) =>
         (a.full_name ?? a.email ?? "").localeCompare(b.full_name ?? b.email ?? ""));
     },
@@ -695,11 +702,12 @@ export function MovePhotosDialog({
     queryKey: ["op-move-source-media", sourceRegistroId],
     enabled: open && !!sourceRegistroId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr8 } = await supabase
         .from("operacao_registro_media")
         .select("*")
         .eq("registro_id", sourceRegistroId)
         .order("sort_order");
+      if (qErr8) throw qErr8;
       return data ?? [];
     },
   });
@@ -709,11 +717,12 @@ export function MovePhotosDialog({
     queryKey: ["op-move-frentes-do-evento", eventId],
     enabled: open && !frentesDoEventoProp && !!eventId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr9 } = await supabase
         .from("operacao_frentes")
         .select("id,name,company_id")
         .eq("event_id", eventId!)
         .order("display_order");
+      if (qErr9) throw qErr9;
       return data ?? [];
     },
   });
@@ -724,11 +733,12 @@ export function MovePhotosDialog({
     queryKey: ["op-move-etapas-da-frente", destFrenteId],
     enabled: open && step === 2 && !!destFrenteId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error: qErr10 } = await supabase
         .from("operacao_etapas")
         .select("id,name,frente_id")
         .eq("frente_id", destFrenteId)
         .order("display_order");
+      if (qErr10) throw qErr10;
       return data ?? [];
     },
   });
