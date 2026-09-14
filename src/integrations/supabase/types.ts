@@ -1451,6 +1451,97 @@ export type Database = {
           },
         ]
       }
+      artist_song_playlist_streams: {
+        Row: {
+          artist_id: string | null
+          company_id: string
+          created_at: string
+          date_added: string | null
+          id: string
+          made_by: string | null
+          period_days: number
+          playlist_name: string
+          rank: number | null
+          snapshot_date: string
+          song_id: string
+          source: string
+          streams: number | null
+        }
+        Insert: {
+          artist_id?: string | null
+          company_id: string
+          created_at?: string
+          date_added?: string | null
+          id?: string
+          made_by?: string | null
+          period_days?: number
+          playlist_name: string
+          rank?: number | null
+          snapshot_date: string
+          song_id: string
+          source?: string
+          streams?: number | null
+        }
+        Update: {
+          artist_id?: string | null
+          company_id?: string
+          created_at?: string
+          date_added?: string | null
+          id?: string
+          made_by?: string | null
+          period_days?: number
+          playlist_name?: string
+          rank?: number | null
+          snapshot_date?: string
+          song_id?: string
+          source?: string
+          streams?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_playlist_streams_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       artist_song_playlists: {
         Row: {
           company_id: string
@@ -15429,6 +15520,75 @@ export type Database = {
           },
         ]
       }
+      v_song_playlist_streams_latest: {
+        Row: {
+          artist_id: string | null
+          company_id: string | null
+          date_added: string | null
+          id: string | null
+          made_by: string | null
+          period_days: number | null
+          playlist_name: string | null
+          playlists_na_snapshot: number | null
+          rank: number | null
+          snapshot_date: string | null
+          song_id: string | null
+          song_title: string | null
+          soundcharts_playlist_type: string | null
+          soundcharts_position: number | null
+          soundcharts_subscribers: number | null
+          source: string | null
+          streams: number | null
+          streams_spotify_owned: number | null
+          streams_top10: number | null
+          streams_total: number | null
+          streams_user_playlists: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_playlist_streams_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_playlist_streams_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       v_song_playlists_current: {
         Row: {
           artist_id: string | null
@@ -15972,6 +16132,15 @@ export type Database = {
           p_value: number
         }
         Returns: undefined
+      }
+      artist_song_playlist_streams_set: {
+        Args: {
+          p_period_days: number
+          p_rows: Json
+          p_snapshot_date: string
+          p_song_id: string
+        }
+        Returns: number
       }
       artist_upsert_channel_connection: {
         Args: {
