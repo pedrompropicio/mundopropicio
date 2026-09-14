@@ -46,6 +46,7 @@ import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import { partitionByBpLineRequirement, needsBpLineBeforeApproval } from "@/lib/bp-line-required";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine, type BudgetRaise } from "@/lib/bp-budget-excess";
+import QueryErrorState from "@/components/QueryErrorState";
 
 const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
   const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
@@ -236,7 +237,13 @@ export default function Transactions() {
     else setSelectedEventIds(new Set(events.map((e: any) => e.id)));
   };
 
-  const { data: transactions = [], isLoading } = useQuery({
+  const {
+    data: transactions = [],
+    isLoading,
+    isError: txError,
+    error: txErrorObj,
+    refetch: refetchTx,
+  } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
       return await fetchAllPaged<any>((from, to) =>
