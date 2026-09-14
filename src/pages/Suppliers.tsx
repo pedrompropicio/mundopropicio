@@ -1,7 +1,17 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye } from "lucide-react";
+import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye, Ban, RotateCcw } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { moveToTrash } from "@/lib/trash";
+import {
+  fetchSupplierUsage,
+  fetchSupplierCascadeRows,
+  deactivateSupplier,
+  reactivateSupplier,
+  describeUsage,
+  type SupplierUsage,
+} from "@/lib/supplier-lifecycle";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { SupplierCreditsPanel } from "@/components/SupplierCreditsPanel";
 import { SupplierCreditsTab } from "@/components/supplier-credits/SupplierCreditsTab";
