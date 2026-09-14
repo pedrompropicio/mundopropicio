@@ -410,7 +410,14 @@ export default function Suppliers() {
                 <React.Fragment key={s.id}>
                   <tr className="hover:bg-secondary/20 transition-colors">
                     <td className="py-3 pr-4">
-                      <p className="font-medium text-foreground">{s.name}</p>
+                      <p className="font-medium text-foreground">
+                        {s.name}
+                        {s.is_active === false && (
+                          <span className="ml-2 inline-flex rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive align-middle">
+                            Inativo
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
                     </td>
                     <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{s.trade_name || "—"}</td>
