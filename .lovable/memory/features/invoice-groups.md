@@ -108,3 +108,20 @@ parcial / verde completo nos pickers e no detalhe da lista.
 (soma dos valores em aberto); IBAN divergente entre itens exclui a linha com motivo
 `iban_mismatch`. `SepaCandidate.groupTransactionIds` garante que o comprovativo é
 replicado a todas as transações do grupo. A liquidação continua transação a transação.
+
+## Propagação de campos partilhados (update-transaction)
+`invoiceSharedFields` em `supabase/functions/update-transaction/index.ts` propaga às irmãs
+do grupo: `event_id`, `category_id`, `supplier_id`, `account_id`, `date`, `due_date`,
+`payment_method`, `payment_entity`, `payment_reference`, `is_transitory`,
+`exclude_from_result` (datas saem quando existe `installment_group_id`).
+
+**NUNCA propagam** (2026-09-14): `specification` e `invoice_ref`. A especificação é o campo
+que DISTINGUE uma linha da outra — propagá-la reescrevia a frase das irmãs (incidente
+R-030/2026, 7 edições em 12 minutos). O `invoice_ref` é redundante (se é a mesma fatura o
+número já é igual) e propagá-lo trocava o número entre linhas.
+
+## Âmbito de um grupo na edge function de auditoria
+`audit-invoice-groups` aceita `group_id` no body: dry-run só desse grupo (devolve
+`group_veredicto`: `ok` | `desagrupar` | `rever`) e apply limitado a esse grupo. A auditoria
+global continua a exigir admin/platform_admin; o âmbito de um grupo abre a manager/editor,
+validando que todas as linhas do grupo são de uma empresa do próprio utilizador.
