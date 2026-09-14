@@ -16708,6 +16708,17 @@ export type Database = {
       }
       norm_coala_desc: { Args: { s: string }; Returns: string }
       normalize_zone_label: { Args: { _label: string }; Returns: string }
+      partner_portal_links: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          link_source: string
+          profile_id: string
+          supplier_id: string
+          supplier_name: string
+        }[]
+      }
       portal_tick_lead_capture: { Args: never; Returns: Json }
       portal_tick_redirect_log: { Args: never; Returns: Json }
       process_lead_captures_batch: {
@@ -16999,6 +17010,10 @@ export type Database = {
       set_formalidade_auto_suggested: {
         Args: { _value: boolean }
         Returns: undefined
+      }
+      set_partner_portal_user: {
+        Args: { _profile_id: string; _supplier_id: string }
+        Returns: string
       }
       settlement_local_partners_pct: {
         Args: { _settlement_id: string }
