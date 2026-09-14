@@ -26,8 +26,8 @@ import {
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
   normalizePartnerCalcBasis,
-  partnerUsesGrossExpenses,
 } from "./partner-calc-basis.ts";
+
 import { computeOutsideBpExcess, sumLines } from "./event-cost-basis.ts";
 import { expandOverheadToSplits } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
