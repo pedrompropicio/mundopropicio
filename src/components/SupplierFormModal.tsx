@@ -159,6 +159,47 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // IBAN que já pertence a um fornecedor DESATIVADO da mesma empresa.
+  const [inactiveMatch, setInactiveMatch] = useState<
+    { id: string; name: string; nif: string | null; label: string } | null
+  >(null);
+  const { role } = useAuth() as any;
+  const canManageSuppliers =
+    role === "admin" || role === "platform_admin" || role === "manager";
+
+  useEffect(() => {
+    if (!open) setInactiveMatch(null);
+  }, [open]);
+
+  const reactivateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("suppliers").update({ is_active: true }).eq("id", id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: async (id) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+        queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+      ]);
+      setInactiveMatch(null);
+      onOpenChange(false);
+      toast.success("Fornecedor reativado");
+      onCreated?.(id);
+    },
+    onError: (err: any) => {
+      const msg = String(err?.message ?? "");
+      const code = String(err?.code ?? "");
+      if (code === "42501" || /row-level security|permission denied/i.test(msg)) {
+        toast.error("Sem permissão para reativar fornecedores", {
+          description: "Pede a um admin/manager.",
+        });
+      } else {
+        toast.error("Erro ao reativar fornecedor", { description: msg || code || "Erro desconhecido" });
+      }
+    },
+  });
+
   // Normalização única em toda a app: normalizeIban de @/lib/iban (remove espaços, pontos, hífens, _ e /)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
