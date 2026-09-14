@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { IbanWarning } from "@/components/IbanWarning";
 import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
 import { SupplierPortalUserLink } from "@/components/SupplierPortalUserLink";
+import { reactivateSupplier } from "@/lib/supplier-lifecycle";
 
 const supplierCategories = [
   "Som e Iluminação",
@@ -173,8 +174,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const reactivateMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").update({ is_active: true }).eq("id", id);
-      if (error) throw error;
+      await reactivateSupplier(id);
       return id;
     },
     onSuccess: async (id) => {

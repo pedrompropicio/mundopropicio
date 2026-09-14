@@ -1,7 +1,17 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye } from "lucide-react";
+import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye, Ban, RotateCcw } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { moveToTrash } from "@/lib/trash";
+import {
+  fetchSupplierUsage,
+  fetchSupplierCascadeRows,
+  deactivateSupplier,
+  reactivateSupplier,
+  describeUsage,
+  type SupplierUsage,
+} from "@/lib/supplier-lifecycle";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { SupplierCreditsPanel } from "@/components/SupplierCreditsPanel";
 import { SupplierCreditsTab } from "@/components/supplier-credits/SupplierCreditsTab";
@@ -17,20 +27,24 @@ import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank } from "
 type ViewMode = "grid" | "list";
 type SortField = "name" | "trade_name";
 type SortDir = "asc" | "desc";
+type StatusFilter = "active" | "inactive" | "all";
 
 export default function Suppliers() {
   const [tab, setTab] = useState<"suppliers" | "credits">("suppliers");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<any>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [creditsExpandedId, setCreditsExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [hidePartners, setHidePartners] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const queryClient = useQueryClient();
+  const { user, role } = useAuth() as any;
+  const canManage = role === "admin" || role === "platform_admin" || role === "manager";
 
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["suppliers"],
@@ -42,20 +56,67 @@ export default function Suppliers() {
     },
   });
 
+  // Utilização real do fornecedor a eliminar, lida na hora.
+  const { data: usage, isLoading: usageLoading } = useQuery<SupplierUsage>({
+    queryKey: ["supplier-usage", deleting?.id],
+    enabled: !!deleting?.id,
+    queryFn: () => fetchSupplierUsage(deleting.id),
+  });
+
+  const invalidateSuppliers = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
+      queryClient.invalidateQueries({ queryKey: ["suppliers-active"] }),
+    ]);
+
+  const deactivateMutation = useMutation({
+    mutationFn: (s: any) =>
+      deactivateSupplier({ id: s.id, notes: s.notes, who: user?.email || "sistema" }),
+    onSuccess: async () => {
+      await invalidateSuppliers();
+      setDeleting(null);
+      toast.success("Fornecedor desativado", {
+        description: "Deixa de aparecer nos seletores; o histórico fica intacto.",
+      });
+    },
+    onError: (err: any) => toast.error("Erro ao desativar", { description: err.message }),
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => reactivateSupplier(id),
+    onSuccess: async () => {
+      await invalidateSuppliers();
+      toast.success("Fornecedor reativado");
+    },
+    onError: (err: any) => toast.error("Erro ao reativar", { description: err.message }),
+  });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").delete().eq("id", id);
+    mutationFn: async (s: any) => {
+      // Nunca tentar apagar um fornecedor com movimento — o erro de chave
+      // estrangeira sairia ilegível. Reconfirma-se aqui, não só na UI.
+      const u = await fetchSupplierUsage(s.id);
+      if (!u.canDelete) throw new Error(`O fornecedor tem ${describeUsage(u.blocking)}. Desative-o em vez de eliminar.`);
+      const related = await fetchSupplierCascadeRows(s.id);
+      const ok = await moveToTrash({
+        entity_type: "supplier",
+        entity_id: s.id,
+        entity_data: s,
+        related_data: Object.keys(related).length > 0 ? related : null,
+        deleted_by: user?.email || "sistema",
+      });
+      if (!ok) throw new Error("Não foi possível guardar o fornecedor no Lixo — nada foi eliminado.");
+      const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      setDeletingId(null);
-      toast.success("Fornecedor eliminado");
+    onSuccess: async () => {
+      await invalidateSuppliers();
+      queryClient.invalidateQueries({ queryKey: ["trash"] });
+      setDeleting(null);
+      toast.success("Fornecedor movido para o Lixo", { description: "Pode ser restaurado durante 30 dias." });
     },
     onError: (err: any) => {
       toast.error("Erro ao eliminar", { description: err.message });
-      setDeletingId(null);
     },
   });
 
@@ -67,6 +128,8 @@ export default function Suppliers() {
       (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
     );
     if (hidePartners) list = list.filter((s) => !s.is_partner);
+    if (statusFilter === "active") list = list.filter((s) => s.is_active !== false);
+    else if (statusFilter === "inactive") list = list.filter((s) => s.is_active === false);
     list.sort((a, b) => {
       const valA = (sortField === "trade_name" ? (a.trade_name || a.name) : a.name).toLowerCase();
       const valB = (sortField === "trade_name" ? (b.trade_name || b.name) : b.name).toLowerCase();
@@ -99,28 +162,82 @@ export default function Suppliers() {
         editingSupplier={editingSupplier}
       />
 
-      {deletingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingId(null)}>
-          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold">Eliminar Fornecedor?</h3>
-            <p className="text-sm text-muted-foreground">
-              Esta ação não pode ser desfeita. O fornecedor será removido permanentemente.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => deleteMutation.mutate(deletingId)}
-                disabled={deleteMutation.isPending}
-                className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-50"
-              >
-                {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
-              </button>
-              <button
-                onClick={() => setDeletingId(null)}
-                className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
-              >
-                Cancelar
-              </button>
-            </div>
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeleting(null)}>
+          <div className="glass w-full max-w-md rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Eliminar «{deleting.name}»?</h3>
+
+            {usageLoading || !usage ? (
+              <p className="text-sm text-muted-foreground">A verificar registos associados…</p>
+            ) : !usage.canDelete ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Este fornecedor não pode ser eliminado porque tem movimento registado:{" "}
+                  <span className="text-foreground">{describeUsage(usage.blocking)}</span>. Eliminá-lo
+                  apagaria histórico financeiro.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  O que se deve fazer é desativá-lo: deixa de aparecer nos seletores e o histórico fica intacto.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {canManage && deleting.is_active !== false && (
+                    <button
+                      onClick={() => deactivateMutation.mutate(deleting)}
+                      disabled={deactivateMutation.isPending}
+                      className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                    >
+                      {deactivateMutation.isPending ? "A desativar…" : "Desativar fornecedor"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setDeleting(null)}
+                    className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
+                  >
+                    Fechar
+                  </button>
+                </div>
+                {!canManage && (
+                  <p className="text-xs text-muted-foreground">
+                    Não tem permissão para desativar fornecedores — pede a um admin/manager.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  O fornecedor vai para o Lixo e pode ser restaurado durante 30 dias.
+                </p>
+                {usage.cascade.length > 0 ? (
+                  <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm space-y-1">
+                    <p className="font-medium">Serão também apagados:</p>
+                    <ul className="list-disc pl-5 text-muted-foreground">
+                      {usage.cascade.map((c) => (
+                        <li key={c.label}>
+                          {c.count} {c.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Não há registos associados a apagar.</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => deleteMutation.mutate(deleting)}
+                    disabled={deleteMutation.isPending}
+                    className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-50"
+                  >
+                    {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
+                  </button>
+                  <button
+                    onClick={() => setDeleting(null)}
+                    className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -165,6 +282,16 @@ export default function Suppliers() {
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortDir === "asc" ? "A→Z" : "Z→A"}
           </button>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-[130px] h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Ativos</SelectItem>
+              <SelectItem value="inactive">Inativos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             onClick={() => setHidePartners((h) => !h)}
             className={`inline-flex items-center gap-1 rounded-lg border border-border px-2.5 h-9 text-xs transition-colors ${hidePartners ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
@@ -202,7 +329,14 @@ export default function Suppliers() {
             <div key={s.id} className="glass rounded-xl p-5 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-foreground">{s.name}</h3>
+                  <h3 className="font-semibold text-foreground">
+                    {s.name}
+                    {s.is_active === false && (
+                      <span className="ml-2 inline-flex rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive align-middle">
+                        Inativo
+                      </span>
+                    )}
+                  </h3>
                   {s.trade_name && <p className="text-xs text-foreground/70">{s.trade_name}</p>}
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
@@ -214,8 +348,27 @@ export default function Suppliers() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
+                  {canManage && (s.is_active === false ? (
+                    <button
+                      onClick={() => reactivateMutation.mutate(s.id)}
+                      disabled={reactivateMutation.isPending}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-success/10 hover:text-success transition-colors disabled:opacity-50"
+                      title="Reativar"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => deactivateMutation.mutate(s)}
+                      disabled={deactivateMutation.isPending}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors disabled:opacity-50"
+                      title="Desativar (mantém o histórico)"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                    </button>
+                  ))}
                   <button
-                    onClick={() => setDeletingId(s.id)}
+                    onClick={() => setDeleting(s)}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                     title="Eliminar"
                   >
@@ -267,7 +420,14 @@ export default function Suppliers() {
                 <React.Fragment key={s.id}>
                   <tr className="hover:bg-secondary/20 transition-colors">
                     <td className="py-3 pr-4">
-                      <p className="font-medium text-foreground">{s.name}</p>
+                      <p className="font-medium text-foreground">
+                        {s.name}
+                        {s.is_active === false && (
+                          <span className="ml-2 inline-flex rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive align-middle">
+                            Inativo
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
                     </td>
                     <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{s.trade_name || "—"}</td>
@@ -291,8 +451,27 @@ export default function Suppliers() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
+                        {canManage && (s.is_active === false ? (
+                          <button
+                            onClick={() => reactivateMutation.mutate(s.id)}
+                            disabled={reactivateMutation.isPending}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-success/10 hover:text-success transition-colors disabled:opacity-50"
+                            title="Reativar"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => deactivateMutation.mutate(s)}
+                            disabled={deactivateMutation.isPending}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors disabled:opacity-50"
+                            title="Desativar (mantém o histórico)"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        ))}
                         <button
-                          onClick={() => setDeletingId(s.id)}
+                          onClick={() => setDeleting(s)}
                           className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                           title="Eliminar"
                         >
