@@ -682,31 +682,40 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
               </>
             ) : (
               <>
-                {/* Edit: blocked if event completed (admin bypass); paid = limited edit mode */}
-                {(!eventCompleted || canApprove) && computedStatus !== "paid" && (
-                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title={eventCompleted ? "Editar (evento fechado — ajuste admin/gestora)" : "Editar"}>
+                {/* Editar: bloqueado em evento concluído, sem excepção admin/gestora */}
+                {eventCompleted ? (
+                  <BlockedActionButton act="editar">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </BlockedActionButton>
+                ) : computedStatus !== "paid" ? (
+                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                )}
-                {(!eventCompleted || canApprove) && computedStatus === "paid" && (
+                ) : (
                   <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground/60 hover:bg-secondary hover:text-foreground transition-colors" title="Editar especificação / fornecedor">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {/* Approve: admin only, pending/overdue only, not completed */}
-                {!eventCompleted && canApprove && (computedStatus === "pending" || computedStatus === "overdue") && (
-                  <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                  </button>
+                {/* Aprovar: admin only, pending/overdue; bloqueado (visível) em evento concluído */}
+                {canApprove && (computedStatus === "pending" || computedStatus === "overdue") && (
+                  eventCompleted ? (
+                    <BlockedActionButton act="aprovar">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    </BlockedActionButton>
+                  ) : (
+                    <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    </button>
+                  )
                 )}
-                {/* Payment/Receipt: only after approved, not completed, not linked to reimbursement note, not paid by partner (settled via partner accounting) */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && !partnerPaidInfo && (
+                {/* Liquidar/Receber: permitido também em evento concluído */}
+                {balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && !partnerPaidInfo && (
                   <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                     <CreditCard className="h-3.5 w-3.5" />
                   </button>
                 )}
                 {/* Reimbursement transactions: show info that payment is via note */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.is_reimbursement && (
+                {balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.is_reimbursement && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="rounded-lg p-1.5 text-muted-foreground cursor-default">
