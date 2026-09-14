@@ -163,6 +163,10 @@ Deno.serve(async (req) => {
     // is_confidential / event_settlement_id / ordering_partner_id / paying_partner_id
     // e o servidor devolvia 422, bloqueando a edição de QUALQUER transação paga.
     // Se acrescentares um campo aqui, acrescenta-o lá — e vice-versa.
+    // Nota: esta lista só decide se o pedido é RECUSADO; não é lista de escrita.
+    // `status` e `paid_amount` continuam fora da `allowedFields` mais abaixo (o
+    // trigger trg_enforce_held_revenue_is_paid põe-nos sozinho), mas o ramo
+    // `paidLocked` do modal envia-os no "Recebido por" e não devem gerar 422.
     const isPaid = transaction.status === "paid";
     if (isPaid && !isAdmin) {
       const paidAllowedFields = ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "declared_withholding_rate", "declared_withholding_amount", "is_confidential", "event_settlement_id", "ordering_partner_id", "paying_partner_id", "held_by_supplier_id", "category_id", "account_id", "payment_date", "status", "paid_amount"];
