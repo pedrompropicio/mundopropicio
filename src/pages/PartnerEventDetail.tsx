@@ -2041,7 +2041,9 @@ export default function PartnerEventDetail() {
         {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
         {hasPermission("view_partner_transactions") && (
         <TabsContent value="transactions">
-          {transactions.length === 0 && overheads.length === 0 ? (
+          {!hasViewerSupplier ? (
+            <PartnerNoSupplierNotice isLoading={isLoadingViewerSupplier} />
+          ) : transactions.length === 0 && overheads.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem transações registadas.</p>
             </Card>
