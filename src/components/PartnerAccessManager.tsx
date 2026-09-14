@@ -375,7 +375,16 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                 <SearchableSelect
                   options={eventPartnerOptions}
                   value={linkedSupplierId ?? ""}
-                  onValueChange={(v) => setPortalUserMutation.mutate({ supplierId: v, profileId: userId })}
+                  onValueChange={(v) => {
+                    if (!v) {
+                      // Desligar é set_partner_portal_user(sócio_actual, NULL).
+                      if (linkedSupplierId) {
+                        setPortalUserMutation.mutate({ supplierId: linkedSupplierId, profileId: null });
+                      }
+                      return;
+                    }
+                    setPortalUserMutation.mutate({ supplierId: v, profileId: userId });
+                  }}
                   placeholder="Selecione o sócio..."
                 />
                 {!linkedSupplierId && (
