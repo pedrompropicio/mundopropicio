@@ -70,6 +70,9 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 3. **Decompor o cashless da Ivete (895,70 €)** — o depósito está **conciliado** mas por decompor, à espera do fecho dos bares. Teste a fazer quando chegar: o dinheiro apurado (liquidação TPA + numerário) tem de cobrir a totalidade das vendas de alimentos **e** bebidas — para o que é preciso que o relatório traga a **origem do pagamento por venda**.
 4. **Entrar com os quatro ativos exclusivos MP+EIN da Anitta**, ainda fora do ERP e à espera da épica **#146**: IVA dedutível **266.345,18 €**, bares **93.969,63 €**, bengaleiro **138,82 €**, patrocínio Oeiras **50.000,00 €**.
 5. **Levar o saldo para o servidor nos sítios que faltam** — Contas, Extrato, cartões e bilheteiras continuam a somar saldo no cliente (furo assumido nas D-ERP34/D-ERP36).
+6. **A transação `ea1dae50-393c-4d19-b2f6-773491c8b8ca`**, portagem de **1,60 €** de 08/09, está fora de qualquer nota de reembolso: ou falta na nota ou é duplicado. Só a Letícia pode dizer.
+7. **A linha `c924c418` da nota R-030/2026 continua sem documento anexo.**
+8. **Falta decidir o modelo de fornecedor partilhado entre empresas** (MP e Coala Festival Portugal): hoje é um registo por empresa. Decisão em aberto.
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
