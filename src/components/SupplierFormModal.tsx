@@ -400,6 +400,40 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
           </div>
           {/* (g9c · P2-12) Ligação ao utilizador do Portal — só na edição (precisa do id). */}
           {isEditing && s?.id && <SupplierPortalUserLink supplierId={s.id} />}
+          {inactiveMatch && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm space-y-2">
+              <p className="font-medium">
+                {inactiveMatch.label}: já existe um fornecedor desativado com este IBAN
+              </p>
+              <p className="text-muted-foreground">
+                «{inactiveMatch.name}» (NIF: {inactiveMatch.nif ?? "—"}) está desativado, por isso não
+                aparece nas listas. Não é permitido um segundo registo ativo com o mesmo IBAN.
+              </p>
+              {canManageSuppliers ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={reactivateMutation.isPending}
+                    onClick={() => reactivateMutation.mutate(inactiveMatch.id)}
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    {reactivateMutation.isPending ? "A reativar…" : `Reativar «${inactiveMatch.name}»`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInactiveMatch(null)}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+                  >
+                    Alterar o IBAN
+                  </button>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">
+                  Pede a um admin/manager para reativar o fornecedor «{inactiveMatch.name}».
+                </p>
+              )}
+            </div>
+          )}
           <button type="submit" disabled={isPending}
             className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
