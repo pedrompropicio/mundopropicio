@@ -140,6 +140,7 @@ import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import InvoiceGroupAudit from "./pages/admin/InvoiceGroupAudit";
 import SystemInvariants from "./pages/admin/SystemInvariants";
+import InvariantMonitor from "./pages/admin/InvariantMonitor";
 import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
