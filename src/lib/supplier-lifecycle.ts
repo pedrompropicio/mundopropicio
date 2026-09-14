@@ -98,3 +98,17 @@ export async function reactivateSupplier(id: string): Promise<void> {
   const { error } = await supabase.from("suppliers").update({ is_active: true } as any).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Linhas que serão apagadas em cascata, para guardar no Lixo (related_data) e
+ * permitir o restauro completo.
+ */
+export async function fetchSupplierCascadeRows(supplierId: string): Promise<Record<string, any[]>> {
+  const out: Record<string, any[]> = {};
+  for (const c of CASCADE) {
+    const { data, error } = await (supabase as any).from(c.table).select("*").eq(c.column, supplierId);
+    if (error) throw error;
+    if ((data ?? []).length > 0) out[c.table] = data as any[];
+  }
+  return out;
+}
