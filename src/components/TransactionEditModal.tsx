@@ -207,7 +207,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).eq("is_hidden", false).order("name");
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type, is_restricted").eq("is_active", true).eq("is_hidden", false).order("name");
       if (error) throw error;
       return data;
     },
@@ -220,7 +220,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, is_accounting")
+        .select("id, name, is_accounting, is_restricted")
         .eq("id", transaction.account_id as string)
         .maybeSingle();
       if (error) throw error;
@@ -2414,16 +2414,22 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          {/* Confidencial — só a quem tem a permissão de ver confidenciais */}
+          {/* Confidencial — só a quem tem a permissão de ver confidenciais.
+              Conta restrita: o trigger `trg_force_confidential_restricted_account`
+              força is_confidential = true e nunca desliga (D-ERP34 ponto 5). Em vez
+              de deixar mexer e não gravar, o interruptor fica desactivado com a razão. */}
           {canSeeConfidential && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
             <Switch
-              checked={form.is_confidential}
+              checked={form.is_confidential || confidentialForcedByAccount}
+              disabled={confidentialForcedByAccount}
               onCheckedChange={(v) => setForm({ ...form, is_confidential: v })}
             />
             <span className="text-sm font-medium">🔒 Confidencial</span>
             <span className="ml-auto text-xs text-muted-foreground">
-              Invisível a quem não tem a permissão
+              {confidentialForcedByAccount
+                ? "Obrigatório: a conta desta transação é restrita"
+                : "Invisível a quem não tem a permissão"}
             </span>
           </div>
           )}
