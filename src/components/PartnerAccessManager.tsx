@@ -573,6 +573,40 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
           })}
         </div>
       )}
+      <AlertDialog open={!!relinkPrompt} onOpenChange={(o) => { if (!o) setRelinkPrompt(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mudar o sócio deixa eventos fora de vista</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Ao ligar esta pessoa a {relinkPrompt?.supplierLabel}, os eventos abaixo — onde tem
+                  acesso activo, mas onde esse sócio não participa — deixam de estar visíveis para ela:
+                </p>
+                <ul className="list-disc pl-5">
+                  {(relinkPrompt?.events ?? []).map((n, i) => (
+                    <li key={`${n}-${i}`}>{n}</li>
+                  ))}
+                </ul>
+                <p>Os acessos não são retirados — essa decisão é sua.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (relinkPrompt) {
+                  setPortalUserMutation.mutate({ supplierId: relinkPrompt.supplierId, profileId: relinkPrompt.userId });
+                }
+                setRelinkPrompt(null);
+              }}
+            >
+              Ligar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
