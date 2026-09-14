@@ -16,6 +16,32 @@ import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
 
 import { toast } from "@/hooks/use-toast";
 
+/**
+ * Regra de negócio (Pedro, 14/09/2026) — evento `completed`:
+ *  PERMITIDO: liquidar e estornar pagamentos (execução de decisão já tomada).
+ *  BLOQUEADO: aprovar, editar, eliminar (são decisões — pertencem ao evento vivo).
+ * Nenhum bloqueio pode ser silencioso: o botão existe, desactivado, com tooltip.
+ */
+export const completedBlockTooltip = (act: "aprovar" | "editar" | "eliminar") =>
+  `Evento concluído. Reabre o evento para ${act}.`;
+
+function BlockedActionButton({ act, children }: { act: "aprovar" | "editar" | "eliminar"; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          aria-disabled="true"
+          className="inline-flex cursor-not-allowed rounded-lg p-1.5 text-muted-foreground/40"
+        >
+          {children}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">{completedBlockTooltip(act)}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 interface Props {
   transaction: any;
   canApprove: boolean;
