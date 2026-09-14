@@ -166,4 +166,4 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
 - `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado), D-ERP41 (o anexo do movimento do banco pertence ao movimento e nunca é visível ao sócio), D-ERP55 (o saldo do extrato calcula-se sobre a ordem que se vê)
-- Issues #86, #83, #87, #96, #61, #57
+- Issues #86, #83, #96, #61, #57
