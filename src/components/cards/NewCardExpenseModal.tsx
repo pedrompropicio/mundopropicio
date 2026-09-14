@@ -482,6 +482,13 @@ export function NewCardExpenseModal({
           </button>
         </div>
 
+        {isLegacyEdit && completedEventBlocked && (
+          <p className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+            Evento concluído. Reabre o evento para editar.
+          </p>
+        )}
+
+
         {!isLegacyEdit && (
           <p className="mb-3 rounded-lg border border-border/60 bg-muted/30 p-2 text-[11px] text-muted-foreground">
             A despesa fica registada na sessão. A transação só nasce no fecho, consolidada por
