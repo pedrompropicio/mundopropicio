@@ -142,12 +142,17 @@ export type InvoiceDocCheck =
   | { kind: "conflict" };       // documentos diferentes → não agrupar sem confirmação
 
 /**
- * Compara os documentos anexos das linhas candidatas. Só é seguro agrupar
- * automaticamente quando partilham pelo menos um ficheiro (`shared`).
+ * Compara os documentos anexos das linhas candidatas.
  *
- * 2026-09-14: `no_documents` DEIXOU de autorizar agrupamento automático — não
- * ter papel não é prova de que é a mesma fatura, é ausência de prova (incidente
- * das portagens Via Verde na nota R-030/2026).
+ * 2026-09-14 (segunda correção): "shared" exige que TODAS as candidatas tenham
+ * documento E que a interseção dos ficheiros não seja vazia. A versão anterior
+ * fazia a interseção só sobre as linhas QUE TÊM documento — com uma única linha
+ * com papel, a interseção era o próprio conjunto dessa linha e devolvia
+ * "shared": uma linha a partilhar o ficheiro consigo própria.
+ *
+ * Faltando papel a alguma linha, devolve `no_documents` (nenhuma tem) ou
+ * `conflict` (só algumas têm, ou têm ficheiros diferentes) — e daí sai sempre
+ * sugestão com confirmação humana.
  */
 export async function checkInvoiceDocumentsConsistency(
   transactionIds: string[],
@@ -155,7 +160,9 @@ export async function checkInvoiceDocumentsConsistency(
   const docs = await fetchDocumentUrlsByTransaction(transactionIds);
   const withDocs = transactionIds.filter((id) => (docs[id]?.length ?? 0) > 0);
   if (withDocs.length === 0) return { kind: "no_documents" };
-  // Interseção dos conjuntos de file_url das linhas QUE TÊM documento
+  // Alguma linha sem papel → não há prova de ser a mesma fatura.
+  if (withDocs.length !== transactionIds.length) return { kind: "conflict" };
+  // Interseção dos conjuntos de file_url de TODAS as linhas
   let intersection: Set<string> | null = null;
   for (const id of withDocs) {
     const set = new Set(docs[id]);
@@ -165,6 +172,7 @@ export async function checkInvoiceDocumentsConsistency(
   if (intersection && intersection.size > 0) return { kind: "shared" };
   return { kind: "conflict" };
 }
+
 
 export interface EnsureInvoiceGroupResult {
   groupId: string | null;
@@ -228,22 +236,27 @@ export interface AutoGroupOutcome {
   total: number;
   updated: number;
   supplierId: string;
-  /** Quando true nada foi escrito: é apenas uma SUGESTÃO a confirmar pela editora. */
+  /** Sempre true: esta função NUNCA escreve, só sugere. */
   suggestion?: boolean;
-  /** Porque é que é só sugestão: documentos diferentes ou nenhum documento. */
-  reason?: "conflict" | "no_documents";
+  /** Porque é que é só sugestão. */
+  reason?: "conflict" | "no_documents" | "shared";
 }
 
 /**
- * Auto-agrupamento após criar/editar uma transação. Devolve:
- *  - `{ updated > 0 }` só quando as linhas partilham o MESMO documento;
- *  - `{ suggestion: true, reason }` quando há irmãs mas sem prova documental
- *    (documentos diferentes ou nenhum) → exige confirmação humana;
- *  - `null` quando não há nada a fazer.
+ * Avaliação após criar/editar uma transação. NÃO ESCREVE NADA (2026-09-14).
+ *
+ * Porquê: o grupo nascia no save, antes de existir papel que permitisse
+ * compará-lo (o documento chegava segundos depois), e a revalidação por OCR só
+ * pode reagir, nunca impedir. Quem escreve `invoice_group_id` passa a ser só:
+ *  (a) o "Dividir por IVA", à nascença, verdade por construção;
+ *  (b) `ensureInvoiceGroup({ force: true })` a partir dos diálogos, ou seja,
+ *      sempre com confirmação humana.
+ *
+ * Devolve `{ suggestion: true, reason }` quando encontra candidatas por
+ * fornecedor + nº de fatura, e `null` quando não há nada a propor.
  */
 export async function autoGroupInvoiceForTransaction(
   transactionId: string,
-  opts: { force?: boolean } = {},
 ): Promise<AutoGroupOutcome | null> {
   try {
     const { data: tx } = await (supabase as any)
@@ -254,16 +267,30 @@ export async function autoGroupInvoiceForTransaction(
     const supplierId = tx?.supplier_id;
     const invoiceRef = tx?.invoice_ref;
     if (!supplierId || !isGroupableInvoiceRef(invoiceRef)) return null;
-    const res = await ensureInvoiceGroup(supplierId, invoiceRef, opts);
-    if (res.needsConfirm) {
-      return { invoiceRef, total: res.total, updated: 0, supplierId, suggestion: true, reason: res.reason };
-    }
-    if (!res.groupId || res.updated === 0) return null;
-    return { invoiceRef, total: res.total, updated: res.updated, supplierId };
+
+    const siblings = await fetchInvoiceSiblings(supplierId, invoiceRef);
+    if (siblings.length < 2) return null;
+
+    const existing = [...new Set(siblings.map((s) => s.invoice_group_id).filter(Boolean))] as string[];
+    // Já existem 2+ grupos distintos nesta fatura → ambíguo, não propor.
+    if (existing.length > 1) return null;
+    // Todas já no mesmo grupo → nada a propor.
+    if (existing.length === 1 && siblings.every((s) => s.invoice_group_id === existing[0])) return null;
+
+    const check = await checkInvoiceDocumentsConsistency(siblings.map((s) => s.id));
+    return {
+      invoiceRef,
+      total: siblings.length,
+      updated: 0,
+      supplierId,
+      suggestion: true,
+      reason: check.kind,
+    };
   } catch {
-    return null; // auto-agrupamento nunca deve quebrar o fluxo principal
+    return null; // a avaliação nunca deve quebrar o fluxo principal
   }
 }
+
 
 /**
  * Desagrupa UMA transação do seu grupo de fatura. Se depois disso ficar uma

@@ -673,11 +673,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         if (data?.error) throw new Error(data.details ? `${data.error} — ${data.details}` : data.error);
       }
 
-      // Auto-agrupamento por Nº fatura/ATCUD (conservador: mesmo fornecedor e
-      // documento anexo partilhado; documentos diferentes só com confirmação).
+      // Deteção por Nº fatura/ATCUD: nunca agrupa sozinho (2026-09-14) —
+      // só propõe; o grupo é escrito no diálogo, com confirmação humana.
       {
         const auto = await autoGroupInvoiceForTransaction(transaction.id);
-        if (auto?.suggestion) {
+        if (auto) {
           setInvoiceSuggestion({
             supplierId: auto.supplierId,
             supplierName: null,
@@ -685,13 +685,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             total: auto.total,
             reason: auto.reason,
           });
-        } else if (auto) {
-          toast({
-            title: "Fatura agrupada",
-            description: `Agrupada à fatura ${auto.invoiceRef} (${auto.total} itens).`,
-          });
         }
       }
+
 
 
       // Vínculo "Pago por Sócio": remoção, troca de sócio ou sync da data.
