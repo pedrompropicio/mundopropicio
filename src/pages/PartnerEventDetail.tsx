@@ -1776,6 +1776,13 @@ export default function PartnerEventDetail() {
                               </div>
                             );
                           })()}
+                          {bpExcessTotal > 0 && (
+                            <p className="px-4 py-1.5 text-[10px] italic text-muted-foreground">
+                              O total do BP conta apenas as rubricas previstas. Gasto realizado em rubricas
+                              sem linha no BP ({formatCurrency(bpExcessTotal)}) fica fora deste total, mas está
+                              incluído no cartão Despesas.
+                            </p>
+                          )}
                         </>
                       );
                     })()
