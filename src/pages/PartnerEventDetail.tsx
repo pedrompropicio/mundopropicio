@@ -1062,7 +1062,12 @@ export default function PartnerEventDetail() {
     if (canExportStatement) {
       try {
         const input = buildStatementDocInput();
-        if (!input) return;
+        if (!input) {
+          toast.error("Prestação de contas indisponível", {
+            description: "Ainda não há prestação de contas disponível para este evento.",
+          });
+          return;
+        }
         await exportPartnerStatementDocExcel(input);
       } catch (err: any) {
         toast.error("Erro ao exportar Excel", { description: err?.message });
