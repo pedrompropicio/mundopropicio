@@ -282,6 +282,16 @@ export default function Suppliers() {
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortDir === "asc" ? "A→Z" : "Z→A"}
           </button>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-[130px] h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Ativos</SelectItem>
+              <SelectItem value="inactive">Inativos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             onClick={() => setHidePartners((h) => !h)}
             className={`inline-flex items-center gap-1 rounded-lg border border-border px-2.5 h-9 text-xs transition-colors ${hidePartners ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
