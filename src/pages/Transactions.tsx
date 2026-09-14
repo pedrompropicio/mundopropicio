@@ -1197,7 +1197,7 @@ export default function Transactions() {
         key={t.id}
         transaction={t}
         canApprove={canApprove}
-        selectable={canApprove && (t.status === "pending" || t.status === "approved")}
+        selectable={canApprove && ((t.status === "pending" && !isCompletedEvent(t)) || t.status === "approved")}
         selected={selectedIds.has(t.id)}
         onToggleSelect={() => toggleSelect(t.id)}
         showSelectColumn={showSelectionColumn}
