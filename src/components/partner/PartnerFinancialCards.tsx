@@ -112,7 +112,8 @@ export function PartnerFinancialCards({
         {!fecho && expenseBasisNote && (
           <p className="mt-1 text-[10px] text-muted-foreground/80 italic">{expenseBasisNote}</p>
         )}
-        {adjustedRubricsCount > 0 && (
+        {/* Nota do cálculo local: não se aplica ao número do fecho. */}
+        {!fecho && adjustedRubricsCount > 0 && (
           <p className="mt-1 text-[10px] text-amber-500/80 italic">
             inclui {adjustedRubricsCount} rubrica{adjustedRubricsCount === 1 ? "" : "s"} ajustada{adjustedRubricsCount === 1 ? "" : "s"} ao realizado
           </p>
