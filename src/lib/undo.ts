@@ -214,6 +214,17 @@ async function revertEditTransaction(r: UndoActionRecord) {
   if (!r.entity_id) throw new Error("Transaction ID em falta");
   const snapshot = r.payload.snapshot;
   if (!snapshot) throw new Error("Snapshot anterior não disponível");
+  // Regra (14/09/2026): repor um snapshot é EDIÇÃO — bloqueada em evento
+  // concluído. Desfazer aprovação/pagamento (revertTransactionStatusChange)
+  // continua permitido.
+  const { data: tx } = await (supabase as any)
+    .from("transactions")
+    .select("event_id, events!transactions_event_id_fkey(status)")
+    .eq("id", r.entity_id)
+    .maybeSingle();
+  if ((tx as any)?.events?.status === "completed") {
+    throw new Error("Evento concluído. Reabre o evento para editar.");
+  }
   const { error } = await (supabase as any)
     .from("transactions")
     .update(snapshot)

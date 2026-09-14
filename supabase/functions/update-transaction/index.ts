@@ -130,6 +130,32 @@ Deno.serve(async (req) => {
       if ("company_id" in updates) delete updates.company_id;
     }
 
+    // REGRA (Pedro, 14/09/2026): em evento concluído, EDITAR é proibido — a
+    // liquidação e o estorno continuam permitidos, mas não passam por aqui
+    // (TransactionPaymentModal / BatchPaymentModal / fecho de bilheteira
+    // escrevem directamente). Última linha de defesa: um trigger não serve
+    // porque este caminho usa service_role (auth.uid() nulo) e apanharia
+    // escritas laterais legítimas (sync_partner_aporte_mirror).
+    // Verificado ANTES de qualquer escrita, incluindo o audit log.
+    {
+      const eventIds = [transaction.event_id, updates?.event_id]
+        .filter((v: unknown): v is string => typeof v === "string" && v.length > 0);
+      if (eventIds.length > 0) {
+        const { data: evRows } = await adminClient
+          .from("events")
+          .select("id, status")
+          .in("id", [...new Set(eventIds)]);
+        if ((evRows ?? []).some((ev: any) => ev.status === "completed")) {
+          return new Response(
+            JSON.stringify({ error: "Evento concluído. Reabre o evento para editar." }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+
+
     // RULE: Paid transactions — only specification and supplier_id can be edited (unless admin)
     const isPaid = transaction.status === "paid";
     if (isPaid && !isAdmin) {
