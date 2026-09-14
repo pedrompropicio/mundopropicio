@@ -2003,6 +2003,13 @@ export default function Transactions() {
       <div className="glass rounded-xl p-5">
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar transações…</p>
+        ) : txError ? (
+          <QueryErrorState
+            title="Não foi possível carregar as transações"
+            error={txErrorObj}
+            context="Transações — lista"
+            onRetry={() => refetchTx()}
+          />
         ) : viewMode === "open" ? (
           /* ===== OPEN TRANSACTIONS VIEW ===== */
           filtered.length === 0 ? (
