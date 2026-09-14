@@ -12,8 +12,10 @@ import { Card } from "@/components/ui/card";
  * - `no_statement` — há sócio, mas o evento ainda não tem fechamento com ele
  *                    (ou o sócio não tem acesso concedido a este evento).
  * - `error`        — falha técnica ao obter a prestação de contas.
+ * - `not_partner`  — a conta está ligada a um sócio, mas esse sócio não
+ *                    participa neste evento (acesso desalinhado da ligação).
  */
-export type PartnerNoticeReason = "no_supplier" | "no_statement" | "error";
+export type PartnerNoticeReason = "no_supplier" | "no_statement" | "error" | "not_partner";
 
 export function PartnerNoSupplierNotice({
   isLoading = false,
