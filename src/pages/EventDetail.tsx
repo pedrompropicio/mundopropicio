@@ -966,7 +966,7 @@ export default function EventDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Concluir Evento
               </button>
             )}
-            {isAdmin && isCompleted && (
+            {hasPermission("reopen_event") && isCompleted && (
               <button
                 onClick={() => setConfirmAction({
                   title: "🔓 Reabrir Evento",
@@ -1236,7 +1236,7 @@ export default function EventDetail() {
           <Lock className="h-5 w-5 text-warning shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-warning">Evento Concluído — Bloqueado para alterações</p>
-            <p className="text-xs text-muted-foreground">Nenhuma alteração é permitida (bilheteira, cachê, BP, sócios, despesas extras). Apenas um administrador pode reabrir o evento.</p>
+            <p className="text-xs text-muted-foreground">Nenhuma alteração é permitida (bilheteira, cachê, BP, sócios, despesas extras). Reabrir o evento exige a permissão "Reabrir evento concluído".</p>
           </div>
         </div>
       )}
