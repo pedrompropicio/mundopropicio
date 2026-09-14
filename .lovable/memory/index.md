@@ -18,3 +18,4 @@
 - [Identidade do sócio e visibilidade dos fechamentos](mem://security/partner-identity-and-settlement-visibility) — user_supplier_id é canónica; partner_id→event_partners; visibilidade nunca sobe; fechamento visível = onde o sócio settles; nominal não dá vista; casa implícita = Mundo Propício; cache por identidade
 - [Contas de tráfego por artista](mem://features/artist-ads-connections) — Ligações Meta/Google/TikTok Ads das contas do próprio artista (connection_scope='artist', D-ERP57)
 - [Ciclo de vida de fornecedores](mem://features/supplier-lifecycle) — Desativar é a ação normal; eliminar passa pelo Lixo e é recusado se houver movimento; filtro Ativos/Inativos/Todos
+- [Verificador de Invariantes Diárias](mem://features/invariant-monitor) — system_invariants + run_invariant_checks() + invariant_runs + cron diário + alerta só por desvio da referência; /admin/invariantes-diarias

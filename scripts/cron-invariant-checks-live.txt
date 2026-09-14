@@ -1,0 +1,25 @@
+-- =========================================================
+-- CRON — Verificador de invariantes (diário)
+-- Onde: Cloud (LIVE) -> SQL Editor
+-- Motivo: crons (pg_cron) não propagam via Publish.
+-- Pré-requisito: migração 20260914... do verificador aplicada.
+-- =========================================================
+
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+SELECT cron.unschedule('invariant-checks-daily')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='invariant-checks-daily');
+
+-- 07:10 UTC, antes do envio dos lembretes (08:00 UTC), para que o aviso
+-- do dia já apanhe o resultado da execução da noite.
+SELECT cron.schedule(
+  'invariant-checks-daily',
+  '10 7 * * *',
+  $$ SELECT public.run_invariant_checks_and_log(); $$
+);
+
+-- Validação
+SELECT jobid, jobname, schedule FROM cron.job WHERE jobname='invariant-checks-daily';
+
+-- Última execução gravada
+SELECT ran_at, drift_count FROM public.invariant_runs ORDER BY ran_at DESC LIMIT 5;

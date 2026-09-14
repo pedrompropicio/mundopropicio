@@ -9117,6 +9117,33 @@ export type Database = {
           },
         ]
       }
+      invariant_runs: {
+        Row: {
+          created_at: string
+          drift_count: number
+          id: string
+          ran_at: string
+          ran_by: string | null
+          results: Json
+        }
+        Insert: {
+          created_at?: string
+          drift_count?: number
+          id?: string
+          ran_at?: string
+          ran_by?: string | null
+          results: Json
+        }
+        Update: {
+          created_at?: string
+          drift_count?: number
+          id?: string
+          ran_at?: string
+          ran_by?: string | null
+          results?: Json
+        }
+        Relationships: []
+      }
       invoice_group_audit: {
         Row: {
           aplicado: boolean
@@ -12613,6 +12640,42 @@ export type Database = {
           },
         ]
       }
+      system_invariants: {
+        Row: {
+          created_at: string
+          description: string
+          name: string
+          notes: string | null
+          reference_count: number
+          reference_updated_at: string | null
+          reference_updated_by: string | null
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          name: string
+          notes?: string | null
+          reference_count?: number
+          reference_updated_at?: string | null
+          reference_updated_by?: string | null
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          name?: string
+          notes?: string | null
+          reference_count?: number
+          reference_updated_at?: string | null
+          reference_updated_by?: string | null
+          severity?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_reminder_settings: {
         Row: {
           daily_send_hour_lisbon: number
@@ -15698,6 +15761,10 @@ export type Database = {
         Args: { _account_id: string }
         Returns: number
       }
+      accept_invariant_reference: {
+        Args: { _name: string; _new_reference: number; _note: string }
+        Returns: undefined
+      }
       account_has_balance_for: {
         Args: { _account_id: string; _amount: number }
         Returns: boolean
@@ -16859,6 +16926,19 @@ export type Database = {
         Args: { _row_company_id: string }
         Returns: boolean
       }
+      run_invariant_checks: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          severity: string
+        }[]
+      }
+      run_invariant_checks_and_log: { Args: never; Returns: string }
       run_operacao_sla_escalator: { Args: never; Returns: Json }
       run_rls_isolation_test: {
         Args: never
