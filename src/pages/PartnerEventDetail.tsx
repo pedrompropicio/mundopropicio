@@ -1279,6 +1279,33 @@ export default function PartnerEventDetail() {
     );
   }
 
+  // Trava de sócio: o acesso ao evento não basta — o sócio que a conta representa
+  // tem de participar neste evento. Sem isso não se mostra NADA do evento (nem o
+  // BP): decisão do CEO. Na vista de administrador (`ver_como`) o sócio
+  // inspeccionado participa por construção e nunca é bloqueado.
+  if (!isAdminView && hasViewerSupplier) {
+    if (isLoadingParticipation) {
+      return (
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    if (viewerParticipates === false) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <Link to="/parceiro" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
+              <ArrowLeft className="h-4 w-4" /> Voltar ao portal
+            </Link>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{event.name}</h1>
+          </div>
+          <PartnerNoSupplierNotice reason="not_partner" />
+        </div>
+      );
+    }
+  }
+
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
   // ─── Receita de bilheteira: soma-se `total_value` (valor exacto da importação)
