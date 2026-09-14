@@ -261,7 +261,8 @@ export default function PartnerEventDetail() {
       : Number(base || 0);
 
   // ── Fase 2b: edição do BP em grelha (estilo planilha) ──
-  const canEditBpHere = !!activeEventId && !isMasterView
+  // Na vista de administrador nada se escreve: é inspecção, só leitura.
+  const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView
     && canEditBpForActive(activeEventId)
     && hasPermission("edit_approved_bp");
 
@@ -1065,10 +1066,12 @@ export default function PartnerEventDetail() {
    * fechamento: tudo é derivado do utilizador autenticado.
    */
   const { data: serverStatement, isFetching: statementBusy } = useQuery({
-    queryKey: ["partner-statement", user?.id, activeEventId],
+    queryKey: ["partner-statement", user?.id, activeEventId, adminViewSupplierId],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("partner-statement", {
-        body: { event_id: activeEventId },
+        body: adminViewSupplierId
+          ? { event_id: activeEventId, supplier_id: adminViewSupplierId }
+          : { event_id: activeEventId },
       });
       if (error) return null;
       return (data ?? null) as
@@ -1194,7 +1197,9 @@ export default function PartnerEventDetail() {
     return <div className="p-8 text-center text-muted-foreground">Evento não encontrado.</div>;
   }
 
-  const hasAccess = hasParentAccess || visibleSubEvents.length > 0;
+  // O admin em "ver como sócio" não tem linha em partner_event_access — a trava
+  // de parceiro não se aplica; a autorização é feita no servidor.
+  const hasAccess = isAdminView || hasParentAccess || visibleSubEvents.length > 0;
   if (!hasAccess) {
     return (
       <div className="p-8 text-center space-y-2">
