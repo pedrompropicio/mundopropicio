@@ -319,7 +319,14 @@ export default function Suppliers() {
             <div key={s.id} className="glass rounded-xl p-5 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-foreground">{s.name}</h3>
+                  <h3 className="font-semibold text-foreground">
+                    {s.name}
+                    {s.is_active === false && (
+                      <span className="ml-2 inline-flex rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive align-middle">
+                        Inativo
+                      </span>
+                    )}
+                  </h3>
                   {s.trade_name && <p className="text-xs text-foreground/70">{s.trade_name}</p>}
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
@@ -331,8 +338,27 @@ export default function Suppliers() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
+                  {canManage && (s.is_active === false ? (
+                    <button
+                      onClick={() => reactivateMutation.mutate(s.id)}
+                      disabled={reactivateMutation.isPending}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-success/10 hover:text-success transition-colors disabled:opacity-50"
+                      title="Reativar"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => deactivateMutation.mutate(s)}
+                      disabled={deactivateMutation.isPending}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors disabled:opacity-50"
+                      title="Desativar (mantém o histórico)"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                    </button>
+                  ))}
                   <button
-                    onClick={() => setDeletingId(s.id)}
+                    onClick={() => setDeleting(s)}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                     title="Eliminar"
                   >
