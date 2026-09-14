@@ -151,22 +151,41 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  const invalidateLinks = () => {
+    queryClient.invalidateQueries({ queryKey: ["partner-portal-links"] });
+    queryClient.invalidateQueries({ queryKey: ["portal-partner-profiles"] });
+    queryClient.invalidateQueries({ queryKey: ["partner_users"] });
+  };
+
+  // Um sócio é uma empresa e pode ter N representantes: ligar uma pessoa não
+  // desliga ninguém. Desligar tem caminho próprio (unset_partner_portal_user).
   const setPortalUserMutation = useMutation({
-    mutationFn: async ({ supplierId, profileId }: { supplierId: string; profileId: string | null }) => {
+    mutationFn: async ({ supplierId, profileId }: { supplierId: string; profileId: string }) => {
       const { error } = await supabase.rpc("set_partner_portal_user", {
         _supplier_id: supplierId,
-        _profile_id: profileId as any,
+        _profile_id: profileId,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-portal-links"] });
-      queryClient.invalidateQueries({ queryKey: ["portal-partner-profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["partner_users"] });
+      invalidateLinks();
       toast({ title: "Sócio ligado ao utilizador." });
     },
     onError: (e: any) =>
       toast({ title: "Não foi possível ligar o sócio", description: e?.message ?? String(e), variant: "destructive" }),
+  });
+
+  const unsetPortalUserMutation = useMutation({
+    mutationFn: async (profileId: string) => {
+      const { error } = await supabase.rpc("unset_partner_portal_user", { _profile_id: profileId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateLinks();
+      toast({ title: "Ligação ao sócio removida." });
+    },
+    onError: (e: any) =>
+      toast({ title: "Não foi possível remover a ligação", description: e?.message ?? String(e), variant: "destructive" }),
   });
 
   const addAccessMutation = useMutation({
