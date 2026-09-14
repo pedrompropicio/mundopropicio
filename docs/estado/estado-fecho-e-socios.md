@@ -1,162 +1,102 @@
-# Estado — Fecho, Fechamentos e Sócios (#146)
+# Estado — Fecho, Fechamentos e Sócios
 
-Actualizado em 2026-09-13 (fim da sessão g7→g17-d). **Publicado hoje pelo Pedro:**
-g7, g9c, g10, g11, g12, g13, g13-b, g14; depois g15, g15-b, g15-c; e por fim g16
-(seletor "Sócio" nos acessos de parceiros + lista na ficha do fornecedor) e
-g17 / g17-b / g17-c / g17-d (edge function `partner-statement` com o gerador
-único, bloco "O seu fechamento" no Portal, cards do evento, arredondamento único
-`roundCents`).
+Actualizado em 2026-09-14 (fim de sessão). **Frente sem trabalho em curso.**
 
 ## Em que pé está
 
-O motor dos fechamentos, o Encontro de Contas, o documento do sócio, o relatório
-interno e o Portal do Sócio estão em produção e todos dão os mesmos números. A
-Anitta EDA 2026 corre a três níveis (raiz ANITTA → Fechamento Rafael Lobo →
-Fechamento MP + EIN) com C1 e C2 a 0,00. A estanqueidade entre sócios está
-provada no site publicado com utilizadores reais ligados. Falta a prova formal
-contra a planilha v23, as devoluções ao Fechamento MP + EIN e selar.
+O motor dos fechamentos e a prestação de contas estavam correctos. O que falhava
+era o **ecrã do Portal do Sócio**: quando o servidor não respondia, calculava uma
+alternativa por conta própria e mostrava números que não batiam com o fecho.
+Isso terminou. O Portal passou a obedecer à configuração, a dizer o motivo quando
+não há fecho, e a confrontar o acesso a um evento com o sócio que a conta
+representa.
 
-### Publicado hoje
+### O que ficou feito hoje
 
-- **(g7)** "Recebido por (sócio)" em receitas por encontro de contas — quarta
-  fonte de receitas em poder do sócio.
-- **(g9c)** nominal nunca dá vista (`mode='settles'`), casa implícita mostra-se
-  como MUNDO PROPÍCIO, documento sem vocabulário interno, cache por identidade.
-- **(g10)** rótulo de base **efectiva**: um nó que devolve o IVA dedutível
-  apresenta-se "Despesas s/IVA" / "Resultado s/IVA". Só apresentação.
-- **(g11)** correcção do `select` `account_type` → `type`: as receitas em poder
-  do sócio carregavam 0.
-- **(g12)** botão "Ver detalhe" por sócio no Encontro de Contas — desembolso,
-  transacções pagas pelo sócio, ajustes, receitas em poder, extras, e a conta por
-  extenso com aviso quando não fecha.
-- **(g13)** documento em cascata para fechamentos filhos: receitas e despesas
-  sempre do perímetro da raiz; dedução dos sócios **acima pelo nome**; ao lado e
-  abaixo nunca.
-- **(g13-b)** a linha "+ IVA dedutível recuperado" é obrigatória na cascata (sem
-  ela a conta não fecha); o aviso vermelho "a conta não fecha" mantém-se como
-  guarda.
-- **(g14)** `event_forecasts.vat_non_recoverable` com semântica de **custo real**:
-  IVA pago e legalmente não dedutível sai da devolução e abate ao resultado real.
-- **(g15)** **relatório interno do Encontro de Contas reformulado**: modelo puro
-  `src/lib/partner-settlement-internal-report.ts` + gerador
-  `src/lib/export-partner-settlement-internal-pdf.ts` (A4 retrato, cabeçalho e
-  rodapé em todas as páginas, sem quebras forçadas, tabelas pequenas inteiras).
-  Contém cascata até ao fechamento, distribuição, a linha g5 por sócio com os
-  quadros de detalhe da g12, Posição da Mundo Propício e anexos (bilheteira e
-  **anexo B na base do critério: 1.931.219,49**). Ficheiro
-  `Fecho_<evento>_<fechamento>.pdf`.
-- **(g15-b)** **nenhum cêntimo de diferença entre PDF e ecrã**: todos os totais
-  vêm do SSoT (`partner-disbursement.ts`); as linhas itemizadas são só
-  apresentação, reconciliadas em round-half-even. Teste falha se qualquer total
-  do PDF divergir do modelo em ≥ 0,01. Base a transferir da EIN: **230.990,35**
-  no PDF e no ecrã.
-- **(g15-c)** **resumo geral da Mundo Propício** como primeira secção, com
-  logótipo MP na 1.ª página e nome da empresa no cabeçalho corrente: resultado
-  real do evento, "O que cada sócio leva de facto" (partes reais) e **líquido
-  final da MP 297.798,68** decomposto (parte declarada 273.953,35 + diferença de
-  posição nominal 23.845,34), com a prova C1 = 0 impressa. Na cascata, o
-  participante nominal mostra o nominal (RAFAEL LOBO 10% · 59.613,35) e, em
-  itálico, o real do fecho dele (20% de 30% = 35.768,01) e para onde vai a
-  diferença — a mesma nota aparece no ecrã.
-- **(g16)** ligação utilizador ↔ sócio deixou de ser SQL: seletor "Sócio" no
-  cartão de acesso de parceiro e lista dos utilizadores ligados na ficha do
-  fornecedor.
-- **(g17 / g17-b / g17-c)** o Portal **não calcula** o fecho: pacote partilhado
-  `supabase/functions/_shared/settlement/` + edge function `partner-statement`
-  (`verify_jwt`, service_role) que valida utilizador, resolve o sócio por
-  `user_supplier_id`, exige acesso ao evento e `mode='settles'` e devolve
-  `{ doc, block, cards }`. Bloco "O seu fechamento" no topo e cards do evento com
-  os números do fecho.
-- **(g17-d)** **regra única de arredondamento**: `roundCents`
-  (`_shared/settlement/iva.ts`) é a única função de arredondamento do fecho;
-  `Math.round(x*100)/100`, `toFixed` e truncatura ficam proibidos em valores do
-  fecho. A parte da ANITTA passa a **417.293,42** em motor, Encontro de Contas,
-  relatório interno, documento e Portal.
+- **N representantes por sócio.** Um sócio é uma empresa com N pessoas de gestão:
+  a relação é **N utilizadores → 1 sócio**. A base de dados nunca impôs o
+  contrário (`idx_profiles_linked_supplier` não é único). Em Live:
+  `set_partner_portal_user(_supplier_id,_profile_id)` deixou de limpar outros
+  perfis; `unset_partner_portal_user(_profile_id)` é o caminho para desligar;
+  ambas registam em `system_audit_log` com
+  `entity_type='partner_portal_link'`. **Motivo da existência das RPC:** a UI
+  fazia `UPDATE profiles` directo e a única política de UPDATE é
+  `id = auth.uid()` — apanhava 0 linhas, sem erro, e mostrava sucesso.
+- **Base de IVA do portal pela configuração**, via `partnerUsesGrossExpenses`
+  (D-ERP9): a regra própria do sócio manda; na ausência dela vale o contrato do
+  evento. Antes o portal estava em **modo Brasil fixo, em seis sítios**.
+- **Sem sócio resolvido, não se mostram números.** Nunca assumir base por
+  defeito.
+- **«Ver como sócio» para o admin**, autorizado no servidor (platform_admin ou
+  admin da empresa do evento, e o sócio tem de existir em `event_partners` do
+  evento), registado com `viewed_as_admin`. Substitui a prática de usar
+  utilizadores de teste com ligações reais em produção.
+- **Receita de bilheteira pelo `total_value`** e não `quantity × unit_price` (dava
+  90.195,93 onde o ERP diz 90.196,23).
+- **Fim do fallback silencioso.** A query do fecho devolve estado explícito
+  (`ok` | `unavailable` | `error`); 403 é motivo legítimo, tudo o resto é falha
+  registada com `console.error` prefixado `[partner-statement]`. Sem fecho não se
+  mostram cartões nem "O seu fechamento".
+- **Acesso confrontado com o sócio.** `get_partner_bp_realized` e
+  `get_bp_l3_attachments` passaram a exigir que `user_supplier_id(auth.uid())`
+  participe no evento (`event_partners` do evento ou do pai);
+  `get_partner_event_partner_expenses` e `get_partner_event_tx_aggregates` já
+  tinham trava equivalente. A lista do Portal e a página do evento deixaram de
+  mostrar eventos onde o sócio não participa; religar alguém a outro sócio avisa
+  quais os eventos que ficam fora de vista.
 
-### Prova real no Portal (site publicado, 13/09)
+### Verificação final, ao vivo
 
-Login com o utilizador de teste `pedroneto@socialmusic.com.br`, ligado
-sucessivamente a RAFAEL LOBO, EVERYTHINGISNEW e ANITTA:
+Evento **Ivete Clareou 2026**, utilizador ligado à **SUPERSOUNDS**: receitas
+**509.260,99 €**, despesas **819.061,27 €**, resultado **−309.800,28 €** —
+iguais ao ERP ao cêntimo.
 
-- Cada sócio vê **só o seu fechamento**; nenhuma referência a outros sócios nem
-  a outros fechamentos; troca de identidade sem cache suja.
-- RAFAEL LOBO: 596.133,45 − ANITTA 70% = 178.840,04 → 20% = **35.768,01**.
-- EVERYTHINGISNEW: cascata completa (119.226,69 + 262.459,85 + 72.250,52 +
-  93.969,63 = 547.906,69), parte **273.953,34**, base a transferir
-  **230.990,35**, receitas em poder itemizadas.
-- ANITTA: "ANITTA 70% · Sócios locais 30%" → **417.293,42** (após g17-d).
-- PDFs gerados do Portal para os três. O utilizador de teste foi devolvido a
-  "sem sócio".
-- Ligações reais: `lobo@vybbe.com.br` → RAFAEL LOBO,
-  `taniatadeu@everythingisnew.pt` → EVERYTHINGISNEW, `marianna…` → ANITTA.
+### Estado dos oito parceiros
 
-**P2-13 (re-auditoria de estanqueidade com utilizadores ligados) está FEITA** —
-issue #168 a fechar com este resumo.
-
-### Dados da Anitta já tratados (SQL autorizado)
-
-- Oeiras e Bengaleiro na conta "Acerto EIN · Anitta EDA 2026", pagas, IVA 0 em
-  Oeiras, descrições limpas.
-- A&B Food com "Recebido por: EIN"; bares com "Resultado ficou com: EIN".
-- Ajuste da SPA −34.304,72 (`disbursement_adjustment`, "diferença entre 5%
-  orçamentado e 3,5% pago").
-- `profiles.linked_supplier_id` ligado nos 3 sócios com utilizador.
-- producaotec@mundopropicio.com com papel `producer` na Coala e na MP.
-- Descrições do RS 1% Ticketline e do repasse de 905.000 limpas.
-- **Nenhuma** linha com `vat_non_recoverable` (confirmado: 0) — o open bar NÃO se
-  marca, o IVA negocial é ativo da sociedade.
+Todos com ligação registada; **nenhum depende já da resolução por coincidência de
+email**. FEBRACIS com três representantes (Everton, Thaciane, Juliana Teste),
+SUPERSOUNDS com dois (Gilana, Pedro Coelho), ANITTA com Marianna,
+EVERYTHINGISNEW com Tânia, RAFAEL LOBO com Rafael.
 
 ## A trabalhar agora
 
-1. Devoluções ao Fechamento MP + EIN: Advogado 3.000, Equipa de Produção EIN
-   15.000 e ~3 linhas a identificar pelo Pedro.
-2. Seis números da planilha v23 (prova formal) — o Pedro fornece.
-3. Selar os 3 fechamentos.
-4. Fechar a #146.
+Nada. A frente fica sem trabalho em curso.
 
-## Pendentes menores
+## Pendências
 
-- `suppliers.doc_locale` da ANITTA para `pt-BR` (DML do Pedro).
-- ANITTA duplicada na empresa Coala (`d24f8f88…`) sem uso — decidir apagar.
-- Descrições de linhas de BP com "· EIN" visíveis ao sócio (P2, a limpar).
+1. **Decidir o destino de `expense_includes_iva`.** O motor **ignora-o** por
+   decisão (g4: a base é do fechamento); o helper partilhado
+   `partner-calc-basis.ts` **lê-o**. Hoje só a **EVERYTHINGISNEW na Anitta EDA
+   2026** tem override (`false`) divergente do contrato do evento
+   (`net_result_gross_expenses`). Enquanto não for decidido, portal e Fechamento
+   podem divergir para esse sócio.
+2. **Remover o fallback por coincidência de email em `user_supplier_id`.** Já não
+   é usado por ninguém e é o mecanismo que pode atribuir a entidade errada a quem
+   partilhe domínio de email.
+3. **Nenhum sócio tem a permissão `view_partner_transactions`.** Enquanto assim
+   for, o ramo de cálculo local (agora só visível sem fecho) não vê patrocínios,
+   apoios, F&B nem receitas sem rubrica.
 
 ## Bloqueios
 
-- Prova v23 depende dos números do Pedro.
+Nenhum.
 
 ## Factos que não se reinvestigam
 
-- Encontro de Contas, Fechamento MP + EIN (13/09): parte EIN **273.953,35** ·
-  desembolso **1.170.562,18** · ajustes **−34.304,72** · receitas em poder
-  **1.179.220,45** · financiamento a devolver **−42.962,99** · base a transferir
-  **230.990,35**.
-- Cascata da EIN: 596.133,45 − 417.293,42 (ANITTA 70%) − 59.613,35 (RAFAEL LOBO
-  10%) = 119.226,69 + 262.459,85 (IVA dedutível recuperado) + 72.250,52
-  (exclusivas) + 93.969,63 (operações de terceiros) = 547.906,69. RAFAEL LOBO
-  178.840,04. ANITTA 417.293,42.
-- Partes **reais**: ANITTA 417.293,42 · RAFAEL LOBO 35.768,01 (20% de 30%) ·
-  EVERYTHINGISNEW 273.953,35; líquido final da MP **297.798,68**.
-- IVA devolvido 262.459,85; nível 3 547.906,69; EIN 273.953,35; base de custo do
-  critério 1.931.219,49.
-- O cêntimo de diferença na raiz **deixou de existir** (g17-d): 417.293,42 em
-  todo o lado.
-- Políticas PERMISSIVE abertas são proibidas: padrão `privileged_roles` (staff)
-  + política estanque de sócio.
-- DRE Empresarial e DRE Brasil são vistas de EMPRESA e mantêm os exclusivos.
-- Descrições de transações e de linhas de BP são texto de negócio.
-- Testes: falhas pré-existentes e alheias a esta frente (`storage-multi-tenant`,
-  `forecast-boost`, `EventABTab`).
-
-## Fora desta frente
-
-Para o chat **plataforma-e-infra**: a "email-sending update" do Lovable de 13/09
-13:38 — remetente `notify.mpgestaoeventos.com`, cron de minuto a minuto,
-`process-email-queue` a exigir sessão autenticada, 8 emails falhados.
+- Ivete Clareou 2026, SUPERSOUNDS: 509.260,99 / 819.061,27 / −309.800,28 —
+  Portal igual ao ERP ao cêntimo.
+- Receita de bilheteira soma-se por `ticket_sales.total_value`.
+- A relação utilizador ↔ sócio é N→1; escrita só pelas RPC
+  `set_partner_portal_user` / `unset_partner_portal_user`.
+- `has_permission` depende de `current_company_id()` e devolve falsos negativos
+  numa sessão service_role — medir com `has_permission_in`.
+- `iva_rate` é inteiro: em SQL usar `/100.0`, senão a divisão é inteira.
+- O Portal nunca calcula o fecho: os números vêm do `partner-statement`.
 
 ## Onde ler mais
 
-- `docs/handoffs/2026-09-13-fecho-e-socios-g7-g17.md` (arquivo da sessão)
-- `docs/auditorias/AUD-estanqueidade-socios-2026-09-13.md`
+- `docs/handoffs/2026-09-14-portal-do-socio.md` (arquivo desta sessão)
+- `docs/handoffs/2026-09-13-fecho-e-socios-g7-g17.md`
 - `.lovable/memory/features/partner-settlement.md`
-- `.lovable/memory/features/event-settlements.md`
-- `docs/DECISIONS.md` (adendas g4·2 → g17-d)
+- `.lovable/memory/features/partner-rls-and-bp-edit.md`
+- `docs/DECISIONS.md` (D-ERP9, D-ERP63 → D-ERP66)

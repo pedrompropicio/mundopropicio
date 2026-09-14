@@ -2095,3 +2095,32 @@ nunca aceite com referência alta para calar.
 ## D-ERP56 — Fix C: RLS auth.uid() → (SELECT auth.uid()) (2026-09-14)
 
 `auth.uid()` dentro de políticas RLS é VOLATILE — o Postgres reavalia a função por cada linha verificada, causando 177M+ seq_scans em `user_roles` (53 linhas) por sessão. `(SELECT auth.uid())` é uma stable subquery: o Postgres avalia uma vez (InitPlan) e reutiliza. Conversão aplicada em 567 políticas do schema `public` via migration rastreada `20260914223900_rls_wrap_auth_uid_in_select.sql`. O Postgres normaliza o resultado para `( SELECT auth.uid() AS uid)` — queries de verificação devem usar `LIKE '%( SELECT auth.uid()%'`.
+
+## D-ERP63 — N representantes por sócio (2026-09-14)
+
+Um sócio é uma empresa com N pessoas de gestão: a relação utilizador ↔ sócio é **N→1**.
+Ligar uma pessoa nunca desliga outra. Desligar age sobre o **utilizador**, não sobre o sócio.
+A escrita é exclusivamente pelas RPC `set_partner_portal_user` / `unset_partner_portal_user`,
+com auditoria em `system_audit_log` (`entity_type='partner_portal_link'`). Fundamento: a UI
+fazia `UPDATE profiles` directo e a única política de UPDATE é `id = auth.uid()` — apanhava
+0 linhas, sem erro, e mostrava sucesso.
+
+## D-ERP64 — O Portal nunca calcula o fecho (2026-09-14)
+
+Os cartões e o bloco do sócio vêm do `partner-statement`. Quando o servidor não responde, o
+Portal **diz o motivo e não mostra números** — nunca calcula uma alternativa. Estados:
+`ok`, `unavailable` (403, motivo legítimo), `error` (falha técnica, registada com
+`console.error` prefixado `[partner-statement]`).
+
+## D-ERP65 — Acesso a um evento exige participação do sócio (2026-09-14)
+
+`partner_event_access` sozinho não basta: o sócio que a conta representa tem de estar em
+`event_partners` do evento (ou do pai). Imposto nas RPC do portal, reflectido na lista e na
+página do evento. Fundamento: a política de RLS `event_partners_select_partner` já continha
+esta regra; faltava a interface obedecer-lhe.
+
+## D-ERP66 — Base de apuramento do portal = configuração do sócio (2026-09-14)
+
+A base do Portal segue `partnerUsesGrossExpenses` (D-ERP9): a regra própria do sócio manda e,
+na ausência dela, vale o contrato do evento. **Nunca modo fixo** — o portal estava em modo
+Brasil fixo em seis sítios.
