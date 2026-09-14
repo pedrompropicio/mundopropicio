@@ -183,6 +183,57 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
   };
   if (all.length === 0) lacunas.push("sem dados de playlists desta música");
 
+  // ---- Spotify for Artists: streams por playlist (recolha assistida, D-ERP67)
+  const { data: s4aRows, error: s4aErr } = await admin
+    .from("v_song_playlist_streams_latest")
+    .select(
+      "snapshot_date, period_days, rank, playlist_name, made_by, streams, date_added, playlists_na_snapshot, streams_total, streams_spotify_owned, streams_user_playlists, streams_top10, soundcharts_subscribers, soundcharts_playlist_type, soundcharts_position",
+    )
+    .eq("song_id", songId)
+    .order("streams", { ascending: false });
+  if (s4aErr) lacunas.push(`streams por playlist (S4A) indisponíveis: ${s4aErr.message}`);
+  const s4aAll = s4aRows ?? [];
+  const s4aMetrics = (smRows ?? []).filter((r: Row) =>
+    typeof r.metric === "string" && r.metric.startsWith("s4a_")
+  );
+  const s4aMetricLatest: Record<string, unknown> = {};
+  for (const r of s4aMetrics) {
+    const prev = s4aMetricLatest[r.metric as string] as Row | undefined;
+    if (!prev || String(r.metric_date) >= String(prev.data)) {
+      s4aMetricLatest[r.metric as string] = { valor: num(r.value), data: r.metric_date };
+    }
+  }
+  const spotifyForArtists = s4aAll.length === 0 && s4aMetrics.length === 0 ? null : {
+    fonte: "Spotify for Artists (recolha assistida na sessão do artista)",
+    snapshot: s4aAll[0]?.snapshot_date ?? null,
+    periodo_dias: s4aAll[0]?.period_days ?? null,
+    metricas_da_musica: s4aMetricLatest,
+    totais: s4aAll.length
+      ? {
+        playlists_na_snapshot: s4aAll[0].playlists_na_snapshot,
+        streams_total: s4aAll[0].streams_total,
+        streams_playlists_do_spotify: s4aAll[0].streams_spotify_owned,
+        streams_playlists_de_utilizadores: s4aAll[0].streams_user_playlists,
+        streams_top_10: s4aAll[0].streams_top10,
+      }
+      : null,
+    top_15: s4aAll.slice(0, 15).map((p: Row) => ({
+      posicao: p.rank,
+      nome: p.playlist_name,
+      feita_por: p.made_by,
+      streams: p.streams,
+      data_adicao: p.date_added,
+      soundcharts_seguidores: p.soundcharts_subscribers,
+      soundcharts_tipo: p.soundcharts_playlist_type,
+      soundcharts_posicao: p.soundcharts_position,
+    })),
+    nota:
+      "S4A é a fonte oficial de streams; a Soundcharts é a contagem pública desfasada. Quando ambas existirem, avaliar pelo S4A e mencionar a diferença.",
+  };
+  if (!spotifyForArtists) {
+    lacunas.push("sem recolha do Spotify for Artists (streams por playlist) desta música");
+  }
+
   // ---- vídeos ligados à música
   const { data: linked, error: lcErr } = await admin
     .from("artist_content")
