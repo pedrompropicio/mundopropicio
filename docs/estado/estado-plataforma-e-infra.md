@@ -129,7 +129,7 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 
 **Um trigger de `company_id` por tabela, com o nome `trg_set_company_id`.** Três tabelas mantêm nomes legados (`event_courtesies`, `event_ticket_types`, `event_ticket_type_zones`) — cada uma com um só trigger. Não criar um segundo com outro nome.
 
-**Base de fornecedores reconstruída a 11-12/09.** Estado final: 455 ativos, 86 desativados por duplicação, ZERO grupos duplicados por IBAN, 1.443 transações (inalterado). Antes: 541 fornecedores, 330 com IBAN mas só 244 IBANs distintos, 48 IBANs gravados com separadores.
+**Base de fornecedores reconstruída a 11-12/09.** Estado final na altura: 455 ativos, 86 desativados por duplicação, ZERO grupos duplicados por IBAN, 1.443 transações (inalterado). Antes: 541 fornecedores, 330 com IBAN mas só 244 IBANs distintos, 48 IBANs gravados com separadores. ⚠️ **A fusão foi revertida a 14/09 por ter atravessado fronteiras de empresa** — o estado final correto é o descrito na secção "Incidente — a fusão de fornecedores de 12/09 atravessou fronteiras de empresa": 85 dos 86 reativados, 48 transações reapontadas, 30 mapeamentos de rubrica repostos.
 
 Origem: importação de **29/04/2026 às 23:49:50** — 93 fornecedores criados no mesmo segundo, com IBAN (86) mas quase sem NIF (14). Sem NIF não havia como reconhecer o fornecedor existente, e a única proteção era `suppliers_company_name_unique (company_id, lower(trim(name))) WHERE is_active`, que falha ao primeiro espaço a mais: `RICARDO COVOES S A ` não colide com `RICARDO COVOES S A`. Dos 86 desativados, 81 nasceram nesse dia. O lote de 09/08 (67 fornecedores) não produziu duplicados.
 
