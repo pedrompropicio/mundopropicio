@@ -11,16 +11,39 @@ import helpTexts from "@/lib/help-texts";
 export default function PartnerPortal() {
   const { user } = useAuth();
 
+  // A lista só mostra eventos onde o SÓCIO que esta conta representa participa.
+  // O acesso (`partner_event_access`) é por utilizador e evento e nunca foi
+  // confrontado com a ligação ao sócio: religar a pessoa a outro sócio deixava
+  // acessos antigos para trás. Sem sócio ligado, ou sem participação no evento
+  // (nem no evento-pai), o evento não aparece.
   const { data: accessList = [], isLoading } = useQuery({
     queryKey: ["partner_access_with_events", user?.id],
     queryFn: async () => {
+      const { data: supplierId, error: sErr } = await supabase.rpc("user_supplier_id", { p_user_id: user!.id });
+      if (sErr) throw sErr;
+      if (!supplierId) return [] as any[];
+
       const { data, error } = await supabase
         .from("partner_event_access")
         .select("*, events(*)")
         .eq("user_id", user!.id)
         .eq("is_active", true);
       if (error) throw error;
-      return (data ?? []) as any[];
+      const rows = (data ?? []) as any[];
+      if (rows.length === 0) return rows;
+
+      const { data: partnerRows, error: pErr } = await supabase
+        .from("event_partners")
+        .select("event_id")
+        .eq("supplier_id", supplierId as string);
+      if (pErr) throw pErr;
+      const partnerEventIds = new Set((partnerRows ?? []).map((r: any) => r.event_id));
+
+      return rows.filter((a: any) => {
+        const ev = a.events;
+        if (!ev) return false;
+        return partnerEventIds.has(ev.id) || (!!ev.parent_event_id && partnerEventIds.has(ev.parent_event_id));
+      });
     },
     enabled: !!user,
   });
