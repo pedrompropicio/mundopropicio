@@ -578,8 +578,8 @@ function ProtectedLayout() {
               
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/auditoria-grupos-fatura" element={<InvoiceGroupAudit />} />
-              <Route path="/admin/invariantes" element={<SystemInvariants />} />
-              <Route path="/admin/invariantes-diarias" element={<InvariantMonitor />} />
+              <Route path="/admin/invariantes" element={<InvariantMonitor />} />
+              <Route path="/admin/invariantes-diarias" element={<Navigate to="/admin/invariantes" replace />} />
               <Route path="/admin/upload-coala-fotos" element={<UploadCoalaFotos />} />
               <Route path="/admin/sync-health" element={<SyncHealth />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
