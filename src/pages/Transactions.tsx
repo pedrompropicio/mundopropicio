@@ -105,6 +105,8 @@ export default function Transactions() {
   // D1 + D8 — aprovação de despesa em evento with_bp exige linha de BP
   const [linkBpTx, setLinkBpTx] = useState<any | null>(null);
   const [bpBlockedTxs, setBpBlockedTxs] = useState<any[]>([]);
+  // Seleccionadas que ficaram fora do lote por o evento estar concluído.
+  const [completedBlockedTxs, setCompletedBlockedTxs] = useState<any[]>([]);
   // DR-2026-09-02-D2 — excesso de verba: linhas a elevar + lote que ficou à espera.
   const [raiseState, setRaiseState] = useState<{ lines: BudgetExcessLine[]; ids: string[] } | null>(null);
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
