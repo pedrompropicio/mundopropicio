@@ -231,6 +231,25 @@ export default function PartnerEventDetail() {
     },
   });
 
+  // O sócio em vista participa neste evento? Linha em `event_partners` do evento
+  // activo ou do evento-pai. O acesso (`partner_event_access`) não garante isto:
+  // religar a pessoa a outro sócio deixa acessos antigos para trás.
+  const { data: viewerParticipates, isLoading: isLoadingParticipation } = useQuery({
+    queryKey: ["partner-participates", viewerSupplierId, activeEventId, id],
+    enabled: !!viewerSupplierId && !!activeEventId,
+    queryFn: async () => {
+      const ids = Array.from(new Set([activeEventId!, id!].filter(Boolean))) as string[];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id")
+        .in("event_id", ids)
+        .eq("supplier_id", viewerSupplierId!)
+        .limit(1);
+      if (error) throw error;
+      return (data ?? []).length > 0;
+    },
+  });
+
   const { data: adminViewSupplierName } = useQuery({
     queryKey: ["admin-view-supplier-name", adminViewSupplierId],
     enabled: !!adminViewSupplierId,
