@@ -41,75 +41,75 @@ auditada ou de um parâmetro do pedido (nunca de `auth.uid()` nem `current_compa
 ## OK após inspecção manual — payload em variável com company_id construído antes
 
 ### ads-invoice-apply
-- Tabela: `transactions` — linha ~518 — `insert(({ ...base, event_id: null, amount: total, invoice_ref: inv.invoice_number, spli…`
-- Tabela: `transactions` — linha ~535 — `insert(({ ...base, event_id: eventId, amount: subtotal, parent_transaction_id: parent.i…`
+- Tabela: `transactions` — linha ~518 — `insert({ ...base, event_id: null, amount: total, invoice_ref: inv.invoice_number, spli…`
+- Tabela: `transactions` — linha ~535 — `insert({ ...base, event_id: eventId, amount: subtotal, parent_transaction_id: parent.i…`
 - Origem do company_id: `base` inclui `company_id: inv.company_id` (construído antes do INSERT)
 
 ### approve-transaction
-- Tabela: `transaction_audit_log` — linha ~381 — `insert((auditEntries)…`
-- Tabela: `transaction_audit_log` — linha ~419 — `insert((raiseAudit as any)…`
-- Tabela: `transaction_audit_log` — linha ~448 — `insert((childAuditEntries)…`
+- Tabela: `transaction_audit_log` — linha ~381 — `insert(auditEntries)…`
+- Tabela: `transaction_audit_log` — linha ~419 — `insert(raiseAudit as any)…`
+- Tabela: `transaction_audit_log` — linha ~448 — `insert(childAuditEntries)…`
 - Origem do company_id: payloads em variáveis `auditEntries` / `raiseAudit` / `childAuditEntries`, todos com `company_id: transaction.company_id` (já corrigido a 01/09)
 
 ### artist-instagram-sync
-- Tabela: `artist_metrics_daily` — linha ~373 — `upsert((metricRows, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
-- Tabela: `artist_audience_demographics` — linha ~382 — `upsert((demoRows, { onConflict: "artist_id,platform,audience_type,dimension,dim_key,sna…`
-- Tabela: `artist_content` — linha ~392 — `upsert((contentRows, { onConflict: "artist_id,platform,external_id" })…`
-- Tabela: `artist_content_metrics_daily` — linha ~436 — `upsert((cmRows, { onConflict: "content_id,metric,metric_date,source" })…`
+- Tabela: `artist_metrics_daily` — linha ~373 — `upsert(metricRows, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
+- Tabela: `artist_audience_demographics` — linha ~382 — `upsert(demoRows, { onConflict: "artist_id,platform,audience_type,dimension,dim_key,sna…`
+- Tabela: `artist_content` — linha ~392 — `upsert(contentRows, { onConflict: "artist_id,platform,external_id" })…`
+- Tabela: `artist_content_metrics_daily` — linha ~436 — `upsert(cmRows, { onConflict: "content_id,metric,metric_date,source" })…`
 - Origem do company_id: linhas construídas com `company_id: conn.company_id`
 
 ### artist-shorts-sync
-- Tabela: `artist_content` — linha ~365 — `upsert((batch.slice(i, i + 300), { onConflict: "artist_id,platform,external_id", })…`
-- Tabela: `artist_content_metrics_daily` — linha ~413 — `upsert((metricRows.slice(i, i + 500), { onConflict: "content_id,metric,metric_date,sour…`
+- Tabela: `artist_content` — linha ~365 — `upsert(batch.slice(i, i + 300), { onConflict: "artist_id,platform,external_id", })…`
+- Tabela: `artist_content_metrics_daily` — linha ~413 — `upsert(metricRows.slice(i, i + 500), { onConflict: "content_id,metric,metric_date,sour…`
 - Origem do company_id: linhas construídas com `company_id: conn.company_id`
 
 ### artist-tiktok-oauth-callback
-- Tabela: `artist_metrics_daily` — linha ~149 — `upsert((metricRows, { onConflict: "artist_id,platform,metric,metric_date,source" })…`
+- Tabela: `artist_metrics_daily` — linha ~149 — `upsert(metricRows, { onConflict: "artist_id,platform,metric,metric_date,source" })…`
 - Origem do company_id: linhas construídas com `company_id` do estado OAuth
 
 ### artist-tiktok-sync
-- Tabela: `artist_metrics_daily` — linha ~310 — `upsert((metricRows, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
-- Tabela: `artist_content` — linha ~320 — `upsert((contentRows, { onConflict: "artist_id,platform,external_id" })…`
-- Tabela: `artist_content_metrics_daily` — linha ~356 — `upsert((cmRows, { onConflict: "content_id,metric,metric_date,source" })…`
+- Tabela: `artist_metrics_daily` — linha ~310 — `upsert(metricRows, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
+- Tabela: `artist_content` — linha ~320 — `upsert(contentRows, { onConflict: "artist_id,platform,external_id" })…`
+- Tabela: `artist_content_metrics_daily` — linha ~356 — `upsert(cmRows, { onConflict: "content_id,metric,metric_date,source" })…`
 - Origem do company_id: linhas construídas com `company_id: conn.company_id`
 
 ### close-camarim-session
-- Tabela: `transactions` — linha ~665 — `insert((txPayload)…`
-- Tabela: `transaction_documents` — linha ~752 — `insert((dossierRows)…`
-- Tabela: `transactions` — linha ~853 — `insert((bankLeg)…`
-- Tabela: `transactions` — linha ~859 — `insert((camarimLeg)…`
-- Tabela: `transaction_audit_log` — linha ~893 — `insert((auditRows)…`
+- Tabela: `transactions` — linha ~665 — `insert(txPayload)…`
+- Tabela: `transaction_documents` — linha ~752 — `insert(dossierRows)…`
+- Tabela: `transactions` — linha ~853 — `insert(bankLeg)…`
+- Tabela: `transactions` — linha ~859 — `insert(camarimLeg)…`
+- Tabela: `transaction_audit_log` — linha ~893 — `insert(auditRows)…`
 - Origem do company_id: `txPayload` / `dossierRows` / `bankLeg` / `camarimLeg` / `auditRows` levam `company_id: sessionCompanyId`
 
 ### close-card-session
-- Tabela: `transactions` — linha ~609 — `insert((txPayload)…`
-- Tabela: `transaction_documents` — linha ~690 — `insert((rows)…`
-- Tabela: `transaction_audit_log` — linha ~808 — `insert((auditRows)…`
+- Tabela: `transactions` — linha ~609 — `insert(txPayload)…`
+- Tabela: `transaction_documents` — linha ~690 — `insert(rows)…`
+- Tabela: `transaction_audit_log` — linha ~808 — `insert(auditRows)…`
 - Origem do company_id: `txPayload` / `rows` / `auditRows` levam `company_id` da sessão
 
 ### song-soundcharts-sync
-- Tabela: `artist_song_metrics_daily` — linha ~232 — `upsert((rows.slice(i, i + 500), { onConflict: "song_id,platform,metric,metric_date,sour…`
-- Tabela: `artist_song_playlists` — linha ~286 — `upsert((upserts, { onConflict: "song_id,platform,playlist_uuid" })…`
+- Tabela: `artist_song_metrics_daily` — linha ~232 — `upsert(rows.slice(i, i + 500), { onConflict: "song_id,platform,metric,metric_date,sour…`
+- Tabela: `artist_song_playlists` — linha ~286 — `upsert(upserts, { onConflict: "song_id,platform,playlist_uuid" })…`
 - Origem do company_id: linhas construídas com `company_id` da música/artista
 
 ### soundcharts-sync
-- Tabela: `artist_metrics_daily` — linha ~512 — `upsert((chunk, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
+- Tabela: `artist_metrics_daily` — linha ~512 — `upsert(chunk, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
 - Origem do company_id: chunks construídos com `company_id` do artista
 
 ### suamusica-sync
-- Tabela: `artist_metrics_daily` — linha ~314 — `upsert((metricRows, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
-- Tabela: `artist_release_metrics_daily` — linha ~467 — `upsert((relRows, { onConflict: "release_id,metric,metric_date,source" })…`
+- Tabela: `artist_metrics_daily` — linha ~314 — `upsert(metricRows, { onConflict: "artist_id,platform,metric,metric_date,source", })…`
+- Tabela: `artist_release_metrics_daily` — linha ~467 — `upsert(relRows, { onConflict: "release_id,metric,metric_date,source" })…`
 - Origem do company_id: linhas construídas com `company_id` da ligação
 
 ### surgical-restore
-- Tabela: `event_ticket_lots` — linha ~166 — `upsert((batch, { onConflict: "id" })…`
-- Tabela: `ticket_sales` — linha ~190 — `upsert((batch, { onConflict: "id" })…`
-- Tabela: `ticket_import_logs` — linha ~202 — `upsert((backupImportLogs, { onConflict: "id" })…`
+- Tabela: `event_ticket_lots` — linha ~166 — `upsert(batch, { onConflict: "id" })…`
+- Tabela: `ticket_sales` — linha ~190 — `upsert(batch, { onConflict: "id" })…`
+- Tabela: `ticket_import_logs` — linha ~202 — `upsert(backupImportLogs, { onConflict: "id" })…`
 - Origem do company_id: `batch` vem do backup e já traz `company_id`; `ticket_sales` já corrigido a 01/09
 
 ### update-transaction
-- Tabela: `transaction_audit_log` — linha ~395 — `insert((auditEntries)…`
-- Tabela: `transaction_audit_log` — linha ~548 — `insert((auditOnSiblings)…`
+- Tabela: `transaction_audit_log` — linha ~395 — `insert(auditEntries)…`
+- Tabela: `transaction_audit_log` — linha ~548 — `insert(auditOnSiblings)…`
 - Origem do company_id: `auditEntries` / `auditOnSiblings` com `company_id` da transação (já corrigido a 01/09)
 
 ## OK — company_id passado explicitamente no payload
