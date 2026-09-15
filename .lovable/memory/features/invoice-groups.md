@@ -132,6 +132,38 @@ cada irmã NASCE com rubrica, evento, conta, vencimento e método.
 resto do arredondamento na última linha para somar exactamente o declarado.
 `declared_withholding_rate` fica igual em todas (é taxa).
 
+## Anexar por API e partilha do documento pelo grupo (2026-09-15, #180)
+Edge function `ingest-transaction-document` (`verify_jwt = true`, **só service_role**,
+molde do `portal-media-import`) — porta de entrada sem browser para anexar um documento
+descarregado de um URL do Google Drive (`drive.google.com` / `*.googleusercontent.com`;
+links `/file/d/<id>/view` e `?id=<id>` são normalizados para `uc?export=download`).
+
+Body: `{ origem, nome, doc_type='pdf', is_accounting=true, partner_visible=true, alvo }`.
+`alvo` é **exactamente uma** de três formas:
+- `{ transaction_id }` → essa linha; se tiver `invoice_group_id`, **todas as irmãs**.
+- `{ invoice_group_id }` → todas as linhas do grupo.
+- `{ supplier_id, invoice_ref }` → igualdade **exacta** do `invoice_ref` (sem
+  normalização tolerante). Se nenhuma tiver grupo e houver >1 linha, atribui um
+  `invoice_group_id` novo a todas — **a chamada é a confirmação humana**, logo aplica-se
+  também a proformas. Se algumas já têm grupo e outras não → **409** com as duas listas;
+  a função não decide por elas.
+
+Zero transações → 404. Transações de empresas diferentes → 422.
+
+Escrita: **UM** objeto no bucket `transaction-documents` em
+`<company_id>/<primeira transaction_id>/<timestamp>.<ext>` e **N** linhas em
+`transaction_documents` com o MESMO `file_url` (`uploaded_by = 'ingest-api'`,
+`company_id` explícito porque `set_company_id_on_insert` aborta sem utilizador).
+Recusa `text/html` (página de aviso do Drive), >20 MB e tipos fora de pdf/jpeg/png.
+
+Idempotência: se já existir linha com o mesmo `name` e o mesmo **tamanho de ficheiro**
+(lido do storage) em qualquer das N transações, reutiliza esse `file_url` e cria só as
+linhas em falta. Se o upload passar e o insert falhar, o objeto é apagado — nunca fica
+ficheiro órfão. Resposta 200: `{ file_url, transaction_ids, invoice_group_id, created, reused }`.
+
+Não altera o upload do ecrã, o `update-transaction` nem o
+`revalidateInvoiceGroupAfterDocument` (a revalidação continua a ser da UI).
+
 ## Âmbito de um grupo na edge function de auditoria
 `audit-invoice-groups` aceita `group_id` no body: dry-run só desse grupo (devolve
 `group_veredicto`: `ok` | `desagrupar` | `rever`) e apply limitado a esse grupo. A auditoria
