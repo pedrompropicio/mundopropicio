@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-14 · Issues: #86 · a-seguir #83, #96, #61
+Atualizado: 2026-09-15 · Issues: #86 · a-seguir #83, #96, #61
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -133,6 +133,8 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 **Auditoria server-side de transações esteve partida de 28/abr a 01/set.** Sob `service_role`, `current_company_id()` devolve NULL, o default de `company_id` não resolve e o insert em `transaction_audit_log` era rejeitado — com o erro engolido. Custou **894 transações editadas** e **1.209 aprovadas** sem rasto do lado do servidor, e o campo `Propagação grupo-fatura` nunca teve uma única linha. Não deu nas vistas porque o frontend escreve as suas próprias linhas com o JWT do utilizador, logo a tabela nunca ficou vazia. **A regra que ficou:** insert sob `service_role` passa `company_id` explícito, tirado da linha auditada — nunca do perfil do utilizador nem de `current_company_id()`. Detalhe completo em `claude/auditoria-company-id-service-role-2026-09-01.md`.
 
 **Restore de `ticket_sales` estava impossível.** As whitelists de colunas em `selective-restore` e `surgical-restore` tinham 13 das 15 colunas da tabela: faltavam `company_id` (NOT NULL, rebentava o upsert) e `total_value` (coluna normal, não gerada — perdia-se o valor). Corrigido a 01/09. **Fica de pé (#96):** backups *legacy* (v2, pré-multi-tenant) não têm `company_id` nas linhas, e como o `cleanRow` só copia o que existe, o restore a partir desses continua a rebentar. Só platform_admin lhes chega.
+
+**Transitórias isentas do gate D1+D8 (15/09/2026).** A edge function `approve-transaction` bloqueava transações `is_transitory = true` (repasses ZigPay, intermediação financeira) porque o select não incluía o campo e o filtro de candidatos não testava `!t.is_transitory`. A `structurallyNeedsBpLine` da UI já tinha a isenção — a edge function ficou dessincronizada. Corrigido a 15/09: `is_transitory` adicionado ao select (L85) e ao filtro D1+D8 (L170). Publicado. Memória `bp-linha-obrigatoria.md` atualizada (isenção 4 + subsecção da edge function).
 
 **A Gestão de IVA não filtra nada.** O `IvaManagement.tsx` traz todas as transações — sem filtro de `is_transitory`, `exclude_from_result` ou estado. Uma transação fora do resultado entra no apuramento de IVA na mesma. E `transactions.iva_rate` tem **default 23**: taxa omitida nasce a 23%.
 
