@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory")
+      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory, exclude_from_result, reversed_at, is_hidden")
       .in("id", expandedIds);
 
     if (fetchError) {
@@ -164,11 +164,17 @@ Deno.serve(async (req) => {
 
     // D1 + D8: despesa de evento gerido `with_bp` não pode ser aprovada sem
     // linha de BP. Última linha de defesa — o trigger não vê service_role.
+    // Isenções (09/09/2026), MESMO predicado do trigger
+    // public.enforce_transaction_approval_permission() e de
+    // src/lib/bp-line-required.ts: não consomem verba do BP as transações com
+    // is_transitory, exclude_from_result, reversed_at preenchido ou is_hidden
+    // (null = false). É também o predicado do bloco D2 mais abaixo.
     if (approvableTx.length > 0) {
       const candidates = approvableTx.filter(
         (t: any) =>
           t.type === "expense" && !!t.event_id && !t.parent_transaction_id && !t.forecast_id &&
-          !t.is_transitory,
+          t.is_transitory !== true && t.exclude_from_result !== true &&
+          t.reversed_at == null && t.is_hidden !== true,
       );
       if (candidates.length > 0) {
         const eventIds = [...new Set(candidates.map((t: any) => t.event_id as string))];
