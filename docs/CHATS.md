@@ -61,9 +61,9 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 
 ## Estado a 15/09/2026
 
-**Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `gestao-de-chats` · `coala-portal` · `entrada-dados-erp` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
+**Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `vinculo-bp-transacoes` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `gestao-de-chats` · `coala-portal` · `entrada-dados-erp` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
 
-**Frentes ainda sem chat:** `vinculo-bp-transacoes` · `ticketing-e-receita` · `plataforma-e-infra` · `financeiro-e-tesouraria`
+**Frentes ainda sem chat:** `ticketing-e-receita` · `plataforma-e-infra` · `financeiro-e-tesouraria`
 
 ## Ficheiro de estado por chat
 
