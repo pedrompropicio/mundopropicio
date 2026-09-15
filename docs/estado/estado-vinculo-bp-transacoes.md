@@ -77,12 +77,14 @@ Propagação às filhas por `parent_transaction_id` mantida. Medido em Live: **1
 Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS NOT NULL`, `type <> 'expense'`, `event_id` nulo, evento sem BP.
 
 ## Próximo passo concreto
-**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão. O rascunho de cenário do Coala (v51, 355 linhas, 23 transações vinculadas) está pronto a promover — a reposição de vínculos já corre em todos os caminhos.
+**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão. O rascunho de cenário do Coala (v51, 355 linhas, 23 transações vinculadas) está pronto a promover — a reposição de vínculos já corre em todos os caminhos. Ao fazer o #114, replicar o predicado das quatro isenções tal como está hoje nas três camadas.
 
 ## Bloqueios
 Nenhum.
 
 ## Factos que não se reinvestigam
+
+**Uma isenção da trava D1+D8 muda-se em três sítios ao mesmo tempo** — trigger, `bp-line-required.ts` e `approve-transaction`. A edge function é a barreira real (service_role passa o trigger); se ficar para trás, bloqueia o que o trigger deixaria passar. Regra de verificação depois de qualquer alteração: aprovar em lote uma despesa `exclude_from_result` num evento `with_bp`.
 
 **A sessão de camarim "CAMARIM - Henry & Klauss (Coliseu - Porto)" está `open` sem nenhum evento ligado** em `camarim_session_events` (e sem `master_event_id`) — é **invisível para a guarda de fecho** até alguém a ligar ao evento. Ver a issue aberta em 03/09.
 
