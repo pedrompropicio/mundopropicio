@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id")
+      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory")
       .in("id", expandedIds);
 
     if (fetchError) {
@@ -167,7 +167,8 @@ Deno.serve(async (req) => {
     if (approvableTx.length > 0) {
       const candidates = approvableTx.filter(
         (t: any) =>
-          t.type === "expense" && !!t.event_id && !t.parent_transaction_id && !t.forecast_id,
+          t.type === "expense" && !!t.event_id && !t.parent_transaction_id && !t.forecast_id &&
+          !t.is_transitory,
       );
       if (candidates.length > 0) {
         const eventIds = [...new Set(candidates.map((t: any) => t.event_id as string))];
