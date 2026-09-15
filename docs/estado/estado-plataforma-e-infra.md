@@ -113,7 +113,7 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 
 **Fechado hoje (12/09):** a consolidação do extrato da conta saiu desta secção — está entregue, testada e verificada em Live.
 
-**Entregue a 13/09 (D-ERP57):** contas de tráfego do próprio artista. `crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`; funções `artist-ads-meta-oauth-start|callback|select-account|disconnect` deployed; RPC `artist_ads_register_external` para Google/TikTok sem OAuth; `crm-google-sync-campaigns` promove `pending_link` → `active`; ecrã de Conexões etiqueta "Artista: <nome>". Registado o Google do Litto Lins (`8841388615`). **Pendente do Pedro:** abrir o link de autorização Meta do Litto (em baixo) e, no Google Ads, aceitar o convite do MCC para a conta ficar `active`.
+**Entregue a 13/09 (D-ERP57):** contas de tráfego do próprio artista. `crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`; funções `artist-ads-meta-oauth-start|callback|select-account|disconnect` deployed; RPC `artist_ads_register_external` para Google/TikTok sem OAuth; `crm-google-sync-campaigns` promove `pending_link` → `active`; ecrã de Conexões etiqueta "Artista: <nome>". Registado o Google do Litto Lins (`8841388615`). **Concluído a 15/09:** Meta ligado desde 14/09 (Negócio: Mundo Propicio · CA 1 - Litto Lins · act_323668247351618) e Google Ads ligado desde 13/09 (Customer ID: 884-138-8615). D-ERP57 fechado.
 
 
 ## Prazos e renovações
