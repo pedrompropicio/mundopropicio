@@ -71,6 +71,7 @@ Ler **D-ERP56** antes de mexer.
 Regra que se salta com facilidade: `artists` passou a ter `roster_type` — qualquer listagem
 de elenco filtra `roster_type = 'elenco'`, senão mostra artistas de referência.
 - Relatório de lançamento por LLM: `artist-song-report` + `artist_song_reports` / `v_song_report_latest`, cron `carreira-song-report-diario` (10:00 UTC). Ver D-ERP54.
+- Tráfego por artista no painel: RPCs `artist_ads_campaigns`, `artist_ads_daily`, `artist_ads_alerts`, `artist_ads_link_song` + auto-ligação `artist_ads_autolink_songs`; `linked_song_id` em `crm.google_campaign` e `crm.meta_campaign_snapshot`. Ver **D-ERP68**.
 - Streams por playlist do Spotify for Artists (recolha assistida): `artist_song_playlist_streams` + RPC `artist_song_playlist_streams_set` + vista `v_song_playlist_streams_latest`; métricas `s4a_*` em `artist_song_metrics_daily`. S4A é a fonte oficial de streams, a Soundcharts é a contagem pública desfasada; só o elenco tem S4A. Ver **D-ERP67**.
 - Benchmark alinhado por idade: vista `v_song_benchmark_aligned` + função `song_benchmark_aligned(song_id)`; o relatório LLM nunca qualifica uma métrica em absoluto, só contra os comparáveis à mesma idade (`benchmark` + `avaliacao_relativa`). Ver **D-ERP59** (e D-ERP58 para as músicas de referência).
 

@@ -2142,3 +2142,31 @@ desfasada. Quando ambas existirem, avalia-se pelo S4A e menciona-se a diferença
 tem S4A — as músicas de referência não — logo é proibido comparar S4A com Soundcharts.
 
 Nota de numeração: o número D-ERP60 estava já usado (faturas), pelo que esta decisão ficou D-ERP67.
+
+## D-ERP68 — Tráfego por artista lê-se por RPC pública sobre o schema crm (15/09/2026)
+
+O schema `crm` não é exposto à API. O painel da Gestão Artística lê os dados de tráfego
+das contas do artista (D-ERP57, `connection_scope = 'artist'`) por quatro funções em
+`public`, todas SECURITY DEFINER com guarda de empresa
+(`artist_ads_assert_access`: artista da empresa do utilizador, `platform_admin`, ou
+chamada de servidor sem sessão; o `anon` não tem GRANT):
+
+- `artist_ads_campaigns(artist_id, include_removed default false)` — campanhas Google e
+  Meta com conta, moeda, estado, orçamento diário, gasto 7d/30d, impressões, cliques,
+  visualizações, resultados, CPC e CPV a 30 dias, `linked_song_id` e `linked_event_id`.
+  Campanhas REMOVED/DELETED/ARCHIVED ficam de fora por defeito.
+- `artist_ads_daily(artist_id, days default 90)` — série diária a partir de
+  `*_insights_daily`.
+- `artist_ads_alerts(artist_id)` — `conta_sem_entrega`, `token_a_expirar`,
+  `ligacao_com_erro`, `pagamento_pendente` (Meta `account_status` 2 ou 3; no Google não
+  há campo de faturação na resposta, logo omite-se).
+- `artist_ads_link_song(platform, campaign_id, song_id)` — papéis admin, platform_admin,
+  manager, marketing_manager.
+
+Ligação campanha↔música: `crm.google_campaign.linked_song_id` e
+`crm.meta_campaign_snapshot.linked_song_id` (FK `artist_songs`, ON DELETE SET NULL).
+`artist_ads_autolink_songs(artist_id)` liga só onde está NULL, quando o nome da campanha
+contém o título-base da música normalizado (sem acentos, ≥ 8 caracteres); empates
+resolvem-se pelo título-base mais longo e depois pela música mais antiga.
+
+Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a zero.
