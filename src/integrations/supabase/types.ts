@@ -16011,6 +16011,53 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_ads_alerts: {
+        Args: { p_artist_id: string }
+        Returns: {
+          campaign_id: string
+          kind: string
+          message: string
+          platform: string
+          severity: string
+        }[]
+      }
+      artist_ads_assert_access: {
+        Args: { p_artist_id: string }
+        Returns: string
+      }
+      artist_ads_autolink_songs: {
+        Args: { p_artist_id: string }
+        Returns: number
+      }
+      artist_ads_campaigns: {
+        Args: { p_artist_id: string; p_include_removed?: boolean }
+        Returns: {
+          account_id: string
+          account_name: string
+          budget_daily: number
+          campaign_id: string
+          campaign_name: string
+          clicks_30d: number
+          connection_id: string
+          connection_status: string
+          cpc_30d: number
+          cpv_30d: number
+          currency: string
+          end_date: string
+          impressions_30d: number
+          last_synced_at: string
+          linked_event_id: string
+          linked_song_id: string
+          objective: string
+          platform: string
+          results_30d: number
+          spend_30d: number
+          spend_7d: number
+          start_date: string
+          status: string
+          video_views_30d: number
+        }[]
+      }
       artist_ads_connections: {
         Args: { p_artist_id: string }
         Returns: {
@@ -16029,6 +16076,25 @@ export type Database = {
           status: string
         }[]
       }
+      artist_ads_daily: {
+        Args: { p_artist_id: string; p_days?: number }
+        Returns: {
+          campaign_id: string
+          campaign_name: string
+          clicks: number
+          day: string
+          impressions: number
+          platform: string
+          results: number
+          spend: number
+          video_views: number
+        }[]
+      }
+      artist_ads_link_song: {
+        Args: { p_campaign_id: string; p_platform: string; p_song_id: string }
+        Returns: number
+      }
+      artist_ads_norm: { Args: { p_text: string }; Returns: string }
       artist_ads_register_external: {
         Args: {
           p_artist_id: string
