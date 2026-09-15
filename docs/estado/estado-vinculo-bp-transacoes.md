@@ -10,9 +10,13 @@ O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A
 Depois de 02/09 fechou-se a fuga que fazia a cobertura degradar-se sozinha: os caminhos que criavam despesa de evento **já aprovada ou já paga**, sem nunca passar por `pending`, e portanto sem nunca cruzar a trava.
 
 ## A trabalhar agora
-Nada em execução.
+Nada em execução. Próximo na fila: #114 (D2 e D1 no trigger como última linha de defesa).
 
 ## Fechado agora (D1 + D2 + D8 + D13–D19)
+
+### 15/09 — isenções D1+D8 alinhadas (#179)
+As isenções da trava vivem em três camadas — trigger `enforce_transaction_approval_permission()`, helper `src/lib/bp-line-required.ts` e edge function `approve-transaction` — e têm de ser o MESMO predicado: `is_transitory`, `exclude_from_result`, `reversed_at` preenchido, `is_hidden` (null = false), além de `auth.uid() IS NULL` e `parent_transaction_id`. É o predicado de `countsAsBudgetCommitment` em `TransactionFormModal.tsx`: a trava aplica-se exactamente ao que consome verba.
+A edge function tinha ficado só com `is_transitory` desde a isenção de 09/09 e, como corre com service_role, era a barreira efectiva — qualquer despesa fora do resultado em evento `with_bp` dava 409 e era impossível de aprovar pela aplicação. Apanhava todo o circuito de conta de acerto do `PROC-rateio-dayoffs-turne.md` e o Extra do Sócio. Descoberto ao aprovar o rateio de day-offs do Deive Leonardo. Corrigido em duas linhas (select + filtro de candidatos) e verificado em Live: as 6 transações das faturas Vila Galé e Meliã aprovadas em lote, incluindo as 2 do Master fora do resultado.
 
 ### Os três passos de 03/09
 
