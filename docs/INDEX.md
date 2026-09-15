@@ -13,6 +13,7 @@
 | **Arquitetura** | `docs/ARCHITECTURE.md` | *Como está montado?* | Vivo |
 | **Restrições** | `.lovable/memory/constraints/*.md` | *O que nunca se pode fazer?* | Vivo |
 | **Histórico** | `docs/handoffs/` | *O que aconteceu no dia X?* | **Morto** — arquivo, não se consulta para saber o estado |
+| **Chats** | `docs/CHATS.md` | *Onde trato X?* | Vivo |
 | **Mapa de chats** | `docs/CHATS.md` | *Onde trato este tema?* | Vivo — tipos de chat permitidos, tema→chat e estado dos chats abertos |
 
 **Prioridade e trabalho em curso são coisas diferentes.** A prioridade vive na label da Issue (`P0`/`P1`/`P2`); o *estar em curso* vive na secção "A trabalhar agora" do `estado-<frente>.md`. Não existem labels de estado.

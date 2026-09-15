@@ -2,7 +2,7 @@
 
 > Quem não sabe onde tratar um tema, lê este ficheiro. Não se abre chat que não caiba num dos quatro tipos abaixo.
 
-## Regra: quatro tipos de chat, mais nada
+## Regra: cinco tipos de chat, mais nada
 
 ### (a) Frentes permanentes — 9, nome exacto
 
@@ -25,7 +25,13 @@ Portal Coala.
 
 Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), mantém **este** ficheiro, prepara handoffs de arquivo e responde a "onde trato X?" — **só** por este mapa.
 
+### (e) Chats de operação — alimentam o sistema, nunca o alteram
+
+`entrada-dados-erp` — lê o Gmail (cobranças, faturas de fornecedores, notas de crédito, avisos do Santander, recibos), desdobra faturas, lança transações, importa extratos e concilia em /conciliacao-bancaria, anexa documentos. Tudo com preview + confirmação. Usa só o que já existe. Bug, regra nova ou campo em falta → Issue + `financeiro-e-tesouraria`. Modelo: Opus.
+
 **Tarefas programadas não são chats.**
+
+**Modelo por chat:** Opus em chats de evento, operação, `coala-portal` e `gestao-de-chats`; Fable nas 9 frentes.
 
 ## Proibições
 
@@ -51,10 +57,11 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 | Fecho de um evento concreto | `fecho-<evento>-<ano>` |
 | Portal Coala | `coala-portal` |
 | Onde trato X / chat novo / arquivar | `gestao-de-chats` |
+| Email com fatura/cobrança/aviso do banco, lançar transação, desdobrar fatura, importar extrato e conciliar, anexar documento (operação, não regra) | `entrada-dados-erp` |
 
 ## Estado a 15/09/2026
 
-**Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `gestao-de-chats` · `coala-portal` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
+**Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `gestao-de-chats` · `coala-portal` · `entrada-dados-erp` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
 
 **Frentes ainda sem chat:** `vinculo-bp-transacoes` · `ticketing-e-receita` · `plataforma-e-infra` · `financeiro-e-tesouraria`
 
@@ -65,3 +72,4 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 | Frente | `docs/estado/estado-<frente>.md` |
 | Evento em fecho | `docs/fechos/estado-<evento>-<ano>.md` |
 | Evento em BP | `docs/estado/estado-bp-<evento>-<ano>.md` |
+| Operação | sem estado próprio — usa `docs/estado/estado-financeiro-e-tesouraria.md` |

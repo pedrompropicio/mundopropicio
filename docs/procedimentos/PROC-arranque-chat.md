@@ -104,6 +104,43 @@ Por agora não faças nada: confirma em 1 linha que leste isto e aguarda.
 
 ---
 
+## Molde 4 — Chat de operação
+
+```
+ARRANQUE DO CHAT <nome do chat de operação>
+Tipo: chat de operação — alimenta o sistema, nunca o altera
+
+ÂMBITO
+<uma linha: que entradas trata (email, faturas, extratos, recibos)>
+<uma linha: o que faz no sistema — lançar, desdobrar, importar, conciliar, anexar>
+
+NÃO PERTENCE AQUI
+- Regra de fecho/sócios → fecho-e-socios
+- Regra de BP, verbas ou rateio → bp-verbas-e-rateio
+- Regra de vínculo transação↔BP → vinculo-bp-transacoes
+- Regra de banco, IVA, pagamentos ou tesouraria → financeiro-e-tesouraria
+- Plataforma, permissões, integrações → plataforma-e-infra
+Bug, regra nova ou campo em falta: Issue + frente respetiva. Este chat nunca manda mexer na plataforma.
+
+RITUAL DE ARRANQUE (por esta ordem)
+1. Ler docs/INDEX.md
+2. Ler docs/estado/estado-<frente-mãe>.md
+3. Ler as issues abertas — edge function `github-issues`, parâmetro `number`
+4. Ler .lovable/memory/features/ do fluxo em causa (o pressuposto é que já existe)
+5. Só então agir. Nunca inventar campo, conta ou regra.
+
+ESTADO CONHECIDO (cada número com origem)
+- <facto/número> — origem: <query, ficheiro ou issue>
+- <facto/número> — origem: <...>
+
+FORMA DE TRABALHAR
+triagem → escolha → preview → confirmação do Pedro → execução → documento anexado
+
+Por agora não faças nada: confirma em 1 linha que leste isto e aguarda.
+```
+
+---
+
 ## Fecho de chat (obrigatório)
 
 1. **Reescrever o ficheiro de estado por cima** — não acrescentar ao fundo, não datar secções.
