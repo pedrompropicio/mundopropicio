@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-08 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento · vínculo BP↔TX blindado contra troca de versão do BP
+Atualizado: 2026-09-15 · isenções D1+D8 alinhadas nas três camadas (#179 fechada) · D2 em todos os actos de aprovação · vínculo BP↔TX blindado contra troca de versão do BP
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
