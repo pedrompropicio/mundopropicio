@@ -50,6 +50,9 @@ A plataforma divide-se em quatro módulos de produto + uma camada transversal. O
 - Exclusivo via Lovable. NÃO há service-role key, curl direto nem CLI. NUNCA pedir a Pedro para revelar/colar credenciais. Invocar edge functions em Live: via agente (environment=production) ou trigger autenticado na app.
 - Edge functions via service_role precisam GRANTs explícitos SELECT/INSERT/UPDATE em crm.* + USAGE no schema. RPCs SECURITY DEFINER por cron: dual-mode auth via current_setting('request.jwt.claims',true).
 
+### Entrada de documentos por API
+- `ingest-transaction-document` (`verify_jwt = true`, só service_role, molde do `portal-media-import`): anexa um documento vindo de um URL do Google Drive a 1..N transações (alvo por `transaction_id`, `invoice_group_id` ou `supplier_id`+`invoice_ref` com igualdade exacta). Um único objeto em `transaction-documents/<company_id>/<tx>/<ts>.<ext>` partilhado por N linhas de `transaction_documents` (`uploaded_by='ingest-api'`); idempotente por nome+tamanho; agrupa a fatura quando nenhuma linha tem grupo. Ver `mem://features/invoice-groups`.
+
 ### MCP send_message (Lovable)
 - Resposta falha com frequência (transport error) mas a mensagem TIPICAMENTE chega. Verificar via list_messages/get_message antes de reenviar. NUNCA reenviar cegamente (pode duplicar). query_database só ataca Live.
 
