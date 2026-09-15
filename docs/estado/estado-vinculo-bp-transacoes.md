@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-08 · D2 em todos os actos de aprovação; cartão no modelo do camarim; guarda de fecho do evento · vínculo BP↔TX blindado contra troca de versão do BP
+Atualizado: 2026-09-15 · isenções D1+D8 alinhadas nas três camadas (#179 fechada) · D2 em todos os actos de aprovação · vínculo BP↔TX blindado contra troca de versão do BP
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -10,9 +10,13 @@ O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A
 Depois de 02/09 fechou-se a fuga que fazia a cobertura degradar-se sozinha: os caminhos que criavam despesa de evento **já aprovada ou já paga**, sem nunca passar por `pending`, e portanto sem nunca cruzar a trava.
 
 ## A trabalhar agora
-Nada em execução.
+Nada em execução. Próximo na fila: #114 (D2 e D1 no trigger como última linha de defesa).
 
 ## Fechado agora (D1 + D2 + D8 + D13–D19)
+
+### 15/09 — isenções D1+D8 alinhadas (#179)
+As isenções da trava vivem em três camadas — trigger `enforce_transaction_approval_permission()`, helper `src/lib/bp-line-required.ts` e edge function `approve-transaction` — e têm de ser o MESMO predicado: `is_transitory`, `exclude_from_result`, `reversed_at` preenchido, `is_hidden` (null = false), além de `auth.uid() IS NULL` e `parent_transaction_id`. É o predicado de `countsAsBudgetCommitment` em `TransactionFormModal.tsx`: a trava aplica-se exactamente ao que consome verba.
+A edge function tinha ficado só com `is_transitory` desde a isenção de 09/09 e, como corre com service_role, era a barreira efectiva — qualquer despesa fora do resultado em evento `with_bp` dava 409 e era impossível de aprovar pela aplicação. Apanhava todo o circuito de conta de acerto do `PROC-rateio-dayoffs-turne.md` e o Extra do Sócio. Descoberto ao aprovar o rateio de day-offs do Deive Leonardo. Corrigido em duas linhas (select + filtro de candidatos) e verificado em Live: as 6 transações das faturas Vila Galé e Meliã aprovadas em lote, incluindo as 2 do Master fora do resultado.
 
 ### Os três passos de 03/09
 
@@ -73,12 +77,14 @@ Propagação às filhas por `parent_transaction_id` mantida. Medido em Live: **1
 Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS NOT NULL`, `type <> 'expense'`, `event_id` nulo, evento sem BP.
 
 ## Próximo passo concreto
-**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão. O rascunho de cenário do Coala (v51, 355 linhas, 23 transações vinculadas) está pronto a promover — a reposição de vínculos já corre em todos os caminhos.
+**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão. O rascunho de cenário do Coala (v51, 355 linhas, 23 transações vinculadas) está pronto a promover — a reposição de vínculos já corre em todos os caminhos. Ao fazer o #114, replicar o predicado das quatro isenções tal como está hoje nas três camadas.
 
 ## Bloqueios
 Nenhum.
 
 ## Factos que não se reinvestigam
+
+**Uma isenção da trava D1+D8 muda-se em três sítios ao mesmo tempo** — trigger, `bp-line-required.ts` e `approve-transaction`. A edge function é a barreira real (service_role passa o trigger); se ficar para trás, bloqueia o que o trigger deixaria passar. Regra de verificação depois de qualquer alteração: aprovar em lote uma despesa `exclude_from_result` num evento `with_bp`.
 
 **A sessão de camarim "CAMARIM - Henry & Klauss (Coliseu - Porto)" está `open` sem nenhum evento ligado** em `camarim_session_events` (e sem `master_event_id`) — é **invisível para a guarda de fecho** até alguém a ligar ao evento. Ver a issue aberta em 03/09.
 
