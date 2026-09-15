@@ -25,6 +25,15 @@ Bloqueia quando **tudo** é verdade:
 2. `NEW.parent_transaction_id IS NOT NULL` — filha de rateio ou parcela: a
    obrigação é do pai (e o master de rateio tem `event_id` nulo).
 3. Evento em `without_bp` e transações sem evento: fora do âmbito.
+4. `is_transitory = true` — transitórias (repasses ZigPay, intermediação
+   financeira) não consomem verba do BP e estão isentas na edge function.
+
+## Edge function (approve-transaction) — isenções D1+D8
+
+`supabase/functions/approve-transaction/index.ts` faz select de `is_transitory`
+na query principal das transações e exclui as transitórias no filtro de
+candidatos do bloco D1+D8 ("última linha de defesa").
+
 
 ## Servidor
 Vive dentro de `public.enforce_transaction_approval_permission()`
