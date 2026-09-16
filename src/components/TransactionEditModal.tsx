@@ -269,6 +269,16 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     },
   });
   const isPaidByPartner = !!partnerPaidLink;
+  /**
+   * Pagamento de Serviços (referência MB): Entidade 5 dígitos, Referência 9.
+   * Fonte única em `src/lib/payment-methods.ts`, espelhada no CHECK
+   * `transactions_service_payment_requires_mb`. Bloqueia o botão de guardar.
+   */
+  const servicePaymentError = validateServicePaymentFields({
+    payment_method: form.payment_method,
+    payment_entity: form.payment_entity,
+    payment_reference: form.payment_reference,
+  });
   const partnerPaidPending = (partnerPaidLink as any)?.status === "pending_approval";
   // Só vínculos aprovados liquidam a transação via sócio.
   const partnerPaidSettled = isPaidByPartner && !partnerPaidPending;
