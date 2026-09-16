@@ -25,23 +25,30 @@ Bloqueia quando **tudo** é verdade:
 2. `NEW.parent_transaction_id IS NOT NULL` — filha de rateio ou parcela: a
    obrigação é do pai (e o master de rateio tem `event_id` nulo).
 3. Evento em `without_bp` e transações sem evento: fora do âmbito.
-4. Transações que **não consomem verba do BP** (null = false), iguais nas três
-   camadas — trigger, helper de UI e edge function:
+4. Transações que **não consomem verba do BP** (null = false), iguais nas quatro
+   camadas — trigger, helper de UI, edge function e `countsAsBudgetCommitment`:
    - `is_transitory = true` — transitórias (repasses ZigPay, intermediação
      financeira);
    - `exclude_from_result = true` — fora do resultado (rateios de turnê, acertos);
    - `reversed_at` preenchido — estornada;
-   - `is_hidden = true`.
+   - `is_hidden = true`;
+   - `shared_cost_account_id` preenchido — custo partilhado com terceiros
+     (D-ERP69, 16/09/2026): é dinheiro de terceiros, nunca consome verba. Foi
+     necessário no predicado da BD porque no INSERT esta trava corre **antes** de
+     `trg_force_exclude_result_shared_cost`, logo `exclude_from_result` ainda é
+     false quando a trava olha — uma fatura desdobrada nascida `approved` era
+     recusada.
 
 ## Edge function (approve-transaction) — isenções D1+D8
 
 `supabase/functions/approve-transaction/index.ts` faz select de `is_transitory`,
-`exclude_from_result`, `reversed_at` e `is_hidden` na query principal das
-transações e exclui as quatro no filtro de candidatos do bloco D1+D8 ("última
-linha de defesa"). O predicado é **o mesmo** do trigger
+`exclude_from_result`, `reversed_at`, `is_hidden` e `shared_cost_account_id` na
+query principal das transações e exclui as cinco no filtro de candidatos do bloco
+D1+D8 ("última linha de defesa"). O predicado é **o mesmo** do trigger
 `public.enforce_transaction_approval_permission()`, do helper
 `src/lib/bp-line-required.ts`, do bloco D2 de elevação de verba e de
-`countsAsBudgetCommitment` em `TransactionFormModal.tsx` (isenção de 09/09/2026).
+`countsAsBudgetCommitment` em `TransactionFormModal.tsx` (isenções de 09/09/2026
+e 16/09/2026).
 
 
 
