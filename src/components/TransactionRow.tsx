@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
+import { SharedCostBadge } from "@/components/SharedCostBadge";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
