@@ -180,6 +180,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
   /** D1+D8 — linha de BP escolhida (nunca guardada em regra: pertence ao evento). */
   const [forecastId, setForecastId] = useState("");
   const [pickingBpLine, setPickingBpLine] = useState(false);
+  /** Peça C — ligar também a transferência-mãe à linha escolhida (por defeito, sim). */
+  const [linkMother, setLinkMother] = useState(true);
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
