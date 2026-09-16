@@ -119,6 +119,8 @@ export default function BankReconciliation() {
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [launchLines, setLaunchLines] = useState<LaunchableLine[] | null>(null);
+  /** Modo taxas de transferência (D-ERP74): proposta pronta, só a confirmar. */
+  const [feePlan, setFeePlan] = useState<FeeLaunchPlan | null>(null);
 
   // Regras de lançamento: propõem o preenchimento, nunca criam nada.
   const { data: rules = [] } = useQuery({
