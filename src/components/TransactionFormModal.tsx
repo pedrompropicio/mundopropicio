@@ -197,6 +197,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // é do trigger `force_exclude_from_result_for_shared_cost` — aqui só se reflecte.
   const [sharedCostAccountId, setSharedCostAccountId] = useState("");
   const [sharedCostCounterpartyId, setSharedCostCounterpartyId] = useState("");
+  // Desdobramento da fatura (D-ERP69): parte de terceiros em % ou € sobre a BASE s/IVA.
+  // Preenchido → nascem DUAS pernas no mesmo invoice_group_id (MP + terceiros).
+  const [sharedCostThirdMode, setSharedCostThirdMode] = useState<ThirdPartyShareMode>("percentage");
+  const [sharedCostThirdValue, setSharedCostThirdValue] = useState("");
+  const [sharedCostThirdEventId, setSharedCostThirdEventId] = useState("");
   // Confidencial: só visível a quem tem a permissão de ver confidenciais.
   const [isConfidential, setIsConfidential] = useState(false);
   // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
