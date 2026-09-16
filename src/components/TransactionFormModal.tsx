@@ -3122,7 +3122,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                         : "hover:bg-muted/40"
                                     }`}
                                   >
-                                    <td className="py-1.5 pr-2 pl-4 min-w-0 max-w-[240px] md:max-w-[380px]">
+                                    <td className="py-1.5 pr-2 pl-4 min-w-0 overflow-hidden">
                                       <div className="truncate" title={`${detail.catCode} ${detail.catName}`}>
                                         <span className="text-muted-foreground mr-1">{detail.catCode}</span>
                                         {detail.catName}
