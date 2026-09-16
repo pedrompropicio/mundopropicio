@@ -3062,7 +3062,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </button>
 <p className="text-[10px] md:text-[12px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
 <div
-                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-auto overscroll-contain border border-border/30 rounded"
+                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
@@ -3073,7 +3073,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     }
                   }}
                 >
-                  <table className="w-full text-[11px] md:text-[13px]">
+                  <table className="w-full table-fixed text-[11px] md:text-[13px]">
+                    <colgroup>
+                      <col />
+                      <col className="w-[84px] md:w-[104px]" />
+                      <col className="w-[84px] md:w-[104px]" />
+                      <col className="w-[84px] md:w-[104px]" />
+                    </colgroup>
                     <thead>
                       <tr className="text-muted-foreground border-b border-border/30">
                         <th className="text-left pb-1 font-medium">Conta / Previsão</th>
@@ -3089,7 +3095,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           <React.Fragment key={group.groupCode}>
                             {/* L2 Group header */}
                             <tr className="bg-muted/30 border-t border-border/20">
-                              <td className="py-1.5 pr-2 font-semibold text-foreground min-w-0 max-w-[240px] md:max-w-[380px]">
+                              <td className="py-1.5 pr-2 font-semibold text-foreground min-w-0 overflow-hidden">
                                 <div className="truncate" title={`${group.groupCode} ${group.groupName}`}>
                                   <span className="text-muted-foreground mr-1">{group.groupCode}</span>
                                   {group.groupName}
@@ -3116,7 +3122,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                         : "hover:bg-muted/40"
                                     }`}
                                   >
-                                    <td className="py-1.5 pr-2 pl-4 min-w-0 max-w-[240px] md:max-w-[380px]">
+                                    <td className="py-1.5 pr-2 pl-4 min-w-0 overflow-hidden">
                                       <div className="truncate" title={`${detail.catCode} ${detail.catName}`}>
                                         <span className="text-muted-foreground mr-1">{detail.catCode}</span>
                                         {detail.catName}
@@ -3144,12 +3150,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                           : "border-l-transparent hover:bg-muted/20 hover:border-l-primary/30"
                                       }`}
                                     >
-                                      <td className="py-1 pr-2 pl-8 text-[10px] md:text-[12px]">
-<div className="flex items-center gap-1.5 min-w-0">
+                                      <td className="py-1 pr-2 pl-8 min-w-0 overflow-hidden text-[10px] md:text-[12px]">
+<div className="flex items-center gap-1.5 min-w-0 overflow-hidden" title={[line.description, line.specification].filter(Boolean).join(" · ")}>
                                           <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${line.status === "approved" ? "bg-success" : "bg-warning"}`} />
                                           <span className="truncate min-w-0">{line.description}</span>
                                           {line.specification && (
-                                            <span className="text-muted-foreground truncate min-w-0">· {line.specification}</span>
+                                            <span className="text-muted-foreground truncate min-w-0 shrink">· {line.specification}</span>
                                           )}
                                         </div>
                                       </td>
