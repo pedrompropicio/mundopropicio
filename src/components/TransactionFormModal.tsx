@@ -820,6 +820,58 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   useEffect(() => {
     if (partnerExtraIsPartialUi) setPlExpanded(true);
   }, [partnerExtraIsPartialUi]);
+
+  // ===== Desdobramento do custo partilhado com terceiros (D-ERP69) =====
+  // Não se combina com rateio multi-evento nem com Extra do Sócio: o Extra já
+  // recusa o rateio pelas cinco razões documentadas em partner-advance-expenses.md
+  // e o mesmo vale aqui — repartir duas vezes a mesma fatura por eixos diferentes
+  // faz a mãe divergir da soma das partes sem que nada o verifique.
+  const sharedCostSplitUnavailableReason = useMemo<string | null>(() => {
+    if (isSplit) {
+      return "Não se combina com o rateio multi-evento. Reparte primeiro pelos eventos e lança a parte de terceiros como transação própria, com o mesmo nº de fatura.";
+    }
+    if (isPartnerExtra) {
+      return "Não se combina com o Extra do Sócio. Lança a parte de terceiros como transação própria, com o mesmo nº de fatura.";
+    }
+    return null;
+  }, [isSplit, isPartnerExtra]);
+
+  /** Parte de terceiros em base s/IVA (0 quando não há desdobramento). */
+  const sharedCostThirdNet = useMemo(() => {
+    if (!sharedCostAccountId || sharedCostSplitUnavailableReason) return 0;
+    if (sharedCostThirdValue.trim() === "") return 0;
+    return computeThirdPartyNet(parseFloat(form.amount) || 0, sharedCostThirdMode, sharedCostThirdValue);
+  }, [sharedCostAccountId, sharedCostSplitUnavailableReason, sharedCostThirdValue, sharedCostThirdMode, form.amount]);
+
+  const sharedCostSplitActive = useMemo(() => {
+    const total = parseFloat(form.amount) || 0;
+    return sharedCostThirdNet > 0 && sharedCostThirdNet < total;
+  }, [sharedCostThirdNet, form.amount]);
+
+  /**
+   * Valor da PERNA DA MP — é este que consome verba do BP e é este que os avisos
+   * de verba têm de mostrar: quem excede a verba é a nossa parte, não a do terceiro.
+   * O resto do arredondamento fica sempre aqui.
+   */
+  const mpLegNetAmount = useMemo(() => {
+    const total = parseFloat(form.amount) || 0;
+    return sharedCostSplitActive ? Number((total - sharedCostThirdNet).toFixed(2)) : total;
+  }, [sharedCostSplitActive, sharedCostThirdNet, form.amount]);
+
+  // O desdobramento fica indisponível → limpa o campo para não gravar meio estado.
+  useEffect(() => {
+    if (sharedCostSplitUnavailableReason || !sharedCostAccountId) {
+      setSharedCostThirdValue("");
+      setSharedCostThirdEventId("");
+    }
+  }, [sharedCostSplitUnavailableReason, sharedCostAccountId]);
+
+  // Evento da perna de terceiros: por omissão o mesmo da perna da MP, editável.
+  useEffect(() => {
+    if (sharedCostSplitActive && !sharedCostThirdEventId && form.event_id) {
+      setSharedCostThirdEventId(form.event_id);
+    }
+  }, [sharedCostSplitActive, sharedCostThirdEventId, form.event_id]);
   const selectedForecastL2Id = useMemo(
     () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
     [selectedForecast, categories],
