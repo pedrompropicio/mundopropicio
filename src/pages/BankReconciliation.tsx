@@ -1668,3 +1668,22 @@ export default function BankReconciliation() {
     </div>
   );
 }
+
+/**
+ * Dias úteis (seg–sex) estritamente entre duas datas YYYY-MM-DD, exclusivos.
+ * Serve só para explicar o intervalo entre extratos — não conta feriados.
+ */
+function businessDaysBetween(fromIso: string, toIso: string): number {
+  const [y1, m1, d1] = fromIso.split("-").map(Number);
+  const [y2, m2, d2] = toIso.split("-").map(Number);
+  const cur = new Date(y1, m1 - 1, d1);
+  const end = new Date(y2, m2 - 1, d2);
+  let n = 0;
+  cur.setDate(cur.getDate() + 1);
+  while (cur < end) {
+    const wd = cur.getDay();
+    if (wd !== 0 && wd !== 6) n += 1;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return n;
+}
