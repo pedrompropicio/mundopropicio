@@ -21,7 +21,7 @@ where p.event_id = ':EVENTO' order by p.percentage desc;
 
 **Ler assim:** `can_pay = false` → quem paga é a MP, logo **transação é esperada**. `can_pay = true` → o sócio paga do bolso dele, ausência de transação é **legítima** e gera **crédito a devolver-lhe**. Se tiver `parent_event_id`, é cidade de turnê.
 
-## Passo 0-bis — Sessões abertas
+## Passo 0-bis — Sessões abertas e circuitos de terceiros
 
 ```sql
 select public.event_close_blockers(':EVENTO');
@@ -30,7 +30,12 @@ select public.event_close_blockers(':EVENTO');
 **Ler assim:**
 
 - `hard` não vazio (`camarim_sessions` por integrar ou `card_sessions` abertas) → **não se fecha**. A base de dados recusa a passagem a `completed` (D19); é custo que ainda vai cair no evento. Integrar/fechar as sessões primeiro.
+- `hard.circuit_accounts` não vazio → **não se fecha** (blocker novo, 16/09/2026, D-ERP69). Há contas de circuito (`financial_accounts.is_circuit_account = true`) com posição diferente de zero associadas a este evento. Uma posição aberta significa que o acerto com terceiros não está feito: ou falta o terceiro devolver, ou falta passar a quota da MP às rubricas. Resolver antes de fechar.
+  - **Âmbito:** as contas apanhadas são as usadas por transações do próprio evento, do **Master** (quando o evento é cidade de turnê) e de **todos os sub-eventos do Master** — um circuito de turnê é comum às cidades.
+  - **Tolerância:** 0,01 € (arredondamento). Abaixo disso conta-se como zero.
+  - **`skip_balance_check = true`:** a posição não é calculável nesse estado; a conta aparece no blocker com essa indicação e a flag tem de ser desligada. Uma conta de circuito existe para mostrar posição.
 - `soft.pending_expenses` não vazio → **decisão do responsável**, não bloqueia. Fecha-se com conhecimento e a decisão fica **registada na planilha** do evento.
+
 
 ## Passo 1 — Receitas
 

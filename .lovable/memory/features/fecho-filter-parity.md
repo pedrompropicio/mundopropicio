@@ -53,6 +53,32 @@ Bug real que originou a regra: Anitta EDA 2026, rubrica 2.2.01 Aéreo — BP mos
 
 Este é o MESMO universo do RPC `get_partner_bp_realized` (portal do sócio). Divergir = staff e sócio verem números diferentes (bug real: Anitta EDA 2026, 4 "Diárias/Per Diem" estornadas = 3.273,33 € a inflacionar a despesa; despesa passou de 565.265,73 para 561.992,40).
 
+## A paridade com `get_partner_bp_realized` NÃO existia — corrigida a 16/09/2026
+
+Este ficheiro afirmava a paridade, mas a função em Live não a cumpria: filtrava **apenas**
+`is_hidden = false` e `reversed_at IS NULL`. Não filtrava `status` (entravam `pending`,
+`draft`, `refused`), nem `is_transitory`, nem `exclude_from_result`. O sócio via mais despesa
+realizada do que o Fecho.
+
+Passou a aplicar exactamente `isValidFechoTransaction` + `hasResultBlockingFlags`:
+`status IN ('approved','paid')` **e** `NOT is_transitory` **e** `NOT exclude_from_result`
+**e** `reversed_at IS NULL` **e** `is_hidden = false`, nos dois ramos (`linked_direct` e
+`linked_by_category`). Privilégios de execução mantidos como estavam
+(`anon`/`authenticated`/`service_role`) — a RPC é chamada pelo portal com JWT de utilizador.
+
+Medição antes → depois (soma do realizado c/IVA):
+
+| Evento | Antes | Depois (canónico) |
+| --- | --- | --- |
+| Ivete Clareou 2026 | 518.191,36 | 456.167,90 |
+| Mágicos Henry&Klaus | 105.657,35 | 71.657,35 |
+| Anitta EDA 2026 | 559.605,46 | 548.385,40 |
+| Coala Festival PT 2026 | 1.356.807,14 | 1.352.876,49 |
+
+Nota de arredondamento: a função devolve `real_base`/`real_iva` **arredondados por rubrica L3**;
+somar as rubricas pode dar até uns cêntimos acima do total calculado com arredondamento no fim
+(Ivete +0,01; Coala +0,03). É arredondamento, não filtro — comportamento pré-existente.
+
 
 ## Receita: bilheteira NUNCA é somada duas vezes
 A receita do Fecho é **aditiva**: `ticket_sales + Σ(transações de receita)`. Mas quando o evento
