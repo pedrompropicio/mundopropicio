@@ -188,6 +188,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // nasce na liquidação (modal de pagamento) ou no painel "Despesas Pagas por Sócios".
   // Constantes inertes mantidas para as condições de UI/estado a jusante.
   const isPaidByPartner = false as boolean;
+  /**
+   * Pagamento de Serviços (referência MB): Entidade 5 dígitos, Referência 9.
+   * Fonte única em `src/lib/payment-methods.ts`, espelhada no CHECK
+   * `transactions_service_payment_requires_mb`. Bloqueia o botão de guardar.
+   */
+  const servicePaymentError = validateServicePaymentFields({
+    payment_method: form.payment_method,
+    payment_entity: form.payment_entity,
+    payment_reference: form.payment_reference,
+  });
   const partnerPaidSettles = false as boolean;
   // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
