@@ -1470,7 +1470,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? usedByForecastId[lineForecast.id] || 0
           : usedBudgetByCategory[budgetKey] || 0;
         const remaining = forecastTotal - usedTotal;
-        const newAmount = parseFloat(data.amount) || 0;
+        // Com desdobramento de custo partilhado, quem consome verba é a PERNA DA MP.
+        const newAmount = mpLegNetAmount;
         const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
@@ -1494,15 +1495,23 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const totalAmtNum = parseFloat(data.amount) || 0;
         const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
         const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
-        // Base da principal já líquida da parte do sócio.
+        // Desdobramento do custo partilhado com terceiros (D-ERP69): exactamente a mesma
+        // aritmética — a fatura reparte-se em perna da MP (total − X) e perna de terceiros
+        // (X), no MESMO invoice_group_id. O resto do arredondamento fica na perna da MP:
+        // a de terceiros é dinheiro de outrem. Não se combina com rateio, Extra do Sócio
+        // nem parcelas (recusado em handleSubmit).
+        const sharedCostThirdNum = sharedCostSplitActive ? sharedCostThirdNet : 0;
+        // Base da principal já líquida da parte do sócio / da parte de terceiros.
         const principalNetAmount = isPartnerExtraPartial
           ? Number((totalAmtNum - partnerExtraPartialNum).toFixed(2))
-          : totalAmtNum;
+          : sharedCostSplitActive
+            ? Number((totalAmtNum - sharedCostThirdNum).toFixed(2))
+            : totalAmtNum;
         const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? principalNetAmount : (effectiveAutoMarkPaid ? principalNetAmount : 0));
         const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
         // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
         let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
-        if (isPartnerExtraPartial && !sharedInvoiceGroupId) {
+        if ((isPartnerExtraPartial || sharedCostSplitActive) && !sharedInvoiceGroupId) {
           sharedInvoiceGroupId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
