@@ -171,8 +171,9 @@ verify_jwt = true
 [functions.partner-statement]
 verify_jwt = true
 
-# Anexar um documento (URL do Google Drive) a uma ou várias transações sem
-# browser. Só é chamada com a service_role key; a função compara/valida o Bearer
-# contra a service key (molde do portal-media-import). Sem JWT de utilizador.
+# Anexar um documento a uma ou várias transações sem browser. A origem pode ser
+# um URL do Google Drive ou o conteúdo do ficheiro em base64 no próprio pedido
+# (conteudo_base64). Só é chamada com a service_role key; a função compara/valida
+# o Bearer contra a service key (molde do portal-media-import). Sem JWT de utilizador.
 [functions.ingest-transaction-document]
 verify_jwt = true
