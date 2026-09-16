@@ -339,6 +339,75 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     },
   });
 
+  // ---- Peça C: propor a linha do BP na rubrica da transação-mãe -------------
+  const motherCategory = useMemo(
+    () => (categories as any[]).find((c) => c.id === feePlan?.motherCategoryId) ?? null,
+    [categories, feePlan?.motherCategoryId],
+  );
+  const motherCategoryLabel = motherCategory
+    ? `${motherCategory.code} · ${motherCategory.name}`
+    : "da transferência";
+
+  /** Linhas aprovadas do evento na rubrica da mãe (a de maior verba é a proposta). */
+  const { data: feeCandidates = [], isLoading: loadingCandidates } = useQuery({
+    queryKey: ["bank-launch-fee-bp-candidates", feePlan?.eventId, feePlan?.motherCategoryId],
+    enabled: !!feePlan && !feePlan.forecastId && !!feePlan.eventId && !!feePlan.motherCategoryId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, description, amount")
+        .eq("event_id", feePlan!.eventId as string)
+        .eq("category_id", feePlan!.motherCategoryId as string)
+        .eq("type", "expense")
+        .is("version_id", null)
+        .not("approved_at", "is", null)
+        .order("amount", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  /** Proposta automática: a linha de maior verba. Nunca escolhe sozinha se já há uma. */
+  const proposedLineId = (feeCandidates as any[])[0]?.id ?? null;
+  const proposedAutomatically = !!feePlan && !feePlan.forecastId && forecastId === proposedLineId && !!proposedLineId;
+  useEffect(() => {
+    if (!feePlan || feePlan.forecastId || !needsBpLine) return;
+    if (forecastId || !proposedLineId) return;
+    setForecastId(proposedLineId);
+  }, [feePlan, needsBpLine, forecastId, proposedLineId]);
+
+  /** Utilizado da linha escolhida (mesmo cálculo do modal Nova Transação: D2 por linha). */
+  const { data: lineUsed = 0 } = useQuery({
+    queryKey: ["bank-launch-bp-line-used", forecastId],
+    enabled: !!forecastId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
+        .eq("forecast_id", forecastId);
+      if (error) throw error;
+      return (
+        Math.round(
+          (data ?? [])
+            .filter((t: any) => countsAsBudgetCommitment(t))
+            .reduce((s: number, t: any) => s + Number(t.amount || 0), 0) * 100,
+        ) / 100
+      );
+    },
+  });
+
+  /** Base total das taxas a lançar (é isso que consome verba da linha). */
+  const feeBase = useMemo(
+    () =>
+      feePlan
+        ? Math.round(feePlan.legs.reduce((a, l) => a + Number(l.amount ?? 0), 0) * 100) / 100
+        : 0,
+    [feePlan],
+  );
+  const lineBudget = Number((pickedLine as any)?.amount ?? 0);
+  const lineAvailable = Math.round((lineBudget - Number(lineUsed ?? 0)) * 100) / 100;
+  const feeExcess = Math.round((feeBase - lineAvailable) * 100) / 100;
+  const motherNeedsLink = !!feePlan && !feePlan.forecastId && !!feePlan.motherId;
+
   /**
    * Taxas de transferência (D-ERP74): dois lançamentos, cada um ligado às suas
    * linhas, pelo mesmo caminho de inserir-e-ligar (#154). Se a segunda perna
