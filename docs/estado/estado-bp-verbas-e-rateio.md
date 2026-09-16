@@ -131,7 +131,7 @@ Nenhum.
 
 
 ## Onde ler mais
-- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas · **D-ERP69** (custo partilhado com terceiros) · **D-ERP70** (mãe/filhas do rateio)
+- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas · **D-ERP69** (custo partilhado com terceiros) · **D-ERP70** (mãe/filhas do rateio) · **D-ERP72** (rateio reparte por eventos; Master é destino como outro qualquer)
 - `docs/procedimentos/PROC-rateio-dayoffs-turne.md` — "Custo partilhado com terceiros"
 - `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation, event-revenue-basis, bp-evolucao, **custo-partilhado-terceiros**, **rateio-mae-filhas-agregacao**
 - `src/lib/rateio-children.ts`, `src/lib/circuit-account.ts`
