@@ -2239,3 +2239,29 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Consequência:** A allowlist de rede da organização passou a incluir o domínio `sfohvvlqccmmebvjgibx.supabase.co` para que o contentor das sessões interativas do Claude possa chamar edge functions directamente por HTTPS. Tarefas agendadas continuam a usar `net.http_post` até se confirmar que o contentor de execução agendada também alcança o mesmo domínio.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP72 — O rateio reparte por EVENTOS; um Master é um destino como outro qualquer (16/09/2026)
+
+**Contexto:** Num evento de várias cidades há um **Master** e sub-eventos. A verba de um custo que serve a tour inteira vive numa **linha de BP do Master**, e a repartição pelas cidades é **virtual** — leitura de relatório, nunca linhas nem transações gravadas (D-ERP2, `master-split-rateio-source-of-truth`). Isso funciona e não se toca. O que estava errado era o formulário de transações: escolher um Master `multi_day` com filhos **ligava sozinho** o rateio multi-evento e **apagava** o evento escolhido, transformando a despesa numa mãe sem evento e N filhas nas cidades — o oposto do desenho.
+
+**Decisão — três regras:**
+
+1. **R1 — o rateio multi-evento reparte por EVENTOS, e cada perna leva a linha de BP do seu evento.** Um Master é um destino como outro qualquer: a perna que lhe toca leva a **linha de BP do Master**. Exemplo real: uma campanha publicitária que divulgou três eventos, um deles uma tour, reparte-se em **três pernas** — duas em linhas de BP de eventos simples e **uma na linha de BP do Master**. **Faseada** (fase 2): hoje o painel de rateio não tem onde escolher linha de BP por perna.
+2. **R2 — escolher um Master nunca o rebenta nas suas cidades.** É uma escolha de evento normal: `event_id` fica com o Master, a tabela de previsões mostra as linhas do BP do Master, a exigência de linha de BP aplica-se como em qualquer evento `with_bp`, e o campo "parte de terceiros" do custo partilhado fica disponível. O rateio multi-evento continua a existir e a funcionar quando o utilizador o liga **de propósito** pelo painel; com ele ligado, um Master escolhido como destino é **uma perna só**, nunca as cidades. **IMPLEMENTADA a 16/09/2026** (`src/components/TransactionFormModal.tsx`, `onValueChange` do selector de evento).
+3. **R3 — nenhuma perna de rateio entra sem linha de BP.** A isenção da trava passa a valer **só para parcelas de pagamento** (`installment_group_id IS NOT NULL`), o mesmo critério que distingue parcela de filha de rateio no D-ERP70. **POR FAZER** — depende da fase 2: aplicá-la antes trancava todos os rateios existentes.
+
+**Fundamento:** o **BP é quem define os custos de um evento até ao fecho**. A transação pode não usar toda a verba da linha, mas **não excede sem ajuste** e **não existe sem linha** (D1 + D8).
+
+**Caso que motivou (04/08/2026):** fatura de tráfego **113-XP de 6.888,00 €** da tour do Deive, lançada por Délia Braga pelo **rateio automático do Master** — nasceu uma **mãe sem evento** e **duas filhas de 3.444,00 €** em Braga e Lisboa, **nenhuma com linha de BP**. Paga a 10/08 pela conta espelho "Pgto Mágicos Acerto Madrid", o que gerou o aporte automático de 6.888,00 € em Madrid (correcto — é o desenho da conta espelho). A linha **3.2.01 do Master** continua a marcar **6.880,00 € de verba livre em quatro dos cinco ecrãs**; só o "Previsão vs Real" do Master vê os 6.888 e mostra **8,00 € de excedido**.
+
+**Medido em Live a 16/09/2026:** 159 filhas de rateio — **85 com linha de BP** e **74 sem linha mas com evento (126.232,99 €)**; **53 rateios** com pernas em cidades de Masters.
+
+**Guarda que já existia, e a pergunta que fica em aberto:** ao ratear pela rubrica **3.2.01** entre sub-eventos do Master, o formulário **recusa hoje** com _"Categoria bloqueada para rateio — esta categoria já existe no BP do Deive Leonardo. A transação deve ser criada directamente no evento master, que fará o rateio automático para os sub-eventos."_ Ou seja: **já existe uma guarda contra exactamente o erro de 04/08**. **Pergunta aberta, não investigada:** por que razão não travou na altura — ou a guarda é **posterior** a 04/08, ou tem uma **condição que aquele lançamento não cumpria** (por exemplo, o caminho do rateio automático do Master não passar pela mesma validação do rateio ligado à mão). Quem voltar a este tema começa por aqui.
+
+**Efeito colateral bom:** o diálogo _"Este valor será rateado igualmente por N datas nos relatórios DRE e BP"_ passou a **descrever literalmente o que acontece**. Antes descrevia proração **virtual** em relatório enquanto o código criava **filhas físicas** — exactamente o tipo de desalinhamento entre texto e comportamento que gera confusão meses depois. O diálogo mantém-se no mesmo sítio (gate `isParentMultiDay`, agora sobre o `event_id` do próprio Master) e o texto não precisou de mudar.
+
+**Consequência imediata:** cai o limite conhecido nº 1 do desdobramento de custo partilhado (D-ERP69) — no Master já se desdobra uma fatura em perna MP + perna de terceiros. Verificado em Live a 16/09: 100,00 € base a 23 % com 40 % de terceiros → **60,00 + 40,00** no mesmo `invoice_group_id`, ambas com `event_id` do Master, a da MP com o `forecast_id` da linha 3.2.01 e a de terceiros com `shared_cost_account_id` + `exclude_from_result = true`. O rateio ligado à mão continua a nascer como antes (mãe sem evento + filhas por evento).
+
+**Estado:** R2 vigente; R1 e R3 faseadas.

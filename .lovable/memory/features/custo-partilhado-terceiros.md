@@ -97,8 +97,16 @@ paga), e partilham **um único `invoice_group_id`** — uma só transferência n
   linha), modo absoluto `€` é recusado, e todas as pernas partilham um `invoice_group_id`.
 - **Recusas:** 0 ou o total inteiro (a zero é despesa normal; pelo total basta marcar a linha),
   parcelas, rateio multi-evento e Extra do Sócio.
-- **Limite conhecido:** escolher um Master `multi_day` liga o rateio multi-evento, logo o
-  desdobramento fica indisponível nesse caminho — a fatura lança-se na cidade que a consumiu.
+- **Master `multi_day`: funciona desde 16/09/2026 (R2 do D-ERP72).** Escolher um Master já **não**
+  liga o rateio multi-evento nem apaga o evento; é uma escolha de evento normal, com as linhas de
+  BP do Master na tabela de previsões, e o desdobramento fica disponível. Verificado em Live:
+  **100,00 € base a 23 % com 40 % de terceiros → 60,00 + 40,00** no **mesmo `invoice_group_id`**,
+  ambas com `event_id` do **Master**, a da **MP** com o `forecast_id` da linha (3.2.01 Trafego
+  Pago) e a de **terceiros** com `shared_cost_account_id` + `exclude_from_result = true`.
+  O rateio multi-evento ligado **à mão** continua igual (mãe sem evento + filhas por evento).
+- **Limite conhecido (o único que resta):** a **linha de BP** tem de ser escolhida na **tabela de
+  previsões**, não pelo selector de rubrica — pelo selector o `forecast_id` fica nulo e a trava
+  recusa a aprovação.
 
 ## Relação com `exclude_from_result` e com a trava de linha de BP
 

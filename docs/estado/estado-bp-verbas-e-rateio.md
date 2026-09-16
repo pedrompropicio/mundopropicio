@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-16 · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
+Atualizado: 2026-09-16 (2.ª revisão do dia) · **D-ERP72 R2 em produção: escolher um Master já não o rebenta nas cidades** — despesa única no Master, ligada à linha de BP do Master, com desdobramento de custo partilhado disponível (cai o limite nº 1) · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído e o rateio deixou de ser convenção manual: o **custo partilhado com terceiros** (D-ERP69) tem base de dados e UI em produção, e a duplicação mãe/filhas do rateio multi-evento nas agregações de empresa está fechada com predicado único (D-ERP70). O portal do sócio passou a ler o realizado pelo mesmo filtro canónico do Fecho.
@@ -27,11 +27,14 @@ Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e 
 Nada em execução.
 
 ## Próximo passo concreto
-1. **Marcar as duas linhas de hotel do Deive com a conta de circuito depois de pagas** (926,98 Vila Galé e 525,94 Meliã) e lançar a posição na conta "Acerto Turnê · Deive Leonardo Europa". Enquanto estiverem `approved` e não pagas, o espelho não nasce.
-2. **Registar o pagamento das passagens quando acontecer** — 5 quotas de 4.165,00 (circuito 20.825,00), com a quota da MP na linha 2.2.01 Voos do Master.
-3. **Fatura Meta 252466632 — 1.174,57 € por atribuir a evento** (mãe 9.995,23 € vs 5 filhas 8.820,66 €). É trabalho do chat `audience-meta`, não desta frente; aqui fica só o ponteiro e a invariante que a apanha.
-4. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
-5. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
+1. **Fase 2 do D-ERP72 — linha de BP por perna no painel de rateio.** Hoje o painel escolhe eventos e percentagens mas não tem onde escolher a linha de BP de cada perna. Sem isso a R1 não fica completa e a R3 não pode entrar.
+2. **Fase 3 do D-ERP72 — estreitar a isenção da trava** para valer só em parcelas (`installment_group_id IS NOT NULL`), nas quatro camadas. Depende da fase 2.
+3. **Corrigir os dados do Deive (fatura 113-XP, 6.888,00 €).** Vincular os 6.888,00 € à **linha 3.2.01 do Master**, o que obriga a **elevar a verba de 6.880,00 para 6.888,00** ou a deixar a linha **em excedido** (decisão do Pedro), e **decidir o destino das duas filhas de 3.444,00** (Braga e Lisboa).
+4. **Marcar as duas linhas de hotel do Deive com a conta de circuito depois de pagas** (926,98 Vila Galé e 525,94 Meliã) e lançar a posição na conta "Acerto Turnê · Deive Leonardo Europa". Enquanto estiverem `approved` e não pagas, o espelho não nasce.
+5. **Registar o pagamento das passagens quando acontecer** — 5 quotas de 4.165,00 (circuito 20.825,00), com a quota da MP na linha 2.2.01 Voos do Master.
+6. **Fatura Meta 252466632 — 1.174,57 € por atribuir a evento** (mãe 9.995,23 € vs 5 filhas 8.820,66 €). É trabalho do chat `audience-meta`, não desta frente; aqui fica só o ponteiro e a invariante que a apanha.
+7. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
+8. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
 
 ## Bloqueios
 Nenhum.
@@ -112,13 +115,23 @@ Nenhum.
 
 **Quinta excepção da trava de linha de BP (16/09).** `shared_cost_account_id IS NOT NULL` junta-se a `is_transitory`, `exclude_from_result`, `reversed_at` e `is_hidden`. Razão: significam **todas a mesma coisa — "não consome verba do BP"** — e uma linha de custo partilhado é dinheiro de terceiros. Vive na **base de dados** (trigger `enforce_transaction_approval_permission`), não no cliente, e está alinhada nas quatro camadas: trigger, `src/lib/bp-line-required.ts`, `supabase/functions/approve-transaction/index.ts` e `countsAsBudgetCommitment` do `TransactionFormModal.tsx`.
 
-**Limites conhecidos do desdobramento, os dois:**
-1. **Não está disponível quando o evento escolhido é um Master com filhos** — escolher um Master liga o rateio multi-evento automaticamente e apaga o evento do campo. Lançar na cidade que consumiu a fatura.
-2. **A linha de BP tem de ser escolhida na tabela de previsões**, não pelo selector de rubrica — pelo selector o `forecast_id` fica nulo e a trava recusa a aprovação.
+**Limite conhecido do desdobramento, agora só um:** a **linha de BP tem de ser escolhida na tabela de previsões**, não pelo selector de rubrica — pelo selector o `forecast_id` fica nulo e a trava recusa a aprovação. (O limite antigo "não está disponível num Master com filhos" **deixou de existir** a 16/09 com a R2 do D-ERP72.)
+
+**D-ERP72 — o rateio reparte por EVENTOS; um Master é um destino como outro qualquer (16/09).** Três regras, das quais **só a R2 está feita**:
+- **R1 (fase 2, por fazer):** cada perna de rateio leva a **linha de BP do seu evento**; um Master é um destino como outro qualquer, com a **linha do Master**. Exemplo: campanha que divulgou três eventos, um deles uma tour → três pernas, duas em eventos simples e uma na linha do Master. Hoje o painel de rateio **não tem onde escolher linha por perna**.
+- **R2 (IMPLEMENTADA a 16/09):** escolher um Master **nunca** o rebenta nas cidades. Removido o auto-`isSplit` do `onValueChange` do selector de evento em `src/components/TransactionFormModal.tsx`: `event_id` fica com o Master, a tabela de previsões mostra as linhas do BP do Master, a exigência de linha de BP é a de qualquer evento `with_bp` e o campo "parte de terceiros" fica disponível. O rateio ligado **à mão** continua igual; com ele ligado, um Master é **uma perna só**.
+- **R3 (fase 3, por fazer):** nenhuma perna de rateio entra sem linha de BP — a isenção da trava passa a valer **só para parcelas** (`installment_group_id IS NOT NULL`, o critério do D-ERP70). Aplicá-la antes da fase 2 trancava todos os rateios.
+- **Fundamento:** o BP define os custos do evento até ao fecho. A transação pode não usar toda a verba da linha, mas não excede sem ajuste e **não existe sem linha**.
+- **Verificado em Live a 16/09 (e limpo):** (1) despesa de 100,00 € no Master ligada à linha 3.2.01 → **uma** transação, `event_id` do Master, `forecast_id` da linha, **zero filhas**, `approved`; (2) a mesma com **40 % de terceiros** → **60,00 + 40,00** no mesmo `invoice_group_id`, ambas no Master, a de terceiros com `shared_cost_account_id` + `exclude_from_result`; (3) rateio ligado à mão por dois eventos → **mãe sem evento (100,00) + duas filhas de 50,00**, como antes.
+- **O diálogo da proração passou a dizer a verdade.** "Este valor será rateado igualmente por N datas nos relatórios DRE e BP" descrevia proração **virtual** enquanto o código criava **filhas físicas**; agora descreve literalmente o que acontece. Mesmo sítio, mesmo texto.
+
+**Caso que motivou o D-ERP72 (04/08/2026, dados ainda por corrigir).** Fatura de tráfego **113-XP de 6.888,00 €** da tour do Deive, lançada por Délia Braga pelo **rateio automático do Master**: **mãe sem evento** + **duas filhas de 3.444,00** em Braga e Lisboa, **nenhuma com linha de BP**. Paga a 10/08 pela conta espelho "Pgto Mágicos Acerto Madrid", o que gerou o aporte automático de 6.888,00 € em Madrid (correcto, é o desenho da conta espelho). A linha **3.2.01 do Master** continua a marcar **6.880,00 € de verba livre em quatro dos cinco ecrãs**; só o "Previsão vs Real" do Master vê os 6.888 e mostra **8,00 € de excedido**. Medido em Live a 16/09: **159 filhas** de rateio — **85 com linha de BP**, **74 sem linha mas com evento (126.232,99 €)** — e **53 rateios** com pernas em cidades de Masters.
+
+**Guarda que já existia — pergunta em aberto, não investigada.** Ao ratear pela rubrica **3.2.01** entre sub-eventos do Master, o formulário **recusa hoje**: _"Categoria bloqueada para rateio — esta categoria já existe no BP do Deive Leonardo. A transação deve ser criada directamente no evento master…"_. Logo **já existia uma guarda contra exactamente o erro de 04/08**. **Por que razão não travou na altura?** Ou a guarda é **posterior** a 04/08, ou tem uma **condição que aquele lançamento não cumpria** (por exemplo o caminho do rateio automático do Master não passar pela validação do rateio manual). Deixado escrito para quem lá voltar — não investigar agora.
 
 
 ## Onde ler mais
-- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas · **D-ERP69** (custo partilhado com terceiros) · **D-ERP70** (mãe/filhas do rateio)
+- `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas · **D-ERP69** (custo partilhado com terceiros) · **D-ERP70** (mãe/filhas do rateio) · **D-ERP72** (rateio reparte por eventos; Master é destino como outro qualquer)
 - `docs/procedimentos/PROC-rateio-dayoffs-turne.md` — "Custo partilhado com terceiros"
 - `.lovable/memory/features/` — bp-previsto-original, event-budget-mode, fecho-filter-parity, iva-portugal, partner-rls-and-bp-edit, bp-receita, ticketline-occupation, event-revenue-basis, bp-evolucao, **custo-partilhado-terceiros**, **rateio-mae-filhas-agregacao**
 - `src/lib/rateio-children.ts`, `src/lib/circuit-account.ts`
