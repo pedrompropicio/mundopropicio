@@ -466,7 +466,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       onDone();
     } catch (err: any) {
       for (const d of done) await revertLeg(d.txId, d.lineIds);
-      toast.error("Erro ao lançar as taxas (nada ficou criado): " + (err?.message ?? "desconhecido"));
+      toast.error("Erro ao lançar as taxas (nada ficou criado): " + friendlyPaymentError(err));
     } finally {
       setSaving(false);
     }
@@ -618,7 +618,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       queryClient.invalidateQueries({ queryKey: ["bank-line-rules"] });
       onDone();
     } catch (err: any) {
-      toast.error("Erro ao lançar: " + (err?.message ?? "desconhecido"));
+      toast.error("Erro ao lançar: " + friendlyPaymentError(err));
     } finally {
       setSaving(false);
     }
