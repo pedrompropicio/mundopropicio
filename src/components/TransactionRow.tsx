@@ -493,6 +493,9 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {(t as any).shared_cost_account_id && (
+                  <SharedCostBadge transactionId={t.id} />
+                )}
                 {invoiceRef && invoiceGroupCount > 1 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
